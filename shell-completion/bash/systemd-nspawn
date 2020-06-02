@@ -71,7 +71,7 @@ _systemd_nspawn() {
                       --pivot-root --property --private-users --network-namespace-path --network-ipvlan
                       --network-veth-extra --network-zone -p --port --system-call-filter --overlay --overlay-ro
                       --settings --rlimit --hostname --no-new-privileges --oom-score-adjust --cpu-affinity
-                      --resolv-conf --timezone'
+                      --resolv-conf --timezone --root-hash-sig'
     )
 
     _init_completion || return
@@ -182,6 +182,10 @@ _systemd_nspawn() {
                 ;;
             --timezone)
                 comps=$( systemd-nspawn --timezone=help 2>/dev/null )
+                ;;
+            --root-hash-sig)
+                compopt -o nospace
+                comps=$( compgen -A file -- "$cur" )
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

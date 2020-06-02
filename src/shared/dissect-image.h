@@ -87,8 +87,8 @@ int dissect_image_and_warn(int fd, const char *name, const void *root_hash, size
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
-int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, const char *verity_data, DissectImageFlags flags, DecryptedImage **ret);
-int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, const char *verity_data, DissectImageFlags flags, DecryptedImage **ret);
+int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, const char *verity_data, const char *root_hash_sig_path, const void *root_hash_sig, size_t root_hash_sig_size, DissectImageFlags flags, DecryptedImage **ret);
+int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, const char *verity_data, const char *root_hash_sig_path, const void *root_hash_sig, size_t root_hash_sig_size, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m);
@@ -100,6 +100,6 @@ int decrypted_image_relinquish(DecryptedImage *d);
 const char* partition_designator_to_string(int i) _const_;
 int partition_designator_from_string(const char *name) _pure_;
 
-int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data);
+int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data, char **ret_roothashsig);
 bool dissected_image_can_do_verity(const DissectedImage *image, unsigned partition_designator);
 bool dissected_image_has_verity(const DissectedImage *image, unsigned partition_designator);

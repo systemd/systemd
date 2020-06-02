@@ -35,6 +35,7 @@ LICENSE:
 REQUIREMENTS:
         Linux kernel >= 3.13
         Linux kernel >= 4.2 for unified cgroup hierarchy support
+        Linux kernel >= 5.4 for signed Verity images support
 
         Kernel Config Options:
           CONFIG_DEVTMPFS
@@ -102,6 +103,9 @@ REQUIREMENTS:
           CONFIG_EFIVAR_FS
           CONFIG_EFI_PARTITION
 
+        Required for signed Verity images support:
+          CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG
+
         We recommend to turn off Real-Time group scheduling in the
         kernel when using systemd. RT group scheduling effectively
         makes RT scheduling unavailable for most userspace, since it
@@ -144,7 +148,7 @@ REQUIREMENTS:
         libblkid >= 2.24 (from util-linux) (optional)
         libkmod >= 15 (optional)
         PAM >= 1.1.2 (optional)
-        libcryptsetup (optional)
+        libcryptsetup (optional), >= 2.3.0 required for signed Verity images support
         libaudit (optional)
         libacl (optional)
         libselinux (optional)

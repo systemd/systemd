@@ -28,9 +28,14 @@ static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DI
 static void *arg_root_hash = NULL;
 static char *arg_verity_data = NULL;
 static size_t arg_root_hash_size = 0;
+static char *arg_root_hash_sig_path = NULL;
+static void *arg_root_hash_sig = NULL;
+static size_t arg_root_hash_sig_size = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verity_data, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash_sig_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash_sig, freep);
 
 static void help(void) {
         printf("%s [OPTIONS...] IMAGE\n"
@@ -43,6 +48,10 @@ static void help(void) {
                "     --fsck=BOOL          Run fsck before mounting\n"
                "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
                "     --root-hash=HASH     Specify root hash for verity\n"
+               "     --root-hash-sig=SIG  Specify pkcs7 signature of root hash for verity\n"
+               "                          as a DER encoded PKCS7, either as a path to a file\n"
+               "                          or as an ASCII base64 encoded string prefixed by\n"
+               "                          'base64:'\n"
                "     --verity-data=PATH   Specify data file with hash tree for verity if it is\n"
                "                          not embedded in IMAGE\n",
                program_invocation_short_name,
@@ -57,17 +66,19 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT_HASH,
                 ARG_FSCK,
                 ARG_VERITY_DATA,
+                ARG_ROOT_HASH_SIG,
         };
 
         static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'              },
-                { "version",       no_argument,       NULL, ARG_VERSION      },
-                { "mount",         no_argument,       NULL, 'm'              },
-                { "read-only",     no_argument,       NULL, 'r'              },
-                { "discard",       required_argument, NULL, ARG_DISCARD      },
-                { "root-hash",     required_argument, NULL, ARG_ROOT_HASH    },
-                { "fsck",          required_argument, NULL, ARG_FSCK         },
-                { "verity-data",   required_argument, NULL, ARG_VERITY_DATA  },
+                { "help",          no_argument,       NULL, 'h'               },
+                { "version",       no_argument,       NULL, ARG_VERSION       },
+                { "mount",         no_argument,       NULL, 'm'               },
+                { "read-only",     no_argument,       NULL, 'r'               },
+                { "discard",       required_argument, NULL, ARG_DISCARD       },
+                { "root-hash",     required_argument, NULL, ARG_ROOT_HASH     },
+                { "fsck",          required_argument, NULL, ARG_FSCK          },
+                { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
+                { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
                 {}
         };
 
@@ -140,6 +151,31 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_ROOT_HASH_SIG: {
+                        char *value;
+
+                        if ((value = startswith(optarg, "base64:"))) {
+                                void *p;
+                                size_t l;
+
+                                r = unbase64mem(value, strlen(value), &p, &l);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
+
+                                free_and_replace(arg_root_hash_sig, p);
+                                arg_root_hash_sig_size = l;
+                                arg_root_hash_sig_path = mfree(arg_root_hash_sig_path);
+                        } else {
+                                r = parse_path_argument_and_warn(optarg, false, &arg_root_hash_sig_path);
+                                if (r < 0)
+                                        return r;
+                                arg_root_hash_sig = mfree(arg_root_hash_sig);
+                                arg_root_hash_sig_size = 0;
+                        }
+
+                        break;
+                }
+
                 case ARG_FSCK:
                         r = parse_boolean(optarg);
                         if (r < 0)
@@ -202,7 +238,8 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to set up loopback device: %m");
 
         r = verity_metadata_load(arg_image, NULL, arg_root_hash ? NULL : &arg_root_hash, &arg_root_hash_size,
-                           arg_verity_data ? NULL : &arg_verity_data);
+                           arg_verity_data ? NULL : &arg_verity_data,
+                           arg_root_hash_sig_path || arg_root_hash_sig ? NULL : &arg_root_hash_sig_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);
         arg_flags |= arg_verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
@@ -279,7 +316,7 @@ static int run(int argc, char *argv[]) {
         }
 
         case ACTION_MOUNT:
-                r = dissected_image_decrypt_interactively(m, NULL, arg_root_hash, arg_root_hash_size, arg_verity_data, arg_flags, &di);
+                r = dissected_image_decrypt_interactively(m, NULL, arg_root_hash, arg_root_hash_size, arg_verity_data, arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size, arg_flags, &di);
                 if (r < 0)
                         return r;
 
