@@ -1500,10 +1500,6 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (r < 0)
                 return r;
 
-        r = dump_list(table, "DNSSEC NTA:", link_info.ntas);
-        if (r < 0)
-                return r;
-
         r = table_print(table, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to print table: %m");
@@ -1742,11 +1738,6 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 return r;
 
         r = dump_list(table, "DNS Domain:", global_info.domains);
-        if (r < 0)
-                return r;
-
-        strv_sort(global_info.ntas);
-        r = dump_list(table, "DNSSEC NTA:", global_info.ntas);
         if (r < 0)
                 return r;
 
