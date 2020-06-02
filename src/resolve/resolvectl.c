@@ -28,6 +28,7 @@
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
 #include "socket-netlink.h"
+#include "sort-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -78,6 +79,21 @@ typedef enum StatusMode {
         STATUS_DNSSEC,
         STATUS_NTA,
 } StatusMode;
+
+typedef struct InterfaceInfo {
+        int index;
+        const char *name;
+} InterfaceInfo;
+
+static int interface_info_compare(const InterfaceInfo *a, const InterfaceInfo *b) {
+        int r;
+
+        r = CMP(a->index, b->index);
+        if (r != 0)
+                return r;
+
+        return strcmp_ptr(a->name, b->name);
+}
 
 int ifname_mangle(const char *s) {
         _cleanup_free_ char *iface = NULL;
@@ -1778,31 +1794,43 @@ static int status_all(sd_bus *bus, StatusMode mode) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
 
-        r = 0;
+        _cleanup_free_ InterfaceInfo *infos = NULL;
+        size_t n_allocated = 0, n_infos = 0;
+
         for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
                 const char *name;
-                int ifindex, q;
+                int ifindex;
                 uint16_t type;
 
-                q = sd_netlink_message_get_type(i, &type);
-                if (q < 0)
-                        return rtnl_log_parse_error(q);
+                r = sd_netlink_message_get_type(i, &type);
+                if (r < 0)
+                        return rtnl_log_parse_error(r);
 
                 if (type != RTM_NEWLINK)
                         continue;
 
-                q = sd_rtnl_message_link_get_ifindex(i, &ifindex);
-                if (q < 0)
-                        return rtnl_log_parse_error(q);
+                r = sd_rtnl_message_link_get_ifindex(i, &ifindex);
+                if (r < 0)
+                        return rtnl_log_parse_error(r);
 
                 if (ifindex == LOOPBACK_IFINDEX)
                         continue;
 
-                q = sd_netlink_message_read_string(i, IFLA_IFNAME, &name);
-                if (q < 0)
-                        return rtnl_log_parse_error(q);
+                r = sd_netlink_message_read_string(i, IFLA_IFNAME, &name);
+                if (r < 0)
+                        return rtnl_log_parse_error(r);
 
-                q = status_ifindex(bus, ifindex, name, mode, &empty_line);
+                if (!GREEDY_REALLOC(infos, n_allocated, n_infos + 1))
+                        return log_oom();
+
+                infos[n_infos++] = (InterfaceInfo) { ifindex, name };
+        }
+
+        typesafe_qsort(infos, n_infos, interface_info_compare);
+
+        r = 0;
+        for (size_t i = 0; i < n_infos; i++) {
+                int q = status_ifindex(bus, infos[i].index, infos[i].name, mode, &empty_line);
                 if (q < 0 && r >= 0)
                         r = q;
         }
