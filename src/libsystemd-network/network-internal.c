@@ -192,30 +192,34 @@ bool net_match_config(Set *match_mac,
                       Set *match_permanent_mac,
                       char * const *match_paths,
                       char * const *match_drivers,
-                      char * const *match_types,
+                      char * const *match_iftypes,
                       char * const *match_names,
                       char * const *match_property,
                       char * const *match_wifi_iftype,
                       char * const *match_ssid,
                       Set *match_bssid,
-                      unsigned short iftype,
                       sd_device *device,
                       const struct ether_addr *dev_mac,
                       const struct ether_addr *dev_permanent_mac,
+                      const char *dev_driver,
+                      unsigned short dev_iftype,
                       const char *dev_name,
                       char * const *alternative_names,
-                      enum nl80211_iftype wifi_iftype,
-                      const char *ssid,
-                      const struct ether_addr *bssid) {
+                      enum nl80211_iftype dev_wifi_iftype,
+                      const char *dev_ssid,
+                      const struct ether_addr *dev_bssid) {
 
-        const char *dev_path = NULL, *dev_driver = NULL, *mac_str;
-        _cleanup_free_ char *dev_type;
+        _cleanup_free_ char *dev_iftype_str;
+        const char *dev_path = NULL;
 
-        dev_type = link_get_type_string(iftype, device);
+        dev_iftype_str = link_get_type_string(dev_iftype, device);
 
         if (device) {
+                const char *mac_str;
+
                 (void) sd_device_get_property_value(device, "ID_PATH", &dev_path);
-                (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &dev_driver);
+                if (!dev_driver)
+                        (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &dev_driver);
                 if (!dev_name)
                         (void) sd_device_get_sysname(device, &dev_name);
                 if (!dev_mac &&
@@ -238,7 +242,7 @@ bool net_match_config(Set *match_mac,
         if (!net_condition_test_strv(match_drivers, dev_driver))
                 return false;
 
-        if (!net_condition_test_strv(match_types, dev_type))
+        if (!net_condition_test_strv(match_iftypes, dev_iftype_str))
                 return false;
 
         if (!net_condition_test_ifname(match_names, dev_name, alternative_names))
@@ -247,13 +251,13 @@ bool net_match_config(Set *match_mac,
         if (!net_condition_test_property(match_property, device))
                 return false;
 
-        if (!net_condition_test_strv(match_wifi_iftype, wifi_iftype_to_string(wifi_iftype)))
+        if (!net_condition_test_strv(match_wifi_iftype, wifi_iftype_to_string(dev_wifi_iftype)))
                 return false;
 
-        if (!net_condition_test_strv(match_ssid, ssid))
+        if (!net_condition_test_strv(match_ssid, dev_ssid))
                 return false;
 
-        if (match_bssid && (!bssid || !set_contains(match_bssid, bssid)))
+        if (match_bssid && (!dev_bssid || !set_contains(match_bssid, dev_bssid)))
                 return false;
 
         return true;

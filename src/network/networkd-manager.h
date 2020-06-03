@@ -26,6 +26,7 @@ struct Manager {
         sd_bus *bus;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
+        int ethtool_fd;
 
         bool enumerating:1;
         bool dirty:1;
