@@ -146,6 +146,43 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RootHash=</varname></term>
+
+        <listitem><para>Takes a data integrity (dm-verity) root hash specified in hexadecimal, or the path to a file
+        containing a root hash in ASCII hexadecimal format. This option enables data integrity checks using dm-verity,
+        if the used image contains the appropriate integrity data (see above) or if <varname>RootVerity=</varname> is used.
+        The specified hash must match the root hash of integrity data, and is usually at least 256 bits (and hence 64
+        formatted hexadecimal characters) long (in case of SHA256 for example). If this option is not specified, but
+        the image file carries the <literal>user.verity.roothash</literal> extended file attribute (see <citerefentry
+        project='man-pages'><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry>), then the root
+        hash is read from it, also as formatted hexadecimal characters. If the extended file attribute is not found (or
+        is not supported by the underlying file system), but a file with the <filename>.roothash</filename> suffix is
+        found next to the image file, bearing otherwise the same name (except if the image has the
+        <filename>.raw</filename> suffix, in which case the root hash file must not have it in its name), the root hash
+        is read from it and automatically used, also as formatted hexadecimal characters.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RootVerity=</varname></term>
+
+        <listitem><para>Takes the path to a data integrity (dm-verity) file. This option enables data integrity checks
+        using dm-verity, if <varname>RootImage=</varname> is used and a root-hash is passed and if the used image itself
+        does not contains the integrity data. The integrity data must be matched by the root hash. If this option is not
+        specified, but a file with the <filename>.verity</filename> suffix is found next to the image file, bearing otherwise
+        the same name (except if the image has the <filename>.raw</filename> suffix, in which case the verity data file must
+        not have it in its name), the verity data is read from it and automatically used.</para>
+
+        <para>This option is supported only for disk images that contain a single file system, without an enveloping partition
+        table. Images that contain a GPT partition table should instead include both root file system and matching Verity
+        data in the same image, implementing the
+        [Discoverable Partition Specification](https://systemd.io/DISCOVERABLE_PARTITIONS)</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MountAPIVFS=</varname></term>
 
         <listitem><para>Takes a boolean argument. If on, a private mount namespace for the unit's processes is created

@@ -54,6 +54,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "ioprio.h"
 #include "label.h"
@@ -2666,6 +2667,7 @@ static int apply_mount_namespace(
                             needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                             needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
+                            context->root_hash, context->root_hash_size, context->root_hash_path, context->root_verity,
                             DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
                             error_path);
 
@@ -4195,6 +4197,10 @@ void exec_context_done(ExecContext *c) {
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
         c->root_image = mfree(c->root_image);
+        c->root_hash = mfree(c->root_hash);
+        c->root_hash_size = 0;
+        c->root_hash_path = mfree(c->root_hash_path);
+        c->root_verity = mfree(c->root_verity);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -4598,6 +4604,19 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->root_image)
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
+
+        if (c->root_hash) {
+                _cleanup_free_ char *encoded = NULL;
+                encoded = hexmem(c->root_hash, c->root_hash_size);
+                if (encoded)
+                        fprintf(f, "%sRootHash: %s\n", prefix, encoded);
+        }
+
+        if (c->root_hash_path)
+                fprintf(f, "%sRootHash: %s\n", prefix, c->root_hash_path);
+
+        if (c->root_verity)
+                fprintf(f, "%sRootVerity: %s\n", prefix, c->root_verity);
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);

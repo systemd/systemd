@@ -13,6 +13,7 @@
 #include "escape.h"
 #include "exec-util.h"
 #include "exit-status.h"
+#include "fileio.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -24,6 +25,7 @@
 #include "nsflags.h"
 #include "numa-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "securebits-util.h"
@@ -849,6 +851,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                               "ProtectHome",
                               "SELinuxContext",
                               "RootImage",
+                              "RootVerity",
                               "RuntimeDirectoryPreserve",
                               "Personality",
                               "KeyringMode",
@@ -1413,6 +1416,24 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return bus_log_create_error(r);
 
                 return 1;
+        }
+
+        if (streq(field, "RootHash")) {
+                _cleanup_free_ void *roothash_decoded = NULL;
+                size_t roothash_decoded_size = 0;
+
+                /* We have the path to a roothash to load and decode, eg: RootHash=/foo/bar.roothash */
+                if (path_is_absolute(eq))
+                        return bus_append_string(m, "RootHashPath", eq);
+
+                /* We have a roothash to decode, eg: RootHash=012345789abcdef */
+                r = unhexmem(eq, strlen(eq), &roothash_decoded, &roothash_decoded_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to decode RootHash= '%s': %m", eq);
+                if (roothash_decoded_size < sizeof(sd_id128_t))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "RootHash= '%s' is too short: %m", eq);
+
+                return bus_append_byte_array(m, field, roothash_decoded, roothash_decoded_size);
         }
 
         return 0;

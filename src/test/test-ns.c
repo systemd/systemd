@@ -76,6 +76,10 @@ int main(int argc, char *argv[]) {
                             PROTECT_HOME_NO,
                             PROTECT_SYSTEM_NO,
                             0,
+                            NULL,
+                            0,
+                            NULL,
+                            NULL,
                             0,
                             NULL);
         if (r < 0) {

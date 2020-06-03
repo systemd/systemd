@@ -152,6 +152,10 @@ static void test_protect_kernel_logs(void) {
                                     PROTECT_HOME_NO,
                                     PROTECT_SYSTEM_NO,
                                     0,
+                                    NULL,
+                                    0,
+                                    NULL,
+                                    NULL,
                                     0,
                                     NULL);
                 assert_se(r == 0);

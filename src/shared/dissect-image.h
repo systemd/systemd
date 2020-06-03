@@ -100,6 +100,6 @@ int decrypted_image_relinquish(DecryptedImage *d);
 const char* partition_designator_to_string(int i) _const_;
 int partition_designator_from_string(const char *name) _pure_;
 
-int verity_metadata_load(const char *image, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data);
+int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data);
 bool dissected_image_can_do_verity(const DissectedImage *image, unsigned partition_designator);
 bool dissected_image_has_verity(const DissectedImage *image, unsigned partition_designator);
