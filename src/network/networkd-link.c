@@ -1251,6 +1251,9 @@ static int link_request_set_addresses(Link *link) {
 
                 update = address_get(link, ad->family, &ad->in_addr, ad->prefixlen, NULL) > 0;
 
+                /* This is a workaround for the issue https://github.com/systemd/systemd/issues/16049 */
+                update = update && !(link->network->vrf && ad->family == AF_INET6 && ad->prefixlen == 128);
+
                 r = address_configure(ad, link, address_handler, update);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set addresses: %m");
