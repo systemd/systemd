@@ -1637,6 +1637,7 @@ subdir('src/nspawn')
 subdir('src/resolve')
 subdir('src/timedate')
 subdir('src/timesync')
+subdir('src/tmpfiles')
 subdir('src/vconsole')
 subdir('src/boot/efi')
 
@@ -2952,9 +2953,7 @@ endif
 if conf.get('ENABLE_TMPFILES') == 1
         exe = executable(
                 'systemd-tmpfiles',
-                'src/tmpfiles/tmpfiles.c',
-                'src/tmpfiles/offline-passwd.c',
-                'src/tmpfiles/offline-passwd.h',
+                systemd_tmpfiles_sources,
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [libacl],
@@ -2968,6 +2967,21 @@ if conf.get('ENABLE_TMPFILES') == 1
                      test_systemd_tmpfiles_py,
                      # https://github.com/mesonbuild/meson/issues/2681
                      args : exe.full_path())
+        endif
+
+        if have_standalone_binaries
+                public_programs += executable(
+                        'systemd-tmpfiles.standalone',
+                        systemd_tmpfiles_sources,
+                        include_directories : includes,
+                        link_with : [libshared_static,
+                                     libbasic,
+                                     libbasic_gcrypt,
+                                     libsystemd_static,
+                                     libjournal_client],
+                        dependencies : [libacl],
+                        install : true,
+                        install_dir : rootbindir)
         endif
 endif
 
