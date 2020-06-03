@@ -102,6 +102,8 @@ enum {
 };
 
 DnsQueryCandidate* dns_query_candidate_free(DnsQueryCandidate *c);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQueryCandidate*, dns_query_candidate_free);
+
 void dns_query_candidate_notify(DnsQueryCandidate *c);
 
 int dns_query_new(Manager *m, DnsQuery **q, DnsQuestion *question_utf8, DnsQuestion *question_idna, int family, uint64_t flags);

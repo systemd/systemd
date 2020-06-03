@@ -513,7 +513,7 @@ static int on_query_timeout(sd_event_source *s, usec_t usec, void *userdata) {
 }
 
 static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
-        DnsQueryCandidate *c;
+        _cleanup_(dns_query_candidate_freep) DnsQueryCandidate *c = NULL;
         int r;
 
         assert(q);
@@ -530,18 +530,15 @@ static int dns_query_add_candidate(DnsQuery *q, DnsScope *s) {
 
                 r = dns_query_candidate_next_search_domain(c);
                 if (r <= 0) /* if there's no search domain, then we won't add any transaction. */
-                        goto fail;
+                        return r;
         }
 
         r = dns_query_candidate_setup_transactions(c);
         if (r < 0)
-                goto fail;
+                return r;
 
+        TAKE_PTR(c);
         return 0;
-
-fail:
-        dns_query_candidate_free(c);
-        return r;
 }
 
 static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
