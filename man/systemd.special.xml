@@ -228,22 +228,25 @@
           <term><filename>emergency.target</filename></term>
           <listitem>
             <para>A special target unit that starts an emergency shell on the main console. This
-            target does not pull in any services or mounts. It is the most minimal version of
+            target does not pull in other services or mounts. It is the most minimal version of
             starting the system in order to acquire an interactive shell; the only processes running
-            are usually just the system manager (PID 1) and the shell process. This unit is supposed
-            to be used with the kernel command line option <varname>systemd.unit=</varname>; it is
-            also used when a file system check on a required file system fails, and boot-up cannot
+            are usually just the system manager (PID 1) and the shell process. This unit may be used
+            by specifying <varname>emergency</varname> on the kernel command line; it is
+            also used when a file system check on a required file system fails and boot-up cannot
             continue. Compare with <filename>rescue.target</filename>, which serves a similar
             purpose, but also starts the most basic services and mounts all file systems.</para>
-
-            <para>Use the <literal>systemd.unit=emergency.target</literal> kernel command line
-            option to boot into this mode. A short alias for this kernel command line option is
-            <literal>emergency</literal>, for compatibility with SysV.</para>
 
             <para>In many ways booting into <filename>emergency.target</filename> is similar to the
             effect of booting with <literal>init=/bin/sh</literal> on the kernel command line,
             except that emergency mode provides you with the full system and service manager, and
             allows starting individual units in order to continue the boot process in steps.</para>
+
+            <para>Note that depending on how <filename>emergency.target</filename> is reached, the root file
+            system might be mounted read-only or read-write (no remounting is done specially for this
+            target). For example, the system may boot with root mounted read-only when <varname>ro</varname>
+            is used on the kernel command line and remain this way for <filename>emergency.target</filename>,
+            or the system may transition to <filename>emergency.target</filename> after the system has been
+            partially booted and disks have already been remounted read-write.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
