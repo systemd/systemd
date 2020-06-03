@@ -1648,6 +1648,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '23-active-slave.network',
         '24-keep-configuration-static.network',
         '24-search-domain.network',
+        '25-activation-mode-manual.network',
+        '25-activation-mode-off.network',
         '25-address-dad-veth-peer.network',
         '25-address-dad-veth99.network',
         '25-address-link-section.network',
@@ -2069,6 +2071,34 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.check_link_exists('dummy98')
 
         self.wait_operstate('dummy98', 'off', setup_state='unmanaged')
+
+    def test_activation_mode_off(self):
+        copy_unit_to_networkd_unit_path('25-activation-mode-off.network', '12-dummy.netdev')
+        start_networkd()
+
+        self.check_link_exists('dummy98')
+
+        self.wait_operstate('dummy98', 'off', setup_state=None)
+
+        check_output('ip link set dummy98 up')
+        self.wait_operstate('dummy98', 'off', setup_state=None)
+
+        restart_networkd()
+        self.wait_operstate('dummy98', 'off')
+
+    def test_activation_mode_manual(self):
+        copy_unit_to_networkd_unit_path('25-activation-mode-manual.network', '12-dummy.netdev')
+        start_networkd()
+
+        self.check_link_exists('dummy98')
+
+        self.wait_operstate('dummy98', 'off', setup_state=None)
+
+        check_output('ip link set dummy98 up')
+        self.wait_operstate('dummy98', 'degraded', setup_state=None)
+
+        restart_networkd()
+        self.wait_operstate('dummy98', 'degraded', setup_state=None)
 
     def test_ipv6_address_label(self):
         copy_unit_to_networkd_unit_path('25-ipv6-address-label-section.network', '12-dummy.netdev')

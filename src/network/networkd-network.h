@@ -41,6 +41,14 @@ typedef enum IPv6PrivacyExtensions {
         _IPV6_PRIVACY_EXTENSIONS_INVALID = -1,
 } IPv6PrivacyExtensions;
 
+typedef enum ActivationMode {
+        ACTIVATION_MODE_OFF,
+        ACTIVATION_MODE_ON,
+        ACTIVATION_MODE_MANUAL,
+        _ACTIVATION_MODE_MAX,
+        _ACTIVATION_MODE_INVALID = -1,
+} ActivationMode;
+
 typedef enum KeepConfiguration {
         KEEP_CONFIGURATION_NO            = 0,
         KEEP_CONFIGURATION_DHCP_ON_START = 1 << 0,
@@ -277,6 +285,7 @@ struct Network {
 
         bool required_for_online; /* Is this network required to be considered online? */
         LinkOperationalStateRange required_operstate_for_online;
+        ActivationMode activation_mode; /* Should we activate the device? */
 
         /* LLDP support */
         LLDPMode lldp_mode; /* LLDP reception */
@@ -365,6 +374,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
+CONFIG_PARSER_PROTOTYPE(config_parse_activation_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
@@ -376,3 +386,6 @@ IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
 const char* keep_configuration_to_string(KeepConfiguration i) _const_;
 KeepConfiguration keep_configuration_from_string(const char *s) _pure_;
+
+const char* activation_mode_to_string(ActivationMode m) _const_;
+ActivationMode activation_mode_from_string(const char *s) _pure_;

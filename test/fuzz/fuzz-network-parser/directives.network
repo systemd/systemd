@@ -30,6 +30,7 @@ Host=
 MACAddress=
 PermanentMACAddress=
 [Link]
+ActivationMode=
 RequiredForOnline=
 ARP=
 AllMulticast=
