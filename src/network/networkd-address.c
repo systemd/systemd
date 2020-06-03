@@ -591,6 +591,13 @@ int address_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to acquire an address from pool: %m");
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *str = NULL;
+
+                (void) in_addr_to_string(address->family, &address->in_addr, &str);
+                log_link_debug(link, "%s address: %s", update ? "Updating" : "Configuring", strna(str));
+        }
+
         if (update)
                 r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
                                                     link->ifindex, address->family);
