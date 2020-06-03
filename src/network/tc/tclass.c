@@ -18,6 +18,7 @@
 const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX] = {
         [TCLASS_KIND_DRR] = &drr_tclass_vtable,
         [TCLASS_KIND_HTB] = &htb_tclass_vtable,
+        [TCLASS_KIND_QFQ] = &qfq_tclass_vtable,
 };
 
 static int tclass_new(TClassKind kind, TClass **ret) {

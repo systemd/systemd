@@ -314,6 +314,10 @@ PFIFOHeadDrop.Handle,                        config_parse_qdisc_handle,         
 PFIFOHeadDrop.PacketLimit,                   config_parse_pfifo_size,                                  QDISC_KIND_PFIFO_HEAD_DROP,    0
 QuickFairQueueing.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_QFQ,                0
 QuickFairQueueing.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_QFQ,                0
+QuickFairQueueingClass.Parent,               config_parse_tclass_parent,                               TCLASS_KIND_QFQ,               0
+QuickFairQueueingClass.ClassId,              config_parse_tclass_classid,                              TCLASS_KIND_QFQ,               0
+QuickFairQueueingClass.Weight,               config_parse_quick_fair_queueing_weight,                  TCLASS_KIND_QFQ,               0
+QuickFairQueueingClass.MaxPacketSize,        config_parse_quick_fair_queueing_max_packet,              TCLASS_KIND_QFQ,               0
 FairQueueing.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ,                 0
 FairQueueing.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ,                 0
 FairQueueing.PacketLimit,                    config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0

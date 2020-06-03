@@ -11,6 +11,7 @@
 typedef enum TClassKind {
         TCLASS_KIND_DRR,
         TCLASS_KIND_HTB,
+        TCLASS_KIND_QFQ,
         _TCLASS_KIND_MAX,
         _TCLASS_KIND_INVALID = -1,
 } TClassKind;
@@ -67,3 +68,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_tclass_classid);
 
 #include "drr.h"
 #include "htb.h"
+#include "qfq.h"

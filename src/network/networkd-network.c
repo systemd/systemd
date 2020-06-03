@@ -520,6 +520,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "PFIFOHeadDrop\0"
                         "PIE\0"
                         "QuickFairQueueing\0"
+                        "QuickFairQueueingClass\0"
                         "StochasticFairBlue\0"
                         "StochasticFairnessQueueing\0"
                         "TokenBucketFilter\0"
