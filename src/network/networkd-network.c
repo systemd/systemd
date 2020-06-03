@@ -745,8 +745,8 @@ int network_get_by_name(Manager *manager, const char *name, Network **ret) {
 }
 
 int network_get(Manager *manager, unsigned short iftype, sd_device *device,
-                const char *ifname, char * const *alternative_names,
-                const struct ether_addr *address, const struct ether_addr *permanent_address,
+                const char *ifname, char * const *alternative_names, const char *driver,
+                const struct ether_addr *mac, const struct ether_addr *permanent_mac,
                 enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid,
                 Network **ret) {
         Network *network;
@@ -760,7 +760,7 @@ int network_get(Manager *manager, unsigned short iftype, sd_device *device,
                                      network->match_path, network->match_driver,
                                      network->match_type, network->match_name, network->match_property,
                                      network->match_wlan_iftype, network->match_ssid, network->match_bssid,
-                                     iftype, device, address, permanent_address,
+                                     device, mac, permanent_mac, driver, iftype,
                                      ifname, alternative_names, wlan_iftype, ssid, bssid)) {
                         if (network->match_name && device) {
                                 const char *attr;

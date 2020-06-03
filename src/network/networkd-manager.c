@@ -1747,6 +1747,7 @@ int manager_new(Manager **ret) {
 
         *m = (Manager) {
                 .speed_meter_interval_usec = SPEED_METER_DEFAULT_TIME_INTERVAL,
+                .ethtool_fd = -1,
         };
 
         m->state_file = strdup("/run/systemd/netif/state");
@@ -1856,6 +1857,8 @@ void manager_free(Manager *m) {
 
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);
+
+        safe_close(m->ethtool_fd);
 
         free(m);
 }

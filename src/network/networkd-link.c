@@ -618,9 +618,13 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 log_link_debug_errno(link, r, "MAC address not found for new device, continuing without");
 
-        r = ethtool_get_permanent_macaddr(NULL, link->ifname, &link->permanent_mac);
+        r = ethtool_get_permanent_macaddr(&manager->ethtool_fd, link->ifname, &link->permanent_mac);
         if (r < 0)
                 log_link_debug_errno(link, r, "Permanent MAC address not found for new device, continuing without: %m");
+
+        r = ethtool_get_driver(&manager->ethtool_fd, link->ifname, &link->driver);
+        if (r < 0)
+                log_link_debug_errno(link, r, "Failed to get driver, continuing without: %m");
 
         r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &link->alternative_names);
         if (r < 0 && r != -ENODATA)
@@ -725,6 +729,7 @@ static Link *link_free(Link *link) {
         strv_free(link->alternative_names);
         free(link->kind);
         free(link->ssid);
+        free(link->driver);
 
         (void) unlink(link->state_file);
         free(link->state_file);
@@ -3041,8 +3046,10 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
                 strv_free_and_replace(link->alternative_names, s);
         }
 
-        r = network_get(link->manager, link->iftype, link->sd_device, link->ifname, link->alternative_names,
-                        &link->mac, &link->permanent_mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
+        r = network_get(link->manager, link->iftype, link->sd_device,
+                        link->ifname, link->alternative_names, link->driver,
+                        &link->mac, &link->permanent_mac,
+                        link->wlan_iftype, link->ssid, &link->bssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
                 return 0;
@@ -3177,8 +3184,10 @@ static int link_initialized_and_synced(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = network_get(link->manager, link->iftype, link->sd_device, link->ifname, link->alternative_names,
-                                &link->mac, &link->permanent_mac, link->wlan_iftype, link->ssid, &link->bssid, &network);
+                r = network_get(link->manager, link->iftype, link->sd_device,
+                                link->ifname, link->alternative_names, link->driver,
+                                &link->mac, &link->permanent_mac,
+                                link->wlan_iftype, link->ssid, &link->bssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
                         return 0;

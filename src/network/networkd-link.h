@@ -57,6 +57,7 @@ typedef struct Link {
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
         sd_device *sd_device;
+        char *driver;
 
         /* wlan */
         enum nl80211_iftype wlan_iftype;
