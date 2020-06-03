@@ -1247,6 +1247,16 @@ int set_put(Set *s, const void *key) {
         return hashmap_put_boldly(s, hash, &swap, true);
 }
 
+int _set_ensure_put(Set **s, const struct hash_ops *hash_ops, const void *key  HASHMAP_DEBUG_PARAMS) {
+        int r;
+
+        r = _set_ensure_allocated(s, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        if (r < 0)
+                return r;
+
+        return set_put(*s, key);
+}
+
 int hashmap_replace(Hashmap *h, const void *key, void *value) {
         struct swap_entries swap;
         struct plain_hashmap_entry *e;

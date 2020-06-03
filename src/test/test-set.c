@@ -107,6 +107,27 @@ static void test_set_put_strdupv(void) {
         assert_se(set_size(m) == 3);
 }
 
+static void test_set_ensure_allocated(void) {
+        _cleanup_set_free_ Set *m = NULL;
+
+        assert_se(set_ensure_allocated(&m, &string_hash_ops) == 1);
+        assert_se(set_ensure_allocated(&m, &string_hash_ops) == 0);
+        assert_se(set_ensure_allocated(&m, NULL) == 0);
+        assert_se(set_size(m) == 0);
+}
+
+static void test_set_ensure_put(void) {
+        _cleanup_set_free_ Set *m = NULL;
+
+        assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 1);
+        assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 0);
+        assert_se(set_ensure_put(&m, NULL, "a") == 0);
+        assert_se(set_ensure_put(&m, &string_hash_ops, "b") == 1);
+        assert_se(set_ensure_put(&m, &string_hash_ops, "b") == 0);
+        assert_se(set_ensure_put(&m, &string_hash_ops, "a") == 0);
+        assert_se(set_size(m) == 2);
+}
+
 int main(int argc, const char *argv[]) {
         test_set_steal_first();
         test_set_free_with_destructor();
@@ -114,6 +135,8 @@ int main(int argc, const char *argv[]) {
         test_set_put();
         test_set_put_strdup();
         test_set_put_strdupv();
+        test_set_ensure_allocated();
+        test_set_ensure_put();
 
         return 0;
 }
