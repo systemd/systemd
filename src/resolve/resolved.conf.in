@@ -22,3 +22,4 @@
 #Cache=yes
 #DNSStubListener=yes
 #ReadEtcHosts=yes
+#ResolveUnicastSingleLabel=no
