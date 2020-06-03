@@ -1800,7 +1800,7 @@ static int dns_transaction_find_cyclic(DnsTransaction *t, DnsTransaction *aux) {
 }
 
 static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResourceKey *key, DnsTransaction **ret) {
-        DnsTransaction *aux;
+        _cleanup_(dns_transaction_gcp) DnsTransaction *aux = NULL;
         int r;
 
         assert(t);
@@ -1835,32 +1835,28 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
 
         r = set_ensure_allocated(&t->dnssec_transactions, NULL);
         if (r < 0)
-                goto gc;
+                return r;;
 
         r = set_ensure_allocated(&aux->notify_transactions, NULL);
         if (r < 0)
-                goto gc;
+                return r;
 
         r = set_ensure_allocated(&aux->notify_transactions_done, NULL);
         if (r < 0)
-                goto gc;
+                return r;
 
         r = set_put(t->dnssec_transactions, aux);
         if (r < 0)
-                goto gc;
+                return r;
 
         r = set_put(aux->notify_transactions, t);
         if (r < 0) {
                 (void) set_remove(t->dnssec_transactions, aux);
-                goto gc;
+                return r;
         }
 
-        *ret = aux;
+        *ret = TAKE_PTR(aux);
         return 1;
-
-gc:
-        dns_transaction_gc(aux);
-        return r;
 }
 
 static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *key) {
