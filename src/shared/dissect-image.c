@@ -425,11 +425,11 @@ int dissect_image(
 
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
-                        if (!streq(usage, "filesystem")) {
-                                r = loop_wait_for_partitions_to_appear(fd, d, 0, flags, &e);
-                                if (r < 0)
-                                        return r;
-                        }
+                        /* Even on a single partition we need to wait for udev to create the
+                         * /dev/block/X:Y symlink to /dev/loopZ */
+                        r = loop_wait_for_partitions_to_appear(fd, d, 0, flags, &e);
+                        if (r < 0)
+                                return r;
                         *ret = TAKE_PTR(m);
 
                         return 0;
