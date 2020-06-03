@@ -334,6 +334,10 @@ void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *chang
                                 log_info("Unit %s is an alias to a unit that is not present, ignoring.",
                                          changes[i].path);
                         break;
+                case UNIT_FILE_WARNING:
+                        if (!quiet)
+                                log_warning("Installed unit %s into a non-existent target %s.", changes[i].source, changes[i].path);
+                        break;
                 case -EEXIST:
                         if (changes[i].source)
                                 log_error_errno(changes[i].type,
@@ -1820,6 +1824,7 @@ static int install_info_symlink_alias(
 }
 
 static int install_info_symlink_wants(
+                UnitFileScope scope,
                 UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 const char *config_path,
@@ -1890,6 +1895,9 @@ static int install_info_symlink_wants(
                 q = create_symlink(paths, i->path, path, true, changes, n_changes);
                 if (r == 0)
                         r = q;
+
+                if (!unit_file_exists(scope, paths, dst))
+                        unit_file_changes_add(changes, n_changes, UNIT_FILE_WARNING, dst, i->path);
         }
 
         return r;
@@ -1925,6 +1933,7 @@ static int install_info_symlink_link(
 }
 
 static int install_info_apply(
+                UnitFileScope scope,
                 UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 const char *config_path,
@@ -1943,11 +1952,11 @@ static int install_info_apply(
 
         r = install_info_symlink_alias(i, paths, config_path, force, changes, n_changes);
 
-        q = install_info_symlink_wants(i, paths, config_path, i->wanted_by, ".wants/", changes, n_changes);
+        q = install_info_symlink_wants(scope, i, paths, config_path, i->wanted_by, ".wants/", changes, n_changes);
         if (r == 0)
                 r = q;
 
-        q = install_info_symlink_wants(i, paths, config_path, i->required_by, ".requires/", changes, n_changes);
+        q = install_info_symlink_wants(scope, i, paths, config_path, i->required_by, ".requires/", changes, n_changes);
         if (r == 0)
                 r = q;
 
@@ -2011,7 +2020,7 @@ static int install_context_apply(
                 if (i->type != UNIT_FILE_TYPE_REGULAR)
                         continue;
 
-                q = install_info_apply(i, paths, config_path, force, changes, n_changes);
+                q = install_info_apply(scope, i, paths, config_path, force, changes, n_changes);
                 if (r >= 0) {
                         if (q < 0)
                                 r = q;
@@ -3452,6 +3461,7 @@ static const char* const unit_file_change_type_table[_UNIT_FILE_CHANGE_TYPE_MAX]
         [UNIT_FILE_UNLINK]      = "unlink",
         [UNIT_FILE_IS_MASKED]   = "masked",
         [UNIT_FILE_IS_DANGLING] = "dangling",
+        [UNIT_FILE_WARNING]     = "warning",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_file_change_type, UnitFileChangeType);
