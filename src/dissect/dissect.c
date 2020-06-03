@@ -201,7 +201,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device: %m");
 
-        r = verity_metadata_load(arg_image, arg_root_hash ? NULL : &arg_root_hash, &arg_root_hash_size,
+        r = verity_metadata_load(arg_image, NULL, arg_root_hash ? NULL : &arg_root_hash, &arg_root_hash_size,
                            arg_verity_data ? NULL : &arg_verity_data);
         if (r < 0)
                 return log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);

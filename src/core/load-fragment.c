@@ -29,6 +29,7 @@
 #include "errno-list.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
@@ -1409,6 +1410,64 @@ int config_parse_exec_cpu_sched_prio(const char *unit,
 
         c->cpu_sched_priority = i;
         c->cpu_sched_set = true;
+
+        return 0;
+}
+
+int config_parse_exec_root_hash(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ void *roothash_decoded = NULL;
+        ExecContext *c = data;
+        size_t roothash_decoded_size = 0;
+        int r;
+
+        assert(data);
+        assert(filename);
+        assert(line);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Reset if the empty string is assigned */
+                c->root_hash_path = mfree(c->root_hash_path);
+                c->root_hash = mfree(c->root_hash);
+                c->root_hash_size = 0;
+                return 0;
+        }
+
+        if (path_is_absolute(rvalue)) {
+                /* We have the path to a roothash to load and decode, eg: RootHash=/foo/bar.roothash */
+                _cleanup_free_ char *p = NULL;
+
+                p = strdup(rvalue);
+                if (!p)
+                        return -ENOMEM;
+
+                free_and_replace(c->root_hash_path, p);
+                c->root_hash = mfree(c->root_hash);
+                c->root_hash_size = 0;
+                return 0;
+        }
+
+        /* We have a roothash to decode, eg: RootHash=012345789abcdef */
+        r = unhexmem(rvalue, strlen(rvalue), &roothash_decoded, &roothash_decoded_size);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode RootHash=, ignoring: %s", rvalue);
+        if (roothash_decoded_size < sizeof(sd_id128_t))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "RootHash= is too short, ignoring: %s", rvalue);
+
+        free_and_replace(c->root_hash, roothash_decoded);
+        c->root_hash_size = roothash_decoded_size;
+        c->root_hash_path = mfree(c->root_hash_path);
 
         return 0;
 }

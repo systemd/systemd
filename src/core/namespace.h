@@ -88,6 +88,10 @@ int setup_namespace(
                 ProtectHome protect_home,
                 ProtectSystem protect_system,
                 unsigned long mount_flags,
+                const void *root_hash,
+                size_t root_hash_size,
+                const char *root_hash_path,
+                const char *root_verity,
                 DissectImageFlags dissected_image_flags,
                 char **error_path);
 

@@ -1421,7 +1421,7 @@ int decrypted_image_relinquish(DecryptedImage *d) {
         return 0;
 }
 
-int verity_metadata_load(const char *image, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data) {
+int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data) {
         _cleanup_free_ char *verity_filename = NULL;
         _cleanup_free_ void *roothash_decoded = NULL;
         size_t roothash_decoded_size = 0;
@@ -1465,24 +1465,31 @@ int verity_metadata_load(const char *image, void **ret_roothash, size_t *ret_roo
                 _cleanup_free_ char *text = NULL;
                 assert(ret_roothash_size);
 
-                r = getxattr_malloc(image, "user.verity.roothash", &text, true);
-                if (r < 0) {
-                        char *fn, *e, *n;
-
-                        if (!IN_SET(r, -ENODATA, -EOPNOTSUPP, -ENOENT))
+                if (root_hash_path) {
+                        /* We have the path to a roothash to load and decode, eg: RootHash=/foo/bar.roothash */
+                        r = read_one_line_file(root_hash_path, &text);
+                        if (r < 0)
                                 return r;
+                } else {
+                        r = getxattr_malloc(image, "user.verity.roothash", &text, true);
+                        if (r < 0) {
+                                char *fn, *e, *n;
 
-                        fn = newa(char, strlen(image) + STRLEN(".roothash") + 1);
-                        n = stpcpy(fn, image);
-                        e = endswith(fn, ".raw");
-                        if (e)
-                                n = e;
+                                if (!IN_SET(r, -ENODATA, -EOPNOTSUPP, -ENOENT))
+                                        return r;
 
-                        strcpy(n, ".roothash");
+                                fn = newa(char, strlen(image) + STRLEN(".roothash") + 1);
+                                n = stpcpy(fn, image);
+                                e = endswith(fn, ".raw");
+                                if (e)
+                                        n = e;
 
-                        r = read_one_line_file(fn, &text);
-                        if (r < 0 && r != -ENOENT)
-                                return r;
+                                strcpy(n, ".roothash");
+
+                                r = read_one_line_file(fn, &text);
+                                if (r < 0 && r != -ENOENT)
+                                        return r;
+                        }
                 }
 
                 if (text) {
