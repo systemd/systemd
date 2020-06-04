@@ -1717,6 +1717,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-qdisc-ingress-netem-compat.network',
         '25-qdisc-pie.network',
         '25-qdisc-qfq.network',
+        '25-prefix-route-with-vrf.network',
+        '25-prefix-route-without-vrf.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
         '25-route-vrf.network',
@@ -1729,6 +1731,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-veth-peer.network',
         '25-veth.netdev',
         '25-vrf.netdev',
+        '25-vrf.network',
         '26-link-local-addressing-ipv6.network',
         'routing-policy-rule-dummy98.network',
         'routing-policy-rule-test1.network']
@@ -1814,6 +1817,77 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 address show dev veth-peer')
         print(output)
         self.assertNotRegex(output, '192.168.100.10/24')
+
+    @expectedFailureIfModuleIsNotAvailable('vrf')
+    def test_prefix_route(self):
+        copy_unit_to_networkd_unit_path('25-prefix-route-with-vrf.network', '12-dummy.netdev',
+                                        '25-prefix-route-without-vrf.network', '11-dummy.netdev',
+                                        '25-vrf.netdev', '25-vrf.network')
+        for trial in range(2):
+            if trial == 0:
+                start_networkd()
+            else:
+                restart_networkd(3)
+
+            self.wait_online(['dummy98:routable', 'test1:routable', 'vrf99:carrier'])
+
+            output = check_output('ip route show table 42 dev dummy98')
+            print('### ip route show table 42 dev dummy98')
+            print(output)
+            self.assertRegex(output, 'local 10.20.22.1 proto kernel scope host src 10.20.22.1')
+            self.assertRegex(output, 'broadcast 10.20.33.0 proto kernel scope link src 10.20.33.1')
+            self.assertRegex(output, '10.20.33.0/24 proto kernel scope link src 10.20.33.1')
+            self.assertRegex(output, 'local 10.20.33.1 proto kernel scope host src 10.20.33.1')
+            self.assertRegex(output, 'broadcast 10.20.33.255 proto kernel scope link src 10.20.33.1')
+            self.assertRegex(output, 'local 10.20.44.1 proto kernel scope host src 10.20.44.1')
+            self.assertRegex(output, 'broadcast 10.20.55.0 proto kernel scope link src 10.20.55.1')
+            self.assertRegex(output, 'local 10.20.55.1 proto kernel scope host src 10.20.55.1')
+            self.assertRegex(output, 'broadcast 10.20.55.255 proto kernel scope link src 10.20.55.1')
+            output = check_output('ip -6 route show table 42 dev dummy98')
+            print('### ip -6 route show table 42 dev dummy98')
+            print(output)
+            if trial == 0:
+                # Kernel's bug?
+                self.assertRegex(output, 'local fdde:11:22::1 proto kernel metric 0 pref medium')
+            #self.assertRegex(output, 'fdde:11:22::1 proto kernel metric 256 pref medium')
+            self.assertRegex(output, 'local fdde:11:33::1 proto kernel metric 0 pref medium')
+            self.assertRegex(output, 'fdde:11:33::/64 proto kernel metric 256 pref medium')
+            self.assertRegex(output, 'local fdde:11:44::1 proto kernel metric 0 pref medium')
+            self.assertRegex(output, 'local fdde:11:55::1 proto kernel metric 0 pref medium')
+            self.assertRegex(output, 'fe80::/64 proto kernel metric 256 pref medium')
+            self.assertRegex(output, 'ff00::/8 metric 256 pref medium')
+
+            print()
+
+            output = check_output('ip route show dev test1')
+            print('### ip route show dev test1')
+            print(output)
+            self.assertRegex(output, '10.21.33.0/24 proto kernel scope link src 10.21.33.1')
+            output = check_output('ip route show table local dev test1')
+            print('### ip route show table local dev test1')
+            print(output)
+            self.assertRegex(output, 'local 10.21.22.1 proto kernel scope host src 10.21.22.1')
+            self.assertRegex(output, 'broadcast 10.21.33.0 proto kernel scope link src 10.21.33.1')
+            self.assertRegex(output, 'local 10.21.33.1 proto kernel scope host src 10.21.33.1')
+            self.assertRegex(output, 'broadcast 10.21.33.255 proto kernel scope link src 10.21.33.1')
+            self.assertRegex(output, 'local 10.21.44.1 proto kernel scope host src 10.21.44.1')
+            self.assertRegex(output, 'broadcast 10.21.55.0 proto kernel scope link src 10.21.55.1')
+            self.assertRegex(output, 'local 10.21.55.1 proto kernel scope host src 10.21.55.1')
+            self.assertRegex(output, 'broadcast 10.21.55.255 proto kernel scope link src 10.21.55.1')
+            output = check_output('ip -6 route show dev test1')
+            print('### ip -6 route show dev test1')
+            print(output)
+            self.assertRegex(output, 'fdde:12:22::1 proto kernel metric 256 pref medium')
+            self.assertRegex(output, 'fdde:12:33::/64 proto kernel metric 256 pref medium')
+            self.assertRegex(output, 'fe80::/64 proto kernel metric 256 pref medium')
+            output = check_output('ip -6 route show table local dev test1')
+            print('### ip -6 route show table local dev test1')
+            print(output)
+            self.assertRegex(output, 'local fdde:12:22::1 proto kernel metric 0 pref medium')
+            self.assertRegex(output, 'local fdde:12:33::1 proto kernel metric 0 pref medium')
+            self.assertRegex(output, 'local fdde:12:44::1 proto kernel metric 0 pref medium')
+            self.assertRegex(output, 'local fdde:12:55::1 proto kernel metric 0 pref medium')
+            self.assertRegex(output, 'ff00::/8 metric 256 pref medium')
 
     def test_configure_without_carrier(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev')
