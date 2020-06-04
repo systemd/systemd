@@ -38,5 +38,4 @@ int membershipdb_all(UserDBFlags flags, UserDBIterator **ret);
 int membershipdb_iterator_get(UserDBIterator *iterator, char **user, char **group);
 int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret);
 
-int userdb_nss_compat_is_enabled(void);
-int userdb_nss_compat_disable(void);
+int userdb_block_nss_systemd(int b);

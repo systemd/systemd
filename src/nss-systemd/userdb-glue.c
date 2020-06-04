@@ -3,6 +3,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "group-record-nss.h"
+#include "nss-systemd.h"
 #include "strv.h"
 #include "user-record.h"
 #include "userdb-glue.h"
@@ -74,12 +75,7 @@ enum nss_status userdb_getpwnam(
         assert(pwd);
         assert(errnop);
 
-        r = userdb_nss_compat_is_enabled();
-        if (r < 0) {
-                *errnop = -r;
-                return NSS_STATUS_UNAVAIL;
-        }
-        if (!r)
+        if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
         r = userdb_by_name(name, nss_glue_userdb_flags(), &hr);
@@ -112,12 +108,7 @@ enum nss_status userdb_getpwuid(
         assert(pwd);
         assert(errnop);
 
-        r = userdb_nss_compat_is_enabled();
-        if (r < 0) {
-                *errnop = -r;
-                return NSS_STATUS_UNAVAIL;
-        }
-        if (!r)
+        if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
         r = userdb_by_uid(uid, nss_glue_userdb_flags(), &hr);
@@ -214,12 +205,7 @@ enum nss_status userdb_getgrnam(
         assert(gr);
         assert(errnop);
 
-        r = userdb_nss_compat_is_enabled();
-        if (r < 0) {
-                *errnop = -r;
-                return NSS_STATUS_UNAVAIL;
-        }
-        if (!r)
+        if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
         r = groupdb_by_name(name, nss_glue_userdb_flags(), &g);
@@ -235,7 +221,7 @@ enum nss_status userdb_getgrnam(
         }
 
         if (!g) {
-                _cleanup_close_ int lock_fd = -1;
+                _cleanup_(_nss_systemd_unblockp) bool blocked = false;
 
                 if (strv_isempty(members))
                         return NSS_STATUS_NOTFOUND;
@@ -245,11 +231,13 @@ enum nss_status userdb_getgrnam(
                  * acquire it, so that we can extend it (that's because glibc's group merging feature will
                  * merge groups only if both GID and name match and thus we need to have both first). It
                  * sucks behaving recursively likely this, but it's apparently what everybody does. We break
-                 * the recursion for ourselves via the userdb_nss_compat_disable() lock. */
+                 * the recursion for ourselves via the _nss_systemd_block_nss() lock. */
 
-                lock_fd = userdb_nss_compat_disable();
-                if (lock_fd < 0 && lock_fd != -EBUSY)
-                        return lock_fd;
+                r = _nss_systemd_block(true);
+                if (r < 0)
+                        return r;
+
+                blocked = true;
 
                 r = nss_group_record_by_name(name, false, &g);
                 if (r == -ESRCH)
@@ -285,12 +273,7 @@ enum nss_status userdb_getgrgid(
         assert(gr);
         assert(errnop);
 
-        r = userdb_nss_compat_is_enabled();
-        if (r < 0) {
-                *errnop = -r;
-                return NSS_STATUS_UNAVAIL;
-        }
-        if (!r)
+        if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
         r = groupdb_by_gid(gid, nss_glue_userdb_flags(), &g);
@@ -300,20 +283,21 @@ enum nss_status userdb_getgrgid(
         }
 
         if (!g) {
-                _cleanup_close_ int lock_fd = -1;
+                _cleanup_(_nss_systemd_unblockp) bool blocked = false;
 
                 /* So, quite possibly we have to extend an existing group record with additional members. But
                  * to do this we need to know the group name first. The group didn't exist via non-NSS
                  * queries though, hence let's try to acquire it here recursively via NSS. */
 
-                lock_fd = userdb_nss_compat_disable();
-                if (lock_fd < 0 && lock_fd != -EBUSY)
-                        return lock_fd;
+                r = _nss_systemd_block(true);
+                if (r < 0)
+                        return r;
+
+                blocked = true;
 
                 r = nss_group_record_by_gid(gid, false, &g);
                 if (r == -ESRCH)
                         return NSS_STATUS_NOTFOUND;
-
                 if (r < 0) {
                         *errnop = -r;
                         return NSS_STATUS_UNAVAIL;

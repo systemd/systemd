@@ -1656,7 +1656,7 @@ test_dlopen = executable(
         build_by_default : want_tests != 'false')
 
 foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
-                 ['systemd',    'ENABLE_NSS_SYSTEMD', 'src/nss-systemd/userdb-glue.c src/nss-systemd/userdb-glue.h'],
+                 ['systemd',    'ENABLE_NSS_SYSTEMD', 'src/nss-systemd/userdb-glue.c src/nss-systemd/userdb-glue.h src/nss-systemd/nss-systemd.h'],
                  ['mymachines', 'ENABLE_NSS_MYMACHINES'],
                  ['resolve',    'ENABLE_NSS_RESOLVE']]
 
