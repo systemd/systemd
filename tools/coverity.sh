@@ -17,7 +17,6 @@ UPLOAD_URL=${UPLOAD_URL:="https://scan.coverity.com/builds"}
 # These must be set by environment
 echo -e "\033[33;1mNote: COVERITY_SCAN_PROJECT_NAME and COVERITY_SCAN_TOKEN are available on Project Settings page on scan.coverity.com\033[0m"
 [ -z "$COVERITY_SCAN_PROJECT_NAME" ] && echo "ERROR: COVERITY_SCAN_PROJECT_NAME must be set" && exit 1
-[ -z "$COVERITY_SCAN_NOTIFICATION_EMAIL" ] && echo "ERROR: COVERITY_SCAN_NOTIFICATION_EMAIL must be set" && exit 1
 [ -z "$COVERITY_SCAN_BRANCH_PATTERN" ] && echo "ERROR: COVERITY_SCAN_BRANCH_PATTERN must be set" && exit 1
 [ -z "$COVERITY_SCAN_BUILD_COMMAND" ] && echo "ERROR: COVERITY_SCAN_BUILD_COMMAND must be set" && exit 1
 [ -z "$COVERITY_SCAN_TOKEN" ] && echo "ERROR: COVERITY_SCAN_TOKEN must be set" && exit 1
@@ -135,7 +134,6 @@ _upload()
 	           --silent --write-out "\n%{http_code}\n" \
 	           --form project=$COVERITY_SCAN_PROJECT_NAME \
 	           --form token=$COVERITY_SCAN_TOKEN \
-	           --form email=$COVERITY_SCAN_NOTIFICATION_EMAIL \
 	           --form file=@$RESULTS_ARCHIVE \
 	           --form version=$SHA \
 	           --form description="Travis CI build" \

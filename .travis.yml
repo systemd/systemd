@@ -5,7 +5,6 @@ services:
 
 env:
     global:
-        - AUTHOR_EMAIL="$(git log -1 $TRAVIS_COMMIT --pretty=\"%aE\")"
         - CI_MANAGERS="$TRAVIS_BUILD_DIR/travis-ci/managers"
         - CI_TOOLS="$TRAVIS_BUILD_DIR/travis-ci/tools"
         - REPO_ROOT="$TRAVIS_BUILD_DIR"
@@ -108,7 +107,6 @@ jobs:
               - SCAN_URL="https://scan.coverity.com"
               - UPLOAD_URL="https://scan.coverity.com/builds"
               - COVERITY_SCAN_PROJECT_NAME="$TRAVIS_REPO_SLUG"
-              - COVERITY_SCAN_NOTIFICATION_EMAIL="${AUTHOR_EMAIL}"
               - COVERITY_SCAN_BRANCH_PATTERN="$TRAVIS_BRANCH"
               # Encrypted COVERITY_SCAN_TOKEN env variable
               # Generated using `travis encrypt -r systemd/systemd COVERITY_SCAN_TOKEN=xxxx`
