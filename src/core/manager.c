@@ -2761,11 +2761,11 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 switch (sfsi.ssi_signo - SIGRTMIN) {
 
                 case 20:
-                        manager_set_show_status_overridden(m, SHOW_STATUS_YES, "signal");
+                        manager_override_show_status(m, SHOW_STATUS_YES, "signal");
                         break;
 
                 case 21:
-                        manager_set_show_status_overridden(m, SHOW_STATUS_NO, "signal");
+                        manager_override_show_status(m, SHOW_STATUS_NO, "signal");
                         break;
 
                 case 22:
@@ -3401,7 +3401,7 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
                 m->watchdog[t] = timeout;
 }
 
-int manager_set_watchdog_overridden(Manager *m, WatchdogType t, usec_t timeout) {
+int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         int r = 0;
 
         assert(m);
@@ -3577,7 +3577,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (s < 0)
                                 log_notice("Failed to parse show-status-overridden flag '%s', ignoring.", val);
                         else
-                                manager_set_show_status_overridden(m, s, "deserialize");
+                                manager_override_show_status(m, s, "deserialize");
 
                 } else if ((val = startswith(l, "log-level-override="))) {
                         int level;
@@ -3603,7 +3603,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (deserialize_usec(val, &t) < 0)
                                 log_notice("Failed to parse runtime-watchdog-overridden value '%s', ignoring.", val);
                         else
-                                manager_set_watchdog_overridden(m, WATCHDOG_RUNTIME, t);
+                                manager_override_watchdog(m, WATCHDOG_RUNTIME, t);
 
                 } else if ((val = startswith(l, "reboot-watchdog-overridden="))) {
                         usec_t t;
@@ -3611,7 +3611,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (deserialize_usec(val, &t) < 0)
                                 log_notice("Failed to parse reboot-watchdog-overridden value '%s', ignoring.", val);
                         else
-                                manager_set_watchdog_overridden(m, WATCHDOG_REBOOT, t);
+                                manager_override_watchdog(m, WATCHDOG_REBOOT, t);
 
                 } else if ((val = startswith(l, "kexec-watchdog-overridden="))) {
                         usec_t t;
@@ -3619,7 +3619,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (deserialize_usec(val, &t) < 0)
                                 log_notice("Failed to parse kexec-watchdog-overridden value '%s', ignoring.", val);
                         else
-                                manager_set_watchdog_overridden(m, WATCHDOG_KEXEC, t);
+                                manager_override_watchdog(m, WATCHDOG_KEXEC, t);
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(l + 4, &m->client_environment);
@@ -4317,7 +4317,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
         m->show_status = mode;
 }
 
-void manager_set_show_status_overridden(Manager *m, ShowStatus mode, const char *reason) {
+void manager_override_show_status(Manager *m, ShowStatus mode, const char *reason) {
         assert(m);
         assert(mode < _SHOW_STATUS_MAX);
 

@@ -309,7 +309,7 @@ static int property_set_watchdog(Manager *m, WatchdogType type, sd_bus_message *
         if (r < 0)
                 return r;
 
-        return manager_set_watchdog_overridden(m, type, timeout);
+        return manager_override_watchdog(m, type, timeout);
 }
 
 static int property_set_runtime_watchdog(
@@ -2469,7 +2469,7 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid show status '%s'", t);
         }
 
-        manager_set_show_status_overridden(m, mode, "bus");
+        manager_override_show_status(m, mode, "bus");
 
         return sd_bus_reply_method_return(message, NULL);
 }
