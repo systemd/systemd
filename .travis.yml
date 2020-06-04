@@ -11,11 +11,11 @@ env:
 
 stages:
     - name: Build & test
-      if: type != cron
+      if: type = cron
 
     # Run Coverity periodically instead of for each commit/PR
     - name: Coverity
-      if: type = cron
+      if: type != cron
 
 jobs:
     include:
