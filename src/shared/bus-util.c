@@ -614,7 +614,7 @@ int bus_message_print_all_properties(
 
                 if (found_properties) {
                         r = set_ensure_put(found_properties, &string_hash_ops, name);
-                        if (r < 0 && r != -EEXIST)
+                        if (r < 0)
                                 return log_oom();
                 }
 
