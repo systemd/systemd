@@ -625,6 +625,14 @@ int address_configure(
         if (!address->prefix_route)
                 address->flags |= IFA_F_NOPREFIXROUTE;
 
+        /* For VRF enslaved links, always set IFA_F_NOPREFIXROUTE for IPv6 /128 address to prevent
+         * removing local prefix route on restart. See comments for check_cleanup_prefix_route() in
+         * net/ipv6/addrconf.c of kernel, and https://github.com/systemd/systemd/issues/16049 for
+         * more details. */
+        if (link->network && link->network->vrf &&
+            address->family == AF_INET6 && address->prefixlen == 128)
+                address->flags |= IFA_F_NOPREFIXROUTE;
+
         if (address->autojoin)
                 address->flags |= IFA_F_MCAUTOJOIN;
 
