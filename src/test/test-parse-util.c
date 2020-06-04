@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
+#include <linux/loadavg.h>
 #include <locale.h>
 #include <math.h>
 #include <sys/socket.h>
@@ -929,6 +930,42 @@ static void test_parse_mtu(void) {
         assert_se(parse_mtu(AF_UNSPEC, "", &mtu) == -EINVAL);
 }
 
+static void test_parse_loadavg_fixed_point(void) {
+        loadavg_t fp;
+
+        assert_se(parse_loadavg_fixed_point("1.23", &fp) == 0);
+        assert_se(LOAD_INT(fp) == 1);
+        assert_se(LOAD_FRAC(fp) == 23);
+
+        assert_se(parse_loadavg_fixed_point("1.80", &fp) == 0);
+        assert_se(LOAD_INT(fp) == 1);
+        assert_se(LOAD_FRAC(fp) == 80);
+
+        assert_se(parse_loadavg_fixed_point("0.07", &fp) == 0);
+        assert_se(LOAD_INT(fp) == 0);
+        assert_se(LOAD_FRAC(fp) == 7);
+
+        assert_se(parse_loadavg_fixed_point("0.00", &fp) == 0);
+        assert_se(LOAD_INT(fp) == 0);
+        assert_se(LOAD_FRAC(fp) == 0);
+
+        assert_se(parse_loadavg_fixed_point("4096.57", &fp) == 0);
+        assert_se(LOAD_INT(fp) == 4096);
+        assert_se(LOAD_FRAC(fp) == 57);
+
+        /* Caps out at 2 digit fracs */
+        assert_se(parse_loadavg_fixed_point("1.100", &fp) == -ERANGE);
+
+        assert_se(parse_loadavg_fixed_point("4096.4096", &fp) == -ERANGE);
+        assert_se(parse_loadavg_fixed_point("-4000.5", &fp) == -ERANGE);
+        assert_se(parse_loadavg_fixed_point("18446744073709551615.5", &fp) == -ERANGE);
+        assert_se(parse_loadavg_fixed_point("foobar", &fp) == -EINVAL);
+        assert_se(parse_loadavg_fixed_point("3333", &fp) == -EINVAL);
+        assert_se(parse_loadavg_fixed_point("1.2.3", &fp) == -EINVAL);
+        assert_se(parse_loadavg_fixed_point(".", &fp) == -EINVAL);
+        assert_se(parse_loadavg_fixed_point("", &fp) == -EINVAL);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -955,6 +992,7 @@ int main(int argc, char *argv[]) {
         test_parse_errno();
         test_parse_syscall_and_errno();
         test_parse_mtu();
+        test_parse_loadavg_fixed_point();
 
         return 0;
 }

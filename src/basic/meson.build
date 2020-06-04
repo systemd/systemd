@@ -108,6 +108,7 @@ basic_sources = files('''
         linux/in6.h
         linux/l2tp.h
         linux/libc-compat.h
+        linux/loadavg.h
         linux/netdevice.h
         linux/netlink.h
         linux/rtnetlink.h
