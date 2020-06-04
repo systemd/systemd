@@ -1257,6 +1257,20 @@ int _set_ensure_put(Set **s, const struct hash_ops *hash_ops, const void *key  H
         return set_put(*s, key);
 }
 
+int _set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key  HASHMAP_DEBUG_PARAMS) {
+        int r;
+
+        r = _set_ensure_put(s, hash_ops, key  HASHMAP_DEBUG_PASS_ARGS);
+        if (r <= 0) {
+                if (hash_ops && hash_ops->free_key)
+                        hash_ops->free_key(key);
+                else
+                        free(key);
+        }
+
+        return r;
+}
+
 int hashmap_replace(Hashmap *h, const void *key, void *value) {
         struct swap_entries swap;
         struct plain_hashmap_entry *e;

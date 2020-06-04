@@ -128,6 +128,28 @@ static void test_set_ensure_put(void) {
         assert_se(set_size(m) == 2);
 }
 
+static void test_set_ensure_consume(void) {
+        _cleanup_set_free_ Set *m = NULL;
+        char *s, *t;
+
+        assert_se(s = strdup("a"));
+        assert_se(set_ensure_consume(&m, &string_hash_ops_free, s) == 1);
+
+        assert_se(t = strdup("a"));
+        assert_se(set_ensure_consume(&m, &string_hash_ops_free, t) == 0);
+
+        assert_se(t = strdup("a"));
+        assert_se(set_ensure_consume(&m, &string_hash_ops_free, t) == 0);
+
+        assert_se(t = strdup("b"));
+        assert_se(set_ensure_consume(&m, &string_hash_ops_free, t) == 1);
+
+        assert_se(t = strdup("b"));
+        assert_se(set_ensure_consume(&m, &string_hash_ops_free, t) == 0);
+
+        assert_se(set_size(m) == 2);
+}
+
 int main(int argc, const char *argv[]) {
         test_set_steal_first();
         test_set_free_with_destructor();
@@ -137,6 +159,7 @@ int main(int argc, const char *argv[]) {
         test_set_put_strdupv();
         test_set_ensure_allocated();
         test_set_ensure_put();
+        test_set_ensure_consume();
 
         return 0;
 }
