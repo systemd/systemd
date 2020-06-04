@@ -34,5 +34,5 @@ tests += [
           'src/locale/keymap-util.c',
           'src/locale/keymap-util.h'],
          [libshared],
-         [libdl]],
+         []],
 ]
