@@ -23,8 +23,11 @@ SKIP_REMAINING=77
 usage()
 {
     echo "Usage:"
-    echo "        $0 add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE ...]"
-    echo "        $0 remove KERNEL-VERSION"
+    echo "  $0 [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE ...]"
+    echo "  $0 [OPTIONS...] remove KERNEL-VERSION"
+    echo "Options:"
+    echo "  -h,--help     Print this help"
+    echo "  -v,--verbose  Increase verbosity"
 }
 
 dropindirs_sort()
