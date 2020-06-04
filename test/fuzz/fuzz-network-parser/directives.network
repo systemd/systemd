@@ -411,6 +411,14 @@ PacketLimit=
 Parent=
 Handle=
 PacketLimit=
+[QuickFairQueueing]
+Parent=
+Handle=
+[QuickFairQueueingClass]
+Parent=
+ClassId=
+Weight=
+MaxPacketSize=
 [DeficitRoundRobinScheduler]
 Parent=
 Handle=

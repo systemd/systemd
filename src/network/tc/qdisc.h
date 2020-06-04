@@ -23,6 +23,7 @@ typedef enum QDiscKind {
         QDISC_KIND_PFIFO_FAST,
         QDISC_KIND_PFIFO_HEAD_DROP,
         QDISC_KIND_PIE,
+        QDISC_KIND_QFQ,
         QDISC_KIND_SFB,
         QDISC_KIND_SFQ,
         QDISC_KIND_TBF,
@@ -93,6 +94,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);
 #include "hhf.h"
 #include "htb.h"
 #include "pie.h"
+#include "qfq.h"
 #include "netem.h"
 #include "drr.h"
 #include "sfb.h"

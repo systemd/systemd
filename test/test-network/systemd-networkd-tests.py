@@ -1676,6 +1676,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-qdisc-hhf.network',
         '25-qdisc-ingress-netem-compat.network',
         '25-qdisc-pie.network',
+        '25-qdisc-qfq.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
         '25-route-vrf.network',
@@ -2423,10 +2424,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'prio 1 rate 1Mbit ceil 500Kbit')
 
     def test_qdisc2(self):
-        copy_unit_to_networkd_unit_path('25-qdisc-drr.network', '12-dummy.netdev')
+        copy_unit_to_networkd_unit_path('25-qdisc-drr.network', '12-dummy.netdev',
+                                        '25-qdisc-qfq.network', '11-dummy.netdev')
         start_networkd()
 
-        self.wait_online(['dummy98:routable'])
+        self.wait_online(['dummy98:routable', 'test1:routable'])
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -2434,6 +2436,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('tc class show dev dummy98')
         print(output)
         self.assertRegex(output, 'class drr 2:30 root quantum 2000b')
+
+        output = check_output('tc qdisc show dev test1')
+        print(output)
+        self.assertRegex(output, 'qdisc qfq 2: root')
+        output = check_output('tc class show dev test1')
+        print(output)
+        self.assertRegex(output, 'class qfq 2:30 root weight 2 maxpkt 16000')
+        self.assertRegex(output, 'class qfq 2:31 root weight 10 maxpkt 8000')
 
     @expectedFailureIfCAKEIsNotAvailable()
     def test_qdisc_cake(self):

@@ -3253,6 +3253,45 @@
   </refsect1>
 
   <refsect1>
+    <title>[QuickFairQueueing] Section Options</title>
+    <para>The <literal>[QuickFairQueueing]</literal> section manages the queueing discipline
+    (qdisc) of Quick Fair Queueing (QFQ).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[QuickFairQueueingClass] Section Options</title>
+    <para>The <literal>[QuickFairQueueingClass]</literal> section manages the traffic control class of
+    Quick Fair Queueing (qfq).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="tclass-parent" />
+      <xi:include href="tc.xml" xpointer="tclass-classid" />
+
+      <varlistentry>
+        <term><varname>Weight=</varname></term>
+        <listitem>
+          <para>Specifies the weight of the class. Takse an integer in the range 1..1023. Defaults to
+          unset in which case the kernel default is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MaxPacketSize=</varname></term>
+        <listitem>
+          <para>Specifies the maximum packet size in bytes for the class. When suffixed with K, M, or G, the specified
+          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1000. When unset,
+          the kernel default is used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts
       the following keys. Specify several <literal>[BridgeVLAN]</literal> sections to configure several VLAN entries.
