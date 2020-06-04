@@ -101,8 +101,8 @@ typedef struct PStoreEntry {
 
 typedef struct PStoreList {
         PStoreEntry *entries;
+        size_t n_allocated;
         size_t n_entries;
-        size_t n_entries_allocated;
 } PStoreList;
 
 static void pstore_entries_reset(PStoreList *list) {
@@ -112,8 +112,7 @@ static void pstore_entries_reset(PStoreList *list) {
         list->n_entries = 0;
 }
 
-static int compare_pstore_entries(const void *_a, const void *_b) {
-        PStoreEntry *a = (PStoreEntry *)_a, *b = (PStoreEntry *)_b;
+static int compare_pstore_entries(const PStoreEntry *a, const PStoreEntry *b) {
         return strcmp(a->dirent.d_name, b->dirent.d_name);
 }
 
@@ -349,7 +348,7 @@ static int list_files(PStoreList *list, const char *sourcepath) {
                         continue;
                 }
 
-                if (!GREEDY_REALLOC(list->entries, list->n_entries_allocated, list->n_entries + 1))
+                if (!GREEDY_REALLOC(list->entries, list->n_allocated, list->n_entries + 1))
                         return log_oom();
 
                 list->entries[list->n_entries++] = (PStoreEntry) {
@@ -394,7 +393,7 @@ static int run(int argc, char *argv[]) {
 
         /* Handle each pstore file */
         /* Sort files lexigraphically ascending, generally needed by all */
-        qsort_safe(list.entries, list.n_entries, sizeof(PStoreEntry), compare_pstore_entries);
+        typesafe_qsort(list.entries, list.n_entries, compare_pstore_entries);
 
         /* Process known file types */
         process_dmesg_files(&list);

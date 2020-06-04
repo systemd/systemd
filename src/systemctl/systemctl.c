@@ -322,28 +322,17 @@ static bool install_client_side(void) {
 }
 
 static int compare_unit_info(const UnitInfo *a, const UnitInfo *b) {
-        const char *d1, *d2;
         int r;
 
         /* First, order by machine */
-        if (!a->machine && b->machine)
-                return -1;
-        if (a->machine && !b->machine)
-                return 1;
-        if (a->machine && b->machine) {
-                r = strcasecmp(a->machine, b->machine);
-                if (r != 0)
-                        return r;
-        }
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
 
         /* Second, order by unit type */
-        d1 = strrchr(a->id, '.');
-        d2 = strrchr(b->id, '.');
-        if (d1 && d2) {
-                r = strcasecmp(d1, d2);
-                if (r != 0)
-                        return r;
-        }
+        r = strcasecmp_ptr(strrchr(a->id, '.'), strrchr(b->id, '.'));
+        if (r != 0)
+                return r;
 
         /* Third, order by name */
         return strcasecmp(a->id, b->id);
@@ -408,8 +397,6 @@ static int output_table(Table *table) {
 
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const UnitInfo *u;
-        int job_count = 0;
         int r;
 
         table = table_new("", "unit", "load", "active", "sub", "job", "description");
@@ -428,7 +415,8 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
         (void) table_set_empty_string(table, "-");
 
-        for (u = unit_infos; unit_infos && u < unit_infos + c; u++) {
+        int job_count = 0;
+        for (const UnitInfo *u = unit_infos; unit_infos && u < unit_infos + c; u++) {
                 _cleanup_free_ char *j = NULL;
                 const char *on_underline = "", *on_loaded = "", *on_active = "";
                 const char *on_circle = "", *id;
@@ -975,21 +963,15 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
         assert(a);
         assert(b);
 
-        if (!a->machine && b->machine)
-                return -1;
-        if (a->machine && !b->machine)
-                return 1;
-        if (a->machine && b->machine) {
-                r = strcasecmp(a->machine, b->machine);
-                if (r != 0)
-                        return r;
-        }
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
 
         r = strcmp(a->path, b->path);
-        if (r == 0)
-                r = strcmp(a->type, b->type);
+        if (r != 0)
+                return r;
 
-        return r;
+        return strcmp(a->type, b->type);
 }
 
 static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
@@ -1234,15 +1216,9 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
         assert(a);
         assert(b);
 
-        if (!a->machine && b->machine)
-                return -1;
-        if (a->machine && !b->machine)
-                return 1;
-        if (a->machine && b->machine) {
-                r = strcasecmp(a->machine, b->machine);
-                if (r != 0)
-                        return r;
-        }
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
 
         r = CMP(a->next_elapse, b->next_elapse);
         if (r != 0)

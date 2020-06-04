@@ -19,18 +19,19 @@
 #include "util.h"
 
 int strcmp_ptr(const char *a, const char *b) {
-
         /* Like strcmp(), but tries to make sense of NULL pointers */
+
         if (a && b)
                 return strcmp(a, b);
+        return CMP(a, b); /* Direct comparison of pointers, one of which is NULL */
+}
 
-        if (!a && b)
-                return -1;
+int strcasecmp_ptr(const char *a, const char *b) {
+        /* Like strcasecmp(), but tries to make sense of NULL pointers */
 
-        if (a && !b)
-                return 1;
-
-        return 0;
+        if (a && b)
+                return strcasecmp(a, b);
+        return CMP(a, b); /* Direct comparison of pointers, one of which is NULL */
 }
 
 char* endswith(const char *s, const char *postfix) {
