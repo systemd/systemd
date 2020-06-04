@@ -6,9 +6,11 @@
 
 #include "alloc-util.h"
 #include "crypt-util.h"
+#include "fileio.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -29,7 +31,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s attach VOLUME DATADEVICE HASHDEVICE ROOTHASH\n"
+        printf("%s attach VOLUME DATADEVICE HASHDEVICE ROOTHASH [ROOTHASHSIG]\n"
                "%s detach VOLUME\n\n"
                "Attaches or detaches an integrity protected block device.\n"
                "\nSee the %s for details.\n"
@@ -87,7 +89,28 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to configure data device: %m");
 
-                r = crypt_activate_by_volume_key(cd, argv[2], m, l, CRYPT_ACTIVATE_READONLY);
+                if (argc > 6) {
+#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
+                        _cleanup_free_ char *hash_sig = NULL;
+                        size_t hash_sig_size;
+                        char *value;
+
+                        if ((value = startswith(argv[6], "base64:"))) {
+                                r = unbase64mem(value, strlen(value), (void *)&hash_sig, &hash_sig_size);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", argv[6]);
+                        } else {
+                                r = read_full_file_full(AT_FDCWD, argv[6], 0, &hash_sig, &hash_sig_size);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to read root hash signature: %m");
+                        }
+
+                        r = crypt_activate_by_signed_key(cd, argv[2], m, l, hash_sig, hash_sig_size, CRYPT_ACTIVATE_READONLY);
+#else
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature %s requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()", argv[6]);
+#endif
+                } else
+                        r = crypt_activate_by_volume_key(cd, argv[2], m, l, CRYPT_ACTIVATE_READONLY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set up verity device: %m");
 
