@@ -108,23 +108,15 @@ static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResource
         } else if (set_contains(c->transactions, t))
                 return 0;
 
-        r = set_ensure_allocated(&c->transactions, NULL);
-        if (r < 0)
-                return r;
-
-        r = set_ensure_allocated(&t->notify_query_candidates, NULL);
-        if (r < 0)
-                return r;
-
         r = set_ensure_allocated(&t->notify_query_candidates_done, NULL);
         if (r < 0)
                 return r;
 
-        r = set_put(t->notify_query_candidates, c);
+        r = set_ensure_put(&t->notify_query_candidates, NULL, c);
         if (r < 0)
                 return r;
 
-        r = set_put(c->transactions, t);
+        r = set_ensure_put(&c->transactions, NULL, t);
         if (r < 0) {
                 (void) set_remove(t->notify_query_candidates, c);
                 return r;

@@ -606,11 +606,7 @@ static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Loading of ingress BPF program %s failed: %m", *bpf_fs_path);
 
-                r = set_ensure_allocated(set, &filter_prog_hash_ops);
-                if (r < 0)
-                        return log_unit_error_errno(u, r, "Can't allocate BPF program set: %m");
-
-                r = set_put(*set, prog);
+                r = set_ensure_put(set, &filter_prog_hash_ops, prog);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Can't add program to BPF program set: %m");
                 TAKE_PTR(prog);
@@ -662,12 +658,9 @@ static int attach_custom_bpf_progs(Unit *u, const char *path, int attach_type, S
                 r = bpf_program_cgroup_attach(prog, attach_type, path, BPF_F_ALLOW_MULTI);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Attaching custom egress BPF program to cgroup %s failed: %m", path);
-                /* Remember that these BPF programs are installed now. */
-                r = set_ensure_allocated(set_installed, &filter_prog_hash_ops);
-                if (r < 0)
-                        return log_unit_error_errno(u, r, "Can't allocate BPF program set: %m");
 
-                r = set_put(*set_installed, prog);
+                /* Remember that these BPF programs are installed now. */
+                r = set_ensure_put(set_installed, &filter_prog_hash_ops, prog);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Can't add program to BPF program set: %m");
                 bpf_program_ref(prog);

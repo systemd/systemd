@@ -359,11 +359,7 @@ static int userdb_connect(
         if (r < 0)
                 return log_debug_errno(r, "Failed to invoke varlink method: %m");
 
-        r = set_ensure_allocated(&iterator->links, &link_hash_ops);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to allocate set: %m");
-
-        r = set_put(iterator->links, vl);
+        r = set_ensure_put(&iterator->links, &link_hash_ops, vl);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add varlink connection to set: %m");
 

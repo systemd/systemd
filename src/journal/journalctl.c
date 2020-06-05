@@ -875,12 +875,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Bad --facility= argument \"%s\".", fac);
 
-                                r = set_ensure_allocated(&arg_facilities, NULL);
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = set_put(arg_facilities, INT_TO_PTR(num));
-                                if (r < 0)
+                                if (set_ensure_put(&arg_facilities, NULL, INT_TO_PTR(num)) < 0)
                                         return log_oom();
                         }
 

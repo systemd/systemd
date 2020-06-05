@@ -3196,11 +3196,7 @@ static int link_parent(ItemArray *a) {
                 if (!j)
                         j = ordered_hashmap_get(globs, prefix);
                 if (j) {
-                        r = set_ensure_allocated(&j->children, NULL);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = set_put(j->children, a);
+                        r = set_ensure_put(&j->children, NULL, a);
                         if (r < 0)
                                 return log_oom();
 

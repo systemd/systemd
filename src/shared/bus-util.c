@@ -613,11 +613,7 @@ int bus_message_print_all_properties(
                         return r;
 
                 if (found_properties) {
-                        r = set_ensure_allocated(found_properties, &string_hash_ops);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = set_put(*found_properties, name);
+                        r = set_ensure_put(found_properties, &string_hash_ops, name);
                         if (r < 0 && r != -EEXIST)
                                 return log_oom();
                 }

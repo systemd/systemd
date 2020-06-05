@@ -1450,10 +1450,6 @@ _public_ int sd_event_add_post(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
 
-        r = set_ensure_allocated(&e->post_sources, NULL);
-        if (r < 0)
-                return r;
-
         s = source_new(e, !ret, SOURCE_POST);
         if (!s)
                 return -ENOMEM;
@@ -1462,9 +1458,10 @@ _public_ int sd_event_add_post(
         s->userdata = userdata;
         s->enabled = SD_EVENT_ON;
 
-        r = set_put(e->post_sources, s);
+        r = set_ensure_put(&e->post_sources, NULL, s);
         if (r < 0)
                 return r;
+        assert(r > 0);
 
         if (ret)
                 *ret = s;

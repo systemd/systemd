@@ -348,14 +348,7 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
         if (ret != 0) {
                 log_netdev_error(netdev, "Failed to resolve host '%s:%s': %s", peer->endpoint_host, peer->endpoint_port, gai_strerror(ret));
 
-                r = set_ensure_allocated(&w->peers_with_failed_endpoint, NULL);
-                if (r < 0) {
-                        log_oom();
-                        peer->section->invalid = true;
-                        goto resolve_next;
-                }
-
-                r = set_put(w->peers_with_failed_endpoint, peer);
+                r = set_ensure_put(&w->peers_with_failed_endpoint, NULL, peer);
                 if (r < 0) {
                         log_netdev_error(netdev, "Failed to save a peer, dropping the peer: %m");
                         peer->section->invalid = true;
@@ -809,15 +802,11 @@ int config_parse_wireguard_endpoint(
         if (r < 0)
                 return log_oom();
 
-        r = set_ensure_allocated(&w->peers_with_unresolved_endpoint, NULL);
+        r = set_ensure_put(&w->peers_with_unresolved_endpoint, NULL, peer);
         if (r < 0)
                 return log_oom();
-
-        r = set_put(w->peers_with_unresolved_endpoint, peer);
-        if (r < 0)
-                return r;
-
         TAKE_PTR(peer);
+
         return 0;
 }
 

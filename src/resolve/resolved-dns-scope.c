@@ -1253,11 +1253,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 if (!scope->announced &&
                     dns_resource_key_is_dnssd_ptr(z->rr->key)) {
                         if (!set_contains(types, dns_resource_key_name(z->rr->key))) {
-                                r = set_ensure_allocated(&types, &dns_name_hash_ops);
-                                if (r < 0)
-                                        return log_debug_errno(r, "Failed to allocate set: %m");
-
-                                r = set_put(types, dns_resource_key_name(z->rr->key));
+                                r = set_ensure_put(&types, &dns_name_hash_ops, dns_resource_key_name(z->rr->key));
                                 if (r < 0)
                                         return log_debug_errno(r, "Failed to add item to set: %m");
                         }

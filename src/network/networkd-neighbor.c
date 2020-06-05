@@ -300,11 +300,7 @@ static int neighbor_add_internal(Link *link, Set **neighbors, int family, const 
                 .lladdr_size = lladdr_size,
         };
 
-        r = set_ensure_allocated(neighbors, &neighbor_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = set_put(*neighbors, neighbor);
+        r = set_ensure_put(neighbors, &neighbor_hash_ops, neighbor);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -314,8 +310,7 @@ static int neighbor_add_internal(Link *link, Set **neighbors, int family, const 
 
         if (ret)
                 *ret = neighbor;
-
-        neighbor = NULL;
+        TAKE_PTR(neighbor);
 
         return 0;
 }
@@ -332,11 +327,7 @@ int neighbor_add(Link *link, int family, const union in_addr_union *addr, const 
                         return r;
         } else if (r == 0) {
                 /* Neighbor is foreign, claim it as recognized */
-                r = set_ensure_allocated(&link->neighbors, &neighbor_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = set_put(link->neighbors, neighbor);
+                r = set_ensure_put(&link->neighbors, &neighbor_hash_ops, neighbor);
                 if (r < 0)
                         return r;
 

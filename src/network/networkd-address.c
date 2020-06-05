@@ -266,11 +266,7 @@ static int address_add_internal(Link *link, Set **addresses,
         /* Consider address tentative until we get the real flags from the kernel */
         address->flags = IFA_F_TENTATIVE;
 
-        r = set_ensure_allocated(addresses, &address_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = set_put(*addresses, address);
+        r = set_ensure_put(addresses, &address_hash_ops, address);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -280,9 +276,7 @@ static int address_add_internal(Link *link, Set **addresses,
 
         if (ret)
                 *ret = address;
-
-        address = NULL;
-
+        TAKE_PTR(address);
         return 0;
 }
 
@@ -302,11 +296,7 @@ int address_add(Link *link, int family, const union in_addr_union *in_addr, unsi
                         return r;
         } else if (r == 0) {
                 /* Take over a foreign address */
-                r = set_ensure_allocated(&link->addresses, &address_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = set_put(link->addresses, address);
+                r = set_ensure_put(&link->addresses, &address_hash_ops, address);
                 if (r < 0)
                         return r;
 

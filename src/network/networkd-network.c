@@ -1268,15 +1268,11 @@ int config_parse_dnssec_negative_trust_anchors(
                         continue;
                 }
 
-                r = set_ensure_allocated(&n->dnssec_negative_trust_anchors, &dns_name_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
-                r = set_put(n->dnssec_negative_trust_anchors, w);
+                r = set_ensure_put(&n->dnssec_negative_trust_anchors, &dns_name_hash_ops, w);
                 if (r < 0)
                         return log_oom();
                 if (r > 0)
-                        w = NULL;
+                        TAKE_PTR(w);
         }
 
         return 0;

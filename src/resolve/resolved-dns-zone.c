@@ -183,15 +183,11 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                         return r;
         }
 
-        r = set_ensure_allocated(&t->notify_zone_items, NULL);
-        if (r < 0)
-                return r;
-
         r = set_ensure_allocated(&t->notify_zone_items_done, NULL);
         if (r < 0)
                 return r;
 
-        r = set_put(t->notify_zone_items, i);
+        r = set_ensure_put(&t->notify_zone_items, NULL, i);
         if (r < 0)
                 return r;
 

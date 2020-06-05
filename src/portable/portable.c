@@ -1193,11 +1193,7 @@ int portable_detach(
                 if (path_is_absolute(marker) &&
                     !image_in_search_path(IMAGE_PORTABLE, marker)) {
 
-                        r = set_ensure_allocated(&markers, &path_hash_ops);
-                        if (r < 0)
-                                return r;
-
-                        r = set_put(markers, marker);
+                        r = set_ensure_put(&markers, &path_hash_ops, marker);
                         if (r >= 0)
                                 marker = NULL;
                         else if (r != -EEXIST)

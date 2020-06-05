@@ -1697,10 +1697,6 @@ int bus_exec_context_set_transient_property(
                         else {
                                 char **s;
 
-                                r = set_ensure_allocated(&c->syscall_archs, NULL);
-                                if (r < 0)
-                                        return r;
-
                                 STRV_FOREACH(s, l) {
                                         uint32_t a;
 
@@ -1708,7 +1704,7 @@ int bus_exec_context_set_transient_property(
                                         if (r < 0)
                                                 return r;
 
-                                        r = set_put(c->syscall_archs, UINT32_TO_PTR(a + 1));
+                                        r = set_ensure_put(&c->syscall_archs, NULL, UINT32_TO_PTR(a + 1));
                                         if (r < 0)
                                                 return r;
                                 }

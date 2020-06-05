@@ -105,6 +105,6 @@ extern const uint32_t seccomp_local_archs[];
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(scmp_filter_ctx, seccomp_release);
 
-int parse_syscall_archs(char **l, Set **archs);
+int parse_syscall_archs(char **l, Set **ret_archs);
 
 uint32_t scmp_act_kill_process(void);

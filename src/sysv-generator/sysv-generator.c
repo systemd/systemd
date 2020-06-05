@@ -885,13 +885,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
 
                                 service->sysv_start_priority = MAX(a*10 + b, service->sysv_start_priority);
 
-                                r = set_ensure_allocated(&runlevel_services[i], NULL);
-                                if (r < 0) {
-                                        log_oom();
-                                        goto finish;
-                                }
-
-                                r = set_put(runlevel_services[i], service);
+                                r = set_ensure_put(&runlevel_services[i], NULL, service);
                                 if (r < 0) {
                                         log_oom();
                                         goto finish;

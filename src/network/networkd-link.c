@@ -2125,11 +2125,7 @@ static int link_append_to_master(Link *link, NetDev *netdev) {
         if (r < 0)
                 return r;
 
-        r = set_ensure_allocated(&master->slaves, NULL);
-        if (r < 0)
-                return r;
-
-        r = set_put(master->slaves, link);
+        r = set_ensure_put(&master->slaves, NULL, link);
         if (r <= 0)
                 return r;
 
@@ -4440,16 +4436,10 @@ void link_dirty(Link *link) {
         /* mark manager dirty as link is dirty */
         manager_dirty(link->manager);
 
-        r = set_ensure_allocated(&link->manager->dirty_links, NULL);
-        if (r < 0)
-                /* allocation errors are ignored */
-                return;
-
-        r = set_put(link->manager->dirty_links, link);
+        r = set_ensure_put(&link->manager->dirty_links, NULL, link);
         if (r <= 0)
-                /* don't take another ref if the link was already dirty */
+                /* Ignore allocation errors and don't take another ref if the link was already dirty */
                 return;
-
         link_ref(link);
 }
 

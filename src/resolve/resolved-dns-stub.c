@@ -348,13 +348,8 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
                 /* Remember which queries belong to this stream, so that we can cancel them when the stream
                  * is disconnected early */
 
-                r = set_ensure_allocated(&s->queries, &trivial_hash_ops);
+                r = set_ensure_put(&s->queries, &trivial_hash_ops, q);
                 if (r < 0) {
-                        log_oom();
-                        goto fail;
-                }
-
-                if (set_put(s->queries, q) < 0) {
                         log_oom();
                         goto fail;
                 }
