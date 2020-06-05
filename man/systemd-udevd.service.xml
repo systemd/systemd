@@ -77,7 +77,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-c=</option></term>
+        <term><option>-c</option></term>
         <term><option>--children-max=</option></term>
         <listitem>
           <para>Limit the number of events executed in parallel.</para>
@@ -85,7 +85,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-e=</option></term>
+        <term><option>-e</option></term>
         <term><option>--exec-delay=</option></term>
         <listitem>
           <para>Delay the execution of <varname>RUN</varname>
@@ -97,7 +97,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-t=</option></term>
+        <term><option>-t</option></term>
         <term><option>--event-timeout=</option></term>
         <listitem>
           <para>Set the number of seconds to wait for events to finish. After
@@ -106,7 +106,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-N=</option></term>
+        <term><option>-N</option></term>
         <term><option>--resolve-names=</option></term>
         <listitem>
           <para>Specify when systemd-udevd should resolve names of users and groups.
