@@ -768,7 +768,7 @@ static void reset_direct_storage(HashmapBase *h) {
         memset(p, DIB_RAW_INIT, sizeof(dib_raw_t) * hi->n_direct_buckets);
 }
 
-static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type HASHMAP_DEBUG_PARAMS) {
+static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type  HASHMAP_DEBUG_PARAMS) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
         bool up;
@@ -808,19 +808,19 @@ static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enu
 }
 
 Hashmap *_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (Hashmap*)        hashmap_base_new(hash_ops, HASHMAP_TYPE_PLAIN HASHMAP_DEBUG_PASS_ARGS);
+        return (Hashmap*)        hashmap_base_new(hash_ops, HASHMAP_TYPE_PLAIN  HASHMAP_DEBUG_PASS_ARGS);
 }
 
 OrderedHashmap *_ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (OrderedHashmap*) hashmap_base_new(hash_ops, HASHMAP_TYPE_ORDERED HASHMAP_DEBUG_PASS_ARGS);
+        return (OrderedHashmap*) hashmap_base_new(hash_ops, HASHMAP_TYPE_ORDERED  HASHMAP_DEBUG_PASS_ARGS);
 }
 
 Set *_set_new(const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return (Set*)            hashmap_base_new(hash_ops, HASHMAP_TYPE_SET HASHMAP_DEBUG_PASS_ARGS);
+        return (Set*)            hashmap_base_new(hash_ops, HASHMAP_TYPE_SET  HASHMAP_DEBUG_PASS_ARGS);
 }
 
 static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops *hash_ops,
-                                         enum HashmapType type HASHMAP_DEBUG_PARAMS) {
+                                         enum HashmapType type  HASHMAP_DEBUG_PARAMS) {
         HashmapBase *q;
 
         assert(h);
@@ -828,7 +828,7 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
         if (*h)
                 return 0;
 
-        q = hashmap_base_new(hash_ops, type HASHMAP_DEBUG_PASS_ARGS);
+        q = hashmap_base_new(hash_ops, type  HASHMAP_DEBUG_PASS_ARGS);
         if (!q)
                 return -ENOMEM;
 
@@ -837,15 +837,15 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
 }
 
 int _hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_PLAIN HASHMAP_DEBUG_PASS_ARGS);
+        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_PLAIN  HASHMAP_DEBUG_PASS_ARGS);
 }
 
 int _ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_ORDERED HASHMAP_DEBUG_PASS_ARGS);
+        return hashmap_base_ensure_allocated((HashmapBase**)h, hash_ops, HASHMAP_TYPE_ORDERED  HASHMAP_DEBUG_PASS_ARGS);
 }
 
 int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {
-        return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET HASHMAP_DEBUG_PASS_ARGS);
+        return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET  HASHMAP_DEBUG_PASS_ARGS);
 }
 
 static void hashmap_free_no_clear(HashmapBase *h) {
@@ -1711,13 +1711,13 @@ int _hashmap_move_one(HashmapBase *h, HashmapBase *other, const void *key) {
         return 0;
 }
 
-HashmapBase *_hashmap_copy(HashmapBase *h) {
+HashmapBase *_hashmap_copy(HashmapBase *h  HASHMAP_DEBUG_PARAMS) {
         HashmapBase *copy;
         int r;
 
         assert(h);
 
-        copy = hashmap_base_new(h->hash_ops, h->type  HASHMAP_DEBUG_SRC_ARGS);
+        copy = hashmap_base_new(h->hash_ops, h->type  HASHMAP_DEBUG_PASS_ARGS);
         if (!copy)
                 return NULL;
 
@@ -1733,10 +1733,8 @@ HashmapBase *_hashmap_copy(HashmapBase *h) {
                 assert_not_reached("Unknown hashmap type");
         }
 
-        if (r < 0) {
-                _hashmap_free(copy, false, false);
-                return NULL;
-        }
+        if (r < 0)
+                return _hashmap_free(copy, false, false);
 
         return copy;
 }

@@ -128,13 +128,9 @@ static inline OrderedHashmap *ordered_hashmap_free_free_free(OrderedHashmap *h) 
 IteratedCache *iterated_cache_free(IteratedCache *cache);
 int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries);
 
-HashmapBase *_hashmap_copy(HashmapBase *h);
-static inline Hashmap *hashmap_copy(Hashmap *h) {
-        return (Hashmap*) _hashmap_copy(HASHMAP_BASE(h));
-}
-static inline OrderedHashmap *ordered_hashmap_copy(OrderedHashmap *h) {
-        return (OrderedHashmap*) _hashmap_copy(HASHMAP_BASE(h));
-}
+HashmapBase *_hashmap_copy(HashmapBase *h  HASHMAP_DEBUG_PARAMS);
+#define hashmap_copy(h) ((Hashmap*) _hashmap_copy(HASHMAP_BASE(h)  HASHMAP_DEBUG_SRC_ARGS))
+#define ordered_hashmap_copy(h) ((OrderedHashmap*) _hashmap_copy(HASHMAP_BASE(h)  HASHMAP_DEBUG_SRC_ARGS))
 
 int _hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
 int _ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);

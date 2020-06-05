@@ -26,9 +26,7 @@ static inline Set *set_free_free(Set *s) {
 
 /* no set_free_free_free */
 
-static inline Set *set_copy(Set *s) {
-        return (Set*) _hashmap_copy(HASHMAP_BASE(s));
-}
+#define set_copy(s) ((Set*) _hashmap_copy(HASHMAP_BASE(h)  HASHMAP_DEBUG_SRC_ARGS))
 
 int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
 #define set_ensure_allocated(h, ops) _set_ensure_allocated(h, ops HASHMAP_DEBUG_SRC_ARGS)
