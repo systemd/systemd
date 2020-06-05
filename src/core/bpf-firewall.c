@@ -595,7 +595,7 @@ static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set
         set_clear(*set);
 
         STRV_FOREACH(bpf_fs_path, filter_paths) {
-                _cleanup_free_ BPFProgram *prog = NULL;
+                _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
                 int r;
 
                 r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &prog);
@@ -606,10 +606,9 @@ static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Loading of ingress BPF program %s failed: %m", *bpf_fs_path);
 
-                r = set_ensure_put(set, &filter_prog_hash_ops, prog);
+                r = set_ensure_consume(set, &filter_prog_hash_ops, TAKE_PTR(prog));
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Can't add program to BPF program set: %m");
-                TAKE_PTR(prog);
         }
 
         return 0;
