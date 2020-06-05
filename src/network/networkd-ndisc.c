@@ -600,12 +600,11 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                         .valid_until = time_now + lifetime * USEC_PER_SEC,
                 };
 
-                r = set_ensure_put(&link->ndisc_rdnss, &ndisc_rdnss_hash_ops, x);
+                r = set_ensure_consume(&link->ndisc_rdnss, &ndisc_rdnss_hash_ops, TAKE_PTR(x));
                 if (r < 0)
                         return log_oom();
-                TAKE_PTR(x);
-
                 assert(r > 0);
+
                 link_dirty(link);
         }
 
@@ -683,12 +682,11 @@ static void ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
 
                 s->valid_until = time_now + lifetime * USEC_PER_SEC;
 
-                r = set_ensure_put(&link->ndisc_dnssl, &ndisc_dnssl_hash_ops, s);
+                r = set_ensure_consume(&link->ndisc_dnssl, &ndisc_dnssl_hash_ops, TAKE_PTR(s));
                 if (r < 0) {
                         log_oom();
                         return;
                 }
-                TAKE_PTR(s);
                 assert(r > 0);
 
                 link_dirty(link);
@@ -972,13 +970,9 @@ int config_parse_ndisc_black_listed_prefix(
                 if (!a)
                         return log_oom();
 
-                r = set_ensure_put(&network->ndisc_black_listed_prefix, &in6_addr_hash_ops, a);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to store NDISC black listed prefix '%s', ignoring assignment: %m", n);
-                        continue;
-                }
-                TAKE_PTR(a);
+                r = set_ensure_consume(&network->ndisc_black_listed_prefix, &in6_addr_hash_ops, TAKE_PTR(a));
+                if (r < 0)
+                        return log_oom();
         }
 
         return 0;
