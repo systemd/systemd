@@ -1125,7 +1125,7 @@ int portable_detach(
                 sd_bus_error *error) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
-        _cleanup_set_free_free_ Set *unit_files = NULL, *markers = NULL;
+        _cleanup_set_free_ Set *unit_files = NULL, *markers = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where, *item;
         Iterator iterator;
@@ -1148,10 +1148,6 @@ int portable_detach(
 
                 return log_debug_errno(errno, "Failed to open '%s' directory: %m", where);
         }
-
-        markers = set_new(&path_hash_ops);
-        if (!markers)
-                return -ENOMEM;
 
         FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to enumerate '%s' directory: %m", where)) {
                 _cleanup_free_ char *marker = NULL;
@@ -1193,10 +1189,8 @@ int portable_detach(
                 if (path_is_absolute(marker) &&
                     !image_in_search_path(IMAGE_PORTABLE, marker)) {
 
-                        r = set_ensure_put(&markers, &path_hash_ops, marker);
-                        if (r >= 0)
-                                marker = NULL;
-                        else if (r != -EEXIST)
+                        r = set_ensure_consume(&markers, &path_hash_ops_free, TAKE_PTR(marker));
+                        if (r < 0)
                                 return r;
                 }
         }
