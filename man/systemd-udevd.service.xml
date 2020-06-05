@@ -106,6 +106,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--timeout-signal=</option></term>
+        <listitem>
+          <para>Set the signal which <filename>systemd-udevd</filename> will send to
+          forked off processes after reaching event timeout. The setting can be overriden
+          at boot time with the kernel command line option
+          <varname>udev.timeout_signal=</varname>. Setting to <constant>SIGABRT</constant>
+          may be helpful in order to debug worker timeouts. Defaults to
+          <constant>SIGKILL</constant>. Note that setting the option on the command line
+          overrides the setting from the configuration file.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-N=</option></term>
         <term><option>--resolve-names=</option></term>
         <listitem>
@@ -158,6 +173,15 @@
           <para>Wait for events to finish up to the given number
           of seconds. This option might be useful if events are
           terminated due to kernel drivers taking too long to initialize.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>udev.timeout_signal=</varname></term>
+        <term><varname>rd.udev.timeout_signal=</varname></term>
+        <listitem>
+          <para>Specifies a signal that <filename>systemd-udevd</filename> will send to
+          workers on timeout. Note that kernel command line option overrides both the
+          setting in the configuration file and the one on the program command line.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

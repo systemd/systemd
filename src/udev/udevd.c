@@ -75,6 +75,7 @@ static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
 static unsigned arg_children_max = 0;
 static usec_t arg_exec_delay_usec = 0;
 static usec_t arg_event_timeout_usec = 180 * USEC_PER_SEC;
+static int arg_timeout_signal = SIGKILL;
 
 typedef struct Manager {
         sd_event *event;
@@ -228,7 +229,7 @@ static int on_event_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(event);
         assert(event->worker);
 
-        kill_and_sigcont(event->worker->pid, SIGKILL);
+        kill_and_sigcont(event->worker->pid, arg_timeout_signal);
         event->worker->state = WORKER_KILLED;
 
         log_device_error(event->dev, "Worker ["PID_FMT"] processing SEQNUM=%"PRIu64" killed", event->worker->pid, event->seqnum);
@@ -412,11 +413,11 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
                 return r;
 
         /* apply rules, create node, symlinks */
-        r = udev_event_execute_rules(udev_event, arg_event_timeout_usec, manager->properties, manager->rules);
+        r = udev_event_execute_rules(udev_event, arg_event_timeout_usec, arg_timeout_signal, manager->properties, manager->rules);
         if (r < 0)
                 return r;
 
-        udev_event_execute_run(udev_event, arg_event_timeout_usec);
+        udev_event_execute_run(udev_event, arg_event_timeout_usec, arg_timeout_signal);
 
         if (!manager->rtnl)
                 /* in case rtnl was initialized */
@@ -1455,6 +1456,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 r = parse_sec(value, &arg_exec_delay_usec);
 
+        } else if (proc_cmdline_key_streq(key, "udev.timeout_signal")) {
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = signal_from_string(value);
+                if (r > 0)
+                        arg_timeout_signal = r;
         } else if (startswith(key, "udev."))
                 log_warning("Unknown udev kernel command line option \"%s\", ignoring", key);
 
@@ -1492,15 +1500,20 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_TIMEOUT_SIGNAL,
+        };
+
         static const struct option options[] = {
-                { "daemon",             no_argument,            NULL, 'd' },
-                { "debug",              no_argument,            NULL, 'D' },
-                { "children-max",       required_argument,      NULL, 'c' },
-                { "exec-delay",         required_argument,      NULL, 'e' },
-                { "event-timeout",      required_argument,      NULL, 't' },
-                { "resolve-names",      required_argument,      NULL, 'N' },
-                { "help",               no_argument,            NULL, 'h' },
-                { "version",            no_argument,            NULL, 'V' },
+                { "daemon",             no_argument,            NULL, 'd'                 },
+                { "debug",              no_argument,            NULL, 'D'                 },
+                { "children-max",       required_argument,      NULL, 'c'                 },
+                { "exec-delay",         required_argument,      NULL, 'e'                 },
+                { "event-timeout",      required_argument,      NULL, 't'                 },
+                { "resolve-names",      required_argument,      NULL, 'N'                 },
+                { "help",               no_argument,            NULL, 'h'                 },
+                { "version",            no_argument,            NULL, 'V'                 },
+                { "timeout-signal",     required_argument,      NULL,  ARG_TIMEOUT_SIGNAL },
                 {}
         };
 
@@ -1524,6 +1537,14 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_sec(optarg, &arg_exec_delay_usec);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse --exec-delay= value '%s', ignoring: %m", optarg);
+                        break;
+                case ARG_TIMEOUT_SIGNAL:
+                        r = signal_from_string(optarg);
+                        if (r <= 0)
+                                log_warning_errno(r, "Failed to parse --timeout-signal= value '%s', ignoring: %m", optarg);
+                        else
+                                arg_timeout_signal = r;
+
                         break;
                 case 't':
                         r = parse_sec(optarg, &arg_event_timeout_usec);
@@ -1722,7 +1743,7 @@ int run_udevd(int argc, char *argv[]) {
 
         log_set_target(LOG_TARGET_AUTO);
         log_open();
-        udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing);
+        udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing, &arg_timeout_signal);
         log_parse_environment();
         log_open(); /* Done again to update after reading configuration. */
 

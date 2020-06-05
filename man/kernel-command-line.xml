@@ -271,6 +271,9 @@
         <term><varname>rd.udev.exec_delay=</varname></term>
         <term><varname>udev.event_timeout=</varname></term>
         <term><varname>rd.udev.event_timeout=</varname></term>
+        <term><varname>udev.timeout_signal=</varname></term>
+        <term><varname>rd.udev.timeout_signal=</varname></term>
+
         <term><varname>net.ifnames=</varname></term>
         <term><varname>net.naming-scheme=</varname></term>
 

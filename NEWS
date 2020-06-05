@@ -100,6 +100,11 @@ CHANGES WITH 246 in spe:
           can now be suspended or resumed either using new systemctl verbs,
           freeze and thaw respectively, or via D-Bus.
 
+        * systemd-udevd gained new configuration option timeout_signal= as well
+          as coresponding kernel command line option udev.timeout_signal.
+          The option can be used to configure the UNIX signal that the main
+          daemon sends to the worker processes on timeout.
+
         * A new sd-path.h API has been added to libsystemd. It provides a
           simple API for retrieving various search paths and primary
           directories for various resources.

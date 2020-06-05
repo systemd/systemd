@@ -21,10 +21,11 @@ int udev_parse_config_full(
                 unsigned *ret_children_max,
                 usec_t *ret_exec_delay_usec,
                 usec_t *ret_event_timeout_usec,
-                ResolveNameTiming *ret_resolve_name_timing);
+                ResolveNameTiming *ret_resolve_name_timing,
+                int *ret_timeout_signal);
 
 static inline int udev_parse_config(void) {
-        return udev_parse_config_full(NULL, NULL, NULL, NULL);
+        return udev_parse_config_full(NULL, NULL, NULL, NULL, NULL);
 }
 
 int device_wait_for_initialization(sd_device *device, const char *subsystem, usec_t timeout, sd_device **ret);
