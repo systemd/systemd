@@ -3129,12 +3129,12 @@ static int link_configure_duid(Link *link) {
                 r = set_put(m->links_requesting_uuid, link);
                 if (r < 0)
                         return log_oom();
+                if (r > 0)
+                        link_ref(link);
 
                 r = set_put(m->duids_requesting_uuid, duid);
                 if (r < 0)
                         return log_oom();
-
-                link_ref(link);
         }
 
         return 0;

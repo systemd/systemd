@@ -2312,12 +2312,12 @@ int manager_request_product_uuid(Manager *m, Link *link) {
                 r = set_ensure_put(&m->links_requesting_uuid, NULL, link);
                 if (r < 0)
                         return log_oom();
+                if (r > 0)
+                        link_ref(link);
 
                 r = set_ensure_put(&m->duids_requesting_uuid, NULL, duid);
                 if (r < 0)
                         return log_oom();
-
-                link_ref(link);
         }
 
         if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
