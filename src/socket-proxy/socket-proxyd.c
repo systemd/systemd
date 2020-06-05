@@ -480,17 +480,19 @@ static int add_connection_socket(Context *context, int fd) {
                         log_warning_errno(r, "Unable to disable idle timer, continuing: %m");
         }
 
-        c = new0(Connection, 1);
+        c = new(Connection, 1);
         if (!c) {
                 log_oom();
                 return 0;
         }
 
-        c->context = context;
-        c->server_fd = fd;
-        c->client_fd = -1;
-        c->server_to_client_buffer[0] = c->server_to_client_buffer[1] = -1;
-        c->client_to_server_buffer[0] = c->client_to_server_buffer[1] = -1;
+        *c = (Connection) {
+               .context = context,
+               .server_fd = fd,
+               .client_fd = -1,
+               .server_to_client_buffer = {-1, -1},
+               .client_to_server_buffer = {-1, -1},
+        };
 
         r = set_ensure_put(&context->connections, NULL, c);
         if (r < 0) {
