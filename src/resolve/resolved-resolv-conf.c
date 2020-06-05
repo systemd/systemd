@@ -325,7 +325,7 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
               "# operation for /etc/resolv.conf.\n"
               "\n"
               "nameserver 127.0.0.53\n"
-              "options edns0\n", f);
+              "options edns0 trust-ad\n", f);
 
         if (!ordered_set_isempty(domains))
                 write_resolv_conf_search(domains, f);
