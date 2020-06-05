@@ -72,7 +72,6 @@ _loginctl () {
         return 0
     fi
 
-
     if [[ "$cur" = -* ]]; then
         COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
         return 0
