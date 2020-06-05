@@ -466,7 +466,7 @@ _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
 
 _public_ int sd_lldp_set_neighbors_max(sd_lldp *lldp, uint64_t m) {
         assert_return(lldp, -EINVAL);
-        assert_return(m <= 0, -EINVAL);
+        assert_return(m > 0, -EINVAL);
 
         lldp->neighbors_max = m;
         lldp_make_space(lldp, 0);
