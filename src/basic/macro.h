@@ -448,6 +448,8 @@ static inline int __coverity_check_and_return__(int condition) {
 
 #define char_array_0(x) x[sizeof(x)-1] = 0;
 
+#define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
+
 /* Returns the number of chars needed to format variables of the
  * specified type as a decimal string. Adds in extra space for a
  * negative '-' prefix (hence works correctly on signed

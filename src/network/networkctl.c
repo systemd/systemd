@@ -12,6 +12,7 @@
 
 #include "sd-bus.h"
 #include "sd-device.h"
+#include "sd-dhcp-client.h"
 #include "sd-hwdb.h"
 #include "sd-lldp.h"
 #include "sd-netlink.h"
@@ -471,9 +472,13 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
         return 1;
 }
 
-static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int link_get_property(
+                sd_bus *bus,
+                const LinkInfo *link,
+                sd_bus_error *error,
+                sd_bus_message **reply,
+                const char *iface,
+                const char *propname) {
         _cleanup_free_ char *path = NULL, *ifindex_str = NULL;
         int r;
 
@@ -484,17 +489,25 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
+        return sd_bus_call_method(
                         bus,
                         "org.freedesktop.network1",
                         path,
                         "org.freedesktop.DBus.Properties",
                         "Get",
-                        &error,
-                        &reply,
+                        error,
+                        reply,
                         "ss",
-                        "org.freedesktop.network1.Link",
-                        "BitRates");
+                        iface,
+                        propname);
+}
+
+static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.Link", "BitRates");
         if (r < 0) {
                 bool quiet = sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY) ||
                              sd_bus_error_has_name(&error, BUS_ERROR_SPEED_METER_INACTIVE);
@@ -1150,6 +1163,96 @@ static int dump_lldp_neighbors(Table *table, const char *prefix, int ifindex) {
         return dump_list(table, prefix, buf);
 }
 
+static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const LinkInfo *link) {
+        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.DHCPServer", "Leases");
+        if (r < 0) {
+                bool quiet = sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY);
+
+                log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING,
+                               r, "Failed to query link DHCP leases: %s", bus_error_message(&error, r));
+                return 0;
+        }
+
+        r = sd_bus_message_enter_container(reply, 'v', "a(uayayayayt)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_enter_container(reply, 'a', "(uayayayayt)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        while ((r = sd_bus_message_enter_container(reply, 'r', "uayayayayt")) > 0) {
+                _cleanup_free_ char *id = NULL, *ip = NULL;
+                const void *client_id, *addr, *gtw, *hwaddr;
+                size_t client_id_sz, sz;
+                uint64_t expiration;
+                uint32_t family;
+
+                r = sd_bus_message_read(reply, "u", &family);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read_array(reply, 'y', &client_id, &client_id_sz);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read_array(reply, 'y', &addr, &sz);
+                if (r < 0 || sz != 4)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read_array(reply, 'y', &gtw, &sz);
+                if (r < 0 || sz != 4)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read_array(reply, 'y', &hwaddr, &sz);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_read_basic(reply, 't', &expiration);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_dhcp_client_id_to_string(client_id, client_id_sz, &id);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = in_addr_to_string(family, addr, &ip);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = strv_extendf(&buf, "%s (to %s)", ip, id);
+                if (r < 0)
+                        return log_oom();
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (strv_isempty(buf)) {
+                r = strv_extendf(&buf, "none");
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return dump_list(table, prefix, buf);
+}
+
 static int dump_ifindexes(Table *table, const char *prefix, const int *ifindexes) {
         unsigned c;
         int r;
@@ -1270,6 +1373,7 @@ static int show_logs(const LinkInfo *info) {
 }
 
 static int link_status_one(
+                sd_bus *bus,
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
                 const LinkInfo *info) {
@@ -1973,6 +2077,10 @@ static int link_status_one(
         if (r < 0)
                 return r;
 
+        r = dump_dhcp_leases(table, "Offered DHCP leases:", bus, info);
+        if (r < 0)
+                return r;
+
         r = dump_statistics(table, info);
         if (r < 0)
                 return r;
@@ -2090,7 +2198,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
                 if (i > 0)
                         fputc('\n', stdout);
 
-                link_status_one(rtnl, hwdb, links + i);
+                link_status_one(bus, rtnl, hwdb, links + i);
         }
 
         return 0;
