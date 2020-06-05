@@ -419,6 +419,39 @@ static void test_gid_lists_ops(void) {
         assert_se(gids);
 }
 
+static void test_parse_uid_range(void) {
+        uid_t a = 4711, b = 4711;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(parse_uid_range("", &a, &b) == -EINVAL && a == 4711 && b == 4711);
+        assert_se(parse_uid_range(" ", &a, &b) == -EINVAL && a == 4711 && b == 4711);
+        assert_se(parse_uid_range("x", &a, &b) == -EINVAL && a == 4711 && b == 4711);
+
+        assert_se(parse_uid_range("0", &a, &b) >= 0 && a == 0 && b == 0);
+        assert_se(parse_uid_range("1", &a, &b) >= 0 && a == 1 && b == 1);
+        assert_se(parse_uid_range("2-2", &a, &b) >= 0 && a == 2 && b == 2);
+        assert_se(parse_uid_range("3-3", &a, &b) >= 0 && a == 3 && b == 3);
+        assert_se(parse_uid_range("4-5", &a, &b) >= 0 && a == 4 && b == 5);
+
+        assert_se(parse_uid_range("7-6", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("-1", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("01", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("001", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("+1", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("1--1", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range(" 1", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range(" 1-2", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("1 -2", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("1- 2", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("1-2 ", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("01-2", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("1-02", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("001-2", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range("1-002", &a, &b) == -EINVAL && a == 4 && b == 5);
+        assert_se(parse_uid_range(" 01", &a, &b) == -EINVAL && a == 4 && b == 5);
+}
+
 int main(int argc, char *argv[]) {
         test_uid_to_name_one(0, "root");
         test_uid_to_name_one(UID_NOBODY, NOBODY_USER_NAME);
@@ -455,6 +488,8 @@ int main(int argc, char *argv[]) {
 
         test_in_gid();
         test_gid_lists_ops();
+
+        test_parse_uid_range();
 
         return 0;
 }
