@@ -817,7 +817,6 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
         Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {};
         _cleanup_strv_free_ char **sysvrcnd_path = NULL;
         SysvStub *service;
-        unsigned i;
         Iterator j;
         char **p;
         int r;
@@ -828,9 +827,8 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(p, sysvrcnd_path) {
-                for (i = 0; i < ELEMENTSOF(rcnd_table); i ++) {
-
+        STRV_FOREACH(p, sysvrcnd_path)
+                for (unsigned i = 0; i < ELEMENTSOF(rcnd_table); i ++) {
                         _cleanup_closedir_ DIR *d = NULL;
                         _cleanup_free_ char *path = NULL;
                         struct dirent *de;
@@ -892,9 +890,8 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                                 }
                         }
                 }
-        }
 
-        for (i = 0; i < ELEMENTSOF(rcnd_table); i ++)
+        for (unsigned i = 0; i < ELEMENTSOF(rcnd_table); i++)
                 SET_FOREACH(service, runlevel_services[i], j) {
                         r = strv_extend(&service->before, rcnd_table[i].target);
                         if (r < 0) {
@@ -911,7 +908,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
         r = 0;
 
 finish:
-        for (i = 0; i < ELEMENTSOF(rcnd_table); i++)
+        for (unsigned i = 0; i < ELEMENTSOF(rcnd_table); i++)
                 set_free(runlevel_services[i]);
 
         return r;
