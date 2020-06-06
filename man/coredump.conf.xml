@@ -119,6 +119,12 @@
         either value to 0 to turn off size-based
         clean-up.</para></listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>ExternalPath=</varname></term>
+
+        <listitem><para>Path to where coredumps are placed. Default is
+        /var/lib/systemd/coredump.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>The defaults for all values are listed as comments in the

@@ -142,6 +142,7 @@ static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
 static uint64_t arg_keep_free = (uint64_t) -1;
 static uint64_t arg_max_use = (uint64_t) -1;
+static const char *arg_external_path = "/var/lib/systemd/coredump";
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
@@ -152,6 +153,7 @@ static int parse_config(void) {
                 { "Coredump", "JournalSizeMax",   config_parse_iec_size,          0, &arg_journal_size_max  },
                 { "Coredump", "KeepFree",         config_parse_iec_uint64,        0, &arg_keep_free         },
                 { "Coredump", "MaxUse",           config_parse_iec_uint64,        0, &arg_max_use           },
+                { "Coredump", "ExternalPath",     config_parse_path,              0, &arg_external_path     },
                 {}
         };
 
@@ -331,7 +333,8 @@ static int make_filename(const Context *context, char **ret) {
                 return -ENOMEM;
 
         if (asprintf(ret,
-                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
+                     "%s/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
+                     arg_external_path,
                      c,
                      u,
                      SD_ID128_FORMAT_VAL(boot),
@@ -394,7 +397,7 @@ static int save_external_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to determine coredump file name: %m");
 
-        (void) mkdir_p_label("/var/lib/systemd/coredump", 0755);
+        (void) mkdir_p_label(arg_external_path, 0755);
 
         fd = open_tmpfile_linkable(fn, O_RDWR|O_CLOEXEC, &tmp);
         if (fd < 0)
