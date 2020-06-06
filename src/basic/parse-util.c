@@ -70,26 +70,24 @@ int parse_pid(const char *s, pid_t* ret_pid) {
 }
 
 int parse_mode(const char *s, mode_t *ret) {
-        char *x;
-        long l;
+        unsigned m;
+        int r;
 
         assert(s);
-        assert(ret);
 
-        s += strspn(s, WHITESPACE);
-        if (s[0] == '-')
+        r = safe_atou_full(s, 8 |
+                           SAFE_ATO_REFUSE_PLUS_MINUS, /* Leading '+' or even '-' char? that's just weird,
+                                                        * refuse. User might have wanted to add mode flags or
+                                                        * so, but this parser doesn't allow that, so let's
+                                                        * better be safe. */
+                           &m);
+        if (r < 0)
+                return r;
+        if (m > 07777)
                 return -ERANGE;
 
-        errno = 0;
-        l = strtol(s, &x, 8);
-        if (errno > 0)
-                return -errno;
-        if (!x || x == s || *x != 0)
-                return -EINVAL;
-        if (l < 0 || l  > 07777)
-                return -ERANGE;
-
-        *ret = (mode_t) l;
+        if (ret)
+                *ret = m;
         return 0;
 }
 
@@ -354,30 +352,73 @@ int parse_syscall_and_errno(const char *in, char **name, int *error) {
         return 0;
 }
 
+static const char *mangle_base(const char *s, unsigned *base) {
+        const char *k;
+
+        assert(s);
+        assert(base);
+
+        /* Base already explicitly specified, then don't do anything. */
+        if (SAFE_ATO_MASK_FLAGS(*base) != 0)
+                return s;
+
+        /* Support Python 3 style "0b" and 0x" prefixes, because they truly make sense, much more than C's "0" prefix for octal. */
+        k = STARTSWITH_SET(s, "0b", "0B");
+        if (k) {
+                *base = 2 | (*base & SAFE_ATO_ALL_FLAGS);
+                return k;
+        }
+
+        k = STARTSWITH_SET(s, "0o", "0O");
+        if (k) {
+                *base = 8 | (*base & SAFE_ATO_ALL_FLAGS);
+                return k;
+        }
+
+        return s;
+}
+
 int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         char *x = NULL;
         unsigned long l;
 
         assert(s);
-        assert(base <= 16);
+        assert(SAFE_ATO_MASK_FLAGS(base) <= 16);
 
-        /* strtoul() is happy to parse negative values, and silently
-         * converts them to unsigned values without generating an
-         * error. We want a clean error, hence let's look for the "-"
-         * prefix on our own, and generate an error. But let's do so
-         * only after strtoul() validated that the string is clean
-         * otherwise, so that we return EINVAL preferably over
-         * ERANGE. */
+        /* strtoul() is happy to parse negative values, and silently converts them to unsigned values without
+         * generating an error. We want a clean error, hence let's look for the "-" prefix on our own, and
+         * generate an error. But let's do so only after strtoul() validated that the string is clean
+         * otherwise, so that we return EINVAL preferably over ERANGE. */
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_WHITESPACE) &&
+            strchr(WHITESPACE, s[0]))
+                return -EINVAL;
 
         s += strspn(s, WHITESPACE);
 
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_PLUS_MINUS) &&
+            IN_SET(s[0], '+', '-'))
+                return -EINVAL; /* Note that we check the "-" prefix again a second time below, but return a
+                                 * different error. I.e. if the SAFE_ATO_REFUSE_PLUS_MINUS flag is set we
+                                 * blanket refuse +/- prefixed integers, while if it is missing we'll just
+                                 * return ERANGE, because the string actually parses correctly, but doesn't
+                                 * fit in the return type. */
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_ZERO) &&
+            s[0] == '0' && !streq(s, "0"))
+                return -EINVAL; /* This is particularly useful to avoid ambiguities between C's octal
+                                 * notation and assumed-to-be-decimal integers with a leading zero. */
+
+        s = mangle_base(s, &base);
+
         errno = 0;
-        l = strtoul(s, &x, base);
+        l = strtoul(s, &x, SAFE_ATO_MASK_FLAGS(base) /* Let's mask off the flags bits so that only the actual
+                                                      * base is left */);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
                 return -EINVAL;
-        if (s[0] == '-')
+        if (l != 0 && s[0] == '-')
                 return -ERANGE;
         if ((unsigned long) (unsigned) l != l)
                 return -ERANGE;
@@ -389,13 +430,17 @@ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
 }
 
 int safe_atoi(const char *s, int *ret_i) {
+        unsigned base = 0;
         char *x = NULL;
         long l;
 
         assert(s);
 
+        s += strspn(s, WHITESPACE);
+        s = mangle_base(s, &base);
+
         errno = 0;
-        l = strtol(s, &x, 0);
+        l = strtol(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -414,16 +459,31 @@ int safe_atollu_full(const char *s, unsigned base, long long unsigned *ret_llu) 
         unsigned long long l;
 
         assert(s);
+        assert(SAFE_ATO_MASK_FLAGS(base) <= 16);
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_WHITESPACE) &&
+            strchr(WHITESPACE, s[0]))
+                return -EINVAL;
 
         s += strspn(s, WHITESPACE);
 
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_PLUS_MINUS) &&
+            IN_SET(s[0], '+', '-'))
+                return -EINVAL;
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_ZERO) &&
+            s[0] == '0' && s[1] != 0)
+                return -EINVAL;
+
+        s = mangle_base(s, &base);
+
         errno = 0;
-        l = strtoull(s, &x, base);
+        l = strtoull(s, &x, SAFE_ATO_MASK_FLAGS(base));
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
                 return -EINVAL;
-        if (*s == '-')
+        if (l != 0 && s[0] == '-')
                 return -ERANGE;
 
         if (ret_llu)
@@ -433,13 +493,17 @@ int safe_atollu_full(const char *s, unsigned base, long long unsigned *ret_llu) 
 }
 
 int safe_atolli(const char *s, long long int *ret_lli) {
+        unsigned base = 0;
         char *x = NULL;
         long long l;
 
         assert(s);
 
+        s += strspn(s, WHITESPACE);
+        s = mangle_base(s, &base);
+
         errno = 0;
-        l = strtoll(s, &x, 0);
+        l = strtoll(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -452,20 +516,22 @@ int safe_atolli(const char *s, long long int *ret_lli) {
 }
 
 int safe_atou8(const char *s, uint8_t *ret) {
-        char *x = NULL;
+        unsigned base = 0;
         unsigned long l;
+        char *x = NULL;
 
         assert(s);
 
         s += strspn(s, WHITESPACE);
+        s = mangle_base(s, &base);
 
         errno = 0;
-        l = strtoul(s, &x, 0);
+        l = strtoul(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
                 return -EINVAL;
-        if (s[0] == '-')
+        if (l != 0 && s[0] == '-')
                 return -ERANGE;
         if ((unsigned long) (uint8_t) l != l)
                 return -ERANGE;
@@ -480,34 +546,53 @@ int safe_atou16_full(const char *s, unsigned base, uint16_t *ret) {
         unsigned long l;
 
         assert(s);
-        assert(ret);
-        assert(base <= 16);
+        assert(SAFE_ATO_MASK_FLAGS(base) <= 16);
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_WHITESPACE) &&
+            strchr(WHITESPACE, s[0]))
+                return -EINVAL;
 
         s += strspn(s, WHITESPACE);
 
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_PLUS_MINUS) &&
+            IN_SET(s[0], '+', '-'))
+                return -EINVAL;
+
+        if (FLAGS_SET(base, SAFE_ATO_REFUSE_LEADING_ZERO) &&
+            s[0] == '0' && s[1] != 0)
+                return -EINVAL;
+
+        s = mangle_base(s, &base);
+
         errno = 0;
-        l = strtoul(s, &x, base);
+        l = strtoul(s, &x, SAFE_ATO_MASK_FLAGS(base));
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
                 return -EINVAL;
-        if (s[0] == '-')
+        if (l != 0 && s[0] == '-')
                 return -ERANGE;
         if ((unsigned long) (uint16_t) l != l)
                 return -ERANGE;
 
-        *ret = (uint16_t) l;
+        if (ret)
+                *ret = (uint16_t) l;
+
         return 0;
 }
 
 int safe_atoi16(const char *s, int16_t *ret) {
+        unsigned base = 0;
         char *x = NULL;
         long l;
 
         assert(s);
 
+        s += strspn(s, WHITESPACE);
+        s = mangle_base(s, &base);
+
         errno = 0;
-        l = strtol(s, &x, 0);
+        l = strtol(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)

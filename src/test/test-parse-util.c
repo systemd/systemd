@@ -75,14 +75,22 @@ static void test_parse_mode(void) {
         mode_t m;
 
         assert_se(parse_mode("-1", &m) < 0);
+        assert_se(parse_mode("+1", &m) < 0);
         assert_se(parse_mode("", &m) < 0);
         assert_se(parse_mode("888", &m) < 0);
         assert_se(parse_mode("77777", &m) < 0);
 
         assert_se(parse_mode("544", &m) >= 0 && m == 0544);
+        assert_se(parse_mode("0544", &m) >= 0 && m == 0544);
+        assert_se(parse_mode("00544", &m) >= 0 && m == 0544);
         assert_se(parse_mode("777", &m) >= 0 && m == 0777);
+        assert_se(parse_mode("0777", &m) >= 0 && m == 0777);
+        assert_se(parse_mode("00777", &m) >= 0 && m == 0777);
         assert_se(parse_mode("7777", &m) >= 0 && m == 07777);
+        assert_se(parse_mode("07777", &m) >= 0 && m == 07777);
+        assert_se(parse_mode("007777", &m) >= 0 && m == 07777);
         assert_se(parse_mode("0", &m) >= 0 && m == 0);
+        assert_se(parse_mode(" 1", &m) >= 0 && m == 1);
 }
 
 static void test_parse_size(void) {
@@ -358,6 +366,18 @@ static void test_safe_atolli(void) {
         assert_se(r == 0);
         assert_se(l == -12345);
 
+        r = safe_atolli("0x5", &l);
+        assert_se(r == 0);
+        assert_se(l == 5);
+
+        r = safe_atolli("0o6", &l);
+        assert_se(r == 0);
+        assert_se(l == 6);
+
+        r = safe_atolli("0B101", &l);
+        assert_se(r == 0);
+        assert_se(l == 5);
+
         r = safe_atolli("12345678901234567890", &l);
         assert_se(r == -ERANGE);
 
@@ -431,6 +451,14 @@ static void test_safe_atoi16(void) {
         assert_se(r == 0);
         assert_se(l == 32767);
 
+        r = safe_atoi16("0o11", &l);
+        assert_se(r == 0);
+        assert_se(l == 9);
+
+        r = safe_atoi16("0B110", &l);
+        assert_se(r == 0);
+        assert_se(l == 6);
+
         r = safe_atoi16("36536", &l);
         assert_se(r == -ERANGE);
 
@@ -475,6 +503,13 @@ static void test_safe_atoux16(void) {
         r = safe_atoux16("  -1", &l);
         assert_se(r == -ERANGE);
 
+        r = safe_atoux16("0b1", &l);
+        assert_se(r == 0);
+        assert_se(l == 177);
+
+        r = safe_atoux16("0o70", &l);
+        assert_se(r == -EINVAL);
+
         r = safe_atoux16("junk", &l);
         assert_se(r == -EINVAL);
 
@@ -499,6 +534,14 @@ static void test_safe_atou64(void) {
         r = safe_atou64("  12345", &l);
         assert_se(r == 0);
         assert_se(l == 12345);
+
+        r = safe_atou64("0o11", &l);
+        assert_se(r == 0);
+        assert_se(l == 9);
+
+        r = safe_atou64("0b11", &l);
+        assert_se(r == 0);
+        assert_se(l == 3);
 
         r = safe_atou64("18446744073709551617", &l);
         assert_se(r == -ERANGE);
@@ -542,6 +585,14 @@ static void test_safe_atoi64(void) {
         assert_se(r == 0);
         assert_se(l == 32767);
 
+        r = safe_atoi64("  0o20", &l);
+        assert_se(r == 0);
+        assert_se(l == 16);
+
+        r = safe_atoi64("  0b01010", &l);
+        assert_se(r == 0);
+        assert_se(l == 10);
+
         r = safe_atoi64("9223372036854775813", &l);
         assert_se(r == -ERANGE);
 
@@ -576,6 +627,13 @@ static void test_safe_atoux64(void) {
         r = safe_atoux64("0x12345", &l);
         assert_se(r == 0);
         assert_se(l == 0x12345);
+
+        r = safe_atoux64("0b11011", &l);
+        assert_se(r == 0);
+        assert_se(l == 11603985);
+
+        r = safe_atoux64("0o11011", &l);
+        assert_se(r == -EINVAL);
 
         r = safe_atoux64("18446744073709551617", &l);
         assert_se(r == -ERANGE);

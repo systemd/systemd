@@ -49,7 +49,15 @@ int parse_uid(const char *s, uid_t *ret) {
         assert(s);
 
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
-        r = safe_atou32_full(s, 10, &uid);
+
+        /* We are very strict when parsing UIDs, and prohibit +/- as prefix, leading zero as prefix, and
+         * whitespace. We do this, since this call is often used in a context where we parse things as UID
+         * first, and if that doesn't work we fall back to NSS. Thus we really want to make sure that UIDs
+         * are parsed as UIDs only if they really really look like UIDs. */
+        r = safe_atou32_full(s, 10
+                             | SAFE_ATO_REFUSE_PLUS_MINUS
+                             | SAFE_ATO_REFUSE_LEADING_ZERO
+                             | SAFE_ATO_REFUSE_LEADING_WHITESPACE, &uid);
         if (r < 0)
                 return r;
 
@@ -66,22 +74,39 @@ int parse_uid(const char *s, uid_t *ret) {
 }
 
 int parse_uid_range(const char *s, uid_t *ret_lower, uid_t *ret_upper) {
-        uint32_t u, l;
+        _cleanup_free_ char *word = NULL;
+        uid_t l, u;
         int r;
 
         assert(s);
         assert(ret_lower);
         assert(ret_upper);
 
-        r = parse_range(s, &l, &u);
+        r = extract_first_word(&s, &word, "-", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        r = parse_uid(word, &l);
         if (r < 0)
                 return r;
 
-        if (l > u)
+        /* Check for the upper bound and extract it if needed */
+        if (!s)
+                /* Single number with no dash. */
+                u = l;
+        else if (!*s)
+                /* Trailing dash is an error. */
                 return -EINVAL;
+        else {
+                r = parse_uid(s, &u);
+                if (r < 0)
+                        return r;
 
-        if (!uid_is_valid(l) || !uid_is_valid(u))
-                return -ENXIO;
+                if (l > u)
+                        return -EINVAL;
+        }
 
         *ret_lower = l;
         *ret_upper = u;
