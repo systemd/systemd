@@ -3275,7 +3275,7 @@
       <varlistentry>
         <term><varname>Weight=</varname></term>
         <listitem>
-          <para>Specifies the weight of the class. Takse an integer in the range 1..1023. Defaults to
+          <para>Specifies the weight of the class. Takes an integer in the range 1..1023. Defaults to
           unset in which case the kernel default is used.</para>
         </listitem>
       </varlistentry>
