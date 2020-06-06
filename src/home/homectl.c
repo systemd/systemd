@@ -2302,7 +2302,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --location=LOCATION      Set location of user on earth\n"
                "     --icon-name=NAME         Icon name for user\n"
                "  -d --home-dir=PATH          Home directory\n"
-               "     --uid=UID                Numeric UID for user\n"
+               "  -u --uid=UID                Numeric UID for user\n"
                "  -G --member-of=GROUP        Add user to group\n"
                "     --skel=PATH              Skeleton directory to use\n"
                "     --shell=PATH             Shell for account\n"
