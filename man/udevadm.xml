@@ -359,7 +359,9 @@
             <para>Maximum number of seconds to wait for the event
             queue to become empty. The default value is 120 seconds. A
             value of 0 will check if the queue is empty and always
-            return immediately.</para>
+            return immediately. A non-zero value will return an exit
+            code of 0 if queue became empty before timeout was reached,
+            non-zero otherwise.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
