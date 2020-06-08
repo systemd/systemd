@@ -30,6 +30,11 @@ SUBSYSTEM=="pci", ENV{ID_PCI_CLASS_FROM_DATABASE}=="Display controller", \
                   ENV{DRIVER}=="", IMPORT{cmdline}="nomodeset", TAG+="seat", TAG+="master-of-seat"
 
 SUBSYSTEM=="drm", KERNEL=="card[0-9]*", TAG+="seat", TAG+="master-of-seat"
+
+# Allow individual USB ports to be assigned to a seat
+SUBSYSTEM=="usb", ATTR{bDeviceClass}=="00", TAG+="seat"
+
+# Allow USB hubs (and all downstream ports) to be assigned to a seat
 SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
 
 # 'Plugable' USB hub, sound, network, graphics adapter
