@@ -91,6 +91,9 @@ int setup_namespace(
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *root_hash_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
+                const char *root_hash_sig_path,
                 const char *root_verity,
                 DissectImageFlags dissected_image_flags,
                 char **error_path);

@@ -165,6 +165,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RootHashSignature=</varname></term>
+
+        <listitem><para>Takes a PKCS7 formatted binary signature of the <varname>RootHash=</varname> option as a path
+        to a DER encoded signature file or as an ASCII base64 string encoding of the DER encoded signature, prefixed
+        by <literal>base64:</literal>. The dm-verity volume will only be opened if the signature of the root hash
+        signature is valid and created by a public key present in the kernel keyring. If this option is not specified,
+        but a file with the <filename>.roothash.p7s</filename> suffix is found next to the image file, bearing otherwise
+        the same name (except if the image has the <filename>.raw</filename> suffix, in which case the signature file
+        must not have it in its name), the signature is read from it and automatically used.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RootVerity=</varname></term>
 
         <listitem><para>Takes the path to a data integrity (dm-verity) file. This option enables data integrity checks

@@ -1472,6 +1472,66 @@ int config_parse_exec_root_hash(
         return 0;
 }
 
+int config_parse_exec_root_hash_sig(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ void *roothash_sig_decoded = NULL;
+        char *value;
+        ExecContext *c = data;
+        size_t roothash_sig_decoded_size = 0;
+        int r;
+
+        assert(data);
+        assert(filename);
+        assert(line);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Reset if the empty string is assigned */
+                c->root_hash_sig_path = mfree(c->root_hash_sig_path);
+                c->root_hash_sig = mfree(c->root_hash_sig);
+                c->root_hash_sig_size = 0;
+                return 0;
+        }
+
+        if (path_is_absolute(rvalue)) {
+                /* We have the path to a roothash signature to load and decode, eg: RootHashSignature=/foo/bar.roothash.p7s */
+                _cleanup_free_ char *p = NULL;
+
+                p = strdup(rvalue);
+                if (!p)
+                        return -ENOMEM;
+
+                free_and_replace(c->root_hash_sig_path, p);
+                c->root_hash_sig = mfree(c->root_hash_sig);
+                c->root_hash_sig_size = 0;
+                return 0;
+        }
+
+        if (!(value = startswith(rvalue, "base64:")))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Failed to decode RootHashSignature=, not a path but doesn't start with 'base64:', ignoring: %s", rvalue);
+
+        /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
+        r = unbase64mem(value, strlen(value), &roothash_sig_decoded, &roothash_sig_decoded_size);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to decode RootHashSignature=, ignoring: %s", rvalue);
+
+        free_and_replace(c->root_hash_sig, roothash_sig_decoded);
+        c->root_hash_sig_size = roothash_sig_decoded_size;
+        c->root_hash_sig_path = mfree(c->root_hash_sig_path);
+
+        return 0;
+}
+
 int config_parse_exec_cpu_affinity(const char *unit,
                                    const char *filename,
                                    unsigned line,

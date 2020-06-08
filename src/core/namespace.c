@@ -1260,6 +1260,9 @@ int setup_namespace(
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *root_hash_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
+                const char *root_hash_sig_path,
                 const char *root_verity,
                 DissectImageFlags dissect_image_flags,
                 char **error_path) {
@@ -1299,7 +1302,7 @@ int setup_namespace(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
-                r = verity_metadata_load(root_image, root_hash_path, root_hash ? NULL : &root_hash_decoded, root_hash ? NULL : &root_hash_size, root_verity ? NULL : &verity_data, &hash_sig_path);
+                r = verity_metadata_load(root_image, root_hash_path, root_hash ? NULL : &root_hash_decoded, root_hash ? NULL : &root_hash_size, root_verity ? NULL : &verity_data, root_hash_sig || root_hash_sig_path ? NULL : &hash_sig_path);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load root hash: %m");
                 dissect_image_flags |= root_verity || verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
@@ -1308,7 +1311,7 @@ int setup_namespace(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to dissect image: %m");
 
-                r = dissected_image_decrypt(dissected_image, NULL, root_hash ?: root_hash_decoded, root_hash_size, root_verity ?: verity_data, hash_sig_path, NULL, 0, dissect_image_flags, &decrypted_image);
+                r = dissected_image_decrypt(dissected_image, NULL, root_hash ?: root_hash_decoded, root_hash_size, root_verity ?: verity_data, root_hash_sig_path ?: hash_sig_path, root_hash_sig, root_hash_sig_size, dissect_image_flags, &decrypted_image);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decrypt dissected image: %m");
         }

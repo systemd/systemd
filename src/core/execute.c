@@ -2667,7 +2667,9 @@ static int apply_mount_namespace(
                             needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                             needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
-                            context->root_hash, context->root_hash_size, context->root_hash_path, context->root_verity,
+                            context->root_hash, context->root_hash_size, context->root_hash_path,
+                            context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
+                            context->root_verity,
                             DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
                             error_path);
 
@@ -4200,6 +4202,9 @@ void exec_context_done(ExecContext *c) {
         c->root_hash = mfree(c->root_hash);
         c->root_hash_size = 0;
         c->root_hash_path = mfree(c->root_hash_path);
+        c->root_hash_sig = mfree(c->root_hash_sig);
+        c->root_hash_sig_size = 0;
+        c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
@@ -4614,6 +4619,17 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->root_hash_path)
                 fprintf(f, "%sRootHash: %s\n", prefix, c->root_hash_path);
+
+        if (c->root_hash_sig) {
+                _cleanup_free_ char *encoded = NULL;
+                ssize_t len;
+                len = base64mem(c->root_hash_sig, c->root_hash_sig_size, &encoded);
+                if (len)
+                        fprintf(f, "%sRootHashSignature: base64:%s\n", prefix, encoded);
+        }
+
+        if (c->root_hash_sig_path)
+                fprintf(f, "%sRootHashSignature: %s\n", prefix, c->root_hash_sig_path);
 
         if (c->root_verity)
                 fprintf(f, "%sRootVerity: %s\n", prefix, c->root_verity);
