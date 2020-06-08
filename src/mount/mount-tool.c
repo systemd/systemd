@@ -364,7 +364,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At most two arguments required.");
 
-                if (arg_mount_type && (fstype_is_api_vfs(arg_mount_type) || fstype_is_network(arg_mount_type))) {
+                if (arg_mount_type && !fstype_is_blockdev_backed(arg_mount_type)) {
                         arg_mount_what = strdup(argv[optind]);
                         if (!arg_mount_what)
                                 return log_oom();
@@ -1463,7 +1463,7 @@ static int run(int argc, char* argv[]) {
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(bus, argc, argv);
 
-        if ((!arg_mount_type || !fstype_is_network(arg_mount_type))
+        if ((!arg_mount_type || fstype_is_blockdev_backed(arg_mount_type))
             && !path_is_normalized(arg_mount_what)) {
                 log_error("Path contains non-normalized components: %s", arg_mount_what);
                 return -EINVAL;
