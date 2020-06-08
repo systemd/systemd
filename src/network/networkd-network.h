@@ -237,6 +237,7 @@ struct Network {
 
         AddressFamily ip_forward;
         bool ip_masquerade;
+        int ipv4_accept_local;
 
         int ipv6_accept_ra;
         int ipv6_dad_transmits;

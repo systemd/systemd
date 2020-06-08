@@ -673,6 +673,13 @@
         </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv4AcceptLocal=</varname></term>
+          <listitem><para>Takes a boolean. Accept packets with local source addresses. In combination
+          with suitable routing, this can be used to direct packets between two local interfaces over
+          the wire and have them accepted properly. When unset, the kernel's default will be used.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>IPv4ProxyARP=</varname></term>
           <listitem><para>Takes a boolean. Configures proxy ARP for IPv4. Proxy ARP is the technique in which one host,
           usually a router, answers ARP requests intended for another machine. By "faking" its identity,

@@ -153,6 +153,7 @@ Address=
 IPv6ProxyNDPAddress=
 IPv6AcceptRA=
 IPv6AcceptRouterAdvertisements=
+IPv4AcceptLocal=
 DNSSECNegativeTrustAnchors=
 MACVTAP=
 IPv6PrivacyExtensions=

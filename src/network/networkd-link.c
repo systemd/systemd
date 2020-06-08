@@ -2532,6 +2532,22 @@ static int link_set_ipv6_mtu(Link *link) {
         return 0;
 }
 
+static int link_set_ipv4_accept_local(Link *link) {
+        int r;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (link->network->ipv4_accept_local < 0)
+                return 0;
+
+        r = sysctl_write_ip_property_boolean(AF_INET, link->ifname, "accept_local", link->network->ipv4_accept_local);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv4 accept_local flag for interface: %m");
+
+        return 0;
+}
+
 static bool link_is_static_address_configured(Link *link, Address *address) {
         Address *net_address;
 
@@ -2868,6 +2884,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_set_ipv6_hop_limit(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv4_accept_local(link);
         if (r < 0)
                 return r;
 

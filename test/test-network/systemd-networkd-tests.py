@@ -2203,6 +2203,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(read_ipv6_sysctl_attr('dummy98', 'proxy_ndp'), '1')
         self.assertEqual(read_ipv4_sysctl_attr('dummy98', 'forwarding'),'1')
         self.assertEqual(read_ipv4_sysctl_attr('dummy98', 'proxy_arp'), '1')
+        self.assertEqual(read_ipv4_sysctl_attr('dummy98', 'accept_local'), '1')
 
     def test_sysctl_disable_ipv6(self):
         copy_unit_to_networkd_unit_path('25-sysctl-disable-ipv6.network', '12-dummy.netdev')
