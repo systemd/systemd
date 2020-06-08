@@ -3209,6 +3209,14 @@
           to the class. Defaults to unset.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RateToQuantum=</varname></term>
+        <listitem>
+          <para>Takes an unsigned integer. The DRR quantums are calculated by dividing the value
+          configured in <varname>Rate=</varname> by <varname>RateToQuantum=</varname>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -3225,7 +3233,33 @@
         <term><varname>Priority=</varname></term>
         <listitem>
           <para>Specifies the priority of the class. In the round-robin process, classes with the lowest
-          priority field are tried for packets first. This setting is mandatory.</para>
+          priority field are tried for packets first.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>QuantumBytes=</varname></term>
+        <listitem>
+          <para>Specifies how many bytes to serve from leaf at once. When suffixed with K, M, or G, the
+          specified size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of
+          1024.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MTUBytes=</varname></term>
+        <listitem>
+          <para>Specifies the maximum packet size we create. When suffixed with K, M, or G, the specified
+          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>OverheadBytes=</varname></term>
+        <listitem>
+          <para>Takes an unsigned integer which specifies per-packet size overhead used in rate
+          computations. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
+          Megabytes, or Gigabytes, respectively, to the base of 1024.</para>
         </listitem>
       </varlistentry>
 
@@ -3245,6 +3279,24 @@
           When suffixed with K, M, or G, the specified size is parsed as Kilobits, Megabits, or Gigabits,
           respectively, to the base of 1000. When unset, the value specified with <varname>Rate=</varname>
           is used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BufferBytes=</varname></term>
+        <listitem>
+          <para>Specifies the maximum bytes burst which can be accumulated during idle period. When suffixed
+          with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively,
+          to the base of 1024.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CeilBufferBytes=</varname></term>
+        <listitem>
+          <para>Specifies the maximum bytes burst for ceil which can be accumulated during idle period.
+          When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
+          respectively, to the base of 1024.</para>
         </listitem>
       </varlistentry>
     </variablelist>
