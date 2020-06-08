@@ -1744,6 +1744,7 @@ int run_udevd(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_open();
         udev_parse_config_full(&arg_children_max, &arg_exec_delay_usec, &arg_event_timeout_usec, &arg_resolve_name_timing, &arg_timeout_signal);
+        log_parse_proc_cmdline(1);
         log_parse_environment();
         log_open(); /* Done again to update after reading configuration. */
 

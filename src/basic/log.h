@@ -83,6 +83,7 @@ int log_open(void);
 void log_close(void);
 void log_forget_fds(void);
 
+void log_parse_proc_cmdline(int force);
 void log_parse_environment_realm(LogRealm realm);
 #define log_parse_environment() \
         log_parse_environment_realm(LOG_REALM)

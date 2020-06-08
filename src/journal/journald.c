@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_set_target(LOG_TARGET_AUTO);
         log_set_facility(LOG_SYSLOG);
+        log_parse_proc_cmdline(1);
         log_parse_environment();
         log_open();
 

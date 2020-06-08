@@ -821,6 +821,7 @@ static int run(int argc, char **argv) {
         int r;
 
         log_show_color(true);
+        log_parse_proc_cmdline(1);
         log_parse_environment();
 
         /* The journal merging logic potentially needs a lot of fds. */

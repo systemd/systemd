@@ -1120,16 +1120,26 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+void log_parse_proc_cmdline(int force) {
+        /* Parse the kernel command line for options that affect logging, such
+         * as systemd.log_level=...
+         *
+         * Only try to read the command line in daemons. If we don't get a
+         * `force` argument telling us that it's a daemon, then we try to
+         * auto-detect it.
+         *
+         * We assume that anything that has a controlling tty is user stuff.
+         *
+         * For PID 1, we do a special check in case it hasn't closed the
+         * console yet. */
+        if (force || getpid_cached() == 1 || get_ctty_devnr(0, NULL) < 0)
+                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+}
+
 void log_parse_environment_realm(LogRealm realm) {
         /* Do not call from library code. */
 
         const char *e;
-
-        if (getpid_cached() == 1 || get_ctty_devnr(0, NULL) < 0)
-                /* Only try to read the command line in daemons. We assume that anything that has a
-                 * controlling tty is user stuff. For PID1 we do a special check in case it hasn't
-                 * closed the console yet. */
-                (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
 
         e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
@@ -1402,6 +1412,7 @@ void log_setup_service(void) {
          * terminal if invoked interactively. */
 
         log_set_target(LOG_TARGET_AUTO);
+        log_parse_proc_cmdline(0);
         log_parse_environment();
         (void) log_open();
 }

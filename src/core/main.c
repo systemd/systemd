@@ -2285,7 +2285,8 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
         fallback_rlimit_nofile(saved_rlimit_nofile);
         fallback_rlimit_memlock(saved_rlimit_memlock);
 
-        /* Note that this also parses bits from the kernel command line, including "debug". */
+        /* This parses bits from the kernel command line, including "debug". */
+        log_parse_proc_cmdline(1);
         log_parse_environment();
 
         /* Initialize the show status setting if it hasn't been set explicitly yet */
