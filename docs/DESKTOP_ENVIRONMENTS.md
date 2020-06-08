@@ -50,13 +50,22 @@ rather than the root slice?
 To ensure cross-desktop compatibility and encourage sharing of good practices,
 desktop environments should adhere to the following conventions:
 
- * Application units should follow the scheme `app-<launcher>-<ApplicationID>-<RANDOM>.service`,
-   e.g. `app-gnome-org.gnome.Evince-12345.service`,
-   `app-flatpak-org.telegram.desktop-12345.service` or `app-KDE-org.kde.okular-12345.service`.
+ * Application units should follow the scheme `app[-<launcher>]-<ApplicationID>[@<RANDOM>].service`
+ or `app[-<launcher>]-<ApplicationID>-<RANDOM>.scope`
+   e.g:
+    - `app-gnome-org.gnome.Evince@12345.service`
+    - `app-flatpak-org.telegram.desktop@12345.service`
+    - `app-KDE-org.kde.okular@12345.service`
+    - `app-org.kde.amarok.service`
+    - `app-org.gnome.Evince-12345.scope`
  * Using `.service` units instead of `.scope` units, i.e. allowing systemd to
    start the process on behalf of the caller,
    instead of the caller starting the process and letting systemd know about it,
    is encouraged.
+ * The RANDOM should be a string of random characters to ensure that multiple instances
+ of the application can be launched.
+ It can be ommitted in the case of a non-transient application services which can ensure
+ multiple instances are not spawned, such as a DBus activated application.
  * If no application ID is available, the launcher should generate a reasonable
    name when possible (e.g. using `basename(argv[0])`). This name must not
    contain a `-` character.
