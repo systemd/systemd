@@ -9,3 +9,4 @@ IPv6HopLimit=5
 IPv4ProxyARP=true
 IPv6ProxyNDP=true
 IPv6AcceptRA=no
+IPv4AcceptLocal=yes
