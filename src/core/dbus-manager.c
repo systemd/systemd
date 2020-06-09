@@ -347,7 +347,7 @@ static int property_set_kexec_watchdog(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        _unused_ Manager *m = userdata;
 
         assert(m);
         assert(bus);
