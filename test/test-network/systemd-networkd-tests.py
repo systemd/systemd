@@ -2797,7 +2797,8 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
             with self.subTest(test=test):
                 if test == 'no-slave':
                     # bridge has no slaves; it's up but *might* not have carrier
-                    self.wait_online(['bridge99:no-carrier'])
+                    # It may take very long time that the interface become configured state.
+                    self.wait_online(['bridge99:no-carrier'], timeout='2m')
                     # due to a bug in the kernel, newly-created bridges are brought up
                     # *with* carrier, unless they have had any setting changed; e.g.
                     # their mac set, priority set, etc.  Then, they will lose carrier
