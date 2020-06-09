@@ -1859,10 +1859,6 @@ int run_udevd(int argc, char *argv[]) {
         }
 
         /* set umask before creating any file/directory */
-        r = chdir("/");
-        if (r < 0)
-                return log_error_errno(errno, "Failed to change dir to '/': %m");
-
         umask(022);
 
         r = mac_selinux_init();
@@ -1872,8 +1868,6 @@ int run_udevd(int argc, char *argv[]) {
         r = mkdir_errno_wrapper("/run/udev", 0755);
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
-
-        dev_setup(NULL, UID_INVALID, GID_INVALID);
 
         if (getppid() == 1 && sd_booted() > 0) {
                 /* Get our own cgroup, we regularly kill everything udev has left behind.
@@ -1917,10 +1911,6 @@ int run_udevd(int argc, char *argv[]) {
 
                 /* child */
                 (void) setsid();
-
-                r = set_oom_score_adjust(-1000);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to adjust OOM score, ignoring: %m");
         }
 
         return main_loop(manager);
