@@ -14,7 +14,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ char *out = NULL; /* out should be freed after g */
         size_t out_size;
         _cleanup_fclose_ FILE *f = NULL, *g = NULL;
-        _cleanup_free_ char *p = NULL;
+        char *p = NULL;
         UnitType t;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
