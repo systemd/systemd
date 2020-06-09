@@ -342,6 +342,18 @@ int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
         return 0;
 }
 
+int sd_dhcp6_client_get_iaid(sd_dhcp6_client *client, uint32_t *iaid) {
+        assert_return(client, -EINVAL);
+        assert_return(iaid, -EINVAL);
+
+        if (!client->iaid_set)
+                return -ENODATA;
+
+        *iaid = be32toh(client->ia_na.ia_na.id);
+
+        return 0;
+}
+
 int sd_dhcp6_client_set_fqdn(
                 sd_dhcp6_client *client,
                 const char *fqdn) {
