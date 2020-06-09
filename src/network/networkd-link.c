@@ -4086,8 +4086,9 @@ int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        Address *a;
+        uint32_t iaid;
         Route *route;
+        Address *a;
         Iterator i;
         int r;
 
@@ -4419,6 +4420,10 @@ int link_save(Link *link) {
                         fputc('\n', f);
                 }
         }
+
+        r = sd_dhcp6_client_get_iaid(link->dhcp6_client, &iaid);
+        if (r >= 0)
+                fprintf(f, "DHCP6_CLIENT_IAID=0x%x\n", iaid);
 
         r = fflush_and_check(f);
         if (r < 0)
