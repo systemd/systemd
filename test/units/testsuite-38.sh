@@ -246,6 +246,8 @@ test_preserve_state() {
 
     echo -n "  - freeze from outside: "
     echo 1 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
+    # Give kernel some time to freeze the slice
+    sleep 1
 
     # Our state should not be affected
     check_freezer_state "${slice}" "running"
@@ -258,6 +260,8 @@ test_preserve_state() {
 
     echo -n "  - thaw from outside: "
     echo 0 > /sys/fs/cgroup/"${slice}"/cgroup.freeze
+    sleep 1
+
     check_freezer_state "${unit}" "running"
     check_freezer_state "${slice}" "running"
     grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/cgroup.events
