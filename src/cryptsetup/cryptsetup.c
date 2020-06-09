@@ -957,7 +957,7 @@ static int run(int argc, char *argv[]) {
 
 /* since cryptsetup 2.3.0 (Feb 2020) */
 #ifdef CRYPT_BITLK
-                if (!arg_type || STR_IN_SET(arg_type, ANY_LUKS, CRYPT_BITLK)) {
+                if (streq_ptr(arg_type, CRYPT_BITLK)) {
                         r = crypt_load(cd, CRYPT_BITLK, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to load Bitlocker superblock on device %s: %m", crypt_get_device_name(cd));
