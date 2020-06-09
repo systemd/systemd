@@ -176,6 +176,10 @@ _public_ int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **ia
         return network_link_get_string(ifindex, "DHCP6_CLIENT_IAID", iaid);
 }
 
+_public_ int sd_network_link_get_dhcp6_client_duid_string(int ifindex, char **duid) {
+        return network_link_get_string(ifindex, "DHCP6_CLIENT_DUID", duid);
+}
+
 _public_ int sd_network_link_get_required_for_online(int ifindex) {
         _cleanup_free_ char *s = NULL;
         int r;
