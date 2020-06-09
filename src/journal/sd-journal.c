@@ -239,6 +239,8 @@ static void match_free_if_empty(Match *m) {
 }
 
 _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
+        const char *ptr;
+        bool negation = false;
         Match *l3, *l4, *add_here = NULL, *m;
         le64_t le_hash;
 
@@ -249,7 +251,14 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         if (size == 0)
                 size = strlen(data);
 
-        assert_return(match_is_valid(data, size), -EINVAL);
+        ptr = data;
+        if (ptr[0] == '~') {
+                negation = true;
+                ptr++;
+                size--;
+        }
+
+        assert_return(match_is_valid(ptr, size), -EINVAL);
 
         /* level 0: AND term
          * level 1: OR terms
@@ -279,7 +288,7 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         assert(j->level1->type == MATCH_OR_TERM);
         assert(j->level2->type == MATCH_AND_TERM);
 
-        le_hash = htole64(hash64(data, size));
+        le_hash = htole64(hash64(ptr, size));
 
         LIST_FOREACH(matches, l3, j->level2->matches) {
                 assert(l3->type == MATCH_OR_TERM);
@@ -291,11 +300,11 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
                          * this addition */
                         if (l4->le_hash == le_hash &&
                             l4->size == size &&
-                            memcmp(l4->data, data, size) == 0)
+                            memcmp(l4->data, ptr, size) == 0)
                                 return 0;
 
                         /* Same field? Then let's add this to this OR term */
-                        if (same_field(data, size, l4->data, l4->size)) {
+                        if (same_field(ptr, size, l4->data, l4->size)) {
                                 add_here = l3;
                                 break;
                         }
@@ -317,7 +326,8 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
 
         m->le_hash = le_hash;
         m->size = size;
-        m->data = memdup(data, size);
+        m->negation = negation;
+        m->data = memdup(ptr, size);
         if (!m->data)
                 goto fail;
 
@@ -374,6 +384,7 @@ _public_ int sd_journal_add_disjunction(sd_journal *j) {
 }
 
 static char *match_make_string(Match *m) {
+        _cleanup_free_ char *d = NULL;
         char *p = NULL, *r;
         Match *i;
         bool enclose = false;
@@ -381,8 +392,10 @@ static char *match_make_string(Match *m) {
         if (!m)
                 return strdup("none");
 
-        if (m->type == MATCH_DISCRETE)
-                return cescape_length(m->data, m->size);
+        if (m->type == MATCH_DISCRETE) {
+                d = cescape_length(m->data, m->size);
+                return strjoin(m->negation ? "NOT " : "", d);
+        }
 
         LIST_FOREACH(matches, i, m->matches) {
                 char *t, *k;
@@ -503,7 +516,11 @@ static int next_for_match(
         if (m->type == MATCH_DISCRETE) {
                 uint64_t dp;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+                if (m->negation)
+                        r = journal_file_find_entry_not_matching_data(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+                else
+                        r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+
                 if (r <= 0)
                         return r;
 
@@ -592,7 +609,10 @@ static int find_location_for_match(
         if (m->type == MATCH_DISCRETE) {
                 uint64_t dp;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+                if (m->negation)
+                        r = journal_file_find_entry_not_matching_data(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+                else
+                        r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
                 if (r <= 0)
                         return r;
 
