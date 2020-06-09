@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        r = dissect_image(d->fd, NULL, 0, DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_RELAX_VAR_CHECK, &m);
+        r = dissect_image(d->fd, NULL, 0, NULL, DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_RELAX_VAR_CHECK, &m);
         if (r < 0) {
                 log_error_errno(r, "Failed to dissect image: %m");
                 return EXIT_FAILURE;

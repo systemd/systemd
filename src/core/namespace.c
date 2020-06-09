@@ -1264,6 +1264,7 @@ int setup_namespace(
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_free_ void *root_hash = NULL;
+        _cleanup_free_ char *verity_data = NULL;
         MountEntry *m = NULL, *mounts = NULL;
         size_t n_mounts, root_hash_size = 0;
         bool require_prefix = false;
@@ -1294,15 +1295,16 @@ int setup_namespace(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
-                r = root_hash_load(root_image, &root_hash, &root_hash_size);
+                r = verity_metadata_load(root_image, &root_hash, &root_hash_size, &verity_data);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load root hash: %m");
+                dissect_image_flags |= verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
 
-                r = dissect_image(loop_device->fd, root_hash, root_hash_size, dissect_image_flags, &dissected_image);
+                r = dissect_image(loop_device->fd, root_hash, root_hash_size, verity_data, dissect_image_flags, &dissected_image);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to dissect image: %m");
 
-                r = dissected_image_decrypt(dissected_image, NULL, root_hash, root_hash_size, dissect_image_flags, &decrypted_image);
+                r = dissected_image_decrypt(dissected_image, NULL, root_hash, root_hash_size, verity_data, dissect_image_flags, &decrypted_image);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decrypt dissected image: %m");
         }
