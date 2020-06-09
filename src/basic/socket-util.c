@@ -1002,6 +1002,9 @@ int flush_accept(int fd) {
                 if (r == 0)
                         return 0;
 
+                if (pollfd.revents & POLLNVAL)
+                        return -EBADF;
+
                 if (iteration >= MAX_FLUSH_ITERATIONS)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
                                                "Failed to flush connections within " STRINGIFY(MAX_FLUSH_ITERATIONS) " iterations.");

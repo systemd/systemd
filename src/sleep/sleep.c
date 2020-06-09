@@ -271,6 +271,9 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
         tfd = safe_close(tfd);
 
+        if (FLAGS_SET(fds.revents, POLLNVAL))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Invalid timer fd to sleep on?");
+
         if (!FLAGS_SET(fds.revents, POLLIN)) /* We woke up before the alarm time, we are done. */
                 return 0;
 

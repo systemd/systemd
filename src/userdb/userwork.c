@@ -757,6 +757,8 @@ static int run(int argc, char *argv[]) {
 
                         if (poll(&pfd, 1, 0) < 0)
                                 return log_error_errno(errno, "Failed to test for POLLIN on listening socket: %m");
+                        if (FLAGS_SET(pfd.revents, POLLNVAL))
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Listening socket dead?");
 
                         if (FLAGS_SET(pfd.revents, POLLIN)) {
                                 pid_t parent;

@@ -238,17 +238,19 @@ static int run(int argc, char *argv[]) {
                         ts = timespec_store(&_ts, t);
                 }
 
-                {
-                        struct pollfd p[3] = {
-                                {.fd = fd,            .events = events_a           },
-                                {.fd = STDIN_FILENO,  .events = events_b & POLLIN  },
-                                {.fd = STDOUT_FILENO, .events = events_b & POLLOUT },
-                        };
+                struct pollfd p[3] = {
+                        { .fd = fd,            .events = events_a           },
+                        { .fd = STDIN_FILENO,  .events = events_b & POLLIN  },
+                        { .fd = STDOUT_FILENO, .events = events_b & POLLOUT },
+                };
 
-                        r = ppoll(p, ELEMENTSOF(p), ts, NULL);
-                }
+                r = ppoll(p, ELEMENTSOF(p), ts, NULL);
                 if (r < 0)
                         return log_error_errno(errno, "ppoll() failed: %m");
+                if (p[0].revents & POLLNVAL ||
+                    p[1].revents & POLLNVAL ||
+                    p[2].revents & POLLNVAL)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Invalid file descriptor to poll on?");
         }
 
         return 0;

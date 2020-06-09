@@ -1048,10 +1048,14 @@ int varlink_wait(Varlink *v, usec_t timeout) {
                   NULL);
         if (r < 0)
                 return -errno;
+        if (r == 0)
+                return 0;
+
+        if (pfd.revents & POLLNVAL)
+                return -EBADF;
 
         handle_revents(v, pfd.revents);
-
-        return r > 0 ? 1 : 0;
+        return 1;
 }
 
 int varlink_get_fd(Varlink *v) {
@@ -1139,8 +1143,13 @@ int varlink_flush(Varlink *v) {
                         .events = POLLOUT,
                 };
 
-                if (poll(&pfd, 1, -1) < 0)
+                r = poll(&pfd, 1, -1);
+                if (r < 0)
                         return -errno;
+
+                assert(r > 0);
+                if (pfd.revents & POLLNVAL)
+                        return -EBADF;
 
                 handle_revents(v, pfd.revents);
         }

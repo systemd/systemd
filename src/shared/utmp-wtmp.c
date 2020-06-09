@@ -334,9 +334,10 @@ static int write_to_terminal(const char *tty, const char *message) {
                 k = poll(&pollfd, 1, (end - t) / USEC_PER_MSEC);
                 if (k < 0)
                         return -errno;
-
                 if (k == 0)
                         return -ETIME;
+                if (pollfd.revents & POLLNVAL)
+                        return -EBADF;
 
                 n = write(fd, p, left);
                 if (n < 0) {

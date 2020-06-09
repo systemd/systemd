@@ -1275,6 +1275,8 @@ int bus_socket_process_opening(sd_bus *b) {
         r = poll(&p, 1, 0);
         if (r < 0)
                 return -errno;
+        if (p.revents & POLLNVAL)
+                return -EBADF;
 
         if (!(p.revents & (POLLOUT|POLLERR|POLLHUP)))
                 return 0;

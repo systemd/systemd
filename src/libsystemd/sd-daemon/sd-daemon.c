@@ -577,6 +577,8 @@ _public_ int sd_notify_barrier(int unset_environment, uint64_t timeout) {
                 return -errno;
         if (r == 0)
                 return -ETIMEDOUT;
+        if (pfd.revents & POLLNVAL)
+                return -EBADF;
 
         return 1;
 }

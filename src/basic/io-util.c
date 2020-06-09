@@ -33,9 +33,12 @@ int flush_fd(int fd) {
                                 continue;
 
                         return -errno;
-
-                } else if (r == 0)
+                }
+                if (r == 0)
                         return count;
+
+                if (pollfd.revents & POLLNVAL)
+                        return -EBADF;
 
                 l = read(fd, buf, sizeof(buf));
                 if (l < 0) {
@@ -169,6 +172,9 @@ int pipe_eof(int fd) {
         if (r == 0)
                 return 0;
 
+        if (pollfd.revents & POLLNVAL)
+                return -EBADF;
+
         return pollfd.revents & POLLHUP;
 }
 
@@ -187,6 +193,9 @@ int fd_wait_for_event(int fd, int event, usec_t t) {
                 return -errno;
         if (r == 0)
                 return 0;
+
+        if (pollfd.revents & POLLNVAL)
+                return -EBADF;
 
         return pollfd.revents;
 }
