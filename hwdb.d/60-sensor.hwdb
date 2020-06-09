@@ -312,6 +312,10 @@ sensor:modalias:platform:cros-ec-accel:dmi:*:svnGOOGLE*
 sensor:modalias:platform:cros-ec-accel:dmi:*:svnGoogle:pnCaroline*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
 
+# Dell Inspiron Chromebook 14 2-in-1
+sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnVayne*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+
 #########################################
 # GP-electronic
 #########################################
