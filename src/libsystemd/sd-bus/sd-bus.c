@@ -3121,8 +3121,15 @@ static int bus_poll(sd_bus *bus, bool need_more, uint64_t timeout_usec) {
         r = ppoll(p, n, m == USEC_INFINITY ? NULL : timespec_store(&ts, m), NULL);
         if (r < 0)
                 return -errno;
+        if (r == 0)
+                return 0;
 
-        return r > 0 ? 1 : 0;
+        if (p[0].revents & POLLNVAL)
+                return -EBADF;
+        if (n >= 2 && (p[1].revents & POLLNVAL))
+                return -EBADF;
+
+        return 1;
 }
 
 _public_ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {

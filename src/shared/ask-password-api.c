@@ -305,6 +305,12 @@ int ask_password_plymouth(
                         goto finish;
                 }
 
+                if (pollfd[POLL_SOCKET].revents & POLLNVAL ||
+                    (notify >= 0 && pollfd[POLL_INOTIFY].revents & POLLNVAL)) {
+                        r = -EBADF;
+                        goto finish;
+                }
+
                 if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
                         (void) flush_fd(notify);
 
@@ -538,6 +544,12 @@ int ask_password_tty(
                         goto finish;
                 } else if (k == 0) {
                         r = -ETIME;
+                        goto finish;
+                }
+
+                if ((pollfd[POLL_TTY].revents & POLLNVAL) ||
+                    (notify >= 0 && (pollfd[POLL_INOTIFY].revents & POLLNVAL))) {
+                        r = -EBADF;
                         goto finish;
                 }
 
@@ -885,6 +897,13 @@ int ask_password_agent(
 
                 if (k <= 0) {
                         r = -ETIME;
+                        goto finish;
+                }
+
+                if (pollfd[FD_SOCKET].revents & POLLNVAL ||
+                    pollfd[FD_SIGNAL].revents & POLLNVAL ||
+                    (notify >= 0 && pollfd[FD_INOTIFY].revents & POLLNVAL)) {
+                        r = -EBADF;
                         goto finish;
                 }
 

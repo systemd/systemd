@@ -218,10 +218,14 @@ static bool barrier_read(Barrier *b, int64_t comp) {
                 uint64_t buf;
                 int r;
 
-                r = poll(pfd, 2, -1);
-                if (r < 0 && IN_SET(errno, EAGAIN, EINTR))
-                        continue;
-                else if (r < 0)
+                r = poll(pfd, ELEMENTSOF(pfd), -1);
+                if (r < 0) {
+                        if (IN_SET(errno, EAGAIN, EINTR))
+                                continue;
+                        goto error;
+                }
+                if (pfd[0].revents & POLLNVAL ||
+                    pfd[1].revents & POLLNVAL)
                         goto error;
 
                 if (pfd[1].revents) {

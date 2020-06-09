@@ -395,6 +395,10 @@ static int process_and_watch_password_files(bool watch) {
                         return -errno;
                 }
 
+                if (pollfd[FD_SIGNAL].revents & POLLNVAL ||
+                    pollfd[FD_INOTIFY].revents & POLLNVAL)
+                        return -EBADF;
+
                 if (pollfd[FD_INOTIFY].revents != 0)
                         (void) flush_fd(notify);
 

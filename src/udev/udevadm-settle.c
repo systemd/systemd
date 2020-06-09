@@ -202,7 +202,12 @@ int settle_main(int argc, char *argv[], void *userdata) {
                         return -ETIMEDOUT;
 
                 /* wake up when queue becomes empty */
-                if (poll(&pfd, 1, MSEC_PER_SEC) > 0 && pfd.revents & POLLIN) {
+                r = poll(&pfd, 1, MSEC_PER_SEC);
+                if (r < 0)
+                        return -errno;
+                if (pfd.revents & POLLNVAL)
+                        return -EBADF;
+                if (r > 0 && pfd.revents & POLLIN) {
                         r = udev_queue_flush(queue);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to flush queue: %m");

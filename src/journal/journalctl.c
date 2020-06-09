@@ -2093,9 +2093,12 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
                 return log_error_errno(errno, "Couldn't wait for journal event: %m");
         }
 
-        if (pollfds[1].revents & (POLLHUP|POLLERR)) /* STDOUT has been closed? */
+        if (pollfds[1].revents & (POLLHUP|POLLERR|POLLNVAL)) /* STDOUT has been closed? */
                 return log_debug_errno(SYNTHETIC_ERRNO(ECANCELED),
                                        "Standard output has been closed.");
+
+        if (pollfds[0].revents & POLLNVAL)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADF), "Change fd closed?");
 
         r = sd_journal_process(j);
         if (r < 0)

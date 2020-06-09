@@ -216,8 +216,11 @@ static int udev_monitor_receive_sd_device(struct udev_monitor *udev_monitor, sd_
                                         continue;
 
                                 return -errno;
-                        } else if (r == 0)
+                        }
+                        if (r == 0)
                                 return -EAGAIN;
+                        if (pfd.revents & POLLNVAL)
+                                return -EBADF;
 
                         /* receive next message */
                         break;
