@@ -8,7 +8,26 @@
 import sys
 import chromiumos.gen_autosuspend_rules
 
+HWDB_FILE = """\
+%(usb_entries)s\
+%(pci_entries)s\
+"""
+
 if __name__ == '__main__':
     if len(sys.argv) > 1:
         sys.stdout = open(sys.argv[1], 'w')
-    chromiumos.gen_autosuspend_rules.main()
+
+    pci_entries = ''
+    for dev_ids in chromiumos.gen_autosuspend_rules.PCI_IDS:
+        vendor, device = dev_ids.split(':')
+
+        pci_entries += ('usb:v%sp%s*\n'
+                        ' ID_AUTOSUSPEND=1\n' % (vendor, device))
+    usb_entries = ''
+    for dev_ids in chromiumos.gen_autosuspend_rules.USB_IDS:
+        vendor, device = dev_ids.split(':')
+
+        usb_entries += ('pci:v%sp%s*\n'
+                        ' ID_AUTOSUSPEND=1\n' % (vendor, device))
+
+    print(HWDB_FILE % {'pci_entries' : pci_entries, 'usb_entries': usb_entries})

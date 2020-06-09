@@ -52,3 +52,11 @@ run_target(
 run_target(
         'autosuspend-update',
         command : [autosuspend_update_sh, project_source_root + '/tools/chromiumos'])
+
+auto_suspend_rules = custom_target(
+        '60-autosuspend-chromiumos.hwdb',
+        output : '60-autosuspend-chromiumos.hwdb',
+        command : make_autosuspend_rules_py,
+        capture : true,
+        install : true,
+        install_dir: udevhwdbdir)

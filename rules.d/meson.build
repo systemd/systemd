@@ -45,11 +45,3 @@ foreach file : rules_in
                      install_dir : udevrulesdir)
         all_rules += gen
 endforeach
-
-auto_suspend_rules = custom_target(
-        '60-autosuspend-chromiumos.rules',
-        output : '60-autosuspend-chromiumos.rules',
-        command : make_autosuspend_rules_py,
-        capture : true,
-        install : true,
-        install_dir: [udevrulesdir])
