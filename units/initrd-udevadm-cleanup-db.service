@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Cleanup udevd DB
+Description=Cleanup udev Database
 DefaultDependencies=no
 ConditionPathExists=/etc/initrd-release
 Conflicts=systemd-udevd.service systemd-udevd-control.socket systemd-udevd-kernel.socket systemd-udev-trigger.service systemd-udev-settle.service

@@ -12,7 +12,7 @@
 # expect a populated /dev during bootup.
 
 [Unit]
-Description=udev Wait for Complete Device Initialization
+Description=Wait for udev To Complete Device Initialization
 Documentation=man:systemd-udev-settle.service(8)
 DefaultDependencies=no
 Wants=systemd-udevd.service
