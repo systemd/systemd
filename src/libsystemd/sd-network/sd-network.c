@@ -172,6 +172,10 @@ _public_ int sd_network_link_get_dhcp4_client_id_string(int ifindex, char **clie
         return network_link_get_string(ifindex, "DHCP4_CLIENT_ID", client_id);
 }
 
+_public_ int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid) {
+        return network_link_get_string(ifindex, "DHCP6_CLIENT_IAID", iaid);
+}
+
 _public_ int sd_network_link_get_required_for_online(int ifindex) {
         _cleanup_free_ char *s = NULL;
         int r;
