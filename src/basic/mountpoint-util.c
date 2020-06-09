@@ -338,6 +338,16 @@ bool fstype_is_api_vfs(const char *fstype) {
                           "tracefs");
 }
 
+bool fstype_is_blockdev_backed(const char *fstype) {
+        const char *x;
+
+        x = startswith(fstype, "fuse.");
+        if (x)
+                fstype = x;
+
+        return !streq(fstype, "9p") && !fstype_is_network(fstype) && !fstype_is_api_vfs(fstype);
+}
+
 bool fstype_is_ro(const char *fstype) {
         /* All Linux file systems that are necessarily read-only */
         return STR_IN_SET(fstype,
