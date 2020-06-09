@@ -1841,12 +1841,13 @@ int run_udevd(int argc, char *argv[]) {
                 return r;
 
         if (arg_children_max == 0) {
-                unsigned long cpu_limit, mem_limit;
-                unsigned long cpu_count = 1;
-                cpu_set_t cpu_set;
+                unsigned long cpu_limit, mem_limit, cpu_count = 1;
 
-                if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) == 0)
-                        cpu_count = CPU_COUNT(&cpu_set);
+                r = cpus_in_affinity_mask();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine number of local CPUs, ignoring: %m");
+                else
+                        cpu_count = r;
 
                 cpu_limit = cpu_count * 2 + 16;
                 mem_limit = MAX(physical_memory() / (128UL*1024*1024), 10U);
