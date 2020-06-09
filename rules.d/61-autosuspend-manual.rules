@@ -10,6 +10,8 @@ SUBSYSTEM=="usb", GOTO="autosuspend_manual_usb"
 
 # USB rules
 LABEL="autosuspend_manual_usb"
+ATTR{idVendor}=="056a", ATTR{idProduct}=="51a0", GOTO="autosuspend_manual_enable"
+ATTR{idVendor}=="058f", ATTR{idProduct}=="9540", GOTO="autosuspend_manual_enable"
 GOTO="autosuspend_manual_end"
 
 # Enable autosuspend
