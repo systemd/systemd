@@ -14,6 +14,12 @@ stages:
     - name: Build & test
       if: type != cron
 
+    - name: Fuzzit-Fuzzing
+      if: type = cron
+
+    - name: Fuzzit-Regression
+      if: type != cron
+
     # Run Coverity periodically instead of for each commit/PR
     - name: Coverity
       if: type = cron
@@ -93,6 +99,22 @@ jobs:
               - set +e
           after_script:
               - $CI_MANAGERS/debian.sh CLEANUP
+
+        - stage: Fuzzit-Regression
+          name:  Continuous Fuzzing via Fuzzit (regression)
+          language: bash
+          script:
+            - set -e
+            - $CI_MANAGERS/fuzzit.sh regression
+            - set +e
+
+        - stage: Fuzzit-Fuzzing
+          name: Continuous Fuzzing via Fuzzit (fuzzing daily)
+          language: bash
+          script:
+            - set -e
+            - $CI_MANAGERS/fuzzit.sh fuzzing
+            - set +e
 
         - stage: Coverity
           language: bash
