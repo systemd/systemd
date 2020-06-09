@@ -4086,7 +4086,6 @@ int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        uint32_t iaid;
         Route *route;
         Address *a;
         Iterator i;
@@ -4421,9 +4420,18 @@ int link_save(Link *link) {
                 }
         }
 
-        r = sd_dhcp6_client_get_iaid(link->dhcp6_client, &iaid);
-        if (r >= 0)
-                fprintf(f, "DHCP6_CLIENT_IAID=0x%x\n", iaid);
+        if (link->dhcp6_client) {
+                _cleanup_free_ char *duid = NULL;
+                uint32_t iaid;
+
+                r = sd_dhcp6_client_get_iaid(link->dhcp6_client, &iaid);
+                if (r >= 0)
+                        fprintf(f, "DHCP6_CLIENT_IAID=0x%x\n", iaid);
+
+                r = sd_dhcp6_client_duid_as_string(link->dhcp6_client, &duid);
+                if (r >= 0)
+                        fprintf(f, "DHCP6_CLIENT_DUID=%s\n", duid);
+        }
 
         r = fflush_and_check(f);
         if (r < 0)
