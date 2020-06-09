@@ -18,6 +18,7 @@
 #include "dns-domain.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "network-internal.h"
@@ -329,6 +330,48 @@ int sd_dhcp6_client_set_duid_llt(
                 sd_dhcp6_client *client,
                 usec_t llt_time) {
         return dhcp6_client_set_duid_internal(client, DUID_TYPE_LLT, NULL, 0, llt_time);
+}
+
+static const char* const dhcp6_duid_type_table[_DUID_TYPE_MAX] = {
+        [DUID_TYPE_LLT]  = "DUID-LLT",
+        [DUID_TYPE_EN]   = "DUID-EN/Vendor",
+        [DUID_TYPE_LL]   = "DUID-LL",
+        [DUID_TYPE_UUID] = "UUID",
+};
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_duid_type, DUIDType);
+
+int sd_dhcp6_client_duid_as_string(
+                sd_dhcp6_client *client,
+                char **duid) {
+        _cleanup_free_ char *p = NULL, *s = NULL, *t = NULL;
+        const char *v;
+        int r;
+
+        assert_return(client, -EINVAL);
+        assert_return(client->duid_len > 0, -ENODATA);
+
+        v = dhcp6_duid_type_to_string(be16toh(client->duid.type));
+        if (v) {
+                s = strdup(v);
+                if (!s)
+                        return -ENOMEM;
+        } else {
+                r = asprintf(&s, "%0x", client->duid.type);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        t = hexmem(&client->duid.raw.data, client->duid_len);
+        if (!t)
+                return -ENOMEM;
+
+        p = strjoin(s, ":", t);
+        if (!p)
+                return -ENOMEM;
+
+        *duid = TAKE_PTR(p);
+
+        return 0;
 }
 
 int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
