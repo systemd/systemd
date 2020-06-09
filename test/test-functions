@@ -80,6 +80,7 @@ BASICTOOLS=(
     mktemp
     modprobe
     mount
+    mountpoint
     mv
     nc
     nproc
