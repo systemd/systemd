@@ -1265,8 +1265,8 @@ int safe_fork_full(
                                        r, "Failed to rename process, ignoring: %m");
         }
 
-        if (flags & FORK_DEATHSIG)
-                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0) {
+        if (flags & (FORK_DEATHSIG|FORK_DEATHSIG_SIGINT))
+                if (prctl(PR_SET_PDEATHSIG, (flags & FORK_DEATHSIG_SIGINT) ? SIGINT : SIGTERM) < 0) {
                         log_full_errno(prio, errno, "Failed to set death signal: %m");
                         _exit(EXIT_FAILURE);
                 }
