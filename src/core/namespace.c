@@ -939,10 +939,10 @@ static int apply_mount(
                 }
 
                 if (geteuid() == 0)
-                        runtime_dir = "/run/systemd";
+                        runtime_dir = "/run";
                 else {
-                        if (asprintf(&tmp, "/run/user/"UID_FMT, geteuid()) < 0)
-                                log_oom();
+                        if (asprintf(&tmp, "/run/user/" UID_FMT, geteuid()) < 0)
+                                return -ENOMEM;
 
                         runtime_dir = tmp;
                 }
