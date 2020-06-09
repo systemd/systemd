@@ -57,6 +57,12 @@
 
     <para>Automount units may be used to implement on-demand mounting
     as well as parallelized mounting of file systems.</para>
+
+    <para>Note that automount units are separate from the mount itself, so you
+    should not set <varname>After=</varname> or <varname>Requires=</varname>
+    for mount dependencies here. For example, you should not set
+    <varname>After=network-online.target</varname> or similar on network
+    filesystems. Doing so may result in an ordering cycle.</para>
   </refsect1>
 
   <refsect1>
