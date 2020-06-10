@@ -1262,23 +1262,15 @@ int bus_socket_read_message(sd_bus *bus) {
 }
 
 int bus_socket_process_opening(sd_bus *b) {
-        int error = 0;
+        int error = 0, events, r;
         socklen_t slen = sizeof(error);
-        struct pollfd p = {
-                .fd = b->output_fd,
-                .events = POLLOUT,
-        };
-        int r;
 
         assert(b->state == BUS_OPENING);
 
-        r = poll(&p, 1, 0);
-        if (r < 0)
-                return -errno;
-        if (p.revents & POLLNVAL)
-                return -EBADF;
-
-        if (!(p.revents & (POLLOUT|POLLERR|POLLHUP)))
+        events = fd_wait_for_event(b->output_fd, POLLOUT, 0);
+        if (events < 0)
+                return events;
+        if (!(events & (POLLOUT|POLLERR|POLLHUP)))
                 return 0;
 
         r = getsockopt(b->output_fd, SOL_SOCKET, SO_ERROR, &error, &slen);
@@ -1286,7 +1278,7 @@ int bus_socket_process_opening(sd_bus *b) {
                 b->last_connect_error = errno;
         else if (error != 0)
                 b->last_connect_error = error;
-        else if (p.revents & (POLLERR|POLLHUP))
+        else if (events & (POLLERR|POLLHUP))
                 b->last_connect_error = ECONNREFUSED;
         else
                 return bus_socket_start_auth(b);

@@ -6,6 +6,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "list.h"
 #include "process-util.h"
 #include "set.h"
@@ -1003,8 +1004,6 @@ static void handle_revents(Varlink *v, int revents) {
 }
 
 int varlink_wait(Varlink *v, usec_t timeout) {
-        struct timespec ts;
-        struct pollfd pfd;
         int r, fd, events;
         usec_t t;
 
@@ -1038,23 +1037,13 @@ int varlink_wait(Varlink *v, usec_t timeout) {
         if (events < 0)
                 return events;
 
-        pfd = (struct pollfd) {
-                .fd = fd,
-                .events = events,
-        };
-
-        r = ppoll(&pfd, 1,
-                  t == USEC_INFINITY ? NULL : timespec_store(&ts, t),
-                  NULL);
+        r = fd_wait_for_event(fd, events, t);
         if (r < 0)
-                return -errno;
+                return r;
         if (r == 0)
                 return 0;
 
-        if (pfd.revents & POLLNVAL)
-                return -EBADF;
-
-        handle_revents(v, pfd.revents);
+        handle_revents(v, r);
         return 1;
 }
 
@@ -1123,8 +1112,6 @@ int varlink_flush(Varlink *v) {
                 return -ENOTCONN;
 
         for (;;) {
-                struct pollfd pfd;
-
                 if (v->output_buffer_size == 0)
                         break;
                 if (v->write_disconnected)
@@ -1138,20 +1125,13 @@ int varlink_flush(Varlink *v) {
                         continue;
                 }
 
-                pfd = (struct pollfd) {
-                        .fd = v->fd,
-                        .events = POLLOUT,
-                };
-
-                r = poll(&pfd, 1, -1);
+                r = fd_wait_for_event(v->fd, POLLOUT, USEC_INFINITY);
                 if (r < 0)
-                        return -errno;
+                        return r;
 
-                assert(r > 0);
-                if (pfd.revents & POLLNVAL)
-                        return -EBADF;
+                assert(r != 0);
 
-                handle_revents(v, pfd.revents);
+                handle_revents(v, r);
         }
 
         return ret;
