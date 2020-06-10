@@ -11,9 +11,6 @@ env:
         - REPO_ROOT="$TRAVIS_BUILD_DIR"
 
 stages:
-    - name: Build check
-      if: type != cron
-
     - name: Build & test
       if: type != cron
 
@@ -23,45 +20,6 @@ stages:
 
 jobs:
     include:
-        - stage: Build check
-          name: Fedora Rawhide (gcc)
-          language: bash
-          env:
-              - FEDORA_RELEASE="rawhide"
-              - CONT_NAME="systemd-fedora-$FEDORA_RELEASE"
-              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
-          before_install:
-              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-              - docker --version
-          install:
-              - $CI_MANAGERS/fedora.sh SETUP
-          script:
-              - set -e
-              # Build systemd
-              - $CI_MANAGERS/fedora.sh RUN_BUILD_CHECK_GCC
-              - set +e
-          after_script:
-              - $CI_MANAGERS/fedora.sh CLEANUP
-
-        - name: Fedora Rawhide (clang)
-          language: bash
-          env:
-              - FEDORA_RELEASE="rawhide"
-              - CONT_NAME="systemd-fedora-$FEDORA_RELEASE"
-              - DOCKER_EXEC="docker exec -ti $CONT_NAME"
-          before_install:
-              - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-              - docker --version
-          install:
-              - $CI_MANAGERS/fedora.sh SETUP
-          script:
-              - set -e
-              # Build systemd
-              - $CI_MANAGERS/fedora.sh RUN_BUILD_CHECK_CLANG
-              - set +e
-          after_script:
-              - $CI_MANAGERS/fedora.sh CLEANUP
-
         - stage: Build & test
           name: Debian Testing
           language: bash
