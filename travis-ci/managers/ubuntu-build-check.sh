@@ -16,6 +16,8 @@ ARGS=(
 )
 PACKAGES=(
     cryptsetup-bin
+    expect
+    fdisk
     gettext
     iptables-dev
     iputils-ping
@@ -25,13 +27,18 @@ PACKAGES=(
     libblkid-dev
     libcap-dev
     libcurl4-gnutls-dev
+    libfdisk-dev
     libgpg-error-dev
     liblz4-dev
     liblzma-dev
     libmicrohttpd-dev
     libmount-dev
+    libp11-kit-dev
+    libpwquality-dev
     libqrencode-dev
+    libssl-dev
     libxkbcommon-dev
+    libzstd-dev
     mount
     net-tools
     ninja-build
@@ -45,8 +52,8 @@ PACKAGES=(
     quota
     strace
     unifont
-    expect
     util-linux
+    zstd
 )
 CC="${CC:?}"
 CXX="${CXX:?}"
@@ -55,6 +62,8 @@ RELEASE="$(lsb_release -cs)"
 
 bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
 
+# PPA with some newer build dependencies (like zstd)
+add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
 apt-get update
 apt-get build-dep systemd -y
 apt-get install -y "${PACKAGES[@]}"
