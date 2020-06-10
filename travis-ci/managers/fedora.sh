@@ -29,8 +29,32 @@ ADDITIONAL_DEPS=(dnf-plugins-core
                  openssl-devel
                  p11-kit-devel)
 
-function info() {
+info() {
     echo -e "\033[33;1m$1\033[0m"
+}
+
+error() {
+    echo >&2 -e "\033[31;1m$1\033[0m"
+}
+
+success() {
+    echo >&2 -e "\033[32;1m$1\033[0m"
+}
+
+# Simple wrapper which retries given command up to five times
+_retry() {
+    local EC=1
+
+    for i in {1..5}; do
+        if "$@"; then
+            EC=0
+            break
+        fi
+
+        sleep $((i * 5))
+    done
+
+    return $EC
 }
 
 set -e
@@ -52,11 +76,11 @@ for phase in "${PHASES[@]}"; do
             # running following dnf commands during the initializing/starting
             # (early/late bootup) phase, which caused nasty race conditions
             $DOCKER_EXEC bash -c 'systemctl is-system-running --wait || :'
-            $DOCKER_EXEC dnf makecache
+            _retry $DOCKER_EXEC dnf makecache
             # Install necessary build/test requirements
-            $DOCKER_EXEC dnf -y --exclude selinux-policy\* upgrade
-            $DOCKER_EXEC dnf -y install "${ADDITIONAL_DEPS[@]}"
-            $DOCKER_EXEC dnf -y builddep systemd
+            _retry $DOCKER_EXEC dnf -y --exclude selinux-policy\* upgrade
+            _retry $DOCKER_EXEC dnf -y install "${ADDITIONAL_DEPS[@]}"
+            _retry $DOCKER_EXEC dnf -y builddep systemd
             ;;
         RUN)
             info "Run phase"
@@ -86,13 +110,53 @@ for phase in "${PHASES[@]}"; do
                 -t $CONT_NAME \
                 meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
             ;;
+        RUN_BUILD_CHECK_GCC|RUN_BUILD_CHECK_CLANG)
+            ARGS=(
+                "--optimization=0"
+                "--optimization=2"
+                "--optimization=3"
+                "--optimization=s"
+                "-Db_lto=true"
+                "-Db_ndebug=true"
+            )
+
+            if [[ "$phase" = "RUN_BUILD_CHECK_CLANG" ]]; then
+                ENV_VARS="-e CC=clang -e CXX=clang++"
+                $DOCKER_EXEC clang --version
+            else
+                $DOCKER_EXEC gcc --version
+            fi
+
+            for args in "${ARGS[@]}"; do
+                SECONDS=0
+                info "Checking build with $args"
+                # Redirect meson/ninja logs into separate files, otherwise we
+                # would trip over Travis' log size limit
+                if ! docker exec $ENV_VARS -it $CONT_NAME meson --werror $args build &> meson.log; then
+                    cat meson.log
+                    error "meson failed with $args"
+                    exit 1
+                fi
+
+                if ! $DOCKER_EXEC ninja -v -C build &> ninja.log; then
+                    cat ninja.log
+                    error "ninja failed with $args"
+                    exit 1
+                fi
+
+                $DOCKER_EXEC rm -fr build
+                rm -f meson.log ninja.log
+                success "Build with $args passed in $SECONDS seconds"
+            done
+
+            ;;
         CLEANUP)
             info "Cleanup phase"
             docker stop $CONT_NAME
             docker rm -f $CONT_NAME
             ;;
         *)
-            echo >&2 "Unknown phase '$phase'"
+            error "Unknown phase '$phase'"
             exit 1
     esac
 done
