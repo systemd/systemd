@@ -1,0 +1,9 @@
+[Unit]
+Description=Issue 16115 Repro with on-failure
+
+[Service]
+Type=simple
+Restart=on-failure
+ExecCondition=/bin/false
+ExecStart=sleep 100
+RestartSec=1
