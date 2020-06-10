@@ -584,8 +584,7 @@ static bool can_s2h(const SleepConfig *sleep_config) {
         int r;
 
         if (!clock_supported(CLOCK_BOOTTIME_ALARM)) {
-                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "CLOCK_BOOTTIME_ALARM is not supported");
+                log_debug("CLOCK_BOOTTIME_ALARM is not supported.");
                 return false;
         }
 
