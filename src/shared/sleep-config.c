@@ -129,9 +129,9 @@ int can_sleep_state(char **types) {
 }
 
 int can_sleep_disk(char **types) {
+        _cleanup_free_ char *p = NULL;
         char **type;
         int r;
-        _cleanup_free_ char *p = NULL;
 
         if (strv_isempty(types))
                 return true;
@@ -199,16 +199,17 @@ static int swap_device_to_device_id(const SwapEntry *swap, dev_t *ret_dev) {
 
         r = stat(swap->device, &sb);
         if (r < 0)
-                return r;
+                return -errno;
 
         if (streq(swap->type, "partition")) {
                 if (!S_ISBLK(sb.st_mode))
                         return -ENOTBLK;
+
                 *ret_dev = sb.st_rdev;
                 return 0;
+        }
 
-        } else
-                return get_block_device(swap->device, ret_dev);
+        return get_block_device(swap->device, ret_dev);
 }
 
 /*
