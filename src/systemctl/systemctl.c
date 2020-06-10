@@ -9089,7 +9089,9 @@ static int logind_schedule_shutdown(void) {
                 return log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s", bus_error_message(&error, r));
 
         if (!arg_quiet)
-                log_info("Shutdown scheduled for %s, use 'shutdown -c' to cancel.", format_timestamp(date, sizeof(date), arg_when));
+                log_info("%s scheduled for %s, use 'shutdown -c' to cancel.",
+                         (arg_action == ACTION_REBOOT ? "Reboot" : "Shutdown"),
+                         format_timestamp(date, sizeof(date), arg_when));
         return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
