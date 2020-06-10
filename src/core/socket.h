@@ -166,7 +166,7 @@ void socket_connection_unref(Socket *s);
 
 void socket_free_ports(Socket *s);
 
-int socket_instantiate_service(Socket *s);
+int socket_load_service_unit(Socket *s, int cfd, Unit **ret);
 
 char *socket_fdname(Socket *s);
 

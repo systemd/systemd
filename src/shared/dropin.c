@@ -226,30 +226,35 @@ int unit_file_find_dropin_paths(
                 Set *unit_path_cache,
                 const char *dir_suffix,
                 const char *file_suffix,
-                const Set *names,
+                const char *name,
+                const Set *aliases,
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
-        char *name, **p;
+        const char *n;
+        char **p;
         Iterator i;
         int r;
 
         assert(ret);
 
-        SET_FOREACH(name, names, i)
+        if (name)
                 STRV_FOREACH(p, lookup_path)
                         (void) unit_file_find_dirs(original_root, unit_path_cache, *p, name, dir_suffix, &dirs);
 
+        SET_FOREACH(n, aliases, i)
+                STRV_FOREACH(p, lookup_path)
+                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, n, dir_suffix, &dirs);
+
         /* All the names in the unit are of the same type so just grab one. */
-        name = (char*) set_first(names);
-        if (name) {
+        n = name ?: (const char*) set_first(aliases);
+        if (n) {
                 UnitType type = _UNIT_TYPE_INVALID;
 
-                type = unit_name_to_type(name);
+                type = unit_name_to_type(n);
                 if (type < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to to derive unit type from unit name: %s",
-                                               name);
+                                               "Failed to to derive unit type from unit name: %s", n);
 
                 /* Special top level drop in for "<unit type>.<suffix>". Add this last as it's the most generic
                  * and should be able to be overridden by more specific drop-ins. */

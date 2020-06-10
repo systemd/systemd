@@ -833,7 +833,7 @@ static int hashmap_base_ensure_allocated(HashmapBase **h, const struct hash_ops 
                 return -ENOMEM;
 
         *h = q;
-        return 0;
+        return 1;
 }
 
 int _hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS) {

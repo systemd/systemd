@@ -2650,7 +2650,7 @@ static int unit_find_paths(
                 if (ret_dropin_paths) {
                         r = unit_file_find_dropin_paths(arg_root, lp->search_path, NULL,
                                                         ".d", ".conf",
-                                                        names, &dropins);
+                                                        NULL, names, &dropins);
                         if (r < 0)
                                 return r;
                 }
