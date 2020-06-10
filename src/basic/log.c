@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/signalfd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
@@ -19,6 +20,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
@@ -220,6 +222,32 @@ fail:
         return r;
 }
 
+static bool stderr_is_journal(void) {
+        _cleanup_free_ char *w = NULL;
+        const char *e;
+        uint64_t dev, ino;
+        struct stat st;
+
+        e = getenv("JOURNAL_STREAM");
+        if (!e)
+                return false;
+
+        if (extract_first_word(&e, &w, ":", EXTRACT_DONT_COALESCE_SEPARATORS) <= 0)
+                return false;
+        if (!e)
+                return false;
+
+        if (safe_atou64(w, &dev) < 0)
+                return false;
+        if (safe_atou64(e, &ino) < 0)
+                return false;
+
+        if (fstat(STDERR_FILENO, &st) < 0)
+                return false;
+
+        return st.st_dev == dev && st.st_ino == ino;
+}
+
 int log_open(void) {
         int r;
 
@@ -239,9 +267,7 @@ int log_open(void) {
                 return 0;
         }
 
-        if (log_target != LOG_TARGET_AUTO ||
-            getpid_cached() == 1 ||
-            isatty(STDERR_FILENO) <= 0) {
+        if (log_target != LOG_TARGET_AUTO || getpid_cached() == 1 || stderr_is_journal()) {
 
                 if (!prohibit_ipc &&
                     IN_SET(log_target, LOG_TARGET_AUTO,

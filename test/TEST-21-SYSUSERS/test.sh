@@ -108,8 +108,7 @@ test_run() {
                 echo "*** Running test $f"
                 prepare_testdir ${f%.input}
                 cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
-                systemd-sysusers --root=$TESTDIR 2> /dev/null
-                journalctl -t systemd-sysusers -o cat | tail -n1 > $TESTDIR/tmp/err
+                systemd-sysusers --root=$TESTDIR 2>&1 | tail -n1 > $TESTDIR/tmp/err
                 if ! diff -u $TESTDIR/tmp/err  ${f%.*}.expected-err; then
                         echo "**** Unexpected error output for $f"
                         cat $TESTDIR/tmp/err
