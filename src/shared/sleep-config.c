@@ -228,15 +228,15 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
 
         fd = open(swap->device, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open swap file %s to determine on-disk offset: %m", swap->device);
+                return log_debug_errno(errno, "Failed to open swap file %s to determine on-disk offset: %m", swap->device);
 
         if (fstat(fd, &sb) < 0)
-                return log_error_errno(errno, "Failed to stat %s: %m", swap->device);
+                return log_debug_errno(errno, "Failed to stat %s: %m", swap->device);
 
         btrfs = btrfs_is_filesystem(fd);
         if (btrfs < 0)
-                return log_error_errno(btrfs, "Error checking %s for Btrfs filesystem: %m", swap->device);
-        else if (btrfs > 0) {
+                return log_debug_errno(btrfs, "Error checking %s for Btrfs filesystem: %m", swap->device);
+        if (btrfs > 0) {
                 log_debug("%s: detection of swap file offset on Btrfs is not supported", swap->device);
                 *ret_offset = UINT64_MAX;
                 return 0;
@@ -247,14 +247,13 @@ static int calculate_swap_file_offset(const SwapEntry *swap, uint64_t *ret_offse
                 return log_debug_errno(r, "Unable to read extent map for '%s': %m", swap->device);
 
         *ret_offset = fiemap->fm_extents[0].fe_physical / page_size();
-
         return 0;
 }
 
 static int read_resume_files(dev_t *ret_resume, uint64_t *ret_resume_offset) {
         _cleanup_free_ char *resume_str = NULL, *resume_offset_str = NULL;
-        dev_t resume;
         uint64_t resume_offset = 0;
+        dev_t resume;
         int r;
 
         r = read_one_line_file("/sys/power/resume", &resume_str);
@@ -267,13 +266,13 @@ static int read_resume_files(dev_t *ret_resume, uint64_t *ret_resume_offset) {
 
         r = read_one_line_file("/sys/power/resume_offset", &resume_offset_str);
         if (r == -ENOENT)
-                log_debug("Kernel does not support resume_offset; swap file offset detection will be skipped.");
+                log_debug_errno(r, "Kernel does not support resume_offset; swap file offset detection will be skipped.");
         else if (r < 0)
                 return log_debug_errno(r, "Error reading /sys/power/resume_offset: %m");
         else {
                 r = safe_atou64(resume_offset_str, &resume_offset);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse value in /sys/power/resume_offset \"%s\": %m", resume_offset_str);
+                        return log_debug_errno(r, "Failed to parse value in /sys/power/resume_offset \"%s\": %m", resume_offset_str);
         }
 
         if (resume_offset > 0 && resume == 0)
@@ -326,9 +325,8 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
 
         f = fopen("/proc/swaps", "re");
         if (!f) {
-                log_full(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
-                         "Failed to open /proc/swaps: %m");
-                return negative_errno();
+                log_debug_errno(errno, "Failed to open /proc/swaps: %m");
+                return errno == ENOENT ? -EOPNOTSUPP : -errno; /* Convert swap not supported to a recognizable error */
         }
 
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
@@ -339,7 +337,7 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
 
                 swap = new0(SwapEntry, 1);
                 if (!swap)
-                        return log_oom();
+                        return -ENOMEM;
 
                 k = fscanf(f,
                            "%ms "       /* device/file */
@@ -351,13 +349,13 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                 if (k == EOF)
                         break;
                 if (k != 5) {
-                        log_warning("Failed to parse /proc/swaps:%u", i);
+                        log_debug("Failed to parse /proc/swaps:%u, ignoring", i);
                         continue;
                 }
 
                 if (streq(swap->type, "file")) {
                         if (endswith(swap->device, "\\040(deleted)")) {
-                                log_warning("Ignoring deleted swap file '%s'.", swap->device);
+                                log_debug("Ignoring deleted swap file '%s'.", swap->device);
                                 continue;
                         }
 
@@ -394,12 +392,12 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                 dev_t swap_device;
                 r = swap_device_to_device_id(swap, &swap_device);
                 if (r < 0)
-                        return log_error_errno(r, "%s: failed to query device number: %m", swap->device);
+                        return log_debug_errno(r, "%s: failed to query device number: %m", swap->device);
 
                 hibernate_location = hibernate_location_free(hibernate_location);
                 hibernate_location = new(HibernateLocation, 1);
                 if (!hibernate_location)
-                        return log_oom();
+                        return -ENOMEM;
 
                 *hibernate_location = (HibernateLocation) {
                         .devno = swap_device,
