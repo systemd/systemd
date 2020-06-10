@@ -1637,10 +1637,10 @@ static bool service_shall_restart(Service *s) {
                 return s->result == SERVICE_SUCCESS;
 
         case SERVICE_RESTART_ON_FAILURE:
-                return s->result != SERVICE_SUCCESS;
+                return !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_SKIP_CONDITION);
 
         case SERVICE_RESTART_ON_ABNORMAL:
-                return !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_FAILURE_EXIT_CODE);
+                return !IN_SET(s->result, SERVICE_SUCCESS, SERVICE_FAILURE_EXIT_CODE, SERVICE_SKIP_CONDITION);
 
         case SERVICE_RESTART_ON_WATCHDOG:
                 return s->result == SERVICE_FAILURE_WATCHDOG;
