@@ -19,6 +19,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* add --copy-from and --copy-to command to systemd-dissect which copies stuff
+  in and out of a disk image
+
 * add systemd.random_seed= on the kernel cmdline, taking some hex or base64
   encoded data. During earliest boot, credit it to entropy. This is not useful
   for general purpose systems, but certainly for testing environments in VMs
