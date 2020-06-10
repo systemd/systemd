@@ -1841,12 +1841,13 @@ int run_udevd(int argc, char *argv[]) {
                 return r;
 
         if (arg_children_max == 0) {
-                unsigned long cpu_limit, mem_limit;
-                unsigned long cpu_count = 1;
-                cpu_set_t cpu_set;
+                unsigned long cpu_limit, mem_limit, cpu_count = 1;
 
-                if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) == 0)
-                        cpu_count = CPU_COUNT(&cpu_set);
+                r = cpus_in_affinity_mask();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine number of local CPUs, ignoring: %m");
+                else
+                        cpu_count = r;
 
                 cpu_limit = cpu_count * 2 + 16;
                 mem_limit = MAX(physical_memory() / (128UL*1024*1024), 10U);
@@ -1858,10 +1859,6 @@ int run_udevd(int argc, char *argv[]) {
         }
 
         /* set umask before creating any file/directory */
-        r = chdir("/");
-        if (r < 0)
-                return log_error_errno(errno, "Failed to change dir to '/': %m");
-
         umask(022);
 
         r = mac_selinux_init();
@@ -1871,8 +1868,6 @@ int run_udevd(int argc, char *argv[]) {
         r = mkdir_errno_wrapper("/run/udev", 0755);
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
-
-        dev_setup(NULL, UID_INVALID, GID_INVALID);
 
         if (getppid() == 1 && sd_booted() > 0) {
                 /* Get our own cgroup, we regularly kill everything udev has left behind.
@@ -1916,10 +1911,6 @@ int run_udevd(int argc, char *argv[]) {
 
                 /* child */
                 (void) setsid();
-
-                r = set_oom_score_adjust(-1000);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to adjust OOM score, ignoring: %m");
         }
 
         return main_loop(manager);
