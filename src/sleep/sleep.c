@@ -107,6 +107,9 @@ static int write_state(FILE **f, char **states) {
         char **state;
         int r = 0;
 
+        assert(f);
+        assert(*f);
+
         STRV_FOREACH(state, states) {
                 int k;
 
@@ -282,12 +285,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
         r = execute(sleep_config->hibernate_modes, sleep_config->hibernate_states);
         if (r < 0) {
-                log_notice("Couldn't hibernate, will try to suspend again.");
+                log_notice_errno(r, "Couldn't hibernate, will try to suspend again: %m");
+
                 r = execute(sleep_config->suspend_modes, sleep_config->suspend_states);
-                if (r < 0) {
-                        log_notice("Could neither hibernate nor suspend again, giving up.");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Could neither hibernate nor suspend, giving up: %m");
         }
 
         return 0;
