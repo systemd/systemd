@@ -673,9 +673,9 @@ int sleep_settings(const char *verb, const SleepConfig *sleep_config, bool *ret_
         return 0;
 }
 
-void free_sleep_config(SleepConfig *sc) {
+SleepConfig* free_sleep_config(SleepConfig *sc) {
         if (!sc)
-                return;
+                return NULL;
 
         strv_free(sc->suspend_modes);
         strv_free(sc->suspend_states);
@@ -686,5 +686,5 @@ void free_sleep_config(SleepConfig *sc) {
         strv_free(sc->hybrid_modes);
         strv_free(sc->hybrid_states);
 
-        free(sc);
+        return mfree(sc);
 }
