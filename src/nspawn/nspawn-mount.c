@@ -898,7 +898,7 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
                 return m->graceful ? 0 : r;
         }
 
-        r = mode_to_inaccessible_node("/run/systemd", st.st_mode, &source);
+        r = mode_to_inaccessible_node(NULL, st.st_mode, &source);
         if (r < 0)
                 return m->graceful ? 0 : r;
 

@@ -397,71 +397,73 @@ int repeat_unmount(const char *path, int flags) {
         }
 }
 
-int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest) {
-        /* This function maps a node type to a corresponding inaccessible file node. These nodes are created during
-         * early boot by PID 1. In some cases we lacked the privs to create the character and block devices (maybe
-         * because we run in an userns environment, or miss CAP_SYS_MKNOD, or run with a devices policy that excludes
-         * device nodes with major and minor of 0), but that's fine, in that case we use an AF_UNIX file node instead,
-         * which is not the same, but close enough for most uses. And most importantly, the kernel allows bind mounts
-         * from socket nodes to any non-directory file nodes, and that's the most important thing that matters. */
+int mode_to_inaccessible_node(
+                const char *runtime_dir,
+                mode_t mode,
+                char **ret) {
+
+        /* This function maps a node type to a corresponding inaccessible file node. These nodes are created
+         * during early boot by PID 1. In some cases we lacked the privs to create the character and block
+         * devices (maybe because we run in an userns environment, or miss CAP_SYS_MKNOD, or run with a
+         * devices policy that excludes device nodes with major and minor of 0), but that's fine, in that
+         * case we use an AF_UNIX file node instead, which is not the same, but close enough for most
+         * uses. And most importantly, the kernel allows bind mounts from socket nodes to any non-directory
+         * file nodes, and that's the most important thing that matters.
+         *
+         * Note that the runtime directory argument shall be the top-level runtime directory, i.e. /run/ if
+         * we operate in system context and $XDG_RUNTIME_DIR if we operate in user context. */
+
         _cleanup_free_ char *d = NULL;
         const char *node = NULL;
-        char *tmp;
+        bool fallback = false;
 
-        assert(dest);
+        assert(ret);
+
+        if (!runtime_dir)
+                runtime_dir = "/run";
 
         switch(mode & S_IFMT) {
                 case S_IFREG:
-                        node = "/inaccessible/reg";
+                        node = "/systemd/inaccessible/reg";
                         break;
 
                 case S_IFDIR:
-                        node = "/inaccessible/dir";
+                        node = "/systemd/inaccessible/dir";
                         break;
 
                 case S_IFCHR:
-                        d = path_join(runtime_dir, "/inaccessible/chr");
-                        if (!d)
-                                return log_oom();
-
-                        if (access(d, F_OK) == 0) {
-                                *dest = TAKE_PTR(d);
-                                return 0;
-                        }
-
-                        node = "/inaccessible/sock";
+                        node = "/systemd/inaccessible/chr";
+                        fallback = true;
                         break;
 
                 case S_IFBLK:
-                        d = path_join(runtime_dir, "/inaccessible/blk");
-                        if (!d)
-                                return log_oom();
-
-                        if (access(d, F_OK) == 0) {
-                                *dest = TAKE_PTR(d);
-                                return 0;
-                        }
-
-                        node = "/inaccessible/sock";
+                        node = "/systemd/inaccessible/blk";
+                        fallback = true;
                         break;
 
                 case S_IFIFO:
-                        node = "/inaccessible/fifo";
+                        node = "/systemd/inaccessible/fifo";
                         break;
 
                 case S_IFSOCK:
-                        node = "/inaccessible/sock";
+                        node = "/systemd/inaccessible/sock";
                         break;
         }
-
         if (!node)
                 return -EINVAL;
 
-        tmp = path_join(runtime_dir, node);
-        if (!tmp)
-                return log_oom();
+        d = path_join(runtime_dir, node);
+        if (!d)
+                return -ENOMEM;
 
-        *dest = tmp;
+        if (fallback && access(d, F_OK) < 0) {
+                free(d);
+                d = path_join(runtime_dir, "/systemd/inaccessible/sock");
+                if (!d)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(d);
         return 0;
 }
 

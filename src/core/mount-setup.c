@@ -535,9 +535,9 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
         (void) mkdir_label("/run/systemd", 0755);
         (void) mkdir_label("/run/systemd/system", 0755);
 
-        /* Also create /run/systemd/inaccessible nodes, so that we always have something to mount inaccessible nodes
-         * from. */
-        (void) make_inaccessible_nodes("/run/systemd", UID_INVALID, GID_INVALID);
+        /* Also create /run/systemd/inaccessible nodes, so that we always have something to mount
+         * inaccessible nodes from. */
+        (void) make_inaccessible_nodes(NULL, UID_INVALID, GID_INVALID);
 
         return 0;
 }

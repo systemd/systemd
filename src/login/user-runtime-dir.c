@@ -78,7 +78,7 @@ static int user_mkdir_runtime_path(
 
                 r = mount("tmpfs", runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, options);
                 if (r < 0) {
-                        if (!IN_SET(errno, EPERM, EACCES)) {
+                        if (!ERRNO_IS_PRIVILEGE(errno)) {
                                 r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", runtime_path);
                                 goto fail;
                         }
