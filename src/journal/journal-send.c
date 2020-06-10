@@ -96,11 +96,9 @@ _public_ int sd_journal_printv(int priority, const char *format, va_list ap) {
 
         /* Allocate large buffer to accommodate big message */
         if (len >= LINE_MAX) {
-                _unused_ int rlen;
                 buffer = alloca(len + 9);
                 memcpy(buffer, "MESSAGE=", 8);
-                rlen = vsnprintf(buffer + 8, len + 1, format, ap);
-                assert(len == rlen);
+                assert_se(vsnprintf(buffer + 8, len + 1, format, ap) == len);
         }
 
         /* Strip trailing whitespace, keep prefix whitespace. */
@@ -474,11 +472,9 @@ _public_ int sd_journal_printv_with_location(int priority, const char *file, con
 
         /* Allocate large buffer to accommodate big message */
         if (len >= LINE_MAX) {
-                _unused_ int rlen;
                 buffer = alloca(len + 9);
                 memcpy(buffer, "MESSAGE=", 8);
-                rlen = vsnprintf(buffer + 8, len + 1, format, ap);
-                assert(len == rlen);
+                assert_se(vsnprintf(buffer + 8, len + 1, format, ap) == len);
         }
 
         /* Strip trailing whitespace, keep prefixing whitespace */
