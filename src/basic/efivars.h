@@ -32,6 +32,7 @@ bool is_efi_boot(void);
 bool is_efi_secure_boot(void);
 bool is_efi_secure_boot_setup_mode(void);
 
+int cache_efi_options_variable(void);
 int systemd_efi_options_variable(char **line);
 
 #else

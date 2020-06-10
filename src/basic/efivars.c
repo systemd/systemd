@@ -14,6 +14,7 @@
 #include "chattr-util.h"
 #include "efivars.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "io-util.h"
 #include "macro.h"
 #include "stdio-util.h"
@@ -34,6 +35,17 @@ char* efi_variable_path(sd_id128_t vendor, const char *name) {
 
         if (asprintf(&p,
                      "/sys/firmware/efi/efivars/%s-" SD_ID128_UUID_FORMAT_STR,
+                     name, SD_ID128_FORMAT_VAL(vendor)) < 0)
+                return NULL;
+
+        return p;
+}
+
+static char* efi_variable_cache_path(sd_id128_t vendor, const char *name) {
+        char *p;
+
+        if (asprintf(&p,
+                     "/run/systemd/efivars/%s-" SD_ID128_UUID_FORMAT_STR,
                      name, SD_ID128_FORMAT_VAL(vendor)) < 0)
                 return NULL;
 
@@ -323,8 +335,49 @@ bool is_efi_secure_boot_setup_mode(void) {
         return cache > 0;
 }
 
+int cache_efi_options_variable(void) {
+        _cleanup_free_ char *line = NULL, *cachepath = NULL;
+        int r;
+
+        /* In SecureBoot mode this is probably not what you want. As your cmdline is cryptographically signed
+         * like when using Type #2 EFI Unified Kernel Images (https://systemd.io/BOOT_LOADER_SPECIFICATION/)
+         * The user's intention is then that the cmdline should not be modified. You want to make sure that
+         * the system starts up as exactly specified in the signed artifact.
+         *
+         * (NB: For testing purposes, we still check the $SYSTEMD_EFI_OPTIONS env var before accessing this
+         * cache, even when in SecureBoot mode.) */
+        if (is_efi_secure_boot()) {
+                _cleanup_free_ char *k;
+
+                k = efi_variable_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
+                if (!k)
+                        return -ENOMEM;
+
+                /* Let's be helpful with the returned error and check if the variable exists at all. If it
+                 * does, let's return a recognizable error (EPERM), and if not ENODATA. */
+
+                if (access(k, F_OK) < 0)
+                        return errno == ENOENT ? -ENODATA : -errno;
+
+                return -EPERM;
+        }
+
+        r = efi_get_variable_string(EFI_VENDOR_SYSTEMD, "SystemdOptions", &line);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+
+        cachepath = efi_variable_cache_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
+        if (!cachepath)
+                return -ENOMEM;
+
+        return write_string_file(cachepath, line, WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755);
+}
+
 int systemd_efi_options_variable(char **line) {
         const char *e;
+        _cleanup_free_ char *cachepath = NULL;
         int r;
 
         assert(line);
@@ -342,33 +395,13 @@ int systemd_efi_options_variable(char **line) {
                 return 0;
         }
 
-        /* In SecureBoot mode this is probably not what you want. As your cmdline is cryptographically signed
-         * like when using Type #2 EFI Unified Kernel Images (https://systemd.io/BOOT_LOADER_SPECIFICATION/)
-         * The user's intention is then that the cmdline should not be modified. You want to make sure that
-         * the system starts up as exactly specified in the signed artifact.
-         *
-         * (NB: to make testing purposes we still check the $SYSTEMD_EFI_OPTIONS env var above, even when in
-         * SecureBoot mode.) */
-        if (is_efi_secure_boot()) {
-                _cleanup_free_ char *k;
+        cachepath = efi_variable_cache_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
+        if (!cachepath)
+                return -ENOMEM;
 
-                k = efi_variable_path(EFI_VENDOR_SYSTEMD, "SystemdOptions");
-                if (!k)
-                        return -ENOMEM;
-
-                /* Let's be helpful with the returned error and check if the variable exists at all. If it
-                 * does, let's return a recognizable error (EPERM), and if not ENODATA. */
-
-                if (access(k, F_OK) < 0)
-                        return errno == ENOENT ? -ENODATA : -errno;
-
-                return -EPERM;
-        }
-
-        r = efi_get_variable_string(EFI_VENDOR_SYSTEMD, "SystemdOptions", line);
+        r = read_one_line_file(cachepath, line);
         if (r == -ENOENT)
                 return -ENODATA;
-
         return r;
 }
 #endif
