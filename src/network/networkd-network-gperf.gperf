@@ -203,6 +203,7 @@ DHCPv6.VendorClass,                          config_parse_dhcp_vendor_class,    
 DHCPv6.SendVendorOption,                     config_parse_dhcp_send_option,                            AF_INET6,                      offsetof(Network, dhcp6_client_send_vendor_options)
 DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_bool,                                        0,                             offsetof(Network, dhcp6_force_pd_other_information)
 DHCPv6.AssignAcquiredDelegatedPrefixAddress, config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign_prefix)
+DHCPv6.AssignAcquiredDelegatedPrefixToken,   config_parse_dhcp6_delegated_prefix_token,                0,                             0
 DHCPv6.PrefixDelegationHint,                 config_parse_dhcp6_pd_hint,                               0,                             0
 DHCPv6.WithoutRA,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp6_without_ra)
 DHCPv6.SendOption,                           config_parse_dhcp_send_option,                            AF_INET6,                      offsetof(Network, dhcp6_client_send_options)

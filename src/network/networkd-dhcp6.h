@@ -16,3 +16,4 @@ int dhcp6_prefix_remove(Manager *m, struct in6_addr *addr);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_hint);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_mud_url);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_delegated_prefix_token);

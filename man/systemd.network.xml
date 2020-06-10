@@ -1820,6 +1820,16 @@
         </varlistentry>
 
         <varlistentry>
+        <term><varname>AssignAcquiredDelegatedPrefixToken=</varname></term>
+          <listitem>
+            <para>Specifies an optional address generation mode for <varname>AssignAcquiredDelegatedPrefixAddress=</varname>.
+            Takes an IPv6 address. When set, the lower bits of the supplied address are combined with the upper bits of a
+            delegatad prefix received from the WAN interface by the <varname>IPv6PrefixDelegation=</varname> prefixes to
+            form a complete address.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>PrefixDelegationHint=</varname></term>
           <listitem>
             <para>Takes an IPv6 address with prefix length as <varname>Address=</varname> in

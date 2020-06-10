@@ -55,23 +55,25 @@ static int dhcp6_get_preferred_delegated_prefix(
                 const struct in6_addr *pd_prefix,
                 uint8_t pd_prefix_len,
                 struct in6_addr *ret_addr) {
-        int r;
-        union in_addr_union pd_prefix_union = {
-                .in6 = *pd_prefix,
-        };
+
         int64_t subnet_id = link->network->router_prefix_subnet_id;
-
-        assert(pd_prefix_len <= 64);
-
         uint8_t prefix_bits = 64 - pd_prefix_len;
         uint64_t n_prefixes = UINT64_C(1) << prefix_bits;
         _cleanup_free_ char *assigned_buf = NULL;
-
+        union in_addr_union pd_prefix_union = {
+                .in6 = *pd_prefix,
+        };
         /* We start off with the original PD prefix we have been assigned and
          * iterate from there */
         union in_addr_union prefix = {
                 .in6 = *pd_prefix,
         };
+        int r;
+
+        assert(pd_prefix_len <= 64);
+        assert(manager);
+        assert(link);
+        assert(link->network);
 
         if (subnet_id >= 0) {
                 /* If the link has a preference for a particular subnet id try to allocate that */
@@ -222,11 +224,11 @@ static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, Lin
 }
 
 int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link) {
-        int r;
-        sd_dhcp6_lease *lease;
+        uint32_t lifetime_preferred, lifetime_valid;
         union in_addr_union pd_prefix;
         uint8_t pd_prefix_len;
-        uint32_t lifetime_preferred, lifetime_valid;
+        sd_dhcp6_lease *lease;
+        int r;
 
         r = sd_dhcp6_client_get_lease(client, &lease);
         if (r < 0)
@@ -275,17 +277,17 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link,
                                       uint32_t lifetime_preferred,
                                       uint32_t lifetime_valid,
                                       bool assign_preferred_subnet_id) {
-        Iterator i;
-        Link *link;
+
+        _cleanup_free_ char *assigned_buf = NULL, *buf = NULL;
         Manager *manager = dhcp6_link->manager;
         union in_addr_union prefix = {
                 .in6 = *pd_prefix,
         };
-        uint64_t n_prefixes;
-        _cleanup_free_ char *buf = NULL;
-        _cleanup_free_ char *assigned_buf = NULL;
-        int r;
         bool pool_depleted = false;
+        uint64_t n_prefixes;
+        Iterator i;
+        Link *link;
+        int r;
 
         assert(manager);
         assert(pd_prefix_len <= 64);
@@ -364,11 +366,11 @@ static int dhcp6_route_handler(sd_netlink *nl, sd_netlink_message *m, Link *link
 }
 
 static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
-        int r;
-        sd_dhcp6_lease *lease;
-        union in_addr_union pd_prefix;
-        uint8_t pd_prefix_len;
         uint32_t lifetime_preferred, lifetime_valid;
+        union in_addr_union pd_prefix;
+        sd_dhcp6_lease *lease;
+        uint8_t pd_prefix_len;
+        int r;
 
         r = sd_dhcp6_client_get_lease(client, &lease);
         if (r < 0)
@@ -1045,6 +1047,7 @@ static int dhcp6_assign_delegated_prefix(Link *link,
                                          uint8_t prefix_len,
                                          uint32_t lifetime_preferred,
                                          uint32_t lifetime_valid) {
+
         _cleanup_(address_freep) Address *address = NULL;
         int r;
 
@@ -1057,12 +1060,17 @@ static int dhcp6_assign_delegated_prefix(Link *link,
 
         r = address_new(&address);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate address: %m");
+                return log_link_error_errno(link, r, "Failed to allocate address for DHCPv6 delegated prefix: %m");
 
         address->in_addr.in6 = *prefix;
-        r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to generate EUI64 address for DHCPv6 acquired delegated prefix: %m");
+
+        if (!in_addr_is_null(AF_INET6, &link->network->dhcp6_delegation_prefix_token))
+                memcpy(&address->in_addr.in6.s6_addr + 8, &link->network->dhcp6_delegation_prefix_token.in6.s6_addr + 8, 8);
+        else {
+                r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to generate EUI64 address for acquired DHCPv6 delegated prefix: %m");
+        }
 
         address->prefixlen = prefix_len;
         address->family = AF_INET6;
@@ -1073,7 +1081,7 @@ static int dhcp6_assign_delegated_prefix(Link *link,
 
         r = address_configure(address, link, address_handler, true);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Could not set addresses: %m");
+                return log_link_warning_errno(link, r, "Failed to set acquired DHCPv6 delegated prefix address: %m");
         if (r > 0)
                 link->address_messages++;
 
@@ -1126,6 +1134,7 @@ int config_parse_dhcp6_mud_url(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         _cleanup_free_ char *unescaped = NULL;
         Network *network = data;
         int r;
@@ -1154,4 +1163,45 @@ int config_parse_dhcp6_mud_url(
         }
 
         return free_and_replace(network->dhcp6_mudurl, unescaped);
+}
+
+int config_parse_dhcp6_delegated_prefix_token(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                network->dhcp6_delegation_prefix_token = IN_ADDR_NULL;
+                return 0;
+        }
+
+        r = in_addr_from_string(AF_INET6, rvalue, &network->dhcp6_delegation_prefix_token);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse DHCPv6 %s, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (in_addr_is_null(AF_INET6, &network->dhcp6_delegation_prefix_token)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "DHCPv6 %s cannot be the ANY address, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        return 0;
 }

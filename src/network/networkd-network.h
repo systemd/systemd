@@ -201,6 +201,7 @@ struct Network {
                                                   RA flag is set, see RFC 7084,
                                                   WPD-4 */
         bool dhcp6_pd_assign_prefix;
+        union in_addr_union dhcp6_delegation_prefix_token;
 
         /* Bridge Support */
         int use_bpdu;

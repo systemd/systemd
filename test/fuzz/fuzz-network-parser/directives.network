@@ -120,6 +120,7 @@ RequestOptions=
 UserClass=
 VendorClass=
 AssignAcquiredDelegatedPrefixAddress=
+AssignAcquiredDelegatedPrefixToken=
 SendVendorOption=
 RouteMetric=
 [Route]
