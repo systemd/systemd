@@ -14,6 +14,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "path-util.h"
@@ -297,7 +298,7 @@ int utmp_put_runlevel(int runlevel, int previous) {
         return write_entry_both(&store);
 }
 
-#define TIMEOUT_MSEC 50
+#define TIMEOUT_USEC (50 * USEC_PER_MSEC)
 
 static int write_to_terminal(const char *tty, const char *message) {
         _cleanup_close_ int fd = -1;
@@ -315,14 +316,10 @@ static int write_to_terminal(const char *tty, const char *message) {
         p = message;
         left = strlen(message);
 
-        end = now(CLOCK_MONOTONIC) + TIMEOUT_MSEC*USEC_PER_MSEC;
+        end = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
 
         while (left > 0) {
                 ssize_t n;
-                struct pollfd pollfd = {
-                        .fd = fd,
-                        .events = POLLOUT,
-                };
                 usec_t t;
                 int k;
 
@@ -331,13 +328,11 @@ static int write_to_terminal(const char *tty, const char *message) {
                 if (t >= end)
                         return -ETIME;
 
-                k = poll(&pollfd, 1, (end - t) / USEC_PER_MSEC);
+                k = fd_wait_for_event(fd, POLLOUT, end - t);
                 if (k < 0)
-                        return -errno;
+                        return k;
                 if (k == 0)
                         return -ETIME;
-                if (pollfd.revents & POLLNVAL)
-                        return -EBADF;
 
                 n = write(fd, p, left);
                 if (n < 0) {

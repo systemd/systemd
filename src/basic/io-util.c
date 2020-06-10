@@ -11,10 +11,6 @@
 #include "time-util.h"
 
 int flush_fd(int fd) {
-        struct pollfd pollfd = {
-                .fd = fd,
-                .events = POLLIN,
-        };
         int count = 0;
 
         /* Read from the specified file descriptor, until POLLIN is not set anymore, throwing away everything
@@ -27,22 +23,18 @@ int flush_fd(int fd) {
                 ssize_t l;
                 int r;
 
-                r = poll(&pollfd, 1, 0);
+                r = fd_wait_for_event(fd, POLLIN, 0);
                 if (r < 0) {
-                        if (errno == EINTR)
+                        if (r == -EINTR)
                                 continue;
 
-                        return -errno;
+                        return r;
                 }
                 if (r == 0)
                         return count;
 
-                if (pollfd.revents & POLLNVAL)
-                        return -EBADF;
-
                 l = read(fd, buf, sizeof(buf));
                 if (l < 0) {
-
                         if (errno == EINTR)
                                 continue;
 
@@ -158,24 +150,15 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
 }
 
 int pipe_eof(int fd) {
-        struct pollfd pollfd = {
-                .fd = fd,
-                .events = POLLIN|POLLHUP,
-        };
-
         int r;
 
-        r = poll(&pollfd, 1, 0);
+        r = fd_wait_for_event(fd, POLLIN, 0);
         if (r < 0)
-                return -errno;
-
+                return r;
         if (r == 0)
                 return 0;
 
-        if (pollfd.revents & POLLNVAL)
-                return -EBADF;
-
-        return pollfd.revents & POLLHUP;
+        return !!(r & POLLHUP);
 }
 
 int fd_wait_for_event(int fd, int event, usec_t t) {

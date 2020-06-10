@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
@@ -968,10 +969,6 @@ fallback:
 
 int flush_accept(int fd) {
 
-        struct pollfd pollfd = {
-                .fd = fd,
-                .events = POLLIN,
-        };
         int r, b;
         socklen_t l = sizeof(b);
 
@@ -992,18 +989,15 @@ int flush_accept(int fd) {
         for (unsigned iteration = 0;; iteration++) {
                 int cfd;
 
-                r = poll(&pollfd, 1, 0);
+                r = fd_wait_for_event(fd, POLLIN, 0);
                 if (r < 0) {
-                        if (errno == EINTR)
+                        if (r == -EINTR)
                                 continue;
 
-                        return -errno;
+                        return r;
                 }
                 if (r == 0)
                         return 0;
-
-                if (pollfd.revents & POLLNVAL)
-                        return -EBADF;
 
                 if (iteration >= MAX_FLUSH_ITERATIONS)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),

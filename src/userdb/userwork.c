@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "group-record-nss.h"
 #include "group-record.h"
+#include "io-util.h"
 #include "main-func.h"
 #include "process-util.h"
 #include "strv.h"
@@ -747,20 +748,14 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(fd, "Failed to accept() from listening socket: %m");
 
                 if (now(CLOCK_MONOTONIC) <= usec_add(n, PRESSURE_SLEEP_TIME_USEC)) {
-                        struct pollfd pfd = {
-                                .fd = listen_fd,
-                                .events = POLLIN,
-                        };
-
                         /* We only slept a very short time? If so, let's see if there are more sockets
                          * pending, and if so, let's ask our parent for more workers */
 
-                        if (poll(&pfd, 1, 0) < 0)
-                                return log_error_errno(errno, "Failed to test for POLLIN on listening socket: %m");
-                        if (FLAGS_SET(pfd.revents, POLLNVAL))
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Listening socket dead?");
+                        r = fd_wait_for_event(listen_fd, POLLIN, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to test for POLLIN on listening socket: %m");
 
-                        if (FLAGS_SET(pfd.revents, POLLIN)) {
+                        if (FLAGS_SET(r, POLLIN)) {
                                 pid_t parent;
 
                                 parent = getppid();

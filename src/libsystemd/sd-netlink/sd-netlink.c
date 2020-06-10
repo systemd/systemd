@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "io-util.h"
 #include "macro.h"
 #include "netlink-internal.h"
 #include "netlink-slot.h"
@@ -462,7 +463,6 @@ static usec_t calc_elapse(uint64_t usec) {
 }
 
 static int rtnl_poll(sd_netlink *rtnl, bool need_more, uint64_t timeout_usec) {
-        struct timespec ts;
         usec_t m = USEC_INFINITY;
         int r, e;
 
@@ -491,22 +491,14 @@ static int rtnl_poll(sd_netlink *rtnl, bool need_more, uint64_t timeout_usec) {
                 }
         }
 
-        if (timeout_usec != (uint64_t) -1 && (m == (uint64_t) -1 || timeout_usec < m))
+        if (timeout_usec != (uint64_t) -1 && (m == USEC_INFINITY || timeout_usec < m))
                 m = timeout_usec;
 
-        struct pollfd p = {
-                .fd = rtnl->fd,
-                .events = e,
-        };
-
-        r = ppoll(&p, 1, m == (uint64_t) -1 ? NULL : timespec_store(&ts, m), NULL);
+        r = fd_wait_for_event(rtnl->fd, e, m);
         if (r < 0)
-                return -errno;
+                return r;
         if (r == 0)
                 return 0;
-
-        if (p.revents & POLLNVAL)
-                return -EBADF;
 
         return 1;
 }

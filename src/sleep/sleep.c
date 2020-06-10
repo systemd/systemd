@@ -23,6 +23,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
@@ -239,7 +240,6 @@ static int execute_s2h(const SleepConfig *sleep_config) {
         _cleanup_close_ int tfd = -1;
         char buf[FORMAT_TIMESPAN_MAX];
         struct itimerspec ts = {};
-        struct pollfd fds;
         int r;
 
         assert(sleep_config);
@@ -261,21 +261,13 @@ static int execute_s2h(const SleepConfig *sleep_config) {
         if (r < 0)
                 return r;
 
-        fds = (struct pollfd) {
-                .fd = tfd,
-                .events = POLLIN,
-        };
-        r = poll(&fds, 1, 0);
+        r = fd_wait_for_event(tfd, POLLIN, 0);
         if (r < 0)
-                return log_error_errno(errno, "Error polling timerfd: %m");
+                return log_error_errno(r, "Error polling timerfd: %m");
+        if (!FLAGS_SET(r, POLLIN)) /* We woke up before the alarm time, we are done. */
+                return 0;
 
         tfd = safe_close(tfd);
-
-        if (FLAGS_SET(fds.revents, POLLNVAL))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Invalid timer fd to sleep on?");
-
-        if (!FLAGS_SET(fds.revents, POLLIN)) /* We woke up before the alarm time, we are done. */
-                return 0;
 
         /* If woken up after alarm time, hibernate */
         log_debug("Attempting to hibernate after waking from %s timer",
@@ -283,12 +275,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
         r = execute(sleep_config->hibernate_modes, sleep_config->hibernate_states);
         if (r < 0) {
-                log_notice("Couldn't hibernate, will try to suspend again.");
+                log_notice_errno(r, "Couldn't hibernate, will try to suspend again.");
+
                 r = execute(sleep_config->suspend_modes, sleep_config->suspend_states);
-                if (r < 0) {
-                        log_notice("Could neither hibernate nor suspend again, giving up.");
-                        return r;
-                }
+                if (r < 0)
+                        return log_notice_errno(r, "Could neither hibernate nor suspend again, giving up.");
         }
 
         return 0;

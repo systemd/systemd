@@ -15,6 +15,7 @@
 #include "sd-bus.h"
 #include "sd-login.h"
 
+#include "io-util.h"
 #include "libudev-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -141,9 +142,8 @@ static int emit_deprecation_warning(void) {
 
 int settle_main(int argc, char *argv[], void *userdata) {
         _cleanup_(udev_queue_unrefp) struct udev_queue *queue = NULL;
-        struct pollfd pfd;
         usec_t deadline;
-        int r;
+        int r, fd;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -177,16 +177,11 @@ int settle_main(int argc, char *argv[], void *userdata) {
         if (!queue)
                 return log_error_errno(errno, "Failed to get udev queue: %m");
 
-        r = udev_queue_get_fd(queue);
-        if (r < 0) {
-                log_debug_errno(r, "Queue is empty, nothing to watch.");
+        fd = udev_queue_get_fd(queue);
+        if (fd < 0) {
+                log_debug_errno(fd, "Queue is empty, nothing to watch: %m");
                 return 0;
         }
-
-        pfd = (struct pollfd) {
-                .events = POLLIN,
-                .fd = r,
-        };
 
         (void) emit_deprecation_warning();
 
@@ -202,12 +197,10 @@ int settle_main(int argc, char *argv[], void *userdata) {
                         return -ETIMEDOUT;
 
                 /* wake up when queue becomes empty */
-                r = poll(&pfd, 1, MSEC_PER_SEC);
+                r = fd_wait_for_event(fd, POLLIN, MSEC_PER_SEC);
                 if (r < 0)
-                        return -errno;
-                if (pfd.revents & POLLNVAL)
-                        return -EBADF;
-                if (r > 0 && pfd.revents & POLLIN) {
+                        return r;
+                if (r & POLLIN) {
                         r = udev_queue_flush(queue);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to flush queue: %m");
