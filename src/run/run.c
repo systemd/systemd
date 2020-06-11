@@ -1724,7 +1724,7 @@ static int run(int argc, char* argv[]) {
 
                 /* Patch in an absolute path */
 
-                r = find_binary(arg_cmdline[0], &command);
+                r = find_binary(arg_cmdline[0], NULL, &command);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find executable %s: %m", arg_cmdline[0]);
 

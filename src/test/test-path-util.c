@@ -169,26 +169,26 @@ static void test_find_binary(const char *self) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(find_binary("/bin/sh", &p) == 0);
+        assert_se(find_binary("/bin/sh", NULL, &p) == 0);
         puts(p);
         assert_se(path_equal(p, "/bin/sh"));
         free(p);
 
-        assert_se(find_binary(self, &p) == 0);
+        assert_se(find_binary(self, NULL, &p) == 0);
         puts(p);
         /* libtool might prefix the binary name with "lt-" */
         assert_se(endswith(p, "/lt-test-path-util") || endswith(p, "/test-path-util"));
         assert_se(path_is_absolute(p));
         free(p);
 
-        assert_se(find_binary("sh", &p) == 0);
+        assert_se(find_binary("sh", NULL, &p) == 0);
         puts(p);
         assert_se(endswith(p, "/sh"));
         assert_se(path_is_absolute(p));
         free(p);
 
-        assert_se(find_binary("xxxx-xxxx", &p) == -ENOENT);
-        assert_se(find_binary("/some/dir/xxxx-xxxx", &p) == -ENOENT);
+        assert_se(find_binary("xxxx-xxxx", NULL, &p) == -ENOENT);
+        assert_se(find_binary("/some/dir/xxxx-xxxx", NULL, &p) == -ENOENT);
 }
 
 static void test_prefixes(void) {

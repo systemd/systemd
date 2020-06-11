@@ -592,14 +592,21 @@ char* path_join_internal(const char *first, ...) {
         return joined;
 }
 
-int find_binary(const char *name, char **ret) {
+int find_binary(const char *name, const char *root, char **ret) {
         int last_error, r;
         const char *p;
 
         assert(name);
 
         if (is_path(name)) {
-                if (access(name, X_OK) < 0)
+                const char *path;
+
+                if (root && !path_is_absolute(name))
+                        return -EINVAL;
+
+                path = prefix_roota(root, name);
+
+                if (access(path, X_OK) < 0)
                         return -errno;
 
                 if (ret) {
@@ -611,18 +618,24 @@ int find_binary(const char *name, char **ret) {
                 return 0;
         }
 
-        /**
-         * Plain getenv, not secure_getenv, because we want
-         * to actually allow the user to pick the binary.
-         */
-        p = getenv("PATH");
-        if (!p)
-                p = DEFAULT_PATH;
+        if (root)
+                /* If we're operating on a different root we don't want the user's PATH to interfere with
+                 * the search. Let's also make sure we deal with the case where the root uses a split usr
+                 * and the host doesn't or vice-versa. */
+                p = DEFAULT_PATH_COMPAT;
+        else {
+                /* Plain getenv, not secure_getenv, because we want to actually allow the user to pick the
+                 * binary. */
+                p = getenv("PATH");
+                if (!p)
+                        p = DEFAULT_PATH;
+        }
 
         last_error = -ENOENT;
 
         for (;;) {
                 _cleanup_free_ char *j = NULL, *element = NULL;
+                const char *path;
 
                 r = extract_first_word(&p, &element, ":", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r < 0)
@@ -633,7 +646,9 @@ int find_binary(const char *name, char **ret) {
                 if (!path_is_absolute(element))
                         continue;
 
-                j = path_join(element, name);
+                path = prefix_roota(root, element);
+
+                j = path_join(path, name);
                 if (!j)
                         return -ENOMEM;
 
@@ -695,7 +710,7 @@ static int binary_is_good(const char *binary) {
         _cleanup_free_ char *p = NULL, *d = NULL;
         int r;
 
-        r = find_binary(binary, &p);
+        r = find_binary(binary, NULL, &p);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

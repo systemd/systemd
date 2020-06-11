@@ -80,7 +80,7 @@ int path_strv_make_absolute_cwd(char **l);
 char** path_strv_resolve(char **l, const char *root);
 char** path_strv_resolve_uniq(char **l, const char *root);
 
-int find_binary(const char *name, char **filename);
+int find_binary(const char *name, const char *root, char **filename);
 
 bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
 

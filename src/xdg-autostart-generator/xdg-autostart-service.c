@@ -375,7 +375,7 @@ int xdg_autostart_format_exec_start(
 
                         /* This is the executable, find it in $PATH */
                         first_arg = false;
-                        r = find_binary(c, &executable);
+                        r = find_binary(c, NULL, &executable);
                         if (r < 0)
                                 return log_info_errno(r, "Exec binary '%s' does not exist: %m", c);
 
@@ -451,7 +451,7 @@ static int xdg_autostart_generate_desktop_condition(
         if (!isempty(condition)) {
                 _cleanup_free_ char *gnome_autostart_condition_path = NULL, *e_autostart_condition = NULL;
 
-                r = find_binary(test_binary, &gnome_autostart_condition_path);
+                r = find_binary(test_binary, NULL, &gnome_autostart_condition_path);
                 if (r < 0) {
                         log_full_errno(r == -ENOENT ? LOG_INFO : LOG_WARNING, r,
                                        "%s not found: %m", test_binary);
@@ -509,7 +509,7 @@ int xdg_autostart_service_generate_unit(
          * it is trivial to check using find_binary though.
          */
         if (service->try_exec) {
-                r = find_binary(service->try_exec, NULL);
+                r = find_binary(service->try_exec, NULL, NULL);
                 if (r < 0) {
                         log_full_errno(r == -ENOENT ? LOG_INFO : LOG_WARNING, r,
                                        "Not generating service for XDG autostart %s, could not find TryExec= binary %s: %m",
