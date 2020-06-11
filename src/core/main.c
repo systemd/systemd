@@ -42,6 +42,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "ima-setup.h"
 #include "killall.h"
@@ -60,6 +61,7 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
 #if HAVE_SECCOMP
@@ -149,6 +151,8 @@ static OOMPolicy arg_default_oom_policy;
 static CPUSet arg_cpu_affinity;
 static NUMAPolicy arg_numa_policy;
 static usec_t arg_clock_usec;
+static void *arg_random_seed;
+static size_t arg_random_seed_size;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -502,6 +506,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 r = safe_atou64(value, &arg_clock_usec);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse systemd.clock_usec= argument, ignoring: %s", value);
+
+        } else if (proc_cmdline_key_streq(key, "systemd.random_seed")) {
+                void *p;
+                size_t sz;
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = unbase64mem(value, (size_t) -1, &p, &sz);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse systemd.random_seed= argument, ignoring: %s", value);
+
+                free(arg_random_seed);
+                arg_random_seed = sz > 0 ? p : mfree(p);
+                arg_random_seed_size = sz;
 
         } else if (streq(key, "quiet") && !value) {
 
@@ -1587,6 +1606,40 @@ static void apply_clock_update(void) {
         }
 }
 
+static void cmdline_take_random_seed(void) {
+        _cleanup_close_ int random_fd = -1;
+        size_t suggested;
+        int r;
+
+        if (arg_random_seed_size == 0)
+                return;
+
+        if (getpid_cached() != 1)
+                return;
+
+        assert(arg_random_seed);
+        suggested = random_pool_size();
+
+        if (arg_random_seed_size < suggested)
+                log_warning("Random seed specified on kernel command line has size %zu, but %zu bytes required to fill entropy pool.",
+                            arg_random_seed_size, suggested);
+
+        random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
+        if (random_fd < 0) {
+                log_warning_errno(errno, "Failed to open /dev/urandom for writing, ignoring: %m");
+                return;
+        }
+
+        r = random_write_entropy(random_fd, arg_random_seed, arg_random_seed_size, true);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to credit entropy specified on kernel command line, ignoring: %m");
+                return;
+        }
+
+        log_notice("Successfully credited entropy passed on kernel command line.\n"
+                   "Note that the seed provided this way is accessible to unprivileged programs. This functionality should not be used outside of testing environments.");
+}
+
 static void initialize_coredump(bool skip_setup) {
 #if ENABLE_COREDUMP
         if (getpid_cached() != 1)
@@ -2264,6 +2317,9 @@ static void reset_arguments(void) {
 
         cpu_set_reset(&arg_cpu_affinity);
         numa_policy_reset(&arg_numa_policy);
+
+        arg_random_seed = mfree(arg_random_seed);
+        arg_random_seed_size = 0;
 }
 
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
@@ -2694,9 +2750,13 @@ int main(int argc, char *argv[]) {
         assert_se(chdir("/") == 0);
 
         if (arg_action == ACTION_RUN) {
-                /* Apply the systemd.clock_usec= kernel command line switch */
-                if (!skip_setup)
+                if (!skip_setup) {
+                        /* Apply the systemd.clock_usec= kernel command line switch */
                         apply_clock_update();
+
+                        /* Apply random seed from kernel command line */
+                        cmdline_take_random_seed();
+                }
 
                 /* A core pattern might have been specified via the cmdline.  */
                 initialize_core_pattern(skip_setup);
