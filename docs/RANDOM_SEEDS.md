@@ -257,7 +257,16 @@ boot, in order to ensure the entropy pool is filled up quickly.
    file. If done, `systemd-boot` will use the random seed file even if no
    system token is found in EFI variables.
 
-With the three mechanisms described above it should be possible to provide
+4. A kernel command line option `systemd.random_seed=` may be used to pass in a
+   base64 encoded seed to initialize the kernel's entropy pool from during
+   early service manager initialization. This option is only safe in testing
+   environments, as the random seed passed this way is accessible to
+   unprivileged programs via `/proc/cmdline`. Using this option outside of
+   testing environments is a security problem since cryptographic key material
+   derived from the entropy pool initialized with a seed accessible to
+   unprivileged programs should not be considered secret.
+
+With the four mechanisms described above it should be possible to provide
 early-boot entropy in most cases. Specifically:
 
 1. On EFI systems, `systemd-boot`'s random seed logic should make sure good
@@ -267,7 +276,8 @@ early-boot entropy in most cases. Specifically:
 2. On virtualized systems, the early `virtio-rng` hookup should ensure entropy
    is available early on — as long as the VM environment provides virtualized
    RNG devices, which they really should all do in 2019. Complain to your
-   hosting provider if they don't.
+   hosting provider if they don't. For VMs used in testing environments,
+   `systemd.random_seed=` may be used as an alternative to a virtualized RNG.
 
 3. On Intel/AMD systems systemd's own reliance on the kernel entropy pool is
    minimal (as RDRAND is used on those for UUID generation). This only works if
@@ -286,8 +296,9 @@ This primarily leaves two kind of systems in the cold:
    boot. Alternatively, consider implementing a solution similar to
    systemd-boot's random seed concept in your platform's boot loader.
 
-2. Virtualized environments that lack both virtio-rng and RDRAND. Tough
-   luck. Talk to your hosting provider, and ask them to fix this.
+2. Virtualized environments that lack both virtio-rng and RDRAND, outside of
+   test environments. Tough luck. Talk to your hosting provider, and ask them
+   to fix this.
 
 3. Also note: if you deploy an image without any random seed and/or without
    installing any 'system token' in an EFI variable, as described above, this
@@ -409,6 +420,10 @@ This primarily leaves two kind of systems in the cold:
     `/proc/cmdline`. It's not desirable if unprivileged processes can use this
     information to possibly gain too much information about the current state
     of the kernel's entropy pool.
+
+    That said, we actually do implement this with the `systemd.random_seed=`
+    kernel command line option. Don't use this outside of testing environments,
+    however, for the aforementioned reasons.
 
 12. *Why doesn't `systemd-boot` rewrite the 'system token' too each time
     when updating the random seed file stored in the ESP?*
