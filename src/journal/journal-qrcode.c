@@ -10,27 +10,29 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "journal-qrcode.h"
+#include "locale-util.h"
 #include "macro.h"
+#include "terminal-util.h"
 
-#define WHITE_ON_BLACK "\033[40;37;1m"
-#define NORMAL "\033[0m"
+#define ANSI_WHITE_ON_BLACK "\033[40;37;1m"
 
 static void print_border(FILE *output, unsigned width) {
         unsigned x, y;
 
         /* Four rows of border */
         for (y = 0; y < 4; y += 2) {
-                fputs(WHITE_ON_BLACK, output);
+                fputs(ANSI_WHITE_ON_BLACK, output);
 
                 for (x = 0; x < 4 + width + 4; x++)
                         fputs("\342\226\210", output);
 
-                fputs(NORMAL "\n", output);
+                fputs(ANSI_NORMAL "\n", output);
         }
 }
 
 int print_qr_code(
                 FILE *output,
+                const char *prefix_text,
                 const void *seed,
                 size_t seed_size,
                 uint64_t start,
@@ -47,6 +49,11 @@ int print_qr_code(
 
         assert(seed);
         assert(seed_size > 0);
+
+        /* If this is not an UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
+         * codes */
+        if (!is_locale_utf8() || !colors_enabled())
+                return -EOPNOTSUPP;
 
         f = open_memstream_unlocked(&url, &url_size);
         if (!f)
@@ -78,6 +85,9 @@ int print_qr_code(
         if (!qr)
                 return -ENOMEM;
 
+        if (prefix_text)
+                fputs(prefix_text, output);
+
         print_border(output, qr->width);
 
         for (y = 0; y < (unsigned) qr->width; y += 2) {
@@ -86,7 +96,7 @@ int print_qr_code(
                 row1 = qr->data + qr->width * y;
                 row2 = row1 + qr->width;
 
-                fputs(WHITE_ON_BLACK, output);
+                fputs(ANSI_WHITE_ON_BLACK, output);
                 for (x = 0; x < 4; x++)
                         fputs("\342\226\210", output);
 
@@ -108,7 +118,7 @@ int print_qr_code(
 
                 for (x = 0; x < 4; x++)
                         fputs("\342\226\210", output);
-                fputs(NORMAL "\n", output);
+                fputs(ANSI_NORMAL "\n", output);
         }
 
         print_border(output, qr->width);
