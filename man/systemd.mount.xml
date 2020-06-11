@@ -204,7 +204,11 @@
         system that merges multiple mount points). See
         <varname>After=</varname> and <varname>Requires=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <para>Note that this option always applies to the created mount unit
+        only regardless whether <option>x-systemd.automount</option> has been
+        specified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -223,7 +227,11 @@
         unit.
         See <varname>Before=</varname> and <varname>After=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <para>Note that these options always apply to the created mount unit
+        only regardless whether <option>x-systemd.automount</option> has been
+        specified.</para></listitem>
       </varlistentry>
 
       <varlistentry>

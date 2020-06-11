@@ -399,7 +399,7 @@ static int add_mount(
                 SET_FLAG(flags, NOFAIL, true);
         }
 
-        if (!(flags & AUTOMOUNT) && opts) {
+        if (opts) {
                  r = write_after(f, opts);
                  if (r < 0)
                          return r;
@@ -519,21 +519,6 @@ static int add_mount(
                         "SourcePath=%s\n"
                         "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                         source);
-
-                if (opts) {
-                        r = write_after(f, opts);
-                        if (r < 0)
-                                return r;
-                        r = write_requires_after(f, opts);
-                        if (r < 0)
-                                return r;
-                        r = write_before(f, opts);
-                        if (r < 0)
-                                return r;
-                        r = write_requires_mounts_for(f, opts);
-                        if (r < 0)
-                                return r;
-                }
 
                 fprintf(f,
                         "\n"
