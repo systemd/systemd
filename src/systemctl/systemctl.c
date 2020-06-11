@@ -9076,12 +9076,12 @@ static int logind_schedule_shutdown(void) {
                 break;
         case ACTION_EXIT:
                 action = "exit";
-                log_action = "Shutdown"
+                log_action = "Shutdown";
                 break;
         case ACTION_REBOOT:
         default:
                 action = "reboot";
-                log_action = "Reboot"
+                log_action = "Reboot";
                 break;
         }
 
