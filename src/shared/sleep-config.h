@@ -20,7 +20,7 @@ typedef struct SleepConfig {
         usec_t hibernate_delay_sec; /* HibernateDelaySec */
 } SleepConfig;
 
-void free_sleep_config(SleepConfig *sc);
+SleepConfig* free_sleep_config(SleepConfig *sc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, free_sleep_config);
 
 /* entry in /proc/swaps */

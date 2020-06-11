@@ -108,6 +108,9 @@ static int write_state(FILE **f, char **states) {
         char **state;
         int r = 0;
 
+        assert(f);
+        assert(*f);
+
         STRV_FOREACH(state, states) {
                 int k;
 
@@ -194,12 +197,14 @@ static int execute(char **modes, char **states) {
 
         setvbuf(f, NULL, _IONBF, 0);
 
-        /* Configure the hibernation mode */
+        /* Configure hibernation settings if we are supposed to hibernate */
         if (!strv_isempty(modes)) {
                 r = find_hibernate_location(&hibernate_location);
                 if (r < 0)
-                        return r;
-                else if (r == 0) {
+                        return log_error_errno(r, "Failed to find location to hibernate to: %m");
+                if (r == 0) { /* 0 means: no hibernation location was configured in the kernel so far, let's
+                               * do it ourselves then. > 0 means: kernel already had a configured hibernation
+                               * location which we shouldn't touch. */
                         r = write_hibernate_location_info(hibernate_location);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to prepare for hibernation: %m");
@@ -275,11 +280,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
         r = execute(sleep_config->hibernate_modes, sleep_config->hibernate_states);
         if (r < 0) {
-                log_notice_errno(r, "Couldn't hibernate, will try to suspend again.");
+                log_notice_errno(r, "Couldn't hibernate, will try to suspend again: %m");
 
                 r = execute(sleep_config->suspend_modes, sleep_config->suspend_states);
                 if (r < 0)
-                        return log_notice_errno(r, "Could neither hibernate nor suspend again, giving up.");
+                        return log_error_errno(r, "Could neither hibernate nor suspend, giving up: %m");
         }
 
         return 0;
