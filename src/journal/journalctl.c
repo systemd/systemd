@@ -1848,11 +1848,19 @@ static int setup_keys(void) {
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s: %m", k);
 
-        /* Enable secure remove, exclusion from dump, synchronous
-         * writing and in-place updating */
-        r = chattr_fd(fd, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, NULL);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set file attributes: %m");
+        /* Enable secure remove, exclusion from dump, synchronous writing and in-place updating */
+        static const unsigned chattr_flags[] = {
+                FS_SECRM_FL,
+                FS_NODUMP_FL,
+                FS_SYNC_FL,
+                FS_NOCOW_FL,
+        };
+        for (size_t j = 0; j < ELEMENTSOF(chattr_flags); j++) {
+                r = chattr_fd(fd, chattr_flags[j], chattr_flags[j], NULL);
+                if (r < 0)
+                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to set file attribute 0x%x: %m", chattr_flags[j]);
+        }
 
         struct FSSHeader h = {
                 .signature = { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' },
