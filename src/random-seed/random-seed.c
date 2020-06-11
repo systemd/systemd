@@ -305,7 +305,7 @@ static int run(int argc, char *argv[]) {
                  * entropy later on. Let's keep that in mind by setting an extended attribute. on the file */
                 if (getrandom_worked)
                         if (fsetxattr(seed_fd, "user.random-seed-creditable", "1", 1, 0) < 0)
-                                log_full_errno(IN_SET(errno, ENOSYS, EOPNOTSUPP) ? LOG_DEBUG : LOG_WARNING, errno,
+                                log_full_errno(ERRNO_IS_NOT_SUPPORTED(errno) ? LOG_DEBUG : LOG_WARNING, errno,
                                                "Failed to mark seed file as creditable, ignoring: %m");
         }
 
