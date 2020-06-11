@@ -9,9 +9,9 @@ success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 ARGS=(
     "--optimization=0"
     "--optimization=2"
-    "--optimization=3"
     "--optimization=s"
-    "-Db_lto=true"
+    "--optimization=3 -Db_lto=true"
+    "--optimization=3 -Db_lto=false"
     "-Db_ndebug=true"
 )
 PACKAGES=(
@@ -100,7 +100,7 @@ for args in "${ARGS[@]}"; do
     SECONDS=0
 
     info "Checking build with $args"
-    if ! AR="$AR" CC="$CC" CXX="$CXX" meson --werror $args build; then
+    if ! AR="$AR" CC="$CC" CXX="$CXX" meson -Dtests=unsafe -Dslow-tests=true --werror $args build; then
         fatal "meson failed with $args"
     fi
 
