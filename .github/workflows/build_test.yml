@@ -19,26 +19,11 @@ jobs:
       fail-fast: false
       matrix:
         env:
-          # As we use postfixed clang/gcc binaries, we need to override $AR
-          # as well, otherwise meson falls back to ar from binutils which
-          # doesn't work with LTO
-          - { CC: "clang-10", CXX: "clang++-10", AR: "llvm-ar-10" }
-          - { CC: "gcc-10", CXX: "g++-10", AR: "gcc-ar-10" }
+          - { COMPILER: "gcc", COMPILER_VERSION: "10" }
+          - { COMPILER: "clang", COMPILER_VERSION: "10" }
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
         uses: actions/checkout@v1
-      - name: Configure custom APT repositories for ${{ env.CC }}
-        run: |
-          if [[ "$CC" == clang-* ]]; then
-            # Latest LLVM stack deb packages provided by https://apt.llvm.org/
-            sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-            sudo apt-get install clang-10 llvm-10
-          else
-            # Latest gcc stack deb packages provided by
-            # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
-            sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-            sudo apt-get install gcc-10
-          fi
-      - name: Build check (${{ env.CC }})
+      - name: Build check (${{ env.COMPILER }}-${{ env.COMPILER_VERSION }})
         run: sudo -E travis-ci/managers/ubuntu-build-check.sh

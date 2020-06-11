@@ -1,9 +1,9 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 info() { echo -e "\033[33;1m$1\033[0m"; }
-error() { echo >&2 -e "\033[31;1m$1\033[0m"; }
+fatal() { echo >&2 -e "\033[31;1m$1\033[0m"; exit 1; }
 success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
 ARGS=(
@@ -41,7 +41,6 @@ PACKAGES=(
     libzstd-dev
     mount
     net-tools
-    ninja-build
     perl
     python-lxml
     python3-evdev
@@ -55,21 +54,45 @@ PACKAGES=(
     util-linux
     zstd
 )
-CC="${CC:?}"
-CXX="${CXX:?}"
-AR="${AR:-""}"
+COMPILER="${COMPILER:?}"
+COMPILER_VERSION="${COMPILER_VERSION:?}"
 RELEASE="$(lsb_release -cs)"
 
 bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
 
+# Note: As we use postfixed clang/gcc binaries, we need to override $AR
+#       as well, otherwise meson falls back to ar from binutils which
+#       doesn't work with LTO
+if [[ "$COMPILER" == clang ]]; then
+    CC="clang-$COMPILER_VERSION"
+    CXX="clang++-$COMPILER_VERSION"
+    AR="llvm-ar-$COMPILER_VERSION"
+    # Latest LLVM stack deb packages provided by https://apt.llvm.org/
+    # Following snippet was borrowed from https://apt.llvm.org/llvm.sh
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
+    add-apt-repository -y "deb http://apt.llvm.org/$RELEASE/   llvm-toolchain-$RELEASE-$COMPILER_VERSION  main"
+    apt-get -y update
+    apt-get -y install clang-$COMPILER_VERSION lldb-$COMPILER_VERSION lld-$COMPILER_VERSION clangd-$COMPILER_VERSION
+elif [[ "$COMPILER" == gcc ]]; then
+    CC="gcc-$COMPILER_VERSION"
+    CXX="g++-$COMPILER_VERSION"
+    AR="gcc-ar-$COMPILER_VERSION"
+    # Latest gcc stack deb packages provided by
+    # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
+    sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+    apt-get -y update
+    sudo apt-get -y install gcc-$COMPILER_VERSION
+else
+    fatal "Unknown compiler: $COMPILER"
+fi
+
 # PPA with some newer build dependencies (like zstd)
 add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
-apt-get update
-apt-get build-dep systemd -y
-apt-get install -y "${PACKAGES[@]}"
-# Install latest meson from pip, as the distro-one doesn't support
-# --optimization=
-pip3 install meson
+apt-get -y build-dep systemd
+apt-get -y install "${PACKAGES[@]}"
+# Install latest meson and ninja form pip, since the distro versions don't
+# support all the features we need (like --optimization=)
+pip3 install meson ninja
 
 $CC --version
 
@@ -78,13 +101,11 @@ for args in "${ARGS[@]}"; do
 
     info "Checking build with $args"
     if ! AR="$AR" CC="$CC" CXX="$CXX" meson --werror $args build; then
-        error "meson failed with $args"
-        exit 1
+        fatal "meson failed with $args"
     fi
 
     if ! ninja -C build; then
-        error "ninja failed with $args"
-        exit 1
+        fatal "ninja failed with $args"
     fi
 
     git clean -dxf
