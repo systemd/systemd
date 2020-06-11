@@ -71,8 +71,7 @@ if [[ "$COMPILER" == clang ]]; then
     # Following snippet was borrowed from https://apt.llvm.org/llvm.sh
     wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
     add-apt-repository -y "deb http://apt.llvm.org/$RELEASE/   llvm-toolchain-$RELEASE-$COMPILER_VERSION  main"
-    apt-get -y update
-    apt-get -y install clang-$COMPILER_VERSION lldb-$COMPILER_VERSION lld-$COMPILER_VERSION clangd-$COMPILER_VERSION
+    PACKAGES+=(clang-$COMPILER_VERSION lldb-$COMPILER_VERSION lld-$COMPILER_VERSION clangd-$COMPILER_VERSION)
 elif [[ "$COMPILER" == gcc ]]; then
     CC="gcc-$COMPILER_VERSION"
     CXX="g++-$COMPILER_VERSION"
@@ -80,19 +79,22 @@ elif [[ "$COMPILER" == gcc ]]; then
     # Latest gcc stack deb packages provided by
     # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
     sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-    apt-get -y update
-    sudo apt-get -y install gcc-$COMPILER_VERSION
+    PACKAGES+=(gcc-$COMPILER_VERSION)
 else
     fatal "Unknown compiler: $COMPILER"
 fi
 
 # PPA with some newer build dependencies (like zstd)
 add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
+apt-get -y update
 apt-get -y build-dep systemd
 apt-get -y install "${PACKAGES[@]}"
-# Install latest meson and ninja form pip, since the distro versions don't
-# support all the features we need (like --optimization=)
-pip3 install meson ninja
+# Install the latest meson and ninja form pip, since the distro versions don't
+# support all the features we need (like --optimization=). Since the build-dep
+# command above installs the distro versions, let's install the pip ones just
+# locally and add the local bin directory to the $PATH.
+pip3 install --user -U meson ninja
+export PATH="$HOME/.local/bin:$PATH"
 
 $CC --version
 
@@ -104,6 +106,7 @@ for args in "${ARGS[@]}"; do
         fatal "meson failed with $args"
     fi
 
+    ninja --version
     if ! ninja -C build; then
         fatal "ninja failed with $args"
     fi
