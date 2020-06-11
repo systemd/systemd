@@ -4284,6 +4284,13 @@ bool manager_get_show_status_on(Manager *m) {
         return show_status_on(manager_get_show_status(m));
 }
 
+static void set_show_status_marker(bool b) {
+        if (b)
+                (void) touch("/run/systemd/show-status");
+        else
+                (void) unlink("/run/systemd/show-status");
+}
+
 void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
         assert(m);
         assert(reason);
@@ -4304,10 +4311,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
                           strna(show_status_to_string(mode)),
                           reason);
 
-                if (enabled)
-                        (void) touch("/run/systemd/show-status");
-                else
-                        (void) unlink("/run/systemd/show-status");
+                set_show_status_marker(enabled);
         }
 
         m->show_status = mode;
@@ -4333,11 +4337,7 @@ void manager_set_show_status_overridden(Manager *m, ShowStatus mode, const char 
                   strna(show_status_to_string(mode)),
                   reason);
 
-        if (show_status_on(mode))
-                (void) touch("/run/systemd/show-status");
-        else
-                (void) unlink("/run/systemd/show-status");
-
+        set_show_status_marker(show_status_on(mode));
 }
 
 const char *manager_get_confirm_spawn(Manager *m) {
