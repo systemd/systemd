@@ -1,0 +1,44 @@
+---
+# vi: ts=2 sw=2 et:
+#
+name: Build test
+on:
+  pull_request:
+    paths:
+      - '**/meson.build'
+      - '.github/workflows/**'
+      - 'meson_options.txt'
+      - 'src/**'
+      - 'test/fuzz/**'
+      - 'travis-ci/managers/ubuntu-build-check.sh'
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    strategy:
+      fail-fast: false
+      matrix:
+        env:
+          # As we use postfixed clang/gcc binaries, we need to override $AR
+          # as well, otherwise meson falls back to ar from binutils which
+          # doesn't work with LTO
+          - { CC: "clang-10", CXX: "clang++-10", AR: "llvm-ar-10" }
+          - { CC: "gcc-10", CXX: "g++-10", AR: "gcc-ar-10" }
+    env: ${{ matrix.env }}
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@v1
+      - name: Configure custom APT repositories for ${{ env.CC }}
+        run: |
+          if [[ "$CC" == clang-* ]]; then
+            # Latest LLVM stack deb packages provided by https://apt.llvm.org/
+            sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
+            sudo apt-get install clang-10 llvm-10
+          else
+            # Latest gcc stack deb packages provided by
+            # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
+            sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+            sudo apt-get install gcc-10
+          fi
+      - name: Build check (${{ env.CC }})
+        run: sudo -E travis-ci/managers/ubuntu-build-check.sh
