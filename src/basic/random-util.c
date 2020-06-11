@@ -7,11 +7,13 @@
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/random.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/time.h>
 
 #if HAVE_SYS_AUXV_H
@@ -437,4 +439,37 @@ size_t random_pool_size(void) {
 
         /* Use the minimum as default, if we can't retrieve the correct value */
         return RANDOM_POOL_SIZE_MIN;
+}
+
+int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
+        int r;
+
+        assert(fd >= 0);
+        assert(seed && size > 0);
+
+        if (credit) {
+                _cleanup_free_ struct rand_pool_info *info = NULL;
+
+                /* The kernel API only accepts "int" as entropy count (which is in bits), let's avoid any
+                 * chance for confusion here. */
+                if (size > INT_MAX / 8)
+                        return -EOVERFLOW;
+
+                info = malloc(offsetof(struct rand_pool_info, buf) + size);
+                if (!info)
+                        return -ENOMEM;
+
+                info->entropy_count = size * 8;
+                info->buf_size = size;
+                memcpy(info->buf, seed, size);
+
+                if (ioctl(fd, RNDADDENTROPY, info) < 0)
+                        return -errno;
+        } else {
+                r = loop_write(fd, seed, size, false);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }

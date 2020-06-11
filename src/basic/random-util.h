@@ -38,3 +38,5 @@ int rdrand(unsigned long *ret);
 #define RANDOM_POOL_SIZE_MAX (10U*1024U*1024U)
 
 size_t random_pool_size(void);
+
+int random_write_entropy(int fd, const void *seed, size_t size, bool credit);

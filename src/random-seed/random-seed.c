@@ -236,24 +236,10 @@ static int run(int argc, char *argv[]) {
                                 }
                         }
 
-                        if (IN_SET(lets_credit, CREDIT_ENTROPY_YES_PLEASE, CREDIT_ENTROPY_YES_FORCED)) {
-                                _cleanup_free_ struct rand_pool_info *info = NULL;
-
-                                info = malloc(offsetof(struct rand_pool_info, buf) + k);
-                                if (!info)
-                                        return log_oom();
-
-                                info->entropy_count = k * 8;
-                                info->buf_size = k;
-                                memcpy(info->buf, buf, k);
-
-                                if (ioctl(random_fd, RNDADDENTROPY, info) < 0)
-                                        return log_warning_errno(errno, "Failed to credit entropy, ignoring: %m");
-                        } else {
-                                r = loop_write(random_fd, buf, (size_t) k, false);
-                                if (r < 0)
-                                        log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
-                        }
+                        r = random_write_entropy(random_fd, buf, k,
+                                                 IN_SET(lets_credit, CREDIT_ENTROPY_YES_PLEASE, CREDIT_ENTROPY_YES_FORCED));
+                        if (r < 0)
+                                log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
                 }
         }
 
