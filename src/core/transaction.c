@@ -279,7 +279,7 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
         return 0;
 }
 
-static void transaction_drop_redundant(Transaction *tr, unsigned generation) {
+static void transaction_drop_redundant(Transaction *tr) {
         bool again;
 
         /* Goes through the transaction and removes all jobs of the units whose jobs are all noops. If not
@@ -299,7 +299,7 @@ static void transaction_drop_redundant(Transaction *tr, unsigned generation) {
 
                         LIST_FOREACH(transaction, k, j)
                                 if (tr->anchor_job == k ||
-                                    !job_is_redundant(k, generation) ||
+                                    !job_type_is_redundant(k->type, unit_active_state(k->unit)) ||
                                     (k->unit->job && job_type_is_conflicting(k->type, k->unit->job->type))) {
                                         keep = true;
                                         break;
@@ -732,7 +732,7 @@ int transaction_activate(
                 transaction_minimize_impact(tr);
 
         /* Third step: Drop redundant jobs */
-        transaction_drop_redundant(tr, generation++);
+        transaction_drop_redundant(tr);
 
         for (;;) {
                 /* Fourth step: Let's remove unneeded jobs that might
@@ -774,7 +774,7 @@ int transaction_activate(
         }
 
         /* Eights step: Drop redundant jobs again, if the merging now allows us to drop more. */
-        transaction_drop_redundant(tr, generation++);
+        transaction_drop_redundant(tr);
 
         /* Ninth step: check whether we can actually apply this */
         r = transaction_is_destructive(tr, mode, e);
