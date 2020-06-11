@@ -100,8 +100,8 @@ static enum {
 
 static const char *arg_bus_introspect = NULL;
 
-/* Those variables are initialized to 0 automatically, so we avoid uninitialized memory access.
- * Real defaults are assigned in reset_arguments() below. */
+/* Those variables are initialized to 0 automatically, so we avoid uninitialized memory access.  Real
+ * defaults are assigned in reset_arguments() below. */
 static char *arg_default_unit;
 static bool arg_system;
 static bool arg_dump_core;
@@ -1574,6 +1574,9 @@ static void apply_clock_update(void) {
         if (arg_clock_usec == 0)
                 return;
 
+        if (getpid_cached() != 1)
+                return;
+
         if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, arg_clock_usec)) < 0)
                 log_error_errno(errno, "Failed to set system clock to time specified on kernel command line: %m");
         else {
@@ -2580,8 +2583,7 @@ int main(int argc, char *argv[]) {
                         /* For later on, see above... */
                         log_set_target(LOG_TARGET_JOURNAL);
 
-                        /* clear the kernel timestamp,
-                         * because we are in a container */
+                        /* clear the kernel timestamp, because we are in a container */
                         kernel_timestamp = DUAL_TIMESTAMP_NULL;
                 }
 
@@ -2600,8 +2602,7 @@ int main(int argc, char *argv[]) {
                 log_set_target(LOG_TARGET_AUTO);
                 log_open();
 
-                /* clear the kernel timestamp,
-                 * because we are not PID 1 */
+                /* clear the kernel timestamp, because we are not PID 1 */
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
 
                 if (mac_selinux_init() < 0) {
@@ -2620,8 +2621,7 @@ int main(int argc, char *argv[]) {
                         log_warning_errno(r, "Failed to redirect standard streams to /dev/null, ignoring: %m");
         }
 
-        /* Mount /proc, /sys and friends, so that /proc/cmdline and
-         * /proc/$PID/fd is available. */
+        /* Mount /proc, /sys and friends, so that /proc/cmdline and /proc/$PID/fd is available. */
         if (getpid_cached() == 1) {
 
                 /* Load the kernel modules early. */
@@ -2695,7 +2695,8 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_RUN) {
                 /* Apply the systemd.clock_usec= kernel command line switch */
-                apply_clock_update();
+                if (!skip_setup)
+                        apply_clock_update();
 
                 /* A core pattern might have been specified via the cmdline.  */
                 initialize_core_pattern(skip_setup);
