@@ -121,14 +121,16 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
 
         if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) {
                 r = systemd_efi_options_variable(&line);
-                if (r < 0 && r != -ENODATA)
-                        log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
+                if (r < 0) {
+                        if (r != -ENODATA)
+                                log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
+                } else {
+                        r = proc_cmdline_parse_given(line, parse_item, data, flags);
+                        if (r < 0)
+                                return r;
 
-                r = proc_cmdline_parse_given(line, parse_item, data, flags);
-                if (r < 0)
-                        return r;
-
-                line = mfree(line);
+                        line = mfree(line);
+                }
         }
 
         r = proc_cmdline(&line);
