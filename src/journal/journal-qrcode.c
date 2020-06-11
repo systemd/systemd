@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "alloc-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "journal-qrcode.h"
 #include "macro.h"
@@ -36,11 +38,12 @@ int print_qr_code(
                 const char *hn,
                 sd_id128_t machine) {
 
-        FILE *f;
-        char *url = NULL;
+        _cleanup_free_ char *url = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         size_t url_size = 0, i;
-        QRcode* qr;
         unsigned x, y;
+        QRcode* qr;
+        int r;
 
         assert(seed);
         assert(seed_size > 0);
@@ -65,17 +68,13 @@ int print_qr_code(
         if (hn)
                 fprintf(f, ";hostname=%s", hn);
 
-        if (ferror(f)) {
-                fclose(f);
-                free(url);
-                return -ENOMEM;
-        }
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
 
-        fclose(f);
+        f = safe_fclose(f);
 
         qr = QRcode_encodeString(url, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
-        free(url);
-
         if (!qr)
                 return -ENOMEM;
 

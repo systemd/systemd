@@ -57,12 +57,13 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "random-util.h"
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
-#include "stdio-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -1774,12 +1775,14 @@ static int add_syslog_identifier(sd_journal *j) {
 static int setup_keys(void) {
 #if HAVE_GCRYPT
         size_t mpk_size, seed_size, state_size, i;
+        _cleanup_(unlink_and_freep) char *k = NULL;
+        _cleanup_free_ char *p = NULL;
         uint8_t *mpk, *seed, *state;
-        int fd = -1, r;
+        _cleanup_close_ int fd = -1;
         sd_id128_t machine, boot;
-        char *p = NULL, *k = NULL;
-        uint64_t n;
         struct stat st;
+        uint64_t n;
+        int r;
 
         r = stat("/var/log/journal", &st);
         if (r < 0 && !IN_SET(errno, ENOENT, ENOTDIR))
@@ -1805,21 +1808,15 @@ static int setup_keys(void) {
 
         if (arg_force) {
                 r = unlink(p);
-                if (r < 0 && errno != ENOENT) {
-                        r = log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
-                        goto finish;
-                }
-        } else if (access(p, F_OK) >= 0) {
-                log_error("Sealing key file %s exists already. Use --force to recreate.", p);
-                r = -EEXIST;
-                goto finish;
-        }
+                if (r < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
+        } else if (access(p, F_OK) >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Sealing key file %s exists already. Use --force to recreate.", p);
 
         if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss.tmp.XXXXXX",
-                     SD_ID128_FORMAT_VAL(machine)) < 0) {
-                r = log_oom();
-                goto finish;
-        }
+                     SD_ID128_FORMAT_VAL(machine)) < 0)
+                return log_oom();
 
         mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
         mpk = alloca(mpk_size);
@@ -1830,18 +1827,10 @@ static int setup_keys(void) {
         state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
         state = alloca(state_size);
 
-        fd = open("/dev/random", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0) {
-                r = log_error_errno(errno, "Failed to open /dev/random: %m");
-                goto finish;
-        }
-
         log_info("Generating seed...");
-        r = loop_read_exact(fd, seed, seed_size, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read random seed: %m");
-                goto finish;
-        }
+        r = genuine_random_bytes(seed, seed_size, RANDOM_BLOCK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire random seed: %m");
 
         log_info("Generating key pair...");
         FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
@@ -1856,10 +1845,8 @@ static int setup_keys(void) {
 
         safe_close(fd);
         fd = mkostemp_safe(k);
-        if (fd < 0) {
-                r = log_error_errno(fd, "Failed to open %s: %m", k);
-                goto finish;
-        }
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open %s: %m", k);
 
         /* Enable secure remove, exclusion from dump, synchronous
          * writing and in-place updating */
@@ -1868,6 +1855,7 @@ static int setup_keys(void) {
                 log_warning_errno(r, "Failed to set file attributes: %m");
 
         struct FSSHeader h = {
+                .signature = { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' },
                 .machine_id = machine,
                 .boot_id = boot,
                 .header_size = htole64(sizeof(h)),
@@ -1877,24 +1865,18 @@ static int setup_keys(void) {
                 .fsprg_state_size = htole64(state_size),
         };
 
-        memcpy(h.signature, "KSHHRHLP", 8);
-
         r = loop_write(fd, &h, sizeof(h), false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write header: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write header: %m");
 
         r = loop_write(fd, state, state_size, false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write state: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write state: %m");
 
-        if (link(k, p) < 0) {
-                r = log_error_errno(errno, "Failed to link file: %m");
-                goto finish;
-        }
+        if (rename(k, p) < 0)
+                return log_error_errno(errno, "Failed to link file: %m");
+
+        k = mfree(k);
 
         if (on_tty()) {
                 fprintf(stderr,
@@ -1923,7 +1905,8 @@ static int setup_keys(void) {
         printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_interval);
 
         if (on_tty()) {
-                char tsb[FORMAT_TIMESPAN_MAX], *hn;
+                _cleanup_free_ char *hn = NULL;
+                char tsb[FORMAT_TIMESPAN_MAX];
 
                 fprintf(stderr,
                         "%s\n"
@@ -1932,7 +1915,6 @@ static int setup_keys(void) {
                         format_timespan(tsb, sizeof(tsb), arg_interval, 0));
 
                 hn = gethostname_malloc();
-
                 if (hn) {
                         hostname_cleanup(hn);
                         fprintf(stderr, "\nThe keys have been generated for host %s/" SD_ID128_FORMAT_STR ".\n", hn, SD_ID128_FORMAT_VAL(machine));
@@ -1946,22 +1928,9 @@ static int setup_keys(void) {
                         print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
                 }
 #endif
-                free(hn);
         }
 
-        r = 0;
-
-finish:
-        safe_close(fd);
-
-        if (k) {
-                (void) unlink(k);
-                free(k);
-        }
-
-        free(p);
-
-        return r;
+        return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "Forward-secure sealing not available.");
