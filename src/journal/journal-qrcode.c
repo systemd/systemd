@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "dlfcn-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "journal-qrcode.h"
@@ -40,6 +41,9 @@ int print_qr_code(
                 const char *hn,
                 sd_id128_t machine) {
 
+        QRcode* (*sym_QRcode_encodeString)(const char *string, int version, QRecLevel level, QRencodeMode hint, int casesensitive);
+        void (*sym_QRcode_free)(QRcode *qrcode);
+        _cleanup_(dlclosep) void *dl = NULL;
         _cleanup_free_ char *url = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         size_t url_size = 0, i;
@@ -54,6 +58,20 @@ int print_qr_code(
          * codes */
         if (!is_locale_utf8() || !colors_enabled())
                 return -EOPNOTSUPP;
+
+        dl = dlopen("libqrencode.so.4", RTLD_LAZY);
+        if (!dl)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "QRCODE support is not installed: %s", dlerror());
+
+        r = dlsym_many_and_warn(
+                        dl,
+                        LOG_DEBUG,
+                        &sym_QRcode_encodeString, "QRcode_encodeString",
+                        &sym_QRcode_free, "QRcode_free",
+                        NULL);
+        if (r < 0)
+                return r;
 
         f = open_memstream_unlocked(&url, &url_size);
         if (!f)
@@ -81,7 +99,7 @@ int print_qr_code(
 
         f = safe_fclose(f);
 
-        qr = QRcode_encodeString(url, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
+        qr = sym_QRcode_encodeString(url, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
         if (!qr)
                 return -ENOMEM;
 
@@ -123,6 +141,6 @@ int print_qr_code(
 
         print_border(output, qr->width);
 
-        QRcode_free(qr);
+        sym_QRcode_free(qr);
         return 0;
 }
