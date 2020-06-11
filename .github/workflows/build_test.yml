@@ -10,7 +10,6 @@ on:
       - 'meson_options.txt'
       - 'src/**'
       - 'test/fuzz/**'
-      - 'travis-ci/managers/ubuntu-build-check.sh'
 
 jobs:
   build:
@@ -19,11 +18,11 @@ jobs:
       fail-fast: false
       matrix:
         env:
-          - { COMPILER: "gcc", COMPILER_VERSION: "10" }
+          - { COMPILER: "gcc",   COMPILER_VERSION: "10" }
           - { COMPILER: "clang", COMPILER_VERSION: "10" }
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
         uses: actions/checkout@v1
       - name: Build check (${{ env.COMPILER }}-${{ env.COMPILER_VERSION }})
-        run: sudo -E travis-ci/managers/ubuntu-build-check.sh
+        run: sudo -E .github/workflows/ubuntu-build-check.sh
