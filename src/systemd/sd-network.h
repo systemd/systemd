@@ -194,6 +194,9 @@ int sd_network_link_get_dhcp4_client_id_string(int ifindex, char **client_id);
 /* Get DHCPv6 client IAID for a given link. */
 int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid);
 
+/* Get DHCPv6 client DUID for a given link. */
+int sd_network_link_get_dhcp6_client_duid_string(int ifindex, char **duid);
+
 /* Monitor object */
 typedef struct sd_network_monitor sd_network_monitor;
 

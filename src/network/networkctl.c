@@ -1380,9 +1380,9 @@ static int link_status_one(
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL,
                 **pop3_server = NULL, **smtp_server = NULL, **lpr_server = NULL;
-        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
-        _cleanup_free_ char *t = NULL, *network = NULL, *client_id = NULL, *iaid = NULL;
+        _cleanup_free_ char *t = NULL, *network = NULL, *client_id = NULL, *iaid = NULL, *duid = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
+        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
         const char *on_color_operational, *off_color_operational,
                 *on_color_setup, *off_color_setup;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
@@ -2089,6 +2089,16 @@ static int link_status_one(
                                    TABLE_EMPTY,
                                    TABLE_STRING, "DHCP6 Client IAID:",
                                    TABLE_STRING, iaid);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_network_link_get_dhcp6_client_duid_string(info->ifindex, &duid);
+        if (r >= 0) {
+                r = table_add_many(table,
+                                   TABLE_EMPTY,
+                                   TABLE_STRING, "DHCP6 Client DUID:",
+                                   TABLE_STRING, duid);
                 if (r < 0)
                         return table_log_add_error(r);
         }
