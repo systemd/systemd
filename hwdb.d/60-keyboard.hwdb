@@ -486,6 +486,9 @@ evdev:input:b0003v0458p0708*
 # Hewlett Packard
 ###########################################################
 
+evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*:pvr*
+ KEYBOARD_KEY_8=unknown					# Use hp-wireless instead
+
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:pvr*
  KEYBOARD_KEY_81=fn_esc
