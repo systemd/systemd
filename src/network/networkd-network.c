@@ -166,7 +166,8 @@ int network_verify(Network *network) {
         if (set_isempty(network->match_mac) && set_isempty(network->match_permanent_mac) &&
             strv_isempty(network->match_path) && strv_isempty(network->match_driver) &&
             strv_isempty(network->match_type) && strv_isempty(network->match_name) &&
-            strv_isempty(network->match_property) && strv_isempty(network->match_ssid) && !network->conditions)
+            strv_isempty(network->match_property) && strv_isempty(network->match_wlan_iftype) &&
+            strv_isempty(network->match_ssid) && !network->conditions)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: No valid settings found in the [Match] section, ignoring file. "
                                          "To match all interfaces, add Name=* in the [Match] section.",
