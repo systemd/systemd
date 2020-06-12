@@ -60,13 +60,15 @@
     device or file, or a specification of a block device via
     <literal>UUID=</literal> followed by the UUID.</para>
 
-    <para>The third field specifies an absolute path to a file to read the encryption key from. If the field
-    is not present or set to <literal>none</literal> or <literal>-</literal>, a key file named after the
-    volume to unlock (i.e. the first column of the line), suffixed with <filename>.key</filename> is
-    automatically loaded from the <filename>/etc/cryptsetup-keys.d/</filename> and
-    <filename>/run/cryptsetup-keys.d/</filename> directories, if present. Otherwise, the password has to be
-    manually entered during system boot. For swap encryption, <filename>/dev/urandom</filename> may be used
-    as key file.</para>
+    <para>The third field specifies an absolute path to a file to read the encryption key from. Optionally,
+    the path may be followed by <literal>:</literal> and an fstab device specification (e.g. starting with
+    <literal>LABEL=</literal> or similar); in which case, the path is relative to the device file system
+    root. If the field is not present or set to <literal>none</literal> or <literal>-</literal>, a key file
+    named after the volume to unlock (i.e. the first column of the line), suffixed with
+    <filename>.key</filename> is automatically loaded from the <filename>/etc/cryptsetup-keys.d/</filename>
+    and <filename>/run/cryptsetup-keys.d/</filename> directories, if present. Otherwise, the password has to
+    be manually entered during system boot. For swap encryption, <filename>/dev/urandom</filename> may be
+    used as key file.</para>
 
     <para>The fourth field, if present, is a comma-delimited list of
     options. The following options are recognized:</para>
