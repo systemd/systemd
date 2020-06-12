@@ -4731,9 +4731,9 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+static int print_property(const void *arg, const char *expected_value, sd_bus_message *m, bool value, bool all) {
         char bus_type;
-        const char *contents;
+        const char *contents, *name = arg;
         int r;
 
         assert(name);
@@ -5600,7 +5600,7 @@ static int show_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
 
-        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_value, arg_all, &found_properties);
+        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_value, arg_all, false, &found_properties);
         if (r < 0)
                 return bus_log_parse_error(r);
 
