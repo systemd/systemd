@@ -2,32 +2,23 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 # Generate autosuspend rules for devices that have been whitelisted (IE tested)
-# by the Chromium OS team. Please keep this script in sync with:
+# by the Chromium OS team. Based on
 # https://chromium.googlesource.com/chromiumos/platform2/+/master/power_manager/udev/gen_autosuspend_rules.py
 
-import sys
 import chromiumos.gen_autosuspend_rules
 
-HWDB_FILE = """\
-%(usb_entries)s\
-%(pci_entries)s\
-"""
+print('# pci:v<00VENDOR>d<00DEVICE> (8 uppercase hexadecimal digits twice)')
+for entry in chromiumos.gen_autosuspend_rules.PCI_IDS:
+    vendor, device = entry.split(':')
+    vendor = int(vendor, 16)
+    device = int(device, 16)
+    print(f'pci:v{vendor:08X}d{device:08X}*')
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        sys.stdout = open(sys.argv[1], 'w')
+print('# usb:v<VEND>p<PROD> (4 uppercase hexadecimal digits twice')
+for entry in chromiumos.gen_autosuspend_rules.USB_IDS:
+    vendor, product = entry.split(':')
+    vendor = int(vendor, 16)
+    product = int(product, 16)
+    print(f'usb:v{vendor:04X}p{product:04X}*')
 
-    pci_entries = ''
-    for dev_ids in chromiumos.gen_autosuspend_rules.PCI_IDS:
-        vendor, device = dev_ids.split(':')
-
-        pci_entries += ('usb:v%sp%s*\n'
-                        ' ID_AUTOSUSPEND=1\n' % (vendor, device))
-    usb_entries = ''
-    for dev_ids in chromiumos.gen_autosuspend_rules.USB_IDS:
-        vendor, device = dev_ids.split(':')
-
-        usb_entries += ('pci:v%sp%s*\n'
-                        ' ID_AUTOSUSPEND=1\n' % (vendor, device))
-
-    print(HWDB_FILE % {'pci_entries' : pci_entries, 'usb_entries': usb_entries})
+print(' ID_AUTOSUSPEND=1')
