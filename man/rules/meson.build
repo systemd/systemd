@@ -18,7 +18,7 @@ manpages = [
  ['file-hierarchy', '7', [], ''],
  ['halt', '8', ['poweroff', 'reboot'], ''],
  ['homectl', '1', [], 'ENABLE_HOMED'],
- ['homed.conf', '5', ['homed.conf.d'], 'ENABLE_RESOLVE'],
+ ['homed.conf', '5', ['homed.conf.d'], 'ENABLE_HOMED'],
  ['hostname', '5', [], ''],
  ['hostnamectl', '1', [], 'ENABLE_HOSTNAMED'],
  ['hwdb', '7', [], 'ENABLE_HWDB'],
