@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="systemd.directives" conditional="HAVE_PYTHON">
+<refentry id="systemd.directives">
   <refentryinfo>
     <title>systemd.directives</title>
     <productname>systemd</productname>
