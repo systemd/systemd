@@ -9072,7 +9072,7 @@ static int logind_schedule_shutdown(void) {
                 break;
         case ACTION_KEXEC:
                 action = "kexec";
-                log_action = "Kernel replacement";
+                log_action = "Reboot via kexec";
                 break;
         case ACTION_EXIT:
                 action = "exit";
