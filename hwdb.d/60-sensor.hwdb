@@ -534,6 +534,12 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnNuvision:pnNES11:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
+# Odys
+#########################################
+sensor:modalias:acpi:BOSC0200*:dmi:bvnINSYDECorp.:bvrODYS.FUSIONWIN12:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
 # Onda
 #########################################
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnONDA:pnV80PLUS:*
