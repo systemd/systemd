@@ -1096,7 +1096,10 @@ manpages = [
   ''],
  ['udev_new', '3', ['udev_ref', 'udev_unref'], ''],
  ['udevadm', '8', [], ''],
- ['user@.service', '5', ['user-runtime-dir@.service'], ''],
+ ['user@.service',
+  '5',
+  ['systemd-user-runtime-dir', 'user-runtime-dir@.service'],
+  ''],
  ['userdbctl', '1', [], 'ENABLE_USERDB'],
  ['vconsole.conf', '5', [], 'ENABLE_VCONSOLE']
 ]
