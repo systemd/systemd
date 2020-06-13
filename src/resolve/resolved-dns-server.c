@@ -497,9 +497,9 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         /* We changed the feature level, reset the counting */
                         dns_server_reset_counters(s);
 
-                        log_full(log_level, "Using degraded feature set (%s) for DNS server %s.",
+                        log_full(log_level, "Using degraded feature set %s instead of %s for DNS server %s.",
                                  dns_server_feature_level_to_string(s->possible_feature_level),
-                                 dns_server_string(s));
+                                 dns_server_feature_level_to_string(p), dns_server_string(s));
                 }
         }
 
