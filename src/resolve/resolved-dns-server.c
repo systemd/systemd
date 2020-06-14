@@ -422,6 +422,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                 s->possible_feature_level = s->verified_feature_level;
         else {
                 DnsServerFeatureLevel p = s->possible_feature_level;
+                int log_level = LOG_WARNING;
 
                 if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
                     s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TCP) {
@@ -448,6 +449,10 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
                         log_debug("Server doesn't support EDNS(0) properly, downgrading feature level...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
+
+                        /* Users often don't control the DNS server they use so let's not complain too loudly
+                         * when we can't use EDNS because the DNS server doesn't support it. */
+                        log_level = LOG_NOTICE;
 
                 } else if (s->packet_rrsig_missing &&
                            s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO) {
@@ -493,9 +498,9 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         /* We changed the feature level, reset the counting */
                         dns_server_reset_counters(s);
 
-                        log_warning("Using degraded feature set (%s) for DNS server %s.",
-                                    dns_server_feature_level_to_string(s->possible_feature_level),
-                                    dns_server_string(s));
+                        log_full(log_level, "Using degraded feature set %s instead of %s for DNS server %s.",
+                                 dns_server_feature_level_to_string(s->possible_feature_level),
+                                 dns_server_feature_level_to_string(p), dns_server_string(s));
                 }
         }
 
