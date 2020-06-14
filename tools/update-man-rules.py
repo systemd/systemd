@@ -4,15 +4,12 @@
 from __future__ import print_function
 import collections
 import sys
-import os.path
 import pprint
+from os.path import basename
 from xml_helper import xml_parse
 
 def man(page, number):
     return '{}.{}'.format(page, number)
-
-def xml(file):
-    return os.path.basename(file)
 
 def add_rules(rules, name):
     xml = xml_parse(name)
@@ -78,9 +75,12 @@ def make_mesonfile(rules, dist_files):
 
 if __name__ == '__main__':
     pages = sys.argv[1:]
+    pages = (p for p in pages
+             if basename(p) not in {
+                     'systemd.directives.xml',
+                     'systemd.index.xml',
+                     'directives-template.xml'})
 
     rules = create_rules(pages)
-    dist_files = (xml(file) for file in pages
-                  if not file.endswith(".directives.xml") and
-                     not file.endswith(".index.xml"))
+    dist_files = (basename(p) for p in pages)
     print(make_mesonfile(rules, dist_files))

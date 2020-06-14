@@ -9,7 +9,7 @@ from xml_helper import xml_parse, xml_print, tree
 MDASH = ' — ' if sys.version_info.major >= 3 else ' -- '
 
 TEMPLATE = '''\
-<refentry id="systemd.index" conditional="HAVE_PYTHON">
+<refentry id="systemd.index">
 
   <refentryinfo>
     <title>systemd.index</title>

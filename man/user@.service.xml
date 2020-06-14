@@ -17,34 +17,37 @@
   <refnamediv>
     <refname>user@.service</refname>
     <refname>user-runtime-dir@.service</refname>
-    <refpurpose>System units to manage user processes</refpurpose>
+    <refname>systemd-user-runtime-dir</refname>
+    <refpurpose>System units to start the user manager</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
     <para><filename>user@<replaceable>UID</replaceable>.service</filename></para>
     <para><filename>user-runtime-dir@<replaceable>UID</replaceable>.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-user-runtime-dir</filename></para>
     <para><filename>user-<replaceable>UID</replaceable>.slice</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para>The
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <para>The <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     system manager (PID 1) starts user manager instances as
-    <filename>user@<replaceable>UID</replaceable>.service</filename>, where the user's numerical UID
-    is used as the instance identifier. Each <command>systemd --user</command> instance manages a
-    hierarchy of its own units. See
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-    a discussion of systemd units and
-    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    for a list of units that form the basis of the unit hierarchies of system and user units.</para>
+    <filename>user@<replaceable>UID</replaceable>.service</filename>, with the user's numerical UID used as
+    the instance identifier. These instances use the same executable as the system manager, but running in a
+    mode where it starts a different set of units. Each <command>systemd --user</command> instance manages a
+    hierarchy of units specific to that user. See
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for a
+    discussion of units and
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>1</manvolnum></citerefentry> for a
+    list of units that form the basis of the unit hierarchies of system and user units.</para>
 
     <para><filename>user@<replaceable>UID</replaceable>.service</filename> is accompanied by the
     system unit <filename>user-runtime-dir@<replaceable>UID</replaceable>.service</filename>, which
     creates the user's runtime directory
     <filename>/run/user/<replaceable>UID</replaceable></filename>, and then removes it when this
-    unit is stopped.</para>
+    unit is stopped. <filename>user-runtime-dir@<replaceable>UID</replaceable>.service</filename>
+    executes the <filename>systemd-user-runtime-dir</filename> binary to do the actual work.</para>
 
     <para>User processes may be started by the <filename>user@.service</filename> instance, in which
     case they will be part of that unit in the system hierarchy. They may also be started elsewhere,
@@ -53,7 +56,7 @@
     display manager like <command>gdm</command>, in which case they form a .scope unit (see
     <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
     Both <filename>user@<replaceable>UID</replaceable>.service</filename> and the scope units are
-    collected under a <filename>user-<replaceable>UID</replaceable>.slice</filename>.</para>
+    collected under the <filename>user-<replaceable>UID</replaceable>.slice</filename>.</para>
 
     <para>Individual <filename>user-<replaceable>UID</replaceable>.slice</filename> slices are
     collected under <filename>user.slice</filename>, see

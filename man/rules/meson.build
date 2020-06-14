@@ -18,7 +18,7 @@ manpages = [
  ['file-hierarchy', '7', [], ''],
  ['halt', '8', ['poweroff', 'reboot'], ''],
  ['homectl', '1', [], 'ENABLE_HOMED'],
- ['homed.conf', '5', ['homed.conf.d'], 'ENABLE_RESOLVE'],
+ ['homed.conf', '5', ['homed.conf.d'], 'ENABLE_HOMED'],
  ['hostname', '5', [], ''],
  ['hostnamectl', '1', [], 'ENABLE_HOSTNAMED'],
  ['hwdb', '7', [], 'ENABLE_HWDB'],
@@ -1096,7 +1096,10 @@ manpages = [
   ''],
  ['udev_new', '3', ['udev_ref', 'udev_unref'], ''],
  ['udevadm', '8', [], ''],
- ['user@.service', '5', ['user-runtime-dir@.service'], ''],
+ ['user@.service',
+  '5',
+  ['systemd-user-runtime-dir', 'user-runtime-dir@.service'],
+  ''],
  ['userdbctl', '1', [], 'ENABLE_USERDB'],
  ['vconsole.conf', '5', [], 'ENABLE_VCONSOLE']
 ]
