@@ -272,6 +272,8 @@ static BOOLEAN line_edit(
 
                 case KEYPRESS(0, 0, CHAR_LINEFEED):
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0):
+                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN):
                         if (StrCmp(line, line_in) != 0)
                                 *line_out = TAKE_PTR(line);
                         enter = TRUE;
@@ -742,6 +744,8 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, 0, CHAR_LINEFEED):
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0):
+                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN):
                 case KEYPRESS(0, SCAN_RIGHT, 0):
                         exit = TRUE;
                         break;
