@@ -487,59 +487,6 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
                              MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
 }
 
-static int mkdir_userns(const char *path, mode_t mode, uid_t uid_shift) {
-        int r;
-
-        assert(path);
-
-        r = mkdir_errno_wrapper(path, mode);
-        if (r < 0 && r != -EEXIST)
-                return r;
-
-        if (uid_shift == UID_INVALID)
-                return 0;
-
-        if (lchown(path, uid_shift, uid_shift) < 0)
-                return -errno;
-
-        return 0;
-}
-
-static int mkdir_userns_p(const char *prefix, const char *path, mode_t mode, uid_t uid_shift) {
-        const char *p, *e;
-        int r;
-
-        assert(path);
-
-        if (prefix && !path_startswith(path, prefix))
-                return -ENOTDIR;
-
-        /* create every parent directory in the path, except the last component */
-        p = path + strspn(path, "/");
-        for (;;) {
-                char t[strlen(path) + 1];
-
-                e = p + strcspn(p, "/");
-                p = e + strspn(e, "/");
-
-                /* Is this the last component? If so, then we're done */
-                if (*p == 0)
-                        break;
-
-                memcpy(t, path, e - path);
-                t[e-path] = 0;
-
-                if (prefix && path_startswith(prefix, t))
-                        continue;
-
-                r = mkdir_userns(t, mode, uid_shift);
-                if (r < 0)
-                        return r;
-        }
-
-        return mkdir_userns(path, mode, uid_shift);
-}
-
 int mount_all(const char *dest,
               MountSettingsMask mount_settings,
               uid_t uid_shift,
@@ -664,7 +611,8 @@ int mount_all(const char *dest,
                 }
 
                 if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR)) {
-                        r = mkdir_userns_p(dest, where, 0755, (use_userns && !in_userns) ? uid_shift : UID_INVALID);
+                        uid_t u = (use_userns && !in_userns) ? uid_shift : UID_INVALID;
+                        r = mkdir_p_safe(dest, where, 0755, u, u, 0);
                         if (r < 0 && r != -EEXIST) {
                                 if (fatal && r != -EROFS)
                                         return log_error_errno(r, "Failed to create directory %s: %m", where);
