@@ -272,8 +272,8 @@ static BOOLEAN line_edit(
 
                 case KEYPRESS(0, 0, CHAR_LINEFEED):
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
-                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0):
-                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0): /* EZpad Mini 4s firmware sends malformed events */
+                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
                         if (StrCmp(line, line_in) != 0)
                                 *line_out = TAKE_PTR(line);
                         enter = TRUE;
@@ -744,8 +744,8 @@ static BOOLEAN menu_run(
 
                 case KEYPRESS(0, 0, CHAR_LINEFEED):
                 case KEYPRESS(0, 0, CHAR_CARRIAGE_RETURN):
-                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0):
-                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN):
+                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, 0): /* EZpad Mini 4s firmware sends malformed events */
+                case KEYPRESS(0, CHAR_CARRIAGE_RETURN, CHAR_CARRIAGE_RETURN): /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
                         exit = TRUE;
                         break;
