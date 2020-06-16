@@ -21,13 +21,33 @@ systemctl start testservice-48.target
 # May 07 23:12:20 systemd-testsuite testsuite-48.sh[52]: -rw-r--r-- 1 root root 50 2020-05-07 23:12:20.000000000 +0100 /
 # May 07 23:12:20 systemd-testsuite testsuite-48.sh[30]: + stat -f --format=%t /etc/systemd/system/testservice-48.servic
 # May 07 23:12:20 systemd-testsuite testsuite-48.sh[53]: ef53
-sleep 1.1
+sleep 3.1
 
 cat > /run/systemd/system/testservice-48.service <<EOF
 [Service]
 ExecStart=/bin/sleep infinity
-Type=exec
 EOF
+
+systemctl start testservice-48.service
+
+systemctl is-active testservice-48.service
+
+# Stop and remove, and try again to exercise https://github.com/systemd/systemd/issues/15992
+systemctl stop testservice-48.service
+rm -f /run/systemd/system/testservice-48.service
+systemctl daemon-reload
+
+sleep 3.1
+
+cat > /run/systemd/system/testservice-48.service <<EOF
+[Service]
+ExecStart=/bin/sleep infinity
+EOF
+
+# Start a non-existing unit first, so that the cache is reloaded for an unrelated
+# reason. Starting the existing unit later should still work thanks to the check
+# for the last load attempt vs cache timestamp.
+systemctl start testservice-48-nonexistent.service || true
 
 systemctl start testservice-48.service
 
