@@ -15,17 +15,19 @@ CONT_NAME="${CONT_NAME:-systemd-debian-$DEBIAN_RELEASE}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(python3-libevdev
-                 python3-pyparsing
-                 clang
-                 perl
-                 libpwquality-dev
-                 fdisk
-                 libfdisk-dev
-                 libp11-kit-dev
-                 libssl-dev
-                 libzstd-dev
-                 zstd)
+ADDITIONAL_DEPS=(
+    clang
+    fdisk
+    libfdisk-dev
+    libp11-kit-dev
+    libpwquality-dev
+    libssl-dev
+    libzstd-dev
+    perl
+    python3-libevdev
+    python3-pyparsing
+    zstd
+)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"

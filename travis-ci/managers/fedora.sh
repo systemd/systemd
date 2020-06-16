@@ -15,19 +15,21 @@ CONT_NAME="${CONT_NAME:-systemd-fedora-$FEDORA_RELEASE}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(dnf-plugins-core
-                 jq iputils
-                 hostname libasan
-                 python3-pyparsing
-                 python3-evdev
-                 libubsan
-                 clang
-                 llvm
-                 perl
-                 libfdisk-devel
-                 libpwquality-devel
-                 openssl-devel
-                 p11-kit-devel)
+ADDITIONAL_DEPS=(
+    clang
+    dnf-plugins-core
+    hostname libasan
+    jq iputils
+    libfdisk-devel
+    libpwquality-devel
+    libubsan
+    llvm
+    openssl-devel
+    p11-kit-devel
+    perl
+    python3-evdev
+    python3-pyparsing
+)
 
 info() {
     echo -e "\033[33;1m$1\033[0m"
