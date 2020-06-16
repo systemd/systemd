@@ -18,7 +18,9 @@ System and Service Manager
 
 ## Details
 
-General information about systemd can be found in the [systemd Wiki](https://www.freedesktop.org/wiki/Software/systemd).
+Most documentation is available on [systemd's web site](https://systemd.io/).
+
+Assorted, older, general information about systemd can be found in the [systemd Wiki](https://www.freedesktop.org/wiki/Software/systemd).
 
 Information about build requirements is provided in the [README file](README).
 
