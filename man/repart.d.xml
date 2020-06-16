@@ -281,7 +281,8 @@
         <varname>SizeMaxBytes=</varname>) otherwise. If the backing device does not provide enough space to
         fulfill the constraints placing the partition will fail. For partitions that shall be created,
         depending on the setting of <varname>Priority=</varname> (see above) the partition might be dropped
-        and the placing algorithm restarted. By default no size constraints are set.</para></listitem>
+        and the placing algorithm restarted. By default a minimum size constraint of 10M and no maximum size
+        constraint is set.</para></listitem>
       </varlistentry>
 
       <varlistentry>

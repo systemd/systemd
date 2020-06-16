@@ -48,6 +48,12 @@
 #include "terminal-util.h"
 #include "utf8.h"
 
+/* If not configured otherwise use a minimal partition size of 10M */
+#define DEFAULT_MIN_SIZE (10*1024*1024)
+
+/* Hard lower limit for new partition sizes */
+#define HARD_MIN_SIZE 4096
+
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
  * sector size devices were generally assumed to have an even number of sectors, hence at the worst we'll
@@ -319,7 +325,9 @@ static uint64_t partition_min_size(const Partition *p) {
 
         /* Calculate the disk space we really need at minimum for this partition. If the partition already
          * exists the current size is what we really need. If it doesn't exist yet refuse to allocate less
-         * than 4K. */
+         * than 4K.
+         *
+         * DEFAULT_MIN_SIZE is the default SizeMin= we configure if nothing else is specified. */
 
         if (PARTITION_IS_FOREIGN(p)) {
                 /* Don't allow changing size of partitions not managed by us */
@@ -327,11 +335,8 @@ static uint64_t partition_min_size(const Partition *p) {
                 return p->current_size;
         }
 
-        sz = p->current_size != UINT64_MAX ? p->current_size : 4096;
-        if (p->size_min != UINT64_MAX)
-                return MAX(p->size_min, sz);
-
-        return sz;
+        sz = p->current_size != UINT64_MAX ? p->current_size : HARD_MIN_SIZE;
+        return MAX(p->size_min == UINT64_MAX ? DEFAULT_MIN_SIZE : p->size_min, sz);
 }
 
 static uint64_t partition_max_size(const Partition *p) {
