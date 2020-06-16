@@ -164,18 +164,6 @@ int sd_network_link_get_search_domains(int ifindex, char ***domains);
 /* Get the route DNS domain names for a given link. */
 int sd_network_link_get_route_domains(int ifindex, char ***domains);
 
-/* Get the sip servers for a given link. */
-int sd_network_link_get_sip_servers(int ifindex, char ***sip);
-
-/* Get the pop3 servers for a given link. */
-int sd_network_link_get_pop3_servers(int ifindex, char ***pop3);
-
-/* Get the SMTP servers for a given link. */
-int sd_network_link_get_smtp_servers(int ifindex, char ***smtp);
-
-/* Get the LPR servers for a given link. */
-int sd_network_link_get_lpr_servers(int ifindex, char ***lpr);
-
 /* Get whether this link shall be used as 'default route' for DNS queries */
 int sd_network_link_get_dns_default_route(int ifindex);
 

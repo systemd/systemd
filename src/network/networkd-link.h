@@ -159,7 +159,7 @@ typedef struct Link {
         struct rtnl_link_stats64 stats_old, stats_new;
         bool stats_updated;
 
-        /* All kinds of DNS configuration */
+        /* All kinds of DNS configuration the user configured via D-Bus */
         struct in_addr_data *dns;
         unsigned n_dns;
         OrderedSet *search_domains, *route_domains;
@@ -171,6 +171,7 @@ typedef struct Link {
         DnsOverTlsMode dns_over_tls_mode;
         Set *dnssec_negative_trust_anchors;
 
+        /* Similar, but NTP server configuration */
         char **ntp;
 } Link;
 

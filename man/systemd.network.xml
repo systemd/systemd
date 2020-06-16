@@ -578,7 +578,7 @@
         <varlistentry>
           <term><varname>NTP=</varname></term>
           <listitem>
-            <para>An NTP server address. This option may be specified more than once. This setting is read by
+            <para>An NTP server address (either an IP address, or a hostname). This option may be specified more than once. This setting is read by
             <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
@@ -1412,17 +1412,16 @@
         <varlistentry>
           <term><varname>UseNTP=</varname></term>
           <listitem>
-            <para>When true (the default), the NTP servers received
-            from the DHCP server will be used by systemd-timesyncd
-            and take precedence over any statically configured ones.</para>
+            <para>When true (the default), the NTP servers received from the DHCP server will be used by
+            <filename>systemd-timesyncd.service</filename> and take precedence over any statically configured
+            ones.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>UseSIP=</varname></term>
           <listitem>
-            <para>When true (the default), the SIP servers received
-            from the DHCP server will be saved at the state files and can be
-            read via <function>sd_network_link_get_sip_servers()</function> function.</para>
+            <para>When true (the default), the SIP servers received from the DHCP server will be collected
+            and made available to client programs.</para>
           </listitem>
         </varlistentry>
 
@@ -2010,79 +2009,37 @@
         <term><varname>EmitDNS=</varname></term>
         <term><varname>DNS=</varname></term>
 
-        <listitem><para>Takes a boolean. Configures whether the DHCP leases handed out
-        to clients shall contain DNS server information. Defaults to <literal>yes</literal>.
-        The DNS servers to pass to clients may be configured with the
-        <varname>DNS=</varname> option, which takes a list of IPv4
-        addresses. If the <varname>EmitDNS=</varname> option is
-        enabled but no servers configured, the servers are
-        automatically propagated from an "uplink" interface that has
-        appropriate servers set. The "uplink" interface is determined
-        by the default route of the system with the highest
-        priority. Note that this information is acquired at the time
-        the lease is handed out, and does not take uplink interfaces
-        into account that acquire DNS or NTP server information at a
-        later point. DNS server propagation does not take
-        <filename>/etc/resolv.conf</filename> into account. Also, note
-        that the leases are not refreshed if the uplink network
-        configuration changes. To ensure clients regularly acquire the
-        most current uplink DNS server information, it is thus
-        advisable to shorten the DHCP lease time via
-        <varname>MaxLeaseTimeSec=</varname> described
+        <listitem><para><varname>EmitDNS=</varname> takes a boolean. Configures whether the DHCP leases
+        handed out to clients shall contain DNS server information. Defaults to <literal>yes</literal>.  The
+        DNS servers to pass to clients may be configured with the <varname>DNS=</varname> option, which takes
+        a list of IPv4 addresses. If the <varname>EmitDNS=</varname> option is enabled but no servers
+        configured, the servers are automatically propagated from an "uplink" interface that has appropriate
+        servers set. The "uplink" interface is determined by the default route of the system with the highest
+        priority. Note that this information is acquired at the time the lease is handed out, and does not
+        take uplink interfaces into account that acquire DNS server information at a later point. If no
+        suitable uplinkg interface is found the DNS server data from <filename>/etc/resolv.conf</filename> is
+        used. Also, note that the leases are not refreshed if the uplink network configuration changes. To
+        ensure clients regularly acquire the most current uplink DNS server information, it is thus advisable
+        to shorten the DHCP lease time via <varname>MaxLeaseTimeSec=</varname> described
         above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>EmitNTP=</varname></term>
         <term><varname>NTP=</varname></term>
-
-        <listitem><para>Similar to the <varname>EmitDNS=</varname> and
-        <varname>DNS=</varname> settings described above, these
-        settings configure whether and what NTP server information
-        shall be emitted as part of the DHCP lease. The same syntax,
-        propagation semantics and defaults apply as for
-        <varname>EmitDNS=</varname> and
-        <varname>DNS=</varname>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>EmitSIP=</varname></term>
         <term><varname>SIP=</varname></term>
+        <term><varname>EmitPOP3=</varname></term>
+        <term><varname>POP3=</varname></term>
+        <term><varname>EmitSMTP=</varname></term>
+        <term><varname>SMTP=</varname></term>
+        <term><varname>EmitLPR=</varname></term>
+        <term><varname>LPR=</varname></term>
 
-        <listitem><para>Similar to the <varname>EmitDNS=</varname> and
-        <varname>DNS=</varname> settings described above, these
-        settings configure whether and what SIP server information
-        shall be emitted as part of the DHCP lease. The same syntax,
-        propagation semantics and defaults apply as for
-        <varname>EmitDNS=</varname> and
-        <varname>DNS=</varname>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>POP3Servers=</varname></term>
-
-        <listitem><para>Similar to the <varname>DNS=</varname> setting described above, this setting
-        configures whether and what POP3 server information shall be emitted as part of the DHCP lease. The
-        same syntax, propagation semantics and defaults apply as for
-        <varname>DNS=</varname>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>SMTPServers=</varname></term>
-
-        <listitem><para>Similar to the <varname>DNS=</varname> setting described above, this
-        setting configures whether and what SMTP server information shall be emitted as part of
-        the DHCP lease. The same syntax, propagation semantics and defaults apply as for
-        <varname>DNS=</varname>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>LPRServers=</varname></term>
-
-        <listitem><para>Similar to the <varname>DNS=</varname> setting described above, this
-        setting configures whether and what LPR (line printer) server information shall be emitted
-        as part of the DHCP lease. The same syntax, propagation semantics and defaults apply as for
-        <varname>DNS=</varname>.</para></listitem>
+        <listitem><para>Similar to the <varname>EmitDNS=</varname> and <varname>DNS=</varname> settings
+        described above, these settings configure whether and what server information for the indicate
+        protocol shall be emitted as part of the DHCP lease. The same syntax, propagation semantics and
+        defaults apply as for <varname>EmitDNS=</varname> and <varname>DNS=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
