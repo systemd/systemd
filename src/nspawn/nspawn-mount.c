@@ -619,9 +619,9 @@ int mount_all(const char *dest,
 
 #if HAVE_SELINUX
                 { "/sys/fs/selinux", "/sys/fs/selinux", NULL,    NULL,        MS_BIND,
-                  0 },  /* Bind mount first */
+                  MOUNT_MKDIR },  /* Bind mount first (mkdir/chown the mount point in case /sys/ is mounted as minimal skeleton tmpfs) */
                 { NULL,              "/sys/fs/selinux", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
-                  0 },  /* Then, make it r/o */
+                  0 },            /* Then, make it r/o (don't mkdir/chown the mount point here, the previous entry already did that) */
 #endif
         };
 
