@@ -1930,10 +1930,11 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
-static bool manager_unit_cache_needs_refresh(Manager *m) {
+static bool manager_unit_cache_needs_refresh(Manager *m, Unit *u) {
         assert(m);
 
-        return m->unit_cache_mtime > 0 && !lookup_paths_mtime_good(&m->lookup_paths, m->unit_cache_mtime);
+        return m->unit_cache_mtime > 0 &&
+                (m->unit_cache_mtime > u->fragment_loadtime || !lookup_paths_mtime_good(&m->lookup_paths, m->unit_cache_mtime));
 }
 
 int manager_load_unit_prepare(
@@ -1980,8 +1981,12 @@ int manager_load_unit_prepare(
                  * but if they are already referenced (because of dependencies or ordering)
                  * then we have to force a load of the fragment. As an optimization, check
                  * first if anything in the usual paths was modified since the last time
-                 * the cache was loaded. */
-                if (ret->load_state == UNIT_NOT_FOUND && manager_unit_cache_needs_refresh(m))
+                 * the cache was loaded. Also check if the last time an attempt to load the
+                 * unit was made was before the most recent cache refresh, so that we know
+                 * we need to try again - even if the cache is current, it might have been
+                 * updated in a different context before we had a chance to retry loading
+                 * this particular unit. */
+                if (ret->load_state == UNIT_NOT_FOUND && manager_unit_cache_needs_refresh(m, ret))
                         ret->load_state = UNIT_STUB;
                 else {
                         *_ret = ret;
