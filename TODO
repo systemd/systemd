@@ -62,6 +62,23 @@ Features:
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits
 
+* make us use dynamically fewer deps for containers in general purpose distros:
+  o turn into dlopen() deps:
+    - pcre2 (always)               — irrelevant on Fedora, since dep by
+                                     libselinux, but should benefit Debian
+    - libpwquality (always)        - only relevant for homed, and maybe soon
+                                     firstboot
+    - elfutils (always)
+    - p11-kit-trust (always)
+    - kmod-libs (only when called from PID 1)
+    - cryptsetup-libs (only in RootImage= handling in PID 1, but not in systemd-cryptsetup)
+    - similar: libblkid
+    - libpam (only when called from PID 1)
+    - bzip2, xz, lz4 (always — gzip and zstd should probably stay static deps the way they are,
+      since they are so basic and our defaults)
+  o move into separate libsystemd-shared-iptables.so .so
+    - iptables-libs (only used by nspawn + networkd)
+
 * seccomp: when SystemCallArchitectures=native is set then don't install any
   other seccomp filters for any of the other archs, in order to reduce the
   number of seccomp filters we install needlessly.
@@ -162,7 +179,8 @@ Features:
 * socket units: allow creating a udev monitor socket with ListenDevices= or so,
   with matches, then activate app through that passing socket over
 
-* unify on openssl:
+* unify on openssl (as soon as OpenSSL 3.0 is out, and the Debian license
+  confusion is gone)
   - port sd_id128_get_machine_app_specific() over from khash
   - port resolved over from libgcrypt (DNSSEC code)
   - port journald + fsprg over from libgcrypt
