@@ -41,6 +41,7 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "sort-util.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -857,20 +858,42 @@ static int config_parse_label(
                 void *data,
                 void *userdata) {
 
+        static const Specifier specifier_table[] = {
+                { 'm', specifier_machine_id,      NULL },
+                { 'b', specifier_boot_id,         NULL },
+                { 'H', specifier_host_name,       NULL },
+                { 'l', specifier_short_host_name, NULL },
+                { 'v', specifier_kernel_release,  NULL },
+                { 'a', specifier_architecture,    NULL },
+                { 'o', specifier_os_id,           NULL },
+                { 'w', specifier_os_version_id,   NULL },
+                { 'B', specifier_os_build_id,     NULL },
+                { 'W', specifier_os_variant_id,   NULL },
+                {}
+        };
+
         _cleanup_free_ char16_t *recoded = NULL;
+        _cleanup_free_ char *resolved = NULL;
         char **label = data;
         int r;
 
         assert(rvalue);
         assert(label);
 
-        if (!utf8_is_valid(rvalue)) {
+        r = specifier_printf(rvalue, specifier_table, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to expand specifiers in Label=, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!utf8_is_valid(resolved)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Partition label not valid UTF-8, ignoring: %s", rvalue);
                 return 0;
         }
 
-        recoded = utf8_to_utf16(rvalue, strlen(rvalue));
+        recoded = utf8_to_utf16(resolved, strlen(resolved));
         if (!recoded)
                 return log_oom();
 
@@ -880,10 +903,7 @@ static int config_parse_label(
                 return 0;
         }
 
-        r = free_and_strdup(label, rvalue);
-        if (r < 0)
-                return log_oom();
-
+        free_and_replace(*label, resolved);
         return 0;
 }
 
