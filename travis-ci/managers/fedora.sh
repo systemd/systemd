@@ -9,9 +9,9 @@
 # export CONT_NAME="my-fancy-container"
 # travis-ci/managers/fedora.sh SETUP RUN CLEANUP
 
-PHASES=(${@:-SETUP RUN RUN_ASAN CLEANUP})
+PHASES=(${@:-SETUP RUN RUN_ASAN_UBSAN CLEANUP})
 FEDORA_RELEASE="${FEDORA_RELEASE:-rawhide}"
-CONT_NAME="${CONT_NAME:-fedora-$FEDORA_RELEASE-$RANDOM}"
+CONT_NAME="${CONT_NAME:-systemd-fedora-$FEDORA_RELEASE}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
@@ -94,8 +94,8 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC ninja -v -C build
             $DOCKER_EXEC ninja -C build test
             ;;
-        RUN_ASAN|RUN_CLANG_ASAN)
-            if [[ "$phase" = "RUN_CLANG_ASAN" ]]; then
+        RUN_ASAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN)
+            if [[ "$phase" = "RUN_CLANG_ASAN_UBSAN" ]]; then
                 ENV_VARS="-e CC=clang -e CXX=clang++"
                 MESON_ARGS="-Db_lundef=false" # See https://github.com/mesonbuild/meson/issues/764
             fi
