@@ -4196,32 +4196,11 @@ int link_save(Link *link) {
                                     sd_dhcp6_lease_get_ntp_fqdn);
 
                 serialize_addresses(f, "SIP", NULL,
-                                    link->network->sip,
+                                    NULL,
                                     link->dhcp_lease,
                                     link->network->dhcp_use_sip,
                                     SD_DHCP_LEASE_SIP,
-                                    false, NULL, NULL, NULL);
-
-                serialize_addresses(f, "POP3", NULL,
-                                    link->network->pop3,
-                                    link->dhcp_lease,
-                                    true,
-                                    SD_DHCP_LEASE_POP3,
-                                    false, NULL, NULL, NULL);
-
-                serialize_addresses(f, "SMTP", NULL,
-                                    link->network->smtp,
-                                    link->dhcp_lease,
-                                    true,
-                                    SD_DHCP_LEASE_SMTP,
-                                    false, NULL, NULL, NULL);
-
-                serialize_addresses(f, "LPR", NULL,
-                                    link->network->lpr,
-                                    link->dhcp_lease,
-                                    true,
-                                    SD_DHCP_LEASE_LPR,
-                                    false, NULL, NULL, NULL);
+                                    NULL, false, NULL, NULL);
 
                 /************************************************************/
 

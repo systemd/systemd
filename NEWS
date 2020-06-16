@@ -76,7 +76,7 @@ CHANGES WITH 246 in spe:
           field.
 
         * systemd-networkd's [DHCPServer] section gained a new set of options
-          POP3Servers=, SMTPServers=, LPRServers= for including server
+          EmitPOP3=/POP3=, EmitSMTP=/SMTP=, EmitLPR=/LPR= for including server
           information about these three protocols in the DHCP lease. It also
           gained support for including "MUD" URLs ("Manufacturer Usage
           Description"). Support for "MUD" URLs was also added to the LLDP
