@@ -582,7 +582,7 @@ restrictive access semantics. The following fields are currently defined:
 be a string like "What's the name of your first pet?", but is entirely for the
 user to choose.
 
-`hashPassword` → An array of strings, each containing a hashed UNIX password
+`hashedPassword` → An array of strings, each containing a hashed UNIX password
 string, in the format
 [`crypt(3)`](http://man7.org/linux/man-pages/man3/crypt.3.html) generates. This
 corresponds with `sp_pwdp` field of `struct spwd` (and in a way the `pw_passwd`
