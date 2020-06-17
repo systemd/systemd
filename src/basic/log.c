@@ -1146,15 +1146,19 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 void log_parse_environment_realm(LogRealm realm) {
-        /* Do not call from library code. */
-
-        const char *e;
-
         if (getpid_cached() == 1 || get_ctty_devnr(0, NULL) < 0)
                 /* Only try to read the command line in daemons. We assume that anything that has a
                  * controlling tty is user stuff. For PID1 we do a special check in case it hasn't
                  * closed the console yet. */
                 (void) proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+
+        log_parse_environment_cli_realm(realm);
+}
+
+void log_parse_environment_cli_realm(LogRealm realm) {
+        /* Do not call from library code. */
+
+        const char *e;
 
         e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
@@ -1428,5 +1432,13 @@ void log_setup_service(void) {
 
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
+        (void) log_open();
+}
+
+void log_setup_cli(void) {
+        /* Sets up logging the way it is most appropriate for running a program as a CLI utility. */
+
+        log_show_color(true);
+        log_parse_environment_cli();
         (void) log_open();
 }
