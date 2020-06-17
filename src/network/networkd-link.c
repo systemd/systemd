@@ -890,6 +890,105 @@ static int link_set_static_configs(Link *link) {
 
 static int link_configure_continue(Link *link);
 
+static int link_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_link_message_warning_errno(link, m, r, "Could not set MAC address, ignoring");
+        else
+                log_link_debug(link, "Setting MAC address done.");
+
+        return 1;
+}
+
+static int link_set_mac(Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        if (!link->network->mac)
+                return 0;
+
+        log_link_debug(link, "Setting MAC address");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_netlink_message_append_ether_addr(req, IFLA_ADDRESS, link->network->mac);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set MAC address: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_mac_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
+}
+
+static int link_nomaster_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_link_message_warning_errno(link, m, r, "Could not set nomaster, ignoring");
+        else
+                log_link_debug(link, "Setting nomaster done.");
+
+        return 1;
+}
+
+static int link_set_nomaster(Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        /* set it free if not enslaved with networkd */
+        if (link->network->bridge || link->network->bond || link->network->vrf)
+                return 0;
+
+        log_link_debug(link, "Setting nomaster");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_netlink_message_append_u32(req, IFLA_MASTER, 0);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_MASTER attribute: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_nomaster_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
+}
+
 static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1306,22 +1405,9 @@ static int link_up(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
 
-        /* set it free if not enslaved with networkd */
-        if (!link->network->bridge && !link->network->bond && !link->network->vrf) {
-                r = sd_netlink_message_append_u32(req, IFLA_MASTER, 0);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append IFLA_MASTER attribute: %m");
-        }
-
         r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
-
-        if (link->network->mac) {
-                r = sd_netlink_message_append_ether_addr(req, IFLA_ADDRESS, link->network->mac);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set MAC address: %m");
-        }
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_up_handler,
                                link_netlink_destroy_callback, link);
@@ -1967,6 +2053,14 @@ int link_configure(Link *link) {
                 return r;
 
         r = link_set_ipv6_proxy_ndp_addresses(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_mac(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_nomaster(link);
         if (r < 0)
                 return r;
 
