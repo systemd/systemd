@@ -113,8 +113,11 @@ KERNEL=="sr*", ENV{DISK_EJECT_REQUEST}!="?*", ENV{ID_CDROM_MEDIA_TRACK_COUNT_DAT
 KERNEL!="sr*", IMPORT{builtin}="blkid"
 
 # by-label/by-uuid links (filesystem metadata)
+# Skip bcache backing devices, handled in 69-bcache.rules
+ENV{ID_FS_TYPE}=="bcache", GOTO="skip_bcache_fs_type"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
+LABEL="skip_bcache_fs_type"
 
 # by-id (World Wide Name)
 ENV{DEVTYPE}=="disk", ENV{ID_WWN_WITH_EXTENSION}=="?*", SYMLINK+="disk/by-id/wwn-$env{ID_WWN_WITH_EXTENSION}"
