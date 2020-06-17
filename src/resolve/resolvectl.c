@@ -3174,9 +3174,7 @@ static int run(int argc, char **argv) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup_cli();
 
         if (streq(program_invocation_short_name, "resolvconf"))
                 r = resolvconf_parse_argv(argc, argv);
