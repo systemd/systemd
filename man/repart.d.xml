@@ -1,7 +1,8 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
-<refentry id="repart.d" conditional='ENABLE_REPART'>
+<refentry id="repart.d" conditional='ENABLE_REPART'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>repart.d</title>
@@ -214,7 +215,7 @@
         setting is not used for matching. It is also not used when a label is already set for an existing
         partition. It is thus only used when a partition is newly created or when an existing one had a no
         label set (that is: an empty label). If not specified a label derived from the partition type is
-        automatically used.</para></listitem>
+        automatically used. Simple specifier expansion is supported, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -291,7 +292,8 @@
         <varname>SizeMaxBytes=</varname>) otherwise. If the backing device does not provide enough space to
         fulfill the constraints placing the partition will fail. For partitions that shall be created,
         depending on the setting of <varname>Priority=</varname> (see above) the partition might be dropped
-        and the placing algorithm restarted. By default no size constraints are set.</para></listitem>
+        and the placing algorithm restarted. By default a minimum size constraint of 10M and no maximum size
+        constraint is set.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -313,6 +315,40 @@
         into their original state by removing partitions and creating them anew. Defaults to off.</para></listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Specifiers may be used in the <varname>Label=</varname> setting. The following expansions are understood:</para>
+      <table class='specifiers'>
+        <title>Specifiers available</title>
+        <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+          <colspec colname="spec" />
+          <colspec colname="mean" />
+          <colspec colname="detail" />
+          <thead>
+            <row>
+              <entry>Specifier</entry>
+              <entry>Meaning</entry>
+              <entry>Details</entry>
+            </row>
+          </thead>
+          <tbody>
+            <xi:include href="standard-specifiers.xml" xpointer="a"/>
+            <xi:include href="standard-specifiers.xml" xpointer="b"/>
+            <xi:include href="standard-specifiers.xml" xpointer="B"/>
+            <xi:include href="standard-specifiers.xml" xpointer="H"/>
+            <xi:include href="standard-specifiers.xml" xpointer="l"/>
+            <xi:include href="standard-specifiers.xml" xpointer="m"/>
+            <xi:include href="standard-specifiers.xml" xpointer="o"/>
+            <xi:include href="standard-specifiers.xml" xpointer="v"/>
+            <xi:include href="standard-specifiers.xml" xpointer="w"/>
+            <xi:include href="standard-specifiers.xml" xpointer="W"/>
+            <xi:include href="standard-specifiers.xml" xpointer="percent"/>
+          </tbody>
+        </tgroup>
+      </table>
   </refsect1>
 
   <refsect1>

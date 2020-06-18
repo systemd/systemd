@@ -41,12 +41,19 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "sort-util.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
+
+/* If not configured otherwise use a minimal partition size of 10M */
+#define DEFAULT_MIN_SIZE (10*1024*1024)
+
+/* Hard lower limit for new partition sizes */
+#define HARD_MIN_SIZE 4096
 
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
@@ -321,7 +328,9 @@ static uint64_t partition_min_size(const Partition *p) {
 
         /* Calculate the disk space we really need at minimum for this partition. If the partition already
          * exists the current size is what we really need. If it doesn't exist yet refuse to allocate less
-         * than 4K. */
+         * than 4K.
+         *
+         * DEFAULT_MIN_SIZE is the default SizeMin= we configure if nothing else is specified. */
 
         if (PARTITION_IS_FOREIGN(p)) {
                 /* Don't allow changing size of partitions not managed by us */
@@ -329,11 +338,8 @@ static uint64_t partition_min_size(const Partition *p) {
                 return p->current_size;
         }
 
-        sz = p->current_size != UINT64_MAX ? p->current_size : 4096;
-        if (p->size_min != UINT64_MAX)
-                return MAX(p->size_min, sz);
-
-        return sz;
+        sz = p->current_size != UINT64_MAX ? p->current_size : HARD_MIN_SIZE;
+        return MAX(p->size_min == UINT64_MAX ? DEFAULT_MIN_SIZE : p->size_min, sz);
 }
 
 static uint64_t partition_max_size(const Partition *p) {
@@ -857,20 +863,42 @@ static int config_parse_label(
                 void *data,
                 void *userdata) {
 
+        static const Specifier specifier_table[] = {
+                { 'm', specifier_machine_id,      NULL },
+                { 'b', specifier_boot_id,         NULL },
+                { 'H', specifier_host_name,       NULL },
+                { 'l', specifier_short_host_name, NULL },
+                { 'v', specifier_kernel_release,  NULL },
+                { 'a', specifier_architecture,    NULL },
+                { 'o', specifier_os_id,           NULL },
+                { 'w', specifier_os_version_id,   NULL },
+                { 'B', specifier_os_build_id,     NULL },
+                { 'W', specifier_os_variant_id,   NULL },
+                {}
+        };
+
         _cleanup_free_ char16_t *recoded = NULL;
+        _cleanup_free_ char *resolved = NULL;
         char **label = data;
         int r;
 
         assert(rvalue);
         assert(label);
 
-        if (!utf8_is_valid(rvalue)) {
+        r = specifier_printf(rvalue, specifier_table, NULL, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to expand specifiers in Label=, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!utf8_is_valid(resolved)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Partition label not valid UTF-8, ignoring: %s", rvalue);
                 return 0;
         }
 
-        recoded = utf8_to_utf16(rvalue, strlen(rvalue));
+        recoded = utf8_to_utf16(resolved, strlen(resolved));
         if (!recoded)
                 return log_oom();
 
@@ -880,10 +908,7 @@ static int config_parse_label(
                 return 0;
         }
 
-        r = free_and_strdup(label, rvalue);
-        if (r < 0)
-                return log_oom();
-
+        free_and_replace(*label, resolved);
         return 0;
 }
 
