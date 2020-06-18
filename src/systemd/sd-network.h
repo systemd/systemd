@@ -164,6 +164,9 @@ int sd_network_link_get_search_domains(int ifindex, char ***domains);
 /* Get the route DNS domain names for a given link. */
 int sd_network_link_get_route_domains(int ifindex, char ***domains);
 
+/* Get the DHCPv4 server address for a given link. */
+int sd_network_link_get_dhcp4_server_address(int ifindex, char **address);
+
 /* Get whether this link shall be used as 'default route' for DNS queries */
 int sd_network_link_get_dns_default_route(int ifindex);
 
