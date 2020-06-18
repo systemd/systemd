@@ -956,10 +956,14 @@ static int dump_addresses(
                         return r;
 
                 if (dhcp4_address && streq(pretty, dhcp4_address)) {
-                        _cleanup_free_ char *p = NULL;
+                        _cleanup_free_ char *p = NULL, *s = NULL;
+
+                        r = sd_network_link_get_dhcp4_server_address(ifindex, &s);
+                        if (r < 0)
+                                return r;
 
                         p = pretty;
-                        pretty = strjoin(pretty , " (DHCP4)");
+                        pretty = strjoin(pretty , " (DHCP4 via ", s, ")");
                         if (!pretty)
                                 return log_oom();
                 }
