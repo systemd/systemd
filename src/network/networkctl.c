@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <arpa/inet.h>
 #include <getopt.h>
 #include <linux/if_addrlabel.h>
 #include <net/if.h>
@@ -958,12 +959,18 @@ static int dump_addresses(
                         return r;
 
                 if (local[i].family == AF_INET && in4_addr_equal(&local[i].address.in, &dhcp4_address)) {
-                        _cleanup_free_ char *p = NULL;
+                        struct in_addr server_address;
+                        char *p, s[INET_ADDRSTRLEN];
 
-                        p = pretty;
-                        pretty = strjoin(pretty , " (DHCP4)");
-                        if (!pretty)
+                        r = sd_dhcp_lease_get_server_identifier(lease, &server_address);
+                        if (r >= 0 && inet_ntop(AF_INET, &server_address, s, sizeof(s)))
+                                p = strjoin(pretty, " (DHCP4 via ", s, ")");
+                        else
+                                p = strjoin(pretty, " (DHCP4)");
+                        if (!p)
                                 return log_oom();
+
+                        free_and_replace(pretty, p);
                 }
 
                 r = strv_extendf(&buf, "%s%s%s",
