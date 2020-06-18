@@ -51,7 +51,8 @@
     <para><filename>systemd-makefs</filename> knows very little about specific file
     systems and swap devices, and after checking that the block device does not already
     contain a file system or other content, it will execute binaries specific to
-    each filesystem type (<filename>/sbin/mkfs.<replaceable>type</replaceable></filename>).</para>
+    each filesystem type (<filename>/sbin/mkfs.<replaceable>type</replaceable></filename>
+    or <filename>/sbin/mkswap</filename>).</para>
 
     <para><filename>systemd-growfs</filename> knows very little about specific file
     systems and swap devices, and will instruct the kernel to grow the mounted
