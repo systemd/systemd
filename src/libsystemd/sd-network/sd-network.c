@@ -168,10 +168,6 @@ _public_ int sd_network_link_get_address_state(int ifindex, char **state) {
         return network_link_get_string(ifindex, "ADDRESS_STATE", state);
 }
 
-_public_ int sd_network_link_get_dhcp4_client_id_string(int ifindex, char **client_id) {
-        return network_link_get_string(ifindex, "DHCP4_CLIENT_ID", client_id);
-}
-
 _public_ int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid) {
         return network_link_get_string(ifindex, "DHCP6_CLIENT_IAID", iaid);
 }
@@ -234,14 +230,6 @@ _public_ int sd_network_link_get_dnssec(int ifindex, char **dnssec) {
 
 _public_ int sd_network_link_get_dnssec_negative_trust_anchors(int ifindex, char ***nta) {
         return network_link_get_strv(ifindex, "DNSSEC_NTA", nta);
-}
-
-_public_ int sd_network_link_get_timezone(int ifindex, char **ret) {
-        return network_link_get_string(ifindex, "TIMEZONE", ret);
-}
-
-_public_ int sd_network_link_get_dhcp4_address(int ifindex, char **ret) {
-        return network_link_get_string(ifindex, "DHCP4_ADDRESS", ret);
 }
 
 _public_ int sd_network_link_get_dns(int ifindex, char ***ret) {
