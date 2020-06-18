@@ -930,12 +930,13 @@ static int dump_gateways(
 
 static int dump_addresses(
                 sd_netlink *rtnl,
+                sd_dhcp_lease *lease,
                 Table *table,
                 int ifindex) {
 
         _cleanup_free_ struct local_address *local = NULL;
-        _cleanup_free_ char *dhcp4_address = NULL;
         _cleanup_strv_free_ char **buf = NULL;
+        struct in_addr dhcp4_address = {};
         int r, n, i;
 
         assert(rtnl);
@@ -945,7 +946,8 @@ static int dump_addresses(
         if (n <= 0)
                 return n;
 
-        (void) sd_network_link_get_dhcp4_address(ifindex, &dhcp4_address);
+        if (lease)
+                (void) sd_dhcp_lease_get_address(lease, &dhcp4_address);
 
         for (i = 0; i < n; i++) {
                 _cleanup_free_ char *pretty = NULL;
@@ -955,7 +957,7 @@ static int dump_addresses(
                 if (r < 0)
                         return r;
 
-                if (dhcp4_address && streq(pretty, dhcp4_address)) {
+                if (local[i].family == AF_INET && in4_addr_equal(&local[i].address.in, &dhcp4_address)) {
                         _cleanup_free_ char *p = NULL;
 
                         p = pretty;
@@ -2027,7 +2029,7 @@ static int link_status_one(
                 }
         }
 
-        r = dump_addresses(rtnl, table, info->ifindex);
+        r = dump_addresses(rtnl, lease, table, info->ifindex);
         if (r < 0)
                 return r;
         r = dump_gateways(rtnl, hwdb, table, info->ifindex);
@@ -2156,7 +2158,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = dump_addresses(rtnl, table, 0);
+        r = dump_addresses(rtnl, NULL, table, 0);
         if (r < 0)
                 return r;
         r = dump_gateways(rtnl, hwdb, table, 0);
