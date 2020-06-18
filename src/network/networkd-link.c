@@ -4351,7 +4351,7 @@ int link_save(Link *link) {
         print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
 
         if (link->dhcp_lease) {
-                struct in_addr address;
+                struct in_addr address, dhcp_server_address;
                 const char *tz = NULL;
                 size_t client_id_len;
                 const void *client_id;
@@ -4376,6 +4376,13 @@ int link_save(Link *link) {
                         r = sd_dhcp_client_id_to_string(client_id, client_id_len, &id);
                         if (r >= 0)
                                 fprintf(f, "DHCP4_CLIENT_ID=%s\n", id);
+                }
+
+                r = sd_dhcp_lease_get_server_identifier(link->dhcp_lease, &dhcp_server_address);
+                if (r >= 0) {
+                        fputs("DHCP4_SERVER_ADDRESS=", f);
+                        serialize_in_addrs(f, &dhcp_server_address, 1, NULL, NULL);
+                        fputc('\n', f);
                 }
 
                 r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
