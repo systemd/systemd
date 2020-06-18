@@ -369,7 +369,7 @@ static ssize_t udev_event_subst_format(
         }
         case FORMAT_SUBST_PARENT:
                 r = sd_device_get_parent(dev, &parent);
-                if (r == -ENODEV)
+                if (r == -ENOENT)
                         goto null_terminate;
                 if (r < 0)
                         return r;
