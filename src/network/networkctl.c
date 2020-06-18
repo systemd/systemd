@@ -1379,12 +1379,12 @@ static int link_status_one(
                 const LinkInfo *info) {
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL;
-        _cleanup_free_ char *t = NULL, *network = NULL, *client_id = NULL, *iaid = NULL, *duid = NULL;
-        const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
-        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
-        const char *on_color_operational, *off_color_operational,
-                *on_color_setup, *off_color_setup;
+        _cleanup_free_ char *t = NULL, *network = NULL, *client_id = NULL, *iaid = NULL, *duid = NULL,
+                *setup_state = NULL, *operational_state = NULL, *lease_file = NULL;
+        const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
+                *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int r;
@@ -1424,6 +1424,11 @@ static int link_status_one(
 
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
+
+        if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", info->ifindex) < 0)
+                return log_oom();
+
+        (void) dhcp_lease_load(&lease, lease_file);
 
         table = table_new("dot", "key", "value");
         if (!table)
@@ -2050,14 +2055,18 @@ static int link_status_one(
         if (r < 0)
                 return r;
 
-        (void) sd_network_link_get_timezone(info->ifindex, &tz);
-        if (tz) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Time Zone:",
-                                   TABLE_STRING, tz);
-                if (r < 0)
-                        return table_log_add_error(r);
+        if (lease) {
+                const char *tz;
+
+                r = sd_dhcp_lease_get_timezone(lease, &tz);
+                if (r >= 0) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Time Zone:",
+                                           TABLE_STRING, tz);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
         }
 
         r = sd_network_link_get_dhcp4_client_id_string(info->ifindex, &client_id);
