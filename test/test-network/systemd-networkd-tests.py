@@ -1755,6 +1755,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-address-peer-ipv4.network',
         '25-address-preferred-lifetime-zero.network',
         '25-address-static.network',
+        '25-activation-policy.network',
         '25-bind-carrier.network',
         '25-bond-active-backup-slave.netdev',
         '25-fibrule-invert.network',
@@ -2710,6 +2711,53 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'UP,LOWER_UP')
         self.assertRegex(output, 'inet 192.168.10.30/24 brd 192.168.10.255 scope global test1')
         self.wait_operstate('test1', 'routable')
+
+    def _test_activation_policy(self, test):
+        self.setUp()
+        conffile = '25-activation-policy.network'
+        if test:
+            conffile = f'{conffile}.d/{test}.conf'
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', conffile, dropins=False)
+        start_networkd()
+
+        always = test.startswith('always')
+        if test == 'manual':
+            initial_up = 'UP' in check_output('ip link show test1')
+        else:
+            initial_up = not test.endswith('down') # note: default is up
+        expect_up = initial_up
+        next_up = not expect_up
+
+        # if initial expected state is down, must wait for setup_state to reach configuring
+        # so systemd-networkd considers it 'activated'
+        setup_state = None if initial_up else 'configuring'
+
+        for iteration in range(4):
+            with self.subTest(iteration=iteration, expect_up=expect_up):
+                operstate = 'routable' if expect_up else 'off'
+                self.wait_operstate('test1', operstate, setup_state=setup_state, setup_timeout=20)
+                setup_state = None
+
+                if expect_up:
+                    self.assertIn('UP', check_output('ip link show test1'))
+                    self.assertIn('192.168.10.30/24', check_output('ip address show test1'))
+                    self.assertIn('default via 192.168.10.1', check_output('ip route show'))
+                else:
+                    self.assertIn('DOWN', check_output('ip link show test1'))
+
+            if next_up:
+                check_output('ip link set dev test1 up')
+            else:
+                check_output('ip link set dev test1 down')
+            expect_up = initial_up if always else next_up
+            next_up = not next_up
+
+        self.tearDown()
+
+    def test_activation_policy(self):
+        for test in ['up', 'always-up', 'manual', 'always-down', 'down', '']:
+            with self.subTest(test=test):
+                self._test_activation_policy(test)
 
     def test_domain(self):
         copy_unit_to_networkd_unit_path('12-dummy.netdev', '24-search-domain.network')
