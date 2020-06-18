@@ -436,9 +436,9 @@ null_terminate:
         return 0;
 }
 
-ssize_t udev_event_apply_format(UdevEvent *event,
-                                const char *src, char *dest, size_t size,
-                                bool replace_whitespace) {
+size_t udev_event_apply_format(UdevEvent *event,
+                               const char *src, char *dest, size_t size,
+                               bool replace_whitespace) {
         const char *s = src;
         int r;
 
@@ -454,9 +454,10 @@ ssize_t udev_event_apply_format(UdevEvent *event,
                 ssize_t subst_len;
 
                 r = get_subst_type(&s, false, &type, attr);
-                if (r < 0)
-                        return log_device_warning_errno(event->dev, r, "Invalid format string, ignoring: %s", src);
-                if (r == 0) {
+                if (r < 0) {
+                        log_device_warning_errno(event->dev, r, "Invalid format string, ignoring: %s", src);
+                        break;
+                } else if (r == 0) {
                         if (size < 2) /* need space for this char and the terminating NUL */
                                 break;
                         *dest++ = *s++;
@@ -465,10 +466,12 @@ ssize_t udev_event_apply_format(UdevEvent *event,
                 }
 
                 subst_len = udev_event_subst_format(event, type, attr, dest, size);
-                if (subst_len < 0)
-                        return log_device_warning_errno(event->dev, subst_len,
-                                                        "Failed to substitute variable '$%s' or apply format '%%%c', ignoring: %m",
-                                                        format_type_to_string(type), format_type_to_char(type));
+                if (subst_len < 0) {
+                        log_device_warning_errno(event->dev, subst_len,
+                                                 "Failed to substitute variable '$%s' or apply format '%%%c', ignoring: %m",
+                                                 format_type_to_string(type), format_type_to_char(type));
+                        break;
+                }
 
                 /* FORMAT_SUBST_RESULT handles spaces itself */
                 if (replace_whitespace && type != FORMAT_SUBST_RESULT)
