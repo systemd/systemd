@@ -77,7 +77,7 @@ static int make_stableprivate_address(Link *link, const struct in6_addr *prefix,
         rid = htole64(siphash24_finalize(&state));
 
         memcpy(addr->s6_addr, prefix->s6_addr, l);
-        memcpy((uint8_t *) &addr->s6_addr + l, &rid, 16 - l);
+        memcpy(addr->s6_addr + l, &rid, 16 - l);
 
         return 0;
 }
@@ -299,7 +299,7 @@ static int ndisc_router_generate_addresses(Link *link, unsigned prefixlen, uint3
                                 }
                         }
                 } else if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_STATIC) {
-                        memcpy(((uint8_t *)&new_address->in_addr.in6) + 8, ((uint8_t *) &j->prefix) + 8, 8);
+                        memcpy(new_address->in_addr.in6.s6_addr + 8, j->prefix.s6_addr + 8, 8);
                         have_address = true;
                 }
 
