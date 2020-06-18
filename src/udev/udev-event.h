@@ -48,9 +48,9 @@ UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rt
 UdevEvent *udev_event_free(UdevEvent *event);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_free);
 
-ssize_t udev_event_apply_format(UdevEvent *event,
-                                const char *src, char *dest, size_t size,
-                                bool replace_whitespace);
+size_t udev_event_apply_format(UdevEvent *event,
+                               const char *src, char *dest, size_t size,
+                               bool replace_whitespace);
 int udev_check_format(const char *value, size_t *offset, const char **hint);
 int udev_event_spawn(UdevEvent *event,
                      usec_t timeout_usec,
