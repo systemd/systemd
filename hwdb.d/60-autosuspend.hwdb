@@ -1,0 +1,44 @@
+# This file is part of systemd.
+#
+# The lookup keys are $MODALIAS strings, see udev's hwdb builtin.
+#
+# Match string formats:
+# <subsystem>:<modalias>
+#
+# pci:v<vendor>d<device>
+# usb:v<vendor>p<product>
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/61-autosuspend-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger /dev/…
+#
+# If your changes are generally applicable, preferably send them as a pull
+# request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info
+# the device.
+#
+# Allowed properties are:
+#    ID_AUTOSUSPEND=1
+
+#
+# Sort by brand, model
+
+#########################################
+# Alcor
+#########################################
+
+# AU9540 Smartcard Reader
+usb:v058Fp9540*
+ ID_AUTOSUSPEND=1
+
+#########################################
+# Wacom
+#########################################
+
+usb:v056Ap51A0*
+ ID_AUTOSUSPEND=1
