@@ -1381,7 +1381,7 @@ static int link_status_one(
                 const LinkInfo *info) {
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL;
-        _cleanup_free_ char *t = NULL, *network = NULL, *client_id = NULL, *iaid = NULL, *duid = NULL,
+        _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL,
                 *setup_state = NULL, *operational_state = NULL, *lease_file = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
                 *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup;
@@ -2058,6 +2058,8 @@ static int link_status_one(
                 return r;
 
         if (lease) {
+                const void *client_id;
+                size_t client_id_len;
                 const char *tz;
 
                 r = sd_dhcp_lease_get_timezone(lease, &tz);
@@ -2069,16 +2071,21 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
-        }
 
-        r = sd_network_link_get_dhcp4_client_id_string(info->ifindex, &client_id);
-        if (r >= 0) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "DHCP4 Client ID:",
-                                   TABLE_STRING, client_id);
-                if (r < 0)
-                        return table_log_add_error(r);
+                r = sd_dhcp_lease_get_client_id(lease, &client_id, &client_id_len);
+                if (r >= 0) {
+                        _cleanup_free_ char *id = NULL;
+
+                        r = sd_dhcp_client_id_to_string(client_id, client_id_len, &id);
+                        if (r >= 0) {
+                                r = table_add_many(table,
+                                                   TABLE_EMPTY,
+                                                   TABLE_STRING, "DHCP4 Client ID:",
+                                                   TABLE_STRING, id);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+                        }
+                }
         }
 
         r = sd_network_link_get_dhcp6_client_iaid_string(info->ifindex, &iaid);
