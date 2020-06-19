@@ -158,11 +158,6 @@ int fw_add_local_dnat(
                 bool add,
                 int af,
                 int protocol,
-                const char *in_interface,
-                const union in_addr_union *source,
-                unsigned source_prefixlen,
-                const union in_addr_union *destination,
-                unsigned destination_prefixlen,
                 uint16_t local_port,
                 const union in_addr_union *remote,
                 uint16_t remote_port,
@@ -177,6 +172,11 @@ int fw_add_local_dnat(
         struct nf_nat_ipv4_multi_range_compat *mr;
         size_t sz, msz;
         int r;
+        const char *in_interface = NULL;
+        const union in_addr_union *source = NULL;
+        unsigned source_prefixlen = 0;
+        const union in_addr_union *destination = NULL;
+        unsigned destination_prefixlen = 0;
 
         assert(add || !previous_remote);
 
