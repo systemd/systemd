@@ -368,7 +368,7 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                 const char *k;
 
                 if (flags & OUTPUT_UTC)
-                        k = format_timestamp_utc(buf, sizeof(buf), x);
+                        k = format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UTC);
                 else
                         k = format_timestamp(buf, sizeof(buf), x);
                 if (!k)
@@ -685,8 +685,8 @@ static int output_verbose(
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
-        timestamp = flags & OUTPUT_UTC ? format_timestamp_us_utc(ts, sizeof ts, realtime)
-                                       : format_timestamp_us(ts, sizeof ts, realtime);
+        timestamp = format_timestamp_style(ts, sizeof ts, realtime,
+                                           flags & OUTPUT_UTC ? TIMESTAMP_US_UTC : TIMESTAMP_US);
         fprintf(f, "%s [%s]\n",
                 timestamp ?: "(no timestamp)",
                 cursor);

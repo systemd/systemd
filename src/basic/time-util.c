@@ -23,6 +23,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -282,12 +283,11 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u) {
         return tv;
 }
 
-static char *format_timestamp_internal(
+char *format_timestamp_style(
                 char *buf,
                 size_t l,
                 usec_t t,
-                bool utc,
-                bool us) {
+                TimestampStyle style) {
 
         /* The weekdays in non-localized (English) form. We use this instead of the localized form, so that our
          * generated timestamps may be parsed with parse_timestamp(), and always read the same. */
@@ -304,8 +304,26 @@ static char *format_timestamp_internal(
         struct tm tm;
         time_t sec;
         size_t n;
+        bool utc = false, us = false;
 
         assert(buf);
+
+        switch (style) {
+                case TIMESTAMP_PRETTY:
+                        break;
+                case TIMESTAMP_US:
+                        us = true;
+                        break;
+                case TIMESTAMP_UTC:
+                        utc = true;
+                        break;
+                case TIMESTAMP_US_UTC:
+                        us = true;
+                        utc = true;
+                        break;
+                default:
+                        return NULL;
+        }
 
         if (l < (size_t) (3 +                  /* week day */
                           1 + 10 +             /* space and date */
@@ -378,22 +396,6 @@ static char *format_timestamp_internal(
         }
 
         return buf;
-}
-
-char *format_timestamp(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, false, false);
-}
-
-char *format_timestamp_utc(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, true, false);
-}
-
-char *format_timestamp_us(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, false, true);
-}
-
-char *format_timestamp_us_utc(char *buf, size_t l, usec_t t) {
-        return format_timestamp_internal(buf, l, t, true, true);
 }
 
 char *format_timestamp_relative(char *buf, size_t l, usec_t t) {
@@ -1567,4 +1569,28 @@ int time_change_fd(void) {
 #endif
 
         return -errno;
+}
+
+static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
+        [TIMESTAMP_PRETTY] = "pretty",
+        [TIMESTAMP_US] = "us",
+        [TIMESTAMP_UTC] = "utc",
+        [TIMESTAMP_US_UTC] = "us+utc",
+};
+
+/* Use the macro for enum → string to allow for aliases */
+_DEFINE_STRING_TABLE_LOOKUP_TO_STRING(timestamp_style, TimestampStyle,);
+
+/* For the string → enum mapping we use the generic implementation, but also support two aliases */
+TimestampStyle timestamp_style_from_string(const char *s) {
+        TimestampStyle t;
+
+        t = (TimestampStyle) string_table_lookup(timestamp_style_table, ELEMENTSOF(timestamp_style_table), s);
+        if (t >= 0)
+                return t;
+        if (streq_ptr(s, "µs"))
+                return TIMESTAMP_US;
+        if (streq_ptr(s, "µs+uts"))
+                return TIMESTAMP_US_UTC;
+        return t;
 }

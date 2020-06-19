@@ -611,7 +611,7 @@ static int dir_cleanup(
                                 /* Follows spelling in stat(1). */
                                 log_debug("Directory \"%s\": modify time %s is too new.",
                                           sub_path,
-                                          format_timestamp_us(a, sizeof(a), age));
+                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
                                 continue;
                         }
 
@@ -620,7 +620,7 @@ static int dir_cleanup(
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 log_debug("Directory \"%s\": access time %s is too new.",
                                           sub_path,
-                                          format_timestamp_us(a, sizeof(a), age));
+                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
                                 continue;
                         }
 
@@ -672,7 +672,7 @@ static int dir_cleanup(
                                 /* Follows spelling in stat(1). */
                                 log_debug("File \"%s\": modify time %s is too new.",
                                           sub_path,
-                                          format_timestamp_us(a, sizeof(a), age));
+                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
                                 continue;
                         }
 
@@ -681,7 +681,7 @@ static int dir_cleanup(
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 log_debug("File \"%s\": access time %s is too new.",
                                           sub_path,
-                                          format_timestamp_us(a, sizeof(a), age));
+                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
                                 continue;
                         }
 
@@ -690,7 +690,7 @@ static int dir_cleanup(
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 log_debug("File \"%s\": change time %s is too new.",
                                           sub_path,
-                                          format_timestamp_us(a, sizeof(a), age));
+                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
                                 continue;
                         }
 
@@ -713,8 +713,8 @@ finish:
 
                 log_debug("Restoring access and modification time on \"%s\": %s, %s",
                           p,
-                          format_timestamp_us(a, sizeof(a), age1),
-                          format_timestamp_us(b, sizeof(b), age2));
+                          format_timestamp_style(a, sizeof(a), age1, TIMESTAMP_US),
+                          format_timestamp_style(b, sizeof(b), age2, TIMESTAMP_US));
 
                 /* Restore original directory timestamps */
                 if (futimens(dirfd(d), (struct timespec[]) {
@@ -2228,7 +2228,7 @@ static int clean_item_instance(Item *i, const char* instance) {
         log_debug("Cleanup threshold for %s \"%s\" is %s",
                   mountpoint ? "mount point" : "directory",
                   instance,
-                  format_timestamp_us(timestamp, sizeof(timestamp), cutoff));
+                  format_timestamp_style(timestamp, sizeof(timestamp), cutoff, TIMESTAMP_US));
 
         return dir_cleanup(i, instance, d, &s, cutoff, s.st_dev, mountpoint,
                            MAX_DEPTH, i->keep_first_level);
