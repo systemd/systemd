@@ -8,7 +8,9 @@
 #include "firewall-util.h"
 #include "firewall-util-private.h"
 
-static enum FirewallBackend firewall_backend_probe(void) {
+static enum FirewallBackend firewall_backend_probe(FirewallContext *ctx) {
+        if (fw_nftables_init(ctx) == 0)
+               return FW_BACKEND_NFTABLES;
 #if HAVE_LIBIPTC
         return FW_BACKEND_IPTABLES;
 #else
@@ -23,11 +25,24 @@ int fw_ctx_new(FirewallContext **ret) {
         if (!ctx)
                 return -ENOMEM;
 
-         *ret = TAKE_PTR(ctx);
-         return 0;
+        /* could probe here.  However, this means that we will load
+         * iptable_nat or nf_tables, both will enable connection tracking.
+         *
+         * Alternative would be to probe here but only call
+         * fw_ctx_new when nspawn/networkd know they will call
+         * fw_add_masquerade/local_dnat later anyway.
+         */
+        *ret = TAKE_PTR(ctx);
+        return 0;
 }
 
 FirewallContext *fw_ctx_free(FirewallContext *ctx) {
+        if (!ctx)
+                return NULL;
+
+        if (ctx->firewall_backend == FW_BACKEND_NFTABLES)
+                fw_nftables_exit(ctx);
+
         return mfree(ctx);
 }
 
@@ -48,7 +63,7 @@ int fw_add_masquerade(
 
         ctx = *fw_ctx;
         if (ctx->firewall_backend == FW_BACKEND_NONE)
-                ctx->firewall_backend = firewall_backend_probe();
+                ctx->firewall_backend = firewall_backend_probe(ctx);
 
         switch (ctx->firewall_backend) {
         case FW_BACKEND_NONE:
@@ -57,6 +72,8 @@ int fw_add_masquerade(
         case FW_BACKEND_IPTABLES:
                 return fw_iptables_add_masquerade(add, af, source, source_prefixlen);
 #endif
+        case FW_BACKEND_NFTABLES:
+                return fw_nftables_add_masquerade(ctx, add, af, source, source_prefixlen);
         }
 
         return -EOPNOTSUPP;
@@ -81,11 +98,13 @@ int fw_add_local_dnat(
 
         ctx = *fw_ctx;
         if (ctx->firewall_backend == FW_BACKEND_NONE)
-                ctx->firewall_backend = firewall_backend_probe();
+                ctx->firewall_backend = firewall_backend_probe(ctx);
 
         switch (ctx->firewall_backend) {
         case FW_BACKEND_NONE:
                 return -EOPNOTSUPP;
+        case FW_BACKEND_NFTABLES:
+                return fw_nftables_add_local_dnat(ctx, add, af, protocol, local_port, remote, remote_port, previous_remote);
 #if HAVE_LIBIPTC
         case FW_BACKEND_IPTABLES:
                 return fw_iptables_add_local_dnat(add, af, protocol, local_port, remote, remote_port, previous_remote);

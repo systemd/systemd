@@ -568,8 +568,7 @@ tests += [
 
         [['src/test/test-firewall-util.c'],
          [libshared],
-         [],
-         'HAVE_LIBIPTC'],
+         []],
 
         [['src/test/test-netlink-manual.c'],
          [],

@@ -102,6 +102,7 @@ shared_sources = files('''
         fileio-label.c
         fileio-label.h
         firewall-util.c
+        firewall-util-nft.c
         firewall-util.h
         firewall-util-private.h
         format-table.c

@@ -1770,11 +1770,6 @@ static int verify_arguments(void) {
         if (arg_expose_ports && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
 
-#if ! HAVE_LIBIPTC
-        if (arg_expose_ports)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--port= is not supported, compiled without libiptc support.");
-#endif
-
         if (arg_caps_ambient) {
                 if (arg_caps_ambient == (uint64_t)-1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= does not support the value all.");
