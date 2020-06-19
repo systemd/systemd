@@ -21,6 +21,7 @@ enum {
         NETLINK_TYPE_NESTED,                    /* NLA_NESTED */
         NETLINK_TYPE_UNION,
         NETLINK_TYPE_SOCKADDR,
+        NETLINK_TYPE_BINARY,
 };
 
 typedef enum NLMatchType {
@@ -117,3 +118,19 @@ typedef enum NLUnionTCAOptionData {
 
 const char *nl_union_tca_option_data_to_string(NLUnionTCAOptionData p) _const_;
 NLUnionTCAOptionData nl_union_tca_option_data_from_string(const char *p) _pure_;
+
+typedef enum NLUnionNFTExprData {
+        NL_UNION_NFT_EXPR_DATA_BITWISE,
+        NL_UNION_NFT_EXPR_DATA_CMP,
+        NL_UNION_NFT_EXPR_DATA_FIB,
+        NL_UNION_NFT_EXPR_DATA_LOOKUP,
+        NL_UNION_NFT_EXPR_DATA_PAYLOAD,
+        NL_UNION_NFT_EXPR_DATA_MASQ,
+        NL_UNION_NFT_EXPR_DATA_META,
+        NL_UNION_NFT_EXPR_DATA_NAT,
+        _NL_UNION_NFT_EXPR_DATA_MAX,
+        _NL_UNION_NFT_EXPR_DATA_INVALID = -1,
+} NLUnionNFTExprData;
+
+const char *nl_union_nft_expr_data_to_string(NLUnionNFTExprData p) _const_;
+NLUnionNFTExprData nl_union_nft_expr_data_from_string(const char *p) _pure_;
