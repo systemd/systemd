@@ -192,7 +192,7 @@ emergency.service    |              |              |
              v            graphical-session-pre.target
  (various user services)          |                       (printers)
              |                    v                           |
-             |        (services for the graphical sesion)     v
+             |       (services for the graphical session)     v
              |                    |                       printer.target
              v                    v
       <emphasis>default.target</emphasis>      graphical-session.target</programlisting>
