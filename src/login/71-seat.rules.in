@@ -37,7 +37,13 @@ SUBSYSTEM=="usb", ATTR{bDeviceClass}=="00", TAG+="seat"
 # Allow USB hubs (and all downstream ports) to be assigned to a seat
 SUBSYSTEM=="usb", ATTR{bDeviceClass}=="09", TAG+="seat"
 
-# 'Plugable' USB hub, sound, network, graphics adapter
+# 'HP Multiseat T100' USB hub, sound, network, graphics adapter
+SUBSYSTEM=="usb", ATTR{idVendor}=="03f0", ATTR{idProduct}=="0032", ENV{ID_AUTOSEAT}="0"
+
+# 'Plugable UD-PRO8' USB hub, sound, network, graphics adapter
+SUBSYSTEM=="usb", ATTR{idVendor}=="1a40", ATTR{idProduct}=="0201", ENV{ID_AUTOSEAT}="0"
+
+# 'Plugable UD-160' USB hub, sound, network, graphics adapter
 SUBSYSTEM=="usb", ATTR{idVendor}=="2230", ATTR{idProduct}=="000[13]", ENV{ID_AUTOSEAT}="1"
 
 # qemu (version 2.4+) has a PCI-PCI bridge (-device pci-bridge-seat) to group
