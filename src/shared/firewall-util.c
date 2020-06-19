@@ -81,12 +81,8 @@ static int entry_fill_basics(
 int fw_add_masquerade(
                 bool add,
                 int af,
-                int protocol,
                 const union in_addr_union *source,
-                unsigned source_prefixlen,
-                const char *out_interface,
-                const union in_addr_union *destination,
-                unsigned destination_prefixlen) {
+                unsigned source_prefixlen) {
 
         static const xt_chainlabel chain = "POSTROUTING";
         _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
@@ -94,12 +90,12 @@ int fw_add_masquerade(
         struct ipt_entry_target *t;
         size_t sz;
         struct nf_nat_ipv4_multi_range_compat *mr;
-        int r;
+        int r, protocol = 0;
+        const char *out_interface = NULL;
+        const union in_addr_union *destination = NULL;
+        unsigned destination_prefixlen = 0;
 
         if (af != AF_INET)
-                return -EOPNOTSUPP;
-
-        if (!IN_SET(protocol, 0, IPPROTO_TCP, IPPROTO_UDP))
                 return -EOPNOTSUPP;
 
         h = iptc_init("nat");

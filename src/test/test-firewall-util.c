@@ -10,15 +10,15 @@ int main(int argc, char *argv[]) {
         int r;
         test_setup_logging(LOG_DEBUG);
 
-        r = fw_add_masquerade(true, AF_INET, 0, NULL, 0, "foobar", NULL, 0);
+        r = fw_add_masquerade(true, AF_INET, NULL, 0);
         if (r < 0)
                 log_error_errno(r, "Failed to modify firewall: %m");
 
-        r = fw_add_masquerade(true, AF_INET, 0, NULL, 0, "foobar", NULL, 0);
+        r = fw_add_masquerade(true, AF_INET, NULL, 0);
         if (r < 0)
                 log_error_errno(r, "Failed to modify firewall: %m");
 
-        r = fw_add_masquerade(false, AF_INET, 0, NULL, 0, "foobar", NULL, 0);
+        r = fw_add_masquerade(false, AF_INET, NULL, 0);
         if (r < 0)
                 log_error_errno(r, "Failed to modify firewall: %m");
 

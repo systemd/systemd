@@ -11,12 +11,8 @@
 int fw_add_masquerade(
                 bool add,
                 int af,
-                int protocol,
                 const union in_addr_union *source,
-                unsigned source_prefixlen,
-                const char *out_interface,
-                const union in_addr_union *destination,
-                unsigned destination_prefixlen);
+                unsigned source_prefixlen);
 
 int fw_add_local_dnat(
                 bool add,
@@ -32,12 +28,8 @@ int fw_add_local_dnat(
 static inline int fw_add_masquerade(
                 bool add,
                 int af,
-                int protocol,
                 const union in_addr_union *source,
-                unsigned source_prefixlen,
-                const char *out_interface,
-                const union in_addr_union *destination,
-                unsigned destination_prefixlen) {
+                unsigned source_prefixlen) {
         return -EOPNOTSUPP;
 }
 
