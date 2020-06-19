@@ -1863,7 +1863,7 @@ int run_udevd(int argc, char *argv[]) {
 
         r = mac_selinux_init();
         if (r < 0)
-                return log_error_errno(r, "Could not initialize labelling: %m");
+                return r;
 
         r = mkdir_errno_wrapper("/run/udev", 0755);
         if (r < 0 && r != -EEXIST)

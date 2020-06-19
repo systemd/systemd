@@ -2559,7 +2559,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (mac_selinux_init() < 0) {
-                                error_message = "Failed to initialize SELinux policy";
+                                error_message = "Failed to initialize SELinux support";
                                 goto finish;
                         }
 

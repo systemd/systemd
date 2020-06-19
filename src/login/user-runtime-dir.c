@@ -192,11 +192,11 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "First argument must be either \"start\" or \"stop\".");
 
+        umask(0022);
+
         r = mac_selinux_init();
         if (r < 0)
-                return log_error_errno(r, "Could not initialize labelling: %m\n");
-
-        umask(0022);
+                return r;
 
         if (streq(argv[1], "start"))
                 return do_mount(argv[2]);

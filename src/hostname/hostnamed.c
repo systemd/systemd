@@ -801,7 +801,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
-        mac_selinux_init();
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 

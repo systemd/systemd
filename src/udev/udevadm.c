@@ -124,7 +124,10 @@ static int run(int argc, char *argv[]) {
 
         log_set_max_level_realm(LOG_REALM_SYSTEMD, log_get_max_level());
 
-        mac_selinux_init();
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
+
         return udevadm_main(argc, argv);
 }
 
