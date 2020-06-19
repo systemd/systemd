@@ -268,7 +268,8 @@
         independently, for example with <citerefentry
         project='man-pages'><refentrytitle>groupadd</refentrytitle><manvolnum>8</manvolnum></citerefentry>. If
         non-existent groups that are listed there are ignored. This option may be used more than once, in
-        which case all specified group lists are combined.</para></listitem>
+        which case all specified group lists are combined. If the user is currently a member of a group
+        which is not listed, the user will be removed from the group.</para></listitem>
       </varlistentry>
 
       <varlistentry>
