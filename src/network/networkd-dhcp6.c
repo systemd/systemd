@@ -1065,7 +1065,7 @@ static int dhcp6_assign_delegated_prefix(Link *link,
         address->in_addr.in6 = *prefix;
 
         if (!in_addr_is_null(AF_INET6, &link->network->dhcp6_delegation_prefix_token))
-                memcpy(&address->in_addr.in6.s6_addr + 8, &link->network->dhcp6_delegation_prefix_token.in6.s6_addr + 8, 8);
+                memcpy(((uint8_t *) &address->in_addr.in6.s6_addr) + 8, ((uint8_t *) &link->network->dhcp6_delegation_prefix_token.in6.s6_addr) + 8, 8);
         else {
                 r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
                 if (r < 0)
