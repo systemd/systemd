@@ -537,6 +537,43 @@ static const NLTypeSystem rtnl_prop_list_type_system = {
         .types = rtnl_prop_list_types,
 };
 
+static const NLType rtnl_vf_vlan_list_types[] = {
+        [IFLA_VF_VLAN_INFO]  = { .size = sizeof(struct ifla_vf_vlan_info) },
+};
+
+static const NLTypeSystem rtnl_vf_vlan_type_system = {
+        .count = ELEMENTSOF(rtnl_vf_vlan_list_types),
+        .types = rtnl_vf_vlan_list_types,
+};
+
+static const NLType rtnl_vf_vlan_info_types[] = {
+        [IFLA_VF_MAC]           = { .size = sizeof(struct ifla_vf_mac) },
+        [IFLA_VF_VLAN]          = { .size = sizeof(struct ifla_vf_vlan) },
+        [IFLA_VF_VLAN_LIST]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vf_vlan_type_system},
+        [IFLA_VF_TX_RATE]       = { .size = sizeof(struct ifla_vf_tx_rate) },
+        [IFLA_VF_SPOOFCHK]      = { .size = sizeof(struct ifla_vf_spoofchk) },
+        [IFLA_VF_RATE]          = { .size = sizeof(struct ifla_vf_rate) },
+        [IFLA_VF_LINK_STATE]    = { .size = sizeof(struct ifla_vf_link_state) },
+        [IFLA_VF_RSS_QUERY_EN]  = { .size = sizeof(struct ifla_vf_rss_query_en) },
+        [IFLA_VF_TRUST]         = { .size = sizeof(struct ifla_vf_trust) },
+        [IFLA_VF_IB_NODE_GUID]  = { .size = sizeof(struct ifla_vf_guid) },
+        [IFLA_VF_IB_PORT_GUID]  = { .size = sizeof(struct ifla_vf_guid) },
+};
+
+static const NLTypeSystem rtnl_vf_vlan_info_type_system = {
+        .count = ELEMENTSOF(rtnl_vf_vlan_info_types),
+        .types = rtnl_vf_vlan_info_types,
+};
+
+static const NLType rtnl_link_io_srv_types[] = {
+        [IFLA_VF_INFO] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vf_vlan_info_type_system },
+};
+
+static const NLTypeSystem rtnl_io_srv_type_system = {
+        .count = ELEMENTSOF(rtnl_link_io_srv_types),
+        .types = rtnl_link_io_srv_types,
+};
+
 static const NLType rtnl_link_types[] = {
         [IFLA_ADDRESS]          = { .type = NETLINK_TYPE_ETHER_ADDR },
         [IFLA_BROADCAST]        = { .type = NETLINK_TYPE_ETHER_ADDR },
@@ -564,10 +601,8 @@ static const NLType rtnl_link_types[] = {
         [IFLA_LINKINFO]         = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_link_info_type_system },
         [IFLA_NET_NS_PID]       = { .type = NETLINK_TYPE_U32 },
         [IFLA_IFALIAS]          = { .type = NETLINK_TYPE_STRING, .size = IFALIASZ - 1 },
-/*
-        [IFLA_NUM_VF],
-        [IFLA_VFINFO_LIST]      = {. type = NETLINK_TYPE_NESTED, },
-*/
+        [IFLA_NUM_VF]           = { .type = NETLINK_TYPE_U32 },
+        [IFLA_VFINFO_LIST]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_io_srv_type_system },
         [IFLA_STATS64]          = { .size = sizeof(struct rtnl_link_stats64) },
 /*
         [IFLA_VF_PORTS]         = { .type = NETLINK_TYPE_NESTED },
