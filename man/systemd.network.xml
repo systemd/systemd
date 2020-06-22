@@ -315,6 +315,12 @@
           </listitem>
         </varlistentry>
 
+        <varlistentry>
+          <term><varname>MACAddress=</varname></term>
+          <listitem>
+            <para>Specifies the MAC address for the virtual function.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
   </refsect1>
 

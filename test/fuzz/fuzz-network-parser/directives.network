@@ -47,6 +47,7 @@ QualityOfService=
 QueryReceiveSideScaling=
 Trust=
 LinkState=
+MACAddress=
 [BridgeFDB]
 VLANId=
 MACAddress=

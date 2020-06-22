@@ -29,6 +29,7 @@ typedef struct SRIOV {
         int query_rss;
         int trust;
         SRIOVLinkState link_state;
+        struct ether_addr mac;
 } SRIOV;
 
 SRIOV *sr_iov_free(SRIOV *sr_iov);
@@ -42,3 +43,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_uint32);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_boolean);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_link_state);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_vlan_proto);
+CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_mac);

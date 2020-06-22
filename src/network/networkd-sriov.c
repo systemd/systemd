@@ -131,6 +131,17 @@ int sr_iov_configure(Link *link, SRIOV *sr_iov) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not open IFLA_VF_INFO container: %m");
 
+        if (!ether_addr_is_null(&sr_iov->mac)) {
+                struct ifla_vf_mac ivm = {
+                        .vf = sr_iov->vf,
+                };
+
+                memcpy(ivm.mac, &sr_iov->mac, ETH_ALEN);
+                r = sd_netlink_message_append_data(req, IFLA_VF_MAC, &ivm, sizeof(struct ifla_vf_mac));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_VF_MAC: %m");
+        }
+
         if (sr_iov->vf_spoof_check_setting >= 0) {
                 struct ifla_vf_spoofchk ivs = {
                         .vf = sr_iov->vf,
@@ -442,6 +453,48 @@ int config_parse_sr_iov_boolean(
                 sr_iov->trust = r;
         else
                 assert_not_reached("Invalid lvalue");
+
+        TAKE_PTR(sr_iov);
+        return 0;
+}
+
+int config_parse_sr_iov_mac(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = sr_iov_new_static(network, filename, section_line, &sr_iov);
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue)) {
+                sr_iov->mac = ETHER_ADDR_NULL;
+                TAKE_PTR(sr_iov);
+                return 0;
+        }
+
+        r = ether_addr_from_string(rvalue, &sr_iov->mac);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Failed to parse SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
 
         TAKE_PTR(sr_iov);
         return 0;
