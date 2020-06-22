@@ -3022,7 +3022,7 @@ int bus_body_part_map(struct bus_body_part *part) {
                 return 0;
         }
 
-        shift = part->memfd_offset - ((part->memfd_offset / page_size()) * page_size());
+        shift = PAGE_OFFSET(part->memfd_offset);
         psz = PAGE_ALIGN(part->size + shift);
 
         if (part->memfd >= 0)
