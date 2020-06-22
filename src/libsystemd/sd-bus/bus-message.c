@@ -451,7 +451,7 @@ int bus_message_from_header(
         if (!IN_SET(h->version, 1, 2))
                 return -EBADMSG;
 
-        if (h->type <= _SD_BUS_MESSAGE_TYPE_INVALID || h->type >= _SD_BUS_MESSAGE_TYPE_MAX)
+        if (h->type == _SD_BUS_MESSAGE_TYPE_INVALID)
                 return -EBADMSG;
 
         if (!IN_SET(h->endian, BUS_LITTLE_ENDIAN, BUS_BIG_ENDIAN))
@@ -589,7 +589,8 @@ _public_ int sd_bus_message_new(
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
-        assert_return(type > _SD_BUS_MESSAGE_TYPE_INVALID && type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
+        /* Creation of messages with _SD_BUS_MESSAGE_TYPE_INVALID is allowed. */
+        assert_return(type < _SD_BUS_MESSAGE_TYPE_MAX, -EINVAL);
 
         sd_bus_message *t = malloc0(ALIGN(sizeof(sd_bus_message)) + sizeof(struct bus_header));
         if (!t)
@@ -3021,7 +3022,7 @@ int bus_body_part_map(struct bus_body_part *part) {
                 return 0;
         }
 
-        shift = part->memfd_offset - ((part->memfd_offset / page_size()) * page_size());
+        shift = PAGE_OFFSET(part->memfd_offset);
         psz = PAGE_ALIGN(part->size + shift);
 
         if (part->memfd >= 0)
@@ -3158,7 +3159,8 @@ static struct bus_body_part* find_part(sd_bus_message *m, size_t index, size_t s
                                 return NULL;
 
                         if (p)
-                                *p = (uint8_t*) part->data + index - begin;
+                                *p = part->data ? (uint8_t*) part->data + index - begin
+                                        : NULL; /* Avoid dereferencing a NULL pointer. */
 
                         m->cached_rindex_part = part;
                         m->cached_rindex_part_begin = begin;
@@ -5497,9 +5499,6 @@ int bus_message_parse_fields(sd_bus_message *m) {
                 if (m->reply_cookie == 0 || !m->error.name)
                         return -EBADMSG;
                 break;
-
-        default:
-                assert_not_reached("Bad message type");
         }
 
         /* Refuse non-local messages that claim they are local */
