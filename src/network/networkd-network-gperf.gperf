@@ -57,6 +57,7 @@ Link.RequiredForOnline,                      config_parse_required_for_online,  
 SR-IOV.VirtualFunction,                      config_parse_sr_iov_uint32,                               0,                             0
 SR-IOV.VLANId,                               config_parse_sr_iov_uint32,                               0,                             0
 SR-IOV.QualityOfService,                     config_parse_sr_iov_uint32,                               0,                             0
+SR-IOV.VLANProtocol,                         config_parse_sr_iov_vlan_proto,                           0,                             0
 SR-IOV.MACSpoofCheck,                        config_parse_sr_iov_boolean,                              0,                             0
 SR-IOV.QueryReceiveSideScaling,              config_parse_sr_iov_boolean,                              0,                             0
 SR-IOV.Trust,                                config_parse_sr_iov_boolean,                              0,                             0

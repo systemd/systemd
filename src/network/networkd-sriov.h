@@ -24,6 +24,7 @@ typedef struct SRIOV {
         uint32_t vf;   /* 0 - 2147483646 */
         uint32_t vlan; /* 0 - 4095, 0 disables VLAN filter */
         uint32_t qos;
+        uint16_t vlan_proto; /* ETH_P_8021Q or ETH_P_8021AD */
         int vf_spoof_check_setting;
         int query_rss;
         int trust;
@@ -40,3 +41,4 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(SRIOV, sr_iov_free);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_uint32);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_boolean);
 CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_link_state);
+CONFIG_PARSER_PROTOTYPE(config_parse_sr_iov_vlan_proto);

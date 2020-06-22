@@ -42,6 +42,7 @@ Group=
 VirtualFunction=
 MACSpoofCheck=
 VLANId=
+VLANProtocol=
 QualityOfService=
 QueryReceiveSideScaling=
 Trust=

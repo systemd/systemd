@@ -18,6 +18,7 @@ static int sr_iov_new(SRIOV **ret) {
 
         *sr_iov = (SRIOV) {
                   .vf = (uint32_t) -1,
+                  .vlan_proto = ETH_P_8021Q,
                   .vf_spoof_check_setting = -1,
                   .trust = -1,
                   .query_rss = -1,
@@ -180,7 +181,7 @@ int sr_iov_configure(Link *link, SRIOV *sr_iov) {
                 ivvi.vf = sr_iov->vf;
                 ivvi.vlan = sr_iov->vlan;
                 ivvi.qos = sr_iov->qos;
-                ivvi.vlan_proto = htobe16(ETH_P_8021Q);
+                ivvi.vlan_proto = htobe16(sr_iov->vlan_proto);
 
                 r = sd_netlink_message_open_container(req, IFLA_VF_VLAN_LIST);
                 if (r < 0)
@@ -292,6 +293,45 @@ int config_parse_sr_iov_uint32(
                 sr_iov->qos = k;
         else
                 assert_not_reached("Invalid lvalue");
+
+        TAKE_PTR(sr_iov);
+        return 0;
+}
+
+int config_parse_sr_iov_vlan_proto(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(sr_iov_free_or_set_invalidp) SRIOV *sr_iov = NULL;
+        Network *network = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = sr_iov_new_static(network, filename, section_line, &sr_iov);
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue) || streq(rvalue, "802.1Q"))
+                sr_iov->vlan_proto = ETH_P_8021Q;
+        else if (streq(rvalue, "802.1ad"))
+                sr_iov->vlan_proto = ETH_P_8021AD;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "Invalid SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
 
         TAKE_PTR(sr_iov);
         return 0;

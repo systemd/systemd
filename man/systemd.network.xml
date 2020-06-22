@@ -270,6 +270,14 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>VLANProtocol=</varname></term>
+          <listitem>
+            <para>Specifies VLAN protocol of the virtual function. Takes <literal>802.1Q</literal> or
+            <literal>802.1ad</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>MACSpoofCheck=</varname></term>
           <listitem>
             <para>Takes a boolean. Controls the MAC spoof checking. When unset, the kernel's default will be used.</para>
