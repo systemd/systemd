@@ -116,7 +116,7 @@ static int link_push_uplink_to_dhcp_server(
         case SD_DHCP_LEASE_LPR:
                 /* For the other server types we currently do not allow local configuration of server data,
                  * since there are typically no local consumers of the data. */
-                ;
+                break;
 
         default:
                 assert_not_reached("Unexpected server type");
