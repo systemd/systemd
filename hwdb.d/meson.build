@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
-hwdb_files = files('''
+# Those files right now are not supported by the grammar. Also,
+# they are very long but quite repetitive and the parser is not very fast.
+# So we don't "test" them.
+hwdb_files_notest = files('''
         20-pci-vendor-model.hwdb
         20-pci-classes.hwdb
         20-usb-vendor-model.hwdb
@@ -12,6 +15,10 @@ hwdb_files = files('''
         20-OUI.hwdb
         20-net-ifname.hwdb
         20-vmbus-class.hwdb
+'''.split())
+
+hwdb_files_test = files('''
+        60-autosuspend.hwdb
         60-evdev.hwdb
         60-input-id.hwdb
         60-keyboard.hwdb
@@ -23,7 +30,16 @@ hwdb_files = files('''
 '''.split())
 
 if conf.get('ENABLE_HWDB') == 1
-        install_data(hwdb_files,
+        auto_suspend_rules = custom_target(
+                '60-autosuspend-chromiumos.hwdb',
+                output : '60-autosuspend-chromiumos.hwdb',
+                command : make_autosuspend_rules_py,
+                capture : true,
+                install : true,
+                install_dir: udevhwdbdir)
+
+        install_data(hwdb_files_notest,
+                     hwdb_files_test,
                      install_dir : udevhwdbdir)
 
         meson.add_install_script('sh', '-c',
@@ -32,15 +48,15 @@ if conf.get('ENABLE_HWDB') == 1
         meson.add_install_script('sh', '-c',
                                  'test -n "$DESTDIR" || @0@/systemd-hwdb update'
                                  .format(rootbindir))
-endif
 
-############################################################
-
-parse_hwdb_py = find_program('parse_hwdb.py')
-if want_tests != 'false'
-        test('parse-hwdb',
-             parse_hwdb_py,
-             timeout : 90)
+        if want_tests != 'false'
+                parse_hwdb_py = find_program('parse_hwdb.py')
+                test('parse-hwdb',
+                     parse_hwdb_py,
+                     args : [hwdb_files_test,
+                             auto_suspend_rules],
+                     timeout : 90)
+        endif
 endif
 
 ############################################################
