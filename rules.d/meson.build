@@ -15,7 +15,6 @@ rules = files('''
         60-persistent-v4l.rules
         60-sensor.rules
         60-serial.rules
-        61-autosuspend-manual.rules
         70-joystick.rules
         70-mouse.rules
         70-touchpad.rules
