@@ -87,6 +87,12 @@ CHANGES WITH 246 in spe:
           used, the DNS-over-TLS certificate is validated to match the
           specified hostname.
 
+        * systemd-resolved may be configured to forward single-label DNS names.
+          This is not standard-conformant, but may make sense in setups where
+          public DNS servers are not used.
+
+        * systemd-resolved's DNS-over-TLS support gained SNI validation.
+
         * The fs.suid_dumpable sysctl is set to 2 / "suidsafe". This allows
           systemd-coredump to save core files for suid processes. When saving
           the core file, systemd-coredump will use the effective uid and gid of
@@ -537,8 +543,6 @@ CHANGES WITH 245:
 
         * systemd-sysusers gained support for creating users with the primary
           group named differently than the user.
-
-        * systemd-resolved's DNS-over-TLS support gained SNI validation.
 
         * systemd-growfs (i.e. the x-systemd.growfs mount option in /etc/fstab)
           gained support for growing XFS partitions. Previously it supported

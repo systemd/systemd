@@ -619,7 +619,7 @@ DnsScopeMatch dns_scope_good_domain(
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
                         return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative
                                                         * for single-label names, i.e. one label. This is
-                                                        * particular relevant as it means a "." route on some
+                                                        * particularly relevant as it means a "." route on some
                                                         * other scope won't pull all traffic away from
                                                         * us. (If people actually want to pull traffic away
                                                         * from us they should turn off LLMNR on the
@@ -651,20 +651,21 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
 
-                /* On classic DNS, looking up non-address RRs is always
-                 * fine. (Specifically, we want to permit looking up
-                 * DNSKEY and DS records on the root and top-level
-                 * domains.) */
+                /* On classic DNS, looking up non-address RRs is always fine. (Specifically, we want to
+                 * permit looking up DNSKEY and DS records on the root and top-level domains.) */
                 if (!dns_resource_key_is_address(key))
                         return true;
 
-                /* However, we refuse to look up A and AAAA RRs on the
-                 * root and single-label domains, under the assumption
-                 * that those should be resolved via LLMNR or search
-                 * path only, and should not be leaked onto the
-                 * internet. */
-                return !(dns_name_is_single_label(dns_resource_key_name(key)) ||
-                         dns_name_is_root(dns_resource_key_name(key)));
+                /* Unless explicitly overridden, we refuse to look up A and AAAA RRs on the root and
+                 * single-label domains, under the assumption that those should be resolved via LLMNR or
+                 * search path only, and should not be leaked onto the internet. */
+                const char* name = dns_resource_key_name(key);
+
+                if (!s->manager->resolve_unicast_single_label &&
+                    dns_name_is_single_label(name))
+                        return false;
+
+                return !dns_name_is_root(name);
         }
 
         /* On mDNS and LLMNR, send A and AAAA queries only on the
@@ -1169,7 +1170,7 @@ DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s) {
         return s->manager->search_domains;
 }
 
-bool dns_scope_name_needs_search_domain(DnsScope *s, const char *name) {
+bool dns_scope_name_wants_search_domain(DnsScope *s, const char *name) {
         assert(s);
 
         if (s->protocol != DNS_PROTOCOL_DNS)

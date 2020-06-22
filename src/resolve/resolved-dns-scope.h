@@ -99,7 +99,7 @@ void dns_scope_dump(DnsScope *s, FILE *f);
 
 DnsSearchDomain *dns_scope_get_search_domains(DnsScope *s);
 
-bool dns_scope_name_needs_search_domain(DnsScope *s, const char *name);
+bool dns_scope_name_wants_search_domain(DnsScope *s, const char *name);
 
 bool dns_scope_network_good(DnsScope *s);
 

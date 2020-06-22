@@ -70,9 +70,10 @@ struct Manager {
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
 
-        bool need_builtin_fallbacks:1;
+        bool need_builtin_fallbacks;
+        bool read_resolv_conf;
+        bool resolve_unicast_single_label;
 
-        bool read_resolv_conf:1;
         struct stat resolv_conf_stat;
 
         DnsTrustAnchor trust_anchor;

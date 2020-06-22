@@ -67,20 +67,28 @@
 
       <varlistentry>
         <term><varname>Domains=</varname></term>
-        <listitem><para>A space-separated list of domains. These domains are used as search suffixes when resolving
-        single-label hostnames (domain names which contain no dot), in order to qualify them into fully-qualified
-        domain names (FQDNs). Search domains are strictly processed in the order they are specified, until the name
-        with the suffix appended is found. For compatibility reasons, if this setting is not specified, the search
-        domains listed in <filename>/etc/resolv.conf</filename> are used instead, if that file exists and any domains
-        are configured in it. This setting defaults to the empty list.</para>
+        <listitem><para>A space-separated list of domains optionally prefixed with <literal>~</literal>,
+        used for two distinct purposes described below. Defaults to the empty list.</para>
 
-        <para>Specified domain names may optionally be prefixed with <literal>~</literal>. In this case they do not
-        define a search path, but preferably direct DNS queries for the indicated domains to the DNS servers configured
-        with the system <varname>DNS=</varname> setting (see above), in case additional, suitable per-link DNS servers
-        are known. If no per-link DNS servers are known using the <literal>~</literal> syntax has no effect. Use the
-        construct <literal>~.</literal> (which is composed of <literal>~</literal> to indicate a routing domain and
-        <literal>.</literal> to indicate the DNS root domain that is the implied suffix of all DNS domains) to use the
-        system DNS server defined with <varname>DNS=</varname> preferably for all domains.</para></listitem>
+        <para>Any domains <emphasis>not</emphasis> prefixed with <literal>~</literal> are used as search
+        suffixes when resolving single-label hostnames (domain names which contain no dot), in order to
+        qualify them into fully-qualified domain names (FQDNs). These "search domains" are strictly processed
+        in the order they are specified in, until the name with the suffix appended is found. For
+        compatibility reasons, if this setting is not specified, the search domains listed in
+        <filename>/etc/resolv.conf</filename> with the <varname>search</varname> keyword are used instead, if
+        that file exists and any domains are configured in it.</para>
+
+        <para>The domains prefixed with <literal>~</literal> are called "routing domains". All domains listed
+        here (both search domains and routing domains after removing the <literal>~</literal> prefix) define
+        a search path that preferably directs DNS queries to this inteface. This search path has an effect
+        only when suitable per-link DNS servers are known. Such servers may be defined through the
+        <varname>DNS=</varname> setting (see above) and dynamically at run time, for example from DHCP
+        leases. If no per-link DNS servers are known, routing domains have no effect.</para>
+
+        <para>Use the construct <literal>~.</literal> (which is composed from <literal>~</literal> to
+        indicate a routing domain and <literal>.</literal> to indicate the DNS root domain that is the
+        implied suffix of all DNS domains) to use the DNS servers defined for this link preferably for all
+        domains.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -258,11 +266,28 @@
 
       <varlistentry>
         <term><varname>ReadEtcHosts=</varname></term>
-        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default), the DNS stub resolver will read
-        <filename>/etc/hosts</filename>, and try to resolve hosts or address by using the entries in the file before
-        sending query to DNS servers.</para></listitem>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default),
+        <command>systemd-resolved</command> will read <filename>/etc/hosts</filename>, and try to resolve
+        hosts or address by using the entries in the file before sending query to DNS servers.
+        </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ResolveUnicastSingleLabel=</varname></term>
+        <listitem><para>Takes a boolean argument. When false (the default),
+        <command>systemd-resolved</command> will not resolve A and AAAA queries for single-label names over
+        classic DNS. Note that such names may still be resolved if search domains are specified (see
+        <varname>Domains=</varname> above), or using other mechanisms, in particular via LLMNR or from
+        <filename>/etc/hosts</filename>. When true, queries for single-label names will be forwarded to
+        global DNS servers even if no search domains are defined.
+        </para>
+
+        <para>This option is provided for compatibility with configurations where <emphasis>public DNS
+        servers are not used</emphasis>. Forwarding single-label names to servers not under your control is
+        not standard-conformant, see <ulink
+        url="https://www.iab.org/documents/correspondence-reports-documents/2013-2/iab-statement-dotless-domains-considered-harmful/">IAB
+        Statement</ulink>, and may create a privacy and security risk.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

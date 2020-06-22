@@ -135,14 +135,16 @@
       IPv6.</para></listitem>
 
       <listitem><para>Resolution of address records (A and AAAA) via unicast DNS (i.e. not LLMNR or
-      MulticastDNS) for non-synthesized single-label names is only allowed for non-top-level domains. This
-      means that such records can only be resolved when search domains are defined. For any interface which
-      defines search domains, such look-ups are routed to that interface, suffixed with each of the search
-      domains defined on that interface in turn. When global search domains are defined, such look-ups are
-      routed to all interfaces, suffixed by each of the global search domains in turn. The details of which
-      servers are queried and how the final reply is chosen are described below. Note that this means that
-      address queries for single-label names are never sent out to remote DNS servers, and if no search
-      domains are defined, resolution will fail.</para></listitem>
+      MulticastDNS) for non-synthesized single-label names is allowed for non-top-level domains. This means
+      that such records can be resolved when search domains are defined. For any interface which defines
+      search domains, such look-ups are routed to that interface, suffixed with each of the search domains
+      defined on that interface in turn. When global search domains are defined, such look-ups are routed to
+      all interfaces, suffixed by each of the global search domains in turn. Additionally, lookup of
+      single-label names via unicast DNS may be enabled with the
+      <varname>ResolveUnicastSingleLabel=yes</varname> setting. The details of which servers are queried and
+      how the final reply is chosen are described below. Note that this means that address queries for
+      single-label names are never sent out to remote DNS servers by default, and if no search domains are
+      defined, resolution will fail.</para></listitem>
 
       <listitem><para>Other multi-label names are routed to all local interfaces that have a DNS server
       configured, plus the globally configured DNS servers if there are any. Note that by default, lookups for
