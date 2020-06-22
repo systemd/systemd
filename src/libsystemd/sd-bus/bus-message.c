@@ -3157,7 +3157,8 @@ static struct bus_body_part* find_part(sd_bus_message *m, size_t index, size_t s
                                 return NULL;
 
                         if (p)
-                                *p = (uint8_t*) part->data + index - begin;
+                                *p = part->data ? (uint8_t*) part->data + index - begin
+                                        : NULL; /* Avoid dereferencing a NULL pointer. */
 
                         m->cached_rindex_part = part;
                         m->cached_rindex_part_begin = begin;
