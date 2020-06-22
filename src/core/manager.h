@@ -335,6 +335,7 @@ struct Manager {
         uint8_t return_value;
 
         ShowStatus show_status;
+        ShowStatus show_status_overridden;
         StatusUnitFormat status_unit_format;
         char *confirm_spawn;
         bool no_console_output;
@@ -512,7 +513,10 @@ void disable_printk_ratelimit(void);
 void manager_recheck_dbus(Manager *m);
 void manager_recheck_journal(Manager *m);
 
+bool manager_get_show_status_on(Manager *m);
 void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason);
+void manager_override_show_status(Manager *m, ShowStatus mode, const char *reason);
+
 void manager_set_first_boot(Manager *m, bool b);
 
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
@@ -553,7 +557,7 @@ ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s);
 
 usec_t manager_get_watchdog(Manager *m, WatchdogType t);
 void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout);
-int manager_set_watchdog_overridden(Manager *m, WatchdogType t, usec_t timeout);
+int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout);
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;

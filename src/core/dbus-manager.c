@@ -234,14 +234,12 @@ static int property_get_show_status(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
-        int b;
 
+        assert(m);
         assert(bus);
         assert(reply);
-        assert(m);
 
-        b = IN_SET(m->show_status, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
-        return sd_bus_message_append_basic(reply, 'b', &b);
+        return sd_bus_message_append(reply, "b", manager_get_show_status_on(m));
 }
 
 static int property_get_runtime_watchdog(
@@ -311,7 +309,7 @@ static int property_set_watchdog(Manager *m, WatchdogType type, sd_bus_message *
         if (r < 0)
                 return r;
 
-        return manager_set_watchdog_overridden(m, type, timeout);
+        return manager_override_watchdog(m, type, timeout);
 }
 
 static int property_set_runtime_watchdog(
@@ -2452,6 +2450,30 @@ static int method_abandon_scope(sd_bus_message *message, void *userdata, sd_bus_
         return bus_scope_method_abandon(message, u, error);
 }
 
+static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        ShowStatus mode = _SHOW_STATUS_INVALID;
+        const char *t;
+        int r;
+
+        assert(m);
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &t);
+        if (r < 0)
+                return r;
+
+        if (!isempty(t)) {
+                mode = show_status_from_string(t);
+                if (mode < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid show status '%s'", t);
+        }
+
+        manager_override_show_status(m, mode, "bus");
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -2786,6 +2808,12 @@ const sd_bus_vtable bus_manager_vtable[] = {
                       NULL,
                       method_reset_failed,
                       SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("SetShowStatus",
+                                 "s",
+                                 SD_BUS_PARAM(mode),
+                                 NULL,,
+                                 method_set_show_status,
+                                 SD_BUS_VTABLE_CAPABILITY(CAP_SYS_ADMIN)),
         SD_BUS_METHOD_WITH_NAMES("ListUnits",
                                  NULL,,
                                  "a(ssssssouso)",

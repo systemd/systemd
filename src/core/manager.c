@@ -779,6 +779,8 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 .watchdog_overridden[WATCHDOG_REBOOT] = USEC_INFINITY,
                 .watchdog_overridden[WATCHDOG_KEXEC] = USEC_INFINITY,
 
+                .show_status_overridden = _SHOW_STATUS_INVALID,
+
                 .notify_fd = -1,
                 .cgroups_agent_fd = -1,
                 .signal_fd = -1,
@@ -2759,11 +2761,11 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 switch (sfsi.ssi_signo - SIGRTMIN) {
 
                 case 20:
-                        manager_set_show_status(m, SHOW_STATUS_YES, "signal");
+                        manager_override_show_status(m, SHOW_STATUS_YES, "signal");
                         break;
 
                 case 21:
-                        manager_set_show_status(m, SHOW_STATUS_NO, "signal");
+                        manager_override_show_status(m, SHOW_STATUS_NO, "signal");
                         break;
 
                 case 22:
@@ -3219,9 +3221,9 @@ int manager_serialize(
         /* After switching root, udevd has not been started yet. So, enumeration results should not be emitted. */
         (void) serialize_bool(f, "honor-device-enumeration", !switching_root);
 
-        t = show_status_to_string(m->show_status);
-        if (t)
-                (void) serialize_item(f, "show-status", t);
+        if (m->show_status_overridden != _SHOW_STATUS_INVALID)
+                (void) serialize_item(f, "show-status-overridden",
+                                      show_status_to_string(m->show_status_overridden));
 
         if (m->log_level_overridden)
                 (void) serialize_item_format(f, "log-level-override", "%i", log_get_max_level());
@@ -3399,7 +3401,7 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
                 m->watchdog[t] = timeout;
 }
 
-int manager_set_watchdog_overridden(Manager *m, WatchdogType t, usec_t timeout) {
+int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         int r = 0;
 
         assert(m);
@@ -3568,14 +3570,14 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else
                                 m->honor_device_enumeration = b;
 
-                } else if ((val = startswith(l, "show-status="))) {
+                } else if ((val = startswith(l, "show-status-overridden="))) {
                         ShowStatus s;
 
                         s = show_status_from_string(val);
                         if (s < 0)
-                                log_notice("Failed to parse show-status flag '%s', ignoring.", val);
+                                log_notice("Failed to parse show-status-overridden flag '%s', ignoring.", val);
                         else
-                                manager_set_show_status(m, s, "deserialization");
+                                manager_override_show_status(m, s, "deserialize");
 
                 } else if ((val = startswith(l, "log-level-override="))) {
                         int level;
@@ -3601,7 +3603,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (deserialize_usec(val, &t) < 0)
                                 log_notice("Failed to parse runtime-watchdog-overridden value '%s', ignoring.", val);
                         else
-                                manager_set_watchdog_overridden(m, WATCHDOG_RUNTIME, t);
+                                manager_override_watchdog(m, WATCHDOG_RUNTIME, t);
 
                 } else if ((val = startswith(l, "reboot-watchdog-overridden="))) {
                         usec_t t;
@@ -3609,7 +3611,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (deserialize_usec(val, &t) < 0)
                                 log_notice("Failed to parse reboot-watchdog-overridden value '%s', ignoring.", val);
                         else
-                                manager_set_watchdog_overridden(m, WATCHDOG_REBOOT, t);
+                                manager_override_watchdog(m, WATCHDOG_REBOOT, t);
 
                 } else if ((val = startswith(l, "kexec-watchdog-overridden="))) {
                         usec_t t;
@@ -3617,7 +3619,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (deserialize_usec(val, &t) < 0)
                                 log_notice("Failed to parse kexec-watchdog-overridden value '%s', ignoring.", val);
                         else
-                                manager_set_watchdog_overridden(m, WATCHDOG_KEXEC, t);
+                                manager_override_watchdog(m, WATCHDOG_KEXEC, t);
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(l + 4, &m->client_environment);
@@ -4264,49 +4266,78 @@ void manager_recheck_journal(Manager *m) {
         log_open();
 }
 
-void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
+static ShowStatus manager_get_show_status(Manager *m) {
         assert(m);
-        assert(mode >= 0 && mode < _SHOW_STATUS_MAX);
 
-        if (!MANAGER_IS_SYSTEM(m))
-                return;
+        if (MANAGER_IS_USER(m))
+                return _SHOW_STATUS_INVALID;
 
-        if (mode == m->show_status)
-                return;
+        if (m->show_status_overridden != _SHOW_STATUS_INVALID)
+                return m->show_status_overridden;
 
-        bool enabled = IN_SET(mode, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
-        log_debug("%s (%s) showing of status (%s).",
-                  enabled ? "Enabling" : "Disabling",
-                  strna(show_status_to_string(mode)),
-                  reason);
-        m->show_status = mode;
+        return m->show_status;
+}
 
-        if (enabled)
+bool manager_get_show_status_on(Manager *m) {
+        assert(m);
+
+        return show_status_on(manager_get_show_status(m));
+}
+
+static void set_show_status_marker(bool b) {
+        if (b)
                 (void) touch("/run/systemd/show-status");
         else
                 (void) unlink("/run/systemd/show-status");
 }
 
-static bool manager_get_show_status(Manager *m, StatusType type) {
+void manager_set_show_status(Manager *m, ShowStatus mode, const char *reason) {
         assert(m);
+        assert(reason);
+        assert(mode >= 0 && mode < _SHOW_STATUS_MAX);
 
-        if (!MANAGER_IS_SYSTEM(m))
-                return false;
+        if (MANAGER_IS_USER(m))
+                return;
 
-        if (m->no_console_output)
-                return false;
+        if (mode == m->show_status)
+                return;
 
-        if (!IN_SET(manager_state(m), MANAGER_INITIALIZING, MANAGER_STARTING, MANAGER_STOPPING))
-                return false;
+        if (m->show_status_overridden == _SHOW_STATUS_INVALID) {
+                bool enabled;
 
-        /* If we cannot find out the status properly, just proceed. */
-        if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
-                return false;
+                enabled = show_status_on(mode);
+                log_debug("%s (%s) showing of status (%s).",
+                          enabled ? "Enabling" : "Disabling",
+                          strna(show_status_to_string(mode)),
+                          reason);
 
-        if (type == STATUS_TYPE_NOTICE && m->show_status != SHOW_STATUS_NO)
-                return true;
+                set_show_status_marker(enabled);
+        }
 
-        return show_status_on(m->show_status);
+        m->show_status = mode;
+}
+
+void manager_override_show_status(Manager *m, ShowStatus mode, const char *reason) {
+        assert(m);
+        assert(mode < _SHOW_STATUS_MAX);
+
+        if (MANAGER_IS_USER(m))
+                return;
+
+        if (mode == m->show_status_overridden)
+                return;
+
+        m->show_status_overridden = mode;
+
+        if (mode == _SHOW_STATUS_INVALID)
+                mode = m->show_status;
+
+        log_debug("%s (%s) showing of status (%s).",
+                  m->show_status_overridden != _SHOW_STATUS_INVALID ? "Overriding" : "Restoring",
+                  strna(show_status_to_string(mode)),
+                  reason);
+
+        set_show_status_marker(show_status_on(mode));
 }
 
 const char *manager_get_confirm_spawn(Manager *m) {
@@ -4381,12 +4412,34 @@ bool manager_is_confirm_spawn_disabled(Manager *m) {
         return access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0;
 }
 
+static bool manager_should_show_status(Manager *m, StatusType type) {
+        assert(m);
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return false;
+
+        if (m->no_console_output)
+                return false;
+
+        if (!IN_SET(manager_state(m), MANAGER_INITIALIZING, MANAGER_STARTING, MANAGER_STOPPING))
+                return false;
+
+        /* If we cannot find out the status properly, just proceed. */
+        if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
+                return false;
+
+        if (type == STATUS_TYPE_NOTICE && m->show_status != SHOW_STATUS_NO)
+                return true;
+
+        return manager_get_show_status_on(m);
+}
+
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) {
         va_list ap;
 
         /* If m is NULL, assume we're after shutdown and let the messages through. */
 
-        if (m && !manager_get_show_status(m, type))
+        if (m && !manager_should_show_status(m, type))
                 return;
 
         /* XXX We should totally drop the check for ephemeral here
