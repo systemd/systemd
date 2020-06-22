@@ -29,14 +29,15 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-modules-load.service</filename> is an
-    early boot service that loads kernel modules based on static
-    configuration.</para>
+    <para><filename>systemd-modules-load.service</filename> is an early boot service that loads kernel
+    modules. It reads static configuration from files in <filename>/usr</filename> and
+    <filename>/etc</filename>, but also runtime configuration from <filename>/run</filename> and the kernel
+    command line (see below).</para>
 
     <para>See
-    <citerefentry><refentrytitle>modules-load.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for information about the configuration of this service.</para>
-
+    <citerefentry><refentrytitle>modules-load.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    information about the configuration format of this service and paths where configuration files can be
+    created.</para>
   </refsect1>
 
   <refsect1>
