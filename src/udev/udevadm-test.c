@@ -123,7 +123,7 @@ int test_main(int argc, char *argv[], void *userdata) {
 
         udev_builtin_init();
 
-        r = udev_rules_new(&rules, arg_resolve_name_timing);
+        r = udev_rules_load(&rules, arg_resolve_name_timing);
         if (r < 0) {
                 log_error_errno(r, "Failed to read udev rules: %m");
                 goto out;

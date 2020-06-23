@@ -99,7 +99,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 assert_se(fwrite(data, size, 1, f) == 1);
         assert_se(fclose(f) == 0);
 
-        assert_se(udev_rules_new(&rules, RESOLVE_NAME_EARLY) == 0);
+        assert_se(udev_rules_load(&rules, RESOLVE_NAME_EARLY) == 0);
 
         assert_se(cleanup_fake_filesystems(runtime_dir) >= 0);
         return 0;

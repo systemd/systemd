@@ -16,7 +16,9 @@ typedef enum {
         _ESCAPE_TYPE_INVALID = -1
 } UdevRuleEscapeType;
 
-int udev_rules_new(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing);
+int udev_rules_parse_file(UdevRules *rules, const char *filename);
+UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing);
+int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing);
 UdevRules *udev_rules_free(UdevRules *rules);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRules*, udev_rules_free);
 
