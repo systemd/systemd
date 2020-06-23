@@ -19,7 +19,8 @@
 <xsl:template match="citerefentry[not(@project)]">
   <a>
     <xsl:attribute name="href">
-      <xsl:value-of select="refentrytitle"/><xsl:text>.html#</xsl:text>
+      <xsl:value-of select="refentrytitle"/>
+      <xsl:text>.html#</xsl:text>
       <xsl:value-of select="refentrytitle/@target"/>
     </xsl:attribute>
     <xsl:call-template name="inline.charseq"/>
@@ -128,6 +129,15 @@
       <xsl:text>.</xsl:text>
       <xsl:value-of select="manvolnum"/>
       <xsl:text>.html</xsl:text>
+    </xsl:attribute>
+    <xsl:call-template name="inline.charseq"/>
+  </a>
+</xsl:template>
+
+<xsl:template match="citerefentry[@project='url']">
+  <a>
+    <xsl:attribute name="href">
+      <xsl:value-of select="refentrytitle/@url"/>
     </xsl:attribute>
     <xsl:call-template name="inline.charseq"/>
   </a>
