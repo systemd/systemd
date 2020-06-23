@@ -9,23 +9,25 @@
 # export CONT_NAME="my-fancy-container"
 # travis-ci/managers/debian.sh SETUP RUN CLEANUP
 
-PHASES=(${@:-SETUP RUN RUN_ASAN CLEANUP})
+PHASES=(${@:-SETUP RUN RUN_ASAN_UBSAN CLEANUP})
 DEBIAN_RELEASE="${DEBIAN_RELEASE:-testing}"
-CONT_NAME="${CONT_NAME:-debian-$DEBIAN_RELEASE-$RANDOM}"
+CONT_NAME="${CONT_NAME:-systemd-debian-$DEBIAN_RELEASE}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(python3-libevdev
-                 python3-pyparsing
-                 clang
-                 perl
-                 libpwquality-dev
-                 fdisk
-                 libfdisk-dev
-                 libp11-kit-dev
-                 libssl-dev
-                 libzstd-dev
-                 zstd)
+ADDITIONAL_DEPS=(
+    clang
+    fdisk
+    libfdisk-dev
+    libp11-kit-dev
+    libpwquality-dev
+    libssl-dev
+    libzstd-dev
+    perl
+    python3-libevdev
+    python3-pyparsing
+    zstd
+)
 
 function info() {
     echo -e "\033[33;1m$1\033[0m"
@@ -54,7 +56,7 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC apt-get -y build-dep systemd
             $DOCKER_EXEC apt-get -y install "${ADDITIONAL_DEPS[@]}"
             ;;
-        RUN|RUN_CLANG)
+        RUN|RUN_GCC|RUN_CLANG)
             if [[ "$phase" = "RUN_CLANG" ]]; then
                 ENV_VARS="-e CC=clang -e CXX=clang++"
             fi
@@ -62,8 +64,8 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC ninja -v -C build
             docker exec -e "TRAVIS=$TRAVIS" -it $CONT_NAME ninja -C build test
             ;;
-        RUN_ASAN|RUN_CLANG_ASAN)
-            if [[ "$phase" = "RUN_CLANG_ASAN" ]]; then
+        RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN)
+            if [[ "$phase" = "RUN_CLANG_ASAN_UBSAN" ]]; then
                 ENV_VARS="-e CC=clang -e CXX=clang++"
                 # Build fuzzer regression tests only with clang (for now),
                 # see: https://github.com/systemd/systemd/pull/15886#issuecomment-632689604

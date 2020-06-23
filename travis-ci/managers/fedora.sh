@@ -9,36 +9,30 @@
 # export CONT_NAME="my-fancy-container"
 # travis-ci/managers/fedora.sh SETUP RUN CLEANUP
 
-PHASES=(${@:-SETUP RUN RUN_ASAN CLEANUP})
+PHASES=(${@:-SETUP RUN RUN_ASAN_UBSAN CLEANUP})
 FEDORA_RELEASE="${FEDORA_RELEASE:-rawhide}"
-CONT_NAME="${CONT_NAME:-fedora-$FEDORA_RELEASE-$RANDOM}"
+CONT_NAME="${CONT_NAME:-systemd-fedora-$FEDORA_RELEASE}"
 DOCKER_EXEC="${DOCKER_EXEC:-docker exec -it $CONT_NAME}"
 DOCKER_RUN="${DOCKER_RUN:-docker run}"
 REPO_ROOT="${REPO_ROOT:-$PWD}"
-ADDITIONAL_DEPS=(dnf-plugins-core
-                 jq iputils
-                 hostname libasan
-                 python3-pyparsing
-                 python3-evdev
-                 libubsan
-                 clang
-                 llvm
-                 perl
-                 libfdisk-devel
-                 libpwquality-devel
-                 openssl-devel
-                 p11-kit-devel)
+ADDITIONAL_DEPS=(
+    clang
+    dnf-plugins-core
+    hostname libasan
+    jq iputils
+    libfdisk-devel
+    libpwquality-devel
+    libubsan
+    llvm
+    openssl-devel
+    p11-kit-devel
+    perl
+    python3-evdev
+    python3-pyparsing
+)
 
 info() {
     echo -e "\033[33;1m$1\033[0m"
-}
-
-error() {
-    echo >&2 -e "\033[31;1m$1\033[0m"
-}
-
-success() {
-    echo >&2 -e "\033[32;1m$1\033[0m"
 }
 
 # Simple wrapper which retries given command up to five times
@@ -94,8 +88,8 @@ for phase in "${PHASES[@]}"; do
             $DOCKER_EXEC ninja -v -C build
             $DOCKER_EXEC ninja -C build test
             ;;
-        RUN_ASAN|RUN_CLANG_ASAN)
-            if [[ "$phase" = "RUN_CLANG_ASAN" ]]; then
+        RUN_ASAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN)
+            if [[ "$phase" = "RUN_CLANG_ASAN_UBSAN" ]]; then
                 ENV_VARS="-e CC=clang -e CXX=clang++"
                 MESON_ARGS="-Db_lundef=false" # See https://github.com/mesonbuild/meson/issues/764
             fi
@@ -109,46 +103,6 @@ for phase in "${PHASES[@]}"; do
                 -e "TRAVIS=$TRAVIS" \
                 -t $CONT_NAME \
                 meson test --timeout-multiplier=3 -C ./build/ --print-errorlogs
-            ;;
-        RUN_BUILD_CHECK_GCC|RUN_BUILD_CHECK_CLANG)
-            ARGS=(
-                "--optimization=0"
-                "--optimization=2"
-                "--optimization=3"
-                "--optimization=s"
-                "-Db_lto=true"
-                "-Db_ndebug=true"
-            )
-
-            if [[ "$phase" = "RUN_BUILD_CHECK_CLANG" ]]; then
-                ENV_VARS="-e CC=clang -e CXX=clang++"
-                $DOCKER_EXEC clang --version
-            else
-                $DOCKER_EXEC gcc --version
-            fi
-
-            for args in "${ARGS[@]}"; do
-                SECONDS=0
-                info "Checking build with $args"
-                # Redirect meson/ninja logs into separate files, otherwise we
-                # would trip over Travis' log size limit
-                if ! docker exec $ENV_VARS -it $CONT_NAME meson --werror $args build &> meson.log; then
-                    cat meson.log
-                    error "meson failed with $args"
-                    exit 1
-                fi
-
-                if ! $DOCKER_EXEC ninja -v -C build &> ninja.log; then
-                    cat ninja.log
-                    error "ninja failed with $args"
-                    exit 1
-                fi
-
-                $DOCKER_EXEC rm -fr build
-                rm -f meson.log ninja.log
-                success "Build with $args passed in $SECONDS seconds"
-            done
-
             ;;
         CLEANUP)
             info "Cleanup phase"
