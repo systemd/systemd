@@ -73,6 +73,10 @@ static Image *image_free(Image *i) {
         strv_free(i->os_release);
         strv_free(i->extension_release);
 
+        for (size_t j = 0; j < i->n_extension_images; ++j)
+                image_free(i->extension_images[j]);
+        free(i->extension_images);
+
         return mfree(i);
 }
 
