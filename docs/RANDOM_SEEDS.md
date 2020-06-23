@@ -118,7 +118,7 @@ requires random numbers as well, including for the following uses:
 
 * systemd maintains various hash tables internally. In order to harden them
   against [collision
-  attacks](https://rt.perl.org/Public/Bug/Display.html?CSRF_Token=165691af9ddaa95f653402f1b68de728)
+  attacks](https://www.cs.auckland.ac.nz/~mcw/Teaching/refs/misc/denial-of-service.pdf)
   they are seeded with random numbers.
 
 * At various places systemd needs random bytes for temporary file name
