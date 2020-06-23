@@ -79,7 +79,7 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
 }
 #endif
 
-static int maybe_resize_slave_device(const char *mountpath, dev_t main_devno) {
+static int maybe_resize_underlying_device(const char *mountpath, dev_t main_devno) {
         _cleanup_free_ char *fstype = NULL, *devpath = NULL;
         dev_t devno;
         int r;
@@ -213,7 +213,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine block device of \"%s\": %m", arg_target);
 
-        r = maybe_resize_slave_device(arg_target, devno);
+        r = maybe_resize_underlying_device(arg_target, devno);
         if (r < 0)
                 return r;
 

@@ -154,8 +154,8 @@ size_t util_replace_whitespace(const char *str, char *to, size_t len) {
         return j;
 }
 
-/* allow chars in whitelist, plain ascii, hex-escaping and valid utf8 */
-size_t util_replace_chars(char *str, const char *white) {
+/* allow chars in allow list, plain ascii, hex-escaping and valid utf8 */
+size_t util_replace_chars(char *str, const char *allow) {
         size_t i = 0, replaced = 0;
 
         assert(str);
@@ -163,7 +163,7 @@ size_t util_replace_chars(char *str, const char *white) {
         while (str[i] != '\0') {
                 int len;
 
-                if (whitelisted_char_for_devnode(str[i], white)) {
+                if (allow_listed_char_for_devnode(str[i], allow)) {
                         i++;
                         continue;
                 }
@@ -182,7 +182,7 @@ size_t util_replace_chars(char *str, const char *white) {
                 }
 
                 /* if space is allowed, replace whitespace with ordinary space */
-                if (isspace(str[i]) && white && strchr(white, ' ')) {
+                if (isspace(str[i]) && allow && strchr(allow, ' ')) {
                         str[i] = ' ';
                         i++;
                         replaced++;

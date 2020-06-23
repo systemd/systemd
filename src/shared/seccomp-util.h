@@ -66,7 +66,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
 
 typedef enum SeccompParseFlags {
         SECCOMP_PARSE_INVERT     = 1 << 0,
-        SECCOMP_PARSE_WHITELIST  = 1 << 1,
+        SECCOMP_PARSE_ALLOW_LIST = 1 << 1,
         SECCOMP_PARSE_LOG        = 1 << 2,
         SECCOMP_PARSE_PERMISSIVE = 1 << 3,
 } SeccompParseFlags;
@@ -83,7 +83,7 @@ int seccomp_restrict_archs(Set *archs);
 int seccomp_restrict_namespaces(unsigned long retain);
 int seccomp_protect_sysctl(void);
 int seccomp_protect_syslog(void);
-int seccomp_restrict_address_families(Set *address_families, bool whitelist);
+int seccomp_restrict_address_families(Set *address_families, bool allow_list);
 int seccomp_restrict_realtime(void);
 int seccomp_memory_deny_write_execute(void);
 int seccomp_lock_personality(unsigned long personality);

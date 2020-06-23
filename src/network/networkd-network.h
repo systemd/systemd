@@ -129,7 +129,7 @@ struct Network {
         bool dhcp_send_decline;
         DHCPUseDomains dhcp_use_domains;
         sd_ipv4acd *dhcp_acd;
-        Set *dhcp_black_listed_ip;
+        Set *dhcp_deny_listed_ip;
         Set *dhcp_request_options;
         OrderedHashmap *dhcp_client_send_options;
         OrderedHashmap *dhcp_client_send_vendor_options;
@@ -241,7 +241,7 @@ struct Network {
         DHCPUseDomains ipv6_accept_ra_use_domains;
         IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client;
         uint32_t ipv6_accept_ra_route_table;
-        Set *ndisc_black_listed_prefix;
+        Set *ndisc_deny_listed_prefix;
         OrderedHashmap *ipv6_tokens;
 
         IPv6PrivacyExtensions ipv6_privacy_extensions;

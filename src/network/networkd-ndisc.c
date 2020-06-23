@@ -723,12 +723,12 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
-                        if (set_contains(link->network->ndisc_black_listed_prefix, &a.in6)) {
+                        if (set_contains(link->network->ndisc_deny_listed_prefix, &a.in6)) {
                                 if (DEBUG_LOGGING) {
                                         _cleanup_free_ char *b = NULL;
 
                                         (void) in_addr_to_string(AF_INET6, &a, &b);
-                                        log_link_debug(link, "Prefix '%s' is black listed, ignoring", strna(b));
+                                        log_link_debug(link, "Prefix '%s' is deny-listed, ignoring", strna(b));
                                 }
 
                                 break;
@@ -915,7 +915,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 IPv6Token,
                 free);
 
-int config_parse_ndisc_black_listed_prefix(
+int config_parse_ndisc_deny_listed_prefix(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -937,7 +937,7 @@ int config_parse_ndisc_black_listed_prefix(
         assert(data);
 
         if (isempty(rvalue)) {
-                network->ndisc_black_listed_prefix = set_free_free(network->ndisc_black_listed_prefix);
+                network->ndisc_deny_listed_prefix = set_free_free(network->ndisc_deny_listed_prefix);
                 return 0;
         }
 
@@ -949,7 +949,7 @@ int config_parse_ndisc_black_listed_prefix(
                 r = extract_first_word(&p, &n, NULL, 0);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse NDISC black listed prefix, ignoring assignment: %s",
+                                   "Failed to parse NDISC deny-listed prefix, ignoring assignment: %s",
                                    rvalue);
                         return 0;
                 }
@@ -959,18 +959,18 @@ int config_parse_ndisc_black_listed_prefix(
                 r = in_addr_from_string(AF_INET6, n, &ip);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "NDISC black listed prefix is invalid, ignoring assignment: %s", n);
+                                   "NDISC deny-listed prefix is invalid, ignoring assignment: %s", n);
                         continue;
                 }
 
-                if (set_contains(network->ndisc_black_listed_prefix, &ip.in6))
+                if (set_contains(network->ndisc_deny_listed_prefix, &ip.in6))
                         continue;
 
                 a = newdup(struct in6_addr, &ip.in6, 1);
                 if (!a)
                         return log_oom();
 
-                r = set_ensure_consume(&network->ndisc_black_listed_prefix, &in6_addr_hash_ops, TAKE_PTR(a));
+                r = set_ensure_consume(&network->ndisc_deny_listed_prefix, &in6_addr_hash_ops, TAKE_PTR(a));
                 if (r < 0)
                         return log_oom();
         }

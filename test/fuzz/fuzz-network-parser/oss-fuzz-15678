@@ -1,2 +1,2 @@
 [IPv6AcceptRA]
-BlackList=70:: 70::
+DenyList=70:: 70::

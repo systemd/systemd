@@ -201,8 +201,8 @@ static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_
 static void *arg_root_hash = NULL;
 static char *arg_verity_data = NULL;
 static size_t arg_root_hash_size = 0;
-static char **arg_syscall_whitelist = NULL;
-static char **arg_syscall_blacklist = NULL;
+static char **arg_syscall_allow_list = NULL;
+static char **arg_syscall_deny_list = NULL;
 #if HAVE_SECCOMP
 static scmp_filter_ctx arg_seccomp = NULL;
 #endif
@@ -244,8 +244,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_property_message, sd_bus_message_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verity_data, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_syscall_whitelist, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_syscall_blacklist, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_syscall_allow_list, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_syscall_deny_list, strv_freep);
 #if HAVE_SECCOMP
 STATIC_DESTRUCTOR_REGISTER(arg_seccomp, seccomp_releasep);
 #endif
@@ -1346,9 +1346,9 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to parse system call filter: %m");
 
                                 if (negative)
-                                        r = strv_extend(&arg_syscall_blacklist, word);
+                                        r = strv_extend(&arg_syscall_deny_list, word);
                                 else
-                                        r = strv_extend(&arg_syscall_whitelist, word);
+                                        r = strv_extend(&arg_syscall_allow_list, word);
                                 if (r < 0)
                                         return log_oom();
                         }
@@ -2175,10 +2175,11 @@ static int setup_dev_console(const char *console) {
 static int setup_keyring(void) {
         key_serial_t keyring;
 
-        /* Allocate a new session keyring for the container. This makes sure the keyring of the session systemd-nspawn
-         * was invoked from doesn't leak into the container. Note that by default we block keyctl() and request_key()
-         * anyway via seccomp so doing this operation isn't strictly necessary, but in case people explicitly whitelist
-         * these system calls let's make sure we don't leak anything into the container. */
+        /* Allocate a new session keyring for the container. This makes sure the keyring of the session
+         * systemd-nspawn was invoked from doesn't leak into the container. Note that by default we block
+         * keyctl() and request_key() anyway via seccomp so doing this operation isn't strictly necessary,
+         * but in case people explicitly allow-list these system calls let's make sure we don't leak anything
+         * into the container. */
 
         keyring = keyctl(KEYCTL_JOIN_SESSION_KEYRING, 0, 0, 0, 0);
         if (keyring == -1) {
@@ -3089,7 +3090,7 @@ static int inner_child(
         } else
 #endif
         {
-                r = setup_seccomp(arg_caps_retain, arg_syscall_whitelist, arg_syscall_blacklist);
+                r = setup_seccomp(arg_caps_retain, arg_syscall_allow_list, arg_syscall_deny_list);
                 if (r < 0)
                         return r;
         }
@@ -3954,11 +3955,11 @@ static int merge_settings(Settings *settings, const char *path) {
 
         if ((arg_settings_mask & SETTING_SYSCALL_FILTER) == 0) {
 
-                if (!arg_settings_trusted && !strv_isempty(settings->syscall_whitelist))
+                if (!arg_settings_trusted && !strv_isempty(settings->syscall_allow_list))
                         log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", path);
                 else {
-                        strv_free_and_replace(arg_syscall_whitelist, settings->syscall_whitelist);
-                        strv_free_and_replace(arg_syscall_blacklist, settings->syscall_blacklist);
+                        strv_free_and_replace(arg_syscall_allow_list, settings->syscall_allow_list);
+                        strv_free_and_replace(arg_syscall_deny_list, settings->syscall_deny_list);
                 }
 
 #if HAVE_SECCOMP

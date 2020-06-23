@@ -1051,7 +1051,7 @@ static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {
         return 0;
 }
 
-static int dhcp_server_is_black_listed(Link *link, sd_dhcp_client *client) {
+static int dhcp_server_is_deny_listed(Link *link, sd_dhcp_client *client) {
         sd_dhcp_lease *lease;
         struct in_addr addr;
         int r;
@@ -1068,10 +1068,10 @@ static int dhcp_server_is_black_listed(Link *link, sd_dhcp_client *client) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to get DHCP server ip address: %m");
 
-        if (set_contains(link->network->dhcp_black_listed_ip, UINT32_TO_PTR(addr.s_addr))) {
+        if (set_contains(link->network->dhcp_deny_listed_ip, UINT32_TO_PTR(addr.s_addr))) {
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
-                           LOG_LINK_MESSAGE(link, "DHCPv4 ip '%u.%u.%u.%u' found in black listed ip addresses, ignoring offer",
+                           LOG_LINK_MESSAGE(link, "DHCPv4 ip '%u.%u.%u.%u' found in deny-listed ip addresses, ignoring offer",
                                             ADDRESS_FMT_VAL(addr)));
                 return true;
         }
@@ -1163,7 +1163,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         }
                         break;
                 case SD_DHCP_CLIENT_EVENT_SELECTING:
-                        r = dhcp_server_is_black_listed(link, client);
+                        r = dhcp_server_is_deny_listed(link, client);
                         if (r < 0)
                                 return r;
                         if (r != 0)
@@ -1551,7 +1551,7 @@ int config_parse_dhcp_max_attempts(
         return 0;
 }
 
-int config_parse_dhcp_black_listed_ip_address(
+int config_parse_dhcp_deny_listed_ip_address(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1572,7 +1572,7 @@ int config_parse_dhcp_black_listed_ip_address(
         assert(data);
 
         if (isempty(rvalue)) {
-                network->dhcp_black_listed_ip = set_free(network->dhcp_black_listed_ip);
+                network->dhcp_deny_listed_ip = set_free(network->dhcp_deny_listed_ip);
                 return 0;
         }
 
@@ -1583,7 +1583,7 @@ int config_parse_dhcp_black_listed_ip_address(
                 r = extract_first_word(&p, &n, NULL, 0);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCP black listed ip address, ignoring assignment: %s",
+                                   "Failed to parse DHCP deny-listed IP address, ignoring assignment: %s",
                                    rvalue);
                         return 0;
                 }
@@ -1593,14 +1593,14 @@ int config_parse_dhcp_black_listed_ip_address(
                 r = in_addr_from_string(AF_INET, n, &ip);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "DHCP black listed ip address is invalid, ignoring assignment: %s", n);
+                                   "DHCP deny-listed IP address is invalid, ignoring assignment: %s", n);
                         continue;
                 }
 
-                r = set_ensure_put(&network->dhcp_black_listed_ip, NULL, UINT32_TO_PTR(ip.in.s_addr));
+                r = set_ensure_put(&network->dhcp_deny_listed_ip, NULL, UINT32_TO_PTR(ip.in.s_addr));
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to store DHCP black listed ip address '%s', ignoring assignment: %m", n);
+                                   "Failed to store DHCP deny-listed IP address '%s', ignoring assignment: %m", n);
         }
 
         return 0;

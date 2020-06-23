@@ -123,7 +123,7 @@ static void test_filter_sets(void) {
                 if (pid == 0) { /* Child? */
                         int fd;
 
-                        /* If we look at the default set (or one that includes it), whitelist instead of blacklist */
+                        /* If we look at the default set (or one that includes it), allow-list instead of deny-list */
                         if (IN_SET(i, SYSCALL_FILTER_SET_DEFAULT, SYSCALL_FILTER_SET_SYSTEM_SERVICE))
                                 r = seccomp_load_syscall_filter_set(SCMP_ACT_ERRNO(EUCLEAN), syscall_filter_sets + i, SCMP_ACT_ALLOW, true);
                         else

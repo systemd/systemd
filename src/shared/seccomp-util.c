@@ -24,7 +24,7 @@
 
 const uint32_t seccomp_local_archs[] = {
 
-        /* Note: always list the native arch we are compiled as last, so that users can blacklist seccomp(), but our own calls to it still succeed */
+        /* Note: always list the native arch we are compiled as last, so that users can deny-list seccomp(), but our own calls to it still succeed */
 
 #if defined(__x86_64__) && defined(__ILP32__)
                 SCMP_ARCH_X86,
@@ -1112,7 +1112,7 @@ int seccomp_parse_syscall_filter(
 
                 /* If we previously wanted to forbid a syscall and now
                  * we want to allow it, then remove it from the list. */
-                if (!(flags & SECCOMP_PARSE_INVERT) == !!(flags & SECCOMP_PARSE_WHITELIST)) {
+                if (!(flags & SECCOMP_PARSE_INVERT) == !!(flags & SECCOMP_PARSE_ALLOW_LIST)) {
                         r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
                         if (r < 0)
                                 switch (r) {
@@ -1315,7 +1315,7 @@ int seccomp_protect_syslog(void) {
         return 0;
 }
 
-int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
+int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
         uint32_t arch;
         int r;
 
@@ -1362,13 +1362,13 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 if (r < 0)
                         return r;
 
-                if (whitelist) {
+                if (allow_list) {
                         int af, first = 0, last = 0;
                         void *afp;
 
-                        /* If this is a whitelist, we first block the address families that are out of range and then
-                         * everything that is not in the set. First, we find the lowest and highest address family in
-                         * the set. */
+                        /* If this is an allow list, we first block the address families that are out of
+                         * range and then everything that is not in the set. First, we find the lowest and
+                         * highest address family in the set. */
 
                         SET_FOREACH(afp, address_families, i) {
                                 af = PTR_TO_INT(afp);
@@ -1448,9 +1448,8 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 } else {
                         void *af;
 
-                        /* If this is a blacklist, then generate one rule for
-                         * each address family that are then combined in OR
-                         * checks. */
+                        /* If this is a deny list, then generate one rule for each address family that are
+                         * then combined in OR checks. */
 
                         SET_FOREACH(af, address_families, i) {
 
@@ -1506,11 +1505,11 @@ int seccomp_restrict_realtime(void) {
                         return r;
 
                 /* Go through all policies with lower values than that, and block them -- unless they appear in the
-                 * whitelist. */
+                 * allow list. */
                 for (p = 0; p < max_policy; p++) {
                         bool good = false;
 
-                        /* Check if this is in the whitelist. */
+                        /* Check if this is in the allow list. */
                         for (i = 0; i < ELEMENTSOF(permitted_policies); i++)
                                 if (permitted_policies[i] == p) {
                                         good = true;
@@ -1533,8 +1532,8 @@ int seccomp_restrict_realtime(void) {
                         }
                 }
 
-                /* Blacklist all other policies, i.e. the ones with higher values. Note that all comparisons are
-                 * unsigned here, hence no need no check for < 0 values. */
+                /* Deny-list all other policies, i.e. the ones with higher values. Note that all comparisons
+                 * are unsigned here, hence no need no check for < 0 values. */
                 r = seccomp_rule_add_exact(
                                 seccomp,
                                 SCMP_ACT_ERRNO(EPERM),

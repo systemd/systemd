@@ -370,7 +370,7 @@ static int property_get_syscall_filter(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(reply, "b", c->syscall_whitelist);
+        r = sd_bus_message_append(reply, "b", c->syscall_allow_list);
         if (r < 0)
                 return r;
 
@@ -536,7 +536,7 @@ static int property_get_address_families(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(reply, "b", c->address_families_whitelist);
+        r = sd_bus_message_append(reply, "b", c->address_families_allow_list);
         if (r < 0)
                 return r;
 
@@ -1672,14 +1672,14 @@ int bus_exec_context_set_transient_property(
                 return bus_set_transient_errno(u, name, &c->syscall_errno, message, flags, error);
 
         if (streq(name, "SystemCallFilter")) {
-                int whitelist;
+                int allow_list;
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_read(message, "b", &whitelist);
+                r = sd_bus_message_read(message, "b", &allow_list);
                 if (r < 0)
                         return r;
 
@@ -1693,11 +1693,11 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
-                        SeccompParseFlags invert_flag = whitelist ? 0 : SECCOMP_PARSE_INVERT;
+                        SeccompParseFlags invert_flag = allow_list ? 0 : SECCOMP_PARSE_INVERT;
                         char **s;
 
                         if (strv_isempty(l)) {
-                                c->syscall_whitelist = false;
+                                c->syscall_allow_list = false;
                                 c->syscall_filter = hashmap_free(c->syscall_filter);
 
                                 unit_write_settingf(u, flags, name, "SystemCallFilter=");
@@ -1709,14 +1709,14 @@ int bus_exec_context_set_transient_property(
                                 if (!c->syscall_filter)
                                         return log_oom();
 
-                                c->syscall_whitelist = whitelist;
+                                c->syscall_allow_list = allow_list;
 
-                                if (c->syscall_whitelist) {
+                                if (c->syscall_allow_list) {
                                         r = seccomp_parse_syscall_filter("@default",
                                                                          -1,
                                                                          c->syscall_filter,
                                                                          SECCOMP_PARSE_PERMISSIVE |
-                                                                         SECCOMP_PARSE_WHITELIST | invert_flag,
+                                                                         SECCOMP_PARSE_ALLOW_LIST | invert_flag,
                                                                          u->id,
                                                                          NULL, 0);
                                         if (r < 0)
@@ -1737,7 +1737,7 @@ int bus_exec_context_set_transient_property(
                                                                  c->syscall_filter,
                                                                  SECCOMP_PARSE_LOG | SECCOMP_PARSE_PERMISSIVE |
                                                                  invert_flag |
-                                                                 (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0),
+                                                                 (c->syscall_allow_list ? SECCOMP_PARSE_ALLOW_LIST : 0),
                                                                  u->id,
                                                                  NULL, 0);
                                 if (r < 0)
@@ -1748,7 +1748,7 @@ int bus_exec_context_set_transient_property(
                         if (!joined)
                                 return -ENOMEM;
 
-                        unit_write_settingf(u, flags, name, "SystemCallFilter=%s%s", whitelist ? "" : "~", joined);
+                        unit_write_settingf(u, flags, name, "SystemCallFilter=%s%s", allow_list ? "" : "~", joined);
                 }
 
                 return 1;
@@ -1792,14 +1792,14 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "RestrictAddressFamilies")) {
-                int whitelist;
+                int allow_list;
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_read(message, "b", &whitelist);
+                r = sd_bus_message_read(message, "b", &allow_list);
                 if (r < 0)
                         return r;
 
@@ -1816,7 +1816,7 @@ int bus_exec_context_set_transient_property(
                         char **s;
 
                         if (strv_isempty(l)) {
-                                c->address_families_whitelist = false;
+                                c->address_families_allow_list = false;
                                 c->address_families = set_free(c->address_families);
 
                                 unit_write_settingf(u, flags, name, "RestrictAddressFamilies=");
@@ -1828,7 +1828,7 @@ int bus_exec_context_set_transient_property(
                                 if (!c->address_families)
                                         return log_oom();
 
-                                c->address_families_whitelist = whitelist;
+                                c->address_families_allow_list = allow_list;
                         }
 
                         STRV_FOREACH(s, l) {
@@ -1838,7 +1838,7 @@ int bus_exec_context_set_transient_property(
                                 if (af < 0)
                                         return af;
 
-                                if (whitelist == c->address_families_whitelist) {
+                                if (allow_list == c->address_families_allow_list) {
                                         r = set_put(c->address_families, INT_TO_PTR(af));
                                         if (r < 0)
                                                 return r;
@@ -1850,7 +1850,7 @@ int bus_exec_context_set_transient_property(
                         if (!joined)
                                 return -ENOMEM;
 
-                        unit_write_settingf(u, flags, name, "RestrictAddressFamilies=%s%s", whitelist ? "" : "~", joined);
+                        unit_write_settingf(u, flags, name, "RestrictAddressFamilies=%s%s", allow_list ? "" : "~", joined);
                 }
 
                 return 1;

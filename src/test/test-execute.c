@@ -467,7 +467,7 @@ static void test_exec_restrictnamespaces(Manager *m) {
         test(__func__, m, "exec-restrictnamespaces-no.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(__func__, m, "exec-restrictnamespaces-yes.service", 1, CLD_EXITED);
         test(__func__, m, "exec-restrictnamespaces-mnt.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
-        test(__func__, m, "exec-restrictnamespaces-mnt-blacklist.service", 1, CLD_EXITED);
+        test(__func__, m, "exec-restrictnamespaces-mnt-deny-list.service", 1, CLD_EXITED);
         test(__func__, m, "exec-restrictnamespaces-merge-and.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(__func__, m, "exec-restrictnamespaces-merge-or.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);
         test(__func__, m, "exec-restrictnamespaces-merge-all.service", can_unshare ? 0 : EXIT_FAILURE, CLD_EXITED);

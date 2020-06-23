@@ -1173,11 +1173,11 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (STR_IN_SET(field, "RestrictAddressFamilies",
                               "SystemCallFilter")) {
-                int whitelist = 1;
+                int allow_list = 1;
                 const char *p = eq;
 
                 if (*p == '~') {
-                        whitelist = 0;
+                        allow_list = 0;
                         p++;
                 }
 
@@ -1197,7 +1197,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append_basic(m, 'b', &whitelist);
+                r = sd_bus_message_append_basic(m, 'b', &allow_list);
                 if (r < 0)
                         return bus_log_create_error(r);
 

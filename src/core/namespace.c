@@ -1067,7 +1067,7 @@ static int apply_mount(
         return 0;
 }
 
-static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
+static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self_mountinfo) {
         unsigned long new_flags = 0, flags_mask = 0;
         bool submounts = false;
         int r = 0;
@@ -1096,7 +1096,7 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
                 mount_entry_read_only(m) &&
                 !IN_SET(m->mode, EMPTY_DIR, TMPFS);
         if (submounts)
-                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, blacklist, proc_self_mountinfo);
+                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, deny_list, proc_self_mountinfo);
         else
                 r = bind_remount_one_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, proc_self_mountinfo);
 
@@ -1538,7 +1538,7 @@ int setup_namespace(
 
         if (n_mounts > 0) {
                 _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-                _cleanup_free_ char **blacklist = NULL;
+                _cleanup_free_ char **deny_list = NULL;
                 size_t j;
 
                 /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of /proc.
@@ -1591,19 +1591,19 @@ int setup_namespace(
                         normalize_mounts(root, mounts, &n_mounts);
                 }
 
-                /* Create a blacklist we can pass to bind_mount_recursive() */
-                blacklist = new(char*, n_mounts+1);
-                if (!blacklist) {
+                /* Create a deny list we can pass to bind_mount_recursive() */
+                deny_list = new(char*, n_mounts+1);
+                if (!deny_list) {
                         r = -ENOMEM;
                         goto finish;
                 }
                 for (j = 0; j < n_mounts; j++)
-                        blacklist[j] = (char*) mount_entry_path(mounts+j);
-                blacklist[j] = NULL;
+                        deny_list[j] = (char*) mount_entry_path(mounts+j);
+                deny_list[j] = NULL;
 
                 /* Second round, flip the ro bits if necessary. */
                 for (m = mounts; m < mounts + n_mounts; ++m) {
-                        r = make_read_only(m, blacklist, proc_self_mountinfo);
+                        r = make_read_only(m, deny_list, proc_self_mountinfo);
                         if (r < 0) {
                                 if (error_path && mount_entry_path(m))
                                         *error_path = strdup(mount_entry_path(m));

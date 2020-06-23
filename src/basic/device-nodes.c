@@ -7,7 +7,7 @@
 #include "device-nodes.h"
 #include "utf8.h"
 
-int whitelisted_char_for_devnode(char c, const char *white) {
+int allow_listed_char_for_devnode(char c, const char *white) {
 
         if ((c >= '0' && c <= '9') ||
             (c >= 'A' && c <= 'Z') ||
@@ -38,7 +38,7 @@ int encode_devnode_name(const char *str, char *str_enc, size_t len) {
                         j += seqlen;
                         i += (seqlen-1);
 
-                } else if (str[i] == '\\' || !whitelisted_char_for_devnode(str[i], NULL)) {
+                } else if (str[i] == '\\' || !allow_listed_char_for_devnode(str[i], NULL)) {
 
                         if (len-j < 4)
                                 return -EINVAL;

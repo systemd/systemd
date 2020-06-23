@@ -287,9 +287,9 @@ struct ExecContext {
         Hashmap *syscall_filter;
         Set *syscall_archs;
         int syscall_errno;
-        bool syscall_whitelist:1;
+        bool syscall_allow_list:1;
 
-        bool address_families_whitelist:1;
+        bool address_families_allow_list:1;
         Set *address_families;
 
         char *network_namespace_path;

@@ -39,7 +39,7 @@ static bool arg_enabled = true;
 static bool arg_read_crypttab = true;
 static const char *arg_crypttab = NULL;
 static const char *arg_runtime_directory = NULL;
-static bool arg_whitelist = false;
+static bool arg_allow_list = false;
 static Hashmap *arg_disks = NULL;
 static char *arg_default_options = NULL;
 static char *arg_default_keyfile = NULL;
@@ -495,7 +495,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!d)
                         return log_oom();
 
-                d->create = arg_whitelist = true;
+                d->create = arg_allow_list = true;
 
         } else if (streq(key, "luks.options")) {
 
@@ -559,7 +559,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         if (!d)
                                 return log_oom();
 
-                        d->create = arg_whitelist = true;
+                        d->create = arg_allow_list = true;
 
                         free_and_replace(d->name, uuid_value);
                 } else
@@ -622,7 +622,7 @@ static int add_crypttab_devices(void) {
                 if (uuid)
                         d = hashmap_get(arg_disks, uuid);
 
-                if (arg_whitelist && !d) {
+                if (arg_allow_list && !d) {
                         log_info("Not creating device '%s' because it was not specified on the kernel command line.", name);
                         continue;
                 }

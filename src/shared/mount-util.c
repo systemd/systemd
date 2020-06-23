@@ -136,7 +136,7 @@ int bind_remount_recursive_with_mountinfo(
                 const char *prefix,
                 unsigned long new_flags,
                 unsigned long flags_mask,
-                char **blacklist,
+                char **deny_list,
                 FILE *proc_self_mountinfo) {
 
         _cleanup_set_free_free_ Set *done = NULL;
@@ -154,8 +154,8 @@ int bind_remount_recursive_with_mountinfo(
          * do not have any effect on future submounts that might get propagated, they might be writable. This includes
          * future submounts that have been triggered via autofs.
          *
-         * If the "blacklist" parameter is specified it may contain a list of subtrees to exclude from the
-         * remount operation. Note that we'll ignore the blacklist for the top-level path. */
+         * If the "deny_list" parameter is specified it may contain a list of subtrees to exclude from the
+         * remount operation. Note that we'll ignore the deny list for the top-level path. */
 
         simplified = strdup(prefix);
         if (!simplified)
@@ -203,13 +203,13 @@ int bind_remount_recursive_with_mountinfo(
                         if (!path_startswith(path, simplified))
                                 continue;
 
-                        /* Ignore this mount if it is blacklisted, but only if it isn't the top-level mount
+                        /* Ignore this mount if it is deny-listed, but only if it isn't the top-level mount
                          * we shall operate on. */
                         if (!path_equal(path, simplified)) {
-                                bool blacklisted = false;
+                                bool deny_listed = false;
                                 char **i;
 
-                                STRV_FOREACH(i, blacklist) {
+                                STRV_FOREACH(i, deny_list) {
                                         if (path_equal(*i, simplified))
                                                 continue;
 
@@ -217,13 +217,13 @@ int bind_remount_recursive_with_mountinfo(
                                                 continue;
 
                                         if (path_startswith(path, *i)) {
-                                                blacklisted = true;
-                                                log_debug("Not remounting %s blacklisted by %s, called for %s",
+                                                deny_listed = true;
+                                                log_debug("Not remounting %s deny-listed by %s, called for %s",
                                                           path, *i, simplified);
                                                 break;
                                         }
                                 }
-                                if (blacklisted)
+                                if (deny_listed)
                                         continue;
                         }
 
@@ -314,7 +314,7 @@ int bind_remount_recursive(
                 const char *prefix,
                 unsigned long new_flags,
                 unsigned long flags_mask,
-                char **blacklist) {
+                char **deny_list) {
 
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
         int r;
@@ -323,7 +323,7 @@ int bind_remount_recursive(
         if (r < 0)
                 return r;
 
-        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, blacklist, proc_self_mountinfo);
+        return bind_remount_recursive_with_mountinfo(prefix, new_flags, flags_mask, deny_list, proc_self_mountinfo);
 }
 
 int bind_remount_one_with_mountinfo(

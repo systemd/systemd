@@ -57,7 +57,7 @@
  * spec should say what to do with unknown props
  * /bin/mount regarding NFS and FUSE required?
  * what does terminal=false mean?
- * sysctl inside or outside? whitelisting?
+ * sysctl inside or outside? allow-listing?
  * swapiness typo -> swappiness
  *
  * Unsupported:
@@ -1029,39 +1029,40 @@ static int oci_cgroup_devices(const char *name, JsonVariant *v, JsonDispatchFlag
                         return r;
 
                 if (!data.allow) {
-                        /* The fact that OCI allows 'deny' entries makes really no sense, as 'allow' vs. 'deny' for the
-                         * devices cgroup controller is really not about whitelisting and blacklisting but about adding
-                         * and removing entries from the whitelist. Since we always start out with an empty whitelist
-                         * we hence ignore the whole thing, as removing entries which don't exist make no sense. We'll
-                         * log about this, since this is really borked in the spec, with one exception: the entry
-                         * that's supposed to drop the kernel's default we ignore silently */
+                        /* The fact that OCI allows 'deny' entries makes really no sense, as 'allow'
+                         * vs. 'deny' for the devices cgroup controller is really not about allow-listing and
+                         * deny-listing but about adding and removing entries from the allow list. Since we
+                         * always start out with an empty allow list we hence ignore the whole thing, as
+                         * removing entries which don't exist make no sense. We'll log about this, since this
+                         * is really borked in the spec, with one exception: the entry that's supposed to
+                         * drop the kernel's default we ignore silently */
 
                         if (!data.r || !data.w || !data.m || data.type != 0 || data.major != (unsigned) -1 || data.minor != (unsigned) -1)
-                                json_log(v, flags|JSON_WARNING, 0, "Devices cgroup whitelist with arbitrary 'allow' entries not supported, ignoring.");
+                                json_log(v, flags|JSON_WARNING, 0, "Devices cgroup allow list with arbitrary 'allow' entries not supported, ignoring.");
 
                         /* We ignore the 'deny' entry as for us that's implied */
                         continue;
                 }
 
                 if (!data.r && !data.w && !data.m) {
-                        json_log(v, flags|LOG_WARNING, 0, "Device cgroup whitelist entry with no effect found, ignoring.");
+                        json_log(v, flags|LOG_WARNING, 0, "Device cgroup allow list entry with no effect found, ignoring.");
                         continue;
                 }
 
                 if (data.minor != (unsigned) -1 && data.major == (unsigned) -1)
                         return json_log(v, flags, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                        "Device cgroup whitelist entries with minors but no majors not supported.");
+                                        "Device cgroup allow list entries with minors but no majors not supported.");
 
                 if (data.major != (unsigned) -1 && data.type == 0)
                         return json_log(v, flags, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                        "Device cgroup whitelist entries with majors but no device node type not supported.");
+                                        "Device cgroup allow list entries with majors but no device node type not supported.");
 
                 if (data.type == 0) {
-                        if (data.r && data.w && data.m) /* a catchall whitelist entry means we are looking at a noop */
+                        if (data.r && data.w && data.m) /* a catchall allow list entry means we are looking at a noop */
                                 noop = true;
                         else
                                 return json_log(v, flags, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                "Device cgroup whitelist entries with no type not supported.");
+                                                "Device cgroup allow list entries with no type not supported.");
                 }
 
                 a = reallocarray(list, n_list + 1, sizeof(struct device_data));
