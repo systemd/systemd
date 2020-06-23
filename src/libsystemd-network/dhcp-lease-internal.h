@@ -82,6 +82,3 @@ int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const vo
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
 
 int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t client_id_len);
-
-int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file);
-int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);

@@ -110,10 +110,6 @@ int sd_network_link_get_network_file(int ifindex, char **filename);
  * IP addresses */
 int sd_network_link_get_dns(int ifindex, char ***ret);
 
-/* Get DHCP4 address for a given link. This is string representations of
- * IPv4 address */
-int sd_network_link_get_dhcp4_address(int ifindex, char **ret);
-
 /* Get NTP entries for a given link. These are domain names or string
  * representations of IP addresses */
 int sd_network_link_get_ntp(int ifindex, char ***ret);
@@ -172,12 +168,6 @@ int sd_network_link_get_carrier_bound_to(int ifindex, int **ifindexes);
 
 /* Get the CARRIERS that are bound to current link. */
 int sd_network_link_get_carrier_bound_by(int ifindex, int **ifindexes);
-
-/* Get the timezone that was learnt on a specific link. */
-int sd_network_link_get_timezone(int ifindex, char **timezone);
-
-/* Get DHCPv4 client id for a given link. */
-int sd_network_link_get_dhcp4_client_id_string(int ifindex, char **client_id);
 
 /* Get DHCPv6 client IAID for a given link. */
 int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **iaid);

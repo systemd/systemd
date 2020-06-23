@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <arpa/inet.h>
 #include <getopt.h>
 #include <linux/if_addrlabel.h>
 #include <net/if.h>
@@ -930,12 +931,13 @@ static int dump_gateways(
 
 static int dump_addresses(
                 sd_netlink *rtnl,
+                sd_dhcp_lease *lease,
                 Table *table,
                 int ifindex) {
 
         _cleanup_free_ struct local_address *local = NULL;
-        _cleanup_free_ char *dhcp4_address = NULL;
         _cleanup_strv_free_ char **buf = NULL;
+        struct in_addr dhcp4_address = {};
         int r, n, i;
 
         assert(rtnl);
@@ -945,7 +947,8 @@ static int dump_addresses(
         if (n <= 0)
                 return n;
 
-        (void) sd_network_link_get_dhcp4_address(ifindex, &dhcp4_address);
+        if (lease)
+                (void) sd_dhcp_lease_get_address(lease, &dhcp4_address);
 
         for (i = 0; i < n; i++) {
                 _cleanup_free_ char *pretty = NULL;
@@ -955,13 +958,19 @@ static int dump_addresses(
                 if (r < 0)
                         return r;
 
-                if (dhcp4_address && streq(pretty, dhcp4_address)) {
-                        _cleanup_free_ char *p = NULL;
+                if (local[i].family == AF_INET && in4_addr_equal(&local[i].address.in, &dhcp4_address)) {
+                        struct in_addr server_address;
+                        char *p, s[INET_ADDRSTRLEN];
 
-                        p = pretty;
-                        pretty = strjoin(pretty , " (DHCP4)");
-                        if (!pretty)
+                        r = sd_dhcp_lease_get_server_identifier(lease, &server_address);
+                        if (r >= 0 && inet_ntop(AF_INET, &server_address, s, sizeof(s)))
+                                p = strjoin(pretty, " (DHCP4 via ", s, ")");
+                        else
+                                p = strjoin(pretty, " (DHCP4)");
+                        if (!p)
                                 return log_oom();
+
+                        free_and_replace(pretty, p);
                 }
 
                 r = strv_extendf(&buf, "%s%s%s",
@@ -1379,12 +1388,12 @@ static int link_status_one(
                 const LinkInfo *info) {
 
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL, **route_domains = NULL;
-        _cleanup_free_ char *t = NULL, *network = NULL, *client_id = NULL, *iaid = NULL, *duid = NULL;
-        const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL;
-        _cleanup_free_ char *setup_state = NULL, *operational_state = NULL, *tz = NULL;
-        const char *on_color_operational, *off_color_operational,
-                *on_color_setup, *off_color_setup;
+        _cleanup_free_ char *t = NULL, *network = NULL, *iaid = NULL, *duid = NULL,
+                *setup_state = NULL, *operational_state = NULL, *lease_file = NULL;
+        const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
+                *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int r;
@@ -1424,6 +1433,11 @@ static int link_status_one(
 
         (void) sd_network_link_get_carrier_bound_to(info->ifindex, &carrier_bound_to);
         (void) sd_network_link_get_carrier_bound_by(info->ifindex, &carrier_bound_by);
+
+        if (asprintf(&lease_file, "/run/systemd/netif/leases/%d", info->ifindex) < 0)
+                return log_oom();
+
+        (void) dhcp_lease_load(&lease, lease_file);
 
         table = table_new("dot", "key", "value");
         if (!table)
@@ -2022,7 +2036,7 @@ static int link_status_one(
                 }
         }
 
-        r = dump_addresses(rtnl, table, info->ifindex);
+        r = dump_addresses(rtnl, lease, table, info->ifindex);
         if (r < 0)
                 return r;
         r = dump_gateways(rtnl, hwdb, table, info->ifindex);
@@ -2050,24 +2064,35 @@ static int link_status_one(
         if (r < 0)
                 return r;
 
-        (void) sd_network_link_get_timezone(info->ifindex, &tz);
-        if (tz) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "Time Zone:",
-                                   TABLE_STRING, tz);
-                if (r < 0)
-                        return table_log_add_error(r);
-        }
+        if (lease) {
+                const void *client_id;
+                size_t client_id_len;
+                const char *tz;
 
-        r = sd_network_link_get_dhcp4_client_id_string(info->ifindex, &client_id);
-        if (r >= 0) {
-                r = table_add_many(table,
-                                   TABLE_EMPTY,
-                                   TABLE_STRING, "DHCP4 Client ID:",
-                                   TABLE_STRING, client_id);
-                if (r < 0)
-                        return table_log_add_error(r);
+                r = sd_dhcp_lease_get_timezone(lease, &tz);
+                if (r >= 0) {
+                        r = table_add_many(table,
+                                           TABLE_EMPTY,
+                                           TABLE_STRING, "Time Zone:",
+                                           TABLE_STRING, tz);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                r = sd_dhcp_lease_get_client_id(lease, &client_id, &client_id_len);
+                if (r >= 0) {
+                        _cleanup_free_ char *id = NULL;
+
+                        r = sd_dhcp_client_id_to_string(client_id, client_id_len, &id);
+                        if (r >= 0) {
+                                r = table_add_many(table,
+                                                   TABLE_EMPTY,
+                                                   TABLE_STRING, "DHCP4 Client ID:",
+                                                   TABLE_STRING, id);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+                        }
+                }
         }
 
         r = sd_network_link_get_dhcp6_client_iaid_string(info->ifindex, &iaid);
@@ -2147,7 +2172,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = dump_addresses(rtnl, table, 0);
+        r = dump_addresses(rtnl, NULL, table, 0);
         if (r < 0)
                 return r;
         r = dump_gateways(rtnl, hwdb, table, 0);

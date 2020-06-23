@@ -1076,7 +1076,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "ADDRESS", &address,
                            "ROUTER", &router,
                            "NETMASK", &netmask,
-                           "SERVER_IDENTIFIER", &server_address,
+                           "SERVER_ADDRESS", &server_address,
                            "NEXT_SERVER", &next_server,
                            "BROADCAST", &broadcast,
                            "DNS", &dns,
