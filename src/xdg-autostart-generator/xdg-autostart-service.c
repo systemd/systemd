@@ -496,7 +496,7 @@ int xdg_autostart_service_generate_unit(
 
         /* Nothing to do if type is not Application. */
         if (!streq_ptr(service->type, "Application")) {
-                log_info("Not generating service for XDG autostart %s, it is hidden.", service->name);
+                log_info("Not generating service for XDG autostart %s, only Type=Application is supported.", service->name);
                 return 0;
         }
 
@@ -527,8 +527,9 @@ int xdg_autostart_service_generate_unit(
                 return 0;
         }
 
-        if (streq_ptr(service->gnome_autostart_phase, "EarlyInitialization")) {
-                log_info("Not generating service for XDG autostart %s, EarlyInitialization needs to be handled separately.",
+        if (service->gnome_autostart_phase) {
+                /* There is no explicit value for the "Application" phase. */
+                log_info("Not generating service for XDG autostart %s, startup phases are not supported.",
                          service->name);
                 return 0;
         }
@@ -563,10 +564,7 @@ int xdg_autostart_service_generate_unit(
                 fprintf(f, "Description=%s\n", t);
         }
 
-        /* Only start after the session is ready.
-         * XXX: GNOME has an autostart order which we may want to support.
-         *      It is not clear how this can be implemented reliably, which
-         *      is why it is skipped for now. */
+        /* Only start after the session is ready. */
         fprintf(f,
                 "After=graphical-session.target\n");
 
