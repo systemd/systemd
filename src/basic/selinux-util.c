@@ -376,13 +376,9 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
 char* mac_selinux_free(char *label) {
 
 #if HAVE_SELINUX
-        if (!label)
-                return NULL;
-
-        if (!mac_selinux_use())
-                return NULL;
-
         freecon(label);
+#else
+        assert(!label);
 #endif
 
         return NULL;
