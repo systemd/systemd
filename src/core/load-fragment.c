@@ -3397,8 +3397,6 @@ int config_parse_memory_limit(
                 }
         }
 
-        /* Keep Memory{Low,Min} unset with empty assignment so that we fall back to DefaultMemory* which in
-         * contrast means zeroing the property. */
         if (streq(lvalue, "DefaultMemoryLow")) {
                 c->default_memory_low = bytes;
                 c->default_memory_low_set = true;
@@ -3407,10 +3405,10 @@ int config_parse_memory_limit(
                 c->default_memory_min_set = true;
         } else if (streq(lvalue, "MemoryMin")) {
                 c->memory_min = bytes;
-                c->memory_min_set = !isempty(rvalue);
+                c->memory_min_set = true;
         } else if (streq(lvalue, "MemoryLow")) {
                 c->memory_low = bytes;
-                c->memory_low_set = !isempty(rvalue);
+                c->memory_low_set = true;
         } else if (streq(lvalue, "MemoryHigh"))
                 c->memory_high = bytes;
         else if (streq(lvalue, "MemoryMax"))
