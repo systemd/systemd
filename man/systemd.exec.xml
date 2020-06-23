@@ -318,7 +318,7 @@
         files or directories. Moreover <varname>ProtectSystem=strict</varname> and
         <varname>ProtectHome=read-only</varname> are implied, thus prohibiting the service to write to
         arbitrary file system locations. In order to allow the service to write to certain directories, they
-        have to be whitelisted using <varname>ReadWritePaths=</varname>, but care must be taken so that
+        have to be allow-listed using <varname>ReadWritePaths=</varname>, but care must be taken so that
         UID/GID recycling doesn't create security issues involving files created by the service. Use
         <varname>RuntimeDirectory=</varname> (see below) in order to assign a writable runtime directory to a
         service, owned by the dynamic user/group and removed automatically when the unit is terminated. Use
@@ -1150,12 +1150,13 @@ StateDirectory=aaa/bbb ccc</programlisting>
         contain symlinks, they are resolved relative to the root directory set with
         <varname>RootDirectory=</varname>/<varname>RootImage=</varname>.</para>
 
-        <para>Paths listed in <varname>ReadWritePaths=</varname> are accessible from within the namespace with the same
-        access modes as from outside of it. Paths listed in <varname>ReadOnlyPaths=</varname> are accessible for
-        reading only, writing will be refused even if the usual file access controls would permit this. Nest
-        <varname>ReadWritePaths=</varname> inside of <varname>ReadOnlyPaths=</varname> in order to provide writable
-        subdirectories within read-only directories. Use <varname>ReadWritePaths=</varname> in order to whitelist
-        specific paths for write access if <varname>ProtectSystem=strict</varname> is used.</para>
+        <para>Paths listed in <varname>ReadWritePaths=</varname> are accessible from within the namespace
+        with the same access modes as from outside of it. Paths listed in <varname>ReadOnlyPaths=</varname>
+        are accessible for reading only, writing will be refused even if the usual file access controls would
+        permit this. Nest <varname>ReadWritePaths=</varname> inside of <varname>ReadOnlyPaths=</varname> in
+        order to provide writable subdirectories within read-only directories. Use
+        <varname>ReadWritePaths=</varname> in order to allow-list specific paths for write access if
+        <varname>ProtectSystem=strict</varname> is used.</para>
 
         <para>Paths listed in <varname>InaccessiblePaths=</varname> will be made inaccessible for processes inside
         the namespace along with everything below them in the file system hierarchy. This may be more restrictive than
@@ -1469,29 +1470,31 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>RestrictAddressFamilies=</varname></term>
 
-        <listitem><para>Restricts the set of socket address families accessible to the processes of this unit. Takes a
-        space-separated list of address family names to whitelist, such as <constant>AF_UNIX</constant>,
-        <constant>AF_INET</constant> or <constant>AF_INET6</constant>. When prefixed with <constant>~</constant> the
-        listed address families will be applied as blacklist, otherwise as whitelist.  Note that this restricts access
-        to the <citerefentry
-        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call
-        only. Sockets passed into the process by other means (for example, by using socket activation with socket
-        units, see <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-        are unaffected. Also, sockets created with <function>socketpair()</function> (which creates connected AF_UNIX
-        sockets only) are unaffected. Note that this option has no effect on 32-bit x86, s390, s390x, mips, mips-le,
-        ppc, ppc-le, pcc64, ppc64-le and is ignored (but works correctly on other ABIs, including x86-64). Note that on
-        systems supporting multiple ABIs (such as x86/x86-64) it is recommended to turn off alternative ABIs for
-        services, so that they cannot be used to circumvent the restrictions of this option. Specifically, it is
-        recommended to combine this option with <varname>SystemCallArchitectures=native</varname> or similar. If
-        running in user mode, or in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability
-        (e.g. setting <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. By default,
-        no restrictions apply, all address families are accessible to processes. If assigned the empty string, any
-        previous address family restriction changes are undone. This setting does not affect commands prefixed with
-        <literal>+</literal>.</para>
+        <listitem><para>Restricts the set of socket address families accessible to the processes of this
+        unit. Takes a space-separated list of address family names to allow-list, such as
+        <constant>AF_UNIX</constant>, <constant>AF_INET</constant> or <constant>AF_INET6</constant>. When
+        prefixed with <constant>~</constant> the listed address families will be applied as deny list,
+        otherwise as allow list.  Note that this restricts access to the <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        system call only. Sockets passed into the process by other means (for example, by using socket
+        activation with socket units, see
+        <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+        are unaffected. Also, sockets created with <function>socketpair()</function> (which creates connected
+        AF_UNIX sockets only) are unaffected. Note that this option has no effect on 32-bit x86, s390, s390x,
+        mips, mips-le, ppc, ppc-le, pcc64, ppc64-le and is ignored (but works correctly on other ABIs,
+        including x86-64). Note that on systems supporting multiple ABIs (such as x86/x86-64) it is
+        recommended to turn off alternative ABIs for services, so that they cannot be used to circumvent the
+        restrictions of this option. Specifically, it is recommended to combine this option with
+        <varname>SystemCallArchitectures=native</varname> or similar. If running in user mode, or in system
+        mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
+        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. By default, no
+        restrictions apply, all address families are accessible to processes. If assigned the empty string,
+        any previous address family restriction changes are undone. This setting does not affect commands
+        prefixed with <literal>+</literal>.</para>
 
         <para>Use this option to limit exposure of processes to remote access, in particular via exotic and sensitive
         network protocols, such as <constant>AF_PACKET</constant>. Note that in most cases, the local
-        <constant>AF_UNIX</constant> address family should be included in the configured whitelist as it is frequently
+        <constant>AF_UNIX</constant> address family should be included in the configured allow list as it is frequently
         used for local communication, including for
         <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         logging.</para></listitem>
@@ -1509,9 +1512,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         any combination of: <constant>cgroup</constant>, <constant>ipc</constant>, <constant>net</constant>,
         <constant>mnt</constant>, <constant>pid</constant>, <constant>user</constant> and <constant>uts</constant>. Any
         namespace type listed is made accessible to the unit's processes, access to namespace types not listed is
-        prohibited (whitelisting). By prepending the list with a single tilde character (<literal>~</literal>) the
+        prohibited (allow-listing). By prepending the list with a single tilde character (<literal>~</literal>) the
         effect may be inverted: only the listed namespace types will be made inaccessible, all unlisted ones are
-        permitted (blacklisting). If the empty string is assigned, the default namespace restrictions are applied,
+        permitted (deny-listing). If the empty string is assigned, the default namespace restrictions are applied,
         which is equivalent to false. This option may appear more than once, in which case the namespace types are
         merged by <constant>OR</constant>, or by <constant>AND</constant> if the lines are prefixed with
         <literal>~</literal> (see examples below). Internally, this setting limits access to the
@@ -1701,15 +1704,15 @@ RestrictNamespaces=~cgroup net</programlisting>
 
         <listitem><para>Takes a space-separated list of system call names. If this setting is used, all
         system calls executed by the unit processes except for the listed ones will result in immediate
-        process termination with the <constant>SIGSYS</constant> signal (whitelisting). (See
+        process termination with the <constant>SIGSYS</constant> signal (allow-listing). (See
         <varname>SystemCallErrorNumber=</varname> below for changing the default action). If the first
         character of the list is <literal>~</literal>, the effect is inverted: only the listed system calls
-        will result in immediate process termination (blacklisting). Blacklisted system calls and system call
+        will result in immediate process termination (deny-listing). Deny-listed system calls and system call
         groups may optionally be suffixed with a colon (<literal>:</literal>) and <literal>errno</literal>
         error number (between 0 and 4095) or errno name such as <constant>EPERM</constant>,
         <constant>EACCES</constant> or <constant>EUCLEAN</constant> (see <citerefentry
         project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
-        full list). This value will be returned when a blacklisted system call is triggered, instead of
+        full list). This value will be returned when a deny-listed system call is triggered, instead of
         terminating the processes immediately.  This value takes precedence over the one given in
         <varname>SystemCallErrorNumber=</varname>, see below.  If running in user mode, or in system mode,
         but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
@@ -1718,7 +1721,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         for enforcing a minimal sandboxing environment. Note that the <function>execve</function>,
         <function>exit</function>, <function>exit_group</function>, <function>getrlimit</function>,
         <function>rt_sigreturn</function>, <function>sigreturn</function> system calls and the system calls
-        for querying time and sleeping are implicitly whitelisted and do not need to be listed
+        for querying time and sleeping are implicitly allow-listed and do not need to be listed
         explicitly. This option may be specified more than once, in which case the filter masks are
         merged. If the empty string is assigned, the filter is reset, all prior assignments will have no
         effect. This does not affect commands prefixed with <literal>+</literal>.</para>
@@ -1736,12 +1739,13 @@ RestrictNamespaces=~cgroup net</programlisting>
         might be necessary to temporarily disable system call filters in order to simplify debugging of such
         failures.</para>
 
-        <para>If you specify both types of this option (i.e.  whitelisting and blacklisting), the first encountered
-        will take precedence and will dictate the default action (termination or approval of a system call). Then the
-        next occurrences of this option will add or delete the listed system calls from the set of the filtered system
-        calls, depending of its type and the default action. (For example, if you have started with a whitelisting of
-        <function>read</function> and <function>write</function>, and right after it add a blacklisting of
-        <function>write</function>, then <function>write</function> will be removed from the set.)</para>
+        <para>If you specify both types of this option (i.e.  allow-listing and deny-listing), the first
+        encountered will take precedence and will dictate the default action (termination or approval of a
+        system call). Then the next occurrences of this option will add or delete the listed system calls
+        from the set of the filtered system calls, depending of its type and the default action. (For
+        example, if you have started with an allow list rule for <function>read</function> and
+        <function>write</function>, and right after it add a deny list rule for <function>write</function>,
+        then <function>write</function> will be removed from the set.)</para>
 
         <para>As the number of possible system calls is large, predefined sets of system calls are provided.  A set
         starts with <literal>@</literal> character, followed by name of the set.
@@ -1857,7 +1861,7 @@ RestrictNamespaces=~cgroup net</programlisting>
               </row>
               <row>
                 <entry>@system-service</entry>
-                <entry>A reasonable set of system calls used by common system services, excluding any special purpose calls. This is the recommended starting point for whitelisting system calls for system services, as it contains what is typically needed by system services, but excludes overly specific interfaces. For example, the following APIs are excluded: <literal>@clock</literal>, <literal>@mount</literal>, <literal>@swap</literal>, <literal>@reboot</literal>.</entry>
+                <entry>A reasonable set of system calls used by common system services, excluding any special purpose calls. This is the recommended starting point for allow-listing system calls for system services, as it contains what is typically needed by system services, but excludes overly specific interfaces. For example, the following APIs are excluded: <literal>@clock</literal>, <literal>@mount</literal>, <literal>@swap</literal>, <literal>@reboot</literal>.</entry>
               </row>
               <row>
                 <entry>@timer</entry>
@@ -1873,9 +1877,10 @@ RestrictNamespaces=~cgroup net</programlisting>
         <command>systemd-analyze syscall-filter</command> to list the actual list of system calls in each
         filter.</para>
 
-        <para>Generally, whitelisting system calls (rather than blacklisting) is the safer mode of operation. It is
-        recommended to enforce system call whitelists for all long-running system services. Specifically, the
-        following lines are a relatively safe basic choice for the majority of system services:</para>
+        <para>Generally, allow-listing system calls (rather than deny-listing) is the safer mode of
+        operation. It is recommended to enforce system call allow lists for all long-running system
+        services. Specifically, the following lines are a relatively safe basic choice for the majority of
+        system services:</para>
 
         <programlisting>[Service]
 SystemCallFilter=@system-service
@@ -1886,9 +1891,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         call may be used to execute operations similar to what can be done with the older
         <function>kill()</function> system call, hence blocking the latter without the former only provides
         weak protection. Since new system calls are added regularly to the kernel as development progresses,
-        keeping system call blacklists comprehensive requires constant work. It is thus recommended to use
-        whitelisting instead, which offers the benefit that new system calls are by default implicitly
-        blocked until the whitelist is updated.</para>
+        keeping system call deny lists comprehensive requires constant work. It is thus recommended to use
+        allow-listing instead, which offers the benefit that new system calls are by default implicitly
+        blocked until the allow list is updated.</para>
 
         <para>Also note that a number of system calls are required to be accessible for the dynamic linker to
         work. The dynamic linker is required for running most regular programs (specifically: all dynamic ELF

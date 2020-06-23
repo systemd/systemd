@@ -165,8 +165,8 @@ typedef struct Settings {
         UserNamespaceMode userns_mode;
         uid_t uid_shift, uid_range;
         bool notify_ready;
-        char **syscall_whitelist;
-        char **syscall_blacklist;
+        char **syscall_allow_list;
+        char **syscall_deny_list;
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *hostname;
         int no_new_privileges;

@@ -51,7 +51,7 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                          "Inserted module '%s'", kmod_module_get_name(mod));
                         else if (err == KMOD_PROBE_APPLY_BLACKLIST)
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Module '%s' is blacklisted", kmod_module_get_name(mod));
+                                         "Module '%s' is deny-listed", kmod_module_get_name(mod));
                         else {
                                 assert(err < 0);
 

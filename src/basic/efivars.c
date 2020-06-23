@@ -210,9 +210,9 @@ int efi_set_variable(
         if (!p)
                 return -ENOMEM;
 
-        /* Newer efivarfs protects variables that are not in a whitelist with FS_IMMUTABLE_FL by default, to protect
-         * them for accidental removal and modification. We are not changing these variables accidentally however,
-         * hence let's unset the bit first. */
+        /* Newer efivarfs protects variables that are not in an allow list with FS_IMMUTABLE_FL by default,
+         * to protect them for accidental removal and modification. We are not changing these variables
+         * accidentally however, hence let's unset the bit first. */
 
         r = chattr_path(p, 0, FS_IMMUTABLE_FL, &saved_flags);
         if (r < 0 && r != -ENOENT)

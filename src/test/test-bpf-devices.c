@@ -24,7 +24,7 @@ static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_p
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_CLOSED, true);
         assert_se(r >= 0);
 
-        r = bpf_devices_whitelist_static(prog, cgroup_path);
+        r = bpf_devices_allow_list_static(prog, cgroup_path);
         assert_se(r >= 0);
 
         r = bpf_devices_apply_policy(prog, CGROUP_DEVICE_POLICY_CLOSED, true, cgroup_path, installed_prog);
@@ -62,13 +62,13 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
         assert_se(r >= 0);
 
-        r = bpf_devices_whitelist_device(prog, cgroup_path, "/dev/null", "rw");
+        r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/null", "rw");
         assert_se(r >= 0);
 
-        r = bpf_devices_whitelist_device(prog, cgroup_path, "/dev/random", "r");
+        r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/random", "r");
         assert_se(r >= 0);
 
-        r = bpf_devices_whitelist_device(prog, cgroup_path, "/dev/zero", "w");
+        r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/zero", "w");
         assert_se(r >= 0);
 
         r = bpf_devices_apply_policy(prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
@@ -129,7 +129,7 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
         assert_se(wrong == 0);
 }
 
-static void test_policy_whitelist_major(const char *pattern, const char *cgroup_path, BPFProgram **installed_prog) {
+static void test_policy_allow_list_major(const char *pattern, const char *cgroup_path, BPFProgram **installed_prog) {
         _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
@@ -139,7 +139,7 @@ static void test_policy_whitelist_major(const char *pattern, const char *cgroup_
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
         assert_se(r >= 0);
 
-        r = bpf_devices_whitelist_major(prog, cgroup_path, pattern, 'c', "rw");
+        r = bpf_devices_allow_list_major(prog, cgroup_path, pattern, 'c', "rw");
         assert_se(r >= 0);
 
         r = bpf_devices_apply_policy(prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
@@ -188,7 +188,7 @@ static void test_policy_whitelist_major(const char *pattern, const char *cgroup_
         assert_se(wrong == 0);
 }
 
-static void test_policy_whitelist_major_star(char type, const char *cgroup_path, BPFProgram **installed_prog) {
+static void test_policy_allow_list_major_star(char type, const char *cgroup_path, BPFProgram **installed_prog) {
         _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
         unsigned wrong = 0;
         int r;
@@ -198,7 +198,7 @@ static void test_policy_whitelist_major_star(char type, const char *cgroup_path,
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
         assert_se(r >= 0);
 
-        r = bpf_devices_whitelist_major(prog, cgroup_path, "*", type, "rw");
+        r = bpf_devices_allow_list_major(prog, cgroup_path, "*", type, "rw");
         assert_se(r >= 0);
 
         r = bpf_devices_apply_policy(prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
@@ -230,7 +230,7 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
         assert_se(r >= 0);
 
         if (add_mismatched) {
-                r = bpf_devices_whitelist_major(prog, cgroup_path, "foobarxxx", 'c', "rw");
+                r = bpf_devices_allow_list_major(prog, cgroup_path, "foobarxxx", 'c', "rw");
                 assert_se(r < 0);
         }
 
@@ -287,11 +287,11 @@ int main(int argc, char *argv[]) {
         test_policy_closed(cgroup, &prog);
         test_policy_strict(cgroup, &prog);
 
-        test_policy_whitelist_major("mem", cgroup, &prog);
-        test_policy_whitelist_major("1", cgroup, &prog);
+        test_policy_allow_list_major("mem", cgroup, &prog);
+        test_policy_allow_list_major("1", cgroup, &prog);
 
-        test_policy_whitelist_major_star('c', cgroup, &prog);
-        test_policy_whitelist_major_star('b', cgroup, &prog);
+        test_policy_allow_list_major_star('c', cgroup, &prog);
+        test_policy_allow_list_major_star('b', cgroup, &prog);
 
         test_policy_empty(false, cgroup, &prog);
         test_policy_empty(true, cgroup, &prog);

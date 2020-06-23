@@ -662,7 +662,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp_mudurl);
         strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
-        set_free(network->dhcp_black_listed_ip);
+        set_free(network->dhcp_deny_listed_ip);
         set_free(network->dhcp_request_options);
         set_free(network->dhcp6_request_options);
         free(network->mac);
@@ -681,7 +681,7 @@ static Network *network_free(Network *network) {
 
         ordered_set_free_free(network->router_search_domains);
         free(network->router_dns);
-        set_free_free(network->ndisc_black_listed_prefix);
+        set_free_free(network->ndisc_deny_listed_prefix);
 
         free(network->bridge_name);
         free(network->bond_name);

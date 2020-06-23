@@ -1679,7 +1679,7 @@
         </varlistentry>
 
         <varlistentry>
-        <term><varname>BlackList=</varname></term>
+        <term><varname>DenyList=</varname></term>
         <listitem>
           <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
         </listitem>
@@ -1945,7 +1945,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>BlackList=</varname></term>
+          <term><varname>DenyList=</varname></term>
           <listitem>
             <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router advertisements in the list are ignored.</para>
           </listitem>

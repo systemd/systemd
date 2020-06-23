@@ -373,6 +373,10 @@ CHANGES WITH 246 in spe:
           its pending removal 2 years ago (also see NEWS file below). It's
           finally gone now.
 
+        * The BlackList= settings in .network files' [DHCPv4] and
+          [IPv6AcceptRA] sections have been renamed DenyList=. The old names
+          are still understood to provide compatibility.
+
 CHANGES WITH 245:
 
         * A new tool "systemd-repart" has been added, that operates as an
@@ -744,7 +748,7 @@ CHANGES WITH 244:
           of the PAM session, for example for time-limited logins.
 
         * A new @pkey system call group is now defined to make it easier to
-          whitelist memory protection syscalls for containers and services
+          allow-list memory protection syscalls for containers and services
           which need to use them.
 
         * systemd-udevd: removed the 30s timeout for killing stale workers on
@@ -761,10 +765,10 @@ CHANGES WITH 244:
         * udev now provides a program (fido_id) that identifies FIDO CTAP1
           ("U2F")/CTAP2 security tokens based on the usage declared in their
           report and descriptor and outputs suitable environment variables.
-          This replaces the externally maintained whitelists of all known
+          This replaces the externally maintained allow lists of all known
           security tokens that were used previously.
 
-        * Automatically generated autosuspend udev rules for whitelisted
+        * Automatically generated autosuspend udev rules for allow-listed
           devices have been imported from the Chromium OS project. This should
           improve power saving with many more devices.
 
@@ -1131,7 +1135,7 @@ CHANGES WITH 243:
 
         * systemd-networkd's DHCPv4 support now understands a new MaxAttempts=
           option for configuring the maximum number of DHCP lease requests.  It
-          also learnt a new BlackList= option for blacklisting DHCP servers (a
+          also learnt a new BlackList= option for deny-listing DHCP servers (a
           similar setting has also been added to the IPv6 RA client), as well
           as a SendRelease= option for configuring whether to send a DHCP
           RELEASE message when terminating.
@@ -2363,12 +2367,12 @@ CHANGES WITH 239:
           any relevant symlinks both in /run and /etc.
 
         * Note that all long-running system services shipped with systemd will
-          now default to a system call whitelist (rather than a blacklist, as
+          now default to a system call allow list (rather than a deny list, as
           before). In particular, systemd-udevd will now enforce one too. For
           most cases this should be safe, however downstream distributions
           which disabled sandboxing of systemd-udevd (specifically the
           MountFlags= setting), might want to disable this security feature
-          too, as the default whitelisting will prohibit all mount, swap,
+          too, as the default allow-listing will prohibit all mount, swap,
           reboot and clock changing operations from udev rules.
 
         * sd-boot acquired new loader configuration settings to optionally turn
@@ -3396,7 +3400,7 @@ CHANGES WITH 235:
         * systemd-nspawn gained support for a new --system-call-filter= command
           line option for adding and removing entries in the default system
           call filter it applies. Moreover systemd-nspawn has been changed to
-          implement a system call whitelist instead of a blacklist.
+          implement a system call allow list instead of a deny list.
 
         * systemd-run gained support for a new --pipe command line option. If
           used the STDIN/STDOUT/STDERR file descriptors passed to systemd-run
@@ -6109,11 +6113,10 @@ CHANGES WITH 220:
           fsck's progress report to an AF_UNIX socket in the file
           system.
 
-        * udev will no longer create device symlinks for all block
-          devices by default. A blacklist for excluding special block
-          devices from this logic has been turned into a whitelist
-          that requires picking block devices explicitly that require
-          device symlinks.
+        * udev will no longer create device symlinks for all block devices by
+          default. A deny list for excluding special block devices from this
+          logic has been turned into a allow list that requires picking block
+          devices explicitly that require device symlinks.
 
         * A new (currently still internal) API sd-device.h has been
           added to libsystemd. This modernized API is supposed to
@@ -8002,11 +8005,11 @@ CHANGES WITH 210:
           Wikipedia. We explicitly document which base applies for
           each configuration option.
 
-        * The DeviceAllow= setting in unit files now supports a syntax
-          to whitelist an entire group of devices node majors at once,
-          based on the /proc/devices listing. For example, with the
-          string "char-pts", it is now possible to whitelist all
-          current and future pseudo-TTYs at once.
+        * The DeviceAllow= setting in unit files now supports a syntax to
+          allow-list an entire group of devices node majors at once, based on
+          the /proc/devices listing. For example, with the string "char-pts",
+          it is now possible to allow-list all current and future pseudo-TTYs
+          at once.
 
         * sd-event learned a new "post" event source. Event sources of
           this type are triggered by the dispatching of any event
@@ -10249,9 +10252,9 @@ CHANGES WITH 187:
         * journalctl gained the new "--header" switch to introspect
           header data of journal files.
 
-        * A new setting SystemCallFilters= has been added to services
-          which may be used to apply blacklists or whitelists to
-          system calls. This is based on SECCOMP Mode 2 of Linux 3.5.
+        * A new setting SystemCallFilters= has been added to services which may
+          be used to apply deny lists or allow lists to system calls. This is
+          based on SECCOMP Mode 2 of Linux 3.5.
 
         * nspawn gained a new --link-journal= switch (and quicker: -j)
           to link the container journal with the host. This makes it

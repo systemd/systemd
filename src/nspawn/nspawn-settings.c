@@ -129,8 +129,8 @@ Settings* settings_free(Settings *s) {
         free(s->pivot_root_new);
         free(s->pivot_root_old);
         free(s->working_directory);
-        strv_free(s->syscall_whitelist);
-        strv_free(s->syscall_blacklist);
+        strv_free(s->syscall_allow_list);
+        strv_free(s->syscall_deny_list);
         rlimit_free_all(s->rlimit);
         free(s->hostname);
         cpu_set_reset(&s->cpu_set);
@@ -689,9 +689,9 @@ int config_parse_syscall_filter(
                 }
 
                 if (negative)
-                        r = strv_extend(&settings->syscall_blacklist, word);
+                        r = strv_extend(&settings->syscall_deny_list, word);
                 else
-                        r = strv_extend(&settings->syscall_whitelist, word);
+                        r = strv_extend(&settings->syscall_allow_list, word);
                 if (r < 0)
                         return log_oom();
         }

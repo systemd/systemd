@@ -25,13 +25,13 @@ static int seccomp_add_default_syscall_filter(
                 scmp_filter_ctx ctx,
                 uint32_t arch,
                 uint64_t cap_list_retain,
-                char **syscall_whitelist,
-                char **syscall_blacklist) {
+                char **syscall_allow_list,
+                char **syscall_deny_list) {
 
         static const struct {
                 uint64_t capability;
                 const char* name;
-        } whitelist[] = {
+        } allow_list[] = {
                 /* Let's use set names where we can */
                 { 0,                  "@aio"                   },
                 { 0,                  "@basic-io"              },
@@ -142,17 +142,17 @@ static int seccomp_add_default_syscall_filter(
         char **p;
         int r;
 
-        for (size_t i = 0; i < ELEMENTSOF(whitelist); i++) {
-                if (whitelist[i].capability != 0 && (cap_list_retain & (1ULL << whitelist[i].capability)) == 0)
+        for (size_t i = 0; i < ELEMENTSOF(allow_list); i++) {
+                if (allow_list[i].capability != 0 && (cap_list_retain & (1ULL << allow_list[i].capability)) == 0)
                         continue;
 
-                r = seccomp_add_syscall_filter_item(ctx, whitelist[i].name, SCMP_ACT_ALLOW, syscall_blacklist, false);
+                r = seccomp_add_syscall_filter_item(ctx, allow_list[i].name, SCMP_ACT_ALLOW, syscall_deny_list, false);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add syscall filter item %s: %m", whitelist[i].name);
+                        return log_error_errno(r, "Failed to add syscall filter item %s: %m", allow_list[i].name);
         }
 
-        STRV_FOREACH(p, syscall_whitelist) {
-                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_blacklist, true);
+        STRV_FOREACH(p, syscall_allow_list) {
+                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_deny_list, true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add rule for system call %s on %s, ignoring: %m",
                                           *p, seccomp_arch_to_string(arch));
@@ -161,7 +161,7 @@ static int seccomp_add_default_syscall_filter(
         return 0;
 }
 
-int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **syscall_blacklist) {
+int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **syscall_deny_list) {
         uint32_t arch;
         int r;
 
@@ -173,13 +173,13 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
 
-                log_debug("Applying whitelist on architecture: %s", seccomp_arch_to_string(arch));
+                log_debug("Applying allow list on architecture: %s", seccomp_arch_to_string(arch));
 
                 r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ERRNO(EPERM));
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate seccomp object: %m");
 
-                r = seccomp_add_default_syscall_filter(seccomp, arch, cap_list_retain, syscall_whitelist, syscall_blacklist);
+                r = seccomp_add_default_syscall_filter(seccomp, arch, cap_list_retain, syscall_allow_list, syscall_deny_list);
                 if (r < 0)
                         return r;
 
@@ -231,7 +231,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
 
 #else
 
-int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **syscall_blacklist) {
+int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **syscall_deny_list) {
         return 0;
 }
 

@@ -1576,7 +1576,7 @@ static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
 
         d = opendir(p);
         if (!d) {
-                if (errno == ENOENT) /* Doesn't have slaves */
+                if (errno == ENOENT) /* Doesn't have underlying devices */
                         return false;
 
                 return -errno;
@@ -1592,7 +1592,7 @@ static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
                         if (errno != 0)
                                 return -errno;
 
-                        break; /* No more slaves */
+                        break; /* No more underlying devices */
                 }
 
                 q = path_join(p, de->d_name);

@@ -68,9 +68,9 @@ Distilled from the above, below are the rules systemd enforces on user/group
 names. An additional, common rule between both modes listed below is that empty
 strings are not valid user/group names.
 
-Philosophically, the strict mode described below enforces a white-list of what's
-allowed and prohibits everything else, while the relaxed mode described below
-implements a blacklist of what's not allowed and permits everything else.
+Philosophically, the strict mode described below enforces an allow list of
+what's allowed and prohibits everything else, while the relaxed mode described
+below implements a deny list of what's not allowed and permits everything else.
 
 ### Strict mode
 

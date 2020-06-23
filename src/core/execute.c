@@ -1380,14 +1380,14 @@ static void rename_process_from_path(const char *path) {
 static bool context_has_address_families(const ExecContext *c) {
         assert(c);
 
-        return c->address_families_whitelist ||
+        return c->address_families_allow_list ||
                 !set_isempty(c->address_families);
 }
 
 static bool context_has_syscall_filters(const ExecContext *c) {
         assert(c);
 
-        return c->syscall_whitelist ||
+        return c->syscall_allow_list ||
                 !hashmap_isempty(c->syscall_filter);
 }
 
@@ -1443,7 +1443,7 @@ static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_
 
         negative_action = c->syscall_errno == 0 ? scmp_act_kill_process() : SCMP_ACT_ERRNO(c->syscall_errno);
 
-        if (c->syscall_whitelist) {
+        if (c->syscall_allow_list) {
                 default_action = negative_action;
                 action = SCMP_ACT_ALLOW;
         } else {
@@ -1452,7 +1452,7 @@ static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_
         }
 
         if (needs_ambient_hack) {
-                r = seccomp_filter_set_add(c->syscall_filter, c->syscall_whitelist, syscall_filter_sets + SYSCALL_FILTER_SET_SETUID);
+                r = seccomp_filter_set_add(c->syscall_filter, c->syscall_allow_list, syscall_filter_sets + SYSCALL_FILTER_SET_SETUID);
                 if (r < 0)
                         return r;
         }
@@ -1483,7 +1483,7 @@ static int apply_address_families(const Unit* u, const ExecContext *c) {
         if (skip_seccomp_unavailable(u, "RestrictAddressFamilies="))
                 return 0;
 
-        return seccomp_restrict_address_families(c->address_families, c->address_families_whitelist);
+        return seccomp_restrict_address_families(c->address_families, c->address_families_allow_list);
 }
 
 static int apply_memory_deny_write_execute(const Unit* u, const ExecContext *c) {
@@ -4918,7 +4918,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         "%sSystemCallFilter: ",
                         prefix);
 
-                if (!c->syscall_whitelist)
+                if (!c->syscall_allow_list)
                         fputc('~', f);
 
 #if HAVE_SECCOMP

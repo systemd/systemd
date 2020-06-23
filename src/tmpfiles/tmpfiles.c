@@ -2405,8 +2405,7 @@ static bool should_include_path(const char *path) {
                         return true;
                 }
 
-        /* no matches, so we should include this path only if we
-         * have no whitelist at all */
+        /* no matches, so we should include this path only if we have no allow list at all */
         if (strv_isempty(arg_include_prefixes))
                 return true;
 

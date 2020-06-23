@@ -96,6 +96,7 @@ ClientIdentifier=
 ListenPort=
 UseTimezone=
 RouteTable=
+DenyList=
 BlackList=
 RequestOptions=
 SendRelease=
@@ -279,6 +280,7 @@ UseDNS=
 DHCPv6Client=
 UseAutonomousPrefix=
 UseOnLinkPrefix=
+DenyList=
 BlackList=
 [DHCPServer]
 EmitNTP=

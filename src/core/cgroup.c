@@ -990,12 +990,12 @@ static int cgroup_apply_devices(Unit *u) {
                                       "Failed to reset devices.allow/devices.deny: %m");
         }
 
-        bool whitelist_static = policy == CGROUP_DEVICE_POLICY_CLOSED ||
+        bool allow_list_static = policy == CGROUP_DEVICE_POLICY_CLOSED ||
                 (policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow);
-        if (whitelist_static)
-                (void) bpf_devices_whitelist_static(prog, path);
+        if (allow_list_static)
+                (void) bpf_devices_allow_list_static(prog, path);
 
-        bool any = whitelist_static;
+        bool any = allow_list_static;
         LIST_FOREACH(device_allow, a, c->device_allow) {
                 char acc[4], *val;
                 unsigned k = 0;
@@ -1011,11 +1011,11 @@ static int cgroup_apply_devices(Unit *u) {
                 acc[k++] = 0;
 
                 if (path_startswith(a->path, "/dev/"))
-                        r = bpf_devices_whitelist_device(prog, path, a->path, acc);
+                        r = bpf_devices_allow_list_device(prog, path, a->path, acc);
                 else if ((val = startswith(a->path, "block-")))
-                        r = bpf_devices_whitelist_major(prog, path, val, 'b', acc);
+                        r = bpf_devices_allow_list_major(prog, path, val, 'b', acc);
                 else if ((val = startswith(a->path, "char-")))
-                        r = bpf_devices_whitelist_major(prog, path, val, 'c', acc);
+                        r = bpf_devices_allow_list_major(prog, path, val, 'c', acc);
                 else {
                         log_unit_debug(u, "Ignoring device '%s' while writing cgroup attribute.", a->path);
                         continue;
@@ -1029,7 +1029,7 @@ static int cgroup_apply_devices(Unit *u) {
                 log_unit_warning_errno(u, SYNTHETIC_ERRNO(ENODEV), "No devices matched by device filter.");
 
                 /* The kernel verifier would reject a program we would build with the normal intro and outro
-                   but no whitelisting rules (outro would contain an unreachable instruction for successful
+                   but no allow-listing rules (outro would contain an unreachable instruction for successful
                    return). */
                 policy = CGROUP_DEVICE_POLICY_STRICT;
         }

@@ -4819,13 +4819,13 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                 } else if (STR_IN_SET(name, "SystemCallFilter", "RestrictAddressFamilies")) {
                         _cleanup_strv_free_ char **l = NULL;
-                        int whitelist;
+                        int allow_list;
 
                         r = sd_bus_message_enter_container(m, 'r', "bas");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        r = sd_bus_message_read(m, "b", &whitelist);
+                        r = sd_bus_message_read(m, "b", &allow_list);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4837,7 +4837,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (all || whitelist || !strv_isempty(l)) {
+                        if (all || allow_list || !strv_isempty(l)) {
                                 bool first = true;
                                 char **i;
 
@@ -4846,7 +4846,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                         fputc('=', stdout);
                                 }
 
-                                if (!whitelist)
+                                if (!allow_list)
                                         fputc('~', stdout);
 
                                 STRV_FOREACH(i, l) {

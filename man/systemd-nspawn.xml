@@ -1000,29 +1000,28 @@
       <varlistentry>
         <term><option>--no-new-privileges=</option></term>
 
-        <listitem><para>Takes a boolean argument. Specifies the value of the <constant>PR_SET_NO_NEW_PRIVS</constant>
-        flag for the container payload. Defaults to off. When turned on the payload code of the container cannot
-        acquire new privileges, i.e. the "setuid" file bit as well as file system capabilities will not have an effect
-        anymore. See <citerefentry
-        project='man-pages'><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details
-        about this flag. </para></listitem>
+        <listitem><para>Takes a boolean argument. Specifies the value of the
+        <constant>PR_SET_NO_NEW_PRIVS</constant> flag for the container payload. Defaults to off. When turned
+        on the payload code of the container cannot acquire new privileges, i.e. the "setuid" file bit as
+        well as file system capabilities will not have an effect anymore. See <citerefentry
+        project='man-pages'><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details about this flag. </para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--system-call-filter=</option></term>
-
-        <listitem><para>Alter the system call filter applied to containers. Takes a space-separated list of system call
-        names or group names (the latter prefixed with <literal>@</literal>, as listed by the
-        <command>syscall-filter</command> command of
+        <term><option>--system-call-filter=</option></term> <listitem><para>Alter the system call filter
+        applied to containers. Takes a space-separated list of system call names or group names (the latter
+        prefixed with <literal>@</literal>, as listed by the <command>syscall-filter</command> command of
         <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Passed
-        system calls will be permitted. The list may optionally be prefixed by <literal>~</literal>, in which case all
-        listed system calls are prohibited. If this command line option is used multiple times the configured lists are
-        combined. If both a positive and a negative list (that is one system call list without and one with the
-        <literal>~</literal> prefix) are configured, the negative list takes precedence over the positive list. Note
-        that <command>systemd-nspawn</command> always implements a system call whitelist (as opposed to a blacklist),
-        and this command line option hence adds or removes entries from the default whitelist, depending on the
-        <literal>~</literal> prefix. Note that the applied system call filter is also altered implicitly if additional
-        capabilities are passed using the <command>--capabilities=</command>.</para></listitem>
+        system calls will be permitted. The list may optionally be prefixed by <literal>~</literal>, in which
+        case all listed system calls are prohibited. If this command line option is used multiple times the
+        configured lists are combined. If both a positive and a negative list (that is one system call list
+        without and one with the <literal>~</literal> prefix) are configured, the negative list takes
+        precedence over the positive list. Note that <command>systemd-nspawn</command> always implements a
+        system call allow list (as opposed to a deny list!), and this command line option hence adds or
+        removes entries from the default allow list, depending on the <literal>~</literal> prefix. Note that
+        the applied system call filter is also altered implicitly if additional capabilities are passed using
+        the <command>--capabilities=</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

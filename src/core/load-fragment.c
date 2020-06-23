@@ -3017,7 +3017,7 @@ int config_parse_syscall_filter(
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
                 c->syscall_filter = hashmap_free(c->syscall_filter);
-                c->syscall_whitelist = false;
+                c->syscall_allow_list = false;
                 return 0;
         }
 
@@ -3033,15 +3033,15 @@ int config_parse_syscall_filter(
 
                 if (invert)
                         /* Allow everything but the ones listed */
-                        c->syscall_whitelist = false;
+                        c->syscall_allow_list = false;
                 else {
                         /* Allow nothing but the ones listed */
-                        c->syscall_whitelist = true;
+                        c->syscall_allow_list = true;
 
-                        /* Accept default syscalls if we are on a whitelist */
+                        /* Accept default syscalls if we are on a allow_list */
                         r = seccomp_parse_syscall_filter(
                                         "@default", -1, c->syscall_filter,
-                                        SECCOMP_PARSE_PERMISSIVE|SECCOMP_PARSE_WHITELIST,
+                                        SECCOMP_PARSE_PERMISSIVE|SECCOMP_PARSE_ALLOW_LIST,
                                         unit,
                                         NULL, 0);
                         if (r < 0)
@@ -3074,7 +3074,7 @@ int config_parse_syscall_filter(
                                 name, num, c->syscall_filter,
                                 SECCOMP_PARSE_LOG|SECCOMP_PARSE_PERMISSIVE|
                                 (invert ? SECCOMP_PARSE_INVERT : 0)|
-                                (c->syscall_whitelist ? SECCOMP_PARSE_WHITELIST : 0),
+                                (c->syscall_allow_list ? SECCOMP_PARSE_ALLOW_LIST : 0),
                                 unit, filename, line);
                 if (r < 0)
                         return r;
@@ -3189,7 +3189,7 @@ int config_parse_address_families(
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
                 c->address_families = set_free(c->address_families);
-                c->address_families_whitelist = false;
+                c->address_families_allow_list = false;
                 return 0;
         }
 
@@ -3203,7 +3203,7 @@ int config_parse_address_families(
                 if (!c->address_families)
                         return log_oom();
 
-                c->address_families_whitelist = !invert;
+                c->address_families_allow_list = !invert;
         }
 
         for (p = rvalue;;) {
@@ -3231,7 +3231,7 @@ int config_parse_address_families(
                 /* If we previously wanted to forbid an address family and now
                  * we want to allow it, then just remove it from the list.
                  */
-                if (!invert == c->address_families_whitelist)  {
+                if (!invert == c->address_families_allow_list)  {
                         r = set_put(c->address_families, INT_TO_PTR(af));
                         if (r < 0)
                                 return log_oom();

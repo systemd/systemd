@@ -38,7 +38,7 @@ static int bpf_access_type(const char *acc) {
         return r;
 }
 
-static int bpf_prog_whitelist_device(
+static int bpf_prog_allow_list_device(
                 BPFProgram *prog,
                 char type,
                 int major,
@@ -80,7 +80,7 @@ static int bpf_prog_whitelist_device(
         return r;
 }
 
-static int bpf_prog_whitelist_major(
+static int bpf_prog_allow_list_major(
                 BPFProgram *prog,
                 char type,
                 int major,
@@ -120,7 +120,7 @@ static int bpf_prog_whitelist_major(
         return r;
 }
 
-static int bpf_prog_whitelist_class(
+static int bpf_prog_allow_list_class(
                 BPFProgram *prog,
                 char type,
                 const char *acc) {
@@ -161,7 +161,7 @@ static int bpf_prog_whitelist_class(
 int bpf_devices_cgroup_init(
                 BPFProgram **ret,
                 CGroupDevicePolicy policy,
-                bool whitelist) {
+                bool allow_list) {
 
         const struct bpf_insn pre_insn[] = {
                 /* load device type to r2 */
@@ -188,14 +188,14 @@ int bpf_devices_cgroup_init(
 
         assert(ret);
 
-        if (policy == CGROUP_DEVICE_POLICY_AUTO && !whitelist)
+        if (policy == CGROUP_DEVICE_POLICY_AUTO && !allow_list)
                 return 0;
 
         r = bpf_program_new(BPF_PROG_TYPE_CGROUP_DEVICE, &prog);
         if (r < 0)
                 return log_error_errno(r, "Loading device control BPF program failed: %m");
 
-        if (policy == CGROUP_DEVICE_POLICY_CLOSED || whitelist) {
+        if (policy == CGROUP_DEVICE_POLICY_CLOSED || allow_list) {
                 r = bpf_program_add_instructions(prog, pre_insn, ELEMENTSOF(pre_insn));
                 if (r < 0)
                         return log_error_errno(r, "Extending device control BPF program failed: %m");
@@ -209,7 +209,7 @@ int bpf_devices_cgroup_init(
 int bpf_devices_apply_policy(
                 BPFProgram *prog,
                 CGroupDevicePolicy policy,
-                bool whitelist,
+                bool allow_list,
                 const char *cgroup_path,
                 BPFProgram **prog_installed) {
 
@@ -221,7 +221,7 @@ int bpf_devices_apply_policy(
         if (!prog)
                 goto finish;
 
-        const bool deny_everything = policy == CGROUP_DEVICE_POLICY_STRICT && !whitelist;
+        const bool deny_everything = policy == CGROUP_DEVICE_POLICY_STRICT && !allow_list;
 
         const struct bpf_insn post_insn[] = {
                 /* return DENY */
@@ -325,7 +325,7 @@ int bpf_devices_supported(void) {
         return supported = 1;
 }
 
-static int whitelist_device_pattern(
+static int allow_list_device_pattern(
                 BPFProgram *prog,
                 const char *path,
                 char type,
@@ -340,11 +340,11 @@ static int whitelist_device_pattern(
                         return 0;
 
                 if (maj && min)
-                        return bpf_prog_whitelist_device(prog, type, *maj, *min, acc);
+                        return bpf_prog_allow_list_device(prog, type, *maj, *min, acc);
                 else if (maj)
-                        return bpf_prog_whitelist_major(prog, type, *maj, acc);
+                        return bpf_prog_allow_list_major(prog, type, *maj, acc);
                 else
-                        return bpf_prog_whitelist_class(prog, type, acc);
+                        return bpf_prog_allow_list_class(prog, type, acc);
 
         } else {
                 char buf[2+DECIMAL_STR_MAX(unsigned)*2+2+4];
@@ -369,7 +369,7 @@ static int whitelist_device_pattern(
         }
 }
 
-int bpf_devices_whitelist_device(
+int bpf_devices_allow_list_device(
                 BPFProgram *prog,
                 const char *path,
                 const char *node,
@@ -405,10 +405,10 @@ int bpf_devices_whitelist_device(
         }
 
         unsigned maj = major(rdev), min = minor(rdev);
-        return whitelist_device_pattern(prog, path, S_ISCHR(mode) ? 'c' : 'b', &maj, &min, acc);
+        return allow_list_device_pattern(prog, path, S_ISCHR(mode) ? 'c' : 'b', &maj, &min, acc);
 }
 
-int bpf_devices_whitelist_major(
+int bpf_devices_allow_list_major(
                 BPFProgram *prog,
                 const char *path,
                 const char *name,
@@ -424,12 +424,12 @@ int bpf_devices_whitelist_major(
 
         if (streq(name, "*"))
                 /* If the name is a wildcard, then apply this list to all devices of this type */
-                return whitelist_device_pattern(prog, path, type, NULL, NULL, acc);
+                return allow_list_device_pattern(prog, path, type, NULL, NULL, acc);
 
         if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj))
                 /* The name is numeric and suitable as major. In that case, let's take its major, and create
                  * the entry directly. */
-                return whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
+                return allow_list_device_pattern(prog, path, type, &maj, NULL, acc);
 
         _cleanup_fclose_ FILE *f = NULL;
         bool good = false, any = false;
@@ -486,17 +486,17 @@ int bpf_devices_whitelist_major(
                         continue;
 
                 any = true;
-                (void) whitelist_device_pattern(prog, path, type, &maj, NULL, acc);
+                (void) allow_list_device_pattern(prog, path, type, &maj, NULL, acc);
         }
 
         if (!any)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "Device whitelist pattern \"%s\" did not match anything.", name);
+                                       "Device allow list pattern \"%s\" did not match anything.", name);
 
         return 0;
 }
 
-int bpf_devices_whitelist_static(
+int bpf_devices_allow_list_static(
                 BPFProgram *prog,
                 const char *path) {
 
@@ -515,13 +515,13 @@ int bpf_devices_whitelist_static(
 
         const char *node, *acc;
         NULSTR_FOREACH_PAIR(node, acc, auto_devices) {
-                k = bpf_devices_whitelist_device(prog, path, node, acc);
+                k = bpf_devices_allow_list_device(prog, path, node, acc);
                 if (r >= 0 && k < 0)
                         r = k;
         }
 
         /* PTS (/dev/pts) devices may not be duplicated, but accessed */
-        k = bpf_devices_whitelist_major(prog, path, "pts", 'c', "rw");
+        k = bpf_devices_allow_list_major(prog, path, "pts", 'c', "rw");
         if (r >= 0 && k < 0)
                 r = k;
 
