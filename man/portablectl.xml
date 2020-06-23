@@ -352,6 +352,16 @@
         <listitem><para>Don't block waiting for attach --now to complete.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--extension=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Attach an additional image <replaceable>PATH</replaceable> as an overlay on
+        top of <replaceable>IMAGE</replaceable>. This argument can be specified multiple times, in
+        which case the order in which images are laid down follows the rules specified in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the <varname>ExtensionImages=</varname> directive.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
