@@ -664,11 +664,13 @@ static void cgroup_apply_legacy_cpu_config(Unit *u, uint64_t shares, uint64_t qu
 
         if (quota != USEC_INFINITY) {
                 xsprintf(buf, USEC_FMT "\n", MAX(quota * period / USEC_PER_SEC, USEC_PER_MSEC));
+                r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_quota_us", buf);
+        }
+        else
                 r = cg_set_attribute("cpu", u->cgroup_path, "cpu.cfs_quota_us", "-1");
         if (r < 0)
                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to set cpu.cfs_quota_us: %m");
-        }
 }
 
 static uint64_t cgroup_cpu_shares_to_weight(uint64_t shares) {
