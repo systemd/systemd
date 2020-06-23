@@ -496,7 +496,7 @@ int xdg_autostart_service_generate_unit(
 
         /* Nothing to do if type is not Application. */
         if (!streq_ptr(service->type, "Application")) {
-                log_info("Not generating service for XDG autostart %s, it is hidden.", service->name);
+                log_info("Not generating service for XDG autostart %s, only Type=Application is supported.", service->name);
                 return 0;
         }
 
