@@ -56,6 +56,14 @@ node /org/freedesktop/portable1 {
                   in  b runtime,
                   in  s copy_mode,
                   out a(sss) changes);
+      AttachImageWithExtensions(in  s image,
+                                in  as extensions,
+                                in  as matches,
+                                in  s profile,
+                                in  b runtime,
+                                in  s copy_mode,
+                                in  t flags,
+                                out a(sss) changes);
       DetachImage(in  s image,
                   in  b runtime,
                   out a(sss) changes);
@@ -66,6 +74,14 @@ node /org/freedesktop/portable1 {
                     in  s copy_mode,
                     out a(sss) changes_removed,
                     out a(sss) changes_updated);
+      ReattachImageWithExtensions(in  s image,
+                                  in  as extensions,
+                                  in  as matches,
+                                  in  s profile,
+                                  in  b runtime,
+                                  in  s copy_mode,
+                                  in  t flags,
+                                  out a(sss) changes);
       RemoveImage(in  s image);
       MarkImageReadOnly(in  s image,
                         in  b read_only);
@@ -106,9 +122,13 @@ node /org/freedesktop/portable1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachImage()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="AttachImageWithExtensions()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="DetachImage()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ReattachImage()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReattachImageWithExtensions()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RemoveImage()"/>
 
@@ -197,6 +217,14 @@ node /org/freedesktop/portable1 {
       Note that an image cannot be attached if a unit that it contains is already present
       on the system.</para>
 
+      <para><function>AttachImageWithExtensions()</function> attaches a portable image to the system.
+      This method is a superset of <function>AttachImage()</function> with the addition of
+      a list of extensions as input parameter, which will be overlayed on top of the main
+      image. For more details on this functionality, see the <varname>MountImages=</varname> entry on
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      The <varname>flag</varname> parameter is currently unused and reserved for future purposes.</para>
+
       <para><function>DetachImage()</function> detaches a portable image from the system.
       This method takes an image path or name, and a boolean indicating whether the image to
       detach was attached only for the current boot session or persistently. This method
@@ -217,6 +245,14 @@ node /org/freedesktop/portable1 {
       parameters are the combination of the return parameters of the
       <function>DetachImage()</function> method (first array, units that were removed) and the
       <function>AttachImage()</function> method (second array, units that were updated or added).</para>
+
+      <para><function>ReattachImageWithExtensions()</function> reattaches a portable image to the system.
+      This method is a superset of <function>ReattachImage()</function> with the addition of
+      a list of extensions as input parameter, which will be overlayed on top of the main
+      image. For more details on this functionality, see the <varname>MountImages=</varname> entry on
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      The <varname>flag</varname> parameter is currently unused and reserved for future purposes</para>
 
       <para><function>RemoveImage()</function> removes the image with the specified name.</para>
 
@@ -260,6 +296,13 @@ node /org/freedesktop/portable1 {
              in  b runtime,
              in  s copy_mode,
              out a(sss) changes);
+      AttachWithExtensions(in  as extensions,
+                           in  as matches,
+                           in  s profile,
+                           in  b runtime,
+                           in  s copy_mode,
+                           in  t flags,
+                           out a(sss) changes);
       Detach(in  b runtime,
              out a(sss) changes);
       Reattach(in  as matches,
@@ -268,6 +311,14 @@ node /org/freedesktop/portable1 {
                in  s copy_mode,
                out a(sss) changes_removed,
                out a(sss) changes_updated);
+      ReattacheWithExtensions(in  as extensions,
+                              in  as matches,
+                              in  s profile,
+                              in  b runtime,
+                              in  s copy_mode,
+                              in  t flags,
+                              out a(sss) changes_removed,
+                              out a(sss) changes_updated);
       Remove();
       MarkReadOnly(in  b read_only);
       SetLimit(in  t limit);
@@ -307,9 +358,13 @@ node /org/freedesktop/portable1 {
 
     <!--method Attach is not documented!-->
 
+    <!--method AttachWithExtensions is not documented!-->
+
     <!--method Detach is not documented!-->
 
     <!--method Reattach is not documented!-->
+
+    <!--method ReattacheWithExtensions is not documented!-->
 
     <!--method Remove is not documented!-->
 
@@ -331,9 +386,13 @@ node /org/freedesktop/portable1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Attach()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="AttachWithExtensions()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Detach()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Reattach()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="ReattacheWithExtensions()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Remove()"/>
 
@@ -381,9 +440,13 @@ node /org/freedesktop/portable1 {
 
         <listitem><para>Attach()</para></listitem>
 
+        <listitem><para>AttachWithExtensions()</para></listitem>
+
         <listitem><para>Detach()</para></listitem>
 
         <listitem><para>Reattach()</para></listitem>
+
+        <listitem><para>ReattacheWithExtensions()</para></listitem>
 
         <listitem><para>Remove()</para></listitem>
 
