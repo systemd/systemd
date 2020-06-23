@@ -734,7 +734,7 @@ install_config_files() {
     inst /etc/login.defs
     inst /etc/group
     inst /etc/shells
-    inst /etc/nsswitch.conf
+    inst_any /etc/nsswitch.conf /usr/etc/nsswitch.conf
     inst /etc/pam.conf || :
     inst /etc/os-release
     inst /etc/localtime
