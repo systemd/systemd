@@ -884,7 +884,7 @@ static int attach_unit_file(
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
                 _cleanup_close_ int fd = -1;
 
-                fd = open_tmpfile_linkable(where, O_WRONLY|O_CLOEXEC, &tmp);
+                fd = open_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &tmp);
                 if (fd < 0)
                         return log_debug_errno(fd, "Failed to create unit file '%s': %m", path);
 
