@@ -669,8 +669,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>IPIngressFilterPath=<replaceable>BPF_FS_PROGRAMM_PATH</replaceable></varname></term>
-        <term><varname>IPEgressFilterPath=<replaceable>BPF_FS_PROGRAMM_PATH</replaceable></varname></term>
+        <term><varname>IPIngressFilterPath=<replaceable>BPF_FS_PROGRAM_PATH</replaceable></varname></term>
+        <term><varname>IPEgressFilterPath=<replaceable>BPF_FS_PROGRAM_PATH</replaceable></varname></term>
 
         <listitem>
           <para>Add custom network traffic filters implemented as BPF programs, applying to all IP packets
