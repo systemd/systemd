@@ -39,6 +39,7 @@ basic_sources = files('''
         device-nodes.h
         dirent-util.c
         dirent-util.h
+        dlfcn-util.c
         dlfcn-util.h
         efivars.c
         efivars.h
