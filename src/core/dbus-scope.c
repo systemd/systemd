@@ -10,7 +10,7 @@
 #include "dbus-util.h"
 #include "dbus.h"
 #include "scope.h"
-#include "selinux-access.h"
+#include "selinux-core-access.h"
 #include "unit.h"
 
 int bus_scope_method_abandon(sd_bus_message *message, void *userdata, sd_bus_error *error) {
