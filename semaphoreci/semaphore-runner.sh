@@ -13,6 +13,7 @@ AUTOPKGTEST_DIR="${CACHE_DIR}/autopkgtest"
 # semaphore cannot expose these, but useful for interactive/local runs
 ARTIFACTS_DIR=/tmp/artifacts
 PHASES=(${@:-SETUP RUN})
+UBUNTU_RELEASE="$(lsb_release -cs)"
 
 create_container() {
     # create autopkgtest LXC image; this sometimes fails with "Unable to fetch
@@ -51,9 +52,9 @@ for phase in "${PHASES[@]}"; do
             sudo rm -f /etc/apt/sources.list.d/*
 
             # enable backports for latest LXC
-            echo 'deb http://archive.ubuntu.com/ubuntu xenial-backports main restricted universe multiverse' | sudo tee -a /etc/apt/sources.list.d/backports.list
+            echo "deb http://archive.ubuntu.com/ubuntu $UBUNTU_RELEASE-backports main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/backports.list
             sudo apt-get -q update
-            sudo apt-get install -y -t xenial-backports lxc
+            sudo apt-get install -y -t "$UBUNTU_RELEASE-backports" lxc
             sudo apt-get install -y python3-debian git dpkg-dev fakeroot
 
             [ -d $AUTOPKGTEST_DIR ] || git clone --quiet --depth=1 https://salsa.debian.org/ci-team/autopkgtest.git "$AUTOPKGTEST_DIR"
