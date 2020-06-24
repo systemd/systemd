@@ -12,13 +12,19 @@ Parent=clsact
 Parent=root
 Handle=0002
 DefaultClass=30
+RateToQuantum=20
 
 [HierarchyTokenBucketClass]
 Parent=root
 ClassId=0002:0030
 Priority=1
+QuantumBytes=4000
+MTUBytes=1700
+OverheadBytes=100
 Rate=1M
+BufferBytes=123456
 CeilRate=0.5M
+CeilBufferBytes=123457
 
 [NetworkEmulator]
 Parent=2:30

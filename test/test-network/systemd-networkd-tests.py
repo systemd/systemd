@@ -2420,7 +2420,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         self.assertRegex(output, 'qdisc pfifo_fast 3c: parent 2:3c')
 
-        output = check_output('tc class show dev dummy98')
+        output = check_output('tc -d class show dev dummy98')
         print(output)
         self.assertRegex(output, 'class htb 2:30 root leaf 30:')
         self.assertRegex(output, 'class htb 2:31 root leaf 31:')
@@ -2435,7 +2435,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'class htb 2:3a root leaf 3a:')
         self.assertRegex(output, 'class htb 2:3b root leaf 3b:')
         self.assertRegex(output, 'class htb 2:3c root leaf 3c:')
-        self.assertRegex(output, 'prio 1 rate 1Mbit ceil 500Kbit')
+        self.assertRegex(output, 'prio 1 quantum 4000 rate 1Mbit overhead 100 ceil 500Kbit')
+        self.assertRegex(output, 'burst 123456')
+        self.assertRegex(output, 'cburst 123457')
 
     def test_qdisc2(self):
         copy_unit_to_networkd_unit_path('25-qdisc-drr.network', '12-dummy.netdev',
