@@ -772,8 +772,13 @@ uint32_t jenkins_hashbig( const void *key, size_t length, uint32_t initval)
 
 #ifdef SELF_TEST
 
+#define hashlittle jenkins_hashlittle
+#define hashlittle2 jenkins_hashlittle2
+#define hashword jenkins_hashword
+#define hashword2 jenkins_hashword2
+
 /* used for timings */
-void driver1()
+static void driver1(void)
 {
   uint8_t buf[256];
   uint32_t i;
@@ -787,7 +792,7 @@ void driver1()
     h = hashlittle(&buf[0],1,h);
   }
   time(&z);
-  if (z-a > 0) printf("time %d %.8x\n", z-a, h);
+  if (z-a > 0) printf("time %lf %.8x\n", difftime(z, a), h);
 }
 
 /* check that every input bit changes every output bit half the time */
@@ -795,7 +800,7 @@ void driver1()
 #define HASHLEN   1
 #define MAXPAIR 60
 #define MAXLEN  70
-void driver2()
+static void driver2(void)
 {
   uint8_t qa[MAXLEN+1], qb[MAXLEN+2], *a = &qa[0], *b = &qb[1];
   uint32_t c[HASHSTATE], d[HASHSTATE], i=0, j=0, k, l, m=0, z;
@@ -848,7 +853,7 @@ void driver2()
              printf("Some bit didn't change: ");
              printf("%.8x %.8x %.8x %.8x %.8x %.8x  ",
                     e[0],f[0],g[0],h[0],x[0],y[0]);
-             printf("i %d j %d m %d len %d\n", i, j, m, hlen);
+             printf("i %" PRIu32 " j %" PRIu32 " m %" PRIu32 " len %" PRIu32 "\n", i, j, m, hlen);
           }
           if (z==MAXPAIR) goto done;
         }
@@ -857,15 +862,15 @@ void driver2()
    done:
     if (z < MAXPAIR)
     {
-      printf("Mix success  %2d bytes  %2d initvals  ",i,m);
-      printf("required  %d  trials\n", z/2);
+      printf("Mix success %2" PRIu32 " bytes, %2" PRIu32 " initvals", i, m);
+      printf("required %" PRIu32 " trials\n", z/2);
     }
   }
   printf("\n");
 }
 
 /* Check for reading beyond the end of the buffer and alignment problems */
-void driver3()
+static void driver3(void)
 {
   uint8_t buf[MAXLEN+20], *b;
   uint32_t len;
@@ -948,7 +953,7 @@ void driver3()
       y = hashlittle(b, len, (uint32_t)1);
       if ((ref != x) || (ref != y))
       {
-        printf("alignment error: %.8x %.8x %.8x %d %d\n",ref,x,y,
+        printf("alignment error: %.8x %.8x %.8x %" PRIu32 " %" PRIu32 "\n", ref, x, y,
                h, i);
       }
     }
@@ -956,50 +961,49 @@ void driver3()
 }
 
 /* check for problems with nulls */
- void driver4()
+static void driver4(void)
 {
   uint8_t buf[1];
-  uint32_t h,i,state[HASHSTATE];
+  uint32_t h, i;
 
   buf[0] = ~0;
-  for (i=0; i<HASHSTATE; ++i) state[i] = 1;
   printf("These should all be different\n");
   for (i=0, h=0; i<8; ++i)
   {
     h = hashlittle(buf, 0, h);
-    printf("%2ld  0-byte strings, hash is  %.8x\n", i, h);
+    printf("%2" PRIu32 "  0-byte strings, hash is  %.8x\n", i, h);
   }
 }
 
-void driver5()
+static void driver5(void)
 {
   uint32_t b,c;
   b=0, c=0, hashlittle2("", 0, &c, &b);
-  printf("hash is %.8lx %.8lx\n", c, b);   /* deadbeef deadbeef */
+  printf("hash is %.8" PRIx32 " %.8" PRIx32 "\n", c, b);   /* deadbeef deadbeef */
   b=0xdeadbeef, c=0, hashlittle2("", 0, &c, &b);
-  printf("hash is %.8lx %.8lx\n", c, b);   /* bd5b7dde deadbeef */
+  printf("hash is %.8" PRIx32 " %.8" PRIx32 "\n", c, b);   /* bd5b7dde deadbeef */
   b=0xdeadbeef, c=0xdeadbeef, hashlittle2("", 0, &c, &b);
-  printf("hash is %.8lx %.8lx\n", c, b);   /* 9c093ccd bd5b7dde */
+  printf("hash is %.8" PRIx32 " %.8" PRIx32 "\n", c, b);   /* 9c093ccd bd5b7dde */
   b=0, c=0, hashlittle2("Four score and seven years ago", 30, &c, &b);
-  printf("hash is %.8lx %.8lx\n", c, b);   /* 17770551 ce7226e6 */
+  printf("hash is %.8" PRIx32 " %.8" PRIx32 "\n", c, b);   /* 17770551 ce7226e6 */
   b=1, c=0, hashlittle2("Four score and seven years ago", 30, &c, &b);
-  printf("hash is %.8lx %.8lx\n", c, b);   /* e3607cae bd371de4 */
+  printf("hash is %.8" PRIx32 " %.8" PRIx32 "\n", c, b);   /* e3607cae bd371de4 */
   b=0, c=1, hashlittle2("Four score and seven years ago", 30, &c, &b);
-  printf("hash is %.8lx %.8lx\n", c, b);   /* cd628161 6cbea4b3 */
+  printf("hash is %.8" PRIx32 " %.8" PRIx32 "\n", c, b);   /* cd628161 6cbea4b3 */
   c = hashlittle("Four score and seven years ago", 30, 0);
-  printf("hash is %.8lx\n", c);   /* 17770551 */
+  printf("hash is %.8" PRIx32 "\n", c);   /* 17770551 */
   c = hashlittle("Four score and seven years ago", 30, 1);
-  printf("hash is %.8lx\n", c);   /* cd628161 */
+  printf("hash is %.8" PRIx32 "\n", c);   /* cd628161 */
 }
 
-int main()
+int main(int argc, char **argv)
 {
   driver1();   /* test that the key is hashed: used for timings */
   driver2();   /* test that whole key is hashed thoroughly */
   driver3();   /* test that nothing but the key is hashed */
   driver4();   /* test hashing multiple buffers (all buffers are null) */
   driver5();   /* test the hash against known vectors */
-  return 1;
+  return 0;
 }
 
 #endif  /* SELF_TEST */

@@ -441,7 +441,7 @@ def restart_networkd(sleep_sec=0, show_logs=True, remove_state_files=True):
     start_networkd(sleep_sec)
 
 
-class Utilities():
+class Utilities(unittest.TestCase):
     def check_link_exists(self, link):
         self.assertTrue(link_exists(link))
 
@@ -523,7 +523,7 @@ class Utilities():
         else:
             self.assertRegex(output, address_regex)
 
-class NetworkctlTests(unittest.TestCase, Utilities):
+class NetworkctlTests(Utilities):
 
     links = [
         'dummy98',
@@ -684,7 +684,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertFalse(link_exists('veth99'))
         self.assertFalse(link_exists('veth-peer'))
 
-class NetworkdNetDevTests(unittest.TestCase, Utilities):
+class NetworkdNetDevTests(Utilities):
 
     links_remove_earlier = [
         'xfrm99',
@@ -1547,7 +1547,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online(['ifb99:degraded'])
 
-class NetworkdL2TPTests(unittest.TestCase, Utilities):
+class NetworkdL2TPTests(Utilities):
 
     links =[
         'l2tp-ses1',
@@ -1630,7 +1630,7 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
         self.assertRegex(output, "Peer session 28, tunnel 12")
         self.assertRegex(output, "interface name: l2tp-ses4")
 
-class NetworkdNetworkTests(unittest.TestCase, Utilities):
+class NetworkdNetworkTests(Utilities):
     links = [
         'bond199',
         'dummy98',
@@ -2480,7 +2480,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'qdisc hhf 3a: root')
         self.assertRegex(output, 'limit 1022p')
 
-class NetworkdStateFileTests(unittest.TestCase, Utilities):
+class NetworkdStateFileTests(Utilities):
     links = [
         'dummy98',
     ]
@@ -2572,7 +2572,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
             self.assertRegex(data, r'MDNS=yes')
             self.assertRegex(data, r'DNSSEC=no')
 
-class NetworkdBondTests(unittest.TestCase, Utilities):
+class NetworkdBondTests(Utilities):
     links = [
         'bond199',
         'bond99',
@@ -2662,7 +2662,7 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
             # Let's confirm that networkd's operstate is consistent with ip's result.
             self.assertNotRegex(output, 'NO-CARRIER')
 
-class NetworkdBridgeTests(unittest.TestCase, Utilities):
+class NetworkdBridgeTests(Utilities):
     links = [
         'bridge99',
         'dummy98',
@@ -2879,7 +2879,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         print(output)
         self.assertEqual(output, '0:	from all to 8.8.8.8 lookup 100')
 
-class NetworkdLLDPTests(unittest.TestCase, Utilities):
+class NetworkdLLDPTests(Utilities):
     links = ['veth99']
 
     units = [
@@ -2906,7 +2906,7 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'veth-peer')
         self.assertRegex(output, 'veth99')
 
-class NetworkdRATests(unittest.TestCase, Utilities):
+class NetworkdRATests(Utilities):
     links = ['veth99']
 
     units = [
@@ -2978,7 +2978,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2002:da8:1:0')
 
-class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
+class NetworkdDHCPServerTests(Utilities):
     links = ['veth99']
 
     units = [
@@ -3020,7 +3020,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '192.168.5.*')
         self.assertRegex(output, 'Europe/Berlin')
 
-class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
+class NetworkdDHCPClientTests(Utilities):
     links = [
         'veth99',
         'vrf99']
@@ -3150,11 +3150,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def _test_dhcp_client_ipv4_use_routes_gateway(self, routes, gateway, dnsroutes):
         testunit = 'dhcp-client-ipv4-use-routes-use-gateway.network'
         testunits = ['25-veth.netdev', 'dhcp-server-veth-peer.network', testunit]
-        if routes != None:
+        if routes is not None:
             testunits.append(f'{testunit}.d/use-routes-{routes}.conf');
-        if gateway != None:
+        if gateway is not None:
             testunits.append(f'{testunit}.d/use-gateway-{gateway}.conf');
-        if dnsroutes != None:
+        if dnsroutes is not None:
             testunits.append(f'{testunit}.d/use-dns-routes-{dnsroutes}.conf');
         copy_unit_to_networkd_unit_path(*testunits, dropins=False)
 
@@ -3169,7 +3169,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # UseRoutes= defaults to true
         useroutes = routes in [True, None]
         # UseGateway= defaults to useroutes
-        usegateway = useroutes if gateway == None else gateway
+        usegateway = useroutes if gateway is None else gateway
 
         # Check UseRoutes=
         if useroutes:
@@ -3812,7 +3812,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         rc = call(*wait_online_cmd, '--timeout=10s', '--interface=veth99:routable', env=env)
         self.assertTrue(rc == 1)
 
-class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
+class NetworkdIPv6PrefixTests(Utilities):
     links = ['veth99']
 
     units = [
@@ -3846,7 +3846,7 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, '2001:db8:0:1')
         self.assertRegex(output, '2001:db8:0:2')
 
-class NetworkdMTUTests(unittest.TestCase, Utilities):
+class NetworkdMTUTests(Utilities):
     links = ['dummy98']
 
     units = [

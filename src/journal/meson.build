@@ -130,3 +130,12 @@ if get_option('create-log-dirs')
                         'setfacl -nm g:wheel:rx,d:g:wheel:rx $DESTDIR/var/log/journal || :')
         endif
 endif
+
+############################################################
+
+tests += [
+        [['src/journal/lookup3.c'],
+         [], # just put something here to override the default
+         [],
+         '', '',
+         ['-DSELF_TEST']]]
