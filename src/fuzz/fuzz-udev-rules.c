@@ -13,6 +13,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-udev-rules.XXXXXX";
+        int r;
 
         if (!getenv("SYSTEMD_LOG_LEVEL")) {
                 log_set_max_level_realm(LOG_REALM_UDEV, LOG_CRIT);
@@ -25,7 +26,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fflush(f);
 
         assert_se(rules = udev_rules_new(RESOLVE_NAME_EARLY));
-        assert_se(udev_rules_parse_file(rules, filename) == 0);
+        r = udev_rules_parse_file(rules, filename);
+        log_info_errno(r, "Parsing %s: %m", filename);
+        assert_se(IN_SET(r,
+                         0,       /* OK */
+                         -ENOBUFS /* line length exceeded */));
 
         return 0;
 }

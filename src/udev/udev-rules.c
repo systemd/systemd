@@ -1308,8 +1308,11 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate rules files: %m");
 
-        STRV_FOREACH(f, files)
-                (void) udev_rules_parse_file(rules, *f);
+        STRV_FOREACH(f, files) {
+                r = udev_rules_parse_file(rules, *f);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read rules file %s, ignoring: %m", *f);
+        }
 
         *ret_rules = TAKE_PTR(rules);
         return 0;
