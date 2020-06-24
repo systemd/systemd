@@ -26,10 +26,12 @@ static inline int compress_blob(const void *src, uint64_t src_size,
         r = compress_blob_lz4(src, src_size, dst, dst_alloc_size, dst_size);
         if (r == 0)
                 return OBJECT_COMPRESSED_LZ4;
-#else
+#elif HAVE_XZ
         r = compress_blob_xz(src, src_size, dst, dst_alloc_size, dst_size);
         if (r == 0)
                 return OBJECT_COMPRESSED_XZ;
+#else
+        r = -EOPNOTSUPP;
 #endif
         return r;
 }
@@ -76,9 +78,14 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_size);
 #elif HAVE_LZ4
 #  define compress_stream compress_stream_lz4
 #  define COMPRESSED_EXT ".lz4"
-#else
+#elif HAVE_XZ
 #  define compress_stream compress_stream_xz
 #  define COMPRESSED_EXT ".xz"
+#else
+static inline int compress_stream(int fdf, int fdt, uint64_t max_size) {
+        return -EOPNOTSUPP;
+}
+#  define COMPRESSED_EXT ""
 #endif
 
 int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes);
