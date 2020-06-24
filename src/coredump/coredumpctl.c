@@ -839,8 +839,8 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         goto error;
                 }
 #else
-                log_error("Cannot decompress file. Compiled without compression support.");
-                r = -EOPNOTSUPP;
+                r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                    "Cannot decompress file. Compiled without compression support.");
                 goto error;
 #endif
         } else {
