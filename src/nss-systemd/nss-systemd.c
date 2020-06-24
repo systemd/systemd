@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "group-record-nss.h"
 #include "macro.h"
+#include "nss-systemd.h"
 #include "nss-util.h"
 #include "pthread-util.h"
 #include "signal-util.h"
@@ -299,7 +300,7 @@ enum nss_status _nss_systemd_setpwent(int stayopen) {
         PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
-        if (userdb_nss_compat_is_enabled() <= 0)
+        if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
         _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
@@ -323,7 +324,7 @@ enum nss_status _nss_systemd_setgrent(int stayopen) {
         PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
-        if (userdb_nss_compat_is_enabled() <= 0)
+        if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
         _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
@@ -353,13 +354,7 @@ enum nss_status _nss_systemd_getpwent_r(
         assert(result);
         assert(errnop);
 
-        r = userdb_nss_compat_is_enabled();
-        if (r < 0) {
-                UNPROTECT_ERRNO;
-                *errnop = -r;
-                return NSS_STATUS_UNAVAIL;
-        }
-        if (!r)
+        if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
         _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
@@ -406,14 +401,8 @@ enum nss_status _nss_systemd_getgrent_r(
         assert(result);
         assert(errnop);
 
-        r = userdb_nss_compat_is_enabled();
-        if (r < 0) {
-                UNPROTECT_ERRNO;
-                *errnop = -r;
-                return NSS_STATUS_UNAVAIL;
-        }
-        if (!r)
-                return NSS_STATUS_UNAVAIL;
+        if (_nss_systemd_is_blocked())
+                return NSS_STATUS_NOTFOUND;
 
         _cleanup_(pthread_mutex_unlock_assertp) pthread_mutex_t *_l = NULL;
 
@@ -459,7 +448,7 @@ enum nss_status _nss_systemd_getgrent_r(
         }
 
         if (getgrent_data.by_membership) {
-                _cleanup_close_ int lock_fd = -1;
+                _cleanup_(_nss_systemd_unblockp) bool blocked = false;
 
                 for (;;) {
                         _cleanup_free_ char *user_name = NULL, *group_name = NULL;
@@ -479,13 +468,15 @@ enum nss_status _nss_systemd_getgrent_r(
                                 continue;
 
                         /* We are about to recursively call into NSS, let's make sure we disable recursion into our own code. */
-                        if (lock_fd < 0) {
-                                lock_fd = userdb_nss_compat_disable();
-                                if (lock_fd < 0 && lock_fd != -EBUSY) {
+                        if (!blocked) {
+                                r = _nss_systemd_block(true);
+                                if (r < 0) {
                                         UNPROTECT_ERRNO;
-                                        *errnop = -lock_fd;
+                                        *errnop = -r;
                                         return NSS_STATUS_UNAVAIL;
                                 }
+
+                                blocked = true;
                         }
 
                         r = nss_group_record_by_name(group_name, false, &gr);
@@ -549,13 +540,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
         if (STR_IN_SET(user_name, root_passwd.pw_name, nobody_passwd.pw_name))
                 return NSS_STATUS_NOTFOUND;
 
-        r = userdb_nss_compat_is_enabled();
-        if (r < 0) {
-                UNPROTECT_ERRNO;
-                *errnop = -r;
-                return NSS_STATUS_UNAVAIL;
-        }
-        if (!r)
+        if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
 
         r = membershipdb_by_user(user_name, nss_glue_userdb_flags(), &iterator);
@@ -581,7 +566,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
                 /* The group might be defined via traditional NSS only, hence let's do a full look-up without
                  * disabling NSS. This means we are operating recursively here. */
 
-                r = groupdb_by_name(group_name, nss_glue_userdb_flags() & ~USERDB_AVOID_NSS, &g);
+                r = groupdb_by_name(group_name, (nss_glue_userdb_flags() & ~USERDB_AVOID_NSS) | USERDB_AVOID_SHADOW, &g);
                 if (r == -ESRCH)
                         continue;
                 if (r < 0) {
@@ -626,4 +611,30 @@ enum nss_status _nss_systemd_initgroups_dyn(
         }
 
         return any ? NSS_STATUS_SUCCESS : NSS_STATUS_NOTFOUND;
+}
+
+static thread_local unsigned _blocked = 0;
+
+_public_ int _nss_systemd_block(bool b) {
+
+        /* This blocks recursively: it's blocked for as many times this function is called with `true` until
+         * it is called an equal time with `false`. */
+
+        if (b) {
+                if (_blocked >= UINT_MAX)
+                        return -EOVERFLOW;
+
+                _blocked++;
+        } else {
+                if (_blocked <= 0)
+                        return -EOVERFLOW;
+
+                _blocked--;
+        }
+
+        return b; /* Return what is passed in, i.e. the new state from the PoV of the caller */
+}
+
+_public_ bool _nss_systemd_is_blocked(void) {
+        return _blocked > 0;
 }

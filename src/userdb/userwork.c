@@ -660,7 +660,6 @@ static int process_connection(VarlinkServer *server, int fd) {
 static int run(int argc, char *argv[]) {
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
         _cleanup_(varlink_server_unrefp) VarlinkServer *server = NULL;
-        _cleanup_close_ int lock = -1;
         unsigned n_iterations = 0;
         int m, listen_fd, r;
 
@@ -697,8 +696,8 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to parse USERDB_FIXED_WORKER: %m");
         listen_idle_usec = r ? USEC_INFINITY : LISTEN_IDLE_USEC;
 
-        lock = userdb_nss_compat_disable();
-        if (lock < 0)
+        r = userdb_block_nss_systemd(true);
+        if (r < 0)
                 return log_error_errno(r, "Failed to disable userdb NSS compatibility: %m");
 
         start_time = now(CLOCK_MONOTONIC);

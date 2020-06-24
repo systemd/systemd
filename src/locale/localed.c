@@ -18,6 +18,7 @@
 #include "bus-message.h"
 #include "bus-polkit.h"
 #include "def.h"
+#include "dlfcn-util.h"
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
@@ -530,7 +531,7 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
         };
         struct xkb_context *ctx = NULL;
         struct xkb_keymap *km = NULL;
-        void *dl;
+        _cleanup_(dlclosep) void *dl = NULL;
         int r;
 
         /* Compile keymap from RMLVO information to check out its validity */
@@ -582,7 +583,6 @@ finish:
         if (symbol_xkb_context_unref && ctx)
                 symbol_xkb_context_unref(ctx);
 
-        (void) dlclose(dl);
         return r;
 }
 

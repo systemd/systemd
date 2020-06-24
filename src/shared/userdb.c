@@ -3,6 +3,7 @@
 #include <sys/auxv.h>
 
 #include "dirent-util.h"
+#include "dlfcn-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "group-record-nss.h"
@@ -32,8 +33,8 @@ struct UserDBIterator {
         bool nss_iterating:1;
         bool synthesize_root:1;
         bool synthesize_nobody:1;
+        bool nss_systemd_blocked:1;
         int error;
-        int nss_lock;
         unsigned n_found;
         sd_event *event;
         UserRecord *found_user;                   /* when .what == LOOKUP_USER */
@@ -85,7 +86,9 @@ UserDBIterator* userdb_iterator_free(UserDBIterator *iterator) {
         }
 
         sd_event_unref(iterator->event);
-        safe_close(iterator->nss_lock);
+
+        if (iterator->nss_systemd_blocked)
+                assert_se(userdb_block_nss_systemd(false) >= 0);
 
         return mfree(iterator);
 }
@@ -102,10 +105,25 @@ static UserDBIterator* userdb_iterator_new(LookupWhat what) {
 
         *i = (UserDBIterator) {
                 .what = what,
-                .nss_lock = -1,
         };
 
         return i;
+}
+
+static int userdb_iterator_block_nss_systemd(UserDBIterator *iterator) {
+        int r;
+
+        assert(iterator);
+
+        if (iterator->nss_systemd_blocked)
+                return 0;
+
+        r = userdb_block_nss_systemd(true);
+        if (r < 0)
+                return r;
+
+        iterator->nss_systemd_blocked = true;
+        return 1;
 }
 
 struct user_group_data {
@@ -606,13 +624,11 @@ int userdb_by_name(const char *name, UserDBFlags flags, UserRecord **ret) {
                         return r;
         }
 
-        if (!FLAGS_SET(flags, USERDB_AVOID_NSS) && !(iterator && iterator->nss_covered)) {
-                /* Make sure the NSS lookup doesn't recurse back to us. (EBUSY is fine here, it just means we
-                 * already took the lock from our thread, which is totally OK.) */
-                r = userdb_nss_compat_disable();
-                if (r >= 0 || r == -EBUSY) {
-                        iterator->nss_lock = r;
+        if (!FLAGS_SET(flags, USERDB_AVOID_NSS) && !iterator->nss_covered) {
+                /* Make sure the NSS lookup doesn't recurse back to us. */
 
+                r = userdb_iterator_block_nss_systemd(iterator);
+                if (r >= 0) {
                         /* Client-side NSS fallback */
                         r = nss_user_record_by_name(name, !FLAGS_SET(flags, USERDB_AVOID_SHADOW), ret);
                         if (r >= 0)
@@ -655,11 +671,9 @@ int userdb_by_uid(uid_t uid, UserDBFlags flags, UserRecord **ret) {
                         return r;
         }
 
-        if (!FLAGS_SET(flags, USERDB_AVOID_NSS) && !(iterator && iterator->nss_covered)) {
-                r = userdb_nss_compat_disable();
-                if (r >= 0 || r == -EBUSY) {
-                        iterator->nss_lock = r;
-
+        if (!FLAGS_SET(flags, USERDB_AVOID_NSS) && !iterator->nss_covered) {
+                r = userdb_iterator_block_nss_systemd(iterator);
+                if (r >= 0) {
                         /* Client-side NSS fallback */
                         r = nss_user_record_by_uid(uid, !FLAGS_SET(flags, USERDB_AVOID_SHADOW), ret);
                         if (r >= 0)
@@ -693,9 +707,9 @@ int userdb_all(UserDBFlags flags, UserDBIterator **ret) {
         r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", true, NULL, flags);
 
         if (!FLAGS_SET(flags, USERDB_AVOID_NSS) && (r < 0 || !iterator->nss_covered)) {
-                iterator->nss_lock = userdb_nss_compat_disable();
-                if (iterator->nss_lock < 0 && iterator->nss_lock != -EBUSY)
-                        return iterator->nss_lock;
+                r = userdb_iterator_block_nss_systemd(iterator);
+                if (r < 0)
+                        return r;
 
                 setpwent();
                 iterator->nss_iterating = true;
@@ -815,10 +829,8 @@ int groupdb_by_name(const char *name, UserDBFlags flags, GroupRecord **ret) {
         }
 
         if (!FLAGS_SET(flags, USERDB_AVOID_NSS) && !(iterator && iterator->nss_covered)) {
-                r = userdb_nss_compat_disable();
-                if (r >= 0 || r == -EBUSY) {
-                        iterator->nss_lock = r;
-
+                r = userdb_iterator_block_nss_systemd(iterator);
+                if (r >= 0) {
                         r = nss_group_record_by_name(name, !FLAGS_SET(flags, USERDB_AVOID_SHADOW), ret);
                         if (r >= 0)
                                 return r;
@@ -861,10 +873,8 @@ int groupdb_by_gid(gid_t gid, UserDBFlags flags, GroupRecord **ret) {
         }
 
         if (!FLAGS_SET(flags, USERDB_AVOID_NSS) && !(iterator && iterator->nss_covered)) {
-                r = userdb_nss_compat_disable();
-                if (r >= 0 || r == -EBUSY) {
-                        iterator->nss_lock = r;
-
+                r = userdb_iterator_block_nss_systemd(iterator);
+                if (r >= 0) {
                         r = nss_group_record_by_gid(gid, !FLAGS_SET(flags, USERDB_AVOID_SHADOW), ret);
                         if (r >= 0)
                                 return r;
@@ -897,9 +907,9 @@ int groupdb_all(UserDBFlags flags, UserDBIterator **ret) {
         r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", true, NULL, flags);
 
         if (!FLAGS_SET(flags, USERDB_AVOID_NSS) && (r < 0 || !iterator->nss_covered)) {
-                iterator->nss_lock = userdb_nss_compat_disable();
-                if (iterator->nss_lock < 0 && iterator->nss_lock != -EBUSY)
-                        return iterator->nss_lock;
+                r = userdb_iterator_block_nss_systemd(iterator);
+                if (r < 0)
+                        return r;
 
                 setgrent();
                 iterator->nss_iterating = true;
@@ -998,9 +1008,9 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
         if ((r >= 0 && iterator->nss_covered) || FLAGS_SET(flags, USERDB_AVOID_NSS))
                 goto finish;
 
-        iterator->nss_lock = userdb_nss_compat_disable();
-        if (iterator->nss_lock < 0 && iterator->nss_lock != -EBUSY)
-                return iterator->nss_lock;
+        r = userdb_iterator_block_nss_systemd(iterator);
+        if (r < 0)
+                return r;
 
         iterator->filter_user_name = strdup(name);
         if (!iterator->filter_user_name)
@@ -1041,9 +1051,9 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
         if ((r >= 0 && iterator->nss_covered) || FLAGS_SET(flags, USERDB_AVOID_NSS))
                 goto finish;
 
-        iterator->nss_lock = userdb_nss_compat_disable();
-        if (iterator->nss_lock < 0 && iterator->nss_lock != -EBUSY)
-                return iterator->nss_lock;
+        r = userdb_iterator_block_nss_systemd(iterator);
+        if (r < 0)
+                return r;
 
         /* We ignore all errors here, since the group might be defined by a userdb native service, and we queried them already above. */
         (void) nss_group_record_by_name(name, false, &gr);
@@ -1082,9 +1092,9 @@ int membershipdb_all(UserDBFlags flags, UserDBIterator **ret) {
         if ((r >= 0 && iterator->nss_covered) || FLAGS_SET(flags, USERDB_AVOID_NSS))
                 goto finish;
 
-        iterator->nss_lock = userdb_nss_compat_disable();
-        if (iterator->nss_lock < 0 && iterator->nss_lock != -EBUSY)
-                return iterator->nss_lock;
+        r = userdb_iterator_block_nss_systemd(iterator);
+        if (r < 0)
+                return r;
 
         setgrent();
         iterator->nss_iterating = true;
@@ -1221,115 +1231,24 @@ int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret)
         return 0;
 }
 
-static int userdb_thread_sockaddr(struct sockaddr_un *ret_sa, socklen_t *ret_salen) {
-        static const uint8_t
-                k1[16] = { 0x35, 0xc1, 0x1f, 0x41, 0x59, 0xc6, 0xa0, 0xf9, 0x33, 0x4b, 0x17, 0x3d, 0xb9, 0xf6, 0x14, 0xd9 },
-                k2[16] = { 0x6a, 0x11, 0x4c, 0x37, 0xe5, 0xa3, 0x8c, 0xa6, 0x93, 0x55, 0x64, 0x8c, 0x93, 0xee, 0xa1, 0x7b };
+int userdb_block_nss_systemd(int b) {
+        _cleanup_(dlclosep) void *dl = NULL;
+        int (*call)(bool b);
 
-        struct siphash sh;
-        uint64_t x, y;
-        pid_t tid;
-        void *p;
+        /* Note that we might be called from libnss_systemd.so.2 itself, but that should be fine, really. */
 
-        assert(ret_sa);
-        assert(ret_salen);
-
-        /* This calculates an AF_UNIX socket address in the abstract namespace whose existence works as an
-         * indicator whether to emulate NSS records for complex user records that are also available via the
-         * varlink protocol. The name of the socket is picked in a way so that:
-         *
-         *     → it is per-thread (by hashing from the TID)
-         *
-         *     → is not guessable for foreign processes (by hashing from the — hopefully secret — AT_RANDOM
-         *       value every process gets passed from the kernel
-         *
-         * By using a socket the NSS emulation can be nicely turned off for limited amounts of time only,
-         * simply controlled by the lifetime of the fd itself. By using an AF_UNIX socket in the abstract
-         * namespace the lock is automatically cleaned up when the process dies abnormally.
-         *
-         */
-
-        p = ULONG_TO_PTR(getauxval(AT_RANDOM));
-        if (!p)
-                return -EIO;
-
-        tid = gettid();
-
-        siphash24_init(&sh, k1);
-        siphash24_compress(p, 16, &sh);
-        siphash24_compress(&tid, sizeof(tid), &sh);
-        x = siphash24_finalize(&sh);
-
-        siphash24_init(&sh, k2);
-        siphash24_compress(p, 16, &sh);
-        siphash24_compress(&tid, sizeof(tid), &sh);
-        y = siphash24_finalize(&sh);
-
-        *ret_sa = (struct sockaddr_un) {
-                .sun_family = AF_UNIX,
-        };
-
-        sprintf(ret_sa->sun_path + 1, "userdb-%016" PRIx64 "%016" PRIx64, x, y);
-        *ret_salen = offsetof(struct sockaddr_un, sun_path) + 1 + 7 + 32;
-
-        return 0;
-}
-
-int userdb_nss_compat_is_enabled(void) {
-        _cleanup_close_ int fd = -1;
-        union sockaddr_union sa;
-        socklen_t salen;
-        int r;
-
-        /* Tests whether the NSS compatibility logic is currently turned on for the invoking thread. Returns
-         * true if NSS compatibility is turned on, i.e. whether NSS records shall be synthesized from complex
-         * user records. */
-
-        r = userdb_thread_sockaddr(&sa.un, &salen);
-        if (r < 0)
-                return r;
-
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
-        if (fd < 0)
-                return -errno;
-
-        /* Try to connect(). This doesn't do anything really, except that it checks whether the socket
-         * address is bound at all. */
-        if (connect(fd, &sa.sa, salen) < 0) {
-                if (errno == ECONNREFUSED) /* the socket is not bound, hence NSS emulation shall be done */
-                        return true;
-
-                return -errno;
+        dl = dlopen(ROOTLIBDIR "libnss_systemd.so.2", RTLD_LAZY|RTLD_NODELETE);
+        if (!dl) {
+                /* If the file isn't installed, don't complain loudly */
+                log_debug("Failed to dlopen(libnss_systemd.so.2), ignoring: %s", dlerror());
+                return 0;
         }
 
-        return false;
-}
+        call = (int (*)(bool b)) dlsym(dl, "_nss_systemd_block");
+        if (!call)
+                /* If the file is is installed but lacks the symbol we expect, things are weird, let's complain */
+                return log_debug_errno(SYNTHETIC_ERRNO(ELIBBAD),
+                                       "Unable to find symbol _nss_systemd_block in libnss_systemd.so.2: %s", dlerror());
 
-int userdb_nss_compat_disable(void) {
-        _cleanup_close_ int fd = -1;
-        union sockaddr_union sa;
-        socklen_t salen;
-        int r;
-
-        /* Turn off the NSS compatibility logic for the invoking thread. By default NSS records are
-         * synthesized for all complex user records looked up via NSS. If this call is invoked this is
-         * disabled for the invoking thread, but only for it. A caller that natively supports the varlink
-         * user record protocol may use that to turn off the compatibility for NSS lookups. */
-
-        r = userdb_thread_sockaddr(&sa.un, &salen);
-        if (r < 0)
-                return r;
-
-        fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (fd < 0)
-                return -errno;
-
-        if (bind(fd, &sa.sa, salen) < 0) {
-                if (errno == EADDRINUSE) /* lock already taken, convert this into a recognizable error */
-                        return -EBUSY;
-
-                return -errno;
-        }
-
-        return TAKE_FD(fd);
+        return call(b);
 }

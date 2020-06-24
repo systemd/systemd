@@ -39,6 +39,7 @@ basic_sources = files('''
         device-nodes.h
         dirent-util.c
         dirent-util.h
+        dlfcn-util.h
         efivars.c
         efivars.h
         env-file.c
@@ -328,7 +329,8 @@ libbasic = static_library(
                         threads,
                         libcap,
                         libselinux,
-                        libm],
+                        libm,
+                        libdl],
         c_args : ['-fvisibility=default'],
         install : false)
 
