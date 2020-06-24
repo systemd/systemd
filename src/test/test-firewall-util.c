@@ -9,16 +9,30 @@
 int main(int argc, char *argv[]) {
         int r;
         test_setup_logging(LOG_DEBUG);
+        uint8_t prefixlen = 32;
 
         r = fw_add_masquerade(true, AF_INET, NULL, 0);
+        if (r == 0)
+                log_error("Expected failure: NULL source");
+
+        r = fw_add_masquerade(true, AF_INET, &MAKE_IN_ADDR_UNION(10,1,2,0), 0);
+        if (r == 0)
+                log_error("Expected failure: 0 prefixlen");
+
+        r = fw_add_masquerade(true, AF_INET, &MAKE_IN_ADDR_UNION(10,1,2,3), prefixlen);
         if (r < 0)
                 log_error_errno(r, "Failed to modify firewall: %m");
 
-        r = fw_add_masquerade(true, AF_INET, NULL, 0);
+        prefixlen = 28;
+        r = fw_add_masquerade(true, AF_INET, &MAKE_IN_ADDR_UNION(10,0,2,0), prefixlen);
         if (r < 0)
                 log_error_errno(r, "Failed to modify firewall: %m");
 
-        r = fw_add_masquerade(false, AF_INET, NULL, 0);
+        r = fw_add_masquerade(false, AF_INET, &MAKE_IN_ADDR_UNION(10,0,2,0), prefixlen);
+        if (r < 0)
+                log_error_errno(r, "Failed to modify firewall: %m");
+
+        r = fw_add_masquerade(false, AF_INET, &MAKE_IN_ADDR_UNION(10,1,2,3), 32);
         if (r < 0)
                 log_error_errno(r, "Failed to modify firewall: %m");
 

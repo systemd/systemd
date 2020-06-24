@@ -98,6 +98,9 @@ int fw_add_masquerade(
         if (af != AF_INET)
                 return -EOPNOTSUPP;
 
+        if (!source || source_prefixlen == 0)
+                return -EINVAL;
+
         h = iptc_init("nat");
         if (!h)
                 return -errno;
