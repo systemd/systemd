@@ -21,11 +21,11 @@ env:
 stages:
   # 'Test' is the default stage (for matrix jobs)
   - name: Test
-    if: type != cron
+    if: type == cron
 
     # Run Coverity periodically instead of for each commit/PR
   - name: Coverity
-    if: type = cron
+    if: type != cron
 
 # Matrix job definition - this is run for each combination of env variables
 # from the env.jobs array above
