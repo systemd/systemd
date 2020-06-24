@@ -107,7 +107,7 @@ typedef struct JournalFile {
         unsigned last_seen_generation;
 
         uint64_t compress_threshold_bytes;
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
         void *compress_buffer;
         size_t compress_buffer_size;
 #endif

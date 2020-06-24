@@ -392,7 +392,7 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         ordered_hashmap_free_free(f->chain_cache);
 
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
         free(f->compress_buffer);
 #endif
 
@@ -1455,7 +1455,7 @@ int journal_file_find_data_object_with_hash(
                         goto next;
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
                         uint64_t l;
                         size_t rsize = 0;
 
@@ -1624,7 +1624,7 @@ static int journal_file_append_data(
 
         o->data.hash = htole64(hash);
 
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
         if (JOURNAL_FILE_COMPRESS(f) && size >= f->compress_threshold_bytes) {
                 size_t rsize = 0;
 
@@ -3852,7 +3852,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return -E2BIG;
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
                         size_t rsize = 0;
 
                         r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,

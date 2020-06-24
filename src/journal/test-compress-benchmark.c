@@ -17,7 +17,7 @@ typedef int (compress_t)(const void *src, uint64_t src_size, void *dst,
 typedef int (decompress_t)(const void *src, uint64_t src_size,
                            void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max);
 
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
 
 static usec_t arg_duration;
 static size_t arg_start;
@@ -143,7 +143,7 @@ static void test_compress_decompress(const char* label, const char* type,
 #endif
 
 int main(int argc, char *argv[]) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
         test_setup_logging(LOG_INFO);
 
         if (argc >= 2) {
