@@ -19,7 +19,7 @@
 #include "log.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "selinux-access.h"
+#include "selinux-core-access.h"
 #include "signal-util.h"
 #include "special.h"
 #include "string-table.h"

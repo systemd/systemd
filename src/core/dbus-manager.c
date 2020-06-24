@@ -30,7 +30,7 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "selinux-access.h"
+#include "selinux-core-access.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
