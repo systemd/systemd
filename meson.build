@@ -1798,8 +1798,8 @@ public_programs += executable(
                         libqrencode,
                         libxz,
                         liblz4,
-                        libpcre2,
-                        libzstd],
+                        libzstd,
+                        libdl],
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootbindir)

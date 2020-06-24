@@ -101,7 +101,11 @@ journald_gperf_c = custom_target(
 
 systemd_cat_sources = files('cat.c')
 
-journalctl_sources = files('journalctl.c')
+journalctl_sources = files('''
+        journalctl.c
+        pcre2-dlopen.c
+        pcre2-dlopen.h
+'''.split())
 
 if conf.get('HAVE_QRENCODE') == 1
         journalctl_sources += files('journal-qrcode.c',
