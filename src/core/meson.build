@@ -3,8 +3,6 @@
 libcore_sources = '''
         apparmor-setup.c
         apparmor-setup.h
-        audit-fd.c
-        audit-fd.h
         automount.c
         automount.h
         bpf-devices.c
@@ -97,8 +95,8 @@ libcore_sources = '''
         path.h
         scope.c
         scope.h
-        selinux-access.c
-        selinux-access.h
+        selinux-core-access.c
+        selinux-core-access.h
         selinux-setup.c
         selinux-setup.h
         service.c

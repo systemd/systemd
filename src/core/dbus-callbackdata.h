@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include "selinux-access.h"
+#include "selinux-core-access.h"
 
 typedef struct MacUnitCallbackUserdata {
         Manager *manager;
