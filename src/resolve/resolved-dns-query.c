@@ -94,7 +94,7 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
 }
 
 static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResourceKey *key) {
-        DnsTransaction *t;
+        _cleanup_(dns_transaction_gcp) DnsTransaction *t = NULL;
         int r;
 
         assert(c);
@@ -105,39 +105,26 @@ static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResource
                 r = dns_transaction_new(&t, c->scope, key);
                 if (r < 0)
                         return r;
-        } else {
-                if (set_contains(c->transactions, t))
-                        return 0;
-        }
-
-        r = set_ensure_allocated(&c->transactions, NULL);
-        if (r < 0)
-                goto gc;
-
-        r = set_ensure_allocated(&t->notify_query_candidates, NULL);
-        if (r < 0)
-                goto gc;
+        } else if (set_contains(c->transactions, t))
+                return 0;
 
         r = set_ensure_allocated(&t->notify_query_candidates_done, NULL);
         if (r < 0)
-                goto gc;
+                return r;
 
-        r = set_put(t->notify_query_candidates, c);
+        r = set_ensure_put(&t->notify_query_candidates, NULL, c);
         if (r < 0)
-                goto gc;
+                return r;
 
-        r = set_put(c->transactions, t);
+        r = set_ensure_put(&c->transactions, NULL, t);
         if (r < 0) {
                 (void) set_remove(t->notify_query_candidates, c);
-                goto gc;
+                return r;
         }
 
         t->clamp_ttl = c->query->clamp_ttl;
+        TAKE_PTR(t);
         return 1;
-
-gc:
-        dns_transaction_gc(t);
-        return r;
 }
 
 static int dns_query_candidate_go(DnsQueryCandidate *c) {

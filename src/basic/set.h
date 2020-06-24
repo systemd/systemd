@@ -26,9 +26,7 @@ static inline Set *set_free_free(Set *s) {
 
 /* no set_free_free_free */
 
-static inline Set *set_copy(Set *s) {
-        return (Set*) _hashmap_copy(HASHMAP_BASE(s));
-}
+#define set_copy(s) ((Set*) _hashmap_copy(HASHMAP_BASE(h)  HASHMAP_DEBUG_SRC_ARGS))
 
 int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
 #define set_ensure_allocated(h, ops) _set_ensure_allocated(h, ops HASHMAP_DEBUG_SRC_ARGS)
@@ -120,9 +118,19 @@ static inline char **set_get_strv(Set *s) {
         return _hashmap_get_strv(HASHMAP_BASE(s));
 }
 
+int _set_ensure_put(Set **s, const struct hash_ops *hash_ops, const void *key  HASHMAP_DEBUG_PARAMS);
+#define set_ensure_put(s, hash_ops, key) _set_ensure_put(s, hash_ops, key  HASHMAP_DEBUG_SRC_ARGS)
+
+int _set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key  HASHMAP_DEBUG_PARAMS);
+#define set_ensure_consume(s, hash_ops, key) _set_ensure_consume(s, hash_ops, key  HASHMAP_DEBUG_SRC_ARGS)
+
 int set_consume(Set *s, void *value);
-int set_put_strdup(Set **s, const char *p);
-int set_put_strdupv(Set **s, char **l);
+
+int _set_put_strdup(Set **s, const char *p  HASHMAP_DEBUG_PARAMS);
+#define set_put_strdup(s, p) _set_put_strdup(s, p  HASHMAP_DEBUG_SRC_ARGS)
+int _set_put_strdupv(Set **s, char **l  HASHMAP_DEBUG_PARAMS);
+#define set_put_strdupv(s, l) _set_put_strdupv(s, l  HASHMAP_DEBUG_SRC_ARGS)
+
 int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags flags);
 
 #define SET_FOREACH(e, s, i) \

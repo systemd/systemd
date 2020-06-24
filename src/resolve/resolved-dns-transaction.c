@@ -1501,11 +1501,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 add_known_answers = true;
 
         if (t->key->type == DNS_TYPE_ANY) {
-                r = set_ensure_allocated(&keys, &dns_resource_key_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = set_put(keys, t->key);
+                r = set_ensure_put(&keys, &dns_resource_key_hash_ops, t->key);
                 if (r < 0)
                         return r;
         }
@@ -1571,11 +1567,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                         add_known_answers = true;
 
                 if (other->key->type == DNS_TYPE_ANY) {
-                        r = set_ensure_allocated(&keys, &dns_resource_key_hash_ops);
-                        if (r < 0)
-                                return r;
-
-                        r = set_put(keys, other->key);
+                        r = set_ensure_put(&keys, &dns_resource_key_hash_ops, other->key);
                         if (r < 0)
                                 return r;
                 }
@@ -1800,7 +1792,7 @@ static int dns_transaction_find_cyclic(DnsTransaction *t, DnsTransaction *aux) {
 }
 
 static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResourceKey *key, DnsTransaction **ret) {
-        DnsTransaction *aux;
+        _cleanup_(dns_transaction_gcp) DnsTransaction *aux = NULL;
         int r;
 
         assert(t);
@@ -1833,34 +1825,22 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
                 }
         }
 
-        r = set_ensure_allocated(&t->dnssec_transactions, NULL);
-        if (r < 0)
-                goto gc;
-
-        r = set_ensure_allocated(&aux->notify_transactions, NULL);
-        if (r < 0)
-                goto gc;
-
         r = set_ensure_allocated(&aux->notify_transactions_done, NULL);
         if (r < 0)
-                goto gc;
+                return r;
 
-        r = set_put(t->dnssec_transactions, aux);
+        r = set_ensure_put(&t->dnssec_transactions, NULL, aux);
         if (r < 0)
-                goto gc;
+                return r;;
 
-        r = set_put(aux->notify_transactions, t);
+        r = set_ensure_put(&aux->notify_transactions, NULL, t);
         if (r < 0) {
                 (void) set_remove(t->dnssec_transactions, aux);
-                goto gc;
+                return r;
         }
 
-        *ret = aux;
+        *ret = TAKE_PTR(aux);
         return 1;
-
-gc:
-        dns_transaction_gc(aux);
-        return r;
 }
 
 static int dns_transaction_request_dnssec_rr(DnsTransaction *t, DnsResourceKey *key) {

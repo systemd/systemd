@@ -162,7 +162,7 @@ static int dns_zone_link_item(DnsZone *z, DnsZoneItem *i) {
 }
 
 static int dns_zone_item_probe_start(DnsZoneItem *i)  {
-        DnsTransaction *t;
+        _cleanup_(dns_transaction_gcp) DnsTransaction *t = NULL;
         int r;
 
         assert(i);
@@ -183,25 +183,20 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
                         return r;
         }
 
-        r = set_ensure_allocated(&t->notify_zone_items, NULL);
-        if (r < 0)
-                goto gc;
-
         r = set_ensure_allocated(&t->notify_zone_items_done, NULL);
         if (r < 0)
-                goto gc;
+                return r;
 
-        r = set_put(t->notify_zone_items, i);
+        r = set_ensure_put(&t->notify_zone_items, NULL, i);
         if (r < 0)
-                goto gc;
+                return r;
 
-        i->probe_transaction = t;
         t->probing = true;
+        i->probe_transaction = TAKE_PTR(t);
 
-        if (t->state == DNS_TRANSACTION_NULL) {
-
+        if (i->probe_transaction->state == DNS_TRANSACTION_NULL) {
                 i->block_ready++;
-                r = dns_transaction_go(t);
+                r = dns_transaction_go(i->probe_transaction);
                 i->block_ready--;
 
                 if (r < 0) {
@@ -212,10 +207,6 @@ static int dns_zone_item_probe_start(DnsZoneItem *i)  {
 
         dns_zone_item_notify(i);
         return 0;
-
-gc:
-        dns_transaction_gc(t);
-        return r;
 }
 
 int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {

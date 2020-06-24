@@ -278,7 +278,7 @@ static int dns_stub_stream_complete(DnsStream *s, int error) {
 }
 
 static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
-        DnsQuery *q = NULL;
+        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         int r;
 
         assert(m);
@@ -289,52 +289,52 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
             in_addr_is_localhost(p->family, &p->destination) <= 0) {
                 log_error("Got packet on unexpected IP range, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
-                goto fail;
+                return;
         }
 
         r = dns_packet_extract(p);
         if (r < 0) {
                 log_debug_errno(r, "Failed to extract resources from incoming packet, ignoring packet: %m");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_FORMERR, false);
-                goto fail;
+                return;
         }
 
         if (!DNS_PACKET_VERSION_SUPPORTED(p)) {
                 log_debug("Got EDNS OPT field with unsupported version number.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_BADVERS, false);
-                goto fail;
+                return;
         }
 
         if (dns_type_is_obsolete(p->question->keys[0]->type)) {
                 log_debug("Got message with obsolete key type, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_NOTIMP, false);
-                goto fail;
+                return;
         }
 
         if (dns_type_is_zone_transer(p->question->keys[0]->type)) {
                 log_debug("Got request for zone transfer, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_NOTIMP, false);
-                goto fail;
+                return;
         }
 
         if (!DNS_PACKET_RD(p))  {
                 /* If the "rd" bit is off (i.e. recursion was not requested), then refuse operation */
                 log_debug("Got request with recursion disabled, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_REFUSED, false);
-                goto fail;
+                return;
         }
 
         if (DNS_PACKET_DO(p) && DNS_PACKET_CD(p)) {
                 log_debug("Got request with DNSSEC CD bit set, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_NOTIMP, false);
-                goto fail;
+                return;
         }
 
         r = dns_query_new(m, &q, p->question, p->question, 0, SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_SEARCH);
         if (r < 0) {
                 log_error_errno(r, "Failed to generate query object: %m");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
-                goto fail;
+                return;
         }
 
         /* Request that the TTL is corrected by the cached time for this lookup, so that we return vaguely useful TTLs */
@@ -348,30 +348,23 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
                 /* Remember which queries belong to this stream, so that we can cancel them when the stream
                  * is disconnected early */
 
-                r = set_ensure_allocated(&s->queries, &trivial_hash_ops);
+                r = set_ensure_put(&s->queries, NULL, q);
                 if (r < 0) {
                         log_oom();
-                        goto fail;
+                        return;
                 }
-
-                if (set_put(s->queries, q) < 0) {
-                        log_oom();
-                        goto fail;
-                }
+                assert(r > 0);
         }
 
         r = dns_query_go(q);
         if (r < 0) {
                 log_error_errno(r, "Failed to start query: %m");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
-                goto fail;
+                return;
         }
 
         log_debug("Processing query...");
-        return;
-
-fail:
-        dns_query_free(q);
+        TAKE_PTR(q);
 }
 
 static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {

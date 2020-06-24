@@ -1742,17 +1742,13 @@ int seccomp_restrict_archs(Set *archs) {
         return 0;
 }
 
-int parse_syscall_archs(char **l, Set **archs) {
-        _cleanup_set_free_ Set *_archs = NULL;
+int parse_syscall_archs(char **l, Set **ret_archs) {
+        _cleanup_set_free_ Set *archs = NULL;
         char **s;
         int r;
 
         assert(l);
-        assert(archs);
-
-        r = set_ensure_allocated(&_archs, NULL);
-        if (r < 0)
-                return r;
+        assert(ret_archs);
 
         STRV_FOREACH(s, l) {
                 uint32_t a;
@@ -1761,13 +1757,12 @@ int parse_syscall_archs(char **l, Set **archs) {
                 if (r < 0)
                         return -EINVAL;
 
-                r = set_put(_archs, UINT32_TO_PTR(a + 1));
+                r = set_ensure_put(&archs, NULL, UINT32_TO_PTR(a + 1));
                 if (r < 0)
                         return -ENOMEM;
         }
 
-        *archs = TAKE_PTR(_archs);
-
+        *ret_archs = TAKE_PTR(archs);
         return 0;
 }
 

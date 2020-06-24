@@ -3102,10 +3102,6 @@ int config_parse_syscall_archs(
                 return 0;
         }
 
-        r = set_ensure_allocated(archs, NULL);
-        if (r < 0)
-                return log_oom();
-
         for (;;) {
                 _cleanup_free_ char *word = NULL;
                 uint32_t a;
@@ -3128,7 +3124,7 @@ int config_parse_syscall_archs(
                         continue;
                 }
 
-                r = set_put(*archs, UINT32_TO_PTR(a + 1));
+                r = set_ensure_put(archs, NULL, UINT32_TO_PTR(a + 1));
                 if (r < 0)
                         return log_oom();
         }

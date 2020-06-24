@@ -480,25 +480,21 @@ static int add_connection_socket(Context *context, int fd) {
                         log_warning_errno(r, "Unable to disable idle timer, continuing: %m");
         }
 
-        r = set_ensure_allocated(&context->connections, NULL);
-        if (r < 0) {
-                log_oom();
-                return 0;
-        }
-
-        c = new0(Connection, 1);
+        c = new(Connection, 1);
         if (!c) {
                 log_oom();
                 return 0;
         }
 
-        c->context = context;
-        c->server_fd = fd;
-        c->client_fd = -1;
-        c->server_to_client_buffer[0] = c->server_to_client_buffer[1] = -1;
-        c->client_to_server_buffer[0] = c->client_to_server_buffer[1] = -1;
+        *c = (Connection) {
+               .context = context,
+               .server_fd = fd,
+               .client_fd = -1,
+               .server_to_client_buffer = {-1, -1},
+               .client_to_server_buffer = {-1, -1},
+        };
 
-        r = set_put(context->connections, c);
+        r = set_ensure_put(&context->connections, NULL, c);
         if (r < 0) {
                 free(c);
                 log_oom();
@@ -550,12 +546,6 @@ static int add_listen_socket(Context *context, int fd) {
         assert(context);
         assert(fd >= 0);
 
-        r = set_ensure_allocated(&context->listen, NULL);
-        if (r < 0) {
-                log_oom();
-                return r;
-        }
-
         r = sd_is_socket(fd, 0, SOCK_STREAM, 1);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine socket type: %m");
@@ -571,7 +561,7 @@ static int add_listen_socket(Context *context, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add event source: %m");
 
-        r = set_put(context->listen, source);
+        r = set_ensure_put(&context->listen, NULL, source);
         if (r < 0) {
                 log_error_errno(r, "Failed to add source to set: %m");
                 sd_event_source_unref(source);

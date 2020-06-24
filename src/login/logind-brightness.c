@@ -174,15 +174,11 @@ static int set_add_message(Set **set, sd_bus_message *message) {
         if (r <= 0)
                 return r;
 
-        r = set_ensure_allocated(set, &bus_message_hash_ops);
-        if (r < 0)
+        r = set_ensure_put(set, &bus_message_hash_ops, message);
+        if (r <= 0)
                 return r;
-
-        r = set_put(*set, message);
-        if (r < 0)
-                return r;
-
         sd_bus_message_ref(message);
+
         return 1;
 }
 

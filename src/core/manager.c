@@ -4474,11 +4474,8 @@ int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         size = set_size(m->failed_units);
 
         if (failed) {
-                r = set_ensure_allocated(&m->failed_units, NULL);
+                r = set_ensure_put(&m->failed_units, NULL, u);
                 if (r < 0)
-                        return log_oom();
-
-                if (set_put(m->failed_units, u) < 0)
                         return log_oom();
         } else
                 (void) set_remove(m->failed_units, u);

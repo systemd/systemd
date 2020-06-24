@@ -1564,7 +1564,6 @@ int config_parse_dhcp_black_listed_ip_address(
                 void *userdata) {
 
         Network *network = data;
-        const char *p;
         int r;
 
         assert(filename);
@@ -1577,7 +1576,7 @@ int config_parse_dhcp_black_listed_ip_address(
                 return 0;
         }
 
-        for (p = rvalue;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *n = NULL;
                 union in_addr_union ip;
 
@@ -1598,11 +1597,7 @@ int config_parse_dhcp_black_listed_ip_address(
                         continue;
                 }
 
-                r = set_ensure_allocated(&network->dhcp_black_listed_ip, NULL);
-                if (r < 0)
-                        return log_oom();
-
-                r = set_put(network->dhcp_black_listed_ip, UINT32_TO_PTR(ip.in.s_addr));
+                r = set_ensure_put(&network->dhcp_black_listed_ip, NULL, UINT32_TO_PTR(ip.in.s_addr));
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Failed to store DHCP black listed ip address '%s', ignoring assignment: %m", n);

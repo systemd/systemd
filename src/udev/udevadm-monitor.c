@@ -169,24 +169,13 @@ static int parse_argv(int argc, char *argv[]) {
                         subsystem = devtype = NULL;
                         break;
                 }
-                case 't': {
-                        _cleanup_free_ char *tag = NULL;
-
-                        r = set_ensure_allocated(&arg_tag_filter, &string_hash_ops);
+                case 't':
+                        /* optarg is stored in argv[], so we don't need to copy it */
+                        r = set_ensure_put(&arg_tag_filter, &string_hash_ops, optarg);
                         if (r < 0)
                                 return r;
-
-                        tag = strdup(optarg);
-                        if (!tag)
-                                return -ENOMEM;
-
-                        r = set_put(arg_tag_filter, tag);
-                        if (r < 0)
-                                return r;
-
-                        tag = NULL;
                         break;
-                }
+
                 case 'V':
                         return print_version();
                 case 'h':
@@ -260,7 +249,7 @@ int monitor_main(int argc, char *argv[], void *userdata) {
 
 finalize:
         hashmap_free_free_free(arg_subsystem_filter);
-        set_free_free(arg_tag_filter);
+        set_free(arg_tag_filter);
 
         return r;
 }

@@ -263,11 +263,7 @@ int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule) {
         if (set_contains(m->rules_foreign, rule)) {
                 set_remove(m->rules_foreign, rule);
 
-                r = set_ensure_allocated(&m->rules, &routing_policy_rule_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = set_put(m->rules, rule);
+                r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, rule);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -295,11 +291,7 @@ static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPoli
         if (r < 0)
                 return r;
 
-        r = set_ensure_allocated(rules, &routing_policy_rule_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = set_put(*rules, rule);
+        r = set_ensure_put(rules, &routing_policy_rule_hash_ops, rule);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -1328,10 +1320,6 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
         if (!l)
                 return -ENOMEM;
 
-        r = set_ensure_allocated(rules, &routing_policy_rule_hash_ops);
-        if (r < 0)
-                return r;
-
         STRV_FOREACH(i, l) {
                 _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
 
@@ -1461,7 +1449,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         }
                 }
 
-                r = set_put(*rules, rule);
+                r = set_ensure_put(rules, &routing_policy_rule_hash_ops, rule);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to add RPDB rule to saved DB, ignoring: %s", p);
                         continue;

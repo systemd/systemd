@@ -348,14 +348,7 @@ static int wireguard_resolve_handler(sd_resolve_query *q,
         if (ret != 0) {
                 log_netdev_error(netdev, "Failed to resolve host '%s:%s': %s", peer->endpoint_host, peer->endpoint_port, gai_strerror(ret));
 
-                r = set_ensure_allocated(&w->peers_with_failed_endpoint, NULL);
-                if (r < 0) {
-                        log_oom();
-                        peer->section->invalid = true;
-                        goto resolve_next;
-                }
-
-                r = set_put(w->peers_with_failed_endpoint, peer);
+                r = set_ensure_put(&w->peers_with_failed_endpoint, NULL, peer);
                 if (r < 0) {
                         log_netdev_error(netdev, "Failed to save a peer, dropping the peer: %m");
                         peer->section->invalid = true;
@@ -580,7 +573,7 @@ int config_parse_wireguard_preshared_key(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
+        WireguardPeer *peer;
         Wireguard *w;
         int r;
 
@@ -592,12 +585,7 @@ int config_parse_wireguard_preshared_key(
         if (r < 0)
                 return r;
 
-        r = wireguard_decode_key_and_warn(rvalue, peer->preshared_key, unit, filename, line, lvalue);
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(peer);
-        return 0;
+        return wireguard_decode_key_and_warn(rvalue, peer->preshared_key, unit, filename, line, lvalue);
 }
 
 int config_parse_wireguard_preshared_key_file(
@@ -766,10 +754,6 @@ int config_parse_wireguard_endpoint(
         w = WIREGUARD(data);
         assert(w);
 
-        r = wireguard_peer_new_static(w, filename, section_line, &peer);
-        if (r < 0)
-                return r;
-
         if (rvalue[0] == '[') {
                 begin = &rvalue[1];
                 end = strchr(rvalue, ']');
@@ -801,6 +785,10 @@ int config_parse_wireguard_endpoint(
                 ++end;
         }
 
+        r = wireguard_peer_new_static(w, filename, section_line, &peer);
+        if (r < 0)
+                return r;
+
         r = free_and_strndup(&peer->endpoint_host, begin, len);
         if (r < 0)
                 return log_oom();
@@ -809,15 +797,11 @@ int config_parse_wireguard_endpoint(
         if (r < 0)
                 return log_oom();
 
-        r = set_ensure_allocated(&w->peers_with_unresolved_endpoint, NULL);
+        r = set_ensure_put(&w->peers_with_unresolved_endpoint, NULL, peer);
         if (r < 0)
                 return log_oom();
+        TAKE_PTR(peer); /* The peer may already have been in the hash map, that is fine too. */
 
-        r = set_put(w->peers_with_unresolved_endpoint, peer);
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(peer);
         return 0;
 }
 
@@ -833,7 +817,7 @@ int config_parse_wireguard_keepalive(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
+        WireguardPeer *peer;
         uint16_t keepalive = 0;
         Wireguard *w;
         int r;
@@ -854,15 +838,13 @@ int config_parse_wireguard_keepalive(
                 r = safe_atou16(rvalue, &keepalive);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "The persistent keepalive interval must be 0-65535. Ignore assignment: %s",
+                                   "Failed to parse \"%s\" as keepalive interval (range 0–65535), ignoring assignment: %m",
                                    rvalue);
                         return 0;
                 }
         }
 
         peer->persistent_keepalive_interval = keepalive;
-
-        TAKE_PTR(peer);
         return 0;
 }
 

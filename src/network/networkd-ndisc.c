@@ -591,10 +591,6 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                         continue;
                 }
 
-                r = set_ensure_allocated(&link->ndisc_rdnss, &ndisc_rdnss_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
                 x = new(NDiscRDNSS, 1);
                 if (!x)
                         return log_oom();
@@ -604,13 +600,11 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                         .valid_until = time_now + lifetime * USEC_PER_SEC,
                 };
 
-                r = set_put(link->ndisc_rdnss, x);
+                r = set_ensure_consume(&link->ndisc_rdnss, &ndisc_rdnss_hash_ops, TAKE_PTR(x));
                 if (r < 0)
                         return log_oom();
-
-                TAKE_PTR(x);
-
                 assert(r > 0);
+
                 link_dirty(link);
         }
 
@@ -686,22 +680,15 @@ static void ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                         continue;
                 }
 
-                r = set_ensure_allocated(&link->ndisc_dnssl, &ndisc_dnssl_hash_ops);
-                if (r < 0) {
-                        log_oom();
-                        return;
-                }
-
                 s->valid_until = time_now + lifetime * USEC_PER_SEC;
 
-                r = set_put(link->ndisc_dnssl, s);
+                r = set_ensure_consume(&link->ndisc_dnssl, &ndisc_dnssl_hash_ops, TAKE_PTR(s));
                 if (r < 0) {
                         log_oom();
                         return;
                 }
-
-                s = NULL;
                 assert(r > 0);
+
                 link_dirty(link);
         }
 }
@@ -979,22 +966,13 @@ int config_parse_ndisc_black_listed_prefix(
                 if (set_contains(network->ndisc_black_listed_prefix, &ip.in6))
                         continue;
 
-                r = set_ensure_allocated(&network->ndisc_black_listed_prefix, &in6_addr_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
                 a = newdup(struct in6_addr, &ip.in6, 1);
                 if (!a)
                         return log_oom();
 
-                r = set_put(network->ndisc_black_listed_prefix, a);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to store NDISC black listed prefix '%s', ignoring assignment: %m", n);
-                        continue;
-                }
-
-                TAKE_PTR(a);
+                r = set_ensure_consume(&network->ndisc_black_listed_prefix, &in6_addr_hash_ops, TAKE_PTR(a));
+                if (r < 0)
+                        return log_oom();
         }
 
         return 0;

@@ -759,30 +759,13 @@ _public_ int sd_device_monitor_filter_add_match_subsystem_devtype(sd_device_moni
 }
 
 _public_ int sd_device_monitor_filter_add_match_tag(sd_device_monitor *m, const char *tag) {
-        _cleanup_free_ char *t = NULL;
-        int r;
-
         assert_return(m, -EINVAL);
         assert_return(tag, -EINVAL);
 
-        t = strdup(tag);
-        if (!t)
-                return -ENOMEM;
-
-        r = set_ensure_allocated(&m->tag_filter, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = set_put(m->tag_filter, t);
-        if (r == -EEXIST)
-                return 0;
-        if (r < 0)
-                return r;
-
-        TAKE_PTR(t);
-        m->filter_uptodate = false;
-
-        return 0;
+        int r = set_put_strdup(&m->tag_filter, tag);
+        if (r > 0)
+                m->filter_uptodate = false;
+        return r;
 }
 
 _public_ int sd_device_monitor_filter_remove(sd_device_monitor *m) {

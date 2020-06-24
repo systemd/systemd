@@ -331,11 +331,7 @@ static int route_add_internal(Link *link, Set **routes, Route *in, Route **ret) 
         route->initrwnd = in->initrwnd;
         route->lifetime = in->lifetime;
 
-        r = set_ensure_allocated(routes, &route_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = set_put(*routes, route);
+        r = set_ensure_put(routes, &route_hash_ops, route);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -368,11 +364,7 @@ int route_add(Link *link, Route *in, Route **ret) {
                         return r;
         } else if (r == 0) {
                 /* Take over a foreign route */
-                r = set_ensure_allocated(&link->routes, &route_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = set_put(link->routes, route);
+                r = set_ensure_put(&link->routes, &route_hash_ops, route);
                 if (r < 0)
                         return r;
 

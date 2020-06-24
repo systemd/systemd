@@ -120,15 +120,10 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         /* Optimize the case where we don't need to store any addresses, by storing
                          * only the name in a dedicated Set instead of the hashmap */
 
-                        r = set_ensure_allocated(&hosts->no_address, &dns_name_hash_ops);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = set_put(hosts->no_address, name);
+                        r = set_ensure_consume(&hosts->no_address, &dns_name_hash_ops, TAKE_PTR(name));
                         if (r < 0)
                                 return r;
 
-                        TAKE_PTR(name);
                         continue;
                 }
 

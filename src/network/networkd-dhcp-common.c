@@ -664,17 +664,8 @@ int config_parse_dhcp_request_options(
                         continue;
                 }
 
-                if (ltype == AF_INET)
-                        r = set_ensure_allocated(&network->dhcp_request_options, NULL);
-                else
-                        r = set_ensure_allocated(&network->dhcp6_request_options, NULL);
-                if (r < 0)
-                        return log_oom();
-
-                if (ltype == AF_INET)
-                        r = set_put(network->dhcp_request_options, UINT32_TO_PTR(i));
-                else
-                        r = set_put(network->dhcp6_request_options, UINT32_TO_PTR(i));
+                r = set_ensure_put(ltype == AF_INET ? &network->dhcp_request_options : &network->dhcp6_request_options,
+                                   NULL, UINT32_TO_PTR(i));
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Failed to store DHCP request option '%s', ignoring assignment: %m", n);
