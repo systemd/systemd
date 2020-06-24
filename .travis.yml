@@ -47,6 +47,7 @@ jobs:
       env:
         - FEDORA_RELEASE="latest"
         - TOOL_BASE="/var/tmp/coverity-scan-analysis"
+        - CONT_NAME="systemd-fedora-coverity"
         - DOCKER_EXEC="docker exec -ti $CONT_NAME"
         - DOCKER_RUN="docker run -v $TOOL_BASE:$TOOL_BASE:rw --env-file .cov-env"
           # Coverity env variables
