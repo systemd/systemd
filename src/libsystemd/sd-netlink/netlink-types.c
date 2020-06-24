@@ -762,6 +762,32 @@ static const NLType rtnl_tca_option_data_drr_types[] = {
         [TCA_DRR_QUANTUM] = { .type = NETLINK_TYPE_U32 },
 };
 
+static const NLType rtnl_tca_option_data_ets_quanta_types[] = {
+        [TCA_ETS_QUANTA_BAND] = { .type = NETLINK_TYPE_U32, },
+};
+
+static const NLTypeSystem rtnl_tca_option_data_ets_quanta_type_system = {
+        .count = ELEMENTSOF(rtnl_tca_option_data_ets_quanta_types),
+        .types = rtnl_tca_option_data_ets_quanta_types,
+};
+
+static const NLType rtnl_tca_option_data_ets_prio_types[] = {
+        [TCA_ETS_PRIOMAP_BAND] = { .type = NETLINK_TYPE_U8, },
+};
+
+static const NLTypeSystem rtnl_tca_option_data_ets_prio_type_system = {
+        .count = ELEMENTSOF(rtnl_tca_option_data_ets_prio_types),
+        .types = rtnl_tca_option_data_ets_prio_types,
+};
+
+static const NLType rtnl_tca_option_data_ets_types[] = {
+        [TCA_ETS_NBANDS]      = { .type = NETLINK_TYPE_U8 },
+        [TCA_ETS_NSTRICT]     = { .type = NETLINK_TYPE_U8 },
+        [TCA_ETS_QUANTA]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_option_data_ets_quanta_type_system },
+        [TCA_ETS_PRIOMAP]     = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_option_data_ets_prio_type_system },
+        [TCA_ETS_QUANTA_BAND] = { .type = NETLINK_TYPE_U32 },
+};
+
 static const NLType rtnl_tca_option_data_fq_types[] = {
         [TCA_FQ_PLIMIT]             = { .type = NETLINK_TYPE_U32 },
         [TCA_FQ_FLOW_PLIMIT]        = { .type = NETLINK_TYPE_U32 },
@@ -833,6 +859,7 @@ static const char* const nl_union_tca_option_data_table[] = {
         [NL_UNION_TCA_OPTION_DATA_CAKE] = "cake",
         [NL_UNION_TCA_OPTION_DATA_CODEL] = "codel",
         [NL_UNION_TCA_OPTION_DATA_DRR] = "drr",
+        [NL_UNION_TCA_OPTION_DATA_ETS] = "ets",
         [NL_UNION_TCA_OPTION_DATA_FQ] = "fq",
         [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] = "fq_codel",
         [NL_UNION_TCA_OPTION_DATA_GRED] = "gred",
@@ -853,6 +880,8 @@ static const NLTypeSystem rtnl_tca_option_data_type_systems[] = {
                                                    .types = rtnl_tca_option_data_codel_types },
         [NL_UNION_TCA_OPTION_DATA_DRR] =         { .count = ELEMENTSOF(rtnl_tca_option_data_drr_types),
                                                    .types = rtnl_tca_option_data_drr_types },
+        [NL_UNION_TCA_OPTION_DATA_ETS] =         { .count = ELEMENTSOF(rtnl_tca_option_data_ets_types),
+                                                   .types = rtnl_tca_option_data_ets_types },
         [NL_UNION_TCA_OPTION_DATA_FQ] =          { .count = ELEMENTSOF(rtnl_tca_option_data_fq_types),
                                                    .types = rtnl_tca_option_data_fq_types },
         [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] =    { .count = ELEMENTSOF(rtnl_tca_option_data_fq_codel_types),

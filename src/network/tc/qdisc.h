@@ -13,6 +13,7 @@ typedef enum QDiscKind {
         QDISC_KIND_CAKE,
         QDISC_KIND_CODEL,
         QDISC_KIND_DRR,
+        QDISC_KIND_ETS,
         QDISC_KIND_FQ,
         QDISC_KIND_FQ_CODEL,
         QDISC_KIND_GRED,
@@ -87,6 +88,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);
 
 #include "cake.h"
 #include "codel.h"
+#include "ets.h"
 #include "fifo.h"
 #include "fq-codel.h"
 #include "fq.h"

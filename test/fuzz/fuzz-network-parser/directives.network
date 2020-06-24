@@ -431,6 +431,13 @@ Handle=
 Parent=
 ClassId=
 Quantum=
+[EnhancedTransmissionSelection]
+Parent=
+Handle=
+Bands=
+StrictBands=
+QuantumBytes=
+PriorityMap=
 [HeavyHitterFilter]
 Parent=
 Handle=

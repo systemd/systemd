@@ -2930,6 +2930,58 @@
   </refsect1>
 
   <refsect1>
+    <title>[EnhancedTransmissionSelection] Section Options</title>
+    <para>The <literal>[EnhancedTransmissionSelection]</literal> section manages the queueing discipline (qdisc) of
+    Enhanced Transmission Selection (ETS).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+
+      <varlistentry>
+        <term><varname>Bands=</varname></term>
+        <listitem>
+          <para>Specifies the number of bands. An unsigned integer ranges 1 to 16. This value has to be
+          at least large enough to cover the strict bands specified through the
+          <varname>StrictBands=</varname> and bandwidth-sharing bands specified in
+          <varname>QuantumBytes=</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StrictBands=</varname></term>
+        <listitem>
+          <para>Specifies the number of bands that should be created in strict mode. An unsigned integer
+          ranges 1 to 16.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>QuantumBytes=</varname></term>
+        <listitem>
+          <para>Specifies the white-space separated list of quantum used in band-sharing bands. When
+          suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
+          respectively, to the base of 1024. This setting can be specified multiple times. If an empty
+          string is assigned, then the all previous assignments are cleared.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PriorityMap=</varname></term>
+        <listitem>
+          <para>The priority map maps the priority of a packet to a band. The argument is a white-space
+          separated list of numbers. The first number indicates which band the packets with priority
+          0 should be put to, the second is for priority 1, and so on. There can be up to 16 numbers in
+          the list. If there are fewer, the default band that traffic with one of the unmentioned
+          priorities goes to is the last one. Each band number must be 0..255. This setting can be
+          specified multiple times. If an empty string is assigned, then the all previous assignments
+          are cleared.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[GenericRandomEarlyDetection] Section Options</title>
     <para>The <literal>[GenericRandomEarlyDetection]</literal> section manages the queueing discipline
     (qdisc) of Generic Random Early Detection (GRED).</para>
