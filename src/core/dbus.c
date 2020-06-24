@@ -35,7 +35,7 @@
 #include "log.h"
 #include "mkdir.h"
 #include "process-util.h"
-#include "selinux-access.h"
+#include "selinux-core-access.h"
 #include "serialize.h"
 #include "service.h"
 #include "special.h"

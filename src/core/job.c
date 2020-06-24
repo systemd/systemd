@@ -16,7 +16,7 @@
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
-#include "selinux-access.h"
+#include "selinux-core-access.h"
 #include "serialize.h"
 #include "set.h"
 #include "sort-util.h"
