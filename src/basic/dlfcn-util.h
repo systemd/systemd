@@ -6,3 +6,5 @@
 #include "macro.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(void*, dlclose);
+
+int dlsym_many_and_warn(void *dl, int level, ...);
