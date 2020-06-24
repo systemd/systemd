@@ -10,7 +10,7 @@
 #include "dbus.h"
 #include "job.h"
 #include "log.h"
-#include "selinux-access.h"
+#include "selinux-core-access.h"
 #include "string-util.h"
 #include "strv.h"
 

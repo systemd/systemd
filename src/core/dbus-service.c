@@ -19,7 +19,7 @@
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "selinux-access.h"
+#include "selinux-core-access.h"
 #include "service.h"
 #include "signal-util.h"
 #include "string-util.h"
