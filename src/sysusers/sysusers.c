@@ -1898,7 +1898,7 @@ static int run(int argc, char *argv[]) {
 
         r = mac_selinux_init();
         if (r < 0)
-                return log_error_errno(r, "SELinux setup failed: %m");
+                return r;
 
         /* If command line arguments are specified along with --replace, read all
          * configuration files and insert the positional arguments at the specified

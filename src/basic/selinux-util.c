@@ -122,7 +122,7 @@ int mac_selinux_init(void) {
 
         label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
         if (!label_hnd)
-                return log_enforcing_errno(errno, "Failed to initialize SELinux context: %m");
+                return log_enforcing_errno(errno, "Failed to initialize SELinux labeling handle: %m");
 
         after_timestamp = now(CLOCK_MONOTONIC);
         after_mallinfo = mallinfo();

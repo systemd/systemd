@@ -40,7 +40,7 @@ static int run(int argc, char *argv[]) {
 
         r = mac_selinux_init();
         if (r < 0)
-                return log_error_errno(r, "SELinux setup failed: %m");
+                return r;
 
         /* Drop privileges, but only if we have been started as root. If we are not running as root we assume most
          * privileges are already dropped and we can't create our directory. */

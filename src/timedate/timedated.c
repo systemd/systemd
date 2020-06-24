@@ -377,7 +377,10 @@ static int context_write_data_local_rtc(Context *c) {
                 }
         }
 
-        mac_selinux_init();
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
+
         return write_string_file_atomic_label("/etc/adjtime", w);
 }
 

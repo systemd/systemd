@@ -49,10 +49,8 @@ int main(int argc, char *argv[]) {
         }
 
         r = mac_selinux_init();
-        if (r < 0) {
-                log_error_errno(r, "SELinux setup failed: %m");
+        if (r < 0)
                 return EXIT_FAILURE;
-        }
 
         r = apply_timestamp("/etc/.updated", &st.st_mtim);
         q = apply_timestamp("/var/.updated", &st.st_mtim);
