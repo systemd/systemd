@@ -206,13 +206,6 @@ Features:
   end), in order to maximize dd'ability. Requires libfdisk work, see
   https://github.com/karelzak/util-linux/issues/907
 
-* systemd-repart: optionally, allow specifying a path to initialize new
-  partitions from, i.e. an fs image file or a source device node. This would
-  then turn systemd-repart into a simple installer: with a few .repart files
-  you could replicate the host system on another device. a full installer would
-  then be: "systemd-repart /dev/sda && bootctl install /dev/sda &&
-  systemd-firstboot --image= …"
-
 * systemd-repart: MBR partition table support. Care needs to be taken regarding
   Type=, so that partition definitions can sanely apply to both the GPT and the
   MBR case. Idea: accept syntax "Type=gpt:home mbr:0x83" for setting the types
@@ -231,14 +224,8 @@ Features:
 * systemd-repart: allow disabling growing of specific partitions, or making
   them (think ESP: we don't ever want to grow it, since we cannot resize vfat)
 
-* systemd-repart: add specifier expansion, add especifier that refers to root
-  device node of current system, /usr device node, and matching verity, so that
-  an installer can be made a "copy" installer of the booted OS
-
 * systemd-repart: make it a static checker during early boot for existence and
   absence of other partitions for trusted boot environments
-
-* systemd-repart: allow config of partition uuid
 
 * userdb: allow username prefix searches in varlink API, allow realname and
   realname substr searches in varlink API
