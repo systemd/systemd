@@ -346,6 +346,9 @@ static void link_update_master_operstate(Link *link, NetDev *netdev) {
         if (!netdev)
                 return;
 
+        if (netdev->ifindex <= 0)
+                return;
+
         if (link_get(link->manager, netdev->ifindex, &master) < 0)
                 return;
 
