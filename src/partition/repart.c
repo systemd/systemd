@@ -114,6 +114,10 @@ struct Partition {
         FreeArea *padding_area;
         FreeArea *allocated_to_area;
 
+        char *copy_blocks_path;
+        int copy_blocks_fd;
+        uint64_t copy_blocks_size;
+
         LIST_FIELDS(Partition, partitions);
 };
 
@@ -174,6 +178,8 @@ static Partition *partition_new(void) {
                 .padding_max = UINT64_MAX,
                 .partno = UINT64_MAX,
                 .offset = UINT64_MAX,
+                .copy_blocks_fd = -1,
+                .copy_blocks_size = UINT64_MAX,
         };
 
         return p;
@@ -191,6 +197,9 @@ static Partition* partition_free(Partition *p) {
                 fdisk_unref_partition(p->current_partition);
         if (p->new_partition)
                 fdisk_unref_partition(p->new_partition);
+
+        free(p->copy_blocks_path);
+        safe_close(p->copy_blocks_fd);
 
         return mfree(p);
 }
@@ -339,7 +348,11 @@ static uint64_t partition_min_size(const Partition *p) {
         }
 
         sz = p->current_size != UINT64_MAX ? p->current_size : HARD_MIN_SIZE;
-        return MAX(p->size_min == UINT64_MAX ? DEFAULT_MIN_SIZE : p->size_min, sz);
+
+        if (p->copy_blocks_size != UINT64_MAX)
+                sz = MAX(p->copy_blocks_size, sz);
+
+        return MAX(p->size_min != UINT64_MAX ? p->size_min : DEFAULT_MIN_SIZE, sz);
 }
 
 static uint64_t partition_max_size(const Partition *p) {
@@ -986,17 +999,18 @@ static int config_parse_size4096(
 static int partition_read_definition(Partition *p, const char *path) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",            config_parse_type,     0,  &p->type_uuid      },
-                { "Partition", "Label",           config_parse_label,    0,  &p->new_label      },
-                { "Partition", "UUID",            config_parse_id128,    0,  &p->new_uuid       },
-                { "Partition", "Priority",        config_parse_int32,    0,  &p->priority       },
-                { "Partition", "Weight",          config_parse_weight,   0,  &p->weight         },
-                { "Partition", "PaddingWeight",   config_parse_weight,   0,  &p->padding_weight },
-                { "Partition", "SizeMinBytes",    config_parse_size4096, 1,  &p->size_min       },
-                { "Partition", "SizeMaxBytes",    config_parse_size4096, -1, &p->size_max       },
-                { "Partition", "PaddingMinBytes", config_parse_size4096, 1,  &p->padding_min    },
-                { "Partition", "PaddingMaxBytes", config_parse_size4096, -1, &p->padding_max    },
-                { "Partition", "FactoryReset",    config_parse_bool,     0,  &p->factory_reset  },
+                { "Partition", "Type",            config_parse_type,     0,  &p->type_uuid        },
+                { "Partition", "Label",           config_parse_label,    0,  &p->new_label        },
+                { "Partition", "UUID",            config_parse_id128,    0,  &p->new_uuid         },
+                { "Partition", "Priority",        config_parse_int32,    0,  &p->priority         },
+                { "Partition", "Weight",          config_parse_weight,   0,  &p->weight           },
+                { "Partition", "PaddingWeight",   config_parse_weight,   0,  &p->padding_weight   },
+                { "Partition", "SizeMinBytes",    config_parse_size4096, 1,  &p->size_min         },
+                { "Partition", "SizeMaxBytes",    config_parse_size4096, -1, &p->size_max         },
+                { "Partition", "PaddingMinBytes", config_parse_size4096, 1,  &p->padding_min      },
+                { "Partition", "PaddingMaxBytes", config_parse_size4096, -1, &p->padding_max      },
+                { "Partition", "FactoryReset",    config_parse_bool,     0,  &p->factory_reset    },
+                { "Partition", "CopyBlocks",      config_parse_path,     0,  &p->copy_blocks_path },
                 {}
         };
         int r;
@@ -2126,6 +2140,48 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
         return 0;
 }
 
+static int context_copy_blocks(Context *context) {
+        Partition *p;
+        int fd = -1, r;
+
+        assert(context);
+
+        /* Copy in file systems on the block level */
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                char buf[FORMAT_BYTES_MAX];
+
+                if (p->copy_blocks_fd < 0)
+                        continue;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never copy over existing partitions */
+                        continue;
+
+                assert(p->new_size != UINT64_MAX);
+                assert(p->copy_blocks_size != UINT64_MAX);
+                assert(p->new_size >= p->copy_blocks_size);
+
+                if (fd < 0)
+                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+                if (lseek(fd, p->offset, SEEK_SET) == (off_t) -1)
+                        return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+                log_info("Copying in '%s' (%s) on block level into partition %" PRIu64 ".", p->copy_blocks_path, format_bytes(buf, sizeof(buf), p->copy_blocks_size), p->partno);
+
+                r = copy_bytes_full(p->copy_blocks_fd, fd, p->copy_blocks_size, 0, NULL, NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
+
+                log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
+        }
+
+        return 0;
+}
+
 static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *ret) {
         struct {
                 sd_id128_t type_uuid;
@@ -2388,6 +2444,10 @@ static int context_write_partition_table(
         if (r < 0)
                 return r;
 
+        r = context_copy_blocks(context);
+        if (r < 0)
+                return r;
+
         LIST_FOREACH(partitions, p, context->partitions) {
                 if (p->dropped)
                         continue;
@@ -2631,6 +2691,87 @@ static int context_can_factory_reset(Context *context) {
                         return true;
 
         return false;
+}
+
+static int context_open_copy_block_paths(Context *context) {
+        Partition *p;
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_close_ int source_fd = -1;
+                uint64_t size;
+                struct stat st;
+
+                assert(p->copy_blocks_fd < 0);
+                assert(p->copy_blocks_size == UINT64_MAX);
+
+                if (PARTITION_EXISTS(p)) /* Never copy over partitions that already exist! */
+                        continue;
+
+                if (!p->copy_blocks_path)
+                        continue;
+
+                source_fd = open(p->copy_blocks_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (source_fd < 0)
+                        return log_error_errno(errno, "Failed to open block copy file '%s': %m", p->copy_blocks_path);
+
+                if (fstat(source_fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat block copy file '%s': %m", p->copy_blocks_path);
+
+                if (S_ISDIR(st.st_mode)) {
+                        _cleanup_free_ char *bdev = NULL;
+
+                        /* If the file is a directory, automatically find the backing block device */
+
+                        if (major(st.st_dev) != 0)
+                                r = device_path_make_major_minor(S_IFBLK, st.st_dev, &bdev);
+                        else {
+                                dev_t devt;
+
+                                /* Special support for btrfs */
+
+                                r = btrfs_get_block_device_fd(source_fd, &devt);
+                                if (r < 0)
+                                        return log_error_errno(r, "Unable to determine backing block device of '%s': %m", p->copy_blocks_path);
+
+                                r = device_path_make_major_minor(S_IFBLK, devt, &bdev);
+                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine block device path for block device backing '%s': %m", p->copy_blocks_path);
+
+                        safe_close(source_fd);
+
+                        source_fd = open(bdev, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        if (source_fd < 0)
+                                return log_error_errno(errno, "Failed to open block device '%s': %m", bdev);
+
+                        if (fstat(source_fd, &st) < 0)
+                                return log_error_errno(errno, "Failed to stat block device '%s': %m", bdev);
+
+                        if (!S_ISBLK(st.st_mode))
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "Block device '%s' is not actually a block device, refusing.", bdev);
+                }
+
+                if (S_ISREG(st.st_mode))
+                        size = st.st_size;
+                else if (S_ISBLK(st.st_mode)) {
+                        if (ioctl(source_fd, BLKGETSIZE64, &size) != 0)
+                                return log_error_errno(errno, "Failed to determine size of block device to copy from: %m");
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path to copy blocks from '%s' is not a regular file, block device or directory, refusing: %m", p->copy_blocks_path);
+
+                if (size <= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has zero size, refusing.", p->copy_blocks_path);
+                if (size % 512 != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File to copy bytes from '%s' has size that is not multiple of 512, refusing.", p->copy_blocks_path);
+
+                p->copy_blocks_fd = TAKE_FD(source_fd);
+                p->copy_blocks_size = size;
+        }
+
+        return 0;
 }
 
 static int help(void) {
@@ -3210,6 +3351,11 @@ static int run(int argc, char *argv[]) {
 #endif
 
         r = context_read_seed(context, arg_root);
+        if (r < 0)
+                return r;
+
+        /* Open all files to copy blocks from now, since we want to take their size into consideration */
+        r = context_open_copy_block_paths(context);
         if (r < 0)
                 return r;
 
