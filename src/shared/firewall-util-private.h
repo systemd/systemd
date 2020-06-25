@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
 #include <stdbool.h>
@@ -6,13 +6,15 @@
 
 #include "in-addr-util.h"
 
-int fw_add_masquerade(
+#if HAVE_LIBIPTC
+
+int fw_iptables_add_masquerade(
                 bool add,
                 int af,
                 const union in_addr_union *source,
                 unsigned source_prefixlen);
 
-int fw_add_local_dnat(
+int fw_iptables_add_local_dnat(
                 bool add,
                 int af,
                 int protocol,
@@ -20,3 +22,4 @@ int fw_add_local_dnat(
                 const union in_addr_union *remote,
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote);
+#endif
