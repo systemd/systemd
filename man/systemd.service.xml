@@ -1078,8 +1078,8 @@
         manager. If set to <constant>kill</constant> and one of the service's processes is killed by the OOM
         killer the kernel is instructed to kill all remaining processes of the service, too. Defaults to the
         setting <varname>DefaultOOMPolicy=</varname> in
-        <citerefentry><refentrytitle>system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> is
-        set to, except for services where <varname>Delegate=</varname> is turned on, where it defaults to
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        is set to, except for services where <varname>Delegate=</varname> is turned on, where it defaults to
         <constant>continue</constant>.</para>
 
         <para>Use the <varname>OOMScoreAdjust=</varname> setting to configure whether processes of the unit

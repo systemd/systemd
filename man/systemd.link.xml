@@ -27,7 +27,7 @@
     <title>Description</title>
 
     <para>A plain ini-style text file that encodes configuration for matching network devices, used by
-    <citerefentry><refentrytitle>systemd-udev</refentrytitle><manvolnum>8</manvolnum></citerefentry> and in
+    <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry> and in
     particular its <command>net_setup_link</command> builtin. See
     <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
     general description of the syntax.</para>

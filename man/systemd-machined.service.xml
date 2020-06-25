@@ -76,7 +76,7 @@
       <listitem><para>The
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry> library
       exposes the
-      <citerefentry><refentrytitle>sd_bus_open_system_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_open_system_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       call to connect to the system bus of any registered container.</para></listitem>
 
       <listitem><para>The

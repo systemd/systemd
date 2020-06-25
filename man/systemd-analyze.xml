@@ -669,7 +669,7 @@ Service b@0.service not loaded, b.socket cannot be started.
         <command>dot</command> command (see above), this selects which
         relationships are shown in the dependency graph. Both options
         require a
-        <citerefentry project='die-net'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         pattern as an argument, which will be matched against the
         left-hand and the right-hand, respectively, nodes of a
         relationship.</para>

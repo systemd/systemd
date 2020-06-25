@@ -1312,7 +1312,7 @@ node /org/freedesktop/systemd1 {
       <para><function>SetUnitProperties()</function> may be used to modify certain unit properties at
       runtime. Not all properties may be changed at runtime, but many resource management settings (primarily
       those listed in
-      <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
       may. The changes are applied instantly and stored on disk for future boots, unless
       <varname>runtime</varname> is true, in which case the settings only apply until the next
       reboot. <varname>name</varname> is the name of the unit to modify. <varname>properties</varname> are
@@ -8278,16 +8278,16 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
       <para>Most of the properties map directly to the corresponding settings in swap unit files. As mount
       units invoke the
-      <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> command,
+      <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> command,
       their bus objects include implicit <varname>ExecActivate</varname> (and similar) fields which contain
       information about processes to execute. They also share most of the fields related to the execution
       context that Service objects expose (see above). In addition to these properties there are the
       following:</para>
 
       <para><varname>ControlPID</varname> contains the PID of the currently running
-      <citerefentry><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
-      <citerefentry><refentrytitle>swapoff</refentrytitle><manvolnum>8</manvolnum></citerefentry> command if
-      there is one running, otherwise 0.</para>
+      <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+      <citerefentry project='man-pages'><refentrytitle>swapoff</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      command if there is one running, otherwise 0.</para>
 
       <para><varname>Result</varname> contains a value explaining why a mount unit failed if it failed. It
       can take the values <literal>success</literal>, <literal>resources</literal>,

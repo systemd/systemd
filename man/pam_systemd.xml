@@ -253,7 +253,7 @@
 
     <para> See
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information about the resources.
-    Also, see <citerefentry><refentrytitle>pam_set_data</refentrytitle><manvolnum>3</manvolnum></citerefentry> for additional information about how to set
+    Also, see <citerefentry project='man-pages'><refentrytitle>pam_set_data</refentrytitle><manvolnum>3</manvolnum></citerefentry> for additional information about how to set
     the context objects.
     </para>
 

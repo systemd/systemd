@@ -368,7 +368,8 @@ node /org/freedesktop/machine1 {
 
       <para><function>OpenMachinePTY()</function> allocates a pseudo TTY in the container and returns a file
       descriptor and its path. This is equivalent to transitioning into the container and invoking
-      <citerefentry><refentrytitle>posix_openpt</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+      <citerefentry project='man-pages'><refentrytitle>posix_openpt</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      </para>
 
       <para><function>OpenMachineLogin()</function> allocates a pseudo TTY in the container and ensures that
       a getty login prompt of the container is running on the other end. It returns the file descriptor of

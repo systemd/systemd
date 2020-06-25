@@ -80,7 +80,7 @@
             </para></listitem>
 
             <listitem><para><filename>50-depmod.install</filename> runs
-            <citerefentry><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry> for the
+            <citerefentry project='man-pages'><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry> for the
             <replaceable>KERNEL-VERSION</replaceable>.</para></listitem>
 
             <listitem><para><filename>90-loaderentry.install</filename> copies <replaceable>KERNEL-IMAGE</replaceable>
@@ -231,7 +231,7 @@
     <para>
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>
     </para>

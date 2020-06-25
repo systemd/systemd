@@ -233,7 +233,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <listitem><para>Show numerical address labels that can be used for address selection.
         This is the same information that
-        <citerefentry><refentrytitle>ip-addrlabel</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>ip-addrlabel</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         shows. See <ulink url="https://tools.ietf.org/html/rfc3484">RFC 3484</ulink>
         for a discussion of address labels.</para>
 
