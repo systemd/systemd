@@ -1272,6 +1272,9 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get NHA_OIF attribute, ignoring: %m");
                 return 0;
+        } else if (tmp->oif <= 0) {
+                log_warning("rtnl: received nexthop message with invalid ifindex %d, ignoring.", tmp->oif);
+                return 0;
         }
 
         r = link_get(m, tmp->oif, &link);
