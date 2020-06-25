@@ -346,6 +346,9 @@ static void link_update_master_operstate(Link *link, NetDev *netdev) {
         if (!netdev)
                 return;
 
+        if (netdev->ifindex <= 0)
+                return;
+
         if (link_get(link->manager, netdev->ifindex, &master) < 0)
                 return;
 
@@ -752,7 +755,7 @@ int link_get(Manager *m, int ifindex, Link **ret) {
         Link *link;
 
         assert(m);
-        assert(ifindex);
+        assert(ifindex > 0);
         assert(ret);
 
         link = hashmap_get(m->links, INT_TO_PTR(ifindex));

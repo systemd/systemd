@@ -364,7 +364,7 @@ static int netdev_enslave(NetDev *netdev, Link *link, link_netlink_message_handl
                 if (r >= 0)
                         callback(netdev->manager->rtnl, m, link);
         } else {
-                /* the netdev is not yet read, save this request for when it is */
+                /* the netdev is not yet ready, save this request for when it is */
                 netdev_join_callback *cb;
 
                 cb = new(netdev_join_callback, 1);
