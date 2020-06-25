@@ -165,7 +165,7 @@ node /org/freedesktop/home1 {
 
       <para><function>GetHomeByName()</function> returns basic user information (a minimal subset of the full
       user record), provided a user name. The information supplied more or less matches what
-      <citerefentry><refentrytitle>getpwnam</refentrytitle><manvolnum>3</manvolnum></citerefentry> returns:
+      <citerefentry project='man-pages'><refentrytitle>getpwnam</refentrytitle><manvolnum>3</manvolnum></citerefentry> returns:
       the numeric UID and GID, the real name, home directory and shell. In addition it returns a state
       identifier describing the state the user's home directory is in, as well as a bus path referring to the
       bus object encapsulating the user record and home directory. This object implements the

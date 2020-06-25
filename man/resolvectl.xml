@@ -316,11 +316,11 @@
         <term><option>-a</option></term>
         <listitem><para>Registers per-interface DNS configuration data with
         <command>systemd-resolved</command>. Expects a network interface name as only command line argument. Reads
-        <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> compatible DNS
-        configuration data from its standard input. Relevant fields are <literal>nameserver</literal> and
+        <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>-compatible
+        DNS configuration data from its standard input. Relevant fields are <literal>nameserver</literal> and
         <literal>domain</literal>/<literal>search</literal>. This command is mostly identical to invoking
-        <command>resolvectl</command> with a combination of <option>dns</option> and
-        <option>domain</option> commands.</para></listitem>
+        <command>resolvectl</command> with a combination of <option>dns</option> and <option>domain</option>
+        commands.</para></listitem>
       </varlistentry>
 
       <varlistentry>

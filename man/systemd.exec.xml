@@ -718,9 +718,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         kernel default of <literal><constant>private-anonymous</constant>
         <constant>shared-anonymous</constant> <constant>elf-headers</constant>
         <constant>private-huge</constant></literal>). See
-        <citerefentry><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry> for the
-        meaning of the mapping types. When specified multiple times, all specified masks are ORed. When not
-        set, or if the empty value is assigned, the inherited value is not changed.</para>
+        <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the meaning of the mapping types. When specified multiple times, all specified masks are
+        ORed. When not set, or if the empty value is assigned, the inherited value is not changed.</para>
 
         <example>
           <title>Add DAX pages to the dump filter</title>
@@ -866,7 +866,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         in <varname>NUMAMask=</varname>. For more details on each policy please see,
         <citerefentry><refentrytitle>set_mempolicy</refentrytitle><manvolnum>2</manvolnum></citerefentry>. For overall
         overview of NUMA support in Linux see,
-        <citerefentry><refentrytitle>numa</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>numa</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         </para></listitem>
       </varlistentry>
 

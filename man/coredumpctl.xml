@@ -134,7 +134,7 @@
 
         <listitem><para>Invoke a debugger on the last core dump
         matching specified characteristics. By default,
-        <citerefentry><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         will be used. This may be changed using the <option>--debugger=</option>
         option or the <varname>$SYSTEMD_DEBUGGER</varname> environment
         variable.</para></listitem>
@@ -213,7 +213,7 @@
 
         <listitem><para>Use the given debugger for the <command>debug</command>
         command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
-        <citerefentry><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         will be used. </para></listitem>
       </varlistentry>
 

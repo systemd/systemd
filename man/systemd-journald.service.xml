@@ -106,18 +106,19 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
     errors. In order to react gracefully in this case it is recommended that programs logging to standard output/error
     ignore such errors. If the <constant>SIGPIPE</constant> UNIX signal handler is not blocked or turned off, such
     write attempts will also result in such process signals being generated, see
-    <citerefentry><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>. To mitigate this issue,
-    systemd service manager explicitly turns off the <constant>SIGPIPE</constant> signal for all invoked processes by
-    default (this may be changed for each unit individually via the <varname>IgnoreSIGPIPE=</varname> option, see
+    <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    To mitigate this issue, systemd service manager explicitly turns off the <constant>SIGPIPE</constant>
+    signal for all invoked processes by default (this may be changed for each unit individually via the
+    <varname>IgnoreSIGPIPE=</varname> option, see
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-    details). After the standard output/standard error streams have been terminated they may not be recovered until the
-    services they are associated with are restarted. Note that during normal operation,
-    <filename>systemd-journald.service</filename> stores copies of the file descriptors for those streams in the
-    service manager. If <filename>systemd-journald.service</filename> is restarted using <command>systemctl
-    restart</command> or equivalent operation instead of a pair of separate <command>systemctl stop</command> and
-    <command>systemctl start</command> commands (or equivalent operations), these stream connections are not terminated
-    and survive the restart. It is thus safe to restart <filename>systemd-journald.service</filename>, but stopping it
-    is not recommended.</para>
+    details). After the standard output/standard error streams have been terminated they may not be recovered
+    until the services they are associated with are restarted. Note that during normal operation,
+    <filename>systemd-journald.service</filename> stores copies of the file descriptors for those streams in
+    the service manager. If <filename>systemd-journald.service</filename> is restarted using
+    <command>systemctl restart</command> or equivalent operation instead of a pair of separate
+    <command>systemctl stop</command> and <command>systemctl start</command> commands (or equivalent
+    operations), these stream connections are not terminated and survive the restart. It is thus safe to
+    restart <filename>systemd-journald.service</filename>, but stopping it is not recommended.</para>
 
     <para>Note that the log record metadata for records transferred via such standard output/error streams reflect the
     metadata of the peer the stream was originally created for. If the stream connection is passed on to other

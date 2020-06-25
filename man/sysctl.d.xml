@@ -63,7 +63,7 @@ key.pattern.overridden.with.glob = custom
     <literal>net.ipv4.conf.enp3s0/200.forwarding</literal> or
     <literal>net/ipv4/conf/enp3s0.200/forwarding</literal> may be used to refer to
     <filename>/proc/sys/net/ipv4/conf/enp3s0.200/forwarding</filename>. A glob
-    <citerefentry><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry> pattern may be
+    <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry> pattern may be
     used to write the same value to all matching keys. Keys for which an explicit pattern exists will be
     excluded from any glob matching. In addition, a key may be explicitly excluded from being set by any
     matching glob patterns by specifying the key name prefixed with a <literal>-</literal> character and not

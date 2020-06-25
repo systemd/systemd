@@ -48,7 +48,7 @@
     socket binding for a bus connection object. If the <parameter>b</parameter> is true, the feature is enabled,
     otherwise disabled (which is the default). When enabled, and the selected bus address refers to an
     <filename>AF_UNIX</filename> socket in the file system which does not exist while the connection attempt is made an
-    <citerefentry><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry> watch is installed on
+    <citerefentry project='man-pages'><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry> watch is installed on
     it, waiting for the socket to appear. As soon as the socket appears the connection is made. This functionality is
     useful in particular in early-boot programs that need to run before the system bus is available, but want to
     connect to it the instant it may be connected to.</para>
@@ -106,7 +106,7 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>inotify</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_request_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,

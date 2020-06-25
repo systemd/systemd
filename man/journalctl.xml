@@ -621,7 +621,7 @@
         <listitem><para>Filter output to entries where the <varname>MESSAGE=</varname>
         field matches the specified regular expression. PERL-compatible regular expressions
         are used, see
-        <citerefentry><refentrytitle>pcre2pattern</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        <citerefentry project='url'><refentrytitle url='http://pcre.org/current/doc/html/pcre2pattern.html'>pcre2pattern</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         for a detailed description of the syntax.</para>
 
         <para>If the pattern is all lowercase, matching is case insensitive.
