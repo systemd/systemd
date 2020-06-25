@@ -752,7 +752,7 @@ int link_get(Manager *m, int ifindex, Link **ret) {
         Link *link;
 
         assert(m);
-        assert(ifindex);
+        assert(ifindex > 0);
         assert(ret);
 
         link = hashmap_get(m->links, INT_TO_PTR(ifindex));
