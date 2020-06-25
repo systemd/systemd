@@ -3427,13 +3427,12 @@ int config_parse_memory_limit(
         uint64_t bytes = CGROUP_LIMIT_MAX;
         int r;
 
-        if (STR_IN_SET(lvalue, "DefaultMemoryLow",
-                               "DefaultMemoryMin",
-                               "MemoryLow",
-                               "MemoryMin"))
+        if (isempty(rvalue) && STR_IN_SET(lvalue, "DefaultMemoryLow",
+                                                  "DefaultMemoryMin",
+                                                  "MemoryLow",
+                                                  "MemoryMin"))
                 bytes = CGROUP_LIMIT_MIN;
-
-        if (!isempty(rvalue) && !streq(rvalue, "infinity")) {
+        else if (!isempty(rvalue) && !streq(rvalue, "infinity")) {
 
                 r = parse_permille(rvalue);
                 if (r < 0) {
