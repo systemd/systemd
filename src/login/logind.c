@@ -169,6 +169,7 @@ static Manager* manager_unref(Manager *m) {
         free(m->action_job);
 
         strv_free(m->efi_boot_loader_entries);
+        free(m->efi_loader_entry_one_shot);
 
         return mfree(m);
 }
