@@ -454,11 +454,6 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                        "sd-device-monitor: No sender credentials received, message ignored.");
 
-        cred = (struct ucred*) CMSG_DATA(cmsg);
-        if (cred->uid != 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                       "sd-device-monitor: Sender uid="UID_FMT", message ignored.", cred->uid);
-
         if (streq(buf.raw, "libudev")) {
                 /* udev message needs proper version magic */
                 if (buf.nlh.magic != htobe32(UDEV_MONITOR_MAGIC))
