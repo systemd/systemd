@@ -2751,8 +2751,6 @@ static int property_get_reboot_to_boot_loader_menu(
 
         r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
         if (r == -ENXIO) {
-                _cleanup_free_ char *v = NULL;
-
                 /* EFI case: returns the current value of LoaderConfigTimeoutOneShot. Three cases are distuingished:
                  *
                  *     1. Variable not set, boot into boot loader menu is not enabled (we return UINT64_MAX to the user)
@@ -2760,20 +2758,10 @@ static int property_get_reboot_to_boot_loader_menu(
                  *     3. Variable set to numeric value formatted in ASCII, boot into boot loader menu with the specified timeout in seconds
                  */
 
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderConfigTimeoutOneShot", &v);
+                r = efi_loader_get_config_timeout_one_shot(&x);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                log_warning_errno(r, "Failed to read LoaderConfigTimeoutOneShot variable: %m");
-                } else {
-                        uint64_t sec;
-
-                        r = safe_atou64(v, &sec);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to parse LoaderConfigTimeoutOneShot value '%s': %m", v);
-                        else if (sec > (USEC_INFINITY / USEC_PER_SEC))
-                                log_warning("LoaderConfigTimeoutOneShot too large, ignoring: %m");
-                        else
-                                x = sec * USEC_PER_SEC; /* return in µs */
+                                log_warning_errno(r, "Failed to read LoaderConfigTimeoutOneShot variable, ignoring: %m");
                 }
 
         } else if (r < 0)
