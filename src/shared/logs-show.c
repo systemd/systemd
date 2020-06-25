@@ -573,19 +573,22 @@ static int output_short(
                 if (config_file &&
                     message_len >= config_file_len &&
                     memcmp(message, config_file, config_file_len) == 0 &&
-                    IN_SET(message[config_file_len], ':', ' ', '\0') &&
+                    (message_len == config_file_len || IN_SET(message[config_file_len], ':', ' ')) &&
                     (!highlight || highlight_shifted[0] == 0 || highlight_shifted[0] > config_file_len)) {
 
                         _cleanup_free_ char *t = NULL, *urlified = NULL;
 
                         t = strndup(config_file, config_file_len);
                         if (t && terminal_urlify_path(t, NULL, &urlified) >= 0) {
-                                size_t shift = strlen(urlified) - config_file_len;
+                                size_t urlified_len = strlen(urlified);
+                                size_t shift = urlified_len - config_file_len;
                                 char *joined;
 
-                                joined = strjoin(urlified, message + config_file_len);
+                                joined = realloc(urlified, message_len + shift);
                                 if (joined) {
+                                        memcpy(joined + urlified_len, message + config_file_len, message_len - config_file_len);
                                         free_and_replace(message, joined);
+                                        TAKE_PTR(urlified);
                                         message_len += shift;
                                         if (highlight) {
                                                 highlight_shifted[0] += shift;

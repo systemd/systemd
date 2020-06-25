@@ -925,7 +925,7 @@ static void event_queue_start(Manager *manager) {
         udev_builtin_init();
 
         if (!manager->rules) {
-                r = udev_rules_new(&manager->rules, arg_resolve_name_timing);
+                r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to read udev rules: %m");
                         return;
@@ -1787,7 +1787,7 @@ static int main_loop(Manager *manager) {
 
         udev_builtin_init();
 
-        r = udev_rules_new(&manager->rules, arg_resolve_name_timing);
+        r = udev_rules_load(&manager->rules, arg_resolve_name_timing);
         if (!manager->rules)
                 return log_error_errno(r, "Failed to read udev rules: %m");
 

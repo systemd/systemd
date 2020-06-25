@@ -1175,7 +1175,7 @@ static void rule_resolve_goto(UdevRuleFile *rule_file) {
         }
 }
 
-static int parse_file(UdevRules *rules, const char *filename) {
+int udev_rules_parse_file(UdevRules *rules, const char *filename) {
         _cleanup_free_ char *continuation = NULL, *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         UdevRuleFile *rule_file;
@@ -1278,30 +1278,41 @@ static int parse_file(UdevRules *rules, const char *filename) {
         return 0;
 }
 
-int udev_rules_new(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing) {
-        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_strv_free_ char **files = NULL;
-        char **f;
-        int r;
-
+UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
         assert(resolve_name_timing >= 0 && resolve_name_timing < _RESOLVE_NAME_TIMING_MAX);
 
-        rules = new(UdevRules, 1);
+        UdevRules *rules = new(UdevRules, 1);
         if (!rules)
-                return -ENOMEM;
+                return NULL;
 
         *rules = (UdevRules) {
                 .resolve_name_timing = resolve_name_timing,
         };
 
+        return rules;
+}
+
+int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing) {
+        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
+        _cleanup_strv_free_ char **files = NULL;
+        char **f;
+        int r;
+
+        rules = udev_rules_new(resolve_name_timing);
+        if (!rules)
+                return -ENOMEM;
+
         (void) udev_rules_check_timestamp(rules);
 
         r = conf_files_list_strv(&files, ".rules", NULL, 0, RULES_DIRS);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate rules files: %m");
+                return log_debug_errno(r, "Failed to enumerate rules files: %m");
 
-        STRV_FOREACH(f, files)
-                (void) parse_file(rules, *f);
+        STRV_FOREACH(f, files) {
+                r = udev_rules_parse_file(rules, *f);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read rules file %s, ignoring: %m", *f);
+        }
 
         *ret_rules = TAKE_PTR(rules);
         return 0;
