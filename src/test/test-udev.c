@@ -82,7 +82,10 @@ static int run(int argc, char *argv[]) {
         }
 
         log_debug("version %s", GIT_VERSION);
-        mac_selinux_init();
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
 
         action = argv[1];
         devpath = argv[2];
