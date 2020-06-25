@@ -1312,7 +1312,7 @@ node /org/freedesktop/systemd1 {
       <para><function>SetUnitProperties()</function> may be used to modify certain unit properties at
       runtime. Not all properties may be changed at runtime, but many resource management settings (primarily
       those listed in
-      <citerefentry><refentrytitle>systemd.cgroup</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
       may. The changes are applied instantly and stored on disk for future boots, unless
       <varname>runtime</varname> is true, in which case the settings only apply until the next
       reboot. <varname>name</varname> is the name of the unit to modify. <varname>properties</varname> are

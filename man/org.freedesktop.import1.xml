@@ -37,7 +37,7 @@
     is mostly a small companion service for
     <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     Many operations to manipulate local container and VM images are hence available via the <command>systemd-machined</command> D-Bus API, c.f.
-    <citerefentry><refentrytitle>org.freedesktop.machine1.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>org.freedesktop.machine1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
   </refsect1>
 

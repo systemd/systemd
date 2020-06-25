@@ -83,11 +83,11 @@
     <constant>SD_BUS_MESSAGE_METHOD_RETURN</constant>, <constant>SD_BUS_MESSAGE_METHOD_ERROR</constant>,
     <constant>SD_BUS_MESSAGE_SIGNAL</constant>. This type is either specified as a parameter when the message
     is created using
-    <citerefentry><refentrytitle>sd_bus_set_message_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_message_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     or is set automatically when the message is created using
-    <citerefentry><refentrytitle>sd_bus_set_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>sd_bus_set_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>sd_bus_set_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>sd_bus_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and similar functions.</para>
 
     <para><function>sd_bus_message_get_error()</function> returns the error stored in the message
@@ -108,20 +108,20 @@
     signal message. If <parameter>interface</parameter> is non-null, it also checks if the message has the
     same interface set. If <parameter>member</parameter> is non-null, it also checks if the message has the
     same member set. Also see
-    <citerefentry><refentrytitle>sd_bus_set_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>sd_bus_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     It returns true when all checks pass.</para>
 
     <para><function>sd_bus_message_is_method_call()</function> checks if message <parameter>m</parameter>
     is a method call message. If <parameter>interface</parameter> is non-null, it also checks if the message
     has the same interface set. If <parameter>member</parameter> is non-null, it also checks if the message
     has the same member set. Also see
-    <citerefentry><refentrytitle>sd_bus_set_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     It returns true when all checks pass.</para>
 
     <para><function>sd_bus_message_is_method_error()</function> checks if message <parameter>m</parameter>
     is an error reply message. If <parameter>name</parameter> is non-null, it also checks if the message has
     the same error identifier set. Also see
-    <citerefentry><refentrytitle>sd_bus_set_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>sd_bus_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     It returns true when all checks pass.</para>
   </refsect1>
 

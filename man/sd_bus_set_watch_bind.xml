@@ -64,8 +64,8 @@
     used on a connection with this feature enabled that is not established yet might block unbounded if the socket is
     never created. However, asynchronous remote operations (such as
     <citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>sd_bus_add_match_async</refentrytitle><manvolnum>3</manvolnum></citerefentry> or
-    <citerefentry><refentrytitle>sd_bus_request_match_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>) do
+    <citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>sd_bus_add_match_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>) do
     not block in this case, and safely enqueue the requested operations to be dispatched the instant the connection is
     set up.</para>
 
