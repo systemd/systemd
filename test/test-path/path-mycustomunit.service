@@ -1,6 +1,7 @@
 [Unit]
-Description=Service Test Path Unit=
+Description=Service Test Path Unit
 
 [Service]
 ExecStart=/bin/true
-Type=oneshot
+Type=simple
+RemainAfterExit=true

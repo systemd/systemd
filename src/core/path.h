@@ -56,8 +56,6 @@ struct Path {
 
         PathState state, deserialized_state;
 
-        bool inotify_triggered;
-
         bool make_directory;
         mode_t directory_mode;
 
