@@ -5188,7 +5188,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         return 1;
 
-                } else if (contents[0] == SD_BUS_TYPE_BYTE && streq(name, "StandardInputData")) {
+                } else if (contents[0] == SD_BUS_TYPE_BYTE && STR_IN_SET(name, "StandardInputData", "RootHashSignature")) {
                         _cleanup_free_ char *h = NULL;
                         const void *p;
                         size_t sz;

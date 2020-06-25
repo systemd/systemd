@@ -200,6 +200,9 @@ static unsigned long arg_clone_ns_flags = CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS
 static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_TMPFS_TMP;
 static void *arg_root_hash = NULL;
 static char *arg_verity_data = NULL;
+static char *arg_root_hash_sig_path = NULL;
+static void *arg_root_hash_sig = NULL;
+static size_t arg_root_hash_sig_size = 0;
 static size_t arg_root_hash_size = 0;
 static char **arg_syscall_allow_list = NULL;
 static char **arg_syscall_deny_list = NULL;
@@ -244,6 +247,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_property_message, sd_bus_message_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verity_data, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash_sig_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_hash_sig, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_syscall_allow_list, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_syscall_deny_list, strv_freep);
 #if HAVE_SECCOMP
@@ -305,6 +310,10 @@ static int help(void) {
                "     --read-only            Mount the root directory read-only\n"
                "     --volatile[=MODE]      Run the system in volatile mode\n"
                "     --root-hash=HASH       Specify verity root hash for root disk image\n"
+               "     --root-hash-sig=SIG    Specify pkcs7 signature of root hash for verity\n"
+               "                            as a DER encoded PKCS7, either as a path to a file\n"
+               "                            or as an ASCII base64 encoded string prefixed by\n"
+               "                            'base64:'\n"
                "     --verity-data=PATH     Specify hash device for verity\n"
                "     --pivot-root=PATH[:PATH]\n"
                "                            Pivot root to given directory in the container\n\n"
@@ -667,6 +676,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OCI_BUNDLE,
                 ARG_NO_PAGER,
                 ARG_VERITY_DATA,
+                ARG_ROOT_HASH_SIG,
         };
 
         static const struct option options[] = {
@@ -733,6 +743,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "oci-bundle",             required_argument, NULL, ARG_OCI_BUNDLE             },
                 { "no-pager",               no_argument,       NULL, ARG_NO_PAGER               },
                 { "verity-data",            required_argument, NULL, ARG_VERITY_DATA            },
+                { "root-hash-sig",          required_argument, NULL, ARG_ROOT_HASH_SIG          },
                 {}
         };
 
@@ -1326,6 +1337,31 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                case ARG_ROOT_HASH_SIG: {
+                        char *value;
+
+                        if ((value = startswith(optarg, "base64:"))) {
+                                void *p;
+                                size_t l;
+
+                                r = unbase64mem(value, strlen(value), &p, &l);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
+
+                                free_and_replace(arg_root_hash_sig, p);
+                                arg_root_hash_sig_size = l;
+                                arg_root_hash_sig_path = mfree(arg_root_hash_sig_path);
+                        } else {
+                                r = parse_path_argument_and_warn(optarg, false, &arg_root_hash_sig_path);
+                                if (r < 0)
+                                        return r;
+                                arg_root_hash_sig = mfree(arg_root_hash_sig);
+                                arg_root_hash_sig_size = 0;
+                        }
+
+                        break;
+                }
 
                 case ARG_SYSTEM_CALL_FILTER: {
                         bool negative;
@@ -5143,7 +5179,8 @@ static int run(int argc, char *argv[]) {
                         }
 
                         r = verity_metadata_load(arg_image, NULL, arg_root_hash ? NULL : &arg_root_hash, &arg_root_hash_size,
-                                        arg_verity_data ? NULL : &arg_verity_data);
+                                        arg_verity_data ? NULL : &arg_verity_data,
+                                        arg_root_hash_sig_path || arg_root_hash_sig ? NULL : &arg_root_hash_sig_path);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);
                                 goto finish;
@@ -5193,7 +5230,7 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root_hash && dissected_image->can_verity)
                         log_notice("Note: image %s contains verity information, but no root hash specified! Proceeding without integrity checking.", arg_image);
 
-                r = dissected_image_decrypt_interactively(dissected_image, NULL, arg_root_hash, arg_root_hash_size, arg_verity_data, 0, &decrypted_image);
+                r = dissected_image_decrypt_interactively(dissected_image, NULL, arg_root_hash, arg_root_hash_size, arg_verity_data, arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size, 0, &decrypted_image);
                 if (r < 0)
                         goto finish;
 

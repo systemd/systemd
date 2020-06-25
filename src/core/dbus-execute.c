@@ -765,6 +765,25 @@ static int property_get_root_hash(
         return sd_bus_message_append_array(reply, 'y', c->root_hash, c->root_hash_size);
 }
 
+static int property_get_root_hash_sig(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        return sd_bus_message_append_array(reply, 'y', c->root_hash_sig, c->root_hash_sig_size);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -809,6 +828,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootImage", "s", NULL, offsetof(ExecContext, root_image), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHash", "ay", property_get_root_hash, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashPath", "s", NULL, offsetof(ExecContext, root_hash_path), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootHashSignature", "ay", property_get_root_hash_sig, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootHashSignaturePath", "s", NULL, offsetof(ExecContext, root_hash_sig_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootVerity", "s", NULL, offsetof(ExecContext, root_verity), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CoredumpFilter", "t", property_get_coredump_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1324,6 +1345,53 @@ int bus_exec_context_set_transient_property(
                 c->root_hash = mfree(c->root_hash);
 
                 return bus_set_transient_path(u, "RootHash", &c->root_hash_path, message, flags, error);
+        }
+
+        if (streq(name, "RootHashSignature")) {
+                const void *roothash_sig_decoded;
+                size_t roothash_sig_decoded_size;
+
+                r = sd_bus_message_read_array(message, 'y', &roothash_sig_decoded, &roothash_sig_decoded_size);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *encoded = NULL;
+
+                        if (roothash_sig_decoded_size == 0) {
+                                c->root_hash_sig_path = mfree(c->root_hash_sig_path);
+                                c->root_hash_sig = mfree(c->root_hash_sig);
+                                c->root_hash_sig_size = 0;
+
+                                unit_write_settingf(u, flags, name, "RootHashSignature=");
+                        } else {
+                                _cleanup_free_ void *p;
+                                ssize_t len;
+
+                                len = base64mem(roothash_sig_decoded, roothash_sig_decoded_size, &encoded);
+                                if (len < 0)
+                                        return -ENOMEM;
+
+                                p = memdup(roothash_sig_decoded, roothash_sig_decoded_size);
+                                if (!p)
+                                        return -ENOMEM;
+
+                                free_and_replace(c->root_hash_sig, p);
+                                c->root_hash_sig_size = roothash_sig_decoded_size;
+                                c->root_hash_sig_path = mfree(c->root_hash_sig_path);
+
+                                unit_write_settingf(u, flags, name, "RootHashSignature=base64:%s", encoded);
+                        }
+                }
+
+                return 1;
+        }
+
+        if (streq(name, "RootHashSignaturePath")) {
+                c->root_hash_sig_size = 0;
+                c->root_hash_sig = mfree(c->root_hash_sig);
+
+                return bus_set_transient_path(u, "RootHashSignature", &c->root_hash_sig_path, message, flags, error);
         }
 
         if (streq(name, "RootVerity"))

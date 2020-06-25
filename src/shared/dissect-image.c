@@ -1223,6 +1223,9 @@ static int verity_partition(
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *verity_data,
+                const char *root_hash_sig_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
                 DissectImageFlags flags,
                 DecryptedImage *d) {
 
@@ -1267,7 +1270,25 @@ static int verity_partition(
         if (r < 0)
                 return r;
 
-        r = crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
+        if (root_hash_sig || root_hash_sig_path) {
+#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
+                if (root_hash_sig)
+                        r = crypt_activate_by_signed_key(cd, name, root_hash, root_hash_size, root_hash_sig, root_hash_sig_size, CRYPT_ACTIVATE_READONLY);
+                else {
+                        _cleanup_free_ char *hash_sig = NULL;
+                        size_t hash_sig_size;
+
+                        r = read_full_file_full(AT_FDCWD, root_hash_sig_path, 0, &hash_sig, &hash_sig_size);
+                        if (r < 0)
+                                return r;
+
+                        r = crypt_activate_by_signed_key(cd, name, root_hash, root_hash_size, hash_sig, hash_sig_size, CRYPT_ACTIVATE_READONLY);
+                }
+#else
+                r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()");
+#endif
+        } else
+                r = crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
         if (r < 0)
                 return r;
 
@@ -1287,6 +1308,9 @@ int dissected_image_decrypt(
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *verity_data,
+                const char *root_hash_sig_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
                 DissectImageFlags flags,
                 DecryptedImage **ret) {
 
@@ -1333,7 +1357,7 @@ int dissected_image_decrypt(
 
                 k = PARTITION_VERITY_OF(i);
                 if (k >= 0) {
-                        r = verity_partition(p, m->partitions + k, root_hash, root_hash_size, verity_data, flags, d);
+                        r = verity_partition(p, m->partitions + k, root_hash, root_hash_size, verity_data, root_hash_sig_path, root_hash_sig, root_hash_sig_size, flags, d);
                         if (r < 0)
                                 return r;
                 }
@@ -1359,6 +1383,9 @@ int dissected_image_decrypt_interactively(
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *verity_data,
+                const char *root_hash_sig_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
                 DissectImageFlags flags,
                 DecryptedImage **ret) {
 
@@ -1369,7 +1396,7 @@ int dissected_image_decrypt_interactively(
                 n--;
 
         for (;;) {
-                r = dissected_image_decrypt(m, passphrase, root_hash, root_hash_size, verity_data, flags, ret);
+                r = dissected_image_decrypt(m, passphrase, root_hash, root_hash_size, verity_data, root_hash_sig_path, root_hash_sig, root_hash_sig_size, flags, ret);
                 if (r >= 0)
                         return r;
                 if (r == -EKEYREJECTED)
@@ -1421,8 +1448,8 @@ int decrypted_image_relinquish(DecryptedImage *d) {
         return 0;
 }
 
-int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data) {
-        _cleanup_free_ char *verity_filename = NULL;
+int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data, char **ret_roothashsig) {
+        _cleanup_free_ char *verity_filename = NULL, *roothashsig_filename = NULL;
         _cleanup_free_ void *roothash_decoded = NULL;
         size_t roothash_decoded_size = 0;
         int r;
@@ -1437,6 +1464,8 @@ int verity_metadata_load(const char *image, const char *root_hash_path, void **r
                         *ret_roothash_size = 0;
                 if (ret_verity_data)
                         *ret_verity_data = NULL;
+                if (ret_roothashsig)
+                        *ret_roothashsig = NULL;
                 return 0;
         }
 
@@ -1458,6 +1487,29 @@ int verity_metadata_load(const char *image, const char *root_hash_path, void **r
                         if (errno != ENOENT)
                                 return -errno;
                         verity_filename = mfree(verity_filename);
+                }
+        }
+
+        if (ret_roothashsig) {
+                char *e;
+
+                /* Follow naming convention recommended by the relevant RFC:
+                 * https://tools.ietf.org/html/rfc5751#section-3.2.1 */
+                roothashsig_filename = new(char, strlen(image) + STRLEN(".roothash.p7s") + 1);
+                if (!roothashsig_filename)
+                        return -ENOMEM;
+                strcpy(roothashsig_filename, image);
+                e = endswith(roothashsig_filename, ".raw");
+                if (e)
+                        strcpy(e, ".roothash.p7s");
+                else
+                        strcat(roothashsig_filename, ".roothash.p7s");
+
+                r = access(roothashsig_filename, R_OK);
+                if (r < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
+                        roothashsig_filename = mfree(roothashsig_filename);
                 }
         }
 
@@ -1507,6 +1559,8 @@ int verity_metadata_load(const char *image, const char *root_hash_path, void **r
         }
         if (ret_verity_data)
                 *ret_verity_data = TAKE_PTR(verity_filename);
+        if (roothashsig_filename)
+                *ret_roothashsig = TAKE_PTR(roothashsig_filename);
 
         return 1;
 }
