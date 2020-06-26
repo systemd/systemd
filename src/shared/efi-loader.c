@@ -713,28 +713,6 @@ int efi_loader_get_features(uint64_t *ret) {
         return 0;
 }
 
-#endif
-
-bool efi_loader_entry_name_valid(const char *s) {
-        if (isempty(s))
-                return false;
-
-        if (strlen(s) > FILENAME_MAX) /* Make sure entry names fit in filenames */
-                return false;
-
-        return in_charset(s, ALPHANUMERICAL "+-_.");
-}
-
-char *efi_tilt_backslashes(char *s) {
-        char *p;
-
-        for (p = s; *p; p++)
-                if (*p == '\\')
-                        *p = '/';
-
-        return s;
-}
-
 int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
         _cleanup_free_ char *v = NULL, *fn = NULL;
         static struct stat cache_stat = {};
@@ -803,4 +781,26 @@ int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat
         free_and_replace(*cache, v);
 
         return 0;
+}
+
+#endif
+
+bool efi_loader_entry_name_valid(const char *s) {
+        if (isempty(s))
+                return false;
+
+        if (strlen(s) > FILENAME_MAX) /* Make sure entry names fit in filenames */
+                return false;
+
+        return in_charset(s, ALPHANUMERICAL "+-_.");
+}
+
+char *efi_tilt_backslashes(char *s) {
+        char *p;
+
+        for (p = s; *p; p++)
+                if (*p == '\\')
+                        *p = '/';
+
+        return s;
 }
