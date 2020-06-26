@@ -173,6 +173,10 @@ Features:
   - teach it to copy in unified kernel images and maybe type #1 boot loader spec entries from host
   - make it operate on loopback files, dissecting enough to find ESP to operate on
 
+* Maybe add a separate GPT partition type to the discoverable partition spec
+  for "hibernate" partitions, that are exactly like swap partitions but only
+  activated right before hibernation and thus never used for regular swapping.
+
 * by default, in systemd --user service bump the OOMAdjust to 100, as privs
   allow so that systemd survives
 
@@ -233,6 +237,23 @@ Features:
   encryption via LUKS to allow booting into an empty root with only /usr mounted in
 
 * systemd-repart: allow managing the gpt read-only partition flag + auto-mount flag
+
+* systemd-repart: allow boolean option that ensures that if existing partition
+  doesn't exist within the configured size bounds the whole command fails. This
+  is useful to implement ESP vs. XBOOTLDR schemes in installers: have one set
+  of repart files for the case where ESP is large enough and one where it isn't
+  and XBOOTLDR is added in instead.  Then apply the former first, and if it
+  fails to apply use the latter.
+
+* systemd-repart: add per-partition option to never reuse existing partition
+  and always create anew even if matching partition already exists.
+
+* systemd-repart: add per-partition option to fail if partition already exist,
+  i.e. is not added new. Similar, add option to fail if partition does not exist yet.
+
+* systemd-repart: add --size=auto for generating/resizing images of minimal
+  size, i.e. where the image file is sized exactly as large as necessary taking
+  SizeMin= into account, but not a single byte larger.
 
 * systemd-repart: allow disabling growing of specific partitions, or making
   them (think ESP: we don't ever want to grow it, since we cannot resize vfat)
