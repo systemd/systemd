@@ -80,7 +80,7 @@
 
         <para>The domains prefixed with <literal>~</literal> are called "routing domains". All domains listed
         here (both search domains and routing domains after removing the <literal>~</literal> prefix) define
-        a search path that preferably directs DNS queries to this inteface. This search path has an effect
+        a search path that preferably directs DNS queries to this interface. This search path has an effect
         only when suitable per-link DNS servers are known. Such servers may be defined through the
         <varname>DNS=</varname> setting (see above) and dynamically at run time, for example from DHCP
         leases. If no per-link DNS servers are known, routing domains have no effect.</para>
