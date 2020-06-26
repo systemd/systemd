@@ -240,7 +240,7 @@ static void match_free_if_empty(Match *m) {
 
 _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) {
         Match *l3, *l4, *add_here = NULL, *m;
-        le64_t le_hash;
+        uint64_t hash;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
@@ -279,7 +279,9 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         assert(j->level1->type == MATCH_OR_TERM);
         assert(j->level2->type == MATCH_AND_TERM);
 
-        le_hash = htole64(hash64(data, size));
+        /* Old-style Jenkins (unkeyed) hashing only here. We do not cover new-style siphash (keyed) hashing
+         * here, since it's different for each file, and thus can't be pre-calculated in the Match object. */
+        hash = jenkins_hash64(data, size);
 
         LIST_FOREACH(matches, l3, j->level2->matches) {
                 assert(l3->type == MATCH_OR_TERM);
@@ -289,7 +291,7 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
 
                         /* Exactly the same match already? Then ignore
                          * this addition */
-                        if (l4->le_hash == le_hash &&
+                        if (l4->hash == hash &&
                             l4->size == size &&
                             memcmp(l4->data, data, size) == 0)
                                 return 0;
@@ -315,7 +317,7 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         if (!m)
                 goto fail;
 
-        m->le_hash = le_hash;
+        m->hash = hash;
         m->size = size;
         m->data = memdup(data, size);
         if (!m->data)
@@ -501,9 +503,16 @@ static int next_for_match(
         assert(f);
 
         if (m->type == MATCH_DISCRETE) {
-                uint64_t dp;
+                uint64_t dp, hash;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+                /* If the keyed hash logic is used, we need to calculate the hash fresh per file. Otherwise
+                 * we can use what we pre-calculated. */
+                if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                        hash = journal_file_hash_data(f, m->data, m->size);
+                else
+                        hash = m->hash;
+
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, NULL, &dp);
                 if (r <= 0)
                         return r;
 
@@ -590,9 +599,14 @@ static int find_location_for_match(
         assert(f);
 
         if (m->type == MATCH_DISCRETE) {
-                uint64_t dp;
+                uint64_t dp, hash;
 
-                r = journal_file_find_data_object_with_hash(f, m->data, m->size, le64toh(m->le_hash), NULL, &dp);
+                if (JOURNAL_HEADER_KEYED_HASH(f->header))
+                        hash = journal_file_hash_data(f, m->data, m->size);
+                else
+                        hash = m->hash;
+
+                r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, NULL, &dp);
                 if (r <= 0)
                         return r;
 
@@ -2313,7 +2327,7 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
 
                 compression = o->object.flags & OBJECT_COMPRESSION_MASK;
                 if (compression) {
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_COMPRESSION
                         r = decompress_startswith(compression,
                                                   o->data.payload, l,
                                                   &f->compress_buffer, &f->compress_buffer_size,
@@ -2380,7 +2394,7 @@ static int return_data(sd_journal *j, JournalFile *f, Object *o, const void **da
 
         compression = o->object.flags & OBJECT_COMPRESSION_MASK;
         if (compression) {
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_COMPRESSION
                 size_t rsize;
                 int r;
 

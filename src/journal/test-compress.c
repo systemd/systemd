@@ -44,7 +44,7 @@ typedef int (decompress_sw_t)(const void *src, uint64_t src_size,
 typedef int (compress_stream_t)(int fdf, int fdt, uint64_t max_bytes);
 typedef int (decompress_stream_t)(int fdf, int fdt, uint64_t max_size);
 
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
 _unused_ static void test_compress_decompress(const char *compression,
                                               compress_blob_t compress,
                                               decompress_blob_t decompress,
@@ -265,7 +265,7 @@ static void test_lz4_decompress_partial(void) {
 #endif
 
 int main(int argc, char *argv[]) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
         _unused_ const char text[] =
                 "text\0foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF"
                 "foofoofoofoo AAAA aaaaaaaaa ghost busters barbarbar FFF";
@@ -339,8 +339,25 @@ int main(int argc, char *argv[]) {
 #endif
 
 #if HAVE_ZSTD
+        test_compress_decompress("ZSTD", compress_blob_zstd, decompress_blob_zstd,
+                                 text, sizeof(text), false);
+        test_compress_decompress("ZSTD", compress_blob_zstd, decompress_blob_zstd,
+                                 data, sizeof(data), true);
+
+        test_decompress_startswith("ZSTD",
+                                   compress_blob_zstd, decompress_startswith_zstd,
+                                   text, sizeof(text), false);
+        test_decompress_startswith("ZSTD",
+                                   compress_blob_zstd, decompress_startswith_zstd,
+                                   data, sizeof(data), true);
+        test_decompress_startswith("ZSTD",
+                                   compress_blob_zstd, decompress_startswith_zstd,
+                                   huge, HUGE_SIZE, true);
+
         test_compress_stream("ZSTD", "zstdcat",
                              compress_stream_zstd, decompress_stream_zstd, srcfile);
+
+        test_decompress_startswith_short("ZSTD", compress_blob_zstd, decompress_startswith_zstd);
 #else
         log_info("/* ZSTD test skipped */");
 #endif

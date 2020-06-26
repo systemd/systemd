@@ -157,7 +157,7 @@ static void test_empty(void) {
         (void) journal_file_close(f4);
 }
 
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_COMPRESSION
 static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
         dual_timestamp ts;
         JournalFile *f;
@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
 
         test_non_empty();
         test_empty();
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_COMPRESSION
         test_min_compress_size();
 #endif
 

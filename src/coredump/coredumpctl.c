@@ -824,7 +824,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
         }
 
         if (filename) {
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
                 _cleanup_close_ int fdf;
 
                 fdf = open(filename, O_RDONLY | O_CLOEXEC);
@@ -839,8 +839,8 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         goto error;
                 }
 #else
-                log_error("Cannot decompress file. Compiled without compression support.");
-                r = -EOPNOTSUPP;
+                r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                    "Cannot decompress file. Compiled without compression support.");
                 goto error;
 #endif
         } else {

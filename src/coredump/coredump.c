@@ -423,7 +423,7 @@ static int save_external_coredump(
                 goto fail;
         }
 
-#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
+#if HAVE_COMPRESSION
         /* If we will remove the coredump anyway, do not compress. */
         if (arg_compress && !maybe_remove_external_coredump(NULL, st.st_size)) {
 

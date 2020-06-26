@@ -9,7 +9,7 @@
 /*
  * If you change this file you probably should also change its documentation:
  *
- * http://www.freedesktop.org/wiki/Software/systemd/journal-files
+ * https://systemd.io/JOURNAL_FILE_FORMAT
  */
 
 typedef struct Header Header;
@@ -44,12 +44,12 @@ typedef enum ObjectType {
 
 /* Object flags */
 enum {
-        OBJECT_COMPRESSED_XZ = 1 << 0,
-        OBJECT_COMPRESSED_LZ4 = 1 << 1,
-        _OBJECT_COMPRESSED_MAX
+        OBJECT_COMPRESSED_XZ   = 1 << 0,
+        OBJECT_COMPRESSED_LZ4  = 1 << 1,
+        OBJECT_COMPRESSED_ZSTD = 1 << 2,
+        OBJECT_COMPRESSION_MASK = (OBJECT_COMPRESSED_XZ | OBJECT_COMPRESSED_LZ4 | OBJECT_COMPRESSED_ZSTD),
+        _OBJECT_COMPRESSED_MAX = OBJECT_COMPRESSION_MASK,
 };
-
-#define OBJECT_COMPRESSION_MASK (OBJECT_COMPRESSED_XZ | OBJECT_COMPRESSED_LZ4)
 
 struct ObjectHeader {
         uint8_t type;
@@ -74,13 +74,17 @@ struct DataObject DataObject__contents;
 struct DataObject__packed DataObject__contents _packed_;
 assert_cc(sizeof(struct DataObject) == sizeof(struct DataObject__packed));
 
-struct FieldObject {
-        ObjectHeader object;
-        le64_t hash;
-        le64_t next_hash_offset;
-        le64_t head_data_offset;
-        uint8_t payload[];
-} _packed_;
+#define FieldObject__contents {                 \
+        ObjectHeader object;                    \
+        le64_t hash;                            \
+        le64_t next_hash_offset;                \
+        le64_t head_data_offset;                \
+        uint8_t payload[];                      \
+}
+
+struct FieldObject FieldObject__contents;
+struct FieldObject__packed FieldObject__contents _packed_;
+assert_cc(sizeof(struct FieldObject) == sizeof(struct FieldObject__packed));
 
 struct EntryItem {
         le64_t object_offset;
@@ -145,24 +149,38 @@ enum {
 
 /* Header flags */
 enum {
-        HEADER_INCOMPATIBLE_COMPRESSED_XZ = 1 << 0,
-        HEADER_INCOMPATIBLE_COMPRESSED_LZ4 = 1 << 1,
+        HEADER_INCOMPATIBLE_COMPRESSED_XZ   = 1 << 0,
+        HEADER_INCOMPATIBLE_COMPRESSED_LZ4  = 1 << 1,
+        HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
+        HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
 };
 
-#define HEADER_INCOMPATIBLE_ANY (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_LZ4)
+#define HEADER_INCOMPATIBLE_ANY               \
+        (HEADER_INCOMPATIBLE_COMPRESSED_XZ |  \
+         HEADER_INCOMPATIBLE_COMPRESSED_LZ4 | \
+         HEADER_INCOMPATIBLE_KEYED_HASH |     \
+         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD)
 
-#if HAVE_XZ && HAVE_LZ4
+#if HAVE_XZ && HAVE_LZ4 && HAVE_ZSTD
 #  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_ANY
+#elif HAVE_XZ && HAVE_LZ4
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH)
+#elif HAVE_XZ && HAVE_ZSTD
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
+#elif HAVE_LZ4 && HAVE_ZSTD
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
 #elif HAVE_XZ
-#  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_COMPRESSED_XZ
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_XZ|HEADER_INCOMPATIBLE_KEYED_HASH)
 #elif HAVE_LZ4
-#  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_COMPRESSED_LZ4
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_LZ4|HEADER_INCOMPATIBLE_KEYED_HASH)
+#elif HAVE_ZSTD
+#  define HEADER_INCOMPATIBLE_SUPPORTED (HEADER_INCOMPATIBLE_COMPRESSED_ZSTD|HEADER_INCOMPATIBLE_KEYED_HASH)
 #else
-#  define HEADER_INCOMPATIBLE_SUPPORTED 0
+#  define HEADER_INCOMPATIBLE_SUPPORTED HEADER_INCOMPATIBLE_KEYED_HASH
 #endif
 
 enum {
-        HEADER_COMPATIBLE_SEALED = 1
+        HEADER_COMPATIBLE_SEALED = 1 << 0,
 };
 
 #define HEADER_COMPATIBLE_ANY HEADER_COMPATIBLE_SEALED
@@ -172,7 +190,8 @@ enum {
 #  define HEADER_COMPATIBLE_SUPPORTED 0
 #endif
 
-#define HEADER_SIGNATURE ((char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
+#define HEADER_SIGNATURE                                                \
+        ((const char[]) { 'L', 'P', 'K', 'S', 'H', 'H', 'R', 'H' })
 
 #define struct_Header__contents {                       \
         uint8_t signature[8]; /* "LPKSHHRH" */          \
@@ -205,14 +224,18 @@ enum {
         /* Added in 189 */                              \
         le64_t n_tags;                                  \
         le64_t n_entry_arrays;                          \
+        /* Added in 246 */                              \
+        le64_t data_hash_chain_depth;                   \
+        le64_t field_hash_chain_depth;                  \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 240);
+assert_cc(sizeof(struct Header) == 256);
 
-#define FSS_HEADER_SIGNATURE ((char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
+#define FSS_HEADER_SIGNATURE                                            \
+        ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
 
 struct FSSHeader {
         uint8_t signature[8]; /* "KSHHRHLP" */

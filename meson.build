@@ -1190,36 +1190,38 @@ want_xz = get_option('xz')
 if want_xz != 'false' and not skip_deps
         libxz = dependency('liblzma',
                            required : want_xz == 'true')
-        have = libxz.found()
+        have_xz = libxz.found()
 else
-        have = false
+        have_xz = false
         libxz = []
 endif
-conf.set10('HAVE_XZ', have)
+conf.set10('HAVE_XZ', have_xz)
 
 want_lz4 = get_option('lz4')
 if want_lz4 != 'false' and not skip_deps
         liblz4 = dependency('liblz4',
                             version : '>= 1.3.0',
                             required : want_lz4 == 'true')
-        have = liblz4.found()
+        have_lz4 = liblz4.found()
 else
-        have = false
+        have_lz4 = false
         liblz4 = []
 endif
-conf.set10('HAVE_LZ4', have)
+conf.set10('HAVE_LZ4', have_lz4)
 
 want_zstd = get_option('zstd')
 if want_zstd != 'false' and not skip_deps
         libzstd = dependency('libzstd',
                              required : want_zstd == 'true',
                              version : '>= 1.4.0')
-        have = libzstd.found()
+        have_zstd = libzstd.found()
 else
-        have = false
+        have_zstd = false
         libzstd = []
 endif
-conf.set10('HAVE_ZSTD', have)
+conf.set10('HAVE_ZSTD', have_zstd)
+
+conf.set10('HAVE_COMPRESSION', have_xz or have_lz4 or have_zstd)
 
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps

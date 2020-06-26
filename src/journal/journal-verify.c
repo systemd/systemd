@@ -163,9 +163,9 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                                 return r;
                         }
 
-                        h2 = hash64(b, b_size);
+                        h2 = journal_file_hash_data(f, b, b_size);
                 } else
-                        h2 = hash64(o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
+                        h2 = journal_file_hash_data(f, o->data.payload, le64toh(o->object.size) - offsetof(Object, data.payload));
 
                 if (h1 != h2) {
                         error(offset, "Invalid hash (%08"PRIx64" vs. %08"PRIx64, h1, h2);
@@ -925,9 +925,10 @@ int journal_file_verify(
                         goto fail;
                 }
 
-                if ((o->object.flags & OBJECT_COMPRESSED_XZ) &&
-                    (o->object.flags & OBJECT_COMPRESSED_LZ4)) {
-                        error(p, "Objected with double compression");
+                if (!!(o->object.flags & OBJECT_COMPRESSED_XZ) +
+                    !!(o->object.flags & OBJECT_COMPRESSED_LZ4) +
+                    !!(o->object.flags & OBJECT_COMPRESSED_ZSTD) > 1) {
+                        error(p, "Object has multiple compression flags set");
                         r = -EINVAL;
                         goto fail;
                 }
@@ -940,6 +941,12 @@ int journal_file_verify(
 
                 if ((o->object.flags & OBJECT_COMPRESSED_LZ4) && !JOURNAL_HEADER_COMPRESSED_LZ4(f->header)) {
                         error(p, "LZ4 compressed object in file without LZ4 compression");
+                        r = -EBADMSG;
+                        goto fail;
+                }
+
+                if ((o->object.flags & OBJECT_COMPRESSED_ZSTD) && !JOURNAL_HEADER_COMPRESSED_ZSTD(f->header)) {
+                        error(p, "ZSTD compressed object in file without ZSTD compression");
                         r = -EBADMSG;
                         goto fail;
                 }

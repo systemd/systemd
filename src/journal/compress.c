@@ -57,8 +57,11 @@ static int zstd_ret_to_errno(size_t ret) {
 #define ALIGN_8(l) ALIGN_TO(l, sizeof(size_t))
 
 static const char* const object_compressed_table[_OBJECT_COMPRESSED_MAX] = {
-        [OBJECT_COMPRESSED_XZ] = "XZ",
-        [OBJECT_COMPRESSED_LZ4] = "LZ4",
+        [OBJECT_COMPRESSED_XZ]   = "XZ",
+        [OBJECT_COMPRESSED_LZ4]  = "LZ4",
+        [OBJECT_COMPRESSED_ZSTD] = "ZSTD",
+        /* If we add too many more entries here, it's going to grow quite large (and be mostly sparse), since
+         * the array key is actually a bitmask, not a plain enum */
 };
 
 DEFINE_STRING_TABLE_LOOKUP(object_compressed, int);
@@ -125,6 +128,29 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
         unaligned_write_le64(dst, src_size);
         *dst_size = r + 8;
 
+        return 0;
+#else
+        return -EPROTONOSUPPORT;
+#endif
+}
+
+int compress_blob_zstd(
+                const void *src, uint64_t src_size,
+                void *dst, size_t dst_alloc_size, size_t *dst_size) {
+#if HAVE_ZSTD
+        size_t k;
+
+        assert(src);
+        assert(src_size > 0);
+        assert(dst);
+        assert(dst_alloc_size > 0);
+        assert(dst_size);
+
+        k = ZSTD_compress(dst, dst_alloc_size, src, src_size, 0);
+        if (ZSTD_isError(k))
+                return zstd_ret_to_errno(k);
+
+        *dst_size = k;
         return 0;
 #else
         return -EPROTONOSUPPORT;
@@ -231,15 +257,74 @@ int decompress_blob_lz4(const void *src, uint64_t src_size,
 #endif
 }
 
-int decompress_blob(int compression,
-                    const void *src, uint64_t src_size,
-                    void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max) {
+int decompress_blob_zstd(
+                const void *src, uint64_t src_size,
+                void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max) {
+
+#if HAVE_ZSTD
+        size_t space;
+
+        assert(src);
+        assert(src_size > 0);
+        assert(dst);
+        assert(dst_alloc_size);
+        assert(dst_size);
+        assert(*dst_alloc_size == 0 || *dst);
+
+        if (src_size > SIZE_MAX/2) /* Overflow? */
+                return -ENOBUFS;
+        space = src_size * 2;
+        if (dst_max > 0 && space > dst_max)
+                space = dst_max;
+
+        if (!greedy_realloc(dst, dst_alloc_size, space, 1))
+                return -ENOMEM;
+
+        for (;;) {
+                size_t k;
+
+                k = ZSTD_decompress(*dst, *dst_alloc_size, src, src_size);
+                if (!ZSTD_isError(k)) {
+                        *dst_size = k;
+                        return 0;
+                }
+                if (ZSTD_getErrorCode(k) != ZSTD_error_dstSize_tooSmall)
+                        return zstd_ret_to_errno(k);
+
+                if (dst_max > 0 && space >= dst_max) /* Already at max? */
+                        return -ENOBUFS;
+                if (space > SIZE_MAX / 2) /* Overflow? */
+                        return -ENOBUFS;
+
+                space *= 2;
+                if (dst_max > 0 && space > dst_max)
+                        space = dst_max;
+
+                if (!greedy_realloc(dst, dst_alloc_size, space, 1))
+                        return -ENOMEM;
+        }
+#else
+        return -EPROTONOSUPPORT;
+#endif
+}
+
+int decompress_blob(
+                int compression,
+                const void *src, uint64_t src_size,
+                void **dst, size_t *dst_alloc_size, size_t* dst_size, size_t dst_max) {
+
         if (compression == OBJECT_COMPRESSED_XZ)
-                return decompress_blob_xz(src, src_size,
-                                          dst, dst_alloc_size, dst_size, dst_max);
+                return decompress_blob_xz(
+                                src, src_size,
+                                dst, dst_alloc_size, dst_size, dst_max);
         else if (compression == OBJECT_COMPRESSED_LZ4)
-                return decompress_blob_lz4(src, src_size,
-                                           dst, dst_alloc_size, dst_size, dst_max);
+                return decompress_blob_lz4(
+                                src, src_size,
+                                dst, dst_alloc_size, dst_size, dst_max);
+        else if (compression == OBJECT_COMPRESSED_ZSTD)
+                return decompress_blob_zstd(
+                                src, src_size,
+                                dst, dst_alloc_size, dst_size, dst_max);
         else
                 return -EBADMSG;
 }
@@ -365,21 +450,92 @@ int decompress_startswith_lz4(const void *src, uint64_t src_size,
 #endif
 }
 
-int decompress_startswith(int compression,
-                          const void *src, uint64_t src_size,
-                          void **buffer, size_t *buffer_size,
-                          const void *prefix, size_t prefix_len,
-                          uint8_t extra) {
+int decompress_startswith_zstd(
+                const void *src, uint64_t src_size,
+                void **buffer, size_t *buffer_size,
+                const void *prefix, size_t prefix_len,
+                uint8_t extra) {
+#if HAVE_ZSTD
+        _cleanup_(ZSTD_freeDCtxp) ZSTD_DCtx *dctx = NULL;
+        size_t k;
+
+        assert(src);
+        assert(src_size > 0);
+        assert(buffer);
+        assert(buffer_size);
+        assert(prefix);
+        assert(*buffer_size == 0 || *buffer);
+
+        dctx = ZSTD_createDCtx();
+        if (!dctx)
+                return -ENOMEM;
+
+        if (!(greedy_realloc(buffer, buffer_size, MAX(ZSTD_DStreamOutSize(), prefix_len + 1), 1)))
+                return -ENOMEM;
+
+        ZSTD_inBuffer input = {
+                .src = src,
+                .size = src_size,
+        };
+        ZSTD_outBuffer output = {
+                .dst = *buffer,
+                .size = *buffer_size,
+        };
+
+        for (;;) {
+                k = ZSTD_decompressStream(dctx, &output, &input);
+                if (ZSTD_isError(k)) {
+                        log_debug("ZSTD decoder failed: %s", ZSTD_getErrorName(k));
+                        return zstd_ret_to_errno(k);
+                }
+
+                if (output.pos >= prefix_len + 1)
+                        return memcmp(*buffer, prefix, prefix_len) == 0 &&
+                                      ((const uint8_t*) *buffer)[prefix_len] == extra;
+
+                if (input.pos >= input.size)
+                        return 0;
+
+                if (*buffer_size > SIZE_MAX/2)
+                        return -ENOBUFS;
+
+                if (!(greedy_realloc(buffer, buffer_size, *buffer_size * 2, 1)))
+                        return -ENOMEM;
+
+                output.dst = *buffer;
+                output.size = *buffer_size;
+        }
+#else
+        return -EPROTONOSUPPORT;
+#endif
+}
+
+int decompress_startswith(
+                int compression,
+                const void *src, uint64_t src_size,
+                void **buffer, size_t *buffer_size,
+                const void *prefix, size_t prefix_len,
+                uint8_t extra) {
+
         if (compression == OBJECT_COMPRESSED_XZ)
-                return decompress_startswith_xz(src, src_size,
-                                                buffer, buffer_size,
-                                                prefix, prefix_len,
-                                                extra);
+                return decompress_startswith_xz(
+                                src, src_size,
+                                buffer, buffer_size,
+                                prefix, prefix_len,
+                                extra);
+
         else if (compression == OBJECT_COMPRESSED_LZ4)
-                return decompress_startswith_lz4(src, src_size,
-                                                 buffer, buffer_size,
-                                                 prefix, prefix_len,
-                                                 extra);
+                return decompress_startswith_lz4(
+                                src, src_size,
+                                buffer, buffer_size,
+                                prefix, prefix_len,
+                                extra);
+        else if (compression == OBJECT_COMPRESSED_ZSTD)
+                return decompress_startswith_zstd(
+                                src, src_size,
+                                buffer, buffer_size,
+                                prefix, prefix_len,
+                                extra);
         else
                 return -EBADMSG;
 }
