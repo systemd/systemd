@@ -2,25 +2,147 @@ systemd System and Service Manager
 
 CHANGES WITH 246 in spe:
 
-        * The various programs included in systemd can now optionally output
-          their log messages on stderr prefixed with a timestamp, controlled by
-          the $SYSTEMD_LOG_TIME environment variable.
+        * The service manager gained basic support for cgroup v2 freezer. Units
+          can now be suspended or resumed either using new systemctl verbs,
+          freeze and thaw respectively, or via D-Bus.
+
+        * PID 1 may now automatically load pre-compiled AppArmor policies from
+          /etc/apparmor/earlypolicy during early boot.
+
+        * The CPUAffinity= setting in service unit files now supports a new
+          special value "numa" that causes the CPU affinity masked to be set
+          based on the NUMA mask.
+
+        * systemd will now log about all left-over processes remaining in a
+          unit when the unit is stopped. It will now warn about services using
+          KillMode=none, as this is generally an unsafe thing to make use of.
+
+        * Two new unit file settings
+          ConditionPathIsEncrypted=/AssertPathIsEncrypted= have been
+          added. They may be used to check whether a specific file system path
+          resides on a block device that is encrypted on the block level
+          (i.e. using dm-crypt/LUKS).
+
+        * Another pair of new settings ConditionEnvironment=/AssertEnvironment=
+          has been added that may be used for simple environment checks. This
+          is particularly useful when passing in environment variables from a
+          container manager (or from PAM in case of the systemd --user
+          instance).
+
+        * .service unit files now accept a new setting CoredumpFilter= which
+          allows configuration of the memory sections coredumps of the
+          service's processes shall include.
+
+        * .mount units gained a new ReadWriteOnly= boolean option. If set
+          it will not be attempted to mount a file system read-only if mounting
+          in read-write mode doesn't succeed. An option x-systemd.rw-only is
+          available in /etc/fstab to control the same.
+
+        * .socket units gained a new boolean setting PassPacketInfo=. If
+          enabled, the kernel will attach additional per-packet metadata to all
+          packets read from the socket, as ancillary message. This controls the
+          IP_PKTINFO, IPV6_RECVPKTINFO, NETLINK_PKTINFO socket options,
+          depending on socket type.
+
+        * .service units gained a new setting RootHash= which may be used to
+          specify the root hash for verity enabled disk images which are
+          specified in RootImage=. RootVerity= may be used to specify a path to
+          the Verity data matching a RootImage= file system. (The latter is
+          only useful for images that do not contain the Verity data embedded
+          into the same image that carries a GPT partition table following the
+          Discoverable Partition Specification). Similarly, systemd-nspawn
+          gained a new switch --verity-data= that takes a path to a file with
+          the verity data of the disk image supplied in --image=, if the image
+          doesn't contain the verity data itself.
+
+        * .service units gained a new setting RootHashSignature= which takes
+          either a base64 encoded PKCS#7 signature of the root hash specified
+          with RootHash=, or a path to a file to read the signature from. This
+          allows validation of the root hash against public keys available in
+          the kernel keyring, and is only supported on recent kernels
+          (>= 5.4)/libcryptsetup (>= 2.30). A similar switch has been added to
+          systemd-nspawn and systemd-dissect (--root-hash-sig=). Support for
+          this mechanism has also been added to systemd-veritysetup.
+
+        * .service unit files gained two new options
+          TimeoutStartFailureMode=/TimeoutStopFailureMode= that may be used to
+          tune behaviour if a start or stop timeout is hit, i.e. whether to
+          terminate the service with SIGTERM, SIGABRT or SIGKILL.
+
+        * Most options in systemd that accept hexadecimal values prefixed with
+          0x in additional to the usual decimal notation now also support octal
+          notation when he 0o prefix is used and binary notation if the 0b
+          prefix is used.
+
+        * Unit files, tmpfiles.d/ snippets, sysusers.d/ snippets and other
+          configuration files that support specifier expansion learnt six new
+          specifiers: %a resolves to the current architecture, %o/%w/%B/%W
+          resolve to the various ID fields from /etc/os-release, %l resolves to
+          the "short" hostname of the system, i.e. the hostname configured in
+          the kernel truncated at the first dot.
+
+        * Support for the .include syntax in unit files has been removed. The
+          concept has been obsolete for 6 years and we started warning about
+          its pending removal 2 years ago (also see NEWS file below). It's
+          finally gone now.
+
+        * StandardError= and StandardOutput= in unit files no longer support
+          the "syslog" and "syslog-console" switches. They were long removed
+          from the documentation, but will now result in warnings when used,
+          and be converted to "journal" and "journal+console" automatically.
+
+        * A new kernel command line option systemd.hostname= has been added
+          that allows controlling the hostname that is initialized early during
+          boot.
+
+        * A kernel command line option "udev.blockdev_read_only" has been
+          added. If specified all hardware block devices that show up are
+          immediately marked as read-only by udev. This option is useful for
+          making sure that a specific boot under no circumstances modifies data
+          on disk. Use "blockdev --setrw" to undo the effect of this, per
+          device.
 
         * A new boolean kernel command line option systemd.swap= has been
           added, which may be used to turn off automatic activation of swap
-          devices, as listed in /etc/fstab.
+          devices listed in /etc/fstab.
 
-        * The CPUAffinity= setting in service unit files now supports a new
-          special value "numa". If used, the NUMA mask is copied into the CPU
-          affinity mask.
+        * New kernel command line options systemd.condition-needs-update= and
+          systemd.condition-first-boot= have been added, which override the
+          result of the ConditionNeedsUpdate= and ConditionFirstBoot=
+          conditions.
 
-        * The man pages for the sd-bus and sd-hwdb APIs have been completed.
+        * A new kernel command line option systemd.clock-usec= has been added
+          that allows setting the system clock to the specified time in µs
+          since Jan 1st, 1970 early during boot. This is in particular useful
+          in order to make test cases more reliable.
 
-        * networkctl gained the new "forcerenew" command for forcing all DHCP
-          server clients to renew their lease. The interface "status" output
-          will now show numerous additional fields of information about an
-          interface. There are new "up" and "down" commands to bring specific
-          interfaces up or down.
+        * The fs.suid_dumpable sysctl is set to 2 / "suidsafe". This allows
+          systemd-coredump to save core files for suid processes. When saving
+          the core file, systemd-coredump will use the effective uid and gid of
+          the process that faulted.
+
+        * The /sys/module/kernel/parameters/crash_kexec_post_notifiers file is
+          now automatically set to "Y" at boot, in order to enable pstore
+          generation for collection with systemd-pstore.
+
+        * A new 'hwdb' file has been added that collects information about PCI
+          and USB devices that correctly support auto-suspend, on top of the
+          databases for this we import from the ChromiumOS project. If you have
+          a device that supports auto-suspend correctly and where it should be
+          enabled by default, please submit a patch that adds it to the
+          database (see /usr/lib/udev/hwdb.d/60-autosuspend.hwdb).
+
+        * systemd-udevd gained new configuration option timeout_signal= as well
+          as corresponding kernel command line option udev.timeout_signal=.
+          The option can be used to configure the UNIX signal that the main
+          daemon sends to the worker processes on timeout. Setting the signal
+          to SIGABRT is useful for debugging.
+
+        * .link files managed by systemd-udevd gained options RxFlowControl=,
+          TxFlowControl=, AutoNegotiationFlowControl= in the [Link] section, in
+          order to configure various flow control parameters. They also gained
+          RxMiniBufferSize= and RxJumboBufferSize= in order to configure jumbo
+          frame ring buffer sizes.
 
         * systemd-networkd's [IPv6Prefix] section in .network files gained a
           new boolean setting Assign=. If enabled an address from the prefix is
@@ -50,12 +172,6 @@ CHANGES WITH 246 in spe:
           traffic). DataBitRate=, DataSamplePoint=, FDMode=, FDNonISO= have
           been added to configure various CAN-FD aspects.
 
-        * .link files managed by systemd-udevd gained options RxFlowControl=,
-          TxFlowControl=, AutoNegotiationFlowControl= in the [Link] section, in
-          order to configure various flow control parameters. They also gained
-          RxMiniBufferSize= and RxJumboBufferSize= in order to configure jumbo
-          frame ring buffer sizes.
-
         * systemd-networkd's [DHCPv6] section gained a new WithoutRA= boolean
           setting. If enabled, DHCPv6 will be attempted right-away without
           requiring an Router Advertisement packet suggesting it
@@ -83,6 +199,35 @@ CHANGES WITH 246 in spe:
           Description"). Support for "MUD" URLs was also added to the LLDP
           stack, configurable in the [LLDP] section in .network files.
 
+        * systemd-networkd's .netdev files now support a new setting
+          VLANProtocol= in the [Bridge] section that allows configuration of
+          the VLAN protocol to use.
+
+        * systemd-networkd supports a new Group= setting in the [Link] section
+          of the .network files, to control the link group.
+
+        * A new default .network file is now shipped that matches TUN/TAP
+          devices that begin with "vt-" in their name. Such interfaces will
+          have IP routing onto the host links set up automatically. This is
+          supposed to be used by VM managers to trivially acquire a network
+          interface which is fully set up for host communication, simply by
+          carefully picking an interface name to use.
+
+        * A new boolean option AssignAcquiredDelegatedPrefixAddress= has been
+          added to the [DHCPv6] section of .network files. If enabled (which is
+          the default) an address from any acquired delegated prefix is
+          automatically chosen and assigned to the interface.
+
+        * The BlackList= settings in .network files' [DHCPv4] and
+          [IPv6AcceptRA] sections have been renamed DenyList=. The old names
+          are still understood to provide compatibility.
+
+        * networkctl gained the new "forcerenew" command for forcing all DHCP
+          server clients to renew their lease. The interface "status" output
+          will now show numerous additional fields of information about an
+          interface. There are new "up" and "down" commands to bring specific
+          interfaces up or down.
+
         * systemd-resolved's DNS= configuration option now optionally accepts
           DNS server addresses suffixed by "#" followed by a host name. If
           used, the DNS-over-TLS certificate is validated to match the
@@ -94,93 +239,6 @@ CHANGES WITH 246 in spe:
 
         * systemd-resolved's DNS-over-TLS support gained SNI validation.
 
-        * The fs.suid_dumpable sysctl is set to 2 / "suidsafe". This allows
-          systemd-coredump to save core files for suid processes. When saving
-          the core file, systemd-coredump will use the effective uid and gid of
-          the process that faulted.
-
-        * "systemctl list-units" and "systemctl list-machines" no longer hide
-          their first output column with --no-legend. To hide the first column,
-          use --plain.
-
-        * The service manager gained basic support for cgroup v2 freezer. Units
-          can now be suspended or resumed either using new systemctl verbs,
-          freeze and thaw respectively, or via D-Bus.
-
-        * systemd-udevd gained new configuration option timeout_signal= as well
-          as corresponding kernel command line option udev.timeout_signal=.
-          The option can be used to configure the UNIX signal that the main
-          daemon sends to the worker processes on timeout.
-
-        * A new sd-path.h API has been added to libsystemd. It provides a
-          simple API for retrieving various search paths and primary
-          directories for various resources.
-
-        * The sd-bus API gained a number of convenience functions that take
-          va_list arguments rather than "...". For example, there's now
-          sd_bus_call_methodv() to match sd_bus_call_method(). Previously,
-          these were missing since the calls are convenience calls only and
-          could be put together from the more low-level functions they build
-          on.
-
-        * sd-bus vtable entries learnt a new flag SD_BUS_VTABLE_ABSOLUTE_OFFSET
-          which alters how the userdata pointer to pass to the callbacks is
-          determined. If the flag is set the offset field is converted as-is
-          into a pointer, without adding it to the object pointer the vtable is
-          associated with.
-
-        * sd-bus now exposes four new functions:
-          sd_bus_interface_name_is_valid() + sd_bus_service_name_is_valid() +
-          sd_bus_member_name_is_valid() + sd_bus_object_path_is_valid() will
-          validate strings to check if they qualify as various D-Bus concepts.
-
-        * The sd-bus API gained the SD_BUS_METHOD_WITH_ARGS(),
-          SD_BUS_METHOD_WITH_ARGS_OFFSET() and SD_BUS_SIGNAL_WITH_ARGS() macros
-          that simplify adding argument names to D-Bus methods and signals.
-
-        * systemctl gained a new "-P" switch that is a shortcut for "--value
-          --property=…".
-
-        * The expectations on user/group name syntax are now documented in
-          detail; documentation how classic home directories may be converted
-          into home directories managed by homed has been added; documentation
-          regarding integration of homed/userdb functionality in desktops has
-          been added:
-
-              https://systemd.io/USER_NAMES
-              https://systemd.io/CONVERTING_TO_HOMED
-              https://systemd.io/USERDB_AND_DESKTOPS
-
-        * systemd-run gained a new switch --slice-inherit. If specified the
-          unit it generates is placed in the same slice as the systemd-run
-          process itself.
-
-        * service unit files now accept a new setting CoredumpFilter= which
-          allows configuration of the memory sections coredumps of the
-          service's processes shall include.
-
-        * coredumpctl gained a new --file= switch, matching the same one in
-          journalctl: a specific journal file may be specified to read the
-          coredump data from.
-
-        * Various D-Bus APIs of systemd daemons now have man pages that
-          document the methods, signals and properties.
-
-        * journald.conf gained a new boolean setting Audit= that may be used to
-          control whether systemd-journald will enable audit during
-          initialization.
-
-        * A new default .network file is now shipped that matches TUN/TAP
-          devices that begin with "vt-" in their name. Such interfaces will
-          have IP routing onto the host links set up automatically. This is
-          supposed to be used by VM managers to trivially acquire a network
-          interface which is fully set up for host communication, simply by
-          carefully picking an interface name to use.
-
-        * All D-Bus services shipped in systemd now implement the generic
-          LogControl1 D-Bus API which allows clients to change log level +
-          target of the service during runtime.
-
         * systemd-nspawn's --resolv-conf= switch gained a number of new
           supported values. Specifically, options starting with "replace-" are
           like those prefixed "copy-" but replace any existing resolv.conf
@@ -188,79 +246,81 @@ CHANGES WITH 246 in spe:
           propagate other flavours of resolv.conf into the container (as
           defined by systemd-resolved).
 
-        * systemd-binfmt gained a new switch --unregister for unregistering all
-          registered entries at once. This is now invoked automatically at
-          shutdown, so that binary formats registered with the "F" flag will
-          not block clean file system unmounting.
+        * The various programs included in systemd can now optionally output
+          their log messages on stderr prefixed with a timestamp, controlled by
+          the $SYSTEMD_LOG_TIME environment variable.
 
-        * Unit files, tmpfiles.d/ snippets, sysusers.d/ snippets and other
-          configuration files that support specifier expansion learnt six new
-          specifiers: %a resolves to the current architecture, %o/%w/%B/%W
-          resolve to the various ID fields from /etc/os-release, %l resolves to
-          the "short" hostname of the system, i.e. the kernel configured
-          hostname, truncated at the first dot.
+        * systemctl gained a new "-P" switch that is a shortcut for "--value
+          --property=…".
 
-        * systemd-notify's --pid= switch gained new values: "parent", "self",
-          "auto" for controlling which PID to send to the service manager: the
-          systemd-notify process' PID, or the one of the process invoking it.
+        * "systemctl list-units" and "systemctl list-machines" no longer hide
+          their first output column with --no-legend. To hide the first column,
+          use --plain.
 
-        * When sending a file descriptor (fd) to the service manager to keep
-          track of, using the sd_notify() mechanism, a new parameter FDPOLL=0
-          may be specified. If passed the service manager will refrain from
-          poll()ing on the file descriptor. Traditionally (and when the
-          parameter is not specified), the service manager will poll it for
-          POLLHUP or POLLERR events, and immediately close the fds in that
-          case.
+        * "systemctl reboot" takes the option "--reboot-argument=".
+          The optional positional argument to "systemctl reboot" is now
+          being deprecated in favor of this option.
 
-        * A new call sd_notify_barrier() has been added to the sd-daemon.h
-          API. The call will block until all previously sent sd_notify()
-          messages have been processed by the service manager. This is useful
-          to remove races caused by a process already having disappeared at the
-          time a notification message is processed by the service manager,
-          making correct attribution impossible. The systemd-notify tool will
-          now make use of this call implicitly, but this can be turned off again
-          via the new --no-block switch.
+        * systemd-run gained a new switch --slice-inherit. If specified the
+          unit it generates is placed in the same slice as the systemd-run
+          process itself.
 
-        * systemd-logind's Session bus object learnt a new method call
-          SetType() for temporarily updating the session type of an already
-          allocated session. This is useful for upgrading tty sessions to
-          graphical ones once a compositor is invoked.
+        * systemd-journald gained support for zstd compression of large fields
+          in journal files. The hash tables in journal files have been hardened
+          against hash collisions. This is an incompatible change and means
+          that journal files created with new systemd versions are not readable
+          with old versions. If the $SYSTEMD_JOURNAL_KEYED_HASH boolean
+          environment variable for systemd-journald.service is set to 0 this
+          new hardening functionality may be turned off, so that generated
+          journal files remain compatible with older journalctl
+          implementations.
 
-        * .mount units gained a new ReadWriteOnly= boolean option. If set
-          it will not be attempted to mount a file system read-only if mounting
-          in read-write mode doesn't succeed. An option x-systemd.rw-only is
-          available in /etc/fstab to control the same.
+        * journalctl will now include a clickable link in the default output for
+          each log message for which an URL with further documentation is
+          known. This is only supported on terminal emulators that support
+          clickable hyperlinks, and is turned off if a pager is used (since
+          "less" still doesn't support hyperlinks,
+          unfortunately). Documentation URLs may be included in log messages
+          either by including a DOCUMENTATION= journal field in it, or by
+          associating a journal message catalog entry with the log message's
+          MESSAGE_ID, which then carries a "Documentation:" tag.
 
-        * coredumps collected by systemd-coredump may now be compressed using
-          the zstd algorithm.
+        * journald.conf gained a new boolean setting Audit= that may be used to
+          control whether systemd-journald will enable audit during
+          initialization.
+
+        * when systemd-journald's log stream is broken up into multiple lines
+          because the PID of the sender changed this is indicated in the
+          generated log records via the _LINE_BREAK=pid-change field.
 
         * journalctl's "-o cat" output mode will now show one or more journal
           fields specified with --output-fields= instead of unconditionally
           MESSAGE=. This is useful to retrieve a very specific set of fields
           without any decoration.
 
+        * coredumpctl gained a new --file= switch, matching the same one in
+          journalctl: a specific journal file may be specified to read the
+          coredump data from.
+
+        * coredumps collected by systemd-coredump may now be compressed using
+          the zstd algorithm.
+
+        * systemd-binfmt gained a new switch --unregister for unregistering all
+          registered entries at once. This is now invoked automatically at
+          shutdown, so that binary formats registered with the "F" flag will
+          not block clean file system unmounting.
+
+        * systemd-notify's --pid= switch gained new values: "parent", "self",
+          "auto" for controlling which PID to send to the service manager: the
+          systemd-notify process' PID, or the one of the process invoking it.
+
+        * systemd-logind's Session bus object learnt a new method call
+          SetType() for temporarily updating the session type of an already
+          allocated session. This is useful for upgrading tty sessions to
+          graphical ones once a compositor is invoked.
+
         * systemd-socket-proxy gained a new switch --exit-idle-time= for
           configuring an exit-on-idle time.
-
-        * systemd-homed's LUKS backend gained the ability to discard empty file
-          system blocks automatically when the user logs out. This is enabled
-          by default to ensure that home directories take minimal space when
-          logged out but get full size guarantees when logged in. This may be
-          controlled with the new --luks-offline-discard= switch to homectl.
-
-        * If systemd-homed detects that /home/ is encrypted as a whole it will
-          now default to the directory or subvolume backends instead of the
-          LUKS backend, in order to avoid double encryption. The default
-          storage and file system may now be configured explicitly, too, via
-          the new /etc/systemd/homed.conf configuration file.
-
-        * when systemd-journald's log stream is broken up into multiple lines
-          because the PID of the sender changed this is indicated in the
-          generated log records via the _LINE_BREAK=pid-change field.
-
-        * systemd-networkd's .netdev files now support a new setting
-          VLANProtocol= in the [Bridge] section that allows configuration of
-          the VLAN protocol to use.
 
         * systemd-repart's --empty= setting gained a new value "create". If
           specified a new empty regular disk image file is created under the
@@ -279,43 +339,17 @@ CHANGES WITH 246 in spe:
         * systemd-repart's Label= setting now support the usual, simple
           specifier expansion.
 
-        * StandardError= and StandardOutput= in unit files no longer support
-          the "syslog" and "syslog-console" switches. They were long removed
-          from the documentation, but will now result in warnings when used,
-          and be converted to "journal" and "journal+console" automatically.
+        * systemd-homed's LUKS backend gained the ability to discard empty file
+          system blocks automatically when the user logs out. This is enabled
+          by default to ensure that home directories take minimal space when
+          logged out but get full size guarantees when logged in. This may be
+          controlled with the new --luks-offline-discard= switch to homectl.
 
-        * systemd-networkd supports a new Group= setting in the [Link] section
-          of the .network files, to control the link group.
-
-        * Two new unit file settings
-          ConditionPathIsEncrypted=/AssertPathIsEncrypted= have been
-          added. They may be used to check whether a specific file system path
-          resides on a block device that is encrypted on the block level
-          (i.e. using dm-crypt/LUKS).
-
-        * Another pair of new settings ConditionEnvironment=/AssertEnvironment=
-          has been added that may be used for simple environment checks. This
-          is particularly useful when passing in environment variables from a
-          container manager (or from PAM in case of the systemd --user
-          instance).
-
-        * The /sys/module/kernel/parameters/crash_kexec_post_notifiers file is
-          now automatically set to "Y" at boot, in order to enable pstore
-          generation for collection with systemd-pstore.
-
-        * New kernel command line options systemd.condition-needs-update= and
-          systemd.condition-first-boot= have been added, which override the
-          result of the ConditionNeedsUpdate= and ConditionFirstBoot=
-          conditions.
-
-        * A new kernel command line option systemd.clock-usec= has been added
-          that allows setting the system clock to the specified time in µs
-          since Jan 1st, 1970 early during boot. This is in particular useful
-          in order to make test cases more reliable.
-
-        * A new kernel command line option systemd.hostname= has been added
-          that allows controlling the hostname that is initialized early during
-          boot.
+        * If systemd-homed detects that /home/ is encrypted as a whole it will
+          now default to the directory or subvolume backends instead of the
+          LUKS backend, in order to avoid double encryption. The default
+          storage and file system may now be configured explicitly, too, via
+          the new /etc/systemd/homed.conf configuration file.
 
         * The /etc/crypttab tmp option now optionally takes an argument
           selecting the file system to use. Moreover, the default is now
@@ -338,6 +372,9 @@ CHANGES WITH 246 in spe:
           /etc/cryptsetup-keys.d/<volume>.key and
           /run/cryptsetup-keys.d/<volume>.key, if any of these files exist.
 
+        * systemd-cryptsetup may now activate Microsoft BitLocker volumes via
+          /etc/crypttab, during boot.
+
         * logind.conf gained a new RuntimeDirectoryInodesMax= setting to
           control the inode limit for the per-user $XDG_RUNTIME_DIR tmpfs
           instance.
@@ -352,121 +389,12 @@ CHANGES WITH 246 in spe:
           set the /etc/kernel/cmdline file of an OS image.
 
         * A new generator systemd-xdg-autostart-generator has been added. It
-          automatically generates systemd unit files from XDG autostart
-          .desktop files, and is useful for allowing systemd to manage services
-          defined that way safely and automatically.
-
-        * systemd will now log about all left-over processes remaining in a
-          unit when the unit is stopped. It will now warn about services using
-          KillMode=none, as this is generally an unsafe thing to make use of.
-
-        * .socket units gained a new boolean setting PassPacketInfo=. If
-          enabled, the kernel will attach additional per-packet metadata to all
-          packets read from the socket, as ancillary message. This controls the
-          IP_PKTINFO, IPV6_RECVPKTINFO, NETLINK_PKTINFO socket options,
-          depending on socket type.
-
-        * A new boolean option AssignAcquiredDelegatedPrefixAddress= has been
-          added to the [DHCPv6] section of .network files. If enabled (which is
-          the default) an address from any acquired delegated prefix is
-          automatically chosen and assigned to the interface.
-
-        * "systemctl reboot" takes the option "--reboot-argument=".
-          The optional positional argument to "systemctl reboot" is now
-          being deprecated in favor of this option.
-
-        * Support for the .include syntax in unit files has been removed. The
-          concept has been obsolete for 6 years and we started warning about
-          its pending removal 2 years ago (also see NEWS file below). It's
-          finally gone now.
-
-        * The BlackList= settings in .network files' [DHCPv4] and
-          [IPv6AcceptRA] sections have been renamed DenyList=. The old names
-          are still understood to provide compatibility.
-
-        * systemd-journald gained support for zstd compression of large fields
-          in journal files. The hash tables in journal files have been hardened
-          against hash collisions. This is an incompatible change and means
-          that journal files created with new systemd versions are not readable
-          with old versions. If the $SYSTEMD_JOURNAL_KEYED_HASH boolean
-          environment variable for systemd-journald.service is set to 0 this
-          new hardening functionality may be turned off, so that generated
-          journal files remain compatible with older journalctl
-          implementations.
-
-        * Documentation for the on-disk Journal file format has been updated
-          and has now moved to:
-
-              https://systemd.io/JOURNAL_FILE_FORMAT
-
-        * systemd service units gained a new setting RootHash= which may be
-          used to specify the root hash for verity enabled disk images which
-          are specified in RootImage=. RootVerity= may be used to specify a
-          path to the Verity data matching a RootImage= file system. (The
-          latter is only useful for images that do not contain the Verity data
-          embedded into the same image that carries a GPT partition table
-          following the Discoverable Partition Specification). Similar,
-          systemd-nspawn gained a new switch --verity-data= that takes a path
-          to a file with the verity data of the disk image supplied in
-          --image=, if the image doesn't contain the verity data itself.
-
-        * systemd service units gained a new setting RootHashSignature= which
-          takes either a base64 encoded PKCS#7 signature of the root hash
-          specified with RootHash=, or a path to a file to read the signature
-          from. This allows validation of the root hash against public keys
-          available in the kernel keyring, and is only supported on recent
-          kernels (>= 5.4)/libcryptsetup (>= 2.30). A similar switch has been
-          added to systemd-nspawn and systemd-dissect
-          (--root-hash-sig=). Support for this mechanism has also been added to
-          systemd-veritysetup.
-
-        * A new 'hwdb' file has been added that collects information about PCI
-          and USB devices that correctly support auto-suspend, on top of the
-          databases for this we import from the ChromiumOS project. If you have
-          a device that supports auto-suspend correctly and where it should be
-          enabled by default, please submit a patch that adds it to the
-          database (see hwdb.d/60-autosuspend.hwdb).
-
-        * The service manager (PID1) gained a new D-Bus method call
-          SetShowStatus() which may be used to control whether it shall show
-          boot-time status output on the console. This method has a similar
-          effect to sending SIGRTMIN+20/SIGRTMIN+21 to PID 1.
-
-        * PID 1 may now automatically load pre-compiled AppArmor policies from
-          /etc/apparmor/earlypolicy during early boot.
-
-        * systemd-cryptsetup may now activate Microsoft BitLocker volumes via
-          /etc/crypttab, during boot.
-
-        * systemd service unit files gained two new options
-          TimeoutStartFailureMode=/TimeoutStopFailureMode= that may be used to
-          tune behaviour if a start or stop timeout is hit, i.e. whether to
-          terminate the service with SIGTERM, SIGABRT or SIGKILL.
-
-        * A kernel command line option "udev.blockdev_read_only" has been
-          added. If specified all hardware block devices that show up are
-          immediately marked as read-only by udev. This option is useful for
-          making sure that a specific boot under no circumstances modifies data
-          on disk. Use "blockdev --setrw" to undo the effect of this, per
-          device.
-
-        * Most options in systemd that accept hexadecimal values prefixed with
-          0x in additional to the usual decimal notation now also support octal
-          notation when he 0o prefix is used and binary notation if the 0b
-          prefix is used.
+          generates systemd unit files from XDG autostart .desktop files, and
+          may be used to let the systemd user instance manage services that are
+          started automatically as part of the desktop session.
 
         * "booctl" gained a new verb "reboot-to-firmware" that may be used
           to query and change the firmware's reboot into firmware setup flag.
-
-        * journalctl will now include a clickable link in the default output for
-          each log message for which an URL with further documentation is
-          known. This is only supported on terminal emulators that support
-          clickable hyperlinks, and is turned off if a pager is used (since
-          "less" still doesn't support hyperlinks,
-          unfortunately). Documentation URLs may be included in log messages
-          either by including a DOCUMENTATION= journal field in it, or by
-          associating a journal message catalog entry with the log message's
-          MESSAGE_ID, which then carries a "Documentation:" tag.
 
         * systemd-firstboot gained a new switch --kernel-command-line= that may
           be used to initialize the /etc/kernel/cmdline file of the image. It
@@ -477,6 +405,78 @@ CHANGES WITH 246 in spe:
           be used to override any already set settings with the parameters
           specified on the command line (by default, the tool will not override
           what has already been set before, i.e. is purely incremental).
+
+        * A new sd-path.h API has been added to libsystemd. It provides a
+          simple API for retrieving various search paths and primary
+          directories for various resources.
+
+        * A new call sd_notify_barrier() has been added to the sd-daemon.h
+          API. The call will block until all previously sent sd_notify()
+          messages have been processed by the service manager. This is useful
+          to remove races caused by a process already having disappeared at the
+          time a notification message is processed by the service manager,
+          making correct attribution impossible. The systemd-notify tool will
+          now make use of this call implicitly, but this can be turned off again
+          via the new --no-block switch.
+
+        * When sending a file descriptor (fd) to the service manager to keep
+          track of, using the sd_notify() mechanism, a new parameter FDPOLL=0
+          may be specified. If passed the service manager will refrain from
+          poll()ing on the file descriptor. Traditionally (and when the
+          parameter is not specified), the service manager will poll it for
+          POLLHUP or POLLERR events, and immediately close the fds in that
+          case.
+
+        * The service manager (PID1) gained a new D-Bus method call
+          SetShowStatus() which may be used to control whether it shall show
+          boot-time status output on the console. This method has a similar
+          effect to sending SIGRTMIN+20/SIGRTMIN+21 to PID 1.
+
+        * The sd-bus API gained a number of convenience functions that take
+          va_list arguments rather than "...". For example, there's now
+          sd_bus_call_methodv() to match sd_bus_call_method(). Those calls make
+          it easier to build wrappers that accept variadic arguments and want
+          to pass a ready va_list structure to sd-bus.
+
+        * sd-bus vtable entries can have a new SD_BUS_VTABLE_ABSOLUTE_OFFSET
+          flag which alters how the userdata pointer to pass to the callbacks
+          is determined. When the flag is set, the offset field is converted
+          as-is into a pointer, without adding it to the object pointer the
+          vtable is associated with.
+
+        * sd-bus now exposes four new functions:
+          sd_bus_interface_name_is_valid() + sd_bus_service_name_is_valid() +
+          sd_bus_member_name_is_valid() + sd_bus_object_path_is_valid() will
+          validate strings to check if they qualify as various D-Bus concepts.
+
+        * The sd-bus API gained the SD_BUS_METHOD_WITH_ARGS(),
+          SD_BUS_METHOD_WITH_ARGS_OFFSET() and SD_BUS_SIGNAL_WITH_ARGS() macros
+          that simplify adding argument names to D-Bus methods and signals.
+
+        * The man pages for the sd-bus and sd-hwdb APIs have been completed.
+
+        * Various D-Bus APIs of systemd daemons now have man pages that
+          document the methods, signals and properties.
+
+        * The expectations on user/group name syntax are now documented in
+          detail; documentation how classic home directories may be converted
+          into home directories managed by homed has been added; documentation
+          regarding integration of homed/userdb functionality in desktops has
+          been added:
+
+              https://systemd.io/USER_NAMES
+              https://systemd.io/CONVERTING_TO_HOMED
+              https://systemd.io/USERDB_AND_DESKTOPS
+
+        * Documentation for the on-disk Journal file format has been updated
+          and has now moved to:
+
+              https://systemd.io/JOURNAL_FILE_FORMAT
+
+        * All D-Bus services shipped in systemd now implement the generic
+          LogControl1 D-Bus API which allows clients to change log level +
+          target of the service during runtime.
+
 
 CHANGES WITH 245:
 
