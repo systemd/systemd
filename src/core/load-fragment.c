@@ -13,6 +13,8 @@
 #include <sched.h>
 #include <sys/resource.h>
 
+#include "sd-messages.h"
+
 #include "af-list.h"
 #include "alloc-util.h"
 #include "all-units.h"
@@ -2286,6 +2288,15 @@ int config_parse_user_group_compat(
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid user/group name or numeric ID: %s", k);
                 return -ENOEXEC;
         }
+
+        if (strstr(lvalue, "User") && streq(k, NOBODY_USER_NAME))
+                log_struct(LOG_NOTICE,
+                           "MESSAGE=%s:%u: Special user %s configured, this is not safe!", filename, line, k,
+                           "UNIT=%s", unit,
+                           "MESSAGE_ID=" SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR,
+                           "OFFENDING_USER=%s", k,
+                           "CONFIG_FILE=%s", filename,
+                           "CONFIG_LINE=%u", line);
 
         return free_and_replace(*user, k);
 }

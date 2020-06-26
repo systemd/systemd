@@ -464,3 +464,23 @@ system shutdown.
 It is generally recommended to avoid such overly long mount point paths, or —
 if used anyway – manage them independently of systemd, i.e. establish them as
 well as tear them down automatically at system shutdown by other software.
+
+-- b480325f9c394a7b802c231e51a2752c
+Subject: Special user @OFFENDING_USER@ configured, this is not safe!
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/UIDS-GIDS
+
+The unit @UNIT@ is configured to use User=@OFFENDING_USER@.
+
+This is not safe. The @OFFENDING_USER@ user's main purpose on Linux-based
+operating systems is to be the owner of files that otherwise cannot be mapped
+to any local user. It's used by the NFS client and Linux user namespacing,
+among others. By running a unit's processes under the identity of this user
+they might possibly get read and even write access to such files that cannot
+otherwise be mapped.
+
+It is strongly recommended to avoid running services under this user identity,
+in particular on systems using NFS or running containers. Allocate a user ID
+specific to this service, either statically via systemd-sysusers or dynamically
+via the DynamicUser= service setting.
