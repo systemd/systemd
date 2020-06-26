@@ -120,7 +120,7 @@ systemctlCheckNUMAProperties() {
 
     > "$LOGFILE"
 
-    if [ -n $3 ]; then
+    if [ -n "$3" ]; then
         systemctl show -p NUMAMask $1 > "$LOGFILE"
         grep "NUMAMask=$3" "$LOGFILE"
     fi
