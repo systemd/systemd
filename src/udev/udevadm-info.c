@@ -17,6 +17,7 @@
 #include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
@@ -56,8 +57,35 @@ static bool skip_attribute(const char *name) {
         return string_table_lookup(skip, ELEMENTSOF(skip), name) >= 0;
 }
 
-static void print_all_attributes(sd_device *device, const char *key) {
+typedef struct SysAttr {
+        const char *name;
+        const char *value;
+} SysAttr;
+
+static int sysattr_compare(const SysAttr *a, const SysAttr *b) {
+        return strcmp(a->name, b->name);
+}
+
+static int print_all_attributes(sd_device *device, bool is_parent) {
+        _cleanup_free_ SysAttr *sysattrs = NULL;
+        size_t n_items = 0, n_allocated = 0;
         const char *name, *value;
+
+        value = NULL;
+        (void) sd_device_get_devpath(device, &value);
+        printf("  looking at %sdevice '%s':\n", is_parent ? "parent " : "", strempty(value));
+
+        value = NULL;
+        (void) sd_device_get_sysname(device, &value);
+        printf("    %s==\"%s\"\n", is_parent ? "KERNELS" : "KERNEL", strempty(value));
+
+        value = NULL;
+        (void) sd_device_get_subsystem(device, &value);
+        printf("    %s==\"%s\"\n", is_parent ? "SUBSYSTEMS" : "SUBSYSTEM", strempty(value));
+
+        value = NULL;
+        (void) sd_device_get_driver(device, &value);
+        printf("    %s==\"%s\"\n", is_parent ? "DRIVERS" : "DRIVER", strempty(value));
 
         FOREACH_DEVICE_SYSATTR(device, name) {
                 size_t len;
@@ -79,14 +107,29 @@ static void print_all_attributes(sd_device *device, const char *key) {
                 if (len > 0)
                         continue;
 
-                printf("    %s{%s}==\"%s\"\n", key, name, value);
+                if (!GREEDY_REALLOC(sysattrs, n_allocated, n_items + 1))
+                        return log_oom();
+
+                sysattrs[n_items] = (SysAttr) {
+                        .name = name,
+                        .value = value,
+                };
+                n_items++;
         }
+
+        typesafe_qsort(sysattrs, n_items, sysattr_compare);
+
+        for (size_t i = 0; i < n_items; i++)
+                printf("    %s{%s}==\"%s\"\n", is_parent ? "ATTRS" : "ATTR", sysattrs[i].name, sysattrs[i].value);
+
         puts("");
+
+        return 0;
 }
 
 static int print_device_chain(sd_device *device) {
         sd_device *child, *parent;
-        const char *str;
+        int r;
 
         printf("\n"
                "Udevadm info starts with the device specified by the devpath and then\n"
@@ -96,30 +139,14 @@ static int print_device_chain(sd_device *device) {
                "and the attributes from one single parent device.\n"
                "\n");
 
-        (void) sd_device_get_devpath(device, &str);
-        printf("  looking at device '%s':\n", str);
-        (void) sd_device_get_sysname(device, &str);
-        printf("    KERNEL==\"%s\"\n", str);
-        if (sd_device_get_subsystem(device, &str) < 0)
-                str = "";
-        printf("    SUBSYSTEM==\"%s\"\n", str);
-        if (sd_device_get_driver(device, &str) < 0)
-                str = "";
-        printf("    DRIVER==\"%s\"\n", str);
-        print_all_attributes(device, "ATTR");
+        r = print_all_attributes(device, false);
+        if (r < 0)
+                return r;
 
         for (child = device; sd_device_get_parent(child, &parent) >= 0; child = parent) {
-                (void) sd_device_get_devpath(parent, &str);
-                printf("  looking at parent device '%s':\n", str);
-                (void) sd_device_get_sysname(parent, &str);
-                printf("    KERNELS==\"%s\"\n", str);
-                if (sd_device_get_subsystem(parent, &str) < 0)
-                        str = "";
-                printf("    SUBSYSTEMS==\"%s\"\n", str);
-                if (sd_device_get_driver(parent, &str) < 0)
-                        str = "";
-                printf("    DRIVERS==\"%s\"\n", str);
-                print_all_attributes(parent, "ATTRS");
+                r = print_all_attributes(parent, true);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
