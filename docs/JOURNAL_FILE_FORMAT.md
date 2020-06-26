@@ -73,12 +73,12 @@ thread](https://lists.freedesktop.org/archives/systemd-devel/2012-October/007054
 
 * All offsets, sizes, time values, hashes (and most other numeric values) are 64bit unsigned integers in LE format.
 * Offsets are always relative to the beginning of the file.
-* The 64bit hash function siphash24 is used for newer journal files. For older files [Jenkins lookup3](https://en.wikipedia.org/wiki/Jenkins_hash_function) is used, more specifically jenkins_hashlittle2() with the first 32bit integer it returns as higher 32bit part of the 64bit value, and the second one uses as lower 32bit part.
+* The 64bit hash function siphash24 is used for newer journal files. For older files [Jenkins lookup3](https://en.wikipedia.org/wiki/Jenkins_hash_function) is used, more specifically `jenkins_hashlittle2()` with the first 32bit integer it returns as higher 32bit part of the 64bit value, and the second one uses as lower 32bit part.
 * All structures are aligned to 64bit boundaries and padded to multiples of 64bit
 * The format is designed to be read and written via memory mapping using multiple mapped windows.
 * All time values are stored in usec since the respective epoch.
-* Wall clock time values are relative to the Unix time epoch, i.e. January 1st, 1970. (CLOCK_REALTIME)
-* Monotonic time values are always stored jointly with the kernel boot ID value (i.e. /proc/sys/kernel/random/boot_id) they belong to. They tend to be relative to the start of the boot, but aren't for containers. (CLOCK_MONOTONIC)
+* Wall clock time values are relative to the Unix time epoch, i.e. January 1st, 1970. (`CLOCK_REALTIME`)
+* Monotonic time values are always stored jointly with the kernel boot ID value (i.e. `/proc/sys/kernel/random/boot_id`) they belong to. They tend to be relative to the start of the boot, but aren't for containers. (`CLOCK_MONOTONIC`)
 * Randomized, unique 128bit IDs are used in various locations. These are generally UUID v4 compatible, but this is not a requirement.
 
 ## General Rules
@@ -180,7 +180,7 @@ _packed_ struct Header {
 };
 ```
 
-The first 8 bytes of Journal files must contain the ASCII characters LPKSHHRH.
+The first 8 bytes of Journal files must contain the ASCII characters `LPKSHHRH`.
 
 If a writer finds that the **machine_id** of a file to write to does not match
 the machine it is running on it should immediately rotate the file and start a
@@ -237,18 +237,18 @@ field hash table, minus one.
 The format is supposed to be extensible in order to enable future additions of
 features. Readers should simply skip objects of unknown types as they read
 them. If a compatible feature extension is made a new bit is registered in the
-header's 'compatible_flags' field. If a feature extension is used that makes
+header's **compatible_flags** field. If a feature extension is used that makes
 the format incompatible a new bit is registered in the header's
-'incompatible_flags' field. Readers should check these two bit fields, if they
-find a flag they don't understand in compatible_flags they should continue to
-read the file, but if they find one in 'incompatible_flags' they should fail,
-asking for an update of the software. Writers should refuse writing if there's
-an unknown bit flag in either of these fields.
+**incompatible_flags** field. Readers should check these two bit fields, if
+they find a flag they don't understand in compatible_flags they should continue
+to read the file, but if they find one in **incompatible_flags** they should
+fail, asking for an update of the software. Writers should refuse writing if
+there's an unknown bit flag in either of these fields.
 
 The file header may be extended as new features are added. The size of the file
-header is stored in the header. All header fields up to "n_data" are known to
+header is stored in the header. All header fields up to **n_data** are known to
 unconditionally exist in all revisions of the file format, all fields starting
-with "n_data" needs to be explicitly checked for via a size check, since they
+with **n_data** needs to be explicitly checked for via a size check, since they
 were additions after the initial release.
 
 Currently only five extensions flagged in the flags fields are known:
@@ -298,7 +298,7 @@ STATE_ARCHIVED. If a writer is asked to write to a file that is not in
 STATE_OFFLINE it should immediately rotate the file and start a new one,
 without changing the file.
 
-After and before the state field is changed fdatasync() should be executed on
+After and before the state field is changed `fdatasync()` should be executed on
 the file to ensure the dirty state hits disk.
 
 
@@ -318,9 +318,9 @@ among several files, such as the system journal and many per-user journals.
 The file format is designed to be usable in a simultaneous
 single-writer/multiple-reader scenario. The synchronization model is very weak
 in order to facilitate storage on the most basic of file systems (well, the
-most basic ones that provide us with mmap() that is), and allow good
+most basic ones that provide us with `mmap()` that is), and allow good
 performance. No file locking is used. The only time where disk synchronization
-via fdatasync() should be enforced is after and before changing the **state**
+via `fdatasync()` should be enforced is after and before changing the **state**
 field in the file header (see below). It is recommended to execute a memory
 barrier after appending and initializing new objects at the end of the file,
 and before linking them up in the earlier objects.
@@ -336,11 +336,11 @@ might become consistent later on. Payload OTOH requires less scrutiny, as it
 should only be linked up (and hence visible to readers) after it was
 successfully written to memory (though not necessarily to disk). On non-local
 file systems it is a good idea to verify the payload hashes when reading, in
-order to avoid annoyances with mmap() inconsistencies.
+order to avoid annoyances with `mmap()` inconsistencies.
 
-Clients intending to show a live view of the journal should use inotify() for
-this to watch for files changes. Since file writes done via mmap() do not
-result in inotify() writers shall truncate the file to its current size after
+Clients intending to show a live view of the journal should use `inotify()` for
+this to watch for files changes. Since file writes done via `mmap()` do not
+result in `inotify()` writers shall truncate the file to its current size after
 writing one or more entries, which results in inotify events being
 generated. Note that this is not used as a transaction scheme (it doesn't
 protect anything), but merely for triggering wakeups.
@@ -369,6 +369,7 @@ _packed_ struct ObjectHeader {
         le64_t size;
         uint8_t payload[];
 };
+```
 
 The **type** field is one of the object types listed above. The **flags** field
 currently knows three flags: OBJECT_COMPRESSED_XZ, OBJECT_COMPRESSED_LZ4 and
@@ -397,11 +398,11 @@ _packed_ struct DataObject {
 ```
 
 Data objects carry actual field data in the **payload[]** array, including a
-field name, a '=' and the field data. Example:
+field name, a `=` and the field data. Example:
 `_SYSTEMD_UNIT=foobar.service`. The **hash** field is a hash value of the
 payload. If the `HEADER_INCOMPATIBLE_KEYED_HASH` flag is set in the file header
 this is the siphash24 hash value of the payload, keyed by the file ID as stored
-in the `.file_id` field of the file header. If the flag is not set it is the
+in the **file_id** field of the file header. If the flag is not set it is the
 non-keyed Jenkins hash of the payload instead. The keyed hash is preferred as
 it makes the format more robust against attackers that want to trigger hash
 collisions in the hash table.
