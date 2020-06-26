@@ -4524,24 +4524,27 @@ int unit_patch_contexts(Unit *u) {
 
                 if (ec->root_image &&
                     (cc->device_policy != CGROUP_DEVICE_POLICY_AUTO || cc->device_allow)) {
+                        const char *p;
 
                         /* When RootImage= is specified, the following devices are touched. */
-                        r = cgroup_add_device_allow(cc, "/dev/loop-control", "rw");
-                        if (r < 0)
-                                return r;
+                        FOREACH_STRING(p, "/dev/loop-control", "/dev/mapper/control") {
+                                r = cgroup_add_device_allow(cc, p, "rw");
+                                if (r < 0)
+                                        return r;
+                        }
+                        FOREACH_STRING(p, "block-loop", "block-blkext", "block-device-mapper") {
+                                r = cgroup_add_device_allow(cc, p, "rwm");
+                                if (r < 0)
+                                        return r;
+                        }
 
-                        r = cgroup_add_device_allow(cc, "block-loop", "rwm");
-                        if (r < 0)
-                                return r;
-
-                        r = cgroup_add_device_allow(cc, "block-blkext", "rwm");
-                        if (r < 0)
-                                return r;
-
-                        /* Make sure "block-loop" can be resolved, i.e. make sure "loop" shows up in /proc/devices */
-                        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "modprobe@loop.service", true, UNIT_DEPENDENCY_FILE);
-                        if (r < 0)
-                                return r;
+                        /* Make sure "block-loop" can be resolved, i.e. make sure "loop" shows up in /proc/devices.
+                         * Same for mapper and verity. */
+                        FOREACH_STRING(p, "modprobe@loop.service", "modprobe@dm_mod.service", "modprobe@dm_verity.service") {
+                                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, p, true, UNIT_DEPENDENCY_FILE);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
 
                 if (ec->protect_clock) {
