@@ -30,10 +30,6 @@ Features:
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
 
-* warn if User=nobody is used in a unit file. It's the overflow UID after all,
-  and the service might thus get access to files it really should not get
-  access to on NFS and userns environments.
-
 * build short web pages out of each catalog entry, build them along with man
   pages, and include hyperlinks to them in the journal output
 
