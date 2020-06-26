@@ -1564,34 +1564,64 @@ _public_ const char *sd_device_get_property_next(sd_device *device, const char *
         return key;
 }
 
-static int device_sysattrs_read_all(sd_device *device) {
+static int device_sysattrs_read_all_internal(sd_device *device, const char *subdir) {
+        _cleanup_free_ char *path_dir = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        const char *syspath;
         struct dirent *dent;
+        const char *syspath;
         int r;
-
-        assert(device);
-
-        if (device->sysattrs_read)
-                return 0;
 
         r = sd_device_get_syspath(device, &syspath);
         if (r < 0)
                 return r;
 
-        dir = opendir(syspath);
+        if (subdir) {
+                _cleanup_free_ char *p = NULL;
+
+                p = path_join(syspath, subdir, "uevent");
+                if (!p)
+                        return -ENOMEM;
+
+                if (access(p, F_OK) >= 0)
+                        /* this is a child device, skipping */
+                        return 0;
+
+                path_dir = path_join(syspath, subdir);
+                if (!path_dir)
+                        return -ENOMEM;
+        }
+
+        dir = opendir(path_dir ?: syspath);
         if (!dir)
                 return -errno;
 
         FOREACH_DIRENT_ALL(dent, dir, return -errno) {
-                _cleanup_free_ char *path = NULL;
+                _cleanup_free_ char *path = NULL, *p = NULL;
                 struct stat statbuf;
 
-                /* only handle symlinks and regular files */
-                if (!IN_SET(dent->d_type, DT_LNK, DT_REG))
+                if (dot_or_dot_dot(dent->d_name))
                         continue;
 
-                path = path_join(syspath, dent->d_name);
+                /* only handle symlinks, regular files, and directories */
+                if (!IN_SET(dent->d_type, DT_LNK, DT_REG, DT_DIR))
+                        continue;
+
+                if (subdir) {
+                        p = path_join(subdir, dent->d_name);
+                        if (!p)
+                                return -ENOMEM;
+                }
+
+                if (dent->d_type == DT_DIR) {
+                        /* read subdirectory */
+                        r = device_sysattrs_read_all_internal(device, p ?: dent->d_name);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                path = path_join(syspath, p ?: dent->d_name);
                 if (!path)
                         return -ENOMEM;
 
@@ -1601,10 +1631,25 @@ static int device_sysattrs_read_all(sd_device *device) {
                 if (!(statbuf.st_mode & S_IRUSR))
                         continue;
 
-                r = set_put_strdup(&device->sysattrs, dent->d_name);
+                r = set_put_strdup(&device->sysattrs, p ?: dent->d_name);
                 if (r < 0)
                         return r;
         }
+
+        return 0;
+}
+
+static int device_sysattrs_read_all(sd_device *device) {
+        int r;
+
+        assert(device);
+
+        if (device->sysattrs_read)
+                return 0;
+
+        r = device_sysattrs_read_all_internal(device, NULL);
+        if (r < 0)
+                return r;
 
         device->sysattrs_read = true;
 
