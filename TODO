@@ -44,7 +44,7 @@ Features:
   anything like that.
 
 * journald: do journal file writing out-of-process, with one writer process per
-  client UID, so tht synthetic hash table collisions can slow down a specific
+  client UID, so that synthetic hash table collisions can slow down a specific
   user's journal stream down but not the others.
 
 * add "throttling" to sd-event event sources: optionally, when we wake up too

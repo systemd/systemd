@@ -71,7 +71,7 @@ CHANGES WITH 246 in spe:
 
         * Most options in systemd that accept hexadecimal values prefixed with
           0x in additional to the usual decimal notation now also support octal
-          notation when he 0o prefix is used and binary notation if the 0b
+          notation when the 0o prefix is used and binary notation if the 0b
           prefix is used.
 
         * Unit files, tmpfiles.d/ snippets, sysusers.d/ snippets and other
@@ -150,8 +150,7 @@ CHANGES WITH 246 in spe:
 
         * systemd-networkd's [Network] section gained a new setting
           IPv6PDSubnetId= that allows explicit configuration of the preferred
-          subnet that networkd's Prefix Delegation logic assigns to an
-          interfaces.
+          subnet that networkd's Prefix Delegation logic assigns to interfaces.
 
         * systemd-networkd gained support for configuring the HTB queuing
           discipline in the [HierarchyTokenBucket] and
@@ -393,8 +392,8 @@ CHANGES WITH 246 in spe:
           may be used to let the systemd user instance manage services that are
           started automatically as part of the desktop session.
 
-        * "booctl" gained a new verb "reboot-to-firmware" that may be used
-          to query and change the firmware's reboot into firmware setup flag.
+        * "bootctl" gained a new verb "reboot-to-firmware" that may be used
+          to query and change the firmware's 'reboot into firmware' setup flag.
 
         * systemd-firstboot gained a new switch --kernel-command-line= that may
           be used to initialize the /etc/kernel/cmdline file of the image. It

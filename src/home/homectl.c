@@ -1380,7 +1380,7 @@ static int create_home(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        /* Remember the original hashed paswords before we add our own, so that we can return to them later,
+        /* Remember the original hashed passwords before we add our own, so that we can return to them later,
          * should the entered password turn out not to be acceptable. */
         original_hashed_passwords = strv_copy(hr->hashed_password);
         if (!original_hashed_passwords)
