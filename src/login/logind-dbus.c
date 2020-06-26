@@ -2751,8 +2751,6 @@ static int property_get_reboot_to_boot_loader_menu(
 
         r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU");
         if (r == -ENXIO) {
-                _cleanup_free_ char *v = NULL;
-
                 /* EFI case: returns the current value of LoaderConfigTimeoutOneShot. Three cases are distuingished:
                  *
                  *     1. Variable not set, boot into boot loader menu is not enabled (we return UINT64_MAX to the user)
@@ -2760,20 +2758,10 @@ static int property_get_reboot_to_boot_loader_menu(
                  *     3. Variable set to numeric value formatted in ASCII, boot into boot loader menu with the specified timeout in seconds
                  */
 
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderConfigTimeoutOneShot", &v);
+                r = efi_loader_get_config_timeout_one_shot(&x);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                log_warning_errno(r, "Failed to read LoaderConfigTimeoutOneShot variable: %m");
-                } else {
-                        uint64_t sec;
-
-                        r = safe_atou64(v, &sec);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to parse LoaderConfigTimeoutOneShot value '%s': %m", v);
-                        else if (sec > (USEC_INFINITY / USEC_PER_SEC))
-                                log_warning("LoaderConfigTimeoutOneShot too large, ignoring: %m");
-                        else
-                                x = sec * USEC_PER_SEC; /* return in µs */
+                                log_warning_errno(r, "Failed to read LoaderConfigTimeoutOneShot variable, ignoring: %m");
                 }
 
         } else if (r < 0)
@@ -2932,24 +2920,25 @@ static int property_get_reboot_to_boot_loader_entry(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *v = NULL;
+        Manager *m = userdata;
+        const char *x = NULL;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(userdata);
+        assert(m);
 
         r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
         if (r == -ENXIO) {
                 /* EFI case: let's read the LoaderEntryOneShot variable */
 
-                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &v);
+                r = efi_loader_update_entry_one_shot_cache(&m->efi_loader_entry_one_shot, &m->efi_loader_entry_one_shot_stat);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                log_warning_errno(r, "Failed to read LoaderEntryOneShot variable: %m");
-                } else if (!efi_loader_entry_name_valid(v)) {
-                        log_warning("LoaderEntryOneShot contains invalid entry name '%s', ignoring.", v);
-                        v = mfree(v);
-                }
+                                log_warning_errno(r, "Failed to read LoaderEntryOneShot variable, ignoring: %m");
+                } else
+                        x = m->efi_loader_entry_one_shot;
+
         } else if (r < 0)
                 log_warning_errno(r, "Failed to parse $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY: %m");
         else if (r > 0) {
@@ -2959,14 +2948,14 @@ static int property_get_reboot_to_boot_loader_entry(
                 r = read_one_line_file("/run/systemd/reboot-to-boot-loader-entry", &v);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                log_warning_errno(r, "Failed to read /run/systemd/reboot-to-boot-loader-entry: %m");
-                } else if (!efi_loader_entry_name_valid(v)) {
+                                log_warning_errno(r, "Failed to read /run/systemd/reboot-to-boot-loader-entry, ignoring: %m");
+                } else if (!efi_loader_entry_name_valid(v))
                         log_warning("/run/systemd/reboot-to-boot-loader-entry is not valid, ignoring.");
-                        v = mfree(v);
-                }
+                else
+                        x = v;
         }
 
-        return sd_bus_message_append(reply, "s", v);
+        return sd_bus_message_append(reply, "s", x);
 }
 
 static int boot_loader_entry_exists(Manager *m, const char *id) {

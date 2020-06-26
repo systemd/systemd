@@ -257,7 +257,7 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
         assert((flags & O_EXCL) == 0);
 
         /* Creates a temporary file, that shall be renamed to "target" later. If possible, this uses O_TMPFILE – in
-         * which case "ret_path" will be returned as NULL. If not possible a the tempoary path name used is returned in
+         * which case "ret_path" will be returned as NULL. If not possible the temporary path name used is returned in
          * "ret_path". Use link_tmpfile() below to rename the result after writing the file in full. */
 
         fd = open_parent(target, O_TMPFILE|flags, 0640);

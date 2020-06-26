@@ -734,3 +734,73 @@ char *efi_tilt_backslashes(char *s) {
 
         return s;
 }
+
+int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
+        _cleanup_free_ char *v = NULL, *fn = NULL;
+        static struct stat cache_stat = {};
+        struct stat new_stat;
+        static usec_t cache;
+        uint64_t sec;
+        int r;
+
+        assert(ret);
+
+        fn = efi_variable_path(EFI_VENDOR_LOADER, "LoaderConfigTimeoutOneShot");
+        if (!fn)
+                return -ENOMEM;
+
+        /* stat() the EFI variable, to see if the mtime changed. If it did we need to cache again. */
+        if (stat(fn, &new_stat) < 0)
+                return -errno;
+
+        if (stat_inode_unmodified(&new_stat, &cache_stat)) {
+                *ret = cache;
+                return 0;
+        }
+
+        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderConfigTimeoutOneShot", &v);
+        if (r < 0)
+                return r;
+
+        r = safe_atou64(v, &sec);
+        if (r < 0)
+                return r;
+        if (sec > USEC_INFINITY / USEC_PER_SEC)
+                return -ERANGE;
+
+        cache_stat = new_stat;
+        *ret = cache = sec * USEC_PER_SEC; /* return in µs */
+        return 0;
+}
+
+int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat) {
+        _cleanup_free_ char *fn = NULL, *v = NULL;
+        struct stat new_stat;
+        int r;
+
+        assert(cache);
+        assert(cache_stat);
+
+        fn = efi_variable_path(EFI_VENDOR_LOADER, "LoaderEntryOneShot");
+        if (!fn)
+                return -ENOMEM;
+
+        /* stat() the EFI variable, to see if the mtime changed. If it did we need to cache again. */
+        if (stat(fn, &new_stat) < 0)
+                return -errno;
+
+        if (stat_inode_unmodified(&new_stat, cache_stat))
+                return 0;
+
+        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &v);
+        if (r < 0)
+                return r;
+
+        if (!efi_loader_entry_name_valid(v))
+                return -EINVAL;
+
+        *cache_stat = new_stat;
+        free_and_replace(*cache, v);
+
+        return 0;
+}

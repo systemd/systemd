@@ -126,6 +126,9 @@ struct Manager {
 
         char **efi_boot_loader_entries;
         bool efi_boot_loader_entries_set;
+
+        char *efi_loader_entry_one_shot;
+        struct stat efi_loader_entry_one_shot_stat;
 };
 
 void manager_reset_config(Manager *m);

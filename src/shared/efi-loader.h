@@ -3,6 +3,8 @@
 
 #include "efivars.h"
 
+#include <sys/stat.h>
+
 #if ENABLE_EFI
 
 int efi_reboot_to_firmware_supported(void);
@@ -22,6 +24,9 @@ int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader);
 int efi_loader_get_entries(char ***ret);
 
 int efi_loader_get_features(uint64_t *ret);
+
+int efi_loader_get_config_timeout_one_shot(usec_t *ret);
+int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat);
 
 #else
 
@@ -74,6 +79,14 @@ static inline int efi_loader_get_entries(char ***ret) {
 }
 
 static inline int efi_loader_get_features(uint64_t *ret) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_loader_get_config_timeout_one_shot(usec_t *ret) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_loader_update_entry_one_shot_cache(char **cache, struct stat *cache_stat) {
         return -EOPNOTSUPP;
 }
 
