@@ -20,12 +20,6 @@ Features:
 * add --copy-from and --copy-to command to systemd-dissect which copies stuff
   in and out of a disk image
 
-* add systemd.random_seed= on the kernel cmdline, taking some hex or base64
-  encoded data. During earliest boot, credit it to entropy. This is not useful
-  for general purpose systems, but certainly for testing environments in VMs
-  and such, as it allows us to boot up instantly with fully initialized entropy
-  pool even if RNG pass-thru is not available.
-
 * Support ProtectProc= or so, using: https://patchwork.kernel.org/cover/11310197/
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it

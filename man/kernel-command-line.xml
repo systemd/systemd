@@ -468,8 +468,32 @@
         <term><varname>systemd.clock-usec=</varname></term>
 
         <listitem><para>Takes a decimal, numeric timestamp in µs since January 1st 1970, 00:00am, to set the
-        system clock to. The system time is set to the specified timestamp early during
-        boot. It is not propagated to the hardware clock (RTC).</para></listitem>
+        system clock to. The system time is set to the specified timestamp early during boot. It is not
+        propagated to the hardware clock (RTC).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.random-seed=</varname></term>
+
+        <listitem><para>Takes a base64 encoded random seed value to credit with full entropy to the kernel's
+        random pool during early service manager initialization. This option is useful in testing
+        environments where delays due to random pool initialization in entropy starved virtual machines shall
+        be avoided.</para>
+
+        <para>Note that if this option is used the seed is accessible to unprivileged programs from
+        <filename>/proc/cmdline</filename>. This option is hence a security risk when used outside of test
+        systems, since the (possibly) only seed used for initialization of the kernel's entropy pool might be
+        easily acquired by unprivileged programs.</para>
+
+        <para>It is recommended to pass 512 bytes of randomized data (as that matches the Linux kernel pool
+        size), which may be generated with a command like the following:</para>
+
+        <programlisting>dd if=/dev/urandom bs=512 count=1 status=none | base64 -w 0</programlisting>
+
+        <para>Again: do not use this option outside of testing environments, it's a security risk elsewhere,
+        as secret key material derived from the entropy pool can possibly be reconstructed by unprivileged
+        programs.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
