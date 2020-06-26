@@ -1681,7 +1681,15 @@
         <varlistentry>
         <term><varname>DenyList=</varname></term>
         <listitem>
-          <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected.</para>
+          <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are rejected. Note that
+          if <varname>AllowList=</varname> is configured then <varname>DenyList=</varname> is ignored.</para>
+        </listitem>
+        </varlistentry>
+
+        <varlistentry>
+        <term><varname>AllowList=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of IPv4 addresses. DHCP offers from servers in the list are accepted.</para>
         </listitem>
         </varlistentry>
 

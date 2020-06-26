@@ -23,7 +23,7 @@ int dhcp4_set_client_identifier(Link *link);
 int dhcp4_set_promote_secondaries(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_deny_listed_ip_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_acl_ip_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_max_attempts);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_ip_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_mud_url);

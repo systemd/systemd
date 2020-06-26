@@ -130,6 +130,7 @@ struct Network {
         DHCPUseDomains dhcp_use_domains;
         sd_ipv4acd *dhcp_acd;
         Set *dhcp_deny_listed_ip;
+        Set *dhcp_allow_listed_ip;
         Set *dhcp_request_options;
         OrderedHashmap *dhcp_client_send_options;
         OrderedHashmap *dhcp_client_send_vendor_options;
