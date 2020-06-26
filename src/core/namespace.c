@@ -1034,7 +1034,7 @@ static int apply_mount(
                         /* Hmm, either the source or the destination are missing. Let's see if we can create the destination, then try again */
 
                         if (stat(what, &st) < 0)
-                                log_debug_errno(errno, "Mount point source '%s' is not accessible: %m", what);
+                                log_error_errno(errno, "Mount point source '%s' is not accessible: %m", what);
                         else {
                                 int q;
 
@@ -1046,7 +1046,7 @@ static int apply_mount(
                                         q = touch(mount_entry_path(m));
 
                                 if (q < 0)
-                                        log_debug_errno(q, "Failed to create destination mount point node '%s': %m", mount_entry_path(m));
+                                        log_error_errno(q, "Failed to create destination mount point node '%s': %m", mount_entry_path(m));
                                 else
                                         try_again = true;
                         }
@@ -1060,7 +1060,7 @@ static int apply_mount(
                 }
 
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+                        return log_error_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
         }
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));

@@ -1017,8 +1017,11 @@ static void mount_enter_mounting(Mount *m) {
 
         /* Create the source directory for bind-mounts if needed */
         p = get_mount_parameters_fragment(m);
-        if (p && mount_is_bind(p))
-                (void) mkdir_p_label(p->what, m->directory_mode);
+        if (p && mount_is_bind(p)) {
+                r = mkdir_p_label(p->what, m->directory_mode);
+                if (r < 0)
+                        log_unit_error_errno(UNIT(m), r, "Failed to make bind mount source '%s': %m", p->what);
+        }
 
         if (p) {
                 _cleanup_free_ char *opts = NULL;
