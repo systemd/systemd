@@ -11,6 +11,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "prioq.h"
+#include "ratelimit.h"
 
 typedef enum EventSourceType {
         SOURCE_IO,
@@ -42,6 +43,12 @@ typedef enum WakeupType {
         _WAKEUP_TYPE_INVALID = -1,
 } WakeupType;
 
+typedef struct {
+        RateLimit ratelimit;
+        sd_event_source *timeout_source;
+        bool effective;
+} EventSourceRateLimit;
+
 struct inode_data;
 
 struct sd_event_source {
@@ -68,6 +75,8 @@ struct sd_event_source {
         uint64_t prepare_iteration;
 
         sd_event_destroy_t destroy_callback;
+
+        EventSourceRateLimit *ratelimit;
 
         LIST_FIELDS(sd_event_source, sources);
 

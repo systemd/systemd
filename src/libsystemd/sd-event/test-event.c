@@ -590,6 +590,52 @@ static void test_pidfd(void) {
         sd_event_unref(e);
 }
 
+static int ratelimit_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        unsigned *c = (unsigned*) userdata;
+        *c += 1;
+        return 0;
+}
+
+static void test_ratelimit(void) {
+        sd_event *e = NULL;
+        sd_event_source *t = NULL;
+        int p[2] = {-1, -1};
+        uint64_t burst, interval;
+        unsigned i, count;
+
+        assert_se(sd_event_default(&e) >= 0);
+        assert_se(pipe(p) == 0);
+        assert(write(p[1], "1", 1) == 1);
+
+        assert_se(sd_event_add_io(e, &t, p[0], EPOLLIN, ratelimit_handler, &count) >= 0);
+
+        assert_se(sd_event_source_set_ratelimit(t, 1000000, 5) >= 0);
+        assert_se(sd_event_source_get_ratelimit(t, &interval, &burst) >= 0);
+        assert_se(interval == 1000000 && burst == 5);
+
+        count = 0;
+        for (i = 0; i < 10; i++) {
+                assert_se(sd_event_run(e, -1) >= 0);
+                clock_nanosleep(CLOCK_MONOTONIC, 0, &(struct timespec){.tv_sec=0, .tv_nsec=250000000}, NULL);
+        }
+        log_info("handler called %d times, event source wasn't ratelimited", count);
+        assert(count == 10);
+
+        sd_event_source_set_ratelimit(t, 0, 0);
+        assert_se(sd_event_source_set_ratelimit(t, 1000000, 5) >= 0);
+
+        count = 0;
+        for (i = 0; i < 10; i++) {
+                assert_se(sd_event_run(e, -1) >= 0);
+                clock_nanosleep(CLOCK_MONOTONIC, 0, &(struct timespec){.tv_sec=0, .tv_nsec=1000}, NULL);
+        }
+        log_info("handler called %d times, event source was ratelimited", count);
+        assert(count < 10);
+
+        sd_event_source_unref(t);
+        sd_event_unref(e);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -604,5 +650,6 @@ int main(int argc, char *argv[]) {
 
         test_pidfd();
 
+        test_ratelimit();
         return 0;
 }

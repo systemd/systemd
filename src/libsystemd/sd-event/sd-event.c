@@ -837,6 +837,8 @@ static void source_disconnect(sd_event_source *s) {
 static void source_free(sd_event_source *s) {
         assert(s);
 
+        (void) sd_event_source_set_ratelimit(s, 0, 0);
+
         source_disconnect(s);
 
         if (s->type == SOURCE_IO && s->io.owned)
@@ -2206,6 +2208,174 @@ _public_ int sd_event_source_get_enabled(sd_event_source *s, int *m) {
         return s->enabled != SD_EVENT_OFF;
 }
 
+static void source_prioq_reshuffle(sd_event_source *s) {
+        assert(s);
+
+        if (s->pending)
+                prioq_reshuffle(s->event->pending, s, &s->pending_index);
+
+        if (s->prepare)
+                prioq_reshuffle(s->event->prepare, s, &s->prepare_index);
+}
+
+static int source_disable(sd_event_source *s) {
+        int r;
+
+        assert(s);
+
+        /* Unset the pending flag when this event source is disabled */
+        if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                r = source_set_pending(s, false);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (s->type) {
+
+        case SOURCE_IO:
+                source_io_unregister(s);
+                break;
+
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM: {
+                struct clock_data *d;
+
+                d = event_get_clock_data(s->event, s->type);
+                assert(d);
+
+                prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
+                prioq_reshuffle(d->latest, s, &s->time.latest_index);
+                d->needs_rearm = true;
+                break;
+        }
+
+        case SOURCE_SIGNAL:
+                event_gc_signal_data(s->event, &s->priority, s->signal.sig);
+                break;
+
+        case SOURCE_CHILD:
+                assert(s->event->n_enabled_child_sources > 0);
+                s->event->n_enabled_child_sources--;
+
+                if (EVENT_SOURCE_WATCH_PIDFD(s))
+                        source_child_pidfd_unregister(s);
+                else
+                        event_gc_signal_data(s->event, &s->priority, SIGCHLD);
+
+                break;
+
+        case SOURCE_EXIT:
+                prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
+                break;
+
+        case SOURCE_DEFER:
+        case SOURCE_POST:
+        case SOURCE_INOTIFY:
+                break;
+
+        default:
+                assert_not_reached("Wut? I shouldn't exist.");
+        }
+
+        source_prioq_reshuffle(s);
+
+        return 0;
+}
+
+static int source_enable(sd_event_source *s, int m) {
+        int r;
+
+        assert(s);
+        assert(m != SD_EVENT_OFF);
+
+        /* Unset the pending flag when this event source is enabled */
+        if (s->enabled == SD_EVENT_OFF && !IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                r = source_set_pending(s, false);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (s->type) {
+
+        case SOURCE_IO:
+                r = source_io_register(s, m, s->io.events);
+                if (r < 0)
+                        return r;
+                break;
+
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM: {
+                struct clock_data *d;
+
+                d = event_get_clock_data(s->event, s->type);
+                assert(d);
+
+                prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
+                prioq_reshuffle(d->latest, s, &s->time.latest_index);
+                d->needs_rearm = true;
+                break;
+        }
+
+        case SOURCE_SIGNAL:
+                r = event_make_signal_data(s->event, s->signal.sig, NULL);
+                if (r < 0) {
+                        s->enabled = SD_EVENT_OFF;
+                        event_gc_signal_data(s->event, &s->priority, s->signal.sig);
+                        return r;
+                }
+
+                break;
+
+        case SOURCE_CHILD:
+                if (s->enabled == SD_EVENT_OFF)
+                        s->event->n_enabled_child_sources++;
+
+                if (EVENT_SOURCE_WATCH_PIDFD(s)) {
+                        /* yes, we have pidfd */
+
+                        r = source_child_pidfd_register(s, s->enabled);
+                        if (r < 0) {
+                                s->enabled = SD_EVENT_OFF;
+                                s->event->n_enabled_child_sources--;
+                                return r;
+                        }
+                } else {
+                        /* no pidfd, or something other to watch for than WEXITED */
+
+                        r = event_make_signal_data(s->event, SIGCHLD, NULL);
+                        if (r < 0) {
+                                s->enabled = SD_EVENT_OFF;
+                                s->event->n_enabled_child_sources--;
+                                event_gc_signal_data(s->event, &s->priority, SIGCHLD);
+                                return r;
+                        }
+                }
+
+                break;
+
+        case SOURCE_EXIT:
+                prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
+                break;
+
+        case SOURCE_DEFER:
+        case SOURCE_POST:
+        case SOURCE_INOTIFY:
+                break;
+        default:
+                assert_not_reached("Wut? I shouldn't exist.");
+        }
+
+        source_prioq_reshuffle(s);
+
+        return 0;
+}
+
 _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         int r;
 
@@ -2221,173 +2391,10 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         if (s->enabled == m)
                 return 0;
 
-        if (m == SD_EVENT_OFF) {
-
-                /* Unset the pending flag when this event source is disabled */
-                if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
-                        r = source_set_pending(s, false);
-                        if (r < 0)
-                                return r;
-                }
-
-                switch (s->type) {
-
-                case SOURCE_IO:
-                        source_io_unregister(s);
-                        s->enabled = m;
-                        break;
-
-                case SOURCE_TIME_REALTIME:
-                case SOURCE_TIME_BOOTTIME:
-                case SOURCE_TIME_MONOTONIC:
-                case SOURCE_TIME_REALTIME_ALARM:
-                case SOURCE_TIME_BOOTTIME_ALARM: {
-                        struct clock_data *d;
-
-                        s->enabled = m;
-                        d = event_get_clock_data(s->event, s->type);
-                        assert(d);
-
-                        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-                        prioq_reshuffle(d->latest, s, &s->time.latest_index);
-                        d->needs_rearm = true;
-                        break;
-                }
-
-                case SOURCE_SIGNAL:
-                        s->enabled = m;
-
-                        event_gc_signal_data(s->event, &s->priority, s->signal.sig);
-                        break;
-
-                case SOURCE_CHILD:
-                        s->enabled = m;
-
-                        assert(s->event->n_enabled_child_sources > 0);
-                        s->event->n_enabled_child_sources--;
-
-                        if (EVENT_SOURCE_WATCH_PIDFD(s))
-                                source_child_pidfd_unregister(s);
-                        else
-                                event_gc_signal_data(s->event, &s->priority, SIGCHLD);
-
-                        break;
-
-                case SOURCE_EXIT:
-                        s->enabled = m;
-                        prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
-                        break;
-
-                case SOURCE_DEFER:
-                case SOURCE_POST:
-                case SOURCE_INOTIFY:
-                        s->enabled = m;
-                        break;
-
-                default:
-                        assert_not_reached("Wut? I shouldn't exist.");
-                }
-
-        } else {
-
-                /* Unset the pending flag when this event source is enabled */
-                if (s->enabled == SD_EVENT_OFF && !IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
-                        r = source_set_pending(s, false);
-                        if (r < 0)
-                                return r;
-                }
-
-                switch (s->type) {
-
-                case SOURCE_IO:
-                        r = source_io_register(s, m, s->io.events);
-                        if (r < 0)
-                                return r;
-
-                        s->enabled = m;
-                        break;
-
-                case SOURCE_TIME_REALTIME:
-                case SOURCE_TIME_BOOTTIME:
-                case SOURCE_TIME_MONOTONIC:
-                case SOURCE_TIME_REALTIME_ALARM:
-                case SOURCE_TIME_BOOTTIME_ALARM: {
-                        struct clock_data *d;
-
-                        s->enabled = m;
-                        d = event_get_clock_data(s->event, s->type);
-                        assert(d);
-
-                        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-                        prioq_reshuffle(d->latest, s, &s->time.latest_index);
-                        d->needs_rearm = true;
-                        break;
-                }
-
-                case SOURCE_SIGNAL:
-
-                        s->enabled = m;
-
-                        r = event_make_signal_data(s->event, s->signal.sig, NULL);
-                        if (r < 0) {
-                                s->enabled = SD_EVENT_OFF;
-                                event_gc_signal_data(s->event, &s->priority, s->signal.sig);
-                                return r;
-                        }
-
-                        break;
-
-                case SOURCE_CHILD:
-
-                        if (s->enabled == SD_EVENT_OFF)
-                                s->event->n_enabled_child_sources++;
-
-                        s->enabled = m;
-
-                        if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                                /* yes, we have pidfd */
-
-                                r = source_child_pidfd_register(s, s->enabled);
-                                if (r < 0) {
-                                        s->enabled = SD_EVENT_OFF;
-                                        s->event->n_enabled_child_sources--;
-                                        return r;
-                                }
-                        } else {
-                                /* no pidfd, or something other to watch for than WEXITED */
-
-                                r = event_make_signal_data(s->event, SIGCHLD, NULL);
-                                if (r < 0) {
-                                        s->enabled = SD_EVENT_OFF;
-                                        s->event->n_enabled_child_sources--;
-                                        event_gc_signal_data(s->event, &s->priority, SIGCHLD);
-                                        return r;
-                                }
-                        }
-
-                        break;
-
-                case SOURCE_EXIT:
-                        s->enabled = m;
-                        prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
-                        break;
-
-                case SOURCE_DEFER:
-                case SOURCE_POST:
-                case SOURCE_INOTIFY:
-                        s->enabled = m;
-                        break;
-
-                default:
-                        assert_not_reached("Wut? I shouldn't exist.");
-                }
-        }
-
-        if (s->pending)
-                prioq_reshuffle(s->event->pending, s, &s->pending_index);
-
-        if (s->prepare)
-                prioq_reshuffle(s->event->prepare, s, &s->prepare_index);
+        s->enabled = m;
+        r = m == SD_EVENT_OFF ? source_disable(s) : source_enable(s, m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -3184,6 +3191,42 @@ static int process_inotify(sd_event *e) {
         return done;
 }
 
+static int source_trigger_ratelimit(sd_event_source *s) {
+        int r;
+
+        assert(s);
+
+        if (!s->ratelimit)
+                return false;
+
+        if (s->ratelimit->effective)
+                return true;
+
+        if (ratelimit_below(&s->ratelimit->ratelimit))
+                return false;
+
+        /* Let's schedule high priority wake up after interval elapsed */
+        r = sd_event_source_set_time(s->ratelimit->timeout_source, s->ratelimit->ratelimit.begin + s->ratelimit->ratelimit.interval);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s->ratelimit->timeout_source, SD_EVENT_PRIORITY_IMPORTANT);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(s->ratelimit->timeout_source, SD_EVENT_ON);
+        if (r < 0)
+                return r;
+
+        r = source_disable(s);
+        if (r < 0)
+                return r;
+
+        s->ratelimit->effective = true;
+
+        return true;
+}
+
 static int source_dispatch(sd_event_source *s) {
         EventSourceType saved_type;
         int r = 0;
@@ -3194,6 +3237,17 @@ static int source_dispatch(sd_event_source *s) {
         /* Save the event source type, here, so that we still know it after the event callback which might invalidate
          * the event. */
         saved_type = s->type;
+
+        r = source_trigger_ratelimit(s);
+        if (r > 0)
+                /* We got rate limited so let's not dispatch the event source just yet */
+                return 0;
+        else if (r < 0) {
+                log_debug_errno(r, "Event source  %s (type %s) rate limit processing returned error, disabling the rate limit: %m",
+                                strna(s->description), event_source_type_to_string(saved_type));
+
+                (void) sd_event_source_set_ratelimit(s, 0, 0);
+        }
 
         if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
                 r = source_set_pending(s, false);
@@ -3729,7 +3783,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         if (r > 0) {
                 /* There's something now, then let's dispatch it */
                 r = sd_event_dispatch(e);
-                if (r < 0)
+                if (r <= 0)
                         return r;
 
                 return 1;
@@ -3976,4 +4030,97 @@ _public_ int sd_event_source_set_floating(sd_event_source *s, int b) {
         }
 
         return 1;
+}
+
+static int ratelimit_timeout_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        int r;
+
+        sd_event_source *source = (sd_event_source *) userdata;
+
+        source->ratelimit->effective = false;
+
+        if (source->enabled != SD_EVENT_OFF) {
+                r = source_enable(source, source->enabled);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int source_disable_ratelimit(sd_event_source *s) {
+        assert(s);
+
+        if (!s->ratelimit)
+                return 0;
+
+        if (s->ratelimit->effective && s->enabled != SD_EVENT_OFF) {
+                int r;
+
+                r = source_enable(s, s->enabled);
+                if (r < 0)
+                        return r;
+        }
+
+        s->ratelimit->timeout_source = sd_event_source_unref(s->ratelimit->timeout_source);
+        s->ratelimit = mfree(s->ratelimit);
+
+        return 1;
+}
+
+_public_ int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval_usec, uint64_t burst) {
+        int r;
+
+        assert_return(s, -EINVAL);
+
+        r = source_disable_ratelimit(s);
+        if (r < 0)
+                return r;
+
+        if (interval_usec == 0 || burst == 0)
+                return 1;
+
+        s->ratelimit = new0(EventSourceRateLimit, 1);
+        if (!s->ratelimit)
+                return -ENOMEM;
+
+        s->ratelimit->ratelimit = (RateLimit) { .interval = interval_usec, .burst = burst };
+
+        r = sd_event_add_time(s->event, &s->ratelimit->timeout_source, clock_boottime_or_monotonic(), 0, 0, ratelimit_timeout_handler, s);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(s->ratelimit->timeout_source, SD_EVENT_OFF);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+_public_ int sd_event_source_get_ratelimit(sd_event_source *s, uint64_t *interval, uint64_t *burst) {
+        assert_return(s, -EINVAL);
+
+        if (!s->ratelimit)
+                return -ENOENT;
+
+        if (interval)
+                *interval = s->ratelimit->ratelimit.interval;
+
+        if (burst)
+                *burst = s->ratelimit->ratelimit.burst;
+
+        return 1;
+}
+
+_public_ int sd_event_source_is_ratelimited(sd_event_source *s) {
+        assert_return(s, -EINVAL);
+
+        if (!s->ratelimit)
+                return -ENOENT;
+
+        return s->ratelimit->effective;
 }
