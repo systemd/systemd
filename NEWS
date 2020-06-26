@@ -38,8 +38,9 @@ CHANGES WITH 246 in spe:
           [GenericRandomEarlyDetection], "SFB" in [StochasticFairBlue], "cake"
           in [CAKE], "PIE" in [PIE], "DRR" in [DeficitRoundRobinScheduler] and
           [DeficitRoundRobinSchedulerClass], "BFIFO" in [BFIFO],
-          "PFIFOHeadDrop" in [PFIFOHeadDrop], "PFIFOFast" in [PFIFOFast] and
-          "HHF" in [HeavyHitterFilter].
+          "PFIFOHeadDrop" in [PFIFOHeadDrop], "PFIFOFast" in [PFIFOFast], "HHF"
+          in [HeavyHitterFilter], "ETS" in [EnhancedTransmissionSelection] and
+          "QFQ" in [QuickFairQueueingClass].
 
         * systemd-networkd gained support for a new Termination= setting in the
           [CAN] section for configuring the termination resistor. It also
@@ -107,7 +108,7 @@ CHANGES WITH 246 in spe:
           freeze and thaw respectively, or via D-Bus.
 
         * systemd-udevd gained new configuration option timeout_signal= as well
-          as coresponding kernel command line option udev.timeout_signal.
+          as corresponding kernel command line option udev.timeout_signal=.
           The option can be used to configure the UNIX signal that the main
           daemon sends to the worker processes on timeout.
 
@@ -272,6 +273,12 @@ CHANGES WITH 246 in spe:
         * systemd-repart drop-ins now support a new UUID= setting to control
           the UUID to assign to a newly created partition.
 
+        * systemd-repart's SizeMin= per-partition parameter now defaults to 10M
+          instead of 0.
+
+        * systemd-repart's Label= setting now support the usual, simple
+          specifier expansion.
+
         * StandardError= and StandardOutput= in unit files no longer support
           the "syslog" and "syslog-console" switches. They were long removed
           from the documentation, but will now result in warnings when used,
@@ -376,6 +383,100 @@ CHANGES WITH 246 in spe:
         * The BlackList= settings in .network files' [DHCPv4] and
           [IPv6AcceptRA] sections have been renamed DenyList=. The old names
           are still understood to provide compatibility.
+
+        * systemd-journald gained support for zstd compression of large fields
+          in journal files. The hash tables in journal files have been hardened
+          against hash collisions. This is an incompatible change and means
+          that journal files created with new systemd versions are not readable
+          with old versions. If the $SYSTEMD_JOURNAL_KEYED_HASH boolean
+          environment variable for systemd-journald.service is set to 0 this
+          new hardening functionality may be turned off, so that generated
+          journal files remain compatible with older journalctl
+          implementations.
+
+        * Documentation for the on-disk Journal file format has been updated
+          and has now moved to:
+
+              https://systemd.io/JOURNAL_FILE_FORMAT
+
+        * systemd service units gained a new setting RootHash= which may be
+          used to specify the root hash for verity enabled disk images which
+          are specified in RootImage=. RootVerity= may be used to specify a
+          path to the Verity data matching a RootImage= file system. (The
+          latter is only useful for images that do not contain the Verity data
+          embedded into the same image that carries a GPT partition table
+          following the Discoverable Partition Specification). Similar,
+          systemd-nspawn gained a new switch --verity-data= that takes a path
+          to a file with the verity data of the disk image supplied in
+          --image=, if the image doesn't contain the verity data itself.
+
+        * systemd service units gained a new setting RootHashSignature= which
+          takes either a base64 encoded PKCS#7 signature of the root hash
+          specified with RootHash=, or a path to a file to read the signature
+          from. This allows validation of the root hash against public keys
+          available in the kernel keyring, and is only supported on recent
+          kernels (>= 5.4)/libcryptsetup (>= 2.30). A similar switch has been
+          added to systemd-nspawn and systemd-dissect
+          (--root-hash-sig=). Support for this mechanism has also been added to
+          systemd-veritysetup.
+
+        * A new 'hwdb' file has been added that collects information about PCI
+          and USB devices that correctly support auto-suspend, on top of the
+          databases for this we import from the ChromiumOS project. If you have
+          a device that supports auto-suspend correctly and where it should be
+          enabled by default, please submit a patch that adds it to the
+          database (see hwdb.d/60-autosuspend.hwdb).
+
+        * The service manager (PID1) gained a new D-Bus method call
+          SetShowStatus() which may be used to control whether it shall show
+          boot-time status output on the console. This method has a similar
+          effect to sending SIGRTMIN+20/SIGRTMIN+21 to PID 1.
+
+        * PID 1 may now automatically load pre-compiled AppArmor policies from
+          /etc/apparmor/earlypolicy during early boot.
+
+        * systemd-cryptsetup may now activate Microsoft BitLocker volumes via
+          /etc/crypttab, during boot.
+
+        * systemd service unit files gained two new options
+          TimeoutStartFailureMode=/TimeoutStopFailureMode= that may be used to
+          tune behaviour if a start or stop timeout is hit, i.e. whether to
+          terminate the service with SIGTERM, SIGABRT or SIGKILL.
+
+        * A kernel command line option "udev.blockdev_read_only" has been
+          added. If specified all hardware block devices that show up are
+          immediately marked as read-only by udev. This option is useful for
+          making sure that a specific boot under no circumstances modifies data
+          on disk. Use "blockdev --setrw" to undo the effect of this, per
+          device.
+
+        * Most options in systemd that accept hexadecimal values prefixed with
+          0x in additional to the usual decimal notation now also support octal
+          notation when he 0o prefix is used and binary notation if the 0b
+          prefix is used.
+
+        * "booctl" gained a new verb "reboot-to-firmware" that may be used
+          to query and change the firmware's reboot into firmware setup flag.
+
+        * journalctl will now include a clickable link in the default output for
+          each log message for which an URL with further documentation is
+          known. This is only supported on terminal emulators that support
+          clickable hyperlinks, and is turned off if a pager is used (since
+          "less" still doesn't support hyperlinks,
+          unfortunately). Documentation URLs may be included in log messages
+          either by including a DOCUMENTATION= journal field in it, or by
+          associating a journal message catalog entry with the log message's
+          MESSAGE_ID, which then carries a "Documentation:" tag.
+
+        * systemd-firstboot gained a new switch --kernel-command-line= that may
+          be used to initialize the /etc/kernel/cmdline file of the image. It
+          also gained a new switch --root-password-hashed= which is like
+          --root-password= but accepts a pre-hashed UNIX password as
+          argument. The new option --delete-root-password may be used to unset
+          any password for the root user (dangerous!). A new --force option may
+          be used to override any already set settings with the parameters
+          specified on the command line (by default, the tool will not override
+          what has already been set before, i.e. is purely incremental).
 
 CHANGES WITH 245:
 
