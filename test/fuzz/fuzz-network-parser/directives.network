@@ -107,6 +107,7 @@ UseTimezone=
 RouteTable=
 DenyList=
 BlackList=
+AllowList=
 RequestOptions=
 SendRelease=
 MaxAttempts=

@@ -1079,6 +1079,34 @@ static int dhcp_server_is_deny_listed(Link *link, sd_dhcp_client *client) {
         return false;
 }
 
+static int dhcp_server_is_allow_listed(Link *link, sd_dhcp_client *client) {
+        sd_dhcp_lease *lease;
+        struct in_addr addr;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(client);
+
+        r = sd_dhcp_client_get_lease(client, &lease);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get DHCP lease: %m");
+
+        r = sd_dhcp_lease_get_server_identifier(lease, &addr);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to get DHCP server ip address: %m");
+
+        if (set_contains(link->network->dhcp_allow_listed_ip, UINT32_TO_PTR(addr.s_addr))) {
+                log_struct(LOG_DEBUG,
+                           LOG_LINK_INTERFACE(link),
+                           LOG_LINK_MESSAGE(link, "DHCPv4 ip '%u.%u.%u.%u' found in allow-listed ip addresses, accepting offer",
+                                            ADDRESS_FMT_VAL(addr)));
+                return true;
+        }
+
+        return false;
+}
+
 static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
         Link *link = userdata;
         int r;
@@ -1163,12 +1191,19 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         }
                         break;
                 case SD_DHCP_CLIENT_EVENT_SELECTING:
-                        r = dhcp_server_is_deny_listed(link, client);
-                        if (r < 0)
-                                return r;
-                        if (r != 0)
-                                return -ENOMSG;
-
+                        if (!set_isempty(link->network->dhcp_allow_listed_ip)) {
+                                r = dhcp_server_is_allow_listed(link, client);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        return -ENOMSG;
+                        } else {
+                                r = dhcp_server_is_deny_listed(link, client);
+                                if (r < 0)
+                                        return r;
+                                if (r != 0)
+                                        return -ENOMSG;
+                        }
                         break;
                 default:
                         if (event < 0)
@@ -1551,7 +1586,7 @@ int config_parse_dhcp_max_attempts(
         return 0;
 }
 
-int config_parse_dhcp_deny_listed_ip_address(
+int config_parse_dhcp_acl_ip_address(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1564,6 +1599,7 @@ int config_parse_dhcp_deny_listed_ip_address(
                 void *userdata) {
 
         Network *network = data;
+        Set **acl;
         int r;
 
         assert(filename);
@@ -1571,8 +1607,10 @@ int config_parse_dhcp_deny_listed_ip_address(
         assert(rvalue);
         assert(data);
 
+        acl = STR_IN_SET(lvalue, "DenyList", "BlackList") ? &network->dhcp_deny_listed_ip : &network->dhcp_allow_listed_ip;
+
         if (isempty(rvalue)) {
-                network->dhcp_deny_listed_ip = set_free(network->dhcp_deny_listed_ip);
+                *acl = set_free(*acl);
                 return 0;
         }
 
@@ -1583,8 +1621,8 @@ int config_parse_dhcp_deny_listed_ip_address(
                 r = extract_first_word(&p, &n, NULL, 0);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse DHCP deny-listed IP address, ignoring assignment: %s",
-                                   rvalue);
+                                   "Failed to parse DHCP '%s=' IP address, ignoring assignment: %s",
+                                   lvalue, rvalue);
                         return 0;
                 }
                 if (r == 0)
@@ -1593,14 +1631,14 @@ int config_parse_dhcp_deny_listed_ip_address(
                 r = in_addr_from_string(AF_INET, n, &ip);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "DHCP deny-listed IP address is invalid, ignoring assignment: %s", n);
+                                   "DHCP '%s=' IP address is invalid, ignoring assignment: %s", lvalue, n);
                         continue;
                 }
 
-                r = set_ensure_put(&network->dhcp_deny_listed_ip, NULL, UINT32_TO_PTR(ip.in.s_addr));
+                r = set_ensure_put(acl, NULL, UINT32_TO_PTR(ip.in.s_addr));
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to store DHCP deny-listed IP address '%s', ignoring assignment: %m", n);
+                                   "Failed to store DHCP '%s=' IP address '%s', ignoring assignment: %m", lvalue, n);
         }
 
         return 0;
