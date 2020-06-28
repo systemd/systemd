@@ -643,6 +643,13 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
                                 supported_parent = true;
                                 supported_transport = true;
                         }
+                } else if (streq(subsys, "spi")) {
+                        const char *sysnum;
+
+                        if (sd_device_get_sysnum(parent, &sysnum) >= 0 && sysnum) {
+                                path_prepend(&path, "cs-%s", sysnum);
+                                parent = skip_subsystem(parent, "spi");
+                        }
                 }
 
                 if (!parent)
