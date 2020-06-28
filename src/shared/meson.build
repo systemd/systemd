@@ -27,6 +27,8 @@ shared_sources = files('''
         bpf-program.h
         bridge-util.c
         bridge-util.h
+        bus-get-properties.c
+        bus-get-properties.h
         bus-locator.c
         bus-locator.h
         bus-log-control-api.c

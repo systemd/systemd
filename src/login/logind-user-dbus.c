@@ -3,6 +3,7 @@
 #include <errno.h>
 
 #include "alloc-util.h"
+#include "bus-get-properties.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "format-util.h"

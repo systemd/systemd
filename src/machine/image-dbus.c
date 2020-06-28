@@ -4,9 +4,9 @@
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "bus-get-properties.h"
 #include "bus-label.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
 #include "copy.h"
 #include "dissect-image.h"
 #include "fd-util.h"

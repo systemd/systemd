@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
-#include "bus-util.h"
+#include "bus-get-properties.h"
 #include "dbus-path.h"
 #include "dbus-util.h"
 #include "list.h"

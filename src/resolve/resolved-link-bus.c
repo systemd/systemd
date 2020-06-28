@@ -6,8 +6,8 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-get-properties.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
 #include "parse-util.h"
 #include "resolve-util.h"
 #include "resolved-bus.h"

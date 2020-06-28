@@ -2,9 +2,9 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
 #include "dns-domain.h"
 #include "memory-util.h"
 #include "missing_capability.h"

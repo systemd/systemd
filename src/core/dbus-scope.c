@@ -2,7 +2,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-get-properties.h"
 #include "dbus-cgroup.h"
 #include "dbus-kill.h"
 #include "dbus-scope.h"

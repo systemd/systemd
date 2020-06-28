@@ -12,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-get-properties.h"
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-locator.h"

@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
+#include "bus-get-properties.h"
 #include "bus-locator.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"

@@ -3,7 +3,7 @@
   Copyright © 2010 Maarten Lankhorst
 ***/
 
-#include "bus-util.h"
+#include "bus-get-properties.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-swap.h"

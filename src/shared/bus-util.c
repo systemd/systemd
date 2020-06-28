@@ -14,15 +14,14 @@
 #include "sd-event.h"
 #include "sd-id128.h"
 
-#include "alloc-util.h"
+/* #include "alloc-util.h" */
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-util.h"
 #include "path-util.h"
-#include "rlimit-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
-#include "string-util.h"
+/* #include "string-util.h" */
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = userdata;
@@ -333,102 +332,6 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, bool
         return r;
 }
 
-int bus_property_get_bool(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        int b = *(bool*) userdata;
-
-        return sd_bus_message_append_basic(reply, 'b', &b);
-}
-
-int bus_property_set_bool(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *value,
-                void *userdata,
-                sd_bus_error *error) {
-
-        int b, r;
-
-        r = sd_bus_message_read(value, "b", &b);
-        if (r < 0)
-                return r;
-
-        *(bool*) userdata = b;
-        return 0;
-}
-
-int bus_property_get_id128(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        sd_id128_t *id = userdata;
-
-        if (sd_id128_is_null(*id)) /* Add an empty array if the ID is zero */
-                return sd_bus_message_append(reply, "ay", 0);
-        else
-                return sd_bus_message_append_array(reply, 'y', id->bytes, 16);
-}
-
-#if __SIZEOF_SIZE_T__ != 8
-int bus_property_get_size(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        uint64_t sz = *(size_t*) userdata;
-
-        return sd_bus_message_append_basic(reply, 't', &sz);
-}
-#endif
-
-#if __SIZEOF_LONG__ != 8
-int bus_property_get_long(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        int64_t l = *(long*) userdata;
-
-        return sd_bus_message_append_basic(reply, 'x', &l);
-}
-
-int bus_property_get_ulong(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        uint64_t ul = *(unsigned long*) userdata;
-
-        return sd_bus_message_append_basic(reply, 't', &ul);
-}
-#endif
-
 /**
  * bus_path_encode_unique() - encode unique object path
  * @b: bus connection or NULL
@@ -554,54 +457,6 @@ int bus_path_decode_unique(const char *path, const char *prefix, char **ret_send
         *ret_sender = sender;
         *ret_external = external;
         return 1;
-}
-
-int bus_property_get_rlimit(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        const char *is_soft;
-        struct rlimit *rl;
-        uint64_t u;
-        rlim_t x;
-
-        assert(bus);
-        assert(reply);
-        assert(userdata);
-
-        is_soft = endswith(property, "Soft");
-
-        rl = *(struct rlimit**) userdata;
-        if (rl)
-                x = is_soft ? rl->rlim_cur : rl->rlim_max;
-        else {
-                struct rlimit buf = {};
-                const char *s, *p;
-                int z;
-
-                /* Chop off "Soft" suffix */
-                s = is_soft ? strndupa(property, is_soft - property) : property;
-
-                /* Skip over any prefix, such as "Default" */
-                assert_se(p = strstr(s, "Limit"));
-
-                z = rlimit_from_string(p + 5);
-                assert(z >= 0);
-
-                (void) getrlimit(z, &buf);
-                x = is_soft ? buf.rlim_cur : buf.rlim_max;
-        }
-
-        /* rlim_t might have different sizes, let's map RLIMIT_INFINITY to (uint64_t) -1, so that it is the same on all
-         * archs */
-        u = x == RLIM_INFINITY ? (uint64_t) -1 : (uint64_t) x;
-
-        return sd_bus_message_append(reply, "t", u);
 }
 
 int bus_track_add_name_many(sd_bus_track *t, char **l) {

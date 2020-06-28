@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "automount.h"
-#include "bus-util.h"
+#include "bus-get-properties.h"
 #include "dbus-automount.h"
 #include "dbus-util.h"
 #include "string-util.h"
