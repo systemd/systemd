@@ -23,6 +23,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-message.h"
+#include "bus-print-properties.h"
 #include "bus-unit-procs.h"
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"

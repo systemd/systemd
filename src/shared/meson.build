@@ -37,6 +37,8 @@ shared_sources = files('''
         bus-object.h
         bus-polkit.c
         bus-polkit.h
+        bus-print-properties.c
+        bus-print-properties.h
         bus-unit-procs.c
         bus-unit-procs.h
         bus-unit-util.c

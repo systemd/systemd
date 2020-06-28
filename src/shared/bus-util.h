@@ -10,7 +10,6 @@
 #include "sd-event.h"
 
 #include "macro.h"
-#include "set.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -37,13 +36,6 @@ int bus_connect_user_systemd(sd_bus **_bus);
 
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
-
-typedef int (*bus_message_print_t) (const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all);
-
-int bus_print_property_value(const char *name, const char *expected_value, bool only_value, const char *value);
-int bus_print_property_valuef(const char *name, const char *expected_value, bool only_value, const char *fmt, ...) _printf_(4,5);
-int bus_message_print_all_properties(sd_bus_message *m, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
-int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
 
 int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 int bus_property_set_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error);

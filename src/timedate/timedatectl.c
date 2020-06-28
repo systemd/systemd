@@ -11,6 +11,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
+#include "bus-print-properties.h"
 #include "format-table.h"
 #include "in-addr-util.h"
 #include "main-func.h"
