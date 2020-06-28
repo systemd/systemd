@@ -62,6 +62,7 @@ static bool arg_copy_root_password = false;
 static bool arg_force = false;
 static bool arg_delete_root_password = false;
 static bool arg_root_password_is_hashed = false;
+static bool arg_welcome = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -92,6 +93,9 @@ static void print_welcome(void) {
         static bool done = false;
         const char *pn;
         int r;
+
+        if (!arg_welcome)
+                return;
 
         if (done)
                 return;
@@ -940,6 +944,7 @@ static int help(void) {
                "     --setup-machine-id                     Generate a new random machine ID\n"
                "     --force                                Overwrite existing files\n"
                "     --delete-root-password                 Delete root password\n"
+               "     --welcome=no                           Disable the welcome text\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -978,6 +983,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SETUP_MACHINE_ID,
                 ARG_FORCE,
                 ARG_DELETE_ROOT_PASSWORD,
+                ARG_WELCOME,
         };
 
         static const struct option options[] = {
@@ -1009,6 +1015,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
                 { "force",                   no_argument,       NULL, ARG_FORCE                   },
                 { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
+                { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
                 {}
         };
 
@@ -1184,6 +1191,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DELETE_ROOT_PASSWORD:
                         arg_delete_root_password = true;
+                        break;
+
+                case ARG_WELCOME:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --welcome= argument: %s", optarg);
+
+                        arg_welcome = r;
                         break;
 
                 case '?':

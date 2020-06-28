@@ -259,6 +259,14 @@
         option should not be used lightly.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--welcome=</option></term>
+
+        <listitem><para>Takes a boolean argument. By default when prompting the user for configuration
+        options a brief welcome text is shown before the first question is asked. Pass false to this option
+        to turn off the welcome text.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
