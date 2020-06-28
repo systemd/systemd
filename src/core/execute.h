@@ -405,7 +405,7 @@ ExecRuntime *exec_runtime_unref(ExecRuntime *r, bool destroy);
 
 int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
 int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
-void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
+int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void exec_runtime_vacuum(Manager *m);
 
 void exec_params_clear(ExecParameters *p);

@@ -14,14 +14,25 @@
 #include "util.h"
 #include "virt.h"
 
+static void test_namespace_cleanup_tmpdir(void) {
+        {
+                _cleanup_(namespace_cleanup_tmpdirp) char *dir;
+                assert_se(dir = strdup(RUN_SYSTEMD_EMPTY));
+        }
+
+        {
+                _cleanup_(namespace_cleanup_tmpdirp) char *dir;
+                assert_se(dir = strdup("/tmp/systemd-test-namespace.XXXXXX"));
+                assert_se(mkdtemp(dir));
+        }
+}
+
 static void test_tmpdir(const char *id, const char *A, const char *B) {
         _cleanup_free_ char *a, *b;
         struct stat x, y;
         char *c, *d;
 
         assert_se(setup_tmp_dirs(id, &a, &b) == 0);
-        assert_se(startswith(a, A));
-        assert_se(startswith(b, B));
 
         assert_se(stat(a, &x) >= 0);
         assert_se(stat(b, &y) >= 0);
@@ -29,26 +40,27 @@ static void test_tmpdir(const char *id, const char *A, const char *B) {
         assert_se(S_ISDIR(x.st_mode));
         assert_se(S_ISDIR(y.st_mode));
 
-        assert_se((x.st_mode & 01777) == 0700);
-        assert_se((y.st_mode & 01777) == 0700);
+        if (!streq(a, RUN_SYSTEMD_EMPTY)) {
+                assert_se(startswith(a, A));
+                assert_se((x.st_mode & 01777) == 0700);
+                c = strjoina(a, "/tmp");
+                assert_se(stat(c, &x) >= 0);
+                assert_se(S_ISDIR(x.st_mode));
+                assert_se((x.st_mode & 01777) == 01777);
+                assert_se(rmdir(c) >= 0);
+                assert_se(rmdir(a) >= 0);
+        }
 
-        c = strjoina(a, "/tmp");
-        d = strjoina(b, "/tmp");
-
-        assert_se(stat(c, &x) >= 0);
-        assert_se(stat(d, &y) >= 0);
-
-        assert_se(S_ISDIR(x.st_mode));
-        assert_se(S_ISDIR(y.st_mode));
-
-        assert_se((x.st_mode & 01777) == 01777);
-        assert_se((y.st_mode & 01777) == 01777);
-
-        assert_se(rmdir(c) >= 0);
-        assert_se(rmdir(d) >= 0);
-
-        assert_se(rmdir(a) >= 0);
-        assert_se(rmdir(b) >= 0);
+        if (!streq(b, RUN_SYSTEMD_EMPTY)) {
+                assert_se(startswith(b, B));
+                assert_se((y.st_mode & 01777) == 0700);
+                d = strjoina(b, "/tmp");
+                assert_se(stat(d, &y) >= 0);
+                assert_se(S_ISDIR(y.st_mode));
+                assert_se((y.st_mode & 01777) == 01777);
+                assert_se(rmdir(d) >= 0);
+                assert_se(rmdir(b) >= 0);
+        }
 }
 
 static void test_netns(void) {
@@ -179,6 +191,8 @@ int main(int argc, char *argv[]) {
         _cleanup_free_ char *x = NULL, *y = NULL, *z = NULL, *zz = NULL;
 
         test_setup_logging(LOG_INFO);
+
+        test_namespace_cleanup_tmpdir();
 
         if (!have_namespaces()) {
                 log_tests_skipped("Don't have namespace support");

@@ -43,6 +43,7 @@ typedef enum MountMode {
         BIND_MOUNT,
         BIND_MOUNT_RECURSIVE,
         PRIVATE_TMP,
+        PRIVATE_TMP_READONLY,
         PRIVATE_DEV,
         BIND_DEV,
         EMPTY_DIR,
@@ -221,7 +222,7 @@ static const char *mount_entry_path(const MountEntry *p) {
 static bool mount_entry_read_only(const MountEntry *p) {
         assert(p);
 
-        return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE);
+        return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE, PRIVATE_TMP_READONLY);
 }
 
 static const char *mount_entry_source(const MountEntry *p) {
@@ -1007,6 +1008,7 @@ static int apply_mount(
                 return mount_tmpfs(m);
 
         case PRIVATE_TMP:
+        case PRIVATE_TMP_READONLY:
                 what = mount_entry_source(m);
                 make = true;
                 break;
@@ -1398,17 +1400,21 @@ int setup_namespace(
                         goto finish;
 
                 if (tmp_dir) {
+                        bool ro = streq(tmp_dir, RUN_SYSTEMD_EMPTY);
+
                         *(m++) = (MountEntry) {
                                 .path_const = "/tmp",
-                                .mode = PRIVATE_TMP,
+                                .mode = ro ? PRIVATE_TMP_READONLY : PRIVATE_TMP,
                                 .source_const = tmp_dir,
                         };
                 }
 
                 if (var_tmp_dir) {
+                        bool ro = streq(var_tmp_dir, RUN_SYSTEMD_EMPTY);
+
                         *(m++) = (MountEntry) {
                                 .path_const = "/var/tmp",
-                                .mode = PRIVATE_TMP,
+                                .mode = ro ? PRIVATE_TMP_READONLY : PRIVATE_TMP,
                                 .source_const = var_tmp_dir,
                         };
                 }
@@ -1815,10 +1821,28 @@ static int make_tmp_prefix(const char *prefix) {
 
 }
 
-static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
+static int make_tmp_subdir(const char *parent, char **ret) {
+        _cleanup_free_ char *y = NULL;
+
+        RUN_WITH_UMASK(0000) {
+                y = strjoin(parent, "/tmp");
+                if (!y)
+                        return -ENOMEM;
+
+                if (mkdir(y, 0777 | S_ISVTX) < 0)
+                        return -errno;
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(y);
+        return 0;
+}
+
+static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, char **tmp_path) {
         _cleanup_free_ char *x = NULL;
         char bid[SD_ID128_STRING_MAX];
         sd_id128_t boot_id;
+        bool rw = true;
         int r;
 
         assert(id);
@@ -1841,49 +1865,55 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
                 return r;
 
         RUN_WITH_UMASK(0077)
-                if (!mkdtemp(x))
-                        return -errno;
+                if (!mkdtemp(x)) {
+                        if (errno == EROFS || ERRNO_IS_DISK_SPACE(errno))
+                                rw = false;
+                        else
+                                return -errno;
+                }
 
-        RUN_WITH_UMASK(0000) {
-                char *y;
+        if (rw) {
+                r = make_tmp_subdir(x, tmp_path);
+                if (r < 0)
+                        return r;
+        } else {
+                /* Trouble: we failed to create the directory. Instead of failing, let's simulate /tmp being
+                 * read-only. This way the service will get the EROFS result as if it was writing to the real
+                 * file system. */
+                r = mkdir_p(RUN_SYSTEMD_EMPTY, 0500);
+                if (r < 0)
+                        return r;
 
-                y = strjoina(x, "/tmp");
-
-                if (mkdir(y, 0777 | S_ISVTX) < 0)
-                        return -errno;
+                x = strdup(RUN_SYSTEMD_EMPTY);
+                if (!x)
+                        return -ENOMEM;
         }
 
         *path = TAKE_PTR(x);
-
         return 0;
 }
 
 int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
-        char *a, *b;
+        _cleanup_(namespace_cleanup_tmpdirp) char *a = NULL;
+        _cleanup_(rmdir_and_freep) char *a_tmp = NULL;
+        char *b;
         int r;
 
         assert(id);
         assert(tmp_dir);
         assert(var_tmp_dir);
 
-        r = setup_one_tmp_dir(id, "/tmp", &a);
+        r = setup_one_tmp_dir(id, "/tmp", &a, &a_tmp);
         if (r < 0)
                 return r;
 
-        r = setup_one_tmp_dir(id, "/var/tmp", &b);
-        if (r < 0) {
-                char *t;
-
-                t = strjoina(a, "/tmp");
-                (void) rmdir(t);
-                (void) rmdir(a);
-
-                free(a);
+        r = setup_one_tmp_dir(id, "/var/tmp", &b, NULL);
+        if (r < 0)
                 return r;
-        }
 
-        *tmp_dir = a;
-        *var_tmp_dir = b;
+        a_tmp = mfree(a_tmp); /* avoid rmdir */
+        *tmp_dir = TAKE_PTR(a);
+        *var_tmp_dir = TAKE_PTR(b);
 
         return 0;
 }

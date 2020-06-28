@@ -2592,7 +2592,7 @@ static int apply_mount_namespace(
                 char **error_path) {
 
         _cleanup_strv_free_ char **empty_directories = NULL;
-        char *tmp = NULL, *var = NULL;
+        const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
@@ -2617,13 +2617,19 @@ static int apply_mount_namespace(
         if (needs_sandboxing) {
                 /* The runtime struct only contains the parent of the private /tmp,
                  * which is non-accessible to world users. Inside of it there's a /tmp
-                 * that is sticky, and that's the one we want to use here. */
+                 * that is sticky, and that's the one we want to use here.
+                 * This does not apply when we are using /run/systemd/empty as fallback. */
 
                 if (context->private_tmp && runtime) {
-                        if (runtime->tmp_dir)
-                                tmp = strjoina(runtime->tmp_dir, "/tmp");
-                        if (runtime->var_tmp_dir)
-                                var = strjoina(runtime->var_tmp_dir, "/tmp");
+                        if (streq_ptr(runtime->tmp_dir, RUN_SYSTEMD_EMPTY))
+                                tmp_dir = runtime->tmp_dir;
+                        else if (runtime->tmp_dir)
+                                tmp_dir = strjoina(runtime->tmp_dir, "/tmp");
+
+                        if (streq_ptr(runtime->var_tmp_dir, RUN_SYSTEMD_EMPTY))
+                                var_tmp_dir = runtime->var_tmp_dir;
+                        else if (runtime->tmp_dir)
+                                var_tmp_dir = strjoina(runtime->var_tmp_dir, "/tmp");
                 }
 
                 ns_info = (NamespaceInfo) {
@@ -2661,8 +2667,8 @@ static int apply_mount_namespace(
                             n_bind_mounts,
                             context->temporary_filesystems,
                             context->n_temporary_filesystems,
-                            tmp,
-                            var,
+                            tmp_dir,
+                            var_tmp_dir,
                             context->log_namespace,
                             needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
                             needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
@@ -5347,28 +5353,25 @@ static ExecRuntime* exec_runtime_free(ExecRuntime *rt, bool destroy) {
                 (void) hashmap_remove(rt->manager->exec_runtime_by_id, rt->id);
 
         /* When destroy is true, then rm_rf tmp_dir and var_tmp_dir. */
-        if (destroy && rt->tmp_dir) {
+
+        if (destroy && rt->tmp_dir && !streq(rt->tmp_dir, RUN_SYSTEMD_EMPTY)) {
                 log_debug("Spawning thread to nuke %s", rt->tmp_dir);
 
                 r = asynchronous_job(remove_tmpdir_thread, rt->tmp_dir);
-                if (r < 0) {
+                if (r < 0)
                         log_warning_errno(r, "Failed to nuke %s: %m", rt->tmp_dir);
-                        free(rt->tmp_dir);
-                }
-
-                rt->tmp_dir = NULL;
+                else
+                        rt->tmp_dir = NULL;
         }
 
-        if (destroy && rt->var_tmp_dir) {
+        if (destroy && rt->var_tmp_dir && !streq(rt->var_tmp_dir, RUN_SYSTEMD_EMPTY)) {
                 log_debug("Spawning thread to nuke %s", rt->var_tmp_dir);
 
                 r = asynchronous_job(remove_tmpdir_thread, rt->var_tmp_dir);
-                if (r < 0) {
+                if (r < 0)
                         log_warning_errno(r, "Failed to nuke %s: %m", rt->var_tmp_dir);
-                        free(rt->var_tmp_dir);
-                }
-
-                rt->var_tmp_dir = NULL;
+                else
+                        rt->var_tmp_dir = NULL;
         }
 
         rt->id = mfree(rt->id);
@@ -5382,16 +5385,22 @@ static void exec_runtime_freep(ExecRuntime **rt) {
         (void) exec_runtime_free(*rt, false);
 }
 
-static int exec_runtime_allocate(ExecRuntime **ret) {
+static int exec_runtime_allocate(ExecRuntime **ret, const char *id) {
+        _cleanup_free_ char *id_copy = NULL;
         ExecRuntime *n;
 
         assert(ret);
+
+        id_copy = strdup(id);
+        if (!id_copy)
+                return -ENOMEM;
 
         n = new(ExecRuntime, 1);
         if (!n)
                 return -ENOMEM;
 
         *n = (ExecRuntime) {
+                .id = TAKE_PTR(id_copy),
                 .netns_storage_socket = { -1, -1 },
         };
 
@@ -5402,9 +5411,9 @@ static int exec_runtime_allocate(ExecRuntime **ret) {
 static int exec_runtime_add(
                 Manager *m,
                 const char *id,
-                const char *tmp_dir,
-                const char *var_tmp_dir,
-                const int netns_storage_socket[2],
+                char **tmp_dir,
+                char **var_tmp_dir,
+                int netns_storage_socket[2],
                 ExecRuntime **ret) {
 
         _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
@@ -5413,51 +5422,40 @@ static int exec_runtime_add(
         assert(m);
         assert(id);
 
+        /* tmp_dir, var_tmp_dir, netns_storage_socket fds are donated on success */
+
         r = hashmap_ensure_allocated(&m->exec_runtime_by_id, &string_hash_ops);
         if (r < 0)
                 return r;
 
-        r = exec_runtime_allocate(&rt);
+        r = exec_runtime_allocate(&rt, id);
         if (r < 0)
                 return r;
-
-        rt->id = strdup(id);
-        if (!rt->id)
-                return -ENOMEM;
-
-        if (tmp_dir) {
-                rt->tmp_dir = strdup(tmp_dir);
-                if (!rt->tmp_dir)
-                        return -ENOMEM;
-
-                /* When tmp_dir is set, then we require var_tmp_dir is also set. */
-                assert(var_tmp_dir);
-                rt->var_tmp_dir = strdup(var_tmp_dir);
-                if (!rt->var_tmp_dir)
-                        return -ENOMEM;
-        }
-
-        if (netns_storage_socket) {
-                rt->netns_storage_socket[0] = netns_storage_socket[0];
-                rt->netns_storage_socket[1] = netns_storage_socket[1];
-        }
 
         r = hashmap_put(m->exec_runtime_by_id, rt->id, rt);
         if (r < 0)
                 return r;
 
+        assert(!!rt->tmp_dir == !!rt->var_tmp_dir); /* We require both to be set together */
+        rt->tmp_dir = TAKE_PTR(*tmp_dir);
+        rt->var_tmp_dir = TAKE_PTR(*var_tmp_dir);
+
+        if (netns_storage_socket) {
+                rt->netns_storage_socket[0] = TAKE_FD(netns_storage_socket[0]);
+                rt->netns_storage_socket[1] = TAKE_FD(netns_storage_socket[1]);
+        }
+
         rt->manager = m;
 
         if (ret)
                 *ret = rt;
-
         /* do not remove created ExecRuntime object when the operation succeeds. */
-        rt = NULL;
+        TAKE_PTR(rt);
         return 0;
 }
 
 static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, ExecRuntime **ret) {
-        _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
+        _cleanup_(namespace_cleanup_tmpdirp) char *tmp_dir = NULL, *var_tmp_dir = NULL;
         _cleanup_close_pair_ int netns_storage_socket[2] = { -1, -1 };
         int r;
 
@@ -5483,12 +5481,10 @@ static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, E
                         return -errno;
         }
 
-        r = exec_runtime_add(m, id, tmp_dir, var_tmp_dir, netns_storage_socket, ret);
+        r = exec_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_storage_socket, ret);
         if (r < 0)
                 return r;
 
-        /* Avoid cleanup */
-        netns_storage_socket[0] = netns_storage_socket[1] = -1;
         return 1;
 }
 
@@ -5606,12 +5602,8 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
 
         rt = hashmap_get(u->manager->exec_runtime_by_id, u->id);
         if (!rt) {
-                r = exec_runtime_allocate(&rt_create);
+                r = exec_runtime_allocate(&rt_create, u->id);
                 if (r < 0)
-                        return log_oom();
-
-                rt_create->id = strdup(u->id);
-                if (!rt_create->id)
                         return log_oom();
 
                 rt = rt_create;
@@ -5670,15 +5662,16 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
                 rt_create->manager = u->manager;
 
                 /* Avoid cleanup */
-                rt_create = NULL;
+                TAKE_PTR(rt_create);
         }
 
         return 1;
 }
 
-void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
-        char *id = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
-        int r, fd0 = -1, fd1 = -1;
+int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
+        _cleanup_free_ char *tmp_dir = NULL, *var_tmp_dir = NULL;
+        char *id = NULL;
+        int r, fdpair[] = {-1, -1};
         const char *p, *v = value;
         size_t n;
 
@@ -5695,7 +5688,9 @@ void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         v = startswith(p, "tmp-dir=");
         if (v) {
                 n = strcspn(v, " ");
-                tmp_dir = strndupa(v, n);
+                tmp_dir = strndup(v, n);
+                if (!tmp_dir)
+                        return log_oom();
                 if (v[n] != ' ')
                         goto finalize;
                 p = v + n + 1;
@@ -5704,7 +5699,9 @@ void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         v = startswith(p, "var-tmp-dir=");
         if (v) {
                 n = strcspn(v, " ");
-                var_tmp_dir = strndupa(v, n);
+                var_tmp_dir = strndup(v, n);
+                if (!var_tmp_dir)
+                        return log_oom();
                 if (v[n] != ' ')
                         goto finalize;
                 p = v + n + 1;
@@ -5716,11 +5713,9 @@ void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
 
                 n = strcspn(v, " ");
                 buf = strndupa(v, n);
-                if (safe_atoi(buf, &fd0) < 0 || !fdset_contains(fds, fd0)) {
-                        log_debug("Unable to process exec-runtime netns fd specification.");
-                        return;
-                }
-                fd0 = fdset_remove(fds, fd0);
+                if (safe_atoi(buf, &fdpair[0]) < 0 || !fdset_contains(fds, fdpair[0]))
+                        return log_debug("Unable to process exec-runtime netns fd specification.");
+                fdpair[0] = fdset_remove(fds, fdpair[0]);
                 if (v[n] != ' ')
                         goto finalize;
                 p = v + n + 1;
@@ -5732,18 +5727,16 @@ void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
 
                 n = strcspn(v, " ");
                 buf = strndupa(v, n);
-                if (safe_atoi(buf, &fd1) < 0 || !fdset_contains(fds, fd1)) {
-                        log_debug("Unable to process exec-runtime netns fd specification.");
-                        return;
-                }
-                fd1 = fdset_remove(fds, fd1);
+                if (safe_atoi(buf, &fdpair[1]) < 0 || !fdset_contains(fds, fdpair[1]))
+                        return log_debug("Unable to process exec-runtime netns fd specification.");
+                fdpair[1] = fdset_remove(fds, fdpair[1]);
         }
 
 finalize:
-
-        r = exec_runtime_add(m, id, tmp_dir, var_tmp_dir, (int[]) { fd0, fd1 }, NULL);
+        r = exec_runtime_add(m, id, &tmp_dir, &var_tmp_dir, fdpair, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed to add exec-runtime: %m");
+                return log_debug_errno(r, "Failed to add exec-runtime: %m");
+        return 0;
 }
 
 void exec_runtime_vacuum(Manager *m) {
