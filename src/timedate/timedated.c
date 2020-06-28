@@ -14,6 +14,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
+#include "bus-map-properties.h"
 #include "bus-polkit.h"
 #include "clock-util.h"
 #include "conf-files.h"

@@ -12,6 +12,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-map-properties.h"
 #include "dns-domain.h"
 #include "escape.h"
 #include "format-table.h"

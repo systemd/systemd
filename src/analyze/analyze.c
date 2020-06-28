@@ -18,6 +18,7 @@
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "calendarspec.h"
 #include "conf-files.h"

@@ -12,6 +12,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
