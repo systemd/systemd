@@ -573,7 +573,7 @@ printf "[Service]\nStandardOutput=file:/systemd-journald.out\n" >"\$JOURNALD_CON
 # under ASan+UBSan in containers, which, in turn, are run in VMs.
 # Let's limit which environments such services should be executed in.
 mkdir -p /etc/systemd/system/systemd-hwdb-update.service.d
-printf "[Unit]\nConditionVirtualization=container\n\n[Service]\nTimeoutSec=180s\n" >/etc/systemd/system/systemd-hwdb-update.service.d/env-override.conf
+printf "[Unit]\nConditionVirtualization=container\n\n[Service]\nTimeoutSec=240s\n" >/etc/systemd/system/systemd-hwdb-update.service.d/env-override.conf
 
 # Let's override another hard-coded timeout that kicks in too early
 mkdir -p /etc/systemd/system/systemd-journal-flush.service.d
