@@ -8,7 +8,7 @@
 #include "sd-bus.h"
 
 #include "bus-error.h"
-#include "bus-util.h"
+#include "bus-locator.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "kbd-util.h"

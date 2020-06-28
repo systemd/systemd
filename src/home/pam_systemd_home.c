@@ -6,7 +6,7 @@
 #include "sd-bus.h"
 
 #include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-locator.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "home-util.h"

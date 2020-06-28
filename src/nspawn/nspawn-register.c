@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"

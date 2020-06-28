@@ -11,7 +11,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
-#include "bus-util.h"
+#include "bus-locator.h"
 #include "dns-domain.h"
 #include "escape.h"
 #include "format-table.h"

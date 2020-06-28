@@ -21,10 +21,10 @@
 
 #include "alloc-util.h"
 #include "bond-util.h"
+#include "bridge-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
-#include "bus-util.h"
-#include "bridge-util.h"
+#include "bus-locator.h"
 #include "device-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
