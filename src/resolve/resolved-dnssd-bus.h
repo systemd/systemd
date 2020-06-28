@@ -2,7 +2,7 @@
 
 #include "sd-bus.h"
 
-#include "bus-util.h"
+#include "bus-object.h"
 
 extern const BusObjectImplementation dnssd_object;
 

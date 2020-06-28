@@ -31,6 +31,8 @@ shared_sources = files('''
         bus-locator.h
         bus-log-control-api.c
         bus-log-control-api.h
+        bus-object.c
+        bus-object.h
         bus-polkit.c
         bus-polkit.h
         bus-unit-procs.c

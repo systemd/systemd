@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include "bus-util.h"
+#include "bus-object.h"
 
 int service_parse_argv(
                 const char *service,

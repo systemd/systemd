@@ -23,26 +23,6 @@ typedef enum BusTransport {
         _BUS_TRANSPORT_INVALID = -1
 } BusTransport;
 
-typedef struct BusObjectImplementation BusObjectImplementation;
-
-typedef struct BusObjectVtablePair {
-        const sd_bus_vtable *vtable;
-        sd_bus_object_find_t object_find;
-} BusObjectVtablePair;
-
-struct BusObjectImplementation {
-        const char *path;
-        const char *interface;
-        const sd_bus_vtable **vtables;
-        const BusObjectVtablePair *fallback_vtables;
-        sd_bus_node_enumerator_t node_enumerator;
-        bool manager;
-        const BusObjectImplementation **children;
-};
-
-#define BUS_VTABLES(...) ((const sd_bus_vtable* []){ __VA_ARGS__, NULL })
-#define BUS_FALLBACK_VTABLES(...) ((const BusObjectVtablePair[]) { __VA_ARGS__, {} })
-#define BUS_IMPLEMENTATIONS(...) ((const BusObjectImplementation* []) { __VA_ARGS__, NULL })
 
 typedef int (*bus_property_set_t) (sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
@@ -215,9 +195,3 @@ int bus_set_property(sd_bus *bus, const BusLocator *locator, const char *member,
 int bus_match_signal(sd_bus *bus, sd_bus_slot **ret, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, void *userdata);
 int bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const BusLocator *locator, const char *member, sd_bus_message_handler_t callback, sd_bus_message_handler_t install_callback, void *userdata);
 int bus_message_new_method_call(sd_bus *bus, sd_bus_message **m, const BusLocator *locator, const char *member);
-
-int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, void *userdata);
-int bus_introspect_implementations(
-                FILE *out,
-                const char *pattern,
-                const BusObjectImplementation* const* bus_objects);

@@ -3,7 +3,7 @@
 
 #include "sd-bus.h"
 
-#include "bus-util.h"
+#include "bus-object.h"
 
 extern const BusObjectImplementation log_control_object;
 static inline int bus_log_control_api_register(sd_bus *bus) {
