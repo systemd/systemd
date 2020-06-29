@@ -44,6 +44,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_sched_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_sched_prio);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_secure_bits);
+CONFIG_PARSER_PROTOTYPE(config_parse_root_image_options);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_root_hash);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_root_hash_sig);
 CONFIG_PARSER_PROTOTYPE(config_parse_capability_set);

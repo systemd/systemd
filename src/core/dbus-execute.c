@@ -784,6 +784,37 @@ static int property_get_root_hash_sig(
         return sd_bus_message_append_array(reply, 'y', c->root_hash_sig, c->root_hash_sig_size);
 }
 
+static int property_get_root_image_options(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        MountOptions *m;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(us)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(mount_options, m, c->root_image_options) {
+                r = sd_bus_message_append(reply, "(us)", m->partition_number, m->options);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -826,6 +857,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("WorkingDirectory", "s", property_get_working_directory, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootImage", "s", NULL, offsetof(ExecContext, root_image), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootImageOptions", "a(us)", property_get_root_image_options, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHash", "ay", property_get_root_hash, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashPath", "s", NULL, offsetof(ExecContext, root_hash_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashSignature", "ay", property_get_root_hash_sig, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1300,6 +1332,62 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RootImage"))
                 return bus_set_transient_path(u, name, &c->root_image, message, flags, error);
+
+        if (streq(name, "RootImageOptions")) {
+                _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                _cleanup_free_ char *format_str = NULL;
+                const char *mount_options;
+                unsigned partition_number;
+
+                r = sd_bus_message_enter_container(message, 'a', "(us)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(us)", &partition_number, &mount_options)) > 0) {
+                        _cleanup_free_ char *previous = TAKE_PTR(format_str);
+                        _cleanup_free_ MountOptions *o = NULL;
+
+                        if (chars_intersect(mount_options, WHITESPACE))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                        "Invalid mount options string, contains whitespace character(s): %s", mount_options);
+
+                        if (asprintf(&format_str, "%s%s%u:%s", strempty(previous), previous ? " " : "", partition_number, mount_options) < 0)
+                                return -ENOMEM;
+
+                        o = new(MountOptions, 1);
+                        if (!o)
+                                return -ENOMEM;
+                        *o = (MountOptions) {
+                                .partition_number = partition_number,
+                                .options = strdup(mount_options),
+                        };
+                        if (!o->options)
+                                return -ENOMEM;
+                        LIST_APPEND(mount_options, options, TAKE_PTR(o));
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (LIST_IS_EMPTY(options)) {
+                                c->root_image_options = mount_options_free_all(c->root_image_options);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                LIST_JOIN(mount_options, c->root_image_options, options);
+                                unit_write_settingf(
+                                                u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                                "%s=%s",
+                                                name,
+                                                format_str);
+                        }
+                }
+
+                return 1;
+        }
 
         if (streq(name, "RootHash")) {
                 const void *roothash_decoded;

@@ -23,6 +23,7 @@ m4_define(`EXEC_CONTEXT_CONFIG_ITEMS',
 `$1.WorkingDirectory,            config_parse_working_directory,     0,                             offsetof($1, exec_context)
 $1.RootDirectory,                config_parse_unit_path_printf,      true,                          offsetof($1, exec_context.root_directory)
 $1.RootImage,                    config_parse_unit_path_printf,      true,                          offsetof($1, exec_context.root_image)
+$1.RootImageOptions,             config_parse_root_image_options,    0,                             offsetof($1, exec_context)
 $1.RootHash,                     config_parse_exec_root_hash,        0,                             offsetof($1, exec_context)
 $1.RootHashSignature,            config_parse_exec_root_hash_sig,    0,                             offsetof($1, exec_context)
 $1.RootVerity,                   config_parse_unit_path_printf,      true,                          offsetof($1, exec_context.root_verity)

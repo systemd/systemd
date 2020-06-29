@@ -244,7 +244,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);
         arg_flags |= arg_verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
 
-        r = dissect_image_and_warn(d->fd, arg_image, arg_root_hash, arg_root_hash_size, arg_verity_data, arg_flags, &m);
+        r = dissect_image_and_warn(d->fd, arg_image, arg_root_hash, arg_root_hash_size, arg_verity_data, NULL, arg_flags, &m);
         if (r < 0)
                 return r;
 

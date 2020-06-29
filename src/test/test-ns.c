@@ -63,6 +63,7 @@ int main(int argc, char *argv[]) {
 
         r = setup_namespace(root_directory,
                             NULL,
+                            NULL,
                             &ns_info,
                             (char **) writable,
                             (char **) readonly,

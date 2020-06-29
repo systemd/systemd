@@ -1416,6 +1416,97 @@ int config_parse_exec_cpu_sched_prio(const char *unit,
         return 0;
 }
 
+int config_parse_root_image_options(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        ExecContext *c = data;
+        const Unit *u = userdata;
+        const char *p = rvalue;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                c->root_image_options = mount_options_free_all(c->root_image_options);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *mount_options_resolved = NULL, *first = NULL, *tuple = NULL;
+                const char *mount_options = NULL, *second = NULL;
+                MountOptions *o = NULL;
+                unsigned int partition_number = 0;
+
+                r = extract_first_word(&p, &tuple, WHITESPACE, EXTRACT_UNQUOTE);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
+                        return 0;
+                }
+
+                second = tuple;
+                r = extract_first_word(&second, &first, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        continue;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
+                        continue;
+                }
+
+                /* Format is either '0:foo' or 'foo' (0 is implied) */
+                if (!isempty(second) && second[-1] == ':') {
+                        mount_options = second;
+                        r = safe_atou(first, &partition_number);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition number from \"%s\", ignoring: %m", first);
+                                continue;
+                        }
+                } else
+                        mount_options = first;
+
+                r = unit_full_printf(u, mount_options, &mount_options_resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", mount_options);
+                        continue;
+                }
+
+                o = new(MountOptions, 1);
+                if (!o)
+                        return log_oom();
+                *o = (MountOptions) {
+                        .partition_number = partition_number,
+                        .options = TAKE_PTR(mount_options_resolved),
+                };
+                LIST_APPEND(mount_options, options, o);
+        }
+
+        /* empty spaces/separators only */
+        if (LIST_IS_EMPTY(options))
+                c->root_image_options = mount_options_free_all(c->root_image_options);
+        else
+                LIST_JOIN(mount_options, c->root_image_options, options);
+
+        return 0;
+}
+
 int config_parse_exec_root_hash(
                 const char *unit,
                 const char *filename,

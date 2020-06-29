@@ -1259,6 +1259,7 @@ static bool home_read_only(
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
+                const MountOptions *root_image_options,
                 const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
@@ -1333,6 +1334,7 @@ int setup_namespace(
                                   root_hash ?: root_hash_decoded,
                                   root_hash_size,
                                   root_verity ?: verity_data,
+                                  root_image_options,
                                   dissect_image_flags,
                                   &dissected_image);
                 if (r < 0)

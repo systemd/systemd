@@ -933,7 +933,7 @@ static int setup_image(char **ret_mount_dir, LoopDevice **ret_loop_device, Decry
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device: %m");
 
-        r = dissect_image_and_warn(d->fd, arg_image, NULL, 0, NULL, f, &dissected_image);
+        r = dissect_image_and_warn(d->fd, arg_image, NULL, 0, NULL, NULL, f, &dissected_image);
         if (r < 0)
                 return r;
 

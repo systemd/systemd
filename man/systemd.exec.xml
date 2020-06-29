@@ -146,6 +146,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RootImageOptions=</varname></term>
+
+        <listitem><para>Takes a comma-separated list of mount options that will be used on disk images specified by
+        <varname>RootImage=</varname>. Optionally a partition number can be prefixed, followed by colon, in
+        case the image has multiple partitions, otherwise partition number 0 is implied.
+        Options for multiple partitions can be specified in a single line with space separators. Assigning an empty
+        string removes previous assignments. For a list of valid mount options, please refer to
+        <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RootHash=</varname></term>
 
         <listitem><para>Takes a data integrity (dm-verity) root hash specified in hexadecimal, or the path to a file
