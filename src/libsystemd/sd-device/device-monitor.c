@@ -418,7 +418,6 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 .msg_namelen = sizeof(snl),
         };
         struct cmsghdr *cmsg;
-        struct ucred *cred;
         ssize_t buflen, bufpos;
         bool is_initialized = false;
         int r;
