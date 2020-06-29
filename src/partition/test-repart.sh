@@ -25,7 +25,7 @@ EOF
 
 cat >$D/definitions/root.conf <<EOF
 [Partition]
-Type=root
+Type=root-x86-64
 EOF
 
 ln -s root.conf $D/definitions/root2.conf
