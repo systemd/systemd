@@ -129,7 +129,7 @@
 
       <varlistentry>
         <term><keycap>d</keycap></term>
-        <listitem><para>Make selected entry the default</para></listitem>
+        <listitem><para>Set/unset selected entry as the default</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -146,7 +146,7 @@
       <varlistentry>
         <term><keycap>-</keycap></term>
         <term><keycap>T</keycap></term>
-        <listitem><para>Decrease the timeout</para></listitem>
+        <listitem><para>Decrease the timeout (decrease to -1 to unset custom timeout)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -309,11 +309,12 @@
       <varlistentry>
         <term><varname>LoaderConfigTimeout</varname></term>
         <term><varname>LoaderConfigTimeoutOneShot</varname></term>
-        <listitem><para>The menu timeout in seconds. Read by the boot loader. <varname>LoaderConfigTimeout</varname>
-        is maintained persistently, while <varname>LoaderConfigTimeoutOneShot</varname> is a one-time override which is
-        read once (in which case it takes precedence over <varname>LoaderConfigTimeout</varname>) and then
-        removed. <varname>LoaderConfigTimeout</varname> may be manipulated with the
-        <keycap>t</keycap>/<keycap>T</keycap> keys, see above.)</para></listitem>
+        <listitem><para>The menu timeout (in seconds, maximum is 60) or <literal>off</literal>. If the timeout is
+        disabled (0), the default eentry will be booted immediately. This veriable is read by the boot loader.
+        <varname>LoaderConfigTimeout</varname> is maintained persistently, while <varname>LoaderConfigTimeoutOneShot</varname>
+        is a one-time override which is read once (in which case it takes precedence over <varname>LoaderConfigTimeout</varname>)
+        and then removed. <varname>LoaderConfigTimeout</varname> may be manipulated with the <keycap>+</keycap>/<keycap>-</keycap>
+        or <keycap>t</keycap>/<keycap>T</keycap> keys, see above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
