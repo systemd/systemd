@@ -253,7 +253,7 @@ static int process_http_upload(
         return mhd_respond(connection, MHD_HTTP_ACCEPTED, "OK.");
 };
 
-static int request_handler(
+static mhd_result request_handler(
                 void *cls,
                 struct MHD_Connection *connection,
                 const char *url,
