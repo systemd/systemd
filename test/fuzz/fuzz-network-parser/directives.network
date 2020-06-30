@@ -38,7 +38,6 @@ MTUBytes=
 Multicast=
 MACAddress=
 Group=
-IPv6LinkLocalAddressGenerationMode=
 [BridgeFDB]
 VLANId=
 MACAddress=
@@ -187,6 +186,7 @@ VXLAN=
 L2TP=
 MACsec=
 LinkLocalAddressing=
+IPv6LinkLocalAddressGenerationMode=
 ConfigureWithoutCarrier=
 NTP=
 DHCP=

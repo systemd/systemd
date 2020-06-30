@@ -52,6 +52,15 @@ typedef enum KeepConfiguration {
         _KEEP_CONFIGURATION_INVALID = -1,
 } KeepConfiguration;
 
+typedef enum IPv6LinkLocalAddressGenMode {
+       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_EUI64          = IN6_ADDR_GEN_MODE_EUI64,
+       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE           = IN6_ADDR_GEN_MODE_NONE,
+       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY = IN6_ADDR_GEN_MODE_STABLE_PRIVACY,
+       IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_RANDOM         = IN6_ADDR_GEN_MODE_RANDOM,
+       _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX,
+       _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID        = -1
+} IPv6LinkLocalAddressGenMode;
+
 typedef struct Manager Manager;
 
 typedef struct NetworkDHCPServerEmitAddress {
@@ -163,8 +172,9 @@ struct Network {
         uint32_t dhcp_server_pool_offset;
         uint32_t dhcp_server_pool_size;
 
-        /* IPV4LL Support */
+        /* link local addressing support */
         AddressFamily link_local;
+        IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
         bool ipv4ll_route;
 
         bool default_route_on_device;
@@ -256,7 +266,6 @@ struct Network {
         bool configure_without_carrier;
         int ignore_carrier_loss;
         KeepConfiguration keep_configuration;
-        LinkIPv6AddressGenMode ipv6_address_gen_mode;
         uint32_t iaid;
         DUID duid;
 
@@ -351,6 +360,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
 CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
@@ -359,3 +369,6 @@ IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
 const char* keep_configuration_to_string(KeepConfiguration i) _const_;
 KeepConfiguration keep_configuration_from_string(const char *s) _pure_;
+
+const char* ipv6_link_local_address_gen_mode_to_string(IPv6LinkLocalAddressGenMode s) _const_;
+IPv6LinkLocalAddressGenMode ipv6_link_local_address_gen_mode_from_string(const char *s) _pure_;

@@ -145,7 +145,7 @@ CHANGES WITH 246 in spe:
           frame ring buffer sizes.
 
         * networkd.conf gained a new boolean setting ManageForeignRoutes=. If
-          enabled systemd-networkd manage all routes configured by other tools.
+          enabled systemd-networkd manages all routes configured by other tools.
 
         * systemd-networkd's [IPv6Prefix] section in .network files gained a
           new boolean setting Assign=. If enabled an address from the prefix is
@@ -212,7 +212,7 @@ CHANGES WITH 246 in spe:
         * systemd-networkd supports a new Group= setting in the [Link] section
           of the .network files, to control the link group.
 
-        * systemd-networkd's [Link] section gained a new
+        * systemd-networkd's [Network] section gained a new
           IPv6LinkLocalAddressGenerationMode= setting, which specifies how IPv6
           link local address is generated.
 
@@ -229,7 +229,7 @@ CHANGES WITH 246 in spe:
           automatically chosen and assigned to the interface.
 
         * systemd-networkd's [DHCPv6] section gained a new setting RouteMetric=
-          which set the route priority for routes specified by the DHCP server.
+          which sets the route priority for routes specified by the DHCP server.
 
         * systemd-networkd's [DHCPv6] section gained a new setting VendorClass=
           which configures the vendor class information sent to DHCP server.

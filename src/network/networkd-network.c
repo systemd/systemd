@@ -451,6 +451,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 /* If LinkLocalAddressing= is not set, then set to ADDRESS_FAMILY_IPV6 later. */
                 .link_local = _ADDRESS_FAMILY_INVALID,
+                .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
                 .ipv4_accept_local = -1,
 
@@ -474,7 +475,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .configure_without_carrier = false,
                 .ignore_carrier_loss = -1,
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
-                .ipv6_address_gen_mode = _LINK_IPV6_ADDRESS_GEN_MODE_INVALID,
                 .can_triple_sampling = -1,
                 .can_termination = -1,
                 .ip_service_type = -1,
@@ -1392,3 +1392,13 @@ static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(keep_configuration, KeepConfiguration, KEEP_CONFIGURATION_YES);
+
+static const char* const ipv6_link_local_address_gen_mode_table[_IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_MAX] = {
+        [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_EUI64] = "eui64",
+        [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE] = "none",
+        [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_STABLE_PRIVACY] = "stable-privacy",
+        [IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_RANDOM] = "random",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(ipv6_link_local_address_gen_mode, IPv6LinkLocalAddressGenMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_ipv6_link_local_address_gen_mode, ipv6_link_local_address_gen_mode, IPv6LinkLocalAddressGenMode, "Failed to parse IPv6 link local address generation mode");
