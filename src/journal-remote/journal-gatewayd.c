@@ -351,7 +351,7 @@ static int request_parse_range(
         return 0;
 }
 
-static int request_parse_arguments_iterator(
+static mhd_result request_parse_arguments_iterator(
                 void *cls,
                 enum MHD_ValueKind kind,
                 const char *key,
@@ -798,7 +798,7 @@ static int request_handler_machine(
         return MHD_queue_response(connection, MHD_HTTP_OK, response);
 }
 
-static int request_handler(
+static mhd_result request_handler(
                 void *cls,
                 struct MHD_Connection *connection,
                 const char *url,
