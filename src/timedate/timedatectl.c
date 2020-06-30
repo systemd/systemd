@@ -219,6 +219,7 @@ static int show_properties(int argc, char **argv, void *userdata) {
                                      arg_property,
                                      arg_value,
                                      arg_all,
+                                     false,
                                      NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -709,9 +710,9 @@ static int show_timesync_status(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int print_timesync_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+static int print_timesync_property(const void *arg, const char *expected_value, sd_bus_message *m, bool value, bool all) {
         char type;
-        const char *contents;
+        const char *contents, *name = arg;
         int r;
 
         assert(name);
@@ -798,6 +799,7 @@ static int show_timesync(int argc, char **argv, void *userdata) {
                                      arg_property,
                                      arg_value,
                                      arg_all,
+                                     false,
                                      NULL);
         if (r < 0)
                 return bus_log_parse_error(r);

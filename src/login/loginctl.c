@@ -704,9 +704,9 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
         return 0;
 }
 
-static int print_property(const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+static int print_property(const void *arg, const char *expected_value, sd_bus_message *m, bool value, bool all) {
         char type;
-        const char *contents;
+        const char *contents, *name = arg;
         int r;
 
         assert(name);
@@ -785,6 +785,94 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
         return 0;
 }
 
+static int print_property_json(void *arg, const char *expected_value, sd_bus_message *m, bool value, bool all) {
+        char type;
+        const char *contents;
+        bus_property *property = arg;
+        int r;
+
+        assert(property);
+        assert(property->name);
+        assert(property->value == NULL);
+        assert(m);
+
+        r = sd_bus_message_peek_type(m, &type, &contents);
+        if (r < 0)
+                return r;
+
+        switch (type) {
+
+        case SD_BUS_TYPE_STRUCT:
+
+                if (contents[0] == SD_BUS_TYPE_STRING && STR_IN_SET(property->name, "Display", "Seat", "ActiveSession")) {
+                        const char *s;
+
+                        r = sd_bus_message_read(m, "(so)", &s, NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (all || !isempty(s)) {
+                                r = asprintf(&property->value, "%s", s);
+                                if (r < 0)
+                                        return r;
+                                property->type = SD_BUS_TYPE_STRING;
+                        }
+
+                        return 1;
+
+                } else if (contents[0] == SD_BUS_TYPE_UINT32 && streq(property->name, "User")) {
+                        uint32_t uid;
+
+                        r = sd_bus_message_read(m, "(uo)", &uid, NULL);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (!uid_is_valid(uid))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid user ID: " UID_FMT,
+                                                       uid);
+                        r = asprintf(&property->value, UID_FMT, uid);
+                        if (r < 0)
+                                return r;
+                        property->type = SD_BUS_TYPE_UINT32;
+                        return 1;
+                }
+                break;
+
+        case SD_BUS_TYPE_ARRAY:
+
+                if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(property->name, "Sessions")) {
+                        const char *s;
+                        char *t;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(so)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        // until Table supports arrays
+                        while ((r = sd_bus_message_read(m, "(so)", &s, NULL)) > 0) {
+                                t = NULL;
+                                r = asprintf(&t, "\"%s\"%s\"%s\"", property->value ?: "", property->value ? "," : "", s);
+                                free(property->value);
+                                if (r < 0) {
+                                        property->value = NULL;
+                                        return bus_log_parse_error(r);;
+                                }
+                                property->value = t;
+                        }
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 1;
+                }
+                break;
+        }
+
+        return 0;
+}
+
 static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
         int r;
 
@@ -801,10 +889,11 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
                         bus,
                         "org.freedesktop.login1",
                         path,
-                        print_property,
+                        OUTPUT_MODE_IS_JSON(arg_output) ? (bus_message_print_t) print_property_json : print_property,
                         arg_property,
                         arg_value,
                         arg_all,
+                        OUTPUT_MODE_IS_JSON(arg_output),
                         NULL);
         if (r < 0)
                 return bus_log_parse_error(r);

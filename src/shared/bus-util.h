@@ -14,6 +14,7 @@
 #include "set.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "format-table.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,
@@ -53,10 +54,25 @@ struct bus_properties_map {
         size_t offset;
 };
 
+typedef struct bus_property {
+        char *name;
+        char *value;
+        char type;
+} bus_property;
+
 enum {
         BUS_MAP_STRDUP          = 1 << 0, /* If set, each "s" message is duplicated. Thus, each pointer needs to be freed. */
         BUS_MAP_BOOLEAN_AS_BOOL = 1 << 1, /* If set, each "b" message is written to a bool pointer. If not set, "b" is written to a int pointer. */
 };
+
+void bus_property_free(bus_property *property);
+void bus_property_freep(bus_property **property);
+void bus_property_free_freep(bus_property ***properties);
+
+#define _cleanup_bus_property_free_ _cleanup_(bus_property_free)
+#define _cleanup_bus_property_freep_ _cleanup_(bus_property_freep)
+#define _cleanup_bus_property_free_freep_ _cleanup_(bus_property_free_freep)
+
 
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
@@ -80,12 +96,14 @@ int bus_connect_user_systemd(sd_bus **_bus);
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
-typedef int (*bus_message_print_t) (const char *name, const char *expected_value, sd_bus_message *m, bool value, bool all);
+typedef int (*bus_message_print_t) (const void *arg, const char *expected_value, sd_bus_message *m, bool value, bool all);
 
 int bus_print_property_value(const char *name, const char *expected_value, bool only_value, const char *value);
+int bus_print_bus_property(const bus_property *property, const char *expected_value, bool only_value);
+int bus_print_property(const bus_property *property, const char *expected_value, bool value);
 int bus_print_property_valuef(const char *name, const char *expected_value, bool only_value, const char *fmt, ...) _printf_(4,5);
-int bus_message_print_all_properties(sd_bus_message *m, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
-int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
+int bus_message_print_all_properties(sd_bus_message *m, bus_message_print_t func, char **filter, bool value, bool all, bool json_format, Set **found_properties);
+int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, bus_message_print_t func, char **filter, bool value, bool all, bool json_format, Set **found_properties);
 
 int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 int bus_property_set_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error);
