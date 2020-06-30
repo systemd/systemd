@@ -224,10 +224,8 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
 
-        if (max_brightness <= 0) {
-                log_device_warning(device, "Maximum brightness is 0, ignoring device.");
-                return -EINVAL;
-        }
+        if (max_brightness <= 0)
+                return log_device_warning_errno(device, SYNTHETIC_ERRNO(EINVAL), "Maximum brightness is 0, ignoring device.");
 
         *ret = max_brightness;
         return 0;
@@ -306,10 +304,8 @@ static int run(int argc, char *argv[]) {
         unsigned max_brightness;
         int r;
 
-        if (argc != 3) {
-                log_error("This program requires two arguments.");
-                return -EINVAL;
-        }
+        if (argc != 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires two arguments.");
 
         log_setup_service();
 
@@ -320,19 +316,15 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to create backlight directory /var/lib/systemd/backlight: %m");
 
         sysname = strchr(argv[2], ':');
-        if (!sysname) {
-                log_error("Requires a subsystem and sysname pair specifying a backlight device.");
-                return -EINVAL;
-        }
+        if (!sysname)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Requires a subsystem and sysname pair specifying a backlight device.");
 
         ss = strndupa(argv[2], sysname - argv[2]);
 
         sysname++;
 
-        if (!STR_IN_SET(ss, "backlight", "leds")) {
-                log_error("Not a backlight or LED device: '%s:%s'", ss, sysname);
-                return -EINVAL;
-        }
+        if (!STR_IN_SET(ss, "backlight", "leds"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a backlight or LED device: '%s:%s'", ss, sysname);
 
         r = sd_device_new_from_subsystem_sysname(&device, ss, sysname);
         if (r < 0)
@@ -424,10 +416,8 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_device_error_errno(device, r, "Failed to write %s: %m", saved);
 
-        } else {
-                log_error("Unknown verb %s.", argv[1]);
-                return -EINVAL;
-        }
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
 
         return 0;
 }
