@@ -297,6 +297,34 @@ static bool shall_clamp(sd_device *d) {
         return r;
 }
 
+static int read_brightness(sd_device *device, const char **ret) {
+        const char *subsystem;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = sd_device_get_subsystem(device, &subsystem);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to get subsystem: %m");
+
+        if (streq(subsystem, "backlight")) {
+                r = sd_device_get_sysattr_value(device, "actual_brightness", ret);
+                if (r >= 0)
+                        return 0;
+                if (r != -ENOENT)
+                        return log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute: %m");
+
+                log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute, fall back to use 'brightness' attribute: %m");
+        }
+
+        r = sd_device_get_sysattr_value(device, "brightness", ret);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to read 'brightness' attribute: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
@@ -383,9 +411,9 @@ static int run(int argc, char *argv[]) {
                         if (!clamp)
                                 return 0;
 
-                        r = sd_device_get_sysattr_value(device, "brightness", &curval);
+                        r = read_brightness(device, &curval);
                         if (r < 0)
-                                return log_device_warning_errno(device, r, "Failed to read 'brightness' attribute: %m");
+                                return log_device_error_errno(device, r, "Failed to read current brightness: %m");
 
                         value = strdup(curval);
                         if (!value)
@@ -408,9 +436,9 @@ static int run(int argc, char *argv[]) {
                         return 0;
                 }
 
-                r = sd_device_get_sysattr_value(device, "brightness", &value);
+                r = read_brightness(device, &value);
                 if (r < 0)
-                        return log_device_error_errno(device, r, "Failed to read system 'brightness' attribute: %m");
+                        return log_device_error_errno(device, r, "Failed to read current brightness: %m");
 
                 r = write_string_file(saved, value, WRITE_STRING_FILE_CREATE);
                 if (r < 0)
