@@ -212,7 +212,7 @@ CHANGES WITH 246 in spe:
         * systemd-networkd supports a new Group= setting in the [Link] section
           of the .network files, to control the link group.
 
-        * systemd-networkd's [Link] section gained a new
+        * systemd-networkd's [Network] section gained a new
           IPv6LinkLocalAddressGenerationMode= setting, which specifies how IPv6
           link local address is generated.
 
