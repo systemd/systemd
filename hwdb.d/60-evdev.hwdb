@@ -434,12 +434,12 @@ evdev:name:Synaptics TM3289-002:dmi:*svnLENOVO*:pvrThinkPadX1Carbon5th*
  EVDEV_ABS_35=::19
  EVDEV_ABS_36=::19
 
-# Lenove Thinkpad X1 Tablet Gen3.
+# Lenovo Thinkpad X1 Tablet Gen3.
 evdev:input:b0003v17EFp60B5*
- EVDEV_ABS_00=0:1163:12
- EVDEV_ABS_01=0:718:11
- EVDEV_ABS_35=0:1163:12
- EVDEV_ABS_36=0:718:11
+ EVDEV_ABS_00=::12
+ EVDEV_ABS_01=::11
+ EVDEV_ABS_35=::12
+ EVDEV_ABS_36=::11
 
 # Lenovo T460
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*ThinkPad*T460*
