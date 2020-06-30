@@ -499,7 +499,7 @@ static int acquire_home(
                 return r;
 
         /* Implement our own retry loop here instead of relying on the PAM client's one. That's because it
-         * might happen that the the record we stored on the host does not match the encryption password of
+         * might happen that the record we stored on the host does not match the encryption password of
          * the LUKS image in case the image was used in a different system where the password was
          * changed. In that case it will happen that the LUKS password and the host password are
          * different, and we handle that by collecting and passing multiple passwords in that case. Hence we

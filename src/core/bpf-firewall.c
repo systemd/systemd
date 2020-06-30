@@ -544,7 +544,7 @@ int bpf_firewall_compile(Unit *u) {
                                             "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
 
         /* Note that when we compile a new firewall we first flush out the access maps and the BPF programs themselves,
-         * but we reuse the the accounting maps. That way the firewall in effect always maps to the actual
+         * but we reuse the accounting maps. That way the firewall in effect always maps to the actual
          * configuration, but we don't flush out the accounting unnecessarily */
 
         u->ip_bpf_ingress = bpf_program_unref(u->ip_bpf_ingress);

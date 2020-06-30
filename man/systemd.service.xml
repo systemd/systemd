@@ -884,7 +884,7 @@
         project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         a list of signal names.</para>
 
-        <para>Note that this setting does not change the the mapping between numeric exit statuses and their
+        <para>Note that this setting does not change the mapping between numeric exit statuses and their
         names, i.e. regardless how this setting is used 0 will still be mapped to <literal>SUCCESS</literal>
         (and thus typically shown as <literal>0/SUCCESS</literal> in tool outputs) and 1 to
         <literal>FAILURE</literal> (and thus typically shown as <literal>1/FAILURE</literal>), and so on. It

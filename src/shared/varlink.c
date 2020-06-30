@@ -387,7 +387,7 @@ DEFINE_TRIVIAL_REF_UNREF_FUNC(Varlink, varlink, varlink_destroy);
 static int varlink_test_disconnect(Varlink *v) {
         assert(v);
 
-        /* Tests whether we the the connection has been terminated. We are careful to not stop processing it
+        /* Tests whether we the connection has been terminated. We are careful to not stop processing it
          * prematurely, since we want to handle half-open connections as well as possible and want to flush
          * out and read data before we close down if we can. */
 

@@ -36,7 +36,7 @@ interfaces are currently used by dracut and the ArchLinux initrds.
   optionally followed (in `argv[2]`, `argv[3]`, … systemd's original command
   line options, for example `--log-level=` and similar.
 
-* Storage daemons run from the initrd should follow the the guide on [systemd
+* Storage daemons run from the initrd should follow the guide on [systemd
   and Storage Daemons for the Root File
   System](https://systemd.io/ROOT_STORAGE_DAEMONS) to survive properly from the
   boot initrd all the way to the point where systemd jumps back into the initrd

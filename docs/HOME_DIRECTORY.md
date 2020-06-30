@@ -125,7 +125,7 @@ medium. (Moreover it allows to embed additional partitions later on, for
 example for allowing a multi-purpose USB stick that contains both a home
 directory and a generic storage volume.)
 
-Rationale for including the encrypted user record in the the LUKS2 header:
+Rationale for including the encrypted user record in the LUKS2 header:
 Linux kernel file system implementations are generally not robust towards
 maliciously formatted file systems; there's a good chance that file system
 images can be used as attack vectors, exploiting the kernel. Thus it is

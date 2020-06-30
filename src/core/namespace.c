@@ -747,7 +747,7 @@ static int mount_private_dev(MountEntry *m) {
 
         NULSTR_FOREACH(d, devnodes) {
                 r = clone_device_node(d, temporary_mount, &can_mknod);
-                /* ENXIO means the the *source* is not a device file, skip creation in that case */
+                /* ENXIO means the *source* is not a device file, skip creation in that case */
                 if (r < 0 && r != -ENXIO)
                         goto fail;
         }

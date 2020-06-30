@@ -2855,7 +2855,7 @@ static int setup_keyring(
         }
 
 out:
-        /* Revert back uid & gid for the the last time, and exit */
+        /* Revert back uid & gid for the last time, and exit */
         /* no extra logging, as only the first already reported error matters */
         if (getuid() != saved_uid)
                 (void) setreuid(saved_uid, -1);
