@@ -237,20 +237,22 @@ int mount_cgroup_controllers(char ***join_controllers) {
         if (!cg_is_legacy_wanted())
                 return 0;
 
+        /* The defaults:
+         * mount "cpu" + "cpuacct" together, and "net_cls" + "net_prio".
+         *
+         * We'd like to add "cpuset" to the mix, but "cpuset" doesn't really
+         * work for groups with no initialized attributes.
+         */
+        char ***default_join_controllers = (char**[]) {
+                STRV_MAKE("cpu", "cpuacct"),
+                STRV_MAKE("net_cls", "net_prio"),
+                NULL,
+        };
+
         /* Mount all available cgroup controllers that are built into the kernel. */
 
         if (!has_argument)
-                /* The defaults:
-                 * mount "cpu" + "cpuacct" together, and "net_cls" + "net_prio".
-                 *
-                 * We'd like to add "cpuset" to the mix, but "cpuset" doesn't really
-                 * work for groups with no initialized attributes.
-                 */
-                join_controllers = (char**[]) {
-                        STRV_MAKE("cpu", "cpuacct"),
-                        STRV_MAKE("net_cls", "net_prio"),
-                        NULL,
-                };
+                join_controllers = default_join_controllers;
 
         r = cg_kernel_controllers(&controllers);
         if (r < 0)
