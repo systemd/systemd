@@ -304,10 +304,10 @@ static int run(int argc, char *argv[]) {
         unsigned max_brightness;
         int r;
 
+        log_setup_service();
+
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires two arguments.");
-
-        log_setup_service();
 
         umask(0022);
 
