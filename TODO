@@ -24,6 +24,9 @@ Features:
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
 
+* add loud warning to the logs (with catalog entry) if systemd-udev-settle is
+  pulled into the boot process
+
 * build short web pages out of each catalog entry, build them along with man
   pages, and include hyperlinks to them in the journal output
 
