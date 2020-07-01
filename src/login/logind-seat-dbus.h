@@ -3,8 +3,8 @@
 
 #include "sd-bus.h"
 
+#include "bus-object.h"
 #include "logind-seat.h"
-#include "bus-util.h"
 
 extern const BusObjectImplementation seat_object;
 

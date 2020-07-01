@@ -3,6 +3,7 @@
 
 #include "sd-bus.h"
 
+#include "bus-object.h"
 #include "logind-session.h"
 
 extern const BusObjectImplementation session_object;

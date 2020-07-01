@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "bus-util.h"
+#include "bus-get-properties.h"
 #include "dbus-kill.h"
 #include "dbus-util.h"
 #include "kill.h"

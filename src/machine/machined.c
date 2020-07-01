@@ -10,9 +10,9 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"

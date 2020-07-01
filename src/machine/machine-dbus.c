@@ -12,10 +12,11 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-get-properties.h"
 #include "bus-internal.h"
 #include "bus-label.h"
+#include "bus-locator.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
 #include "copy.h"
 #include "env-file.h"
 #include "env-util.h"

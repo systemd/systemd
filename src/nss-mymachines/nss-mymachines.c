@@ -8,7 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
-#include "bus-util.h"
+#include "bus-locator.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "format-util.h"

@@ -4,6 +4,7 @@
 
 #include "analyze-security.h"
 #include "bus-error.h"
+#include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "env-util.h"

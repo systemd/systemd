@@ -6,8 +6,8 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-get-properties.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
 #include "dns-domain.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"

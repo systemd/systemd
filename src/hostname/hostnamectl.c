@@ -12,7 +12,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "bus-error.h"
-#include "bus-util.h"
+#include "bus-map-properties.h"
 #include "hostname-util.h"
 #include "main-func.h"
 #include "pretty-print.h"

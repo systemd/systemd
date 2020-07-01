@@ -3,7 +3,7 @@
 
 #include "sd-bus.h"
 
-#include "bus-util.h"
+#include "bus-object.h"
 #include "homed-home.h"
 
 int bus_home_client_is_trusted(Home *h, sd_bus_message *message);

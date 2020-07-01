@@ -27,12 +27,20 @@ shared_sources = files('''
         bpf-program.h
         bridge-util.c
         bridge-util.h
+        bus-get-properties.c
+        bus-get-properties.h
         bus-locator.c
         bus-locator.h
         bus-log-control-api.c
         bus-log-control-api.h
+        bus-map-properties.c
+        bus-map-properties.h
+        bus-object.c
+        bus-object.h
         bus-polkit.c
         bus-polkit.h
+        bus-print-properties.c
+        bus-print-properties.h
         bus-unit-procs.c
         bus-unit-procs.h
         bus-unit-util.c

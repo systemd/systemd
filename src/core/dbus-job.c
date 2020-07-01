@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bus-get-properties.h"
 #include "bus-util.h"
 #include "dbus-job.h"
 #include "dbus-unit.h"

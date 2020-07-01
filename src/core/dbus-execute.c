@@ -9,7 +9,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
-#include "bus-util.h"
+#include "bus-get-properties.h"
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cpu-set-util.h"

@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bus-get-properties.h"
 #include "bus-internal.h"
 #include "bus-log-control-api.h"
 #include "bus-protocol.h"

@@ -3,10 +3,10 @@
 
 #include "sd-bus.h"
 
-#include "bus-util.h"
-#include "logind.h"
+#include "bus-object.h"
 #include "logind-session.h"
 #include "logind-user.h"
+#include "logind.h"
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret);

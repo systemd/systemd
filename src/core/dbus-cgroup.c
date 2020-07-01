@@ -5,7 +5,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bpf-firewall.h"
-#include "bus-util.h"
+#include "bus-get-properties.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "dbus-cgroup.h"
