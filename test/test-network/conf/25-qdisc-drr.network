@@ -12,4 +12,4 @@ Handle=0002
 [DeficitRoundRobinSchedulerClass]
 Parent=root
 ClassId=0002:0030
-Quantum=2000
+QuantumBytes=2000

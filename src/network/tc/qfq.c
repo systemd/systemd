@@ -142,7 +142,7 @@ int config_parse_quick_fair_queueing_max_packet(
                 return 0;
         }
 
-        r = parse_size(rvalue, 1000, &v);
+        r = parse_size(rvalue, 1024, &v);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",

@@ -79,7 +79,7 @@ int config_parse_drr_size(
                 return 0;
         }
 
-        r = parse_size(rvalue, 1000, &u);
+        r = parse_size(rvalue, 1024, &u);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",

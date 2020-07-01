@@ -58,8 +58,8 @@ Parent=2:32
 Handle=0032
 PacketLimit=1000
 FlowLimit=200
-Quantum=1500
-InitialQuantum=13000
+QuantumBytes=1500
+InitialQuantumBytes=13000
 MaximumRate=1M
 Buckets=512
 OrphanMask=511
@@ -93,11 +93,11 @@ CeilRate=0.5M
 Parent=2:34
 Handle=0034
 PacketLimit=20480
-MemoryLimit=64M
+MemoryLimitBytes=64M
 Flows=2048
 TargetSec=10ms
 IntervalSec=200ms
-Quantum=1400
+QuantumBytes=1400
 ECN=yes
 CEThresholdSec=100ms
 
@@ -112,10 +112,10 @@ CeilRate=0.5M
 Parent=2:35
 Handle=0035
 Rate=1G
-Burst=5K
+BurstBytes=5000
 LatencySec=70msec
 PeakRate=100G
-MTUBytes=1M
+MTUBytes=1000000
 
 [HierarchyTokenBucketClass]
 Parent=root
@@ -177,7 +177,7 @@ CeilRate=0.5M
 [BFIFO]
 Parent=2:3a
 Handle=003a
-LimitSize=1M
+LimitBytes=1000000
 
 [HierarchyTokenBucketClass]
 Parent=root

@@ -13,10 +13,10 @@ Handle=0002
 Parent=root
 ClassId=0002:0030
 Weight=2
-MaxPacketSize=16000
+MaxPacketBytes=16000
 
 [QuickFairQueueingClass]
 Parent=root
 ClassId=0002:0031
 Weight=10
-MaxPacketSize=8000
+MaxPacketBytes=8000

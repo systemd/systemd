@@ -8,5 +8,5 @@ Address=10.1.2.3/16
 [CAKE]
 Parent=root
 Handle=3a
-Overhead=128
+OverheadBytes=128
 Bandwidth=500M

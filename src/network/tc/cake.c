@@ -136,14 +136,14 @@ int config_parse_cake_overhead(
         r = safe_atoi32(rvalue, &v);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse 'Overhead=', ignoring assignment: %s",
-                           rvalue);
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
                 return 0;
         }
         if (v < -64 || v > 256) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Invalid 'Overhead=', ignoring assignment: %s",
-                           rvalue);
+                           "Invalid '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
                 return 0;
         }
 

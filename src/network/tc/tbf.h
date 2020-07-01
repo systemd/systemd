@@ -23,3 +23,4 @@ extern const QDiscVTable tbf_vtable;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_token_bucket_filter_latency);
 CONFIG_PARSER_PROTOTYPE(config_parse_token_bucket_filter_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_token_bucket_filter_rate);
