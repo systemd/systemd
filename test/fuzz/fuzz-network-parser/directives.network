@@ -332,7 +332,9 @@ PacketLimit=
 Parent=
 Handle=
 Rate=
+BurstBytes=
 Burst=
+LimitBytes=
 LimitSize=
 MTUBytes=
 MPUBytes=
@@ -346,8 +348,10 @@ PerturbPeriodSec=
 Parent=
 Handle=
 PacketLimit=
+MemoryLimitBytes=
 MemoryLimit=
 Flows=
+QuantumBytes=
 Quantum=
 TargetSec=
 IntervalSec=
@@ -358,7 +362,9 @@ Parent=
 Handle=
 PacketLimit=
 FlowLimit=
+QuantumBytes=
 Quantum=
+InitialQuantumBytes=
 InitialQuantum=
 MaximumRate=
 Buckets=
@@ -377,7 +383,7 @@ ECN=
 Parent=
 Handle=
 Bandwidth=
-Overhead=
+OverheadBytes=
 [TrafficControlQueueingDiscipline]
 Parent=
 NetworkEmulatorDelaySec=
@@ -408,7 +414,7 @@ CeilBufferBytes=
 [BFIFO]
 Parent=
 Handle=
-LimitSize=
+LimitBytes=
 [PFIFO]
 Parent=
 Handle=
@@ -441,14 +447,14 @@ Handle=
 Parent=
 ClassId=
 Weight=
-MaxPacketSize=
+MaxPacketBytes=
 [DeficitRoundRobinScheduler]
 Parent=
 Handle=
 [DeficitRoundRobinSchedulerClass]
 Parent=
 ClassId=
-Quantum=
+QuantumBytes=
 [EnhancedTransmissionSelection]
 Parent=
 Handle=

@@ -9,7 +9,7 @@
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "string-util.h"
-#include "util.h"
+#include "strv.h"
 
 static int fair_queueing_init(QDisc *qdisc) {
         FairQueueing *fq;
@@ -198,9 +198,9 @@ int config_parse_fair_queueing_size(
 
         fq = FQ(qdisc);
 
-        if (streq(lvalue, "Quantum"))
+        if (STR_IN_SET(lvalue, "QuantumBytes", "Quantum"))
                 p = &fq->quantum;
-        else if (streq(lvalue, "InitialQuantum"))
+        else if (STR_IN_SET(lvalue, "InitialQuantumBytes", "InitialQuantum"))
                 p = &fq->initial_quantum;
         else
                 assert_not_reached("Invalid lvalue");

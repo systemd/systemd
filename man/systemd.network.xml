@@ -2724,20 +2724,20 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>LimitSize=</varname></term>
+        <term><varname>LimitBytes=</varname></term>
         <listitem>
           <para>Takes the number of bytes that can be queued waiting for tokens to become available.
           When the size is suffixed with K, M, or G, it is parsed as Kilobytes, Megabytes, or Gigabytes,
-          respectively, to the base of 1000. Defaults to unset.</para>
+          respectively, to the base of 1024. Defaults to unset.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>Burst=</varname></term>
+        <term><varname>BurstBytes=</varname></term>
         <listitem>
           <para>Specifies the size of the bucket. This is the maximum amount of bytes that tokens
           can be available for instantaneous transfer. When the size is suffixed with K, M, or G, it is
-          parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1000. Defaults to
+          parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to
           unset.</para>
         </listitem>
       </varlistentry>
@@ -2756,7 +2756,7 @@
         <listitem>
           <para>The Minimum Packet Unit (MPU) determines the minimal token usage (specified in bytes)
           for a packet. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
-          Megabytes, or Gigabytes, respectively, to the base of 1000. Defaults to zero.</para>
+          Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to zero.</para>
         </listitem>
       </varlistentry>
 
@@ -2773,7 +2773,7 @@
         <term><varname>MTUBytes=</varname></term>
         <listitem>
           <para>Specifies the size of the peakrate bucket. When suffixed with K, M, or G, the specified
-          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1000.
+          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024.
           Defaults to unset.</para>
         </listitem>
       </varlistentry>
@@ -2846,7 +2846,7 @@
       <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
-        <term><varname>LimitSize=</varname></term>
+        <term><varname>LimitBytes=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the FIFO size in bytes. The size limit (a buffer size) to prevent it
           from overflowing in case it is unable to dequeue packets as quickly as it receives them. When this limit
@@ -2915,7 +2915,7 @@
       <xi:include href="tc.xml" xpointer="qdisc-handle" />
 
       <varlistentry>
-        <term><varname>Overhead=</varname></term>
+        <term><varname>OverheadBytes=</varname></term>
         <listitem>
           <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative.
           Takes an integer ranges -64 to 256. Defaults to unset and kernel's default is used.</para>
@@ -3005,11 +3005,12 @@
       <xi:include href="tc.xml" xpointer="tclass-classid" />
 
       <varlistentry>
-        <term><varname>Quantum=</varname></term>
+        <term><varname>QuantumBytes=</varname></term>
         <listitem>
-          <para>Specifies the amount of bytes a flow is allowed to dequeue before the
-          scheduler moves to the next class. An unsigned integer ranges 1 to 4294967294.
-          Defaults to the MTU of the interface.</para>
+          <para>Specifies the amount of bytes a flow is allowed to dequeue before the scheduler moves
+          to the next class. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
+          Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to the MTU of the
+          interface.</para>
         </listitem>
       </varlistentry>
 
@@ -3120,7 +3121,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>MemoryLimit=</varname></term>
+        <term><varname>MemoryLimitBytes=</varname></term>
         <listitem>
           <para>Specifies the limit on the total number of bytes that can be queued in this FQ-CoDel instance.
           When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
@@ -3153,7 +3154,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>Quantum=</varname></term>
+        <term><varname>QuantumBytes=</varname></term>
         <listitem>
           <para>Specifies the number of bytes used as 'deficit' in the fair queuing algorithmtimespan.
           When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
@@ -3205,7 +3206,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>Quantum=</varname></term>
+        <term><varname>QuantumBytes=</varname></term>
         <listitem>
           <para>Specifies the credit per dequeue RR round, i.e. the amount of bytes a flow is allowed
           to dequeue at once. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
@@ -3215,7 +3216,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>InitialQuantum=</varname></term>
+        <term><varname>InitialQuantumBytes=</varname></term>
         <listitem>
           <para>Specifies the initial sending rate credit, i.e. the amount of bytes a new flow is
           allowed to dequeue initially. When suffixed with K, M, or G, the specified size is parsed as
@@ -3446,10 +3447,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>MaxPacketSize=</varname></term>
+        <term><varname>MaxPacketBytes=</varname></term>
         <listitem>
           <para>Specifies the maximum packet size in bytes for the class. When suffixed with K, M, or G, the specified
-          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1000. When unset,
+          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. When unset,
           the kernel default is used.</para>
         </listitem>
       </varlistentry>

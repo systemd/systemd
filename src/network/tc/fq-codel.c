@@ -9,6 +9,7 @@
 #include "parse-util.h"
 #include "qdisc.h"
 #include "string-util.h"
+#include "strv.h"
 
 static int fair_queueing_controlled_delay_init(QDisc *qdisc) {
         FairQueueingControlledDelay *fqcd;
@@ -301,15 +302,15 @@ int config_parse_fair_queueing_controlled_delay_size(
 
         fqcd = FQ_CODEL(qdisc);
 
-        if (streq(lvalue, "MemoryLimit"))
+        if (STR_IN_SET(lvalue, "MemoryLimitBytes", "MemoryLimit"))
                 p = &fqcd->memory_limit;
-        else if (streq(lvalue, "Quantum"))
+        else if (STR_IN_SET(lvalue, "QuantumBytes", "Quantum"))
                 p = &fqcd->quantum;
         else
                 assert_not_reached("Invalid lvalue.");
 
         if (isempty(rvalue)) {
-                if (streq(lvalue, "MemoryLimit"))
+                if (STR_IN_SET(lvalue, "MemoryLimitBytes", "MemoryLimit"))
                         *p = UINT32_MAX;
                 else
                         *p = 0;
