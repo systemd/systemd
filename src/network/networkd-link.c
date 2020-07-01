@@ -1559,11 +1559,13 @@ static int link_acquire_ipv6_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Advertisement: %m");
         }
 
-        if (link_dhcp6_enabled(link) && link->network->dhcp6_without_ra) {
+        if (link_dhcp6_enabled(link) && IN_SET(link->network->dhcp6_without_ra,
+                                               DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST,
+                                               DHCP6_CLIENT_START_MODE_SOLICIT)) {
                 assert(link->dhcp6_client);
                 assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
 
-                r = dhcp6_request_address(link, true);
+                r = dhcp6_request_address(link, link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
                 if (r < 0 && r != -EBUSY)
                         return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
                 else

@@ -17,6 +17,7 @@
 #include "networkd-brvlan.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
+#include "networkd-dhcp6.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-fdb.h"
 #include "networkd-ipv6-proxy-ndp.h"
@@ -150,7 +151,6 @@ struct Network {
         bool dhcp6_use_dns_set;
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
-        bool dhcp6_without_ra;
         uint8_t dhcp6_pd_length;
         uint32_t dhcp6_route_metric;
         bool dhcp6_route_metric_set;
@@ -158,6 +158,7 @@ struct Network {
         char **dhcp6_user_class;
         char **dhcp6_vendor_class;
         struct in6_addr dhcp6_pd_address;
+        DHCP6ClientStartMode dhcp6_without_ra;
         OrderedHashmap *dhcp6_client_send_options;
         OrderedHashmap *dhcp6_client_send_vendor_options;
         Set *dhcp6_request_options;

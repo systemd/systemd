@@ -1840,8 +1840,8 @@
         <varlistentry>
           <term><varname>WithoutRA=</varname></term>
           <listitem>
-            <para>When true, DHCPv6 client starts without router advertisements's managed or other address configuration flag.
-            Defaults to false.</para>
+            <para>Allows DHCPv6 client to start without router advertisements's managed or other address configuration flag.
+            Takes one of <literal>solicit</literal> or <literal>information-request</literal>. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 

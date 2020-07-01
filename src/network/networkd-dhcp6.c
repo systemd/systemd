@@ -19,6 +19,7 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "siphash24.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "radv-internal.h"
 #include "web-util.h"
@@ -1205,3 +1206,14 @@ int config_parse_dhcp6_delegated_prefix_token(
 
         return 0;
 }
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp6_client_start_mode, dhcp6_client_start_mode, DHCP6ClientStartMode,
+                         "Failed to parse WithoutRA= setting");
+
+static const char* const dhcp6_client_start_mode_table[_DHCP6_CLIENT_START_MODE_MAX] = {
+        [DHCP6_CLIENT_START_MODE_NO]                  = "no",
+        [DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST] = "information-request",
+        [DHCP6_CLIENT_START_MODE_SOLICIT]             = "solicit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_client_start_mode, DHCP6ClientStartMode);
