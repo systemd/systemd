@@ -159,6 +159,9 @@ All execution-related settings are available for transient units.
 ✓ RestrictRealtime=
 ✓ RestrictSUIDSGID=
 ✓ RestrictAddressFamilies=
+✓ RootHash=
+✓ RootHashSignature=
+✓ RootVerity=
 ✓ LockPersonality=
 ✓ LimitCPU=
 ✓ LimitFSIZE=
@@ -285,37 +288,39 @@ All process killing settings are available for transient units:
 Most service unit settings are available for transient units.
 
 ```
-✓ PIDFile=
+✓ BusName=
 ✓ ExecCondition=
-✓ ExecStartPre=
+✓ ExecReload=
 ✓ ExecStart=
 ✓ ExecStartPost=
-✓ ExecReload=
+✓ ExecStartPre=
 ✓ ExecStop=
 ✓ ExecStopPost=
+✓ FileDescriptorStoreMax=
+✓ GuessMainPID=
+✓ NonBlocking=
+✓ NotifyAccess=
+✓ OOMPolicy=
+✓ PIDFile=
+✓ RemainAfterExit=
+✓ Restart=
+✓ RestartForceExitStatus=
+✓ RestartPreventExitStatus=
 ✓ RestartSec=
-✓ TimeoutStartSec=
-✓ TimeoutStopSec=
+✓ RootDirectoryStartOnly=
+✓ RuntimeMaxSec=
+  Sockets=
+✓ SuccessExitStatus=
 ✓ TimeoutAbortSec=
 ✓ TimeoutSec=
-✓ RuntimeMaxSec=
-✓ WatchdogSec=
+✓ TimeoutStartFailureMode=
+✓ TimeoutStartSec=
+✓ TimeoutStopFailureMode=
+✓ TimeoutStopSec=
 ✓ Type=
-✓ Restart=
-✓ RootDirectoryStartOnly=
-✓ RemainAfterExit=
-✓ GuessMainPID=
-✓ RestartPreventExitStatus=
-✓ RestartForceExitStatus=
-✓ SuccessExitStatus=
-✓ NonBlocking=
-✓ BusName=
-✓ FileDescriptorStoreMax=
-✓ NotifyAccess=
-  Sockets=
 ✓ USBFunctionDescriptors=
 ✓ USBFunctionStrings=
-✓ OOMPolicy=
+✓ WatchdogSec=
 ```
 
 ## Mount Unit Settings
