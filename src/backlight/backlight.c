@@ -224,10 +224,8 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", max_brightness_str);
 
-        if (max_brightness <= 0) {
-                log_device_warning(device, "Maximum brightness is 0, ignoring device.");
-                return -EINVAL;
-        }
+        if (max_brightness <= 0)
+                return log_device_warning_errno(device, SYNTHETIC_ERRNO(EINVAL), "Maximum brightness is 0, ignoring device.");
 
         *ret = max_brightness;
         return 0;
@@ -299,6 +297,34 @@ static bool shall_clamp(sd_device *d) {
         return r;
 }
 
+static int read_brightness(sd_device *device, const char **ret) {
+        const char *subsystem;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = sd_device_get_subsystem(device, &subsystem);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to get subsystem: %m");
+
+        if (streq(subsystem, "backlight")) {
+                r = sd_device_get_sysattr_value(device, "actual_brightness", ret);
+                if (r >= 0)
+                        return 0;
+                if (r != -ENOENT)
+                        return log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute: %m");
+
+                log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute, fall back to use 'brightness' attribute: %m");
+        }
+
+        r = sd_device_get_sysattr_value(device, "brightness", ret);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to read 'brightness' attribute: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
@@ -306,12 +332,10 @@ static int run(int argc, char *argv[]) {
         unsigned max_brightness;
         int r;
 
-        if (argc != 3) {
-                log_error("This program requires two arguments.");
-                return -EINVAL;
-        }
-
         log_setup_service();
+
+        if (argc != 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires two arguments.");
 
         umask(0022);
 
@@ -320,19 +344,15 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to create backlight directory /var/lib/systemd/backlight: %m");
 
         sysname = strchr(argv[2], ':');
-        if (!sysname) {
-                log_error("Requires a subsystem and sysname pair specifying a backlight device.");
-                return -EINVAL;
-        }
+        if (!sysname)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Requires a subsystem and sysname pair specifying a backlight device.");
 
         ss = strndupa(argv[2], sysname - argv[2]);
 
         sysname++;
 
-        if (!STR_IN_SET(ss, "backlight", "leds")) {
-                log_error("Not a backlight or LED device: '%s:%s'", ss, sysname);
-                return -EINVAL;
-        }
+        if (!STR_IN_SET(ss, "backlight", "leds"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a backlight or LED device: '%s:%s'", ss, sysname);
 
         r = sd_device_new_from_subsystem_sysname(&device, ss, sysname);
         if (r < 0)
@@ -391,9 +411,9 @@ static int run(int argc, char *argv[]) {
                         if (!clamp)
                                 return 0;
 
-                        r = sd_device_get_sysattr_value(device, "brightness", &curval);
+                        r = read_brightness(device, &curval);
                         if (r < 0)
-                                return log_device_warning_errno(device, r, "Failed to read 'brightness' attribute: %m");
+                                return log_device_error_errno(device, r, "Failed to read current brightness: %m");
 
                         value = strdup(curval);
                         if (!value)
@@ -416,18 +436,16 @@ static int run(int argc, char *argv[]) {
                         return 0;
                 }
 
-                r = sd_device_get_sysattr_value(device, "brightness", &value);
+                r = read_brightness(device, &value);
                 if (r < 0)
-                        return log_device_error_errno(device, r, "Failed to read system 'brightness' attribute: %m");
+                        return log_device_error_errno(device, r, "Failed to read current brightness: %m");
 
                 r = write_string_file(saved, value, WRITE_STRING_FILE_CREATE);
                 if (r < 0)
                         return log_device_error_errno(device, r, "Failed to write %s: %m", saved);
 
-        } else {
-                log_error("Unknown verb %s.", argv[1]);
-                return -EINVAL;
-        }
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
 
         return 0;
 }
