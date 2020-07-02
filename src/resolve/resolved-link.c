@@ -652,7 +652,9 @@ int link_update(Link *l) {
         assert(l);
 
         link_read_settings(l);
-        link_load_user(l);
+        r = link_load_user(l);
+        if (r < 0)
+                return r;
 
         if (l->llmnr_support != RESOLVE_SUPPORT_NO) {
                 r = manager_llmnr_start(l->manager);
