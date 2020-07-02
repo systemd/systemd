@@ -223,9 +223,6 @@ static int run(int argc, char *argv[]) {
         };
         int r;
 
-        if (getppid() != 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program should be invoked by init only.");
         if (argc != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This program requires one argument.");
