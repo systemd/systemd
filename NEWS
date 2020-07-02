@@ -178,12 +178,12 @@ CHANGES WITH 246 in spe:
           traffic). DataBitRate=, DataSamplePoint=, FDMode=, FDNonISO= have
           been added to configure various CAN-FD aspects.
 
-        * systemd-networkd's [DHCPv6] section gained a new WithoutRA= setting.
-          If enabled, DHCPv6 will be attempted right-away without requiring an
-          Router Advertisement packet suggesting it first. Conversely, the
-          [IPv6AcceptRA] section gained a boolean option DHCPv6Client= that may
-          be used to turn off the DHCPv6 client even if the RA packets suggest
-          it.
+        * systemd-networkd's [DHCPv6] section gained a new boolean option
+          WithoutRA=. When enabled, DHCPv6 will be attempted right-away without
+          requiring an Router Advertisement packet suggesting it first
+          (i.e. without the 'M' or 'O' flags set). The [IPv6AcceptRA] section
+          gained a boolean option DHCPv6Client= that may be used to turn off
+          the DHCPv6 client even if the RA packets suggest it.
 
         * systemd-networkd's [DHCPv4] section gained a new setting UseGateway=
           which may be used to turn off use of the gateway information provided
