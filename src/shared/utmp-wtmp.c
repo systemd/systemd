@@ -35,8 +35,7 @@ int utmp_get_runlevel(int *runlevel, int *previous) {
          * precedence. Presumably, sysvinit does this to work around a
          * race condition that would otherwise exist where we'd always
          * go to disk and hence might read runlevel data that might be
-         * very new and does not apply to the current script being
-         * executed. */
+         * very new and not apply to the current script being executed. */
 
         e = getenv("RUNLEVEL");
         if (e && e[0] > 0) {
@@ -109,19 +108,33 @@ static int write_entry_utmp(const struct utmpx *store) {
 
         utmpx = utxent_start();
 
-        if (!pututxline(store))
-                return -errno;
-        return 0;
+        if (pututxline(store))
+                return 0;
+        if (errno == ENOENT) {
+                /* If utmp/wtmp have been disabled, that's a good thing, hence ignore the error. */
+                log_debug_errno(errno, "Not writing utmp: %m");
+                return 0;
+        }
+        return -errno;
 }
 
 static int write_entry_wtmp(const struct utmpx *store) {
         assert(store);
 
         /* wtmp is a simple append-only file where each entry is
-        simply appended to the end; i.e. basically a log. */
+         * simply appended to the end; i.e. basically a log. */
 
         errno = 0;
         updwtmpx(_PATH_WTMPX, store);
+        if (errno == ENOENT) {
+                /* If utmp/wtmp have been disabled, that's a good thing, hence ignore the error. */
+                log_debug_errno(errno, "Not writing wtmp: %m");
+                return 0;
+        }
+        if (errno == EROFS) {
+                log_warning_errno(errno, "Failed to write wtmp record, ignoring: %m");
+                return 0;
+        }
         return -errno;
 }
 
@@ -130,16 +143,7 @@ static int write_utmp_wtmp(const struct utmpx *store_utmp, const struct utmpx *s
 
         r = write_entry_utmp(store_utmp);
         s = write_entry_wtmp(store_wtmp);
-
-        if (r >= 0)
-                r = s;
-
-        /* If utmp/wtmp have been disabled, that's a good thing, hence
-         * ignore the errors */
-        if (r == -ENOENT)
-                r = 0;
-
-        return r;
+        return r < 0 ? r : s;
 }
 
 static int write_entry_both(const struct utmpx *store) {
