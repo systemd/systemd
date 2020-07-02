@@ -84,11 +84,10 @@ static int get_current_runlevel(Context *c) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-        unsigned i;
 
         assert(c);
 
-        for (i = 0; i < ELEMENTSOF(table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 _cleanup_free_ char *state = NULL, *path = NULL;
 
                 path = unit_dbus_path_from_name(table[i].special);

@@ -68,11 +68,9 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
                 { '6', SPECIAL_REBOOT_TARGET,     false },
         };
 
-        unsigned i;
-
         assert(isolate);
 
-        for (i = 0; i < ELEMENTSOF(table); i++)
+        for (size_t i = 0; i < ELEMENTSOF(table); i++)
                 if (table[i].runlevel == runlevel) {
                         *isolate = table[i].isolate;
                         if (runlevel == '6' && kexec_loaded())
@@ -241,7 +239,6 @@ static void server_done(Server *s) {
 
 static int server_init(Server *s, unsigned n_sockets) {
         int r;
-        unsigned i;
 
         assert(s);
         assert(n_sockets > 0);
@@ -256,7 +253,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 goto fail;
         }
 
-        for (i = 0; i < n_sockets; i++) {
+        for (unsigned i = 0; i < n_sockets; i++) {
                 Fifo *f;
                 int fd;
 
