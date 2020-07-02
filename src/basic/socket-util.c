@@ -1130,6 +1130,7 @@ int socket_bind_to_ifname(int fd, const char *ifname) {
 
 int socket_bind_to_ifindex(int fd, int ifindex) {
         char ifname[IF_NAMESIZE + 1];
+        int r;
 
         assert(fd >= 0);
 
@@ -1141,10 +1142,9 @@ int socket_bind_to_ifindex(int fd, int ifindex) {
                 return 0;
         }
 
-        if (setsockopt(fd, SOL_SOCKET, SO_BINDTOIFINDEX, &ifindex, sizeof(ifindex)) >= 0)
-                return 0;
-        if (errno != ENOPROTOOPT)
-                return -errno;
+        r = setsockopt_int(fd, SOL_SOCKET, SO_BINDTOIFINDEX, ifindex);
+        if (r != -ENOPROTOOPT)
+                return r;
 
         /* Fall back to SO_BINDTODEVICE on kernels < 5.0 which didn't have SO_BINDTOIFINDEX */
         if (!format_ifname(ifindex, ifname))
