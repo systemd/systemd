@@ -159,7 +159,7 @@ int sd_dhcp6_client_set_callback(
 int sd_dhcp6_client_set_ifindex(sd_dhcp6_client *client, int ifindex) {
 
         assert_return(client, -EINVAL);
-        assert_return(ifindex >= -1, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
         client->ifindex = ifindex;

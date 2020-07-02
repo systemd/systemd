@@ -48,7 +48,7 @@ static int test_client_basic(sd_event *e) {
 
         assert_se(sd_dhcp6_client_set_ifindex(client, 15) == 0);
         assert_se(sd_dhcp6_client_set_ifindex(client, -42) == -EINVAL);
-        assert_se(sd_dhcp6_client_set_ifindex(client, -1) == 0);
+        assert_se(sd_dhcp6_client_set_ifindex(client, -1) == -EINVAL);
         assert_se(sd_dhcp6_client_set_ifindex(client, 42) >= 0);
 
         assert_se(sd_dhcp6_client_set_mac(client, (const uint8_t *) &mac_addr,
