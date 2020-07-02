@@ -415,7 +415,7 @@ _public_ int sd_radv_start(sd_radv *ra) {
 
 _public_ int sd_radv_set_ifindex(sd_radv *ra, int ifindex) {
         assert_return(ra, -EINVAL);
-        assert_return(ifindex >= -1, -EINVAL);
+        assert_return(ifindex > 0, -EINVAL);
 
         if (ra->state != SD_RADV_STATE_IDLE)
                 return -EBUSY;
