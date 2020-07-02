@@ -102,7 +102,7 @@ struct DnsResourceRecord {
         /* How many labels to strip to determine "synthesizing source" of this RR, i.e. the wildcard's immediate parent. -1 if not signed. */
         unsigned n_skip_labels_source;
 
-        bool unparseable:1;
+        bool unparsable:1;
 
         bool wire_format_canonical:1;
         void *wire_format;
