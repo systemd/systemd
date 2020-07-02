@@ -474,11 +474,11 @@ static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
 
                 case DNS_TYPE_OPENPGPKEY:
                 default:
-                        if (!rr->unparseable)
+                        if (!rr->unparsable)
                                 free(rr->generic.data);
                 }
 
-                if (rr->unparseable)
+                if (rr->unparsable)
                         free(rr->generic.data);
 
                 free(rr->wire_format);
@@ -563,10 +563,10 @@ int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResou
 
         /* Check if a and b are the same, but don't look at their keys */
 
-        if (a->unparseable != b->unparseable)
+        if (a->unparsable != b->unparsable)
                 return 0;
 
-        switch (a->unparseable ? _DNS_TYPE_INVALID : a->key->type) {
+        switch (a->unparsable ? _DNS_TYPE_INVALID : a->key->type) {
 
         case DNS_TYPE_SRV:
                 r = dns_name_equal(a->srv.name, b->srv.name);
@@ -828,7 +828,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         dns_resource_key_to_string(rr->key, k, sizeof(k));
 
-        switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
+        switch (rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
 
         case DNS_TYPE_SRV:
                 r = asprintf(&s, "%s %u %u %u %s",
@@ -1175,7 +1175,7 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
         assert(rr);
         assert(out);
 
-        switch(rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
+        switch(rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
         case DNS_TYPE_SRV:
         case DNS_TYPE_PTR:
         case DNS_TYPE_NS:
@@ -1343,7 +1343,7 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
 
         dns_resource_key_hash_func(rr->key, state);
 
-        switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
+        switch (rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
 
         case DNS_TYPE_SRV:
                 siphash24_compress(&rr->srv.priority, sizeof(rr->srv.priority), state);
@@ -1510,9 +1510,9 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
         copy->expiry = rr->expiry;
         copy->n_skip_labels_signer = rr->n_skip_labels_signer;
         copy->n_skip_labels_source = rr->n_skip_labels_source;
-        copy->unparseable = rr->unparseable;
+        copy->unparsable = rr->unparsable;
 
-        switch (rr->unparseable ? _DNS_TYPE_INVALID : rr->key->type) {
+        switch (rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
 
         case DNS_TYPE_SRV:
                 copy->srv.priority = rr->srv.priority;

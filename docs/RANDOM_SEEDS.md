@@ -212,10 +212,10 @@ boot, in order to ensure the entropy pool is filled up quickly.
    random-seed`](https://www.freedesktop.org/software/systemd/man/bootctl.html#random-seed))
    a seed file with an initial seed is placed in a file `/loader/random-seed`
    in the ESP. In addition, an identically sized randomized EFI variable called
-   the the 'system token' is set, which is written to the machine's firmware
-   NVRAM. During boot, when `systemd-boot` finds both the random seed file and
-   the system token they are combined and hashed with SHA256 (in counter mode,
-   to generate sufficient data), to generate a new random seed file to store in
+   the 'system token' is set, which is written to the machine's firmware NVRAM.
+   During boot, when `systemd-boot` finds both the random seed file and the
+   system token they are combined and hashed with SHA256 (in counter mode, to
+   generate sufficient data), to generate a new random seed file to store in
    the ESP as well as a random seed to pass to the OS kernel. The new random
    seed file for the ESP is then written to the ESP, ensuring this is completed
    before the OS is invoked. Very early during initialization PID 1 will read

@@ -47,7 +47,7 @@ functionality. Here's why we think that it is not enough for our uses:
 
 * The various EFI implementations implement the boot order/boot item logic to different levels. Some firmware implementations do not offer a boot menu at all and instead unconditionally follow the EFI boot order, booting the first item that is working.
 * If the firmware setup is used to reset all data usually all EFI boot entries are lost, making the system entirely unbootable, as the firmware setups generally do not offer a UI to define additional boot items. By placing the menu item information on disk, it is always available, regardless if the BIOS setup data is lost.
-* Harddisk images should be moveable between machines and be bootable without requiring explicit EFI variables to be set. This also requires that the list of boot options is defined on disk, and not in EFI variables alone.
+* Harddisk images should be movable between machines and be bootable without requiring explicit EFI variables to be set. This also requires that the list of boot options is defined on disk, and not in EFI variables alone.
 * EFI is not universal yet (especially on non-x86 platforms), this specification is useful both for EFI and non-EFI boot loaders.
 * Many EFI systems disable USB support during early boot to optimize boot times, thus making keyboard input unavailable in the EFI menu. It is thus useful if the OS UI has a standardized way to discover available boot options which can be booted to.
 

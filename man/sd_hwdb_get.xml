@@ -64,7 +64,7 @@
     <para><function>sd_hwdb_get()</function> queries the <parameter>hwdb</parameter> object created earlier
     with <citerefentry><refentrytitle>sd_hwdb_new</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
     entries matching the specified string <parameter>modalias</parameter>, and returns the value
-    corresponding to the the key <parameter>key</parameter>. The value is returned as a
+    corresponding to the key <parameter>key</parameter>. The value is returned as a
     <constant>NUL</constant>-terminated string in <parameter>value</parameter>. It must not be modified by
     the caller and is valid as long as a reference to <parameter>hwdb</parameter> is kept. When multiple
     patterns in the database match <parameter>modalias</parameter>, the one with the highest priority is

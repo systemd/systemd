@@ -401,7 +401,7 @@
         <option>--password-change-min=</option> configures how much time has to pass after changing the
         password of the user until the password may be changed again. If the user tries to change their
         password before this time passes the attempt is refused. <option>--password-change-max=</option>
-        configures how much time has to pass after the the password is changed until the password expires and
+        configures how much time has to pass after the password is changed until the password expires and
         needs to be changed again. After this time passes any attempts to log in may only proceed after the
         password is changed. <option>--password-change-warn=</option> specifies how much earlier than then
         the time configured with <option>--password-change-max=</option> the user is warned at login to

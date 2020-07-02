@@ -468,7 +468,7 @@ static bool validate_runtime_directory(pam_handle_t *handle, const char *path, u
         /* Some extra paranoia: let's not set $XDG_RUNTIME_DIR if the directory we'd set it to isn't actually
          * set up properly for us. This is supposed to provide a careful safety net for supporting su/sudo
          * type transitions: in that case the UID changes, but the session and thus the user owning it
-         * doesn't change. Since the $XDG_RUNTIME_DIR life-cycle is bound to the session's user being logged
+         * doesn't change. Since the $XDG_RUNTIME_DIR lifecycle is bound to the session's user being logged
          * in at least once we should be particularly careful when setting the environment variable, since
          * otherwise we might end up setting $XDG_RUNTIME_DIR to some directory owned by the wrong user. */
 

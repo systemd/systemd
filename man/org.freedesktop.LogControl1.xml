@@ -83,7 +83,7 @@ node /org/freedesktop/LogControl1 {
       <para><varname>LogTarget</varname> describes the log target (mechanism). It should be one of
       <literal>console</literal> (log to the console or standard output),
       <literal>kmsg</literal> (log to the kernel ring buffer),
-      <literal>journal</literal> (log the the journal natively, see
+      <literal>journal</literal> (log to the journal natively, see
       <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
       <literal>syslog</literal> (log using the
       <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> call).

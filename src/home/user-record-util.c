@@ -172,7 +172,7 @@ int user_record_reconcile(
          *     -REMCHG: identity records are not about the same user
          *     -ESTALE: embedded identity record is equally new or newer than supplied record
          *
-         * Return the new record to use, which is either the the embedded record updated with the host
+         * Return the new record to use, which is either the embedded record updated with the host
          * binding or the host record. In both cases the secret data is stripped. */
 
         assert(host);
