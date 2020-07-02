@@ -30,7 +30,7 @@ static struct ether_addr mac_addr = {
 
 static sd_event_source *hangcheck;
 static int test_dhcp_fd[2];
-static int test_index = 42;
+static int test_ifindex = 42;
 static int test_client_message_num;
 static be32_t test_iaid = 0;
 static uint8_t test_duid[14] = { };
@@ -877,8 +877,8 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
         return len;
 }
 
-int dhcp6_network_bind_udp_socket(int index, struct in6_addr *local_address) {
-        assert_se(index == test_index);
+int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *local_address) {
+        assert_se(ifindex == test_ifindex);
 
         if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_dhcp_fd) < 0)
                 return -errno;
@@ -899,7 +899,7 @@ static int test_client_solicit(sd_event *e) {
 
         assert_se(sd_dhcp6_client_attach_event(client, e, 0) >= 0);
 
-        assert_se(sd_dhcp6_client_set_ifindex(client, test_index) == 0);
+        assert_se(sd_dhcp6_client_set_ifindex(client, test_ifindex) == 0);
         assert_se(sd_dhcp6_client_set_mac(client, (const uint8_t *) &mac_addr,
                                           sizeof (mac_addr),
                                           ARPHRD_ETHER) >= 0);

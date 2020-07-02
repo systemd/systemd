@@ -219,12 +219,12 @@ static void test_radv(void) {
         assert_se(!ra);
 }
 
-int icmp6_bind_router_solicitation(int index) {
+int icmp6_bind_router_solicitation(int ifindex) {
         return -ENOSYS;
 }
 
-int icmp6_bind_router_advertisement(int index) {
-        assert_se(index == 42);
+int icmp6_bind_router_advertisement(int ifindex) {
+        assert_se(ifindex == 42);
 
         return test_fd[1];
 }

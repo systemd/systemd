@@ -81,11 +81,11 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         return TAKE_FD(s);
 }
 
-int icmp6_bind_router_solicitation(int index) {
+int icmp6_bind_router_solicitation(int ifindex) {
         struct icmp6_filter filter = {};
         struct ipv6_mreq mreq = {
                 .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
-                .ipv6mr_interface = index,
+                .ipv6mr_interface = ifindex,
         };
 
         ICMP6_FILTER_SETBLOCKALL(&filter);
@@ -94,11 +94,11 @@ int icmp6_bind_router_solicitation(int index) {
         return icmp6_bind_router_message(&filter, &mreq);
 }
 
-int icmp6_bind_router_advertisement(int index) {
+int icmp6_bind_router_advertisement(int ifindex) {
         struct icmp6_filter filter = {};
         struct ipv6_mreq mreq = {
                 .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
-                .ipv6mr_interface = index,
+                .ipv6mr_interface = ifindex,
         };
 
         ICMP6_FILTER_SETBLOCKALL(&filter);
