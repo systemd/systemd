@@ -16,6 +16,7 @@
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-sriov.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "set.h"
@@ -158,6 +159,7 @@ int network_verify(Network *network) {
         Route *route, *route_next;
         FdbEntry *fdb, *fdb_next;
         TrafficControl *tc;
+        SRIOV *sr_iov;
         Iterator i;
 
         assert(network);
@@ -330,6 +332,10 @@ int network_verify(Network *network) {
                 if (traffic_control_section_verify(tc, &has_root, &has_clsact) < 0)
                         traffic_control_free(tc);
 
+        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section, i)
+                if (sr_iov_section_verify(sr_iov) < 0)
+                        sr_iov_free(sr_iov);
+
         return 0;
 }
 
@@ -484,6 +490,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         filename, NETWORK_DIRS, dropin_dirname,
                         "Match\0"
                         "Link\0"
+                        "SR-IOV\0"
                         "Network\0"
                         "Address\0"
                         "Neighbor\0"
@@ -731,6 +738,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->prefixes_by_section);
         hashmap_free(network->route_prefixes_by_section);
         hashmap_free(network->rules_by_section);
+        ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 
         if (network->manager &&

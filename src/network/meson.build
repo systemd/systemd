@@ -105,6 +105,8 @@ sources = files('''
         networkd-routing-policy-rule.h
         networkd-speed-meter.c
         networkd-speed-meter.h
+        networkd-sriov.c
+        networkd-sriov.h
         networkd-util.c
         networkd-util.h
         networkd-wifi.c

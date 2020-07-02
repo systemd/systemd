@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
+#include <linux/if_link.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -31,6 +32,7 @@
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
+#include "networkd-sriov.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-wifi.h"
@@ -1125,6 +1127,9 @@ void link_check_ready(Link *link) {
                 return;
 
         if (!link->tc_configured)
+                return;
+
+        if (!link->sr_iov_configured)
                 return;
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
@@ -2838,6 +2843,28 @@ static int link_configure_traffic_control(Link *link) {
         return 0;
 }
 
+static int link_configure_sr_iov(Link *link) {
+        SRIOV *sr_iov;
+        Iterator i;
+        int r;
+
+        link->sr_iov_configured = false;
+        link->sr_iov_messages = 0;
+
+        ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section, i) {
+                r = sr_iov_configure(link, sr_iov);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->sr_iov_messages == 0)
+                link->sr_iov_configured = true;
+        else
+                log_link_debug(link, "Configuring SR-IOV");
+
+        return 0;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -2846,6 +2873,10 @@ static int link_configure(Link *link) {
         assert(link->state == LINK_STATE_INITIALIZED);
 
         r = link_configure_traffic_control(link);
+        if (r < 0)
+                return r;
+
+        r = link_configure_sr_iov(link);
         if (r < 0)
                 return r;
 

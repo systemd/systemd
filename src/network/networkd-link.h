@@ -82,6 +82,7 @@ typedef struct Link {
         unsigned routing_policy_rule_messages;
         unsigned routing_policy_rule_remove_messages;
         unsigned tc_messages;
+        unsigned sr_iov_messages;
         unsigned enslaving;
 
         Set *addresses;
@@ -118,6 +119,7 @@ typedef struct Link {
         bool static_nexthops_configured:1;
         bool routing_policy_rules_configured:1;
         bool tc_configured:1;
+        bool sr_iov_configured:1;
         bool setting_mtu:1;
         bool setting_genmode:1;
         bool ipv6_mtu_set:1;

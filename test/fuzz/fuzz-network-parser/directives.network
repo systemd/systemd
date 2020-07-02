@@ -38,6 +38,16 @@ MTUBytes=
 Multicast=
 MACAddress=
 Group=
+[SR-IOV]
+VirtualFunction=
+MACSpoofCheck=
+VLANId=
+VLANProtocol=
+QualityOfService=
+QueryReceiveSideScaling=
+Trust=
+LinkState=
+MACAddress=
 [BridgeFDB]
 VLANId=
 MACAddress=

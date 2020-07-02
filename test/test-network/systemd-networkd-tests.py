@@ -158,6 +158,33 @@ def expectedFailureIfAlternativeNameIsNotAvailable():
 
     return f
 
+def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
+    def f(func):
+        call('rmmod netdevsim', stderr=subprocess.DEVNULL)
+        rc = call('modprobe netdevsim', stderr=subprocess.DEVNULL)
+        if rc != 0:
+            return unittest.expectedFailure(func)
+
+        try:
+            with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+                f.write('99 1')
+        except Exception as error:
+            return unittest.expectedFailure(func)
+
+        call('udevadm settle')
+        call('udevadm info -w10s /sys/devices/netdevsim99/net/eni99np1', stderr=subprocess.DEVNULL)
+        try:
+            with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
+                f.write('3')
+        except Exception as error:
+            call('rmmod netdevsim', stderr=subprocess.DEVNULL)
+            return unittest.expectedFailure(func)
+
+        call('rmmod netdevsim', stderr=subprocess.DEVNULL)
+        return func
+
+    return f
+
 def expectedFailureIfCAKEIsNotAvailable():
     def f(func):
         call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
@@ -1695,6 +1722,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-route-vrf.network',
         '25-gateway-static.network',
         '25-gateway-next-static.network',
+        '25-sriov.network',
         '25-sysctl-disable-ipv6.network',
         '25-sysctl.network',
         '25-test1.network',
@@ -2237,7 +2265,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet6 .* scope link')
         output = check_output('ip -4 route show dev dummy98')
         print(output)
-        self.assertEqual(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
+        self.assertRegex(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
         output = check_output('ip -6 route show dev dummy98')
         print(output)
         self.assertRegex(output, 'default via 2607:5300:203:39ff:ff:ff:ff:ff proto static')
@@ -2260,7 +2288,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet6 .* scope link')
         output = check_output('ip -4 route show dev dummy98')
         print(output)
-        self.assertEqual(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
+        self.assertRegex(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
         output = check_output('ip -6 route show dev dummy98')
         print(output)
         self.assertRegex(output, 'default via 2607:5300:203:39ff:ff:ff:ff:ff proto static')
@@ -2507,6 +2535,32 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'bands 10 strict 3')
         self.assertRegex(output, 'quanta 1 2 3 4 5')
         self.assertRegex(output, 'priomap 3 4 5 6 7')
+
+    @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
+    def test_sriov(self):
+        call('rmmod netdevsim', stderr=subprocess.DEVNULL)
+        call('modprobe netdevsim', stderr=subprocess.DEVNULL)
+        with open('/sys/bus/netdevsim/new_device', mode='w') as f:
+            f.write('99 1')
+
+        call('udevadm settle')
+        call('udevadm info -w10s /sys/devices/netdevsim99/net/eni99np1', stderr=subprocess.DEVNULL)
+        with open('/sys/class/net/eni99np1/device/sriov_numvfs', mode='w') as f:
+            f.write('3')
+
+        copy_unit_to_networkd_unit_path('25-sriov.network')
+        start_networkd()
+        self.wait_online(['eni99np1:routable'])
+
+        output = check_output('ip link show dev eni99np1')
+        print(output)
+        self.assertRegex(output,
+                         'vf 0 .*00:11:22:33:44:55.*vlan 5, qos 1, vlan protocol 802.1ad, spoof checking on, link-state enable, trust on, query_rss on\n *'
+                         'vf 1 .*00:11:22:33:44:56.*vlan 6, qos 2, spoof checking off, link-state disable, trust off, query_rss off\n *'
+                         'vf 2 .*00:11:22:33:44:57.*vlan 7, qos 3, spoof checking off, link-state auto, trust off, query_rss off'
+        )
+
+        call('rmmod netdevsim', stderr=subprocess.DEVNULL)
 
 class NetworkdStateFileTests(unittest.TestCase, Utilities):
     links = [

@@ -312,6 +312,7 @@ struct Network {
         Hashmap *route_prefixes_by_section;
         Hashmap *rules_by_section;
         OrderedHashmap *tc_by_section;
+        OrderedHashmap *sr_iov_by_section;
 
         /* All kinds of DNS configuration */
         struct in_addr_data *dns;
