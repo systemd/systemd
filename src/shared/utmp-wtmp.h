@@ -8,6 +8,8 @@
 #include "util.h"
 
 #if ENABLE_UTMP
+#include <utmpx.h>
+
 int utmp_get_runlevel(int *runlevel, int *previous);
 
 int utmp_put_shutdown(void);
@@ -23,6 +25,15 @@ int utmp_wall(
         const char *origin_tty,
         bool (*match_tty)(const char *tty, void *userdata),
         void *userdata);
+
+static inline bool utxent_start(void) {
+        setutxent();
+        return true;
+}
+static inline void utxent_cleanup(bool *initialized) {
+        if (initialized)
+                endutxent();
+}
 
 #else /* ENABLE_UTMP */
 
