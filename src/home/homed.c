@@ -13,8 +13,8 @@
 #include "signal-util.h"
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r;
 
         log_setup_service();
