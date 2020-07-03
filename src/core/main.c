@@ -2320,6 +2320,7 @@ static void reset_arguments(void) {
 
         arg_random_seed = mfree(arg_random_seed);
         arg_random_seed_size = 0;
+        arg_clock_usec = 0;
 }
 
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
