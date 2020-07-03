@@ -4111,9 +4111,12 @@ static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
         fputc('\n', f);
 }
 
-static void link_save_dns(FILE *f, struct in_addr_full **dns, unsigned n_dns, bool *space) {
+static void link_save_dns(Link *link, FILE *f, struct in_addr_full **dns, unsigned n_dns, bool *space) {
         for (unsigned j = 0; j < n_dns; j++) {
                 const char *str;
+
+                if (dns[j]->ifindex != 0 && dns[j]->ifindex != link->ifindex)
+                        continue;
 
                 str = in_addr_full_to_string(dns[j]);
                 if (!str)
@@ -4251,9 +4254,9 @@ int link_save(Link *link) {
                 fputs("DNS=", f);
                 space = false;
                 if (link->n_dns != (unsigned) -1)
-                        link_save_dns(f, link->dns, link->n_dns, &space);
+                        link_save_dns(link, f, link->dns, link->n_dns, &space);
                 else
-                        link_save_dns(f, link->network->dns, link->network->n_dns, &space);
+                        link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
 
                 serialize_addresses(f, NULL, &space,
                                     NULL,
