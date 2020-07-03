@@ -373,7 +373,8 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_SLIGHTLY_UNHAPPY_SMILEY] = ":-(",
                         [SPECIAL_GLYPH_UNHAPPY_SMILEY]          = ":-{",
                         [SPECIAL_GLYPH_DEPRESSED_SMILEY]        = ":-[",
-                        [SPECIAL_GLYPH_LOCK_AND_KEY]            = "o-,"
+                        [SPECIAL_GLYPH_LOCK_AND_KEY]            = "o-,",
+                        [SPECIAL_GLYPH_TOUCH]                   = "O=",    /* Yeah, not very convincing, can you do it better? */
                 },
 
                 /* UTF-8 */
@@ -415,6 +416,9 @@ const char *special_glyph(SpecialGlyph code) {
 
                         /* This emoji is a single character cell glyph in Unicode, and three in ASCII */
                         [SPECIAL_GLYPH_LOCK_AND_KEY]            = "\360\237\224\220",         /* 🔐 (actually called: CLOSED LOCK WITH KEY) */
+
+                        /* This emoji is a single character cell glyph in Unicode, and two in ASCII */
+                        [SPECIAL_GLYPH_TOUCH]                   = "\360\237\221\206",         /* 👆 (actually called: BACKHAND INDEX POINTING UP */
                 },
         };
 

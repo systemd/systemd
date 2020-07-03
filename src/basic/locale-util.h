@@ -65,7 +65,8 @@ typedef enum {
         SPECIAL_GLYPH_UNHAPPY_SMILEY,
         SPECIAL_GLYPH_DEPRESSED_SMILEY,
         SPECIAL_GLYPH_LOCK_AND_KEY,
-        _SPECIAL_GLYPH_MAX
+        SPECIAL_GLYPH_TOUCH,
+        _SPECIAL_GLYPH_MAX,
 } SpecialGlyph;
 
 const char *special_glyph(SpecialGlyph code) _const_;

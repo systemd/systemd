@@ -11,6 +11,7 @@
 #include "home-util.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
+#include "homework-fido2.h"
 #include "homework-fscrypt.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
@@ -21,7 +22,6 @@
 #include "missing_magic.h"
 #include "mount-util.h"
 #include "path-util.h"
-#include "pkcs11-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "strv.h"
@@ -32,14 +32,22 @@
 /* Make sure a bad password always results in a 3s delay, no matter what */
 #define BAD_PASSWORD_DELAY_USEC (3 * USEC_PER_SEC)
 
+void password_cache_free(PasswordCache *cache) {
+        if (!cache)
+                return;
+
+        cache->pkcs11_passwords = strv_free_erase(cache->pkcs11_passwords);
+        cache->fido2_passwords = strv_free_erase(cache->fido2_passwords);
+}
+
 int user_record_authenticate(
                 UserRecord *h,
                 UserRecord *secret,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 bool strict_verify) {
 
-        bool need_password = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false,
-                pin_locked = false, pin_incorrect = false, pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false;
+        bool need_password = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false, need_user_presence_permitted = false,
+                pin_locked = false, pin_incorrect = false, pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false, token_action_timeout = false;
         int r;
 
         assert(h);
@@ -47,14 +55,14 @@ int user_record_authenticate(
 
         /* Tries to authenticate a user record with the supplied secrets. i.e. checks whether at least one
          * supplied plaintext passwords matches a hashed password field of the user record. Or if a
-         * configured PKCS#11 token is around and can unlock the record.
+         * configured PKCS#11 or FIDO2 token is around and can unlock the record.
          *
-         * Note that the pkcs11_decrypted_passwords parameter is both an input and and output parameter: it
-         * is a list of configured, decrypted PKCS#11 passwords. We typically have to call this function
-         * multiple times over the course of an operation (think: on login we authenticate the host user
-         * record, the record embedded in the LUKS record and the one embedded in $HOME). Hence we keep a
-         * list of passwords we already decrypted, so that we don't have to do the (slow an potentially
-         * interactive) PKCS#11 dance for the relevant token again and again. */
+         * Note that the 'cache' parameter is both an input and output parameter: it contains lists of
+         * configured, decrypted PKCS#11/FIDO2 passwords. We typically have to call this function multiple
+         * times over the course of an operation (think: on login we authenticate the host user record, the
+         * record embedded in the LUKS record and the one embedded in $HOME). Hence we keep a list of
+         * passwords we already decrypted, so that we don't have to do the (slow and potentially interactive)
+         * PKCS#11/FIDO2 dance for the relevant token again and again. */
 
         /* First, let's see if the supplied plain-text passwords work? */
         r = user_record_test_secret(h, secret);
@@ -70,19 +78,12 @@ int user_record_authenticate(
                 return 1;
         }
 
-        /* Second, let's see if any of the PKCS#11 security tokens are plugged in and help us */
+        /* Second, test cached PKCS#11 passwords */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
-#if HAVE_P11KIT
-                _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
-                        .user_record = h,
-                        .secret = secret,
-                        .encrypted_key = h->pkcs11_encrypted_key + n,
-                };
                 char **pp;
 
-                /* See if any of the previously calculated passwords work */
-                STRV_FOREACH(pp, *pkcs11_decrypted_passwords) {
-                        r = test_password_one(data.encrypted_key->hashed_password, *pp);
+                STRV_FOREACH(pp, cache->pkcs11_passwords) {
+                        r = test_password_one(h->pkcs11_encrypted_key[n].hashed_password, *pp);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to check supplied PKCS#11 password: %m");
                         if (r > 0) {
@@ -90,6 +91,32 @@ int user_record_authenticate(
                                 return 1;
                         }
                 }
+        }
+
+        /* Third, test cached FIDO2 passwords */
+        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++) {
+                char **pp;
+
+                /* See if any of the previously calculated passwords work */
+                STRV_FOREACH(pp, cache->fido2_passwords) {
+                        r = test_password_one(h->fido2_hmac_salt[n].hashed_password, *pp);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check supplied FIDO2 password: %m");
+                        if (r > 0) {
+                                log_info("Previously acquired FIDO2 password unlocks user record.");
+                                return 0;
+                        }
+                }
+        }
+
+        /* Fourth, let's see if any of the PKCS#11 security tokens are plugged in and help us */
+        for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
+#if HAVE_P11KIT
+                _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
+                        .user_record = h,
+                        .secret = secret,
+                        .encrypted_key = h->pkcs11_encrypted_key + n,
+                };
 
                 r = pkcs11_find_token(data.encrypted_key->uri, pkcs11_callback, &data);
                 switch (r) {
@@ -126,7 +153,56 @@ int user_record_authenticate(
 
                         log_info("Decrypted password from PKCS#11 security token %s unlocks user record.", data.encrypted_key->uri);
 
-                        r = strv_extend(pkcs11_decrypted_passwords, data.decrypted_password);
+                        r = strv_extend(&cache->pkcs11_passwords, data.decrypted_password);
+                        if (r < 0)
+                                return log_oom();
+
+                        return 0;
+                }
+#else
+                need_token = true;
+                break;
+#endif
+        }
+
+        /* Fifth, let's see if any of the FIDO2 security tokens are plugged in and help us */
+        for (size_t n = 0; n < h->n_fido2_hmac_salt; n++) {
+#if HAVE_LIBFIDO2
+                _cleanup_(erase_and_freep) char *decrypted_password = NULL;
+
+                r = fido2_use_token(h, secret, h->fido2_hmac_salt + n, &decrypted_password);
+                switch (r) {
+                case -EAGAIN:
+                        need_token = true;
+                        break;
+                case -ENOANO:
+                        need_pin = true;
+                        break;
+                case -EOWNERDEAD:
+                        pin_locked = true;
+                        break;
+                case -ENOLCK:
+                        pin_incorrect = true;
+                        break;
+                case -EMEDIUMTYPE:
+                        need_user_presence_permitted = true;
+                        break;
+                case -ENOSTR:
+                        token_action_timeout = true;
+                        break;
+                default:
+                        if (r < 0)
+                                return r;
+
+                        r = test_password_one(h->fido2_hmac_salt[n].hashed_password, decrypted_password);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to test FIDO2 password: %m");
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Configured FIDO2 security token does not decrypt encrypted key correctly.");
+
+                        log_info("Decrypted password from FIDO2 security token unlocks user record.");
+
+                        r = strv_extend(&cache->fido2_passwords, decrypted_password);
                         if (r < 0)
                                 return log_oom();
 
@@ -147,8 +223,12 @@ int user_record_authenticate(
                 return -ENOLCK;
         if (pin_locked)
                 return -EOWNERDEAD;
+        if (token_action_timeout)
+                return -ENOSTR;
         if (need_protected_authentication_path_permitted)
                 return -ERFKILL;
+        if (need_user_presence_permitted)
+                return -EMEDIUMTYPE;
         if (need_pin)
                 return -ENOANO;
         if (need_token)
@@ -156,10 +236,11 @@ int user_record_authenticate(
         if (need_password)
                 return -ENOKEY;
 
-        /* Hmm, this means neither PCKS#11 nor classic hashed passwords were supplied, we cannot authenticate this reasonably */
+        /* Hmm, this means neither PCKS#11/FIDO2 nor classic hashed passwords were supplied, we cannot
+         * authenticate this reasonably */
         if (strict_verify)
                 return log_debug_errno(SYNTHETIC_ERRNO(EKEYREVOKED),
-                                       "No hashed passwords and no PKCS#11 tokens defined, cannot authenticate user record, refusing.");
+                                       "No hashed passwords and no PKCS#11/FIDO2 tokens defined, cannot authenticate user record, refusing.");
 
         /* If strict verification is off this means we are possibly in the case where we encountered an
          * unfixated record, i.e. a synthetic one that accordingly lacks any authentication data. In this
@@ -230,7 +311,7 @@ int home_setup_undo(HomeSetup *setup) {
 int home_prepare(
                 UserRecord *h,
                 bool already_activated,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 HomeSetup *setup,
                 UserRecord **ret_header_home) {
 
@@ -249,7 +330,7 @@ int home_prepare(
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_prepare_luks(h, already_activated, NULL, pkcs11_decrypted_passwords, setup, ret_header_home);
+                return home_prepare_luks(h, already_activated, NULL, cache, setup, ret_header_home);
 
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
@@ -257,7 +338,7 @@ int home_prepare(
                 break;
 
         case USER_FSCRYPT:
-                r = home_prepare_fscrypt(h, already_activated, pkcs11_decrypted_passwords, setup);
+                r = home_prepare_fscrypt(h, already_activated, cache, setup);
                 break;
 
         case USER_CIFS:
@@ -387,7 +468,7 @@ int home_load_embedded_identity(
                 int root_fd,
                 UserRecord *header_home,
                 UserReconcileMode mode,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 UserRecord **ret_embedded_home,
                 UserRecord **ret_new_home) {
 
@@ -414,7 +495,7 @@ int home_load_embedded_identity(
                 return log_error_errno(SYNTHETIC_ERRNO(EREMCHG), "Embedded home record not compatible with host record, refusing.");
 
         /* Insist that credentials the user supplies also unlocks any embedded records. */
-        r = user_record_authenticate(embedded_home, h, pkcs11_decrypted_passwords, /* strict_verify= */ true);
+        r = user_record_authenticate(embedded_home, h, cache, /* strict_verify= */ true);
         if (r < 0)
                 return r;
         assert(r > 0); /* Insist that a password was verified */
@@ -576,7 +657,7 @@ int home_refresh(
                 UserRecord *h,
                 HomeSetup *setup,
                 UserRecord *header_home,
-                char ***pkcs11_decrypted_passwords,
+                PasswordCache *cache,
                 struct statfs *ret_statfs,
                 UserRecord **ret_new_home) {
 
@@ -590,7 +671,7 @@ int home_refresh(
         /* When activating a home directory, does the identity work: loads the identity from the $HOME
          * directory, reconciles it with our idea, chown()s everything. */
 
-        r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, pkcs11_decrypted_passwords, &embedded_home, &new_home);
+        r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
         if (r < 0)
                 return r;
 
@@ -615,7 +696,7 @@ int home_refresh(
 }
 
 static int home_activate(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(strv_free_erasep) char **pkcs11_decrypted_passwords = NULL;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         int r;
 
@@ -628,7 +709,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Activating home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ false);
+        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ false);
         if (r < 0)
                 return r;
 
@@ -647,7 +728,7 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_activate_luks(h, &pkcs11_decrypted_passwords, &new_home);
+                r = home_activate_luks(h, &cache, &new_home);
                 if (r < 0)
                         return r;
 
@@ -656,14 +737,14 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
         case USER_SUBVOLUME:
         case USER_DIRECTORY:
         case USER_FSCRYPT:
-                r = home_activate_directory(h, &pkcs11_decrypted_passwords, &new_home);
+                r = home_activate_directory(h, &cache, &new_home);
                 if (r < 0)
                         return r;
 
                 break;
 
         case USER_CIFS:
-                r = home_activate_cifs(h, &pkcs11_decrypted_passwords, &new_home);
+                r = home_activate_cifs(h, &cache, &new_home);
                 if (r < 0)
                         return r;
 
@@ -783,15 +864,16 @@ int home_populate(UserRecord *h, int dir_fd) {
 
 static int user_record_compile_effective_passwords(
                 UserRecord *h,
-                char ***ret_effective_passwords,
-                char ***ret_pkcs11_decrypted_passwords) {
+                PasswordCache *cache,
+                char ***ret_effective_passwords) {
 
-        _cleanup_(strv_free_erasep) char **effective = NULL, **pkcs11_passwords = NULL;
+        _cleanup_(strv_free_erasep) char **effective = NULL;
         size_t n;
         char **i;
         int r;
 
         assert(h);
+        assert(cache);
 
         /* We insist on at least one classic hashed password to be defined in addition to any PKCS#11 one, as
          * a safe fallback, but also to simplify the password changing algorithm: there we require providing
@@ -858,11 +940,37 @@ static int user_record_compile_effective_passwords(
                                 return log_oom();
                 }
 
-                if (ret_pkcs11_decrypted_passwords) {
-                        r = strv_extend(&pkcs11_passwords, data.decrypted_password);
+                r = strv_extend(&cache->pkcs11_passwords, data.decrypted_password);
+                if (r < 0)
+                        return log_oom();
+#else
+                return -EBADSLT;
+#endif
+        }
+
+        for (n = 0; n < h->n_fido2_hmac_salt; n++) {
+#if HAVE_LIBFIDO2
+                _cleanup_(erase_and_freep) char *decrypted_password = NULL;
+
+                r = fido2_use_token(h, h, h->fido2_hmac_salt + n, &decrypted_password);
+                if (r < 0)
+                        return r;
+
+                r = test_password_one(h->fido2_hmac_salt[n].hashed_password, decrypted_password);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to test FIDO2 password: %m");
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Decrypted password from token is not correct, refusing.");
+
+                if (ret_effective_passwords) {
+                        r = strv_extend(&effective, decrypted_password);
                         if (r < 0)
                                 return log_oom();
                 }
+
+                r = strv_extend(&cache->fido2_passwords, decrypted_password);
+                if (r < 0)
+                        return log_oom();
 #else
                 return -EBADSLT;
 #endif
@@ -870,8 +978,6 @@ static int user_record_compile_effective_passwords(
 
         if (ret_effective_passwords)
                 *ret_effective_passwords = TAKE_PTR(effective);
-        if (ret_pkcs11_decrypted_passwords)
-                *ret_pkcs11_decrypted_passwords = TAKE_PTR(pkcs11_passwords);
 
         return 0;
 }
@@ -934,8 +1040,9 @@ static int determine_default_storage(UserStorage *ret) {
 }
 
 static int home_create(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(strv_free_erasep) char **effective_passwords = NULL, **pkcs11_decrypted_passwords = NULL;
+        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         UserStorage new_storage = _USER_STORAGE_INVALID;
         const char *new_fs = NULL;
         int r;
@@ -947,7 +1054,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
         if (!uid_is_valid(h->uid))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks UID, refusing.");
 
-        r = user_record_compile_effective_passwords(h, &effective_passwords, &pkcs11_decrypted_passwords);
+        r = user_record_compile_effective_passwords(h, &cache, &effective_passwords);
         if (r < 0)
                 return r;
 
@@ -996,7 +1103,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_create_luks(h, pkcs11_decrypted_passwords, effective_passwords, &new_home);
+                r = home_create_luks(h, &cache, effective_passwords, &new_home);
                 break;
 
         case USER_DIRECTORY:
@@ -1182,15 +1289,15 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup) {
 
 static int home_update(UserRecord *h, UserRecord **ret) {
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
-        _cleanup_(strv_free_erasep) char **pkcs11_decrypted_passwords = NULL;
         _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         bool already_activated = false;
         int r;
 
         assert(h);
         assert(ret);
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ true);
+        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
         if (r < 0)
                 return r;
         assert(r > 0); /* Insist that a password was verified */
@@ -1201,11 +1308,11 @@ static int home_update(UserRecord *h, UserRecord **ret) {
 
         already_activated = r > 0;
 
-        r = home_prepare(h, already_activated, &pkcs11_decrypted_passwords, &setup, &header_home);
+        r = home_prepare(h, already_activated, &cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER, &pkcs11_decrypted_passwords, &embedded_home, &new_home);
+        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER, &cache, &embedded_home, &new_home);
         if (r < 0)
                 return r;
 
@@ -1237,7 +1344,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
 
 static int home_resize(UserRecord *h, UserRecord **ret) {
         _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(strv_free_erasep) char **pkcs11_decrypted_passwords = NULL;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         bool already_activated = false;
         int r;
 
@@ -1247,7 +1354,7 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
         if (h->disk_size == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No target size specified, refusing.");
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ true);
+        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
         if (r < 0)
                 return r;
         assert(r > 0); /* Insist that a password was verified */
@@ -1261,12 +1368,12 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                return home_resize_luks(h, already_activated, &pkcs11_decrypted_passwords, &setup, ret);
+                return home_resize_luks(h, already_activated, &cache, &setup, ret);
 
         case USER_DIRECTORY:
         case USER_SUBVOLUME:
         case USER_FSCRYPT:
-                return home_resize_directory(h, already_activated, &pkcs11_decrypted_passwords, &setup, ret);
+                return home_resize_directory(h, already_activated, &cache, &setup, ret);
 
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Resizing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
@@ -1275,8 +1382,9 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
 
 static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
-        _cleanup_(strv_free_erasep) char **effective_passwords = NULL, **pkcs11_decrypted_passwords = NULL;
+        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
         _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         bool already_activated = false;
         int r;
 
@@ -1286,7 +1394,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Changing password of home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
 
-        r = user_record_compile_effective_passwords(h, &effective_passwords, &pkcs11_decrypted_passwords);
+        r = user_record_compile_effective_passwords(h, &cache, &effective_passwords);
         if (r < 0)
                 return r;
 
@@ -1296,24 +1404,24 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
 
         already_activated = r > 0;
 
-        r = home_prepare(h, already_activated, &pkcs11_decrypted_passwords, &setup, &header_home);
+        r = home_prepare(h, already_activated, &cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &pkcs11_decrypted_passwords, &embedded_home, &new_home);
+        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
         if (r < 0)
                 return r;
 
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                r = home_passwd_luks(h, &setup, pkcs11_decrypted_passwords, effective_passwords);
+                r = home_passwd_luks(h, &setup, &cache, effective_passwords);
                 if (r < 0)
                         return r;
                 break;
 
         case USER_FSCRYPT:
-                r = home_passwd_fscrypt(h, &setup, pkcs11_decrypted_passwords, effective_passwords);
+                r = home_passwd_fscrypt(h, &setup, &cache, effective_passwords);
                 if (r < 0)
                         return r;
                 break;
@@ -1351,14 +1459,14 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
 static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *new_home = NULL;
         _cleanup_(home_setup_undo) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(strv_free_erasep) char **pkcs11_decrypted_passwords = NULL;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         bool already_activated = false;
         int r;
 
         assert(h);
         assert(ret_home);
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ false);
+        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ false);
         if (r < 0)
                 return r;
 
@@ -1368,11 +1476,11 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
 
         already_activated = r > 0;
 
-        r = home_prepare(h, already_activated, &pkcs11_decrypted_passwords, &setup, &header_home);
+        r = home_prepare(h, already_activated, &cache, &setup, &header_home);
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_ANY, &pkcs11_decrypted_passwords, NULL, &new_home);
+        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_ANY, &cache, NULL, &new_home);
         if (r < 0)
                 return r;
 
@@ -1415,7 +1523,7 @@ static int home_lock(UserRecord *h) {
 }
 
 static int home_unlock(UserRecord *h) {
-        _cleanup_(strv_free_erasep) char **pkcs11_decrypted_passwords = NULL;
+        _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
         assert(h);
@@ -1428,11 +1536,11 @@ static int home_unlock(UserRecord *h) {
         /* Note that we don't check if $HOME is actually mounted, since we want to avoid disk accesses on
          * that mount until we have resumed the device. */
 
-        r = user_record_authenticate(h, h, &pkcs11_decrypted_passwords, /* strict_verify= */ false);
+        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ false);
         if (r < 0)
                 return r;
 
-        r = home_unlock_luks(h, &pkcs11_decrypted_passwords);
+        r = home_unlock_luks(h, &cache);
         if (r < 0)
                 return r;
 
@@ -1495,10 +1603,12 @@ static int run(int argc, char *argv[]) {
          * ESOCKTNOSUPPORT → operation not support on this file system
          * ENOKEY          → password incorrect (or not sufficient, or not supplied)
          * EBADSLT         → similar, but PKCS#11 device is defined and might be able to provide password, if it was plugged in which it is not
-         * ENOANO          → suitable PKCS#11 device found, but PIN is missing to unlock it
+         * ENOANO          → suitable PKCS#11/FIDO2 device found, but PIN is missing to unlock it
          * ERFKILL         → suitable PKCS#11 device found, but OK to ask for on-device interactive authentication not given
-         * EOWNERDEAD      → suitable PKCS#11 device found, but its PIN is locked
-         * ENOLCK          → suitable PKCS#11 device found, but PIN incorrect
+         * EMEDIUMTYPE     → suitable FIDO2 device found, but OK to ask for user presence not given
+         * ENOSTR          → suitable FIDO2 device found, but user didn't react to action request on token quickly enough
+         * EOWNERDEAD      → suitable PKCS#11/FIDO2 device found, but its PIN is locked
+         * ENOLCK          → suitable PKCS#11/FIDO2 device found, but PIN incorrect
          * ETOOMANYREFS    → suitable PKCS#11 device found, but PIN incorrect, and only few tries left
          * EUCLEAN         → suitable PKCS#11 device found, but PIN incorrect, and only one try left
          * EBUSY           → file system is currently active

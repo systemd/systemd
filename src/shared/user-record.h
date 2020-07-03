@@ -189,6 +189,23 @@ typedef struct Pkcs11EncryptedKey {
         char *hashed_password;
 } Pkcs11EncryptedKey;
 
+typedef struct Fido2HmacCredential {
+        void *id;
+        size_t size;
+} Fido2HmacCredential;
+
+typedef struct Fido2HmacSalt {
+        /* The FIDO2 Cridential ID to use */
+        Fido2HmacCredential credential;
+
+        /* The FIDO2 salt value */
+        void *salt;
+        size_t salt_size;
+
+        /* What to test the hashed salt value against, usualy UNIX password hash here. */
+        char *hashed_password;
+} Fido2HmacSalt;
+
 typedef struct UserRecord {
         /* The following three fields are not part of the JSON record */
         unsigned n_ref;
@@ -239,7 +256,7 @@ typedef struct UserRecord {
         char **hashed_password;
         char **ssh_authorized_keys;
         char **password;
-        char **pkcs11_pin;
+        char **token_pin;
 
         char *cifs_domain;
         char *cifs_user_name;
@@ -308,6 +325,12 @@ typedef struct UserRecord {
         Pkcs11EncryptedKey *pkcs11_encrypted_key;
         size_t n_pkcs11_encrypted_key;
         int pkcs11_protected_authentication_path_permitted;
+
+        Fido2HmacCredential *fido2_hmac_credential;
+        size_t n_fido2_hmac_credential;
+        Fido2HmacSalt *fido2_hmac_salt;
+        size_t n_fido2_hmac_salt;
+        int fido2_user_presence_permitted;
 
         JsonVariant *json;
 } UserRecord;

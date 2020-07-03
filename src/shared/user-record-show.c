@@ -472,9 +472,12 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
                 STRV_FOREACH(i, hr->pkcs11_token_uri)
                         printf(i == hr->pkcs11_token_uri ?
-                               "  Sec. Token: %s\n" :
+                               "PKCS11 Token: %s\n" :
                                "              %s\n", *i);
         }
+
+        if (hr->n_fido2_hmac_credential > 0)
+                printf(" FIDO2 Token: %zu\n", hr->n_fido2_hmac_credential);
 
         k = strv_length(hr->hashed_password);
         if (k == 0)

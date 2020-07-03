@@ -538,6 +538,12 @@ static inline int __coverity_check_and_return__(int condition) {
                 (y) = (_t);                        \
         } while (false)
 
+/* Iterates through a specified list of pointers. Accepts NULL pointers, but uses (void*) -1 as internal marker for EOL. */
+#define FOREACH_POINTER(p, x, ...)                                                      \
+        for (typeof(p) *_l = (typeof(p)[]) { ({ p = x; }), ##__VA_ARGS__, (void*) -1 }; \
+             p != (typeof(p)) (void*) -1;                                               \
+             p = *(++_l))
+
 /* Define C11 thread_local attribute even on older gcc compiler
  * version */
 #ifndef thread_local

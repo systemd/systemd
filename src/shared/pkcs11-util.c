@@ -151,6 +151,28 @@ char *pkcs11_token_label(const CK_TOKEN_INFO *token_info) {
         return t;
 }
 
+char *pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info) {
+        char *t;
+
+        t = strndup((char*) token_info->manufacturerID, sizeof(token_info->manufacturerID));
+        if (!t)
+                return NULL;
+
+        strstrip(t);
+        return t;
+}
+
+char *pkcs11_token_model(const CK_TOKEN_INFO *token_info) {
+        char *t;
+
+        t = strndup((char*) token_info->model, sizeof(token_info->model));
+        if (!t)
+                return NULL;
+
+        strstrip(t);
+        return t;
+}
+
 int pkcs11_token_login(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,
@@ -165,9 +187,8 @@ int pkcs11_token_login(
         _cleanup_free_ char *token_uri_string = NULL, *token_uri_escaped = NULL, *id = NULL, *token_label = NULL;
         _cleanup_(p11_kit_uri_freep) P11KitUri *token_uri = NULL;
         CK_TOKEN_INFO updated_token_info;
-        int uri_result;
+        int uri_result, r;
         CK_RV rv;
-        int r;
 
         assert(m);
         assert(token_info);
@@ -211,27 +232,7 @@ int pkcs11_token_login(
 
         for (unsigned tries = 0; tries < 3; tries++) {
                 _cleanup_strv_free_erase_ char **passwords = NULL;
-                _cleanup_free_ char *text = NULL;
                 char **i, *e;
-
-                if (FLAGS_SET(token_info->flags, CKF_USER_PIN_FINAL_TRY))
-                        r = asprintf(&text,
-                                     "Please enter correct PIN for security token '%s' in order to unlock %s (final try):",
-                                     token_label, friendly_name);
-                else if (FLAGS_SET(token_info->flags, CKF_USER_PIN_COUNT_LOW))
-                        r = asprintf(&text,
-                                     "PIN has been entered incorrectly previously, please enter correct PIN for security token '%s' in order to unlock %s:",
-                                     token_label, friendly_name);
-                else if (tries == 0)
-                        r = asprintf(&text,
-                                     "Please enter PIN for security token '%s' in order to unlock %s:",
-                                     token_label, friendly_name);
-                else
-                        r = asprintf(&text,
-                                     "Please enter PIN for security token '%s' in order to unlock %s (try #%u):",
-                                     token_label, friendly_name, tries+1);
-                if (r < 0)
-                        return log_oom();
 
                 e = getenv("PIN");
                 if (e) {
@@ -243,6 +244,27 @@ int pkcs11_token_login(
                         if (unsetenv("PIN") < 0)
                                 return log_error_errno(errno, "Failed to unset $PIN: %m");
                 } else {
+                        _cleanup_free_ char *text = NULL;
+
+                        if (FLAGS_SET(token_info->flags, CKF_USER_PIN_FINAL_TRY))
+                                r = asprintf(&text,
+                                             "Please enter correct PIN for security token '%s' in order to unlock %s (final try):",
+                                             token_label, friendly_name);
+                        else if (FLAGS_SET(token_info->flags, CKF_USER_PIN_COUNT_LOW))
+                                r = asprintf(&text,
+                                             "PIN has been entered incorrectly previously, please enter correct PIN for security token '%s' in order to unlock %s:",
+                                             token_label, friendly_name);
+                        else if (tries == 0)
+                                r = asprintf(&text,
+                                             "Please enter PIN for security token '%s' in order to unlock %s:",
+                                             token_label, friendly_name);
+                        else
+                                r = asprintf(&text,
+                                             "Please enter PIN for security token '%s' in order to unlock %s (try #%u):",
+                                             token_label, friendly_name, tries+1);
+                        if (r < 0)
+                                return log_oom();
+
                         /* We never cache PINs, simply because it's fatal if we use wrong PINs, since usually there are only 3 tries */
                         r = ask_password_auto(text, icon_name, id, keyname, until, 0, &passwords);
                         if (r < 0)
@@ -702,7 +724,6 @@ static int token_process(
         assert(m);
         assert(slot_info);
         assert(token_info);
-        assert(search_uri);
 
         token_label = pkcs11_token_label(token_info);
         if (!token_label)
@@ -740,7 +761,6 @@ static int slot_process(
         CK_RV rv;
 
         assert(m);
-        assert(search_uri);
 
         /* We return -EAGAIN for all failures we can attribute to a specific slot in some way, so that the
          * caller might try other slots before giving up. */
@@ -786,7 +806,7 @@ static int slot_process(
                 return -EAGAIN;
         }
 
-        if (!p11_kit_uri_match_token_info(search_uri, &token_info)) {
+        if (search_uri && !p11_kit_uri_match_token_info(search_uri, &token_info)) {
                 log_debug("Found non-matching token with URI %s.", token_uri_string);
                 return -EAGAIN;
         }
@@ -820,7 +840,6 @@ static int module_process(
         int r;
 
         assert(m);
-        assert(search_uri);
 
         /* We ignore most errors from modules here, in order to skip over faulty modules: one faulty module
          * should not have the effect that we don't try the others anymore. We indicate such per-module
@@ -883,14 +902,14 @@ int pkcs11_find_token(
         _cleanup_(p11_kit_uri_freep) P11KitUri *search_uri = NULL;
         int r;
 
-        assert(pkcs11_uri);
-
         /* Execute the specified callback for each matching token found. If nothing is found returns
          * -EAGAIN. Logs about all errors, except for EAGAIN, which the caller has to log about. */
 
-        r = uri_from_string(pkcs11_uri, &search_uri);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse PKCS#11 URI '%s': %m", pkcs11_uri);
+        if (pkcs11_uri) {
+                r = uri_from_string(pkcs11_uri, &search_uri);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse PKCS#11 URI '%s': %m", pkcs11_uri);
+        }
 
         modules = p11_kit_modules_load_and_initialize(0);
         if (!modules)

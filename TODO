@@ -150,8 +150,8 @@ Features:
   thus allows defining OS images which can be A/B updated and we default to the
   newest version automatically, both in nspawn and in sd-boot
 
-* cryptsetup/homed: also support FIDO2 HMAC password logic for unlocking
-  devices. (see: https://github.com/mjec/fido2-hmac-secret)
+* cryptsetup: support FIDO2 tokens for deriving keys (i.e. do what homed can do
+  also in plain cryptsetup)
 
 * systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
   creates

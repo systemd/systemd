@@ -27,6 +27,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(CK_FUNCTION_LIST**, p11_kit_modules_finalize_and_rel
 CK_RV pkcs11_get_slot_list_malloc(CK_FUNCTION_LIST *m, CK_SLOT_ID **ret_slotids, CK_ULONG *ret_n_slotids);
 
 char *pkcs11_token_label(const CK_TOKEN_INFO *token_info);
+char *pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info);
+char *pkcs11_token_model(const CK_TOKEN_INFO *token_info);
 
 int pkcs11_token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_SLOT_ID slotid, const CK_TOKEN_INFO *token_info, const char *friendly_name, const char *icon_name, const char *keyname, usec_t until, char **ret_used_pin);
 

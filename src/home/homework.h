@@ -36,6 +36,14 @@ typedef struct HomeSetup {
         uint64_t partition_size;
 } HomeSetup;
 
+typedef struct PasswordCache {
+        /* Decoding passwords from security tokens is expensive and typically requires user interaction, hence cache any we already figured out. */
+        char **pkcs11_passwords;
+        char **fido2_passwords;
+} PasswordCache;
+
+void password_cache_free(PasswordCache *cache);
+
 #define HOME_SETUP_INIT                                 \
         {                                               \
                 .root_fd = -1,                          \
@@ -46,16 +54,16 @@ typedef struct HomeSetup {
 
 int home_setup_undo(HomeSetup *setup);
 
-int home_prepare(UserRecord *h, bool already_activated, char ***pkcs11_decrypted_passwords, HomeSetup *setup, UserRecord **ret_header_home);
+int home_prepare(UserRecord *h, bool already_activated, PasswordCache *cache, HomeSetup *setup, UserRecord **ret_header_home);
 
-int home_refresh(UserRecord *h, HomeSetup *setup, UserRecord *header_home, char ***pkcs11_decrypted_passwords, struct statfs *ret_statfs, UserRecord **ret_new_home);
+int home_refresh(UserRecord *h, HomeSetup *setup, UserRecord *header_home, PasswordCache *cache, struct statfs *ret_statfs, UserRecord **ret_new_home);
 
 int home_populate(UserRecord *h, int dir_fd);
 
-int home_load_embedded_identity(UserRecord *h, int root_fd, UserRecord *header_home, UserReconcileMode mode, char ***pkcs11_decrypted_passwords, UserRecord **ret_embedded_home, UserRecord **ret_new_home);
+int home_load_embedded_identity(UserRecord *h, int root_fd, UserRecord *header_home, UserReconcileMode mode, PasswordCache *cache, UserRecord **ret_embedded_home, UserRecord **ret_new_home);
 int home_store_embedded_identity(UserRecord *h, int root_fd, uid_t uid, UserRecord *old_home);
 int home_extend_embedded_identity(UserRecord *h, UserRecord *used, HomeSetup *setup);
 
-int user_record_authenticate(UserRecord *h, UserRecord *secret, char ***pkcs11_decrypted_passwords, bool strict_verify);
+int user_record_authenticate(UserRecord *h, UserRecord *secret, PasswordCache *cache, bool strict_verify);
 
 int home_sync_and_statfs(int root_fd, struct statfs *ret);

@@ -359,7 +359,7 @@ static int handle_generic_user_record_error(
                         return PAM_AUTHTOK_ERR;
                 }
 
-                r = user_record_set_pkcs11_pin(secret, STRV_MAKE(newp), false);
+                r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
@@ -375,6 +375,21 @@ static int handle_generic_user_record_error(
                         return PAM_SERVICE_ERR;
                 }
 
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_USER_PRESENCE_NEEDED)) {
+
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Please verify presence on security token of user %s.", user_name);
+
+                r = user_record_set_fido2_user_presence_permitted(secret, true);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set FIDO2 user presence permitted flag: %s", strerror_safe(r));
+                        return PAM_SERVICE_ERR;
+                }
+
+        } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_PIN_LOCKED)) {
+
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)");
+                return PAM_SERVICE_ERR;
+
         } else if (sd_bus_error_has_name(error, BUS_ERROR_TOKEN_BAD_PIN)) {
                 _cleanup_(erase_and_freep) char *newp = NULL;
 
@@ -388,7 +403,7 @@ static int handle_generic_user_record_error(
                         return PAM_AUTHTOK_ERR;
                 }
 
-                r = user_record_set_pkcs11_pin(secret, STRV_MAKE(newp), false);
+                r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
@@ -407,7 +422,7 @@ static int handle_generic_user_record_error(
                         return PAM_AUTHTOK_ERR;
                 }
 
-                r = user_record_set_pkcs11_pin(secret, STRV_MAKE(newp), false);
+                r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
@@ -426,7 +441,7 @@ static int handle_generic_user_record_error(
                         return PAM_AUTHTOK_ERR;
                 }
 
-                r = user_record_set_pkcs11_pin(secret, STRV_MAKE(newp), false);
+                r = user_record_set_token_pin(secret, STRV_MAKE(newp), false);
                 if (r < 0) {
                         pam_syslog(handle, LOG_ERR, "Failed to store PIN: %s", strerror_safe(r));
                         return PAM_SERVICE_ERR;
