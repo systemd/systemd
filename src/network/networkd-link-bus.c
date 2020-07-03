@@ -14,6 +14,7 @@
 #include "networkd-manager.h"
 #include "parse-util.h"
 #include "resolve-util.h"
+#include "socket-netlink.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -114,7 +115,7 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
 }
 
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ struct in_addr_data *dns = NULL;
+        struct in_addr_full **dns = NULL;
         size_t allocated = 0, n = 0;
         Link *l = userdata;
         int r;
@@ -131,6 +132,7 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                 return r;
 
         for (;;) {
+                union in_addr_union a;
                 int family;
                 size_t sz;
                 const void *d;
@@ -139,50 +141,67 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
 
                 r = sd_bus_message_enter_container(message, 'r', "iay");
                 if (r < 0)
-                        return r;
+                        goto finalize;
                 if (r == 0)
                         break;
 
                 r = sd_bus_message_read(message, "i", &family);
                 if (r < 0)
-                        return r;
+                        goto finalize;
 
-                if (!IN_SET(family, AF_INET, AF_INET6))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
+                if (!IN_SET(family, AF_INET, AF_INET6)) {
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
+                        goto finalize;
+                }
 
                 r = sd_bus_message_read_array(message, 'y', &d, &sz);
                 if (r < 0)
-                        return r;
-                if (sz != FAMILY_ADDRESS_SIZE(family))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
+                        goto finalize;
+                if (sz != FAMILY_ADDRESS_SIZE(family)) {
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
+                        goto finalize;
+                }
 
-                if (!dns_server_address_valid(family, d))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+                if (!dns_server_address_valid(family, d)) {
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+                        goto finalize;
+                }
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
-                        return r;
+                        goto finalize;
 
-                if (!GREEDY_REALLOC(dns, allocated, n+1))
-                        return -ENOMEM;
+                if (!GREEDY_REALLOC(dns, allocated, n+1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
 
-                dns[n].family = family;
-                memcpy(&dns[n].address, d, sz);
+                memcpy(&a, d, sz);
+                r = in_addr_full_new(family, &a, 0, 0, NULL, dns + n);
+                if (r < 0)
+                        goto finalize;
+
                 n++;
         }
 
         r = sd_bus_message_exit_container(message);
         if (r < 0)
-                return r;
+                goto finalize;
 
         r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
                                     "org.freedesktop.network1.set-dns-servers",
                                     NULL, true, UID_INVALID,
                                     &l->manager->polkit_registry, error);
         if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Polkit will call us back */
+                goto finalize;
+        if (r == 0) {
+                r = 1; /* Polkit will call us back */
+                goto finalize;
+        }
+
+        if (l->n_dns != (unsigned) -1)
+                for (unsigned i = 0; i < l->n_dns; i++)
+                        in_addr_full_free(l->dns[i]);
 
         free_and_replace(l->dns, dns);
         l->n_dns = n;
@@ -190,6 +209,13 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         (void) link_dirty(l);
 
         return sd_bus_reply_method_return(message, NULL);
+
+finalize:
+        for (size_t i = 0; i < n; i++)
+                in_addr_full_free(dns[i]);
+        free(dns);
+
+        return r;
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {

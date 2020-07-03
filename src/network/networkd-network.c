@@ -682,6 +682,8 @@ static Network *network_free(Network *network) {
                 sd_ipv4acd_unref(network->dhcp_acd);
 
         strv_free(network->ntp);
+        for (unsigned i = 0; i < network->n_dns; i++)
+                in_addr_full_free(network->dns[i]);
         free(network->dns);
         ordered_set_free_free(network->search_domains);
         ordered_set_free_free(network->route_domains);
@@ -1194,16 +1196,17 @@ int config_parse_dns(
         assert(rvalue);
 
         if (isempty(rvalue)) {
+                for (unsigned i = 0; i < n->n_dns; i++)
+                        in_addr_full_free(n->dns[i]);
                 n->dns = mfree(n->dns);
                 n->n_dns = 0;
                 return 0;
         }
 
         for (const char *p = rvalue;;) {
+                _cleanup_(in_addr_full_freep) struct in_addr_full *dns = NULL;
                 _cleanup_free_ char *w = NULL;
-                union in_addr_union a;
-                struct in_addr_data *m;
-                int family;
+                struct in_addr_full **m;
 
                 r = extract_first_word(&p, &w, NULL, 0);
                 if (r == -ENOMEM)
@@ -1216,22 +1219,21 @@ int config_parse_dns(
                 if (r == 0)
                         return 0;
 
-                r = in_addr_from_string_auto(w, &family, &a);
+                r = in_addr_full_new_from_string(w, &dns);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse dns server address, ignoring: %s", w);
                         continue;
                 }
 
-                m = reallocarray(n->dns, n->n_dns + 1, sizeof(struct in_addr_data));
+                if (IN_SET(dns->port, 53, 853))
+                        dns->port = 0;
+
+                m = reallocarray(n->dns, n->n_dns + 1, sizeof(struct in_addr_full*));
                 if (!m)
                         return log_oom();
 
-                m[n->n_dns++] = (struct in_addr_data) {
-                        .family = family,
-                        .address = a,
-                };
-
+                m[n->n_dns++] = TAKE_PTR(dns);
                 n->dns = m;
         }
 }

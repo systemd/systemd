@@ -463,10 +463,10 @@ static int radv_get_ip6dns(Network *network, struct in6_addr **dns,
         for (i = 0; i < network->n_dns; i++) {
                 union in_addr_union *addr;
 
-                if (network->dns[i].family != AF_INET6)
+                if (network->dns[i]->family != AF_INET6)
                         continue;
 
-                addr = &network->dns[i].address;
+                addr = &network->dns[i]->address;
 
                 if (in_addr_is_null(AF_INET6, addr) ||
                     in_addr_is_link_local(AF_INET6, addr) ||
