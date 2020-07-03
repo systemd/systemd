@@ -151,6 +151,10 @@ static int bus_method_set_link_dns_servers(sd_bus_message *message, void *userda
         return call_link_method(userdata, message, bus_link_method_set_dns_servers, error);
 }
 
+static int bus_method_set_link_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_set_dns_servers_ex, error);
+}
+
 static int bus_method_set_link_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return call_link_method(userdata, message, bus_link_method_set_domains, error);
 }
@@ -243,6 +247,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("GetLinkByIndex", "i", "so", method_get_link_by_index, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkNTP", "ias", NULL, bus_method_set_link_ntp_servers, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkDNS", "ia(iay)", NULL, bus_method_set_link_dns_servers, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDNSEx", "ia(iayqs)", NULL, bus_method_set_link_dns_servers_ex, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkDefaultRoute", "ib", NULL, bus_method_set_link_default_route, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkLLMNR", "is", NULL, bus_method_set_link_llmnr, SD_BUS_VTABLE_UNPRIVILEGED),

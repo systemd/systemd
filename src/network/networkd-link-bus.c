@@ -114,7 +114,7 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
         struct in_addr_full **dns = NULL;
         size_t allocated = 0, n = 0;
         Link *l = userdata;
@@ -127,19 +127,21 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(message, 'a', "(iay)");
+        r = sd_bus_message_enter_container(message, 'a', extended ? "(iayqs)" : "(iay)");
         if (r < 0)
                 return r;
 
         for (;;) {
+                const char *server_name = NULL;
                 union in_addr_union a;
+                uint16_t port = 0;
+                const void *d;
                 int family;
                 size_t sz;
-                const void *d;
 
                 assert_cc(sizeof(int) == sizeof(int32_t));
 
-                r = sd_bus_message_enter_container(message, 'r', "iay");
+                r = sd_bus_message_enter_container(message, 'r', extended ? "iayqs" : "iay");
                 if (r < 0)
                         goto finalize;
                 if (r == 0)
@@ -167,6 +169,19 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                         goto finalize;
                 }
 
+                if (extended) {
+                        r = sd_bus_message_read(message, "q", &port);
+                        if (r < 0)
+                                goto finalize;
+
+                        if (IN_SET(port, 53, 853))
+                                port = 0;
+
+                        r = sd_bus_message_read(message, "s", &server_name);
+                        if (r < 0)
+                                goto finalize;
+                }
+
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         goto finalize;
@@ -177,7 +192,7 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                 }
 
                 memcpy(&a, d, sz);
-                r = in_addr_full_new(family, &a, 0, 0, NULL, dns + n);
+                r = in_addr_full_new(family, &a, port, 0, server_name, dns + n);
                 if (r < 0)
                         goto finalize;
 
@@ -216,6 +231,14 @@ finalize:
         free(dns);
 
         return r;
+}
+
+int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, false);
+}
+
+int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, true);
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -696,6 +719,7 @@ const sd_bus_vtable link_vtable[] = {
 
         SD_BUS_METHOD("SetNTP", "as", NULL, bus_link_method_set_ntp_servers, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetDNSEx", "a(iayqs)", NULL, bus_link_method_set_dns_servers_ex, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDefaultRoute", "b", NULL, bus_link_method_set_default_route, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, SD_BUS_VTABLE_UNPRIVILEGED),
