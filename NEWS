@@ -147,6 +147,9 @@ CHANGES WITH 246 in spe:
         * networkd.conf gained a new boolean setting ManageForeignRoutes=. If
           enabled systemd-networkd manages all routes configured by other tools.
 
+        * .network files managed by systemd-networkd gained a new section
+          [SR-IOV], in order to configure SR-IOV capable network devices.
+
         * systemd-networkd's [IPv6Prefix] section in .network files gained a
           new boolean setting Assign=. If enabled an address from the prefix is
           automatically assigned to the interface.
