@@ -147,6 +147,9 @@ CHANGES WITH 246 in spe:
         * networkd.conf gained a new boolean setting ManageForeignRoutes=. If
           enabled systemd-networkd manages all routes configured by other tools.
 
+        * .network files managed by systemd-networkd gained a new section
+          [SR-IOV], in order to configure SR-IOV capable network devices.
+
         * systemd-networkd's [IPv6Prefix] section in .network files gained a
           new boolean setting Assign=. If enabled an address from the prefix is
           automatically assigned to the interface.
@@ -178,12 +181,12 @@ CHANGES WITH 246 in spe:
           traffic). DataBitRate=, DataSamplePoint=, FDMode=, FDNonISO= have
           been added to configure various CAN-FD aspects.
 
-        * systemd-networkd's [DHCPv6] section gained a new boolean option
-          WithoutRA=. When enabled, DHCPv6 will be attempted right-away without
-          requiring an Router Advertisement packet suggesting it first
-          (i.e. without the 'M' or 'O' flags set). The [IPv6AcceptRA] section
-          gained a boolean option DHCPv6Client= that may be used to turn off
-          the DHCPv6 client even if the RA packets suggest it.
+        * systemd-networkd's [DHCPv6] section gained a new option WithoutRA=.
+          When enabled, DHCPv6 will be attempted right-away without requiring an
+          Router Advertisement packet suggesting it first (i.e. without the 'M'
+          or 'O' flags set). The [IPv6AcceptRA] section gained a boolean option
+          DHCPv6Client= that may be used to turn off the DHCPv6 client even if
+          the RA packets suggest it.
 
         * systemd-networkd's [DHCPv4] section gained a new setting UseGateway=
           which may be used to turn off use of the gateway information provided
