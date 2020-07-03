@@ -53,6 +53,33 @@ systemctl start testservice-48.service
 
 systemctl is-active testservice-48.service
 
+# Stop and remove, and try again to exercise the transaction setup code path by
+# having the target pull in the unloaded but available unit
+systemctl stop testservice-48.service testservice-48.target
+rm -f /run/systemd/system/testservice-48.service /run/systemd/system/testservice-48.target
+systemctl daemon-reload
+
+sleep 3.1
+
+cat > /run/systemd/system/testservice-48.target <<EOF
+[Unit]
+Conflicts=shutdown.target
+Wants=testservice-48.service
+EOF
+
+systemctl daemon-reload
+
+systemctl start testservice-48.target
+
+cat > /run/systemd/system/testservice-48.service <<EOF
+[Service]
+ExecStart=/bin/sleep infinity
+EOF
+
+systemctl restart testservice-48.target
+
+systemctl is-active testservice-48.service
+
 echo OK > /testok
 
 exit 0
