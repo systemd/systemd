@@ -1932,11 +1932,19 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
-static bool manager_unit_cache_needs_refresh(Manager *m, Unit *u) {
-        assert(m);
+bool manager_unit_file_maybe_loadable_from_cache(Unit *u) {
+        assert(u);
 
-        return m->unit_cache_mtime > 0 &&
-                (m->unit_cache_mtime > u->fragment_loadtime || !lookup_paths_mtime_good(&m->lookup_paths, m->unit_cache_mtime));
+        if (u->load_state != UNIT_NOT_FOUND)
+                return false;
+
+        if (u->manager->unit_cache_mtime == 0)
+                return false;
+
+        if (u->manager->unit_cache_mtime > u->fragment_loadtime)
+                return true;
+
+        return !lookup_paths_mtime_good(&u->manager->lookup_paths, u->manager->unit_cache_mtime);
 }
 
 int manager_load_unit_prepare(
@@ -1988,7 +1996,7 @@ int manager_load_unit_prepare(
                  * we need to try again - even if the cache is current, it might have been
                  * updated in a different context before we had a chance to retry loading
                  * this particular unit. */
-                if (ret->load_state == UNIT_NOT_FOUND && manager_unit_cache_needs_refresh(m, ret))
+                if (manager_unit_file_maybe_loadable_from_cache(ret))
                         ret->load_state = UNIT_STUB;
                 else {
                         *_ret = ret;
