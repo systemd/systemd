@@ -13,6 +13,7 @@
 #include "resolved-bus.h"
 #include "resolved-link-bus.h"
 #include "resolved-resolv-conf.h"
+#include "socket-netlink.h"
 #include "stdio-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -204,11 +205,10 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
         return 0;
 }
 
-int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ struct in_addr_data *dns = NULL;
+static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
+        struct in_addr_full **dns = NULL;
         size_t allocated = 0, n = 0;
         Link *l = userdata;
-        unsigned i;
         int r;
 
         assert(message);
@@ -218,76 +218,106 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(message, 'a', "(iay)");
+        r = sd_bus_message_enter_container(message, 'a', extended ? "(iayqs)" : "(iay)");
         if (r < 0)
                 return r;
 
         for (;;) {
+                const char *server_name = NULL;
+                union in_addr_union a;
+                uint16_t port = 0;
+                const void *d;
                 int family;
                 size_t sz;
-                const void *d;
 
                 assert_cc(sizeof(int) == sizeof(int32_t));
 
-                r = sd_bus_message_enter_container(message, 'r', "iay");
+                r = sd_bus_message_enter_container(message, 'r', extended ? "iayqs" : "iay");
                 if (r < 0)
-                        return r;
+                        goto finalize;
                 if (r == 0)
                         break;
 
                 r = sd_bus_message_read(message, "i", &family);
                 if (r < 0)
-                        return r;
+                        goto finalize;
 
-                if (!IN_SET(family, AF_INET, AF_INET6))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
+                if (!IN_SET(family, AF_INET, AF_INET6)) {
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
+                        goto finalize;
+                }
 
                 r = sd_bus_message_read_array(message, 'y', &d, &sz);
                 if (r < 0)
-                        return r;
-                if (sz != FAMILY_ADDRESS_SIZE(family))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
+                        goto finalize;
+                if (sz != FAMILY_ADDRESS_SIZE(family)) {
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
+                        goto finalize;
+                }
 
-                if (!dns_server_address_valid(family, d))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+                if (!dns_server_address_valid(family, d)) {
+                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
+                        goto finalize;
+                }
+
+                if (extended) {
+                        r = sd_bus_message_read(message, "q", &port);
+                        if (r < 0)
+                                goto finalize;
+
+                        if (IN_SET(port, 53, 853))
+                                port = 0;
+
+                        r = sd_bus_message_read(message, "s", &server_name);
+                        if (r < 0)
+                                goto finalize;
+                }
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
-                        return r;
+                        goto finalize;
 
-                if (!GREEDY_REALLOC(dns, allocated, n+1))
-                        return -ENOMEM;
+                if (!GREEDY_REALLOC(dns, allocated, n+1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
 
-                dns[n].family = family;
-                memcpy(&dns[n].address, d, sz);
+                memcpy(&a, d, sz);
+                r = in_addr_full_new(family, &a, port, 0, server_name, dns + n);
+                if (r < 0)
+                        goto finalize;
                 n++;
         }
 
         r = sd_bus_message_exit_container(message);
         if (r < 0)
-                return r;
+                goto finalize;
 
         r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
                                     "org.freedesktop.resolve1.set-dns-servers",
                                     NULL, true, UID_INVALID,
                                     &l->manager->polkit_registry, error);
         if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Polkit will call us back */
+                goto finalize;
+        if (r == 0) {
+                r = 1; /* Polkit will call us back */
+                goto finalize;
+        }
 
         dns_server_mark_all(l->dns_servers);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 DnsServer *s;
 
-                s = dns_server_find(l->dns_servers, dns[i].family, &dns[i].address, 0, 0, NULL);
+                s = dns_server_find(l->dns_servers, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name);
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i].family, &dns[i].address, 0, 0, NULL);
-                        if (r < 0)
-                                goto clear;
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i]->family, &dns[i]->address, dns[i]->port, 0, dns[i]->server_name);
+                        if (r < 0) {
+                                dns_server_unlink_all(l->dns_servers);
+                                goto finalize;
+                        }
                 }
 
         }
@@ -299,11 +329,22 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         (void) manager_write_resolv_conf(l->manager);
         (void) manager_send_changed(l->manager, "DNS");
 
-        return sd_bus_reply_method_return(message, NULL);
+        r = sd_bus_reply_method_return(message, NULL);
 
-clear:
-        dns_server_unlink_all(l->dns_servers);
+finalize:
+        for (size_t i = 0; i < n; i++)
+                in_addr_full_free(dns[i]);
+        free(dns);
+
         return r;
+}
+
+int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, false);
+}
+
+int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, true);
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -776,6 +817,11 @@ static const sd_bus_vtable link_vtable[] = {
                                 SD_BUS_ARGS("a(iay)", addresses),
                                 SD_BUS_NO_RESULT,
                                 bus_link_method_set_dns_servers,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetDNSEx",
+                                SD_BUS_ARGS("a(iayqs)", addresses),
+                                SD_BUS_NO_RESULT,
+                                bus_link_method_set_dns_servers_ex,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDomains",
                                 SD_BUS_ARGS("a(sb)", domains),
