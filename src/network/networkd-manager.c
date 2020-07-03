@@ -1425,12 +1425,15 @@ static int manager_connect_rtnl(Manager *m) {
         return 0;
 }
 
-static int ordered_set_put_dns_server(OrderedSet *s, struct in_addr_full *dns) {
+static int ordered_set_put_dns_server(OrderedSet *s, int ifindex, struct in_addr_full *dns) {
         const char *p;
         int r;
 
         assert(s);
         assert(dns);
+
+        if (dns->ifindex != 0 && dns->ifindex != ifindex)
+                return 0;
 
         p = in_addr_full_to_string(dns);
         if (!p)
@@ -1443,7 +1446,7 @@ static int ordered_set_put_dns_server(OrderedSet *s, struct in_addr_full *dns) {
         return r;
 }
 
-static int ordered_set_put_dns_servers(OrderedSet *s, struct in_addr_full **dns, unsigned n) {
+static int ordered_set_put_dns_servers(OrderedSet *s, int ifindex, struct in_addr_full **dns, unsigned n) {
         int r, c = 0;
         unsigned i;
 
@@ -1451,7 +1454,7 @@ static int ordered_set_put_dns_servers(OrderedSet *s, struct in_addr_full **dns,
         assert(dns || n == 0);
 
         for (i = 0; i < n; i++) {
-                r = ordered_set_put_dns_server(s, dns[i]);
+                r = ordered_set_put_dns_server(s, ifindex, dns[i]);
                 if (r < 0)
                         return r;
 
@@ -1558,7 +1561,10 @@ static int manager_save(Manager *m) {
                         continue;
 
                 /* First add the static configured entries */
-                r = ordered_set_put_dns_servers(dns, link->network->dns, link->network->n_dns);
+                if (link->n_dns != (unsigned) -1)
+                        r = ordered_set_put_dns_servers(dns, link->ifindex, link->dns, link->n_dns);
+                else
+                        r = ordered_set_put_dns_servers(dns, link->ifindex, link->network->dns, link->network->n_dns);
                 if (r < 0)
                         return r;
 
