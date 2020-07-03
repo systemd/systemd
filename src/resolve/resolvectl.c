@@ -1867,12 +1867,12 @@ static int verb_status(int argc, char **argv, void *userdata) {
         return r;
 }
 
-static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error) {
+static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_error *error, bool extended) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         char **p;
         int r;
 
-        r = bus_message_new_method_call(bus, &req, locator, "SetLinkDNS");
+        r = bus_message_new_method_call(bus, &req, locator, extended ? "SetLinkDNSEx" : "SetLinkDNS");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1880,7 +1880,7 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_open_container(req, 'a', "(iay)");
+        r = sd_bus_message_open_container(req, 'a', extended ? "(iayqs)" : "(iay)");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1888,13 +1888,19 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
          * empty list, which will clear the list of domains for an interface. */
         if (!strv_equal(dns, STRV_MAKE("")))
                 STRV_FOREACH(p, dns) {
+                        _cleanup_free_ char *name = NULL;
                         struct in_addr_data data;
+                        uint16_t port;
+                        int ifindex;
 
-                        r = in_addr_from_string_auto(*p, &data.family, &data.address);
+                        r = in_addr_port_ifindex_name_from_string_auto(*p, &data.family, &data.address, &port, &ifindex, &name);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse DNS server address: %s", *p);
 
-                        r = sd_bus_message_open_container(req, 'r', "iay");
+                        if (ifindex != 0 && ifindex != arg_ifindex)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid ifindex: %i", ifindex);
+
+                        r = sd_bus_message_open_container(req, 'r', extended ? "iayqs" : "iay");
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -1906,6 +1912,16 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
                         if (r < 0)
                                 return bus_log_create_error(r);
 
+                        if (extended) {
+                                r = sd_bus_message_append(req, "q", port);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+
+                                r = sd_bus_message_append(req, "s", name);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        }
+
                         r = sd_bus_message_close_container(req);
                         if (r < 0)
                                 return bus_log_create_error(r);
@@ -1915,7 +1931,10 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
         if (r < 0)
                 return bus_log_create_error(r);
 
-        return sd_bus_call(bus, req, 0, error, NULL);
+        r = sd_bus_call(bus, req, 0, error, NULL);
+        if (r < 0 && extended && sd_bus_error_has_name(error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                return call_dns(bus, dns, locator, error, false);
+        return r;
 }
 
 static int verb_dns(int argc, char **argv, void *userdata) {
@@ -1937,11 +1956,11 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         if (argc < 3)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS, NULL);
 
-        r = call_dns(bus, argv + 2, bus_resolve_mgr, &error);
+        r = call_dns(bus, argv + 2, bus_resolve_mgr, &error, true);
         if (r < 0 && sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY)) {
                 sd_bus_error_free(&error);
 
-                r = call_dns(bus, argv + 2, bus_network_mgr, &error);
+                r = call_dns(bus, argv + 2, bus_network_mgr, &error, true);
         }
         if (r < 0) {
                 if (arg_ifindex_permissive &&
