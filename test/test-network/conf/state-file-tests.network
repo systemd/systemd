@@ -6,7 +6,7 @@ RequiredForOnline=routable
 
 [Network]
 IPv6AcceptRA=no
-DNS=10.10.10.10 10.10.10.11
+DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com [1111:2222::3333]:1234#ccc.com
 NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org
 Domains=hogehoge ~foofoo
 LLMNR=no
