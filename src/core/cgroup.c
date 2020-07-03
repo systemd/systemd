@@ -2417,6 +2417,7 @@ void unit_release_cgroup(Unit *u) {
 void unit_prune_cgroup(Unit *u) {
         int r;
         bool is_root_slice;
+        int loop;
 
         assert(u);
 
@@ -2430,13 +2431,34 @@ void unit_prune_cgroup(Unit *u) {
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
         r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !is_root_slice);
-        if (r < 0)
+        if (r < 0) {
                 /* One reason we could have failed here is, that the cgroup still contains a process.
                  * However, if the cgroup becomes removable at a later time, it might be removed when
                  * the containing slice is stopped. So even if we failed now, this unit shouldn't assume
                  * that the cgroup is still realized the next time it is started. Do not return early
                  * on error, continue cleanup. */
+
+                /* wait 25 seconds for cg trim */
+                loop = 25 * 10;
+                while (loop--) {
+                        const struct timespec duration = { 0, 1000 * 1000 * 1000 / 10 };
+
+                        r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !is_root_slice);
+                        if (r == 0) {
+                                break;
+                        }
+
+                        if (r != -EBUSY) {
+                                log_unit_full(u, LOG_WARNING, r, "Failed to destroy cgroup %s, ignoring: %m", u->cgroup_path);
+                                break;
+                        }
+
+                        log_debug("wait for cgroup %s to become free, loop=%d",u->cgroup_path, (25 * 10) - loop);
+                        nanosleep(&duration, NULL);
+                }
+
                 log_unit_full(u, r == -EBUSY ? LOG_DEBUG : LOG_WARNING, r, "Failed to destroy cgroup %s, ignoring: %m", u->cgroup_path);
+        }
 
         if (is_root_slice)
                 return;
