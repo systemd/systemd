@@ -1109,6 +1109,7 @@ const UnitVTable automount_vtable = {
                 "Unit\0"
                 "Automount\0"
                 "Install\0",
+        .private_section = "Automount",
 
         .can_transient = true,
         .can_fail = true,
