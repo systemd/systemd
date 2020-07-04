@@ -77,7 +77,7 @@ int rdrand(unsigned long *ret) {
          *           hash functions for its hash tables, with a seed generated randomly. The hash tables
          *           systemd employs watch the fill level closely and reseed if necessary. This allows use of
          *           a low quality RNG initially, as long as it improves should a hash table be under attack:
-         *           the attacker after all needs to to trigger many collisions to exploit it for the purpose
+         *           the attacker after all needs to trigger many collisions to exploit it for the purpose
          *           of DoS, but if doing so improves the seed the attack surface is reduced as the attack
          *           takes place.
          *

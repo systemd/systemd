@@ -376,7 +376,7 @@ int sd_dhcp_client_set_client_id(
         /* For hardware types, log debug message about unexpected data length.
          *
          * Note that infiniband's INFINIBAND_ALEN is 20 bytes long, but only
-         * last last 8 bytes of the address are stable and suitable to put into
+         * the last 8 bytes of the address are stable and suitable to put into
          * the client-id. The caller is advised to account for that. */
         if ((type == ARPHRD_ETHER && data_len != ETH_ALEN) ||
             (type == ARPHRD_INFINIBAND && data_len != 8))
