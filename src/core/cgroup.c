@@ -2444,7 +2444,7 @@ void unit_prune_cgroup(Unit *u) {
                         const struct timespec duration = { 0, 1000 * 1000 * 1000 / 10 };
 
                         r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !is_root_slice);
-                        if (r == 0) {
+                        if (r >= 0) {
                                 break;
                         }
 
@@ -2456,8 +2456,6 @@ void unit_prune_cgroup(Unit *u) {
                         log_debug("wait for cgroup %s to become free, loop=%d",u->cgroup_path, (25 * 10) - loop);
                         nanosleep(&duration, NULL);
                 }
-
-                log_unit_full(u, r == -EBUSY ? LOG_DEBUG : LOG_WARNING, r, "Failed to destroy cgroup %s, ignoring: %m", u->cgroup_path);
         }
 
         if (is_root_slice)
