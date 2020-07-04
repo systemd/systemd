@@ -176,7 +176,7 @@ int sd_lldp_neighbor_get_mud_url(sd_lldp_neighbor *n, const char **ret);
 int sd_lldp_neighbor_get_system_capabilities(sd_lldp_neighbor *n, uint16_t *ret);
 int sd_lldp_neighbor_get_enabled_capabilities(sd_lldp_neighbor *n, uint16_t *ret);
 
-/* Low-level, iterative TLV access. This is for evertyhing else, it iteratively goes through all available TLVs
+/* Low-level, iterative TLV access. This is for everything else, it iteratively goes through all available TLVs
  * (including the ones covered with the calls above), and allows multiple TLVs for the same fields. */
 int sd_lldp_neighbor_tlv_rewind(sd_lldp_neighbor *n);
 int sd_lldp_neighbor_tlv_next(sd_lldp_neighbor *n);

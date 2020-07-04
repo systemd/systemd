@@ -1334,7 +1334,7 @@ int safe_fork_full(
 
                 ppid = getppid();
                 if (ppid == 0)
-                        /* Parent is in a differn't PID namespace. */;
+                        /* Parent is in a different PID namespace. */;
                 else if (ppid != original_pid) {
                         log_debug("Parent died early, raising SIGTERM.");
                         (void) raise(SIGTERM);
