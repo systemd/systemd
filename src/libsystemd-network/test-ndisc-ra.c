@@ -284,7 +284,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 return 0;
         }
 
-        assert_se(sd_radv_stop(ra) >= 0);
+        assert_se(sd_radv_stop(ra, true) >= 0);
         test_stopped = true;
 
         return 0;
