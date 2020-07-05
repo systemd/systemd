@@ -22,6 +22,7 @@
 #include <inttypes.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
+#include <stdbool.h>
 #include <sys/types.h>
 
 #include "_sd-common.h"
@@ -49,7 +50,7 @@ int sd_radv_detach_event(sd_radv *nd);
 sd_event *sd_radv_get_event(sd_radv *ra);
 
 int sd_radv_start(sd_radv *ra);
-int sd_radv_stop(sd_radv *ra);
+int sd_radv_stop(sd_radv *ra, bool zero_router_lifetime);
 
 int sd_radv_set_ifindex(sd_radv *ra, int interface_index);
 int sd_radv_set_mac(sd_radv *ra, const struct ether_addr *mac_addr);

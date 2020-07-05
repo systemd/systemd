@@ -188,7 +188,7 @@ static int dhcp6_pd_prefix_assign(Link *link, struct in6_addr *prefix,
         if (r < 0)
                 return r;
 
-        r = sd_radv_stop(radv);
+        r = sd_radv_stop(radv, false);
         if (r < 0)
                 return r;
 
