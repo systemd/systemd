@@ -1236,8 +1236,7 @@ static int unit_file_load(
                                                "%s: unit type %s cannot be templated, ignoring.", path, unit_type_to_string(type));
 
                 if (!(flags & SEARCH_LOAD)) {
-                        r = lstat(path, &st);
-                        if (r < 0)
+                        if (lstat(path, &st) < 0)
                                 return -errno;
 
                         if (null_or_empty(&st))
@@ -1324,6 +1323,7 @@ static int unit_file_load_or_readlink(
                 const char *path,
                 const char *root_dir,
                 SearchFlags flags) {
+        _cleanup_free_ char *resolved = NULL;
         struct stat st;
         int r;
 
@@ -1331,15 +1331,27 @@ static int unit_file_load_or_readlink(
         if (r != -ELOOP || (flags & SEARCH_DROPIN))
                 return r;
 
-        r = chase_symlinks_and_stat(path, root_dir, CHASE_WARN, NULL, &st, NULL);
-        if (r > 0 && null_or_empty(&st))
+        r = chase_symlinks(path, root_dir, CHASE_WARN | CHASE_NONEXISTENT, &resolved, NULL);
+        if (r >= 0 &&
+            root_dir &&
+            path_equal_ptr(path_startswith(resolved, root_dir), "dev/null"))
+                /* When looking under root_dir, we can't expect /dev/ to be mounted,
+                 * so let's see if the path is a (possibly dangling) symlink to /dev/null. */
                 info->type = UNIT_FILE_TYPE_MASKED;
+
+        else if (r > 0 &&
+                 stat(resolved, &st) >= 0 &&
+                 null_or_empty(&st))
+
+                info->type = UNIT_FILE_TYPE_MASKED;
+
         else {
                 _cleanup_free_ char *target = NULL;
                 const char *bn;
                 UnitType a, b;
 
-                /* This is a symlink, let's read it. */
+                /* This is a symlink, let's read it. We read the link again, because last time
+                 * we followed the link until resolution, and here we need to do one step. */
 
                 r = readlink_malloc(path, &target);
                 if (r < 0)

@@ -1245,12 +1245,6 @@ int main(int argc, char *argv[]) {
         p = strjoina(root, "/usr/lib/systemd/system-preset/");
         assert_se(mkdir_p(p, 0755) >= 0);
 
-        p = strjoina(root, "/dev/");
-        assert_se(mkdir_p(p, 0755) >= 0);
-
-        p = strjoina(root, "/dev/null");
-        assert_se(touch(p) >= 0);
-
         test_basic_mask_and_enable(root);
         test_linked_units(root);
         test_default(root);
