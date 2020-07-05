@@ -298,7 +298,8 @@ Maszyna wirtualna @NAME@ (PID prowadzący @LEADER@) została wyłączona.
 Subject: Wyłączono tryb DNSSEC, ponieważ serwer go nie obsługuje
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: man:systemd-resolved.service(8) resolved.conf(5)
+Documentation: man:systemd-resolved.service(8)
+Documentation: man:resolved.conf(5)
 
 Usługa resolver (systemd-resolved.service) wykryła, że skonfigurowany serwer
 DNS nie obsługuje DNSSEC, w wyniku czego walidacja DNSSEC została wyłączona.
@@ -416,6 +417,7 @@ przez jednostkę @UNIT@.
 Subject: Przyjmowanie nazwy użytkownika/grupy @USER_GROUP_NAME@, która nie zgadza się ze ścisłymi regułami nazw użytkowników/grup.
 Defined-By: systemd
 Support: %SUPPORT_URL%
+Documentation: https://systemd.io/USER_NAMES
 
 Podano nazwę użytkownika/grupy @USER_GROUP_NAME@, co zostało przyjęte
 zgodnie z rozluźnionymi regułami nazw użytkowników/grup, ale nie spełnia
@@ -432,5 +434,57 @@ nazw z początkową lub końcową spacją, ciągów „.” lub „..”, ciąg
 zawierających tylko cyfry lub ciągów zaczynających się myślnikiem
 i zawierających oprócz niego tylko cyfry.
 
-https://systemd.io/USER_NAMES zawiera więcej informacji o ścisłych
-i rozluźnionych regułach nazw użytkowników/grup.
+-- 1b3bb94037f04bbf81028e135a12d293
+Subject: Utworzenie prawidłowej nazwy jednostki ze ścieżki „@MOUNT_POINT@” się nie powiodło.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Następująca ścieżka do punktu montowania nie może zostać przekonwertowana
+na prawidłową nazwę jednostki .mount:
+
+    @MOUNT_POINT@
+
+Zwykle oznacza to, że ścieżka do punktu montowania jest dłuższa niż dozwolona
+dla prawidłowych nazw jednostek.
+
+systemd dynamicznie syntetyzuje jednostki .mount dla wszystkich punktów
+montowania pojawiających się na komputerze. Stosowany do tego jest prosty
+algorytm: używana jest bezwzględna nazwa ścieżki ze wszystkimi znakami „/”
+zastąpionymi znakami „-” (początkowy jest usuwany). Co więcej, wszystkie
+niealfanumeryczne znaki (a także „:”, „-”, „_”, „.”, „\”) są zastępowane
+„\xNN”, gdzie „NN” jest szesnastkowym kodem znaki. Na końcu dołączany jest
+przyrostek „.mount”. Wynikowy ciąg musi mieć poniżej 256 znaków długości,
+aby był prawidłową nazwą jednostki. To ograniczenie obowiązuje, aby wszystkie
+nazwy jednostek mogły być używane także jako nazwy plików. Jeśli punkt
+montowania — po zastosowaniu algorytmu — jest dłuższy niż to ograniczenie,
+to nie może zostać zmapowany do jednostki. W takim przypadku systemd nie
+zsyntetyzuje jednostki i nie może być używany do zarządzania punktem
+montowania. Nie pojawi się w tabeli jednostek menedżera usług, przez co
+nie zostanie także bezpiecznie i automatycznie zdjęty podczas wyłączania
+komputera.
+
+Zasadniczo zalecane jest unikanie takich za długich ścieżek do punktów
+montowania, a jeśli są używane mimo to, zarządzanie nimi niezależnie
+od systemd, tzn. stawianie ich i automatyczne zdejmowanie podczas
+wyłączania komputera przez inne oprogramowanie.
+
+-- b480325f9c394a7b802c231e51a2752c
+Subject: Skonfigurowany jest szczególny użytkownik @OFFENDING_USER@, jest to niebezpieczne!
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: https://systemd.io/UIDS-GIDS
+
+Jednostka @UNIT@ jest skonfigurowana do używania User=@OFFENDING_USER@.
+
+Nie jest to bezpieczne. Głównym zastosowaniem użytkownika @OFFENDING_USER@
+w linuksowych systemach operacyjnych jest bycie właścicielem plików, których
+nie można w inny sposób zmapować do żadnego lokalnego użytkownika. Jest
+używany między innymi przez klienta NFS i przestrzenie nazw użytkowników
+Linuksa. Wykonywanie procesów jednostki pod tożsamością tego użytkownika
+może spowodować, że będą one miały dostęp do odczytu, a może nawet do zapisu,
+plików, których nie można zmapować w inny sposób.
+
+Mocno zalecane jest unikanie wykonywania usług pod tą tożsamością użytkownika,
+zwłaszcza na komputerach używających NFS lub mających kontenery. Należy
+przydzielić identyfikator użytkownika dla tej konkretnej usługi, statycznie
+przez systemd-sysusers lub dynamicznie przez ustawienie usługi DynamicUser=.
