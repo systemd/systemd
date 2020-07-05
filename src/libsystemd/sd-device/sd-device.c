@@ -1585,6 +1585,10 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                 if (access(p, F_OK) >= 0)
                         /* this is a child device, skipping */
                         return 0;
+                if (errno != ENOENT) {
+                        log_debug_errno(errno, "Failed to stat %s, ignoring subdir: %m", p);
+                        return 0;
+                }
 
                 path_dir = path_join(syspath, subdir);
                 if (!path_dir)
