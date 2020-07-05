@@ -381,6 +381,10 @@ mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
  MOUSE_DPI=1000@125
 
+# Logitech M705 (newer version?)
+mouse:usb:v046dp406d:name:Logitech M705:
+ MOUSE_DPI=1000@167
+
 # Logitech M305 Wireless Optical Mouse
 mouse:usb:v046dpc52f:name:Logitech USB Receiver:
  MOUSE_DPI=1000@170
