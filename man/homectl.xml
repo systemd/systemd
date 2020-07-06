@@ -462,10 +462,10 @@
         <term><option>--tasks-max=</option><replaceable>TASKS</replaceable></term>
 
         <listitem><para>Takes a non-zero unsigned integer as argument. Configures the maximum numer of tasks
-        (i.e. processes and threads) the user may have at any given time. This limit applies to all tasks
-        forked off the user's sessions, even if they change user identity via <citerefentry
-        project='man-pages'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry> or a
-        similar tool. Use <option>--rlimit=LIMIT_NPROC=</option> to place a limit on the tasks actually
+        (i.e. threads, where each process is at least one thread) the user may have at any given time. This
+        limit applies to all tasks forked off the user's sessions, even if they change user identity via
+        <citerefentry project='man-pages'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        or a similar tool. Use <option>--rlimit=LIMIT_NPROC=</option> to place a limit on the tasks actually
         running under the UID of the user, thus excluding any child processes that might have changed user
         identity. This controls the <varname>TasksMax=</varname> settting of the per-user systemd slice unit
         <filename>user-$UID.slice</filename>. See
