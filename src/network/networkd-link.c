@@ -1184,7 +1184,7 @@ static int link_request_set_neighbors(Link *link) {
         return 0;
 }
 
-int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(rtnl);
