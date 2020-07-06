@@ -142,12 +142,12 @@ static int list_homes(int argc, char *argv[], void *userdata) {
                                    TABLE_UID, uid,
                                    TABLE_GID, gid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
 
 
                 r = table_add_cell(table, &cell, TABLE_STRING, state);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add field to table: %m");
+                        return table_log_add_error(r);
 
                 color = user_record_state_color(state);
                 if (color)
@@ -158,7 +158,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, home,
                                    TABLE_STRING, strna(empty_to_null(shell)));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
         }
 
         r = sd_bus_message_exit_container(reply);

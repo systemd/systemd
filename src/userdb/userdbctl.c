@@ -85,7 +85,7 @@ static int show_user(UserRecord *ur, Table *table) {
                                 TABLE_STRING, user_record_shell(ur),
                                 TABLE_INT, (int) user_record_disposition(ur));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
 
                 break;
 
@@ -234,7 +234,7 @@ static int show_group(GroupRecord *gr, Table *table) {
                                 TABLE_GID, gr->gid,
                                 TABLE_INT, (int) group_record_disposition(gr));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
 
                 break;
 
@@ -377,7 +377,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
                                 TABLE_STRING, user,
                                 TABLE_STRING, group);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
 
                 break;
 
@@ -521,7 +521,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, no ?: "yes",
                                    TABLE_SET_COLOR, no ? ansi_highlight_red() : ansi_highlight_green());
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add table row: %m");
+                        return table_log_add_error(r);
         }
 
         if (table_get_rows(t) <= 0) {
