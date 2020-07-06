@@ -18,11 +18,15 @@ REPO_ROOT="${REPO_ROOT:-$PWD}"
 ADDITIONAL_DEPS=(
     clang
     dnf-plugins-core
-    hostname libasan
-    jq iputils
+    hostname
+    iputils
+    jq
+    libasan
     libfdisk-devel
+    libfido2-devel
     libpwquality-devel
     libubsan
+    libzstd-devel
     llvm
     openssl-devel
     p11-kit-devel
