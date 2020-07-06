@@ -537,8 +537,7 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
 }
 
 int unit_name_from_path_instance(const char *prefix, const char *path, const char *suffix, char **ret) {
-        _cleanup_free_ char *p = NULL;
-        char *s;
+        _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
         assert(prefix);
@@ -564,7 +563,7 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
         if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))
                 return -EINVAL;
 
-        *ret = s;
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
