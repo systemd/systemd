@@ -202,7 +202,7 @@ typedef struct Fido2HmacSalt {
         void *salt;
         size_t salt_size;
 
-        /* What to test the hashed salt value against, usualy UNIX password hash here. */
+        /* What to test the hashed salt value against, usually UNIX password hash here. */
         char *hashed_password;
 } Fido2HmacSalt;
 

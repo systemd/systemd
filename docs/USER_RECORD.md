@@ -628,7 +628,7 @@ hash to test this derived secret key against for authentication. It is
 generally recommended that for each entry in `fido2HmacSalt` there's also a
 matching one in `fido2HmacCredential`, and vice versa, with the same credential
 ID, appearing in the same order, but this should not be required by
-applications processing user recrods.
+applications processing user records.
 
 ## Fields in the `perMachine` section
 
