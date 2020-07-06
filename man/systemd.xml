@@ -760,13 +760,11 @@
       <varlistentry>
         <term><varname>systemd.crash_chvt</varname></term>
 
-        <listitem><para>Takes a positive integer, or a boolean argument. Can be also
-        specified without an argument, with the same effect as a positive boolean. If
-        a positive integer (in the range 1–63) is specified, the system manager (PID
-        1) will activate the specified virtual terminal (VT) when it
-        crashes. Defaults to disabled, meaning that no such switch is attempted. If
-        set to enabled, the VT the kernel messages are written to is selected.
-        </para></listitem>
+        <listitem><para>Takes a positive integer, or a boolean argument. Can be also specified without an
+        argument, with the same effect as a positive boolean. If a positive integer (in the range 1–63) is
+        specified, the system manager (PID 1) will activate the specified virtual terminal when it crashes.
+        Defaults to disabled, meaning that no such switch is attempted. If set to enabled, the virtual
+        terminal the kernel messages are written to is used instead.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1089,14 +1087,15 @@
       this context, because they are properly namespaced. When an option is specified both on the kernel
       command line, and as a normal command line argument, the latter has higher precedence.</para>
 
-      <para>When <command>systemd</command> is used a user manager, the kernel command line is ignored and
+      <para>When <command>systemd</command> is used as a user manager, the kernel command line is ignored and
       the options described are understood. Nevertheless, <command>systemd</command> is usually started in
       this mode through the
       <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       service, which is shared between all users, and it may be more convenient to use configuration files to
       modify settings, see
       <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      or a drop-in that specifies one of the environment variables listed above in "Environment, see
+      or a drop-in that specifies one of the environment variables listed above in the Environment section,
+      see
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
       <variablelist>
@@ -1146,8 +1145,8 @@
         <varlistentry>
           <term><option>--show-status</option></term>
 
-          <listitem><para>Show terse unit status information is shown on the console during boot-up and
-          shutdown. See <varname>systemd.show_status</varname> above.</para></listitem>
+          <listitem><para>Show terse unit status information on the console during boot-up and shutdown. See
+          <varname>systemd.show_status</varname> above.</para></listitem>
         </varlistentry>
 
         <varlistentry>

@@ -33,7 +33,7 @@
 
     <orderedlist>
       <listitem>
-        <para>The package manager prepares system updates by downloading all (RPM or DEB or
+        <para>The package manager prepares system updates by downloading all (.rpm or .deb or
         whatever) packages to update off-line in a special directory
         <filename index="false">/var/lib/system-update</filename> (or
         another directory of the package/upgrade manager's choice).</para>
@@ -85,8 +85,8 @@
       </listitem>
 
       <listitem>
-        <para>The upgrade scripts should exit only after the update is finished. It is expected
-        that the service which performs the upgrade will cause the machine to reboot after it
+        <para>The update scripts should exit only after the update is finished. It is expected
+        that the service which performs the update will cause the machine to reboot after it
         is done. If the <filename>system-update.target</filename> is successfully reached, i.e.
         all update services have run, and the <filename>/system-update</filename> symlink still
         exists, it will be removed and the machine rebooted as a safety measure.</para>

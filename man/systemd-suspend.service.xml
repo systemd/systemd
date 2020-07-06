@@ -71,19 +71,16 @@
     url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
     interface</ulink>.</para>
 
-    <para>Note that
-    <filename>systemd-suspend.service</filename>,
-    <filename>systemd-hibernate.service</filename>, and
-    <filename>systemd-hybrid-sleep.service</filename>
-    <filename>systemd-suspend-then-hibernate.service</filename>
-    should never be executed directly. Instead, trigger system sleep
-    states with a command such as <literal>systemctl suspend</literal>
-    or similar.</para>
+    <para>Note that <filename>systemd-suspend.service</filename>,
+    <filename>systemd-hibernate.service</filename>, <filename>systemd-hybrid-sleep.service</filename>, and
+    <filename>systemd-suspend-then-hibernate.service</filename> should never be executed directly. Instead,
+    trigger system sleep with a command such as <command>systemctl suspend</command> or <command>systemctl
+    hibernate</command>.</para>
 
     <para>Internally, this service will echo a string like
     <literal>mem</literal> into <filename>/sys/power/state</filename>,
     to trigger the actual system suspend. What exactly is written
-    where can be configured in the <literal>[Sleep]</literal> section
+    where can be configured in the [Sleep] section
     of <filename>/etc/systemd/sleep.conf</filename> or a
     <filename>sleep.conf.d</filename> file. See
     <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.

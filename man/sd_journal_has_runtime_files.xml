@@ -21,7 +21,7 @@
   <refnamediv>
     <refname>sd_journal_has_runtime_files</refname>
     <refname>sd_journal_has_persistent_files</refname>
-    <refpurpose>Query availability of runtime or persistent journal files.</refpurpose>
+    <refpurpose>Query availability of runtime or persistent journal files</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

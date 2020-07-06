@@ -43,7 +43,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>All options are configured in the <literal>[Upload]</literal> section:</para>
+    <para>All options are configured in the [Upload] section:</para>
 
     <variablelist class='config-directives'>
       <varlistentry>

@@ -17,7 +17,7 @@
 
   <refnamediv>
     <refname>systemd-bless-boot-generator</refname>
-    <refpurpose>Pull <filename>systemd-bless-boot.service</filename> into the initial boot transaction when boot counting is in effect.</refpurpose>
+    <refpurpose>Pull <filename>systemd-bless-boot.service</filename> into the initial boot transaction when boot counting is in effect</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

@@ -53,7 +53,7 @@
     <title>Options</title>
 
     <para>All options are configured in the
-    <literal>[Journal]</literal> section:</para>
+    [Journal] section:</para>
 
     <variablelist class='config-directives'>
 

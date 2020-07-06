@@ -119,9 +119,9 @@
         <term><option>--identity=</option><replaceable>FILE</replaceable></term>
 
         <listitem><para>Read the user's JSON record from the specified file. If passed as
-        <literal>-</literal> reads the user record from standard input. The supplied JSON object must follow
-        the structure documented on <ulink url="https://systemd.io/USER_RECORDS">JSON User
-        Records</ulink>. This option may be used in conjunction with the <command>create</command> and
+        <literal>-</literal> read the user record from standard input. The supplied JSON object must follow
+        the structure documented on <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
+        This option may be used in conjunction with the <command>create</command> and
         <command>update</command> commands (see below), where it allows configuring the user record in JSON
         as-is, instead of setting the individual user record properties (see below).</para></listitem>
       </varlistentry>
@@ -247,10 +247,9 @@
         different system and the configured UID is taken by another user there, then
         <command>systemd-homed</command> may assign the user a different UID on that system. The specified
         UID must be outside of the system user range. It is recommended to use the 60001…60513 UID range for
-        this purpose. If not specified the UID is automatically picked. When logging in and the home
-        directory is found to be owned by a UID not matching the user's assigned one the home directory and
-        all files and directories inside it will have their ownership changed automatically before login
-        completes.</para>
+        this purpose. If not specified, the UID is automatically picked. If the home directory is found to be
+        owned by a different UID when logging in, the home directory and everything underneath it will have
+        its ownership changed automatically before login completes.</para>
 
         <para>Note that users managed by <command>systemd-homed</command> always have a matching group
         associated with the same name as well as a GID matching the UID of the user. Thus, configuring the
@@ -266,19 +265,19 @@
         privileges. Note that <command>systemd-homed</command> does not manage any groups besides a group
         matching the user in name and numeric UID/GID. Thus any groups listed here must be registered
         independently, for example with <citerefentry
-        project='man-pages'><refentrytitle>groupadd</refentrytitle><manvolnum>8</manvolnum></citerefentry>. If
-        non-existent groups that are listed there are ignored. This option may be used more than once, in
-        which case all specified group lists are combined. If the user is currently a member of a group
-        which is not listed, the user will be removed from the group.</para></listitem>
+        project='man-pages'><refentrytitle>groupadd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Any non-existent groups are ignored. This option may be used more than once, in which case all
+        specified group lists are combined. If the user is currently a member of a group which is not listed,
+        the user will be removed from the group.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--skel=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Takes a file system path to a directory. Specifies the skeleton directory to
-        initialize the home directory with. All files and directories in the specified are copied into any
-        newly create home directory. If not specified defaults to
-        <filename>/etc/skel/</filename>.</para></listitem>
+        initialize the home directory with. All files and directories in the specified path are copied into
+        any newly create home directory. If not specified defaults to <filename>/etc/skel/</filename>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -313,7 +312,7 @@
         <listitem><para>Takes a specifier indicating the preferred language of the user. The
         <varname>$LANG</varname> environment variable is initialized from this value on login, and thus a
         value suitable for this environment variable is accepted here, for example
-        <option>--language=de_DE.UTF8</option></para></listitem>
+        <option>--language=de_DE.UTF8</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -331,8 +330,8 @@
         security token with exactly one pair of X.509 certificate and private key. A random secret key is
         then generated, encrypted with the public key of the X.509 certificate, and stored as part of the
         user record. At login time it is decrypted with the PKCS#11 module and then used to unlock the
-        account and associated resources. See below for an example how to set up authentication with security
-        token.</para>
+        account and associated resources. See below for an example how to set up authentication with a
+        security token.</para>
 
         <para>Instead of a valid PKCS#11 URI, the special strings <literal>list</literal> and
         <literal>auto</literal> may be specified. If <literal>list</literal> is passed, a brief table of
@@ -439,19 +438,19 @@
         <listitem><para>Each of these options takes a time span specification as argument (in the syntax
         documented in
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>) and
-        configure various aspects of the user's password expiration policy. Specifically,
+        configures various aspects of the user's password expiration policy. Specifically,
         <option>--password-change-min=</option> configures how much time has to pass after changing the
         password of the user until the password may be changed again. If the user tries to change their
         password before this time passes the attempt is refused. <option>--password-change-max=</option>
-        configures how much time has to pass after the password is changed until the password expires and
-        needs to be changed again. After this time passes any attempts to log in may only proceed after the
-        password is changed. <option>--password-change-warn=</option> specifies how much earlier than then
-        the time configured with <option>--password-change-max=</option> the user is warned at login to
-        change their password as it will expire soon. Finally <option>--password-change-inactive=</option>
-        configures the time which has to pass after the password as expired until the user is not permitted
-        to log in or change the password anymore. Note that these options only apply to password
-        authentication, and do not apply to other forms of authentication, for example PKCS#11-based security
-        token authentication.</para></listitem>
+        configures how soon after it has been changed the password expires and needs to be changed again.
+        After this time passes logging in may only proceed after the password is changed.
+        <option>--password-change-warn=</option> specifies how much earlier than then the time configured
+        with <option>--password-change-max=</option> the user is warned at login to change their password as
+        it will expire soon. Finally <option>--password-change-inactive=</option> configures the time which
+        has to pass after the password as expired until the user is not permitted to log in or change the
+        password anymore. Note that these options only apply to password authentication, and do not apply to
+        other forms of authentication, for example PKCS#11-based security token
+        authentication.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -695,8 +694,8 @@
         <para>Activation of a home directory involves various operations that depend on the selected storage
         mechanism. If the LUKS2 mechanism is used, this generally involves: inquiring the user for a
         password, setting up a loopback device, validating and activating the LUKS2 volume, checking the file
-        system, mounting the file system, and potentiatlly changing the ownership of all included files to
-        the correct UID/GID.</para></listitem>
+        system, mounting the file system, and potentially changing the ownership of all included files to the
+        correct UID/GID.</para></listitem>
       </varlistentry>
 
       <varlistentry>

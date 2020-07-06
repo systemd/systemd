@@ -36,8 +36,8 @@
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
     configuration items are configured in the generic
-    <literal>[Unit]</literal> and <literal>[Install]</literal>
-    sections. A separate <literal>[Device]</literal> section does not
+    [Unit] and [Install]
+    sections. A separate [Device] section does not
     exist, since no device-specific options may be configured.</para>
 
     <para>systemd will dynamically create device units for all kernel
@@ -60,7 +60,7 @@
     <para>Device units will be reloaded by systemd whenever the
     corresponding device generates a <literal>changed</literal> event.
     Other units can use <varname>ReloadPropagatedFrom=</varname> to react
-    to that event</para>
+    to that event.</para>
   </refsect1>
 
   <refsect1>

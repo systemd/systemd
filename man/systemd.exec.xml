@@ -511,10 +511,11 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>AppArmorProfile=</varname></term>
 
-        <listitem><para>Takes a profile name as argument. The process executed by the unit will switch to this profile
-        when started.  Profiles must already be loaded in the kernel, or the unit will fail. This result in a non
-        operation if AppArmor is not enabled. If prefixed by <literal>-</literal>, all errors will be ignored. This
-        does not affect commands prefixed with <literal>+</literal>.</para></listitem>
+        <listitem><para>Takes a profile name as argument. The process executed by the unit will switch to
+        this profile when started. Profiles must already be loaded in the kernel, or the unit will fail. If
+        prefixed by <literal>-</literal>, all errors will be ignored. This setting has no effect if AppArmor
+        is not enabled. This setting not affect commands prefixed with <literal>+</literal>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -880,7 +881,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         in <varname>NUMAMask=</varname>. For more details on each policy please see,
         <citerefentry><refentrytitle>set_mempolicy</refentrytitle><manvolnum>2</manvolnum></citerefentry>. For overall
         overview of NUMA support in Linux see,
-        <citerefentry project='man-pages'><refentrytitle>numa</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>numa</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
 
@@ -1067,14 +1068,16 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>RootDirectory=</varname> or <varname>RootImage=</varname> these paths always reside on the host and
         are mounted from there into the unit's file system namespace.</para>
 
-        <para>If <varname>DynamicUser=</varname> is used in conjunction with <varname>StateDirectory=</varname>,
-        <varname>CacheDirectory=</varname> and <varname>LogsDirectory=</varname> is slightly altered: the directories
-        are created below <filename>/var/lib/private</filename>, <filename>/var/cache/private</filename> and
+        <para>If <varname>DynamicUser=</varname> is used in conjunction with
+        <varname>StateDirectory=</varname>, the logic for <varname>CacheDirectory=</varname> and
+        <varname>LogsDirectory=</varname> is slightly altered: the directories are created below
+        <filename>/var/lib/private</filename>, <filename>/var/cache/private</filename> and
         <filename>/var/log/private</filename>, respectively, which are host directories made inaccessible to
-        unprivileged users, which ensures that access to these directories cannot be gained through dynamic user ID
-        recycling. Symbolic links are created to hide this difference in behaviour. Both from perspective of the host
-        and from inside the unit, the relevant directories hence always appear directly below
-        <filename>/var/lib</filename>, <filename>/var/cache</filename> and <filename>/var/log</filename>.</para>
+        unprivileged users, which ensures that access to these directories cannot be gained through dynamic
+        user ID recycling. Symbolic links are created to hide this difference in behaviour. Both from
+        perspective of the host and from inside the unit, the relevant directories hence always appear
+        directly below <filename>/var/lib</filename>, <filename>/var/cache</filename> and
+        <filename>/var/log</filename>.</para>
 
         <para>Use <varname>RuntimeDirectory=</varname> to manage one or more runtime directories for the unit and bind
         their lifetime to the daemon runtime. This is particularly useful for unprivileged daemons that cannot create
@@ -1238,8 +1241,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <term><varname>PrivateTmp=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, sets up a new file system namespace for the executed
-        processes and mounts private <filename>/tmp</filename> and <filename>/var/tmp</filename> directories inside it
-        that is not shared by processes outside of the namespace. This is useful to secure access to temporary files of
+        processes and mounts private <filename>/tmp/</filename> and <filename>/var/tmp/</filename> directories inside it
+        that are not shared by processes outside of the namespace. This is useful to secure access to temporary files of
         the process, but makes sharing between processes via <filename>/tmp</filename> or <filename>/var/tmp</filename>
         impossible. If this is enabled, all temporary files created by a service in these directories will be removed
         after the service is stopped.  Defaults to false. It is possible to run two or more units within the same
@@ -1399,7 +1402,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         this option removes <constant>CAP_SYS_TIME</constant> and <constant>CAP_WAKE_ALARM</constant> from the
         capability bounding set for this unit, installs a system call filter to block calls that can set the
         clock, and <varname>DeviceAllow=char-rtc r</varname> is implied. This ensures <filename>/dev/rtc0</filename>,
-        <filename>/dev/rtc1</filename>, etc are made read only to the service. See
+        <filename>/dev/rtc1</filename>, etc. are made read-only to the service. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for the details about <varname>DeviceAllow=</varname>.</para>
 
@@ -1495,7 +1498,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
         are unaffected. Also, sockets created with <function>socketpair()</function> (which creates connected
         AF_UNIX sockets only) are unaffected. Note that this option has no effect on 32-bit x86, s390, s390x,
-        mips, mips-le, ppc, ppc-le, pcc64, ppc64-le and is ignored (but works correctly on other ABIs,
+        mips, mips-le, ppc, ppc-le, ppc64, ppc64-le and is ignored (but works correctly on other ABIs,
         including x86-64). Note that on systems supporting multiple ABIs (such as x86/x86-64) it is
         recommended to turn off alternative ABIs for services, so that they cannot be used to circumvent the
         restrictions of this option. Specifically, it is recommended to combine this option with
@@ -1803,7 +1806,7 @@ RestrictNamespaces=~cgroup net</programlisting>
               </row>
               <row>
                 <entry>@file-system</entry>
-                <entry>File system operations: opening, creating files and directories for read and write, renaming and removing them, reading file properties, or creating hard and symbolic links.</entry>
+                <entry>File system operations: opening, creating files and directories for read and write, renaming and removing them, reading file properties, or creating hard and symbolic links</entry>
               </row>
               <row>
                 <entry>@io-event</entry>
@@ -1819,7 +1822,7 @@ RestrictNamespaces=~cgroup net</programlisting>
               </row>
               <row>
                 <entry>@memlock</entry>
-                <entry>Locking of memory into RAM (<citerefentry project='man-pages'><refentrytitle>mlock</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>mlockall</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
+                <entry>Locking of memory in RAM (<citerefentry project='man-pages'><refentrytitle>mlock</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>mlockall</refentrytitle><manvolnum>2</manvolnum></citerefentry> and related calls)</entry>
               </row>
               <row>
                 <entry>@module</entry>
@@ -1843,7 +1846,7 @@ RestrictNamespaces=~cgroup net</programlisting>
               </row>
               <row>
                 <entry>@process</entry>
-                <entry>Process control, execution, namespaceing operations (<citerefentry project='man-pages'><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, …</entry>
+                <entry>Process control, execution, namespaceing operations (<citerefentry project='man-pages'><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, …)</entry>
               </row>
               <row>
                 <entry>@raw-io</entry>
@@ -1871,7 +1874,7 @@ RestrictNamespaces=~cgroup net</programlisting>
               </row>
               <row>
                 <entry>@sync</entry>
-                <entry>Synchronizing files and memory to disk: (<citerefentry project='man-pages'><refentrytitle>fsync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>msync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
+                <entry>Synchronizing files and memory to disk (<citerefentry project='man-pages'><refentrytitle>fsync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>msync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
               <row>
                 <entry>@system-service</entry>
@@ -1949,7 +1952,7 @@ SystemCallErrorNumber=EPERM</programlisting>
         manager is compiled for). If running in user mode, or in system mode, but without the
         <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=nobody</varname>),
         <varname>NoNewPrivileges=yes</varname> is implied. By default, this option is set to the empty list, i.e. no
-        system call architecture filtering is applied.</para>
+        filtering is applied.</para>
 
         <para>If this setting is used, processes of this unit will only be permitted to call native system calls, and
         system calls of the specified architectures. For the purposes of this option, the x32 architecture is treated
@@ -2213,8 +2216,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         <constant>AF_UNIX</constant> socket in the file system, as in that case only a
         single stream connection is created for both input and output.</para>
 
-        <para><option>append:<replaceable>path</replaceable></option> is similar to <option>file:<replaceable>path
-        </replaceable></option> above, but it opens the file in append mode.</para>
+        <para><option>append:<replaceable>path</replaceable></option> is similar to
+        <option>file:<replaceable>path</replaceable></option> above, but it opens the file in append mode.
+        </para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
@@ -2551,7 +2555,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     <varname>UnsetEnvironment=</varname> are removed again from the compiled environment variable list, immediately
     before it is passed to the executed process.</para>
 
-    <para>The following select environment variables are set or propagated by the service manager for each invoked
+    <para>The following environment variables are set or propagated by the service manager for each invoked
     process:</para>
 
     <variablelist class='environment-variables'>
@@ -2622,7 +2626,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <term><varname>$LOGS_DIRECTORY</varname></term>
         <term><varname>$CONFIGURATION_DIRECTORY</varname></term>
 
-        <listitem><para>Contains and absolute paths to the directories defined with
+        <listitem><para>Absolute paths to the directories defined with
         <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>,
         <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>, and
         <varname>ConfigurationDirectory=</varname> when those settings are used.</para>
@@ -3228,7 +3232,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
           <row>
             <entry>242</entry>
             <entry><constant>EXIT_NUMA_POLICY</constant></entry>
-            <entry>Failed to set up unit's NUMA memory policy. See <varname>NUMAPolicy=</varname> and <varname>NUMAMask=</varname>above.</entry>
+            <entry>Failed to set up unit's NUMA memory policy. See <varname>NUMAPolicy=</varname> and <varname>NUMAMask=</varname> above.</entry>
           </row>
 
         </tbody>

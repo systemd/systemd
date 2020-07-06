@@ -524,7 +524,8 @@
     structured log entries via calls such as
     <citerefentry><refentrytitle>sd_journal_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     They may also not be used as matches for
-    <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry></para>
+    <citerefentry><refentrytitle>sd_journal_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    </para>
 
     <variablelist class='journal-directives'>
       <varlistentry>

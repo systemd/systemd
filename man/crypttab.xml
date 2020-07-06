@@ -255,6 +255,7 @@
 
         <listitem><para>Perform encryption using the same cpu that IO was submitted on. The default is to use
         an unbound workqueue so that encryption work is automatically balanced between available CPUs.</para>
+
         <para>This requires kernel 4.0 or newer.</para>
         </listitem>
       </varlistentry>
@@ -263,9 +264,10 @@
         <term><option>submit-from-crypt-cpus</option></term>
 
         <listitem><para>Disable offloading writes to a separate thread after encryption. There are some
-        situations where offloading write bios from the encryption threads to a single thread degrades
-        performance significantly. The default is to offload write bios to the same thread because it benefits
-        CFQ to have writes submitted using the same context.</para>
+        situations where offloading write requests from the encryption threads to a dedicated thread degrades
+        performance significantly. The default is to offload write requests to a dedicated thread because it
+        benefits the CFQ scheduler to have writes submitted using the same context.</para>
+
         <para>This requires kernel 4.0 or newer.</para>
         </listitem>
       </varlistentry>
@@ -512,7 +514,8 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s</programlist
 
       <para>The PKCS#11 logic allows hooking up any compatible security token that is capable of storing RSA
       decryption keys. Here's an example how to set up a Yubikey security token for this purpose, using
-      <command>ykman</command> from the yubikey-manager project:</para>
+      <citerefentry project='debian'><refentrytitle>ykmap</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      from the yubikey-manager project:</para>
 
 <programlisting><xi:include href="yubikey-crypttab.sh" parse="text" /></programlisting>
 

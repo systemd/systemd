@@ -35,7 +35,7 @@
     <refname>sd_peer_get_cgroup</refname>
     <refpurpose>Determine the owner uid of the user unit or session,
     or the session, user unit, system unit, container/VM or slice that
-    a specific PID or socket peer belongs to.</refpurpose>
+    a specific PID or socket peer belongs to</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

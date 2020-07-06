@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>systemd-time-wait-sync.service</refname>
     <refname>systemd-time-wait-sync</refname>
-    <refpurpose>Wait Until Kernel Time Synchronized</refpurpose>
+    <refpurpose>Wait until kernel time is synchronized</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

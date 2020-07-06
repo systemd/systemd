@@ -737,7 +737,7 @@
         that the listed unit is fully started up before the configured unit is started.</para>
 
         <para>When two units with an ordering dependency between them are shut down, the inverse of the
-        start-up order is applied. i.e. if a unit is configured with <varname>After=</varname> on another
+        start-up order is applied. I.e. if a unit is configured with <varname>After=</varname> on another
         unit, the former is stopped before the latter if both are shut down. Given two units with any
         ordering dependency between them, if one unit is shut down and the other is started up, the shutdown
         is ordered before the start-up. It doesn't matter if the ordering dependency is
@@ -833,7 +833,7 @@
         <option>--job-mode=</option> option for details on the
         possible values. If this is set to <literal>isolate</literal>,
         only a single unit may be listed in
-        <varname>OnFailure=</varname>..</para></listitem>
+        <varname>OnFailure=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1027,9 +1027,9 @@
         <term><varname>StartLimitAction=</varname></term>
 
         <listitem><para>Configure an additional action to take if the rate limit configured with
-        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit.  Takes the same
-        values as the setting <varname>FailureAction=</varname>/<varname>SuccessAction=</varname> settings and executes
-        the same actions. If <option>none</option> is set, hitting the rate limit will trigger no action besides that
+        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes the same
+        values as the <varname>FailureAction=</varname>/<varname>SuccessAction=</varname> settings. If
+        <option>none</option> is set, hitting the rate limit will trigger no action except that
         the start will not be permitted. Defaults to <option>none</option>.</para></listitem>
       </varlistentry>
 
@@ -1639,7 +1639,7 @@
   <refsect1>
     <title>[Install] Section Options</title>
 
-    <para>Unit files may include an <literal>[Install]</literal> section, which carries installation information for
+    <para>Unit files may include an [Install] section, which carries installation information for
     the unit. This section is not interpreted by
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> during runtime; it is
     used by the <command>enable</command> and <command>disable</command> commands of the

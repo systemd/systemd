@@ -64,7 +64,7 @@
   <refsect1>
     <title>[Service] Section Options</title>
 
-      <para>The network service file contains a <literal>[Service]</literal>
+      <para>The network service file contains a [Service]
       section, which specifies a discoverable network service announced in a
       local network with Multicast DNS broadcasts.</para>
 

@@ -531,11 +531,9 @@
         <term><option>-u</option></term>
         <term><option>--user=</option></term>
 
-        <listitem><para>After transitioning into the container, change
-        to the specified user-defined in the container's user
-        database. Like all other systemd-nspawn features, this is not
-        a security feature and provides protection against accidental
-        destructive operations only.</para></listitem>
+        <listitem><para>After transitioning into the container, change to the specified user defined in the
+        container's user database. Like all other systemd-nspawn features, this is not a security feature and
+        provides protection against accidental destructive operations only.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1167,10 +1165,9 @@
 
         <para>Finally, if set to <literal>auto</literal> the file is left as it is if private networking is
         turned on (see <option>--private-network</option>). Otherwise, if
-        <filename>systemd-resolved.service</filename> is connectible its stub
-        <filename>resolv.conf</filename> file is used, and if not the host's
-        <filename>/etc/resolv.conf</filename> file is used. In the latter cases the file is copied if the
-        image is writable, and bind mounted otherwise.</para>
+        <filename>systemd-resolved.service</filename> is running its stub <filename>resolv.conf</filename>
+        file is used, and if not the host's <filename>/etc/resolv.conf</filename> file. In the latter cases
+        the file is copied if the image is writable, and bind mounted otherwise.</para>
 
         <para>It's recommended to use <literal>copy-…</literal> or <literal>replace-…</literal> if the
         container shall be able to make changes to the DNS configuration on its own, deviating from the
@@ -1186,19 +1183,20 @@
       <varlistentry>
         <term><option>--timezone=</option></term>
 
-        <listitem><para>Configures how <filename>/etc/localtime</filename> inside of the container (i.e. local timezone
-        synchronization from host to container) shall be handled. Takes one of <literal>off</literal>,
-        <literal>copy</literal>, <literal>bind</literal>, <literal>symlink</literal>, <literal>delete</literal> or
-        <literal>auto</literal>. If set to <literal>off</literal> the <filename>/etc/localtime</filename> file in the
-        container is left as it is included in the image, and neither modified nor bind mounted over. If set to
-        <literal>copy</literal> the <filename>/etc/localtime</filename> file of the host is copied into the
-        container. Similar, if <literal>bind</literal> is used, it is bind mounted from the host into the container. If
-        set to <literal>symlink</literal> a symlink from <filename>/etc/localtime</filename> in the container is
-        created pointing to the matching the timezone file of the container that matches the timezone setting on the
-        host. If set to <literal>delete</literal> the file in the container is deleted, should it exist. If set to
-        <literal>auto</literal> and the <filename>/etc/localtime</filename> file of the host is a symlink, then
-        <literal>symlink</literal> mode is used, and <literal>copy</literal> otherwise, except if the image is
-        read-only in which case <literal>bind</literal> is used instead. Defaults to
+        <listitem><para>Configures how <filename>/etc/localtime</filename> inside of the container
+        (i.e. local timezone synchronization from host to container) shall be handled. Takes one of
+        <literal>off</literal>, <literal>copy</literal>, <literal>bind</literal>, <literal>symlink</literal>,
+        <literal>delete</literal> or <literal>auto</literal>. If set to <literal>off</literal> the
+        <filename>/etc/localtime</filename> file in the container is left as it is included in the image, and
+        neither modified nor bind mounted over. If set to <literal>copy</literal> the
+        <filename>/etc/localtime</filename> file of the host is copied into the container. Similarly, if
+        <literal>bind</literal> is used, the file is bind mounted from the host into the container. If set to
+        <literal>symlink</literal>, a symlink is created pointing from <filename>/etc/localtime</filename> in
+        the container to the timezone file in the container that matches the timezone setting on the host. If
+        set to <literal>delete</literal>, the file in the container is deleted, should it exist. If set to
+        <literal>auto</literal> and the <filename>/etc/localtime</filename> file of the host is a symlink,
+        then <literal>symlink</literal> mode is used, and <literal>copy</literal> otherwise, except if the
+        image is read-only in which case <literal>bind</literal> is used instead. Defaults to
         <literal>auto</literal>.</para></listitem>
       </varlistentry>
 
@@ -1441,7 +1439,7 @@
 
       <para>This installs a minimal Fedora distribution into the
       directory <filename index="false">/var/lib/machines/f&fedora_latest_version;</filename>
-      and then boots an OS in a namespace container in it. Because the installation
+      and then boots that OS in a namespace container. Because the installation
       is located underneath the standard <filename>/var/lib/machines/</filename>
       directory, it is also possible to start the machine using
       <command>systemd-nspawn -M f&fedora_latest_version;</command>.</para>
@@ -1455,7 +1453,7 @@
 
       <para>This installs a minimal Debian unstable distribution into
       the directory <filename>~/debian-tree/</filename> and then
-      spawns a shell in a namespace container in it.</para>
+      spawns a shell from this image in a namespace container.</para>
 
       <para><command>debootstrap</command> supports
       <ulink url="https://www.debian.org">Debian</ulink>,

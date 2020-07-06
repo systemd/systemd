@@ -19,7 +19,7 @@
     <refname>sd_machine_get_class</refname>
     <refname>sd_machine_get_ifindices</refname>
     <refpurpose>Determine the class and network interface indices of a
-    locally running virtual machine or container.</refpurpose>
+    locally running virtual machine or container</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

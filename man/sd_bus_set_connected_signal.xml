@@ -20,7 +20,7 @@
     <refname>sd_bus_set_connected_signal</refname>
     <refname>sd_bus_get_connected_signal</refname>
 
-    <refpurpose>Control emmission of local connection establishment signal on bus connections</refpurpose>
+    <refpurpose>Control emission of local connection establishment signal on bus connections</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

@@ -114,10 +114,10 @@
           <entry>An IPv4 over IPv4 tunnel.</entry></row>
 
           <row><entry><varname>ipvlan</varname></entry>
-          <entry>An ipvlan device is a stacked device which receives packets from its underlying device based on IP address filtering.</entry></row>
+          <entry>An IPVLAN device is a stacked device which receives packets from its underlying device based on IP address filtering.</entry></row>
 
           <row><entry><varname>ipvtap</varname></entry>
-          <entry>An ipvtap device is a stacked device which receives packets from its underlying device based on IP address filtering and can be accessed using the tap user space interface.</entry></row>
+          <entry>An IPVTAP device is a stacked device which receives packets from its underlying device based on IP address filtering and can be accessed using the tap user space interface.</entry></row>
 
           <row><entry><varname>macvlan</varname></entry>
           <entry>A macvlan device is a stacked device which receives packets from its underlying device based on MAC address filtering.</entry></row>
@@ -193,7 +193,7 @@
     <title>[Match] Section Options</title>
 
     <para>A virtual network device is only created if the
-    <literal>[Match]</literal> section matches the current
+    [Match] section matches the current
     environment, or if the section is empty. The following keys are
     accepted:</para>
 
@@ -259,7 +259,7 @@
   <refsect1>
     <title>[NetDev] Section Options</title>
 
-    <para>The <literal>[NetDev]</literal> section accepts the
+    <para>The [NetDev] section accepts the
     following keys:</para>
 
     <variablelist class='network-directives'>
@@ -273,13 +273,13 @@
         <term><varname>Name=</varname></term>
         <listitem>
           <para>The interface name used when creating the netdev.
-          This option is compulsory.</para>
+          This setting is compulsory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Kind=</varname></term>
         <listitem>
-          <para>The netdev kind. This option is compulsory. See the
+          <para>The netdev kind. This setting is compulsory. See the
           <literal>Supported netdev kinds</literal> section for the
           valid keys.</para>
         </listitem>
@@ -287,10 +287,10 @@
       <varlistentry>
         <term><varname>MTUBytes=</varname></term>
         <listitem>
-          <para>The maximum transmission unit in bytes to set for the device. The usual suffixes K, M, G,
+          <para>The maximum transmission unit in bytes to set for the device. The usual suffixes K, M, G
           are supported and are understood to the base of 1024. For <literal>tun</literal> or
           <literal>tap</literal> devices, <varname>MTUBytes=</varname> setting is not currently supported in
-          <literal>[NetDev]</literal> section. Please specify it in <literal>[Link]</literal> section of
+          [NetDev] section. Please specify it in [Link] section of
           corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           files.</para>
@@ -300,8 +300,8 @@
         <term><varname>MACAddress=</varname></term>
         <listitem>
           <para>The MAC address to use for the device. For <literal>tun</literal> or <literal>tap</literal>
-          devices, setting <varname>MACAddress=</varname> in the <literal>[NetDev]</literal> section is not
-          supported. Please specify it in <literal>[Link]</literal> section of the corresponding
+          devices, setting <varname>MACAddress=</varname> in the [NetDev] section is not
+          supported. Please specify it in [Link] section of the corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           file. If this option is not set, <literal>vlan</literal> devices inherit the MAC address of the
           physical interface. For other kind of netdevs, if this option is not set, then MAC address is
@@ -316,7 +316,7 @@
   <refsect1>
     <title>[Bridge] Section Options</title>
 
-    <para>The <literal>[Bridge]</literal> section only applies for
+    <para>The [Bridge] section only applies for
     netdevs of kind <literal>bridge</literal>, and accepts the
     following keys:</para>
 
@@ -436,7 +436,7 @@
   <refsect1>
     <title>[VLAN] Section Options</title>
 
-    <para>The <literal>[VLAN]</literal> section only applies for
+    <para>The [VLAN] section only applies for
     netdevs of kind <literal>vlan</literal>, and accepts the
     following key:</para>
 
@@ -445,7 +445,7 @@
         <term><varname>Id=</varname></term>
         <listitem>
           <para>The VLAN ID to use. An integer in the range 0–4094.
-          This option is compulsory.</para>
+          This setting is compulsory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -478,8 +478,8 @@
       <varlistentry>
         <term><varname>ReorderHeader=</varname></term>
         <listitem>
-          <para>Takes a boolean. The VLAN reorder header is set VLAN interfaces behave like physical interfaces.
-          When unset, the kernel's default will be used.</para>
+          <para>Takes a boolean. When enabled, the VLAN reorder header is used and VLAN interfaces behave
+          like physical interfaces. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -488,7 +488,7 @@
   <refsect1>
     <title>[MACVLAN] Section Options</title>
 
-    <para>The <literal>[MACVLAN]</literal> section only applies for
+    <para>The [MACVLAN] section only applies for
     netdevs of kind <literal>macvlan</literal>, and accepts the
     following key:</para>
 
@@ -510,15 +510,15 @@
   <refsect1>
     <title>[MACVTAP] Section Options</title>
 
-    <para>The <literal>[MACVTAP]</literal> section applies for
+    <para>The [MACVTAP] section applies for
     netdevs of kind <literal>macvtap</literal> and accepts the
-    same key as <literal>[MACVLAN]</literal>.</para>
+    same key as [MACVLAN].</para>
   </refsect1>
 
   <refsect1>
     <title>[IPVLAN] Section Options</title>
 
-    <para>The <literal>[IPVLAN]</literal> section only applies for
+    <para>The [IPVLAN] section only applies for
     netdevs of kind <literal>ipvlan</literal>, and accepts the
     following key:</para>
 
@@ -545,15 +545,15 @@
   <refsect1>
     <title>[IPVTAP] Section Options</title>
 
-    <para>The <literal>[IPVTAP]</literal> section only applies for
+    <para>The [IPVTAP] section only applies for
     netdevs of kind <literal>ipvtap</literal> and accepts the
-    same key as <literal>[IPVLAN]</literal>.</para>
+    same key as [IPVLAN].</para>
   </refsect1>
 
   <refsect1>
     <title>[VXLAN] Section Options</title>
 
-    <para>The <literal>[VXLAN]</literal> section only applies for
+    <para>The [VXLAN] section only applies for
     netdevs of kind <literal>vxlan</literal>, and accepts the
     following keys:</para>
 
@@ -579,7 +579,8 @@
       <varlistentry>
         <term><varname>Group=</varname></term>
         <listitem>
-          <para>Configures VXLAN multicast group IP address. All members of a VXLAN must use the same multicast group address.</para>
+          <para>Configures VXLAN multicast group IP address. All members of a VXLAN must use the same
+          multicast group address.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -637,8 +638,7 @@
       <varlistentry>
         <term><varname>L3MissNotification=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true, enables netlink IP address miss
-          notifications.</para>
+          <para>Takes a boolean. When true, enables netlink IP address miss notifications.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -739,7 +739,7 @@
   <refsect1>
     <title>[GENEVE] Section Options</title>
 
-    <para>The <literal>[GENEVE]</literal> section only applies for
+    <para>The [GENEVE] section only applies for
     netdevs of kind <literal>geneve</literal>, and accepts the
     following keys:</para>
 
@@ -765,15 +765,16 @@
       <varlistentry>
         <term><varname>TTL=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[VXLAN]</literal> section except when unset or
-          set to 0, the kernel's default will be used meaning that packets TTL will be set from
+          <para>Accepts the same values as in the [VXLAN] section, except that when unset
+          or set to 0, the kernel's default will be used, meaning that packet TTL will be set from
           <filename>/proc/sys/net/ipv4/ip_default_ttl</filename>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDPChecksum=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true, specifies if UDP checksum is calculated for transmitted packets over IPv4.</para>
+          <para>Takes a boolean. When true, specifies that UDP checksum is calculated for transmitted packets
+          over IPv4.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -804,7 +805,7 @@
       <varlistentry>
         <term><varname>IPDoNotFragment=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[VXLAN]</literal> section.</para>
+          <para>Accepts the same key in [VXLAN] section.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -813,7 +814,7 @@
   <refsect1>
     <title>[L2TP] Section Options</title>
 
-    <para>The <literal>[L2TP]</literal> section only applies for
+    <para>The [L2TP] section only applies for
     netdevs of kind <literal>l2tp</literal>, and accepts the
     following keys:</para>
 
@@ -821,21 +822,23 @@
       <varlistentry>
         <term><varname>TunnelId=</varname></term>
         <listitem>
-          <para>Specifies the tunnel id. The value used must match the <literal>PeerTunnelId=</literal> value being used at the peer.
-          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+          <para>Specifies the tunnel identifier. Takes an number in the range 1–4294967295. The value used
+          must match the <literal>PeerTunnelId=</literal> value being used at the peer. This setting is
+          compulsory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>PeerTunnelId=</varname></term>
         <listitem>
-          <para>Specifies the peer tunnel id. The value used must match the <literal>PeerTunnelId=</literal> value being used at the peer.
-          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+          <para>Specifies the peer tunnel id. Takes a number in the range 1—4294967295. The value used must
+          match the <literal>PeerTunnelId=</literal> value being used at the peer. This setting is
+          compulsory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Remote=</varname></term>
         <listitem>
-          <para>Specifies the IP address of the remote peer. This option is compulsory.</para>
+          <para>Specifies the IP address of the remote peer. This setting is compulsory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -852,27 +855,29 @@
       <varlistentry>
         <term><varname>EncapsulationType=</varname></term>
         <listitem>
-          <para>Specifies the encapsulation type of the tunnel. Takes one of <literal>udp</literal> or <literal>ip</literal>.</para>
+          <para>Specifies the encapsulation type of the tunnel. Takes one of <literal>udp</literal> or
+          <literal>ip</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDPSourcePort=</varname></term>
         <listitem>
-          <para>Specifies the UDP source port to be used for the tunnel. When UDP encapsulation is selected it's mandotory. Ignored when ip
-          encapsulation is selected.</para>
+          <para>Specifies the UDP source port to be used for the tunnel. When UDP encapsulation is selected
+          it's mandatory. Ignored when IP encapsulation is selected.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDPDestinationPort=</varname></term>
         <listitem>
-          <para>Specifies destination port. When UDP encapsulation is selected it's mandotory. Ignored when ip
+          <para>Specifies destination port. When UDP encapsulation is selected it's mandatory. Ignored when IP
           encapsulation is selected.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDPChecksum=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true, specifies if UDP checksum is calculated for transmitted packets over IPv4.</para>
+          <para>Takes a boolean. When true, specifies that UDP checksum is calculated for transmitted packets
+          over IPv4.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -893,28 +898,30 @@
   <refsect1>
     <title>[L2TPSession] Section Options</title>
 
-    <para>The <literal>[L2TPSession]</literal> section only applies for
+    <para>The [L2TPSession] section only applies for
     netdevs of kind <literal>l2tp</literal>, and accepts the
     following keys:</para>
     <variablelist class='network-directives'>
       <varlistentry>
         <term><varname>Name=</varname></term>
         <listitem>
-          <para>Specifies the name of the session. This option is compulsory.</para>
+          <para>Specifies the name of the session. This setting is compulsory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>SessionId=</varname></term>
         <listitem>
-          <para>Specifies the session id. The value used must match the <literal>SessionId=</literal> value being used at the peer.
-          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+          <para>Specifies the session identifier. Takes an number in the range 1–4294967295. The value used
+          must match the <literal>SessionId=</literal> value being used at the peer. This setting is
+          compulsory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>PeerSessionId=</varname></term>
         <listitem>
-          <para>Specifies the peer session id. The value used must match the <literal>PeerSessionId=</literal> value being used at the peer.
-          Ranges a number between 1 and 4294967295). This option is compulsory.</para>
+          <para>Specifies the peer session identifier. Takes an number in the range 1–4294967295.
+          The value used must match the <literal>PeerSessionId=</literal> value being used at the peer.
+          This setting is compulsory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -929,7 +936,7 @@
   <refsect1>
     <title>[MACsec] Section Options</title>
 
-    <para>The <literal>[MACsec]</literal> section only applies for network devices of kind
+    <para>The [MACsec] section only applies for network devices of kind
     <literal>macsec</literal>, and accepts the following keys:</para>
 
     <variablelist class='network-directives'>
@@ -952,7 +959,7 @@
 
   <refsect1>
     <title>[MACsecReceiveChannel] Section Options</title>
-    <para>The <literal>[MACsecReceiveChannel]</literal> section only applies for network devices of
+    <para>The [MACsecReceiveChannel] section only applies for network devices of
     kind <literal>macsec</literal>, and accepts the following keys:</para>
 
     <variablelist class='network-directives'>
@@ -968,7 +975,7 @@
         <term><varname>MACAddress=</varname></term>
         <listitem>
           <para>Specifies the MAC address to be used for the MACsec receive channel. The MAC address
-          used to make secure channel identifier (SCI). This option is compulsory, and is not set by
+          used to make secure channel identifier (SCI). This setting is compulsory, and is not set by
           default.</para>
         </listitem>
       </varlistentry>
@@ -978,7 +985,7 @@
   <refsect1>
     <title>[MACsecTransmitAssociation] Section Options</title>
 
-    <para>The <literal>[MACsecTransmitAssociation]</literal> section only applies for network devices
+    <para>The [MACsecTransmitAssociation] section only applies for network devices
     of kind <literal>macsec</literal>, and accepts the following keys:</para>
 
     <variablelist class='network-directives'>
@@ -1002,7 +1009,7 @@
         <term><varname>Key=</varname></term>
         <listitem>
           <para>Specifies the encryption key used in the transmission channel. The same key must be
-          configured on the peer’s matching receive channel. This option is compulsory, and is not set
+          configured on the peer’s matching receive channel. This setting is compulsory, and is not set
           by default. Takes a 128-bit key encoded in a hexadecimal string, for example
           <literal>dffafc8d7b9a43d5b9a3dfbbf6a30c16</literal>.</para>
         </listitem>
@@ -1028,7 +1035,7 @@
         <term><varname>UseForEncoding=</varname></term>
         <listitem>
           <para>Takes a boolean. If enabled, then the security association is used for encoding. Only
-          one <literal>[MACsecTransmitAssociation]</literal> section can enable this option. When enabled,
+          one [MACsecTransmitAssociation] section can enable this option. When enabled,
           <varname>Activate=yes</varname> is implied. Defaults to unset.</para>
         </listitem>
       </varlistentry>
@@ -1038,7 +1045,7 @@
   <refsect1>
     <title>[MACsecReceiveAssociation] Section Options</title>
 
-    <para>The <literal>[MACsecReceiveAssociation]</literal> section only applies for
+    <para>The [MACsecReceiveAssociation] section only applies for
     network devices of kind <literal>macsec</literal>, and accepts the
     following keys:</para>
 
@@ -1046,43 +1053,43 @@
       <varlistentry>
         <term><varname>Port=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecReceiveChannel]</literal> section.</para>
+          <para>Accepts the same key in [MACsecReceiveChannel] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecReceiveChannel]</literal> section.</para>
+          <para>Accepts the same key in [MACsecReceiveChannel] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>PacketNumber=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KeyId=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Key=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KeyFile=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Activate=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1091,7 +1098,7 @@
   <refsect1>
     <title>[Tunnel] Section Options</title>
 
-    <para>The <literal>[Tunnel]</literal> section only applies for
+    <para>The [Tunnel] section only applies for
     netdevs of kind
     <literal>ipip</literal>,
     <literal>sit</literal>,
@@ -1136,7 +1143,7 @@
           <para>A fixed Time To Live N on tunneled packets. N is a
           number in the range 1–255. 0 is a special value meaning that
           packets inherit the TTL value. The default value for IPv4
-          tunnels is: inherit. The default value for IPv6 tunnels is
+          tunnels is 0 (inherit). The default value for IPv6 tunnels is
           64.</para>
         </listitem>
       </varlistentry>
@@ -1192,7 +1199,7 @@
           both directions (<varname>InputKey=</varname> and <varname>OutputKey=</varname>).
           The <varname>Key=</varname> is either a number or an IPv4 address-like dotted quad.
           It is used as mark-configured SAD/SPD entry as part of the lookup key (both in data
-          and control path) in ip xfrm (framework used to implement IPsec protocol).
+          and control path) in IP XFRM (framework used to implement IPsec protocol).
           See <ulink url="http://man7.org/linux/man-pages/man8/ip-xfrm.8.html">
           ip-xfrm — transform configuration</ulink> for details. It is only used for VTI/VTI6,
           GRE, GRETAP, and ERSPAN tunnels.</para>
@@ -1274,7 +1281,7 @@
       <varlistentry>
         <term><varname>Encapsulation=</varname></term>
         <listitem>
-          <para>Accepts the same key as in the <literal>[FooOverUDP]</literal> section.</para>
+          <para>Accepts the same key as in the [FooOverUDP] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1314,7 +1321,7 @@
   <refsect1>
     <title>[FooOverUDP] Section Options</title>
 
-    <para>The <literal>[FooOverUDP]</literal> section only applies for
+    <para>The [FooOverUDP] section only applies for
     netdevs of kind <literal>fou</literal> and accepts the
     following keys:</para>
 
@@ -1322,29 +1329,32 @@
       <varlistentry>
         <term><varname>Encapsulation=</varname></term>
         <listitem>
-          <para>Specifies the encapsulation mechanism used to store networking packets of various protocols inside the UDP packets. Supports the following values:
+          <para>Specifies the encapsulation mechanism used to store networking packets of various protocols
+          inside the UDP packets. Supports the following values:
 
-          <literal>FooOverUDP</literal> provides the simplest no frills model of UDP encapsulation, it simply encapsulates
-          packets directly in the UDP payload.
-          <literal>GenericUDPEncapsulation</literal> is a generic and extensible encapsulation, it allows encapsulation of packets for any IP
-          protocol and optional data as part of the encapsulation.
-          For more detailed information see <ulink url="https://lwn.net/Articles/615044">Generic UDP Encapsulation</ulink>.
-          Defaults to <literal>FooOverUDP</literal>.
+          <literal>FooOverUDP</literal> provides the simplest no frills model of UDP encapsulation, it simply
+          encapsulates packets directly in the UDP payload. <literal>GenericUDPEncapsulation</literal> is a
+          generic and extensible encapsulation, it allows encapsulation of packets for any IP protocol and
+          optional data as part of the encapsulation. For more detailed information see <ulink
+          url="https://lwn.net/Articles/615044">Generic UDP Encapsulation</ulink>. Defaults to
+          <literal>FooOverUDP</literal>.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Port=</varname></term>
         <listitem>
-          <para>Specifies the port number, where the IP encapsulation packets will arrive. Please take note that the packets
-          will arrive with the encapsulation will be removed. Then they will be manually fed back into the network stack, and sent ahead
-          for delivery to the real destination. This option is mandatory.</para>
+          <para>Specifies the port number, where the IP encapsulation packets will arrive. Please take note
+          that the packets will arrive with the encapsulation will be removed. Then they will be manually fed
+          back into the network stack, and sent ahead for delivery to the real destination. This option is
+          mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>PeerPort=</varname></term>
         <listitem>
-          <para>Specifies the peer port number. Defaults to unset. Note that when peer port is set <literal>Peer=</literal> address is mandotory.</para>
+          <para>Specifies the peer port number. Defaults to unset. Note that when peer port is set
+          <literal>Peer=</literal> address is mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1360,7 +1370,8 @@
       <varlistentry>
         <term><varname>Peer=</varname></term>
         <listitem>
-          <para>Configures peer IP address. Note that when peer address is set <literal>PeerPort=</literal> is mandotory.</para>
+          <para>Configures peer IP address. Note that when peer address is set <literal>PeerPort=</literal>
+          is mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1375,7 +1386,7 @@
   <refsect1>
     <title>[Peer] Section Options</title>
 
-    <para>The <literal>[Peer]</literal> section only applies for
+    <para>The [Peer] section only applies for
     netdevs of kind <literal>veth</literal> and accepts the
     following keys:</para>
 
@@ -1384,7 +1395,7 @@
         <term><varname>Name=</varname></term>
         <listitem>
           <para>The interface name used when creating the netdev.
-          This option is compulsory.</para>
+          This setting is compulsory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1401,7 +1412,7 @@
   <refsect1>
     <title>[VXCAN] Section Options</title>
 
-    <para>The <literal>[VXCAN]</literal> section only applies for
+    <para>The [VXCAN] section only applies for
     netdevs of kind <literal>vxcan</literal> and accepts the
     following key:</para>
 
@@ -1410,7 +1421,7 @@
         <term><varname>Peer=</varname></term>
         <listitem>
           <para>The peer interface name used when creating the netdev.
-          This option is compulsory.</para>
+          This setting is compulsory.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1419,7 +1430,7 @@
   <refsect1>
     <title>[Tun] Section Options</title>
 
-    <para>The <literal>[Tun]</literal> section only applies for
+    <para>The [Tun] section only applies for
     netdevs of kind <literal>tun</literal>, and accepts the following
     keys:</para>
 
@@ -1469,15 +1480,15 @@
   <refsect1>
     <title>[Tap] Section Options</title>
 
-    <para>The <literal>[Tap]</literal> section only applies for
+    <para>The [Tap] section only applies for
     netdevs of kind <literal>tap</literal>, and accepts the same keys
-    as the <literal>[Tun]</literal> section.</para>
+    as the [Tun] section.</para>
   </refsect1>
 
   <refsect1>
     <title>[WireGuard] Section Options</title>
 
-    <para>The <literal>[WireGuard]</literal> section accepts the following
+    <para>The [WireGuard] section accepts the following
     keys:</para>
 
     <variablelist class='network-directives'>
@@ -1524,7 +1535,7 @@
   <refsect1>
     <title>[WireGuardPeer] Section Options</title>
 
-    <para>The <literal>[WireGuardPeer]</literal> section accepts the following
+    <para>The [WireGuardPeer] section accepts the following
     keys:</para>
 
     <variablelist class='network-directives'>
@@ -1600,7 +1611,7 @@
   <refsect1>
     <title>[Bond] Section Options</title>
 
-    <para>The <literal>[Bond]</literal> section accepts the following
+    <para>The [Bond] section accepts the following
     key:</para>
 
     <variablelist class='network-directives'>
@@ -1702,14 +1713,15 @@
       <varlistentry>
         <term><varname>AdActorSystemPriority=</varname></term>
         <listitem>
-          <para>Specifies the 802.3ad actor system priority. Ranges [1-65535].</para>
+          <para>Specifies the 802.3ad actor system priority. Takes a number in the range 1—65535.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>AdUserPortKey=</varname></term>
         <listitem>
-          <para>Specifies the 802.3ad user defined portion of the port key. Ranges [0-1023].</para>
+          <para>Specifies the 802.3ad user defined portion of the port key. Takes a number in the range
+          0–1023.</para>
         </listitem>
       </varlistentry>
 
@@ -1879,7 +1891,7 @@
   <refsect1>
     <title>[Xfrm] Section Options</title>
 
-    <para>The <literal>[Xfrm]</literal> section accepts the following
+    <para>The [Xfrm] section accepts the following
     keys:</para>
 
     <variablelist class='network-directives'>
@@ -1902,13 +1914,12 @@
     </variablelist>
 
     <para>For more detail information see
-      <ulink url="https://lwn.net/Articles/757391">
-        Virtual xfrm interfaces</ulink></para>
+      <ulink url="https://lwn.net/Articles/757391">Virtual XFRM Interfaces</ulink>.</para>
   </refsect1>
 
   <refsect1>
     <title>[VRF] Section Options</title>
-    <para>The <literal>[VRF]</literal> section only applies for
+    <para>The [VRF] section only applies for
     netdevs of kind <literal>vrf</literal> and accepts the
     following key:</para>
 
@@ -1916,7 +1927,7 @@
       <varlistentry>
         <term><varname>Table=</varname></term>
         <listitem>
-          <para>The numeric routing table identifier. This option is compulsory.</para>
+          <para>The numeric routing table identifier. This setting is compulsory.</para>
         </listitem>
       </varlistentry>
     </variablelist>

@@ -412,7 +412,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
             memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
-            loading it, <literal>not-found</literal> if not unit file was found for this unit,
+            loading it, <literal>not-found</literal> if no unit file was found for this unit,
             <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
             <literal>masked</literal> if the unit file has been masked. Along with showing the path to the unit file,
             this line will also show the enablement state.  Enabled commands start at boot.  See the full table of
@@ -582,7 +582,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
           <listitem>
             <para>Enable one or more units or unit instances. This will create a set of symlinks, as encoded in the
-            <literal>[Install]</literal> sections of the indicated unit files. After the symlinks have been created,
+            [Install] sections of the indicated unit files. After the symlinks have been created,
             the system manager configuration is reloaded (in a way equivalent to <command>daemon-reload</command>), in
             order to ensure the changes are taken into account immediately. Note that this does
             <emphasis>not</emphasis> have the effect of also starting any of the units being enabled. If this is
@@ -605,7 +605,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <option>--quiet</option>.
             </para>
 
-            <para>Note that this operation creates only the symlinks suggested in the <literal>[Install]</literal>
+            <para>Note that this operation creates only the symlinks suggested in the [Install]
             section of the unit files. While this command is the recommended way to manipulate the unit configuration
             directory, the administrator is free to make additional changes manually by placing or removing symlinks
             below this directory. This is particularly useful to create configurations that deviate from the suggested
@@ -645,7 +645,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>This command expects valid unit names only, it does not accept paths to unit files.</para>
 
             <para>In addition to the units specified as arguments, all units are disabled that are listed in the
-            <varname>Also=</varname> setting contained in the <literal>[Install]</literal> section of any of the unit
+            <varname>Also=</varname> setting contained in the [Install] section of any of the unit
             files being operated on.</para>
 
             <para>This command implicitly reloads the system manager configuration after completing the operation. Note
@@ -668,7 +668,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <listitem>
             <para>Reenable one or more units, as specified on the command line. This is a combination of
             <command>disable</command> and <command>enable</command> and is useful to reset the symlinks a unit file is
-            enabled with to the defaults configured in its <literal>[Install]</literal> section. This command expects
+            enabled with to the defaults configured in its [Install] section. This command expects
             a unit name only, it does not accept paths to unit files.</para>
           </listitem>
         </varlistentry>
@@ -768,17 +768,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   </row>
                   <row>
                     <entry><literal>static</literal></entry>
-                    <entry>The unit file is not enabled, and has no provisions for enabling in the <literal>[Install]</literal> unit file section.</entry>
+                    <entry>The unit file is not enabled, and has no provisions for enabling in the [Install] unit file section.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>indirect</literal></entry>
-                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in <varname>Also=</varname>. For template unit file, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
+                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the [Install] unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in <varname>Also=</varname>. For template unit files, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
                     <entry>0</entry>
                   </row>
                   <row>
                     <entry><literal>disabled</literal></entry>
-                    <entry>The unit file is not enabled, but contains an <literal>[Install]</literal> section with installation instructions.</entry>
+                    <entry>The unit file is not enabled, but contains an [Install] section with installation instructions.</entry>
                     <entry>&gt; 0</entry>
                   </row>
                   <row>

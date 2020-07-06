@@ -625,7 +625,7 @@ int journal_file_fstat(JournalFile *f) {
 
         f->last_stat_usec = now(CLOCK_MONOTONIC);
 
-        /* Refuse dealing with with files that aren't regular */
+        /* Refuse dealing with files that aren't regular */
         r = stat_verify_regular(&f->last_stat);
         if (r < 0)
                 return r;

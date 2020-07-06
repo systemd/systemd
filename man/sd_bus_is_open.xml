@@ -20,7 +20,7 @@
     <refname>sd_bus_is_open</refname>
     <refname>sd_bus_is_ready</refname>
 
-    <refpurpose>Check whether the a bus connection is open or ready.</refpurpose>
+    <refpurpose>Check whether the bus connection is open or ready</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

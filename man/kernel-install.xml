@@ -36,7 +36,7 @@
     <title>Description</title>
     <para><command>kernel-install</command> is used to install and remove kernel and initramfs images to and
     from the boot loader partition, referred to as <varname>$BOOT</varname> here. It will usually be one of
-    <filename>/boot</filename>, <filename>/efi</filename>, or <filename>/boot/efi</filename>, see below.
+    <filename>/boot/</filename>, <filename>/efi/</filename>, or <filename>/boot/efi/</filename>, see below.
     </para>
 
     <para><command>kernel-install</command> will execute the files
@@ -137,7 +137,7 @@
     <para>The partition where the kernels and <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot
     Loader Specification</ulink> snippets are located is called <varname>$BOOT</varname>.
     <command>kernel-install</command> determines the location of this partition by checking
-    <filename>/efi/</filename>, <filename>/boot/</filename>, and <filename>/boot/efi</filename>
+    <filename>/efi/</filename>, <filename>/boot/</filename>, and <filename>/boot/efi/</filename>
     in turn. The first location where <filename>$BOOT/loader/entries/</filename> or
     <filename>$BOOT/$MACHINE_ID/</filename> exists is used.</para>
   </refsect1>

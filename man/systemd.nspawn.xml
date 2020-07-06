@@ -80,7 +80,7 @@
   <refsect1>
     <title>[Exec] Section Options</title>
 
-    <para>Settings files may include an <literal>[Exec]</literal>
+    <para>Settings files may include an [Exec]
     section, which carries various execution parameters:</para>
 
     <variablelist class='nspawn-directives'>
@@ -344,7 +344,7 @@
   <refsect1>
     <title>[Files] Section Options</title>
 
-    <para>Settings files may include a <literal>[Files]</literal>
+    <para>Settings files may include a [Files]
     section, which carries various parameters configuring the file
     system of the container:</para>
 
@@ -405,7 +405,7 @@
       <varlistentry>
         <term><varname>Inaccessible=</varname></term>
 
-        <listitem><para>Masks the specified file or directly in the container, by over-mounting it with an empty file
+        <listitem><para>Masks the specified file or directory in the container, by over-mounting it with an empty file
         node of the same type with the most restrictive access mode. Takes a file system path as argument. This option
         may be used multiple times to mask multiple files or directories. This option is equivalent to the command line
         switch <option>--inaccessible=</option>, see
@@ -439,7 +439,7 @@
   <refsect1>
     <title>[Network] Section Options</title>
 
-    <para>Settings files may include a <literal>[Network]</literal>
+    <para>Settings files may include a [Network]
     section, which carries various parameters configuring the network
     connectivity of the container:</para>
 

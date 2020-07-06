@@ -18,8 +18,7 @@
   <refnamediv>
     <refname>nss-mymachines</refname>
     <refname>libnss_mymachines.so.2</refname>
-    <refpurpose>Provide hostname resolution for local
-    container instances.</refpurpose>
+    <refpurpose>Hostname resolution for local container instances</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

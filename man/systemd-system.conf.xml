@@ -58,7 +58,7 @@
     <title>Options</title>
 
     <para>All options are configured in the
-    <literal>[Manager]</literal> section:</para>
+    [Manager] section:</para>
 
     <variablelist class='config-directives'>
 
@@ -149,7 +149,7 @@
         for details. During the first phase of the shutdown operation the system and service manager remains running
         and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a timeout on this first
         phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and <varname>JobTimeoutAction=</varname>
-        in the <literal>[Unit]</literal> section of the <filename>shutdown.target</filename> unit. By default
+        in the [Unit] section of the <filename>shutdown.target</filename> unit. By default
         <varname>RuntimeWatchdogSec=</varname> defaults to 0 (off), and <varname>RebootWatchdogSec=</varname> to
         10min. <varname>KExecWatchdogSec=</varname> may be used to additionally enable the watchdog when kexec
         is being executed rather than when rebooting. Note that if the kernel does not reset the watchdog on kexec (depending
@@ -387,9 +387,9 @@
         units. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details. These settings may be overridden in individual units using the corresponding
-        <varname>LimitXXX=</varname> directives, see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>, for
-        details, and they accept the same parameter syntax. Note that these resource limits are only defaults
+        <varname>LimitXXX=</varname> directives and they accept the same parameter syntax,
+        see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Note that these resource limits are only defaults
         for units, they are not applied to the service manager process (i.e. PID 1) itself.</para></listitem>
       </varlistentry>
 

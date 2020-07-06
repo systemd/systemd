@@ -91,7 +91,7 @@
 
       <listitem><para>The boot manager optionally reads a random seed from the ESP partition, combines it
       with a 'system token' stored in a persistent EFI variable and derives a random seed to use by the OS as
-      entropy pool initializaton, providing a full entropy pool during early boot.</para></listitem>
+      entropy pool initialization, providing a full entropy pool during early boot.</para></listitem>
     </itemizedlist>
 
     <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -313,7 +313,7 @@
         is maintained persistently, while <varname>LoaderConfigTimeoutOneShot</varname> is a one-time override which is
         read once (in which case it takes precedence over <varname>LoaderConfigTimeout</varname>) and then
         removed. <varname>LoaderConfigTimeout</varname> may be manipulated with the
-        <keycap>t</keycap>/<keycap>T</keycap> keys, see above.)</para></listitem>
+        <keycap>t</keycap>/<keycap>T</keycap> keys, see above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -422,9 +422,9 @@
       <varlistentry>
         <term><varname>LoaderSystemToken</varname></term>
 
-        <listitem><para>A binary random data field, that is used for generating the random see to pass to the
-        OS (see above). Note that this random data is generally only generated once, during OS installation,
-        and is then never updated again.</para></listitem>
+        <listitem><para>A binary random data field, that is used for generating the random seed to pass to
+        the OS (see above). Note that this random data is generally only generated once, during OS
+        installation, and is then never updated again.</para></listitem>
       </varlistentry>
     </variablelist>
 

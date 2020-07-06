@@ -19,7 +19,7 @@
   <refnamediv>
     <refname>sd_bus_enqueue_for_read</refname>
 
-    <refpurpose>Re-enqueue a bus message on a bus connection, for reading.</refpurpose>
+    <refpurpose>Re-enqueue a bus message on a bus connection, for reading</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

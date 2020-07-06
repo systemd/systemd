@@ -153,7 +153,7 @@
         hence be used to uniquely label files or other resources of this session. Combine this ID with the boot
         identifier, as returned by
         <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>, for a
-        globally unique identifier for the current session.</para></listitem>
+        globally unique identifier.</para></listitem>
       </varlistentry>
 
       <varlistentry>

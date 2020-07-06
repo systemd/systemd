@@ -41,7 +41,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The following settings are configured in the <literal>[Time]</literal> section:</para>
+    <para>The following settings are configured in the [Time] section:</para>
 
     <variablelist class='network-directives'>
 

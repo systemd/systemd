@@ -44,7 +44,7 @@
     <title>Options</title>
 
     <para>All options are configured in the
-    <literal>[PStore]</literal> section:</para>
+    [PStore] section:</para>
 
     <variablelist class='config-directives'>
 
@@ -82,7 +82,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
-      <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 

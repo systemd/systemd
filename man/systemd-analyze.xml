@@ -509,9 +509,9 @@ NAutoVTs=8
       <para>This command will load unit files and print warnings if any errors are detected. Files specified
       on the command line will be loaded, but also any other units referenced by them. The full unit search
       path is formed by combining the directories for all command line arguments, and the usual unit load
-      paths (variable <varname>$SYSTEMD_UNIT_PATH</varname> is supported, and may be used to replace or
+      paths. The variable <varname>$SYSTEMD_UNIT_PATH</varname> is supported, and may be used to replace or
       augment the compiled in set of unit load paths; see
-      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>).  All
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
       units files present in the directories containing the command line arguments will be used in preference
       to the other paths.</para>
 
@@ -700,9 +700,9 @@ Service b@0.service not loaded, b.socket cannot be started.
       <varlistentry>
         <term><option>--man=no</option></term>
 
-        <listitem><para>Do not invoke man to verify the existence of
-        man pages listed in <varname>Documentation=</varname>.
-        </para></listitem>
+        <listitem><para>Do not invoke
+        <citerefentry project='man-pages'><refentrytitle>man</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to verify the existence of man pages listed in <varname>Documentation=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

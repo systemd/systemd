@@ -357,7 +357,7 @@
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
-    particular version of systemd.</para>
+    particular version of systemd).</para>
   </refsect1>
 
   <refsect1>

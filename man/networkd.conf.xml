@@ -45,7 +45,7 @@
   <refsect1>
     <title>[Network] Section Options</title>
 
-    <para>The following options are available in the <literal>[Network]</literal> section:</para>
+    <para>The following options are available in the [Network] section:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
