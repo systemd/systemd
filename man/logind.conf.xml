@@ -46,7 +46,7 @@
     <title>Options</title>
 
     <para>All options are configured in the
-    <literal>[Login]</literal> section:</para>
+    [Login] section:</para>
 
     <variablelist class='config-directives'>
 

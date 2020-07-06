@@ -297,7 +297,7 @@
             this unit (or <filename>multi-user.target</filename>) during
             installation. This is best configured via
             <varname>WantedBy=graphical.target</varname> in the unit's
-            <literal>[Install]</literal> section.</para>
+            [Install] section.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -447,7 +447,7 @@
             add <varname>Wants=</varname> dependencies for their unit to
             this unit during installation. This is best configured via
             <varname>WantedBy=multi-user.target</varname> in the unit's
-            <literal>[Install]</literal> section.</para>
+            [Install] section.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -505,7 +505,7 @@
             applications get pulled in via <varname>Wants=</varname>
             dependencies from this unit. This is best configured via a
             <varname>WantedBy=paths.target</varname> in the path unit's
-            <literal>[Install]</literal> section.</para>
+            [Install] section.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -641,7 +641,7 @@
             <para>Adding slice units to <filename>slices.target</filename> is generally not
             necessary. Instead, when some unit that uses <varname>Slice=</varname> is started, the
             specified slice will be started automatically. Adding
-            <varname>WantedBy=slices.target</varname> lines to the <literal>[Install]</literal>
+            <varname>WantedBy=slices.target</varname> lines to the [Install]
             section should only be done for units that need to be always active. In that case care
             needs to be taken to avoid creating a loop through the automatic dependencies on
             "parent" slices.</para>
@@ -659,7 +659,7 @@
             <varname>Wants=</varname> dependencies to this unit for
             their socket unit during installation. This is best
             configured via a <varname>WantedBy=sockets.target</varname>
-            in the socket unit's <literal>[Install]</literal>
+            in the socket unit's [Install]
             section.</para>
           </listitem>
         </varlistentry>
@@ -742,7 +742,7 @@
             applications get pulled in via <varname>Wants=</varname>
             dependencies from this unit. This is best configured via
             <varname>WantedBy=timers.target</varname> in the timer
-            unit's <literal>[Install]</literal> section.</para>
+            unit's [Install] section.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1104,7 +1104,7 @@
             <para>This target is active whenever any graphical session is running. It is used to
             stop user services which only apply to a graphical (X, Wayland, etc.) session when the
             session is terminated. Such services should have
-            <literal>PartOf=graphical-session.target</literal> in their <literal>[Unit]</literal>
+            <literal>PartOf=graphical-session.target</literal> in their [Unit]
             section. A target for a particular session (e. g.
             <filename>gnome-session.target</filename>) starts and stops
             <literal>graphical-session.target</literal> with

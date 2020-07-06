@@ -80,7 +80,7 @@
   <refsect1>
     <title>[Exec] Section Options</title>
 
-    <para>Settings files may include an <literal>[Exec]</literal>
+    <para>Settings files may include an [Exec]
     section, which carries various execution parameters:</para>
 
     <variablelist class='nspawn-directives'>
@@ -344,7 +344,7 @@
   <refsect1>
     <title>[Files] Section Options</title>
 
-    <para>Settings files may include a <literal>[Files]</literal>
+    <para>Settings files may include a [Files]
     section, which carries various parameters configuring the file
     system of the container:</para>
 
@@ -439,7 +439,7 @@
   <refsect1>
     <title>[Network] Section Options</title>
 
-    <para>Settings files may include a <literal>[Network]</literal>
+    <para>Settings files may include a [Network]
     section, which carries various parameters configuring the network
     connectivity of the container:</para>
 

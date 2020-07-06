@@ -44,7 +44,7 @@
     <title>Options</title>
 
     <para>All options are configured in the
-    <literal>[PStore]</literal> section:</para>
+    [PStore] section:</para>
 
     <variablelist class='config-directives'>
 

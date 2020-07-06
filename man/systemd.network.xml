@@ -72,21 +72,16 @@
   <refsect1>
     <title>[Match] Section Options</title>
 
-      <para>The network file contains a <literal>[Match]</literal>
-      section, which determines if a given network file may be applied
-      to a given device; and a <literal>[Network]</literal> section
-      specifying how the device should be configured. The first (in
-      lexical order) of the network files that matches a given device
-      is applied, all later files are ignored, even if they match as
-      well.</para>
+      <para>The network file contains a [Match] section, which determines if a given network file may be
+      applied to a given device; and a [Network] section specifying how the device should be configured. The
+      first (in lexical order) of the network files that matches a given device is applied, all later files
+      are ignored, even if they match as well.</para>
 
-      <para>A network file is said to match a network interface if all matches specified by the
-      <literal>[Match]</literal> section are satisfied. When a network file does not contain valid
-      settings in <literal>[Match]</literal> section, then the file will match all interfaces and
-      <command>systemd-networkd</command> warns about that. Hint: to avoid the warning and to make it
-      clear that all interfaces shall be matched, add the following:
-      <programlisting>Name=*</programlisting>
-      The following keys are accepted:</para>
+      <para>A network file is said to match a network interface if all matches specified by the [Match]
+      section are satisfied. When a network file does not contain valid settings in [Match] section, then the
+      file will match all interfaces and <command>systemd-networkd</command> warns about that. Hint: to avoid
+      the warning and to make it clear that all interfaces shall be matched, add the following:
+      <programlisting>Name=*</programlisting> The following keys are accepted:</para>
 
       <variablelist class='network-directives'>
         <xi:include href="systemd.link.xml" xpointer="mac-address" />
@@ -149,7 +144,7 @@
   <refsect1>
     <title>[Link] Section Options</title>
 
-    <para> The <literal>[Link]</literal> section accepts the following keys:</para>
+    <para> The [Link] section accepts the following keys:</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -238,12 +233,11 @@
 
   <refsect1>
       <title>[SR-IOV] Section Options</title>
-      <para>The <literal>[SR-IOV]</literal> section accepts the
-      following keys. Specify several <literal>[SR-IOV]</literal>
-      sections to configure several SR-IOVs. SR-IOV provides the ability to partition a single physical PCI resource
-      into virtual PCI functions which can then be injected into a VM. In the case of network VFs, SR-IOV improves
-      north-south network performance (that is, traffic with endpoints outside the host machine) by allowing traffic to
-      bypass the host machine’s network stack.</para>
+      <para>The [SR-IOV] section accepts the following keys. Specify several [SR-IOV] sections to configure
+      several SR-IOVs. SR-IOV provides the ability to partition a single physical PCI resource into virtual
+      PCI functions which can then be injected into a VM. In the case of network VFs, SR-IOV improves
+      north-south network performance (that is, traffic with endpoints outside the host machine) by allowing
+      traffic to bypass the host machine’s network stack.</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -326,7 +320,7 @@
   <refsect1>
     <title>[Network] Section Options</title>
 
-      <para>The <literal>[Network]</literal> section accepts the following keys:</para>
+      <para>The [Network] section accepts the following keys:</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -355,16 +349,15 @@
             specified through DHCP is not used for name resolution.
             See option <option>UseDomains=</option> below.</para>
 
-            <para>See the <literal>[DHCPv4]</literal> or <literal>[DHCPv6]</literal> section below for
-            further configuration options for the DHCP client support.</para>
+            <para>See the [DHCPv4] or [DHCPv6] sections below for further configuration options for the DHCP
+            client support.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>DHCPServer=</varname></term>
           <listitem>
             <para>Takes a boolean. If set to <literal>yes</literal>, DHCPv4 server will be started. Defaults
-            to <literal>no</literal>. Further settings for the DHCP
-            server may be set in the <literal>[DHCPServer]</literal>
+            to <literal>no</literal>. Further settings for the DHCP server may be set in the [DHCPServer]
             section described below.</para>
           </listitem>
         </varlistentry>
@@ -727,8 +720,8 @@
           forwarding is enabled, and to enable it otherwise. Cannot be enabled on bond devices and when link
           local addressing is disabled.</para>
 
-          <para>Further settings for the IPv6 RA support may be configured in the
-          <literal>[IPv6AcceptRA]</literal> section, see below.</para>
+          <para>Further settings for the IPv6 RA support may be configured in the [IPv6AcceptRA] section, see
+          below.</para>
 
           <para>Also see <ulink
           url="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">ip-sysctl.txt</ulink> in the kernel
@@ -798,18 +791,15 @@
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6PrefixDelegation=</varname></term>
-          <listitem><para>Whether to enable or disable Router Advertisement sending on a link.
-          Allowed values are <literal>static</literal> which distributes prefixes as defined in
-          the <literal>[IPv6PrefixDelegation]</literal> and any <literal>[IPv6Prefix]</literal>
-          sections, <literal>dhcpv6</literal> which requests prefixes using a DHCPv6 client
-          configured for another link and any values configured in the
-          <literal>[IPv6PrefixDelegation]</literal> section while ignoring all static prefix
-          configuration sections, <literal>yes</literal> which uses both static configuration
-          and DHCPv6, and <literal>false</literal> which turns off IPv6 prefix delegation
-          altogether. Defaults to <literal>false</literal>. See the
-          <literal>[IPv6PrefixDelegation]</literal> and the <literal>[IPv6Prefix]</literal>
-          sections for more configuration options.
-          </para></listitem>
+          <listitem><para>Whether to enable or disable Router Advertisement sending on a link.  Allowed
+          values are <literal>static</literal> which distributes prefixes as defined in the
+          [IPv6PrefixDelegation] and any [IPv6Prefix] sections, <literal>dhcpv6</literal> which requests
+          prefixes using a DHCPv6 client configured for another link and any values configured in the
+          [IPv6PrefixDelegation] section while ignoring all static prefix configuration sections,
+          <literal>yes</literal> which uses both static configuration and DHCPv6, and
+          <literal>false</literal> which turns off IPv6 prefix delegation altogether. Defaults to
+          <literal>false</literal>. See the [IPv6PrefixDelegation] and the [IPv6Prefix] sections for more
+          configuration options.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6PDSubnetId=</varname></term>
@@ -975,16 +965,15 @@
   <refsect1>
     <title>[Address] Section Options</title>
 
-      <para>An <literal>[Address]</literal> section accepts the
-      following keys. Specify several <literal>[Address]</literal>
+      <para>An [Address] section accepts the following keys. Specify several [Address]
       sections to configure several addresses.</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
           <term><varname>Address=</varname></term>
           <listitem>
-            <para>As in the <literal>[Network]</literal> section. This key is mandatory. Each
-            <literal>[Address]</literal> section can contain one <varname>Address=</varname> setting.</para>
+            <para>As in the [Network] section. This key is mandatory. Each [Address] section can contain one
+            <varname>Address=</varname> setting.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1090,12 +1079,10 @@
 
   <refsect1>
     <title>[Neighbor] Section Options</title>
-      <para>A <literal>[Neighbor]</literal> section accepts the
-      following keys. The neighbor section adds a permanent, static
-      entry to the neighbor table (IPv6) or ARP table (IPv4) for
-      the given hardware address on the links matched for the network.
-      Specify several <literal>[Neighbor]</literal> sections to configure
-      several static neighbors.</para>
+      <para>A [Neighbor] section accepts the following keys. The neighbor section adds a permanent, static
+      entry to the neighbor table (IPv6) or ARP table (IPv4) for the given hardware address on the links
+      matched for the network. Specify several [Neighbor] sections to configure several static neighbors.
+      </para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -1116,11 +1103,10 @@
     <refsect1>
     <title>[IPv6AddressLabel] Section Options</title>
 
-      <para>An <literal>[IPv6AddressLabel]</literal> section accepts the
-      following keys. Specify several <literal>[IPv6AddressLabel]</literal>
-      sections to configure several address labels. IPv6 address labels are
-      used for address selection. See <ulink url="https://tools.ietf.org/html/rfc3484">RFC 3484</ulink>.
-      Precedence is managed by userspace, and only the label itself is stored in the kernel</para>
+      <para>An [IPv6AddressLabel] section accepts the following keys. Specify several [IPv6AddressLabel]
+      sections to configure several address labels. IPv6 address labels are used for address selection. See
+      <ulink url="https://tools.ietf.org/html/rfc3484">RFC 3484</ulink>. Precedence is managed by userspace,
+      and only the label itself is stored in the kernel</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -1143,8 +1129,7 @@
  <refsect1>
     <title>[RoutingPolicyRule] Section Options</title>
 
-      <para>An <literal>[RoutingPolicyRule]</literal> section accepts the
-      following keys. Specify several <literal>[RoutingPolicyRule]</literal>
+      <para>An [RoutingPolicyRule] section accepts the following keys. Specify several [RoutingPolicyRule]
       sections to configure several rules.</para>
 
       <variablelist class='network-directives'>
@@ -1266,7 +1251,7 @@
         <varlistentry>
           <term><varname>Gateway=</varname></term>
           <listitem>
-            <para>As in the <literal>[Network]</literal> section. This is mandatory.</para>
+            <para>As in the [Network] section. This is mandatory.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1280,9 +1265,8 @@
 
   <refsect1>
     <title>[Route] Section Options</title>
-      <para>The <literal>[Route]</literal> section accepts the
-      following keys. Specify several <literal>[Route]</literal>
-      sections to configure several routes.</para>
+      <para>The [Route] section accepts the following keys. Specify several [Route] sections to configure
+      several routes.</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -1467,8 +1451,7 @@
 
   <refsect1>
     <title>[DHCPv4] Section Options</title>
-      <para>The <literal>[DHCPv4]</literal> section configures the
-      DHCPv4 client, if it is enabled with the
+      <para>The [DHCPv4] section configures the DHCPv4 client, if it is enabled with the
       <varname>DHCP=</varname> setting described above:</para>
 
       <variablelist class='network-directives'>
@@ -1811,7 +1794,7 @@
 
   <refsect1>
     <title>[DHCPv6] Section Options</title>
-      <para>The <literal>[DHCPv6]</literal> section configures the DHCPv6 client, if it is enabled with the
+      <para>The [DHCPv6] section configures the DHCPv6 client, if it is enabled with the
       <varname>DHCP=</varname> setting described above, or invoked by the IPv6 Router Advertisement:</para>
 
       <variablelist class='network-directives'>
@@ -1819,7 +1802,7 @@
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
           <listitem>
-            <para>As in the <literal>[DHCPv4]</literal> section.</para>
+            <para>As in the [DHCPv4] section.</para>
           </listitem>
         </varlistentry>
 
@@ -1935,7 +1918,7 @@
         <varlistentry>
           <term><varname>SendOption=</varname></term>
           <listitem>
-            <para>As in the <literal>[DHCPv4]</literal> section, however because DHCPv6 uses 16-bit fields to store
+            <para>As in the [DHCPv4] section, however because DHCPv6 uses 16-bit fields to store
             option numbers, the option number is an integer in the range 1..65536.</para>
           </listitem>
         </varlistentry>
@@ -1969,9 +1952,8 @@
 
   <refsect1>
     <title>[IPv6AcceptRA] Section Options</title>
-      <para>The <literal>[IPv6AcceptRA]</literal> section configures the IPv6 Router Advertisement
-      (RA) client, if it is enabled with the <varname>IPv6AcceptRA=</varname> setting described
-      above:</para>
+      <para>The [IPv6AcceptRA] section configures the IPv6 Router Advertisement (RA) client, if it is enabled
+      with the <varname>IPv6AcceptRA=</varname> setting described above:</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -2051,8 +2033,7 @@
 
   <refsect1>
     <title>[DHCPServer] Section Options</title>
-    <para>The <literal>[DHCPServer]</literal> section contains
-    settings for the DHCP server, if enabled via the
+    <para>The [DHCPServer] section contains settings for the DHCP server, if enabled via the
     <varname>DHCPServer=</varname> option described above:</para>
 
     <variablelist class='network-directives'>
@@ -2186,11 +2167,9 @@
 
   <refsect1>
     <title>[IPv6PrefixDelegation] Section Options</title>
-    <para>The <literal>[IPv6PrefixDelegation]</literal> section contains
-    settings for sending IPv6 Router Advertisements and whether to act as
-    a router, if enabled via the <varname>IPv6PrefixDelegation=</varname>
-    option described above. IPv6 network prefixes are defined with one or
-    more <literal>[IPv6Prefix]</literal> sections.</para>
+    <para>The [IPv6PrefixDelegation] section contains settings for sending IPv6 Router Advertisements and
+    whether to act as a router, if enabled via the <varname>IPv6PrefixDelegation=</varname> option described
+    above. IPv6 network prefixes are defined with one or more [IPv6Prefix] sections.</para>
 
     <variablelist class='network-directives'>
 
@@ -2234,32 +2213,26 @@
         <term><varname>EmitDNS=</varname></term>
         <term><varname>DNS=</varname></term>
 
-        <listitem><para><varname>DNS=</varname> specifies a list of recursive DNS server IPv6 addresses
-        that are distributed via Router Advertisement messages when <varname>EmitDNS=</varname> is
-        true. <varname>DNS=</varname> also takes special value <literal>_link_local</literal>; in that
-        case the IPv6 link local address is distributed. If <varname>DNS=</varname> is empty, DNS
-        servers are read from the <literal>[Network]</literal> section. If the
-        <literal>[Network]</literal> section does not contain any DNS servers either, DNS servers from
-        the uplink with the highest priority default route are used. When <varname>EmitDNS=</varname>
-        is false, no DNS server information is sent in Router Advertisement messages.
-        <varname>EmitDNS=</varname> defaults to true.
-        </para></listitem>
+        <listitem><para><varname>DNS=</varname> specifies a list of recursive DNS server IPv6 addresses that
+        are distributed via Router Advertisement messages when <varname>EmitDNS=</varname> is
+        true. <varname>DNS=</varname> also takes special value <literal>_link_local</literal>; in that case
+        the IPv6 link local address is distributed. If <varname>DNS=</varname> is empty, DNS servers are read
+        from the [Network] section. If the [Network] section does not contain any DNS servers either, DNS
+        servers from the uplink with the highest priority default route are used. When
+        <varname>EmitDNS=</varname> is false, no DNS server information is sent in Router Advertisement
+        messages. <varname>EmitDNS=</varname> defaults to true.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>EmitDomains=</varname></term>
         <term><varname>Domains=</varname></term>
 
-        <listitem><para>A list of DNS search domains distributed via Router
-        Advertisement messages when <varname>EmitDomains=</varname> is true. If
-        <varname>Domains=</varname> is empty, DNS search domains are read from the
-        <literal>[Network]</literal> section. If the <literal>[Network]</literal>
-        section does not contain any DNS search domains either, DNS search
-        domains from the uplink with the highest priority default route are
-        used. When <varname>EmitDomains=</varname> is false, no DNS search domain
-        information is sent in Router Advertisement messages.
-        <varname>EmitDomains=</varname> defaults to true.
-        </para></listitem>
+        <listitem><para>A list of DNS search domains distributed via Router Advertisement messages when
+        <varname>EmitDomains=</varname> is true. If <varname>Domains=</varname> is empty, DNS search domains
+        are read from the [Network] section. If the [Network] section does not contain any DNS search domains
+        either, DNS search domains from the uplink with the highest priority default route are used. When
+        <varname>EmitDomains=</varname> is false, no DNS search domain information is sent in Router
+        Advertisement messages. <varname>EmitDomains=</varname> defaults to true.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2295,13 +2268,11 @@
       <varlistentry>
         <term><varname>Prefix=</varname></term>
 
-        <listitem><para>The IPv6 prefix that is to be distributed to hosts.
-        Similarly to configuring static IPv6 addresses, the setting is
-        configured as an IPv6 prefix and its prefix length, separated by a
-        <literal>/</literal> character. Use multiple
-        <literal>[IPv6Prefix]</literal> sections to configure multiple IPv6
-        prefixes since prefix lifetimes, address autoconfiguration and onlink
-        status may differ from one prefix to another.</para></listitem>
+        <listitem><para>The IPv6 prefix that is to be distributed to hosts.  Similarly to configuring static
+        IPv6 addresses, the setting is configured as an IPv6 prefix and its prefix length, separated by a
+        <literal>/</literal> character. Use multiple [IPv6Prefix] sections to configure multiple IPv6
+        prefixes since prefix lifetimes, address autoconfiguration and onlink status may differ from one
+        prefix to another.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2324,7 +2295,7 @@
 
     <refsect1>
     <title>[IPv6RoutePrefix] Section Options</title>
-    <para>One or more <literal>[IPv6RoutePrefix]</literal> sections contain the IPv6
+    <para>One or more [IPv6RoutePrefix] sections contain the IPv6
     prefix routes that are announced via Router Advertisements. See
     <ulink url="https://tools.ietf.org/html/rfc4191">RFC 4191</ulink>
     for further details.</para>
@@ -2334,12 +2305,10 @@
       <varlistentry>
         <term><varname>Route=</varname></term>
 
-        <listitem><para>The IPv6 route that is to be distributed to hosts.
-        Similarly to configuring static IPv6 routes, the setting is
-        configured as an IPv6 prefix routes and its prefix route length,
-        separated by a<literal>/</literal> character. Use multiple
-        <literal>[IPv6PrefixRoutes]</literal> sections to configure multiple IPv6
-        prefix routes.</para></listitem>
+        <listitem><para>The IPv6 route that is to be distributed to hosts.  Similarly to configuring static
+        IPv6 routes, the setting is configured as an IPv6 prefix routes and its prefix route length,
+        separated by a <literal>/</literal> character. Use multiple [IPv6PrefixRoutes] sections to configure
+        multiple IPv6 prefix routes.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2355,8 +2324,7 @@
 
     <refsect1>
     <title>[Bridge] Section Options</title>
-      <para>The <literal>[Bridge]</literal> section accepts the
-      following keys.</para>
+      <para>The [Bridge] section accepts the following keys:</para>
       <variablelist class='network-directives'>
         <varlistentry>
           <term><varname>UnicastFlood=</varname></term>
@@ -2482,17 +2450,14 @@
   </refsect1>
   <refsect1>
     <title>[BridgeFDB] Section Options</title>
-      <para>The <literal>[BridgeFDB]</literal> section manages the
-      forwarding database table of a port and accepts the following
-      keys. Specify several <literal>[BridgeFDB]</literal> sections to
-      configure several static MAC table entries.</para>
+      <para>The [BridgeFDB] section manages the forwarding database table of a port and accepts the following
+      keys. Specify several [BridgeFDB] sections to configure several static MAC table entries.</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
           <term><varname>MACAddress=</varname></term>
           <listitem>
-            <para>As in the <literal>[Network]</literal> section. This
-            key is mandatory.</para>
+            <para>As in the [Network] section. This key is mandatory.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2535,8 +2500,8 @@
 
   <refsect1>
     <title>[LLDP] Section Options</title>
-      <para>The <literal>[LLDP]</literal> section manages the Link Layer Discovery Protocol (LLDP) and accepts the
-      following keys.</para>
+      <para>The [LLDP] section manages the Link Layer Discovery Protocol (LLDP) and accepts the following
+      keys.</para>
       <variablelist class='network-directives'>
         <varlistentry>
           <term><varname>MUDURL=</varname></term>
@@ -2557,8 +2522,8 @@
 
   <refsect1>
     <title>[CAN] Section Options</title>
-      <para>The <literal>[CAN]</literal> section manages the Controller Area Network (CAN bus) and accepts the
-      following keys.</para>
+      <para>The [CAN] section manages the Controller Area Network (CAN bus) and accepts the
+      following keys:</para>
       <variablelist class='network-directives'>
         <varlistentry>
           <term><varname>BitRate=</varname></term>
@@ -2636,7 +2601,7 @@
 
   <refsect1>
     <title>[QDisc] Section Options</title>
-    <para>The <literal>[QDisc]</literal> section manages the traffic control queueing discipline (qdisc).</para>
+    <para>The [QDisc] section manages the traffic control queueing discipline (qdisc).</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -2653,10 +2618,10 @@
 
   <refsect1>
     <title>[NetworkEmulator] Section Options</title>
-    <para>The <literal>[NetworkEmulator]</literal> section manages the queueing discipline (qdisc) of
-    the network emulator. It can be used to configure the kernel packet scheduler and simulate packet
-    delay and loss for UDP or TCP applications, or limit the bandwidth usage of a particular service to
-    simulate internet connections.</para>
+    <para>The [NetworkEmulator] section manages the queueing discipline (qdisc) of the network emulator. It
+    can be used to configure the kernel packet scheduler and simulate packet delay and loss for UDP or TCP
+    applications, or limit the bandwidth usage of a particular service to simulate internet connections.
+    </para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2780,8 +2745,8 @@
 
   <refsect1>
     <title>[PIE] Section Options</title>
-    <para>The <literal>[PIE]</literal> section manages the queueing discipline
-    (qdisc) of Proportional Integral controller-Enhanced (PIE).</para>
+    <para>The [PIE] section manages the queueing discipline (qdisc) of Proportional Integral
+    controller-Enhanced (PIE).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2799,8 +2764,8 @@
 
   <refsect1>
     <title>[StochasticFairBlue] Section Options</title>
-    <para>The <literal>[StochasticFairBlue]</literal> section manages the queueing discipline
-    (qdisc) of stochastic fair blue (sfb).</para>
+    <para>The [StochasticFairBlue] section manages the queueing discipline (qdisc) of stochastic fair blue
+    (sfb).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2819,8 +2784,8 @@
 
   <refsect1>
     <title>[StochasticFairnessQueueing] Section Options</title>
-    <para>The <literal>[StochasticFairnessQueueing]</literal> section manages the queueing discipline
-    (qdisc) of stochastic fairness queueing (sfq).</para>
+    <para>The [StochasticFairnessQueueing] section manages the queueing discipline (qdisc) of stochastic
+    fairness queueing (sfq).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2837,8 +2802,8 @@
 
   <refsect1>
     <title>[BFIFO] Section Options</title>
-    <para>The <literal>[BFIFO]</literal> section manages the queueing discipline (qdisc) of
-    Byte limited Packet First In First Out (bfifo).</para>
+    <para>The [BFIFO] section manages the queueing discipline (qdisc) of Byte limited Packet First In First
+    Out (bfifo).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2859,8 +2824,8 @@
 
   <refsect1>
     <title>[PFIFO] Section Options</title>
-    <para>The <literal>[PFIFO]</literal> section manages the queueing discipline (qdisc) of
-    Packet First In First Out (pfifo).</para>
+    <para>The [PFIFO] section manages the queueing discipline (qdisc) of Packet First In First Out
+    (pfifo).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2880,8 +2845,8 @@
 
   <refsect1>
     <title>[PFIFOHeadDrop] Section Options</title>
-    <para>The <literal>[PFIFOHeadDrop]</literal> section manages the queueing discipline (qdisc) of
-    Packet First In First Out Head Drop (pfifo_head_drop).</para>
+    <para>The [PFIFOHeadDrop] section manages the queueing discipline (qdisc) of Packet First In First Out
+    Head Drop (pfifo_head_drop).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2890,15 +2855,15 @@
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>As in <literal>[PFIFO]</literal> section.</para></listitem>
+          <para>As in [PFIFO] section.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
 
   <refsect1>
      <title>[PFIFOFast] Section Options</title>
-     <para>The <literal>[PFIFOFast]</literal> section manages the queueing discipline (qdisc) of
-     Packet First In First Out Fast (pfifo_fast).</para>
+     <para>The [PFIFOFast] section manages the queueing discipline (qdisc) of Packet First In First Out Fast
+     (pfifo_fast).</para>
 
      <variablelist class='network-directives'>
        <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2908,8 +2873,8 @@
 
   <refsect1>
     <title>[CAKE] Section Options</title>
-    <para>The <literal>[CAKE]</literal> section manages the queueing discipline (qdisc) of
-    Common Applications Kept Enhanced (CAKE).</para>
+    <para>The [CAKE] section manages the queueing discipline (qdisc) of Common Applications Kept Enhanced
+    (CAKE).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2936,7 +2901,7 @@
 
   <refsect1>
     <title>[ControlledDelay] Section Options</title>
-    <para>The <literal>[ControlledDelay]</literal> section manages the queueing discipline (qdisc) of
+    <para>The [ControlledDelay] section manages the queueing discipline (qdisc) of
     controlled delay (CoDel).</para>
 
     <variablelist class='network-directives'>
@@ -2988,8 +2953,8 @@
 
   <refsect1>
     <title>[DeficitRoundRobinScheduler] Section Options</title>
-    <para>The <literal>[DeficitRoundRobinScheduler]</literal> section manages the queueing discipline (qdisc) of
-    Deficit Round Robin Scheduler (DRR).</para>
+    <para>The [DeficitRoundRobinScheduler] section manages the queueing discipline (qdisc) of Deficit Round
+    Robin Scheduler (DRR).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2999,8 +2964,8 @@
 
   <refsect1>
     <title>[DeficitRoundRobinSchedulerClass] Section Options</title>
-    <para>The <literal>[DeficitRoundRobinSchedulerClass]</literal> section manages the traffic control class of
-    Deficit Round Robin Scheduler (DRR).</para>
+    <para>The [DeficitRoundRobinSchedulerClass] section manages the traffic control class of Deficit Round
+    Robin Scheduler (DRR).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="tclass-parent" />
@@ -3021,8 +2986,8 @@
 
   <refsect1>
     <title>[EnhancedTransmissionSelection] Section Options</title>
-    <para>The <literal>[EnhancedTransmissionSelection]</literal> section manages the queueing discipline (qdisc) of
-    Enhanced Transmission Selection (ETS).</para>
+    <para>The [EnhancedTransmissionSelection] section manages the queueing discipline (qdisc) of Enhanced
+    Transmission Selection (ETS).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -3072,8 +3037,8 @@
 
   <refsect1>
     <title>[GenericRandomEarlyDetection] Section Options</title>
-    <para>The <literal>[GenericRandomEarlyDetection]</literal> section manages the queueing discipline
-    (qdisc) of Generic Random Early Detection (GRED).</para>
+    <para>The [GenericRandomEarlyDetection] section manages the queueing discipline (qdisc) of Generic Random
+    Early Detection (GRED).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -3106,8 +3071,8 @@
 
   <refsect1>
     <title>[FairQueueingControlledDelay] Section Options</title>
-    <para>The <literal>[FairQueueingControlledDelay]</literal> section manages the queueing discipline
-    (qdisc) of fair queuing controlled delay (FQ-CoDel).</para>
+    <para>The [FairQueueingControlledDelay] section manages the queueing discipline (qdisc) of fair queuing
+    controlled delay (FQ-CoDel).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -3183,8 +3148,8 @@
 
   <refsect1>
     <title>[FairQueueing] Section Options</title>
-    <para>The <literal>[FairQueueing]</literal> section manages the queueing discipline
-    (qdisc) of fair queue traffic policing (FQ).</para>
+    <para>The [FairQueueing] section manages the queueing discipline (qdisc) of fair queue traffic policing
+    (FQ).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -3272,8 +3237,8 @@
 
   <refsect1>
     <title>[TrivialLinkEqualizer] Section Options</title>
-    <para>The <literal>[TrivialLinkEqualizer]</literal> section manages the queueing discipline (qdisc) of
-    trivial link equalizer (teql).</para>
+    <para>The [TrivialLinkEqualizer] section manages the queueing discipline (qdisc) of trivial link
+    equalizer (teql).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -3293,8 +3258,8 @@
 
   <refsect1>
     <title>[HierarchyTokenBucket] Section Options</title>
-    <para>The <literal>[HierarchyTokenBucket]</literal> section manages the queueing discipline (qdisc) of
-    hierarchy token bucket (htb).</para>
+    <para>The [HierarchyTokenBucket] section manages the queueing discipline (qdisc) of hierarchy token
+    bucket (htb).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -3320,8 +3285,8 @@
 
   <refsect1>
     <title>[HierarchyTokenBucketClass] Section Options</title>
-    <para>The <literal>[HierarchyTokenBucketClass]</literal> section manages the traffic control class of
-    hierarchy token bucket (htb).</para>
+    <para>The [HierarchyTokenBucketClass] section manages the traffic control class of hierarchy token bucket
+    (htb).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="tclass-parent" />
@@ -3402,8 +3367,8 @@
 
   <refsect1>
     <title>[HeavyHitterFilter] Section Options</title>
-    <para>The <literal>[HeavyHitterFilter]</literal> section manages the queueing discipline
-    (qdisc) of Heavy Hitter Filter (hhf).</para>
+    <para>The [HeavyHitterFilter] section manages the queueing discipline (qdisc) of Heavy Hitter Filter
+    (hhf).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -3422,8 +3387,8 @@
 
   <refsect1>
     <title>[QuickFairQueueing] Section Options</title>
-    <para>The <literal>[QuickFairQueueing]</literal> section manages the queueing discipline
-    (qdisc) of Quick Fair Queueing (QFQ).</para>
+    <para>The [QuickFairQueueing] section manages the queueing discipline (qdisc) of Quick Fair Queueing
+    (QFQ).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -3433,8 +3398,8 @@
 
   <refsect1>
     <title>[QuickFairQueueingClass] Section Options</title>
-    <para>The <literal>[QuickFairQueueingClass]</literal> section manages the traffic control class of
-    Quick Fair Queueing (qfq).</para>
+    <para>The [QuickFairQueueingClass] section manages the traffic control class of Quick Fair Queueing
+    (qfq).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="tclass-parent" />
@@ -3461,9 +3426,9 @@
 
   <refsect1>
     <title>[BridgeVLAN] Section Options</title>
-      <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts
-      the following keys. Specify several <literal>[BridgeVLAN]</literal> sections to configure several VLAN entries.
-      The <varname>VLANFiltering=</varname> option has to be enabled, see <literal>[Bridge]</literal> section in
+      <para>The [BridgeVLAN] section manages the VLAN ID configuration of a bridge port and accepts the
+      following keys. Specify several [BridgeVLAN] sections to configure several VLAN entries. The
+      <varname>VLANFiltering=</varname> option has to be enabled, see the [Bridge] section in
       <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
       <variablelist class='network-directives'>

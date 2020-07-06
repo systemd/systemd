@@ -35,9 +35,9 @@
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
     configuration items are configured in the generic
-    <literal>[Unit]</literal> and <literal>[Install]</literal>
+    [Unit] and [Install]
     sections. The service specific configuration options are
-    configured in the <literal>[Service]</literal> section.</para>
+    configured in the [Service] section.</para>
 
     <para>Additional options are listed in
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
@@ -138,7 +138,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Service files must include a <literal>[Service]</literal>
+    <para>Service files must include a [Service]
     section, which carries information about the service and the
     process it supervises. A number of options that may be used in
     this section are shared with other unit types. These options are
@@ -147,7 +147,7 @@
     <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     and
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    The options specific to the <literal>[Service]</literal> section
+    The options specific to the [Service] section
     of service units are the following:</para>
 
     <variablelist class='unit-directives'>
@@ -1495,7 +1495,7 @@ ExecStart=/usr/sbin/simple-dbus-service
 WantedBy=multi-user.target</programlisting>
 
       <para>For <emphasis>bus-activatable</emphasis> services, do not
-      include a <literal>[Install]</literal> section in the systemd
+      include a [Install] section in the systemd
       service file, but use the <varname>SystemdService=</varname>
       option in the corresponding DBus service file, for example
       (<filename>/usr/share/dbus-1/system-services/org.example.simple-dbus-service.service</filename>):</para>

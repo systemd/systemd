@@ -89,7 +89,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Scope files may include a <literal>[Scope]</literal>
+    <para>Scope files may include a [Scope]
     section, which carries information about the scope and the
     units it contains. A number of options that may be used in
     this section are shared with other unit types. These options are
@@ -97,7 +97,7 @@
     <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     and
     <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    The options specific to the <literal>[Scope]</literal> section
+    The options specific to the [Scope] section
     of scope units are the following:</para>
 
     <variablelist class='unit-directives'>

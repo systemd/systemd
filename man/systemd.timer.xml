@@ -35,9 +35,9 @@
     this unit type. See
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for the common options of all unit configuration files. The common
-    configuration items are configured in the generic <literal>[Unit]</literal> and
-    <literal>[Install]</literal> sections. The timer specific configuration options are
-    configured in the <literal>[Timer]</literal> section.</para>
+    configuration items are configured in the generic [Unit] and
+    [Install] sections. The timer specific configuration options are
+    configured in the [Timer] section.</para>
 
     <para>For each timer file, a matching unit file must exist,
     describing the unit to activate when the timer elapses. By

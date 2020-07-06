@@ -49,7 +49,7 @@
     <title>Options</title>
 
     <para>All options are configured in the
-    <literal>[Coredump]</literal> section:</para>
+    [Coredump] section:</para>
 
     <variablelist class='config-directives'>
 

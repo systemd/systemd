@@ -193,7 +193,7 @@
     <title>[Match] Section Options</title>
 
     <para>A virtual network device is only created if the
-    <literal>[Match]</literal> section matches the current
+    [Match] section matches the current
     environment, or if the section is empty. The following keys are
     accepted:</para>
 
@@ -259,7 +259,7 @@
   <refsect1>
     <title>[NetDev] Section Options</title>
 
-    <para>The <literal>[NetDev]</literal> section accepts the
+    <para>The [NetDev] section accepts the
     following keys:</para>
 
     <variablelist class='network-directives'>
@@ -290,7 +290,7 @@
           <para>The maximum transmission unit in bytes to set for the device. The usual suffixes K, M, G
           are supported and are understood to the base of 1024. For <literal>tun</literal> or
           <literal>tap</literal> devices, <varname>MTUBytes=</varname> setting is not currently supported in
-          <literal>[NetDev]</literal> section. Please specify it in <literal>[Link]</literal> section of
+          [NetDev] section. Please specify it in [Link] section of
           corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           files.</para>
@@ -300,8 +300,8 @@
         <term><varname>MACAddress=</varname></term>
         <listitem>
           <para>The MAC address to use for the device. For <literal>tun</literal> or <literal>tap</literal>
-          devices, setting <varname>MACAddress=</varname> in the <literal>[NetDev]</literal> section is not
-          supported. Please specify it in <literal>[Link]</literal> section of the corresponding
+          devices, setting <varname>MACAddress=</varname> in the [NetDev] section is not
+          supported. Please specify it in [Link] section of the corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           file. If this option is not set, <literal>vlan</literal> devices inherit the MAC address of the
           physical interface. For other kind of netdevs, if this option is not set, then MAC address is
@@ -316,7 +316,7 @@
   <refsect1>
     <title>[Bridge] Section Options</title>
 
-    <para>The <literal>[Bridge]</literal> section only applies for
+    <para>The [Bridge] section only applies for
     netdevs of kind <literal>bridge</literal>, and accepts the
     following keys:</para>
 
@@ -436,7 +436,7 @@
   <refsect1>
     <title>[VLAN] Section Options</title>
 
-    <para>The <literal>[VLAN]</literal> section only applies for
+    <para>The [VLAN] section only applies for
     netdevs of kind <literal>vlan</literal>, and accepts the
     following key:</para>
 
@@ -488,7 +488,7 @@
   <refsect1>
     <title>[MACVLAN] Section Options</title>
 
-    <para>The <literal>[MACVLAN]</literal> section only applies for
+    <para>The [MACVLAN] section only applies for
     netdevs of kind <literal>macvlan</literal>, and accepts the
     following key:</para>
 
@@ -510,15 +510,15 @@
   <refsect1>
     <title>[MACVTAP] Section Options</title>
 
-    <para>The <literal>[MACVTAP]</literal> section applies for
+    <para>The [MACVTAP] section applies for
     netdevs of kind <literal>macvtap</literal> and accepts the
-    same key as <literal>[MACVLAN]</literal>.</para>
+    same key as [MACVLAN].</para>
   </refsect1>
 
   <refsect1>
     <title>[IPVLAN] Section Options</title>
 
-    <para>The <literal>[IPVLAN]</literal> section only applies for
+    <para>The [IPVLAN] section only applies for
     netdevs of kind <literal>ipvlan</literal>, and accepts the
     following key:</para>
 
@@ -545,15 +545,15 @@
   <refsect1>
     <title>[IPVTAP] Section Options</title>
 
-    <para>The <literal>[IPVTAP]</literal> section only applies for
+    <para>The [IPVTAP] section only applies for
     netdevs of kind <literal>ipvtap</literal> and accepts the
-    same key as <literal>[IPVLAN]</literal>.</para>
+    same key as [IPVLAN].</para>
   </refsect1>
 
   <refsect1>
     <title>[VXLAN] Section Options</title>
 
-    <para>The <literal>[VXLAN]</literal> section only applies for
+    <para>The [VXLAN] section only applies for
     netdevs of kind <literal>vxlan</literal>, and accepts the
     following keys:</para>
 
@@ -739,7 +739,7 @@
   <refsect1>
     <title>[GENEVE] Section Options</title>
 
-    <para>The <literal>[GENEVE]</literal> section only applies for
+    <para>The [GENEVE] section only applies for
     netdevs of kind <literal>geneve</literal>, and accepts the
     following keys:</para>
 
@@ -765,7 +765,7 @@
       <varlistentry>
         <term><varname>TTL=</varname></term>
         <listitem>
-          <para>Accepts the same values as in the <literal>[VXLAN]</literal> section, except that when unset
+          <para>Accepts the same values as in the [VXLAN] section, except that when unset
           or set to 0, the kernel's default will be used, meaning that packet TTL will be set from
           <filename>/proc/sys/net/ipv4/ip_default_ttl</filename>.</para>
         </listitem>
@@ -805,7 +805,7 @@
       <varlistentry>
         <term><varname>IPDoNotFragment=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[VXLAN]</literal> section.</para>
+          <para>Accepts the same key in [VXLAN] section.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -814,7 +814,7 @@
   <refsect1>
     <title>[L2TP] Section Options</title>
 
-    <para>The <literal>[L2TP]</literal> section only applies for
+    <para>The [L2TP] section only applies for
     netdevs of kind <literal>l2tp</literal>, and accepts the
     following keys:</para>
 
@@ -898,7 +898,7 @@
   <refsect1>
     <title>[L2TPSession] Section Options</title>
 
-    <para>The <literal>[L2TPSession]</literal> section only applies for
+    <para>The [L2TPSession] section only applies for
     netdevs of kind <literal>l2tp</literal>, and accepts the
     following keys:</para>
     <variablelist class='network-directives'>
@@ -936,7 +936,7 @@
   <refsect1>
     <title>[MACsec] Section Options</title>
 
-    <para>The <literal>[MACsec]</literal> section only applies for network devices of kind
+    <para>The [MACsec] section only applies for network devices of kind
     <literal>macsec</literal>, and accepts the following keys:</para>
 
     <variablelist class='network-directives'>
@@ -959,7 +959,7 @@
 
   <refsect1>
     <title>[MACsecReceiveChannel] Section Options</title>
-    <para>The <literal>[MACsecReceiveChannel]</literal> section only applies for network devices of
+    <para>The [MACsecReceiveChannel] section only applies for network devices of
     kind <literal>macsec</literal>, and accepts the following keys:</para>
 
     <variablelist class='network-directives'>
@@ -985,7 +985,7 @@
   <refsect1>
     <title>[MACsecTransmitAssociation] Section Options</title>
 
-    <para>The <literal>[MACsecTransmitAssociation]</literal> section only applies for network devices
+    <para>The [MACsecTransmitAssociation] section only applies for network devices
     of kind <literal>macsec</literal>, and accepts the following keys:</para>
 
     <variablelist class='network-directives'>
@@ -1035,7 +1035,7 @@
         <term><varname>UseForEncoding=</varname></term>
         <listitem>
           <para>Takes a boolean. If enabled, then the security association is used for encoding. Only
-          one <literal>[MACsecTransmitAssociation]</literal> section can enable this option. When enabled,
+          one [MACsecTransmitAssociation] section can enable this option. When enabled,
           <varname>Activate=yes</varname> is implied. Defaults to unset.</para>
         </listitem>
       </varlistentry>
@@ -1045,7 +1045,7 @@
   <refsect1>
     <title>[MACsecReceiveAssociation] Section Options</title>
 
-    <para>The <literal>[MACsecReceiveAssociation]</literal> section only applies for
+    <para>The [MACsecReceiveAssociation] section only applies for
     network devices of kind <literal>macsec</literal>, and accepts the
     following keys:</para>
 
@@ -1053,43 +1053,43 @@
       <varlistentry>
         <term><varname>Port=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecReceiveChannel]</literal> section.</para>
+          <para>Accepts the same key in [MACsecReceiveChannel] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecReceiveChannel]</literal> section.</para>
+          <para>Accepts the same key in [MACsecReceiveChannel] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>PacketNumber=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KeyId=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Key=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KeyFile=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Activate=</varname></term>
         <listitem>
-          <para>Accepts the same key in <literal>[MACsecTransmitAssociation]</literal> section.</para>
+          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1098,7 +1098,7 @@
   <refsect1>
     <title>[Tunnel] Section Options</title>
 
-    <para>The <literal>[Tunnel]</literal> section only applies for
+    <para>The [Tunnel] section only applies for
     netdevs of kind
     <literal>ipip</literal>,
     <literal>sit</literal>,
@@ -1281,7 +1281,7 @@
       <varlistentry>
         <term><varname>Encapsulation=</varname></term>
         <listitem>
-          <para>Accepts the same key as in the <literal>[FooOverUDP]</literal> section.</para>
+          <para>Accepts the same key as in the [FooOverUDP] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1321,7 +1321,7 @@
   <refsect1>
     <title>[FooOverUDP] Section Options</title>
 
-    <para>The <literal>[FooOverUDP]</literal> section only applies for
+    <para>The [FooOverUDP] section only applies for
     netdevs of kind <literal>fou</literal> and accepts the
     following keys:</para>
 
@@ -1386,7 +1386,7 @@
   <refsect1>
     <title>[Peer] Section Options</title>
 
-    <para>The <literal>[Peer]</literal> section only applies for
+    <para>The [Peer] section only applies for
     netdevs of kind <literal>veth</literal> and accepts the
     following keys:</para>
 
@@ -1412,7 +1412,7 @@
   <refsect1>
     <title>[VXCAN] Section Options</title>
 
-    <para>The <literal>[VXCAN]</literal> section only applies for
+    <para>The [VXCAN] section only applies for
     netdevs of kind <literal>vxcan</literal> and accepts the
     following key:</para>
 
@@ -1430,7 +1430,7 @@
   <refsect1>
     <title>[Tun] Section Options</title>
 
-    <para>The <literal>[Tun]</literal> section only applies for
+    <para>The [Tun] section only applies for
     netdevs of kind <literal>tun</literal>, and accepts the following
     keys:</para>
 
@@ -1480,15 +1480,15 @@
   <refsect1>
     <title>[Tap] Section Options</title>
 
-    <para>The <literal>[Tap]</literal> section only applies for
+    <para>The [Tap] section only applies for
     netdevs of kind <literal>tap</literal>, and accepts the same keys
-    as the <literal>[Tun]</literal> section.</para>
+    as the [Tun] section.</para>
   </refsect1>
 
   <refsect1>
     <title>[WireGuard] Section Options</title>
 
-    <para>The <literal>[WireGuard]</literal> section accepts the following
+    <para>The [WireGuard] section accepts the following
     keys:</para>
 
     <variablelist class='network-directives'>
@@ -1535,7 +1535,7 @@
   <refsect1>
     <title>[WireGuardPeer] Section Options</title>
 
-    <para>The <literal>[WireGuardPeer]</literal> section accepts the following
+    <para>The [WireGuardPeer] section accepts the following
     keys:</para>
 
     <variablelist class='network-directives'>
@@ -1611,7 +1611,7 @@
   <refsect1>
     <title>[Bond] Section Options</title>
 
-    <para>The <literal>[Bond]</literal> section accepts the following
+    <para>The [Bond] section accepts the following
     key:</para>
 
     <variablelist class='network-directives'>
@@ -1891,7 +1891,7 @@
   <refsect1>
     <title>[Xfrm] Section Options</title>
 
-    <para>The <literal>[Xfrm]</literal> section accepts the following
+    <para>The [Xfrm] section accepts the following
     keys:</para>
 
     <variablelist class='network-directives'>
@@ -1919,7 +1919,7 @@
 
   <refsect1>
     <title>[VRF] Section Options</title>
-    <para>The <literal>[VRF]</literal> section only applies for
+    <para>The [VRF] section only applies for
     netdevs of kind <literal>vrf</literal> and accepts the
     following key:</para>
 

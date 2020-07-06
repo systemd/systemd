@@ -1639,7 +1639,7 @@
   <refsect1>
     <title>[Install] Section Options</title>
 
-    <para>Unit files may include an <literal>[Install]</literal> section, which carries installation information for
+    <para>Unit files may include an [Install] section, which carries installation information for
     the unit. This section is not interpreted by
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> during runtime; it is
     used by the <command>enable</command> and <command>disable</command> commands of the

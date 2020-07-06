@@ -80,7 +80,7 @@
     <para>Internally, this service will echo a string like
     <literal>mem</literal> into <filename>/sys/power/state</filename>,
     to trigger the actual system suspend. What exactly is written
-    where can be configured in the <literal>[Sleep]</literal> section
+    where can be configured in the [Sleep] section
     of <filename>/etc/systemd/sleep.conf</filename> or a
     <filename>sleep.conf.d</filename> file. See
     <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.

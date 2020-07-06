@@ -357,7 +357,7 @@
       special target unit <filename>sockets.target</filename>. It is
       recommended to place a
       <varname>WantedBy=sockets.target</varname> directive in the
-      <literal>[Install]</literal> section to automatically add such a
+      [Install] section to automatically add such a
       dependency on installation of a socket unit. Unless
       <varname>DefaultDependencies=no</varname> is set, the necessary
       ordering dependencies are implicitly created for all socket
@@ -520,7 +520,7 @@
         operating system-independent.</para></listitem>
 
         <listitem><para>Make sure to include an
-        <literal>[Install]</literal> section including installation
+        [Install] section including installation
         information for the unit file. See
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. To activate your service on boot, make sure to
