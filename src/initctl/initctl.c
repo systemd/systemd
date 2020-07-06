@@ -14,12 +14,14 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "daemon-util.h"
 #include "def.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "initreq.h"
 #include "list.h"
 #include "log.h"
+#include "main-func.h"
 #include "memory-util.h"
 #include "process-util.h"
 #include "special.h"
@@ -68,11 +70,9 @@ static const char *translate_runlevel(int runlevel, bool *isolate) {
                 { '6', SPECIAL_REBOOT_TARGET,     false },
         };
 
-        unsigned i;
-
         assert(isolate);
 
-        for (i = 0; i < ELEMENTSOF(table); i++)
+        for (size_t i = 0; i < ELEMENTSOF(table); i++)
                 if (table[i].runlevel == runlevel) {
                         *isolate = table[i].isolate;
                         if (runlevel == '6' && kexec_loaded())
@@ -228,6 +228,7 @@ static void fifo_free(Fifo *f) {
 
         free(f);
 }
+DEFINE_TRIVIAL_CLEANUP_FUNC(Fifo*, fifo_free);
 
 static void server_done(Server *s) {
         assert(s);
@@ -241,79 +242,49 @@ static void server_done(Server *s) {
 
 static int server_init(Server *s, unsigned n_sockets) {
         int r;
-        unsigned i;
+
+        /* This function will leave s partially initialized on failure. Caller needs to clean up. */
 
         assert(s);
         assert(n_sockets > 0);
 
-        *s = (struct Server) {
-                .epoll_fd = epoll_create1(EPOLL_CLOEXEC),
-        };
+        s->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+        if (s->epoll_fd < 0)
+                return log_error_errno(errno, "Failed to create epoll object: %m");
 
-        if (s->epoll_fd < 0) {
-                r = log_error_errno(errno,
-                                    "Failed to create epoll object: %m");
-                goto fail;
-        }
-
-        for (i = 0; i < n_sockets; i++) {
-                Fifo *f;
-                int fd;
-
-                fd = SD_LISTEN_FDS_START+i;
+        for (unsigned i = 0; i < n_sockets; i++) {
+                _cleanup_(fifo_freep) Fifo *f = NULL;
+                int fd = SD_LISTEN_FDS_START + i;
 
                 r = sd_is_fifo(fd, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to determine file descriptor type: %m");
-                        goto fail;
-                }
-
-                if (!r) {
-                        log_error("Wrong file descriptor type.");
-                        r = -EINVAL;
-                        goto fail;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine file descriptor type: %m");
+                if (!r)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong file descriptor type.");
 
                 f = new0(Fifo, 1);
-                if (!f) {
-                        r = -ENOMEM;
-                        log_error_errno(errno, "Failed to create fifo object: %m");
-                        goto fail;
-                }
-
-                f->fd = -1;
+                if (!f)
+                        return log_oom();
 
                 struct epoll_event ev = {
                         .events = EPOLLIN,
                         .data.ptr = f,
                 };
 
-                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-                        r = -errno;
-                        fifo_free(f);
-                        log_error_errno(errno, "Failed to add fifo fd to epoll object: %m");
-                        goto fail;
-                }
+                if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
+                        return log_error_errno(errno, "Failed to add fifo fd to epoll object: %m");
 
                 f->fd = fd;
-                LIST_PREPEND(fifo, s->fifos, f);
                 f->server = s;
+                LIST_PREPEND(fifo, s->fifos, TAKE_PTR(f));
                 s->n_fifos++;
         }
 
         r = bus_connect_system_systemd(&s->bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get D-Bus connection: %m");
-                r = -EIO;
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
         return 0;
-
-fail:
-        server_done(s);
-
-        return r;
 }
 
 static int process_event(Server *s, struct epoll_event *ev) {
@@ -337,43 +308,33 @@ static int process_event(Server *s, struct epoll_event *ev) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
-        Server server;
-        int r = EXIT_FAILURE, n;
+static int run(int argc, char *argv[]) {
+        _cleanup_(server_done) Server server = { .epoll_fd = -1 };
+        _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
+        int r, n;
 
-        if (getppid() != 1) {
-                log_error("This program should be invoked by init only.");
-                return EXIT_FAILURE;
-        }
-
-        if (argc > 1) {
-                log_error("This program does not take arguments.");
-                return EXIT_FAILURE;
-        }
+        if (argc > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program does not take arguments.");
 
         log_setup_service();
 
         umask(0022);
 
         n = sd_listen_fds(true);
-        if (n < 0) {
-                log_error_errno(r, "Failed to read listening file descriptors from environment: %m");
-                return EXIT_FAILURE;
-        }
+        if (n < 0)
+                return log_error_errno(errno,
+                                       "Failed to read listening file descriptors from environment: %m");
 
-        if (n <= 0 || n > SERVER_FD_MAX) {
-                log_error("No or too many file descriptors passed.");
-                return EXIT_FAILURE;
-        }
+        if (n <= 0 || n > SERVER_FD_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No or too many file descriptors passed.");
 
-        if (server_init(&server, (unsigned) n) < 0)
-                return EXIT_FAILURE;
+        r = server_init(&server, (unsigned) n);
+        if (r < 0)
+                return r;
 
-        log_debug("systemd-initctl running as pid "PID_FMT, getpid_cached());
-
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Processing requests...");
+        notify_stop = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
 
         while (!server.quit) {
                 struct epoll_event event;
@@ -383,27 +344,17 @@ int main(int argc, char *argv[]) {
                 if (k < 0) {
                         if (errno == EINTR)
                                 continue;
-                        log_error_errno(errno, "epoll_wait() failed: %m");
-                        goto fail;
+                        return log_error_errno(errno, "epoll_wait() failed: %m");
                 }
-
-                if (k <= 0)
+                if (k == 0)
                         break;
 
-                if (process_event(&server, &event) < 0)
-                        goto fail;
+                r = process_event(&server, &event);
+                if (r < 0)
+                        return r;
         }
 
-        r = EXIT_SUCCESS;
-
-        log_debug("systemd-initctl stopped as pid "PID_FMT, getpid_cached());
-
-fail:
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Shutting down...");
-
-        server_done(&server);
-
-        return r;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);

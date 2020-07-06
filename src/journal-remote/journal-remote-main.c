@@ -1104,8 +1104,8 @@ static int load_certificates(char **key, char **cert, char **trust) {
 }
 
 static int run(int argc, char **argv) {
-        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
+        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         _cleanup_free_ char *key = NULL, *cert = NULL, *trust = NULL;
         int r;
 
