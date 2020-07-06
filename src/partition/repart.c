@@ -1666,7 +1666,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_UINT64, p->new_padding,
                                 TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
         }
 
         if (sum_padding > 0 || sum_size > 0) {
@@ -1689,7 +1689,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_EMPTY,
                                 TABLE_STRING, b);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add row to table: %m");
+                        return table_log_add_error(r);
         }
 
         r = table_print(t, stdout);
