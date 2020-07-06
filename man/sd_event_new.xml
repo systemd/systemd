@@ -131,7 +131,7 @@
     automatically as the code block is left:</para>
 
     <programlisting>{
-        __attribute__((cleanup(sd_event_unrefp)) sd_event *event = NULL;
+        __attribute__((cleanup(sd_event_unrefp))) sd_event *event = NULL;
         int r;
         …
         r = sd_event_default(&amp;event);

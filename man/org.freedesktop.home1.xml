@@ -227,7 +227,7 @@ node /org/freedesktop/home1 {
       interface.</para>
 
       <para><function>CreateHome()</function> registers and creates a new home directory. This takes a fully
-      specified JSON user record as argument (including the <literal>secret</literal> section. This registers
+      specified JSON user record as argument (including the <literal>secret</literal> section). This registers
       the user record locally and creates a home directory matching it, depending on the settings specified
       in the record in combination with local configuration.</para>
 
