@@ -558,7 +558,7 @@
         With option <option>yes</option> systemd-nspawn waits for the
         <literal>READY=1</literal> message from the init process in the container
         before sending its own to systemd. For more details about notifications
-        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para></listitem>
+        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
     </variablelist>
 

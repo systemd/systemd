@@ -140,7 +140,7 @@
 
               <row>
                 <entry><constant>root-secondary</constant></entry>
-                <entry>Root file system partition of the secondary architecture of the local architecture; usually the matching 32bit architecture for the local 64bit architecture)</entry>
+                <entry>Root file system partition of the secondary architecture of the local architecture (usually the matching 32bit architecture for the local 64bit architecture)</entry>
               </row>
 
               <row>

@@ -239,7 +239,7 @@ node /org/freedesktop/hostname1 {
 
       <para><varname>KernelName</varname>, <varname>KernelRelease</varname>, and
       <varname>KernelVersion</varname> expose the kernel name (e.g. <literal>Linux</literal>), release
-      (e.g. <literal>5.0.0-11</literal>, and version (i.e. the build number, e.g. <literal>#11</literal>) as
+      (e.g. <literal>5.0.0-11</literal>), and version (i.e. the build number, e.g. <literal>#11</literal>) as
       reported by
       <citerefentry project="man-pages"><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
       <varname>OperatingSystemPrettyName</varname>, <varname>OperatingSystemCPEName</varname>, and

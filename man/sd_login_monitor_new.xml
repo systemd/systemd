@@ -112,7 +112,7 @@
     code block is left:</para>
 
     <programlisting>{
-  __attribute__((cleanup(sd_login_monitor_unrefp)) sd_login_monitor *m = NULL;
+  __attribute__((cleanup(sd_login_monitor_unrefp))) sd_login_monitor *m = NULL;
   int r;
   …
   r = sd_login_monitor_default(&amp;m);

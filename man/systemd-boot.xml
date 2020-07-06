@@ -343,7 +343,7 @@
         boots. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables. The boot
         loader modifies <varname>LoaderEntryDefault</varname> on request, when the <keycap>d</keycap> key is used, see
-        above.)</para></listitem>
+        above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
