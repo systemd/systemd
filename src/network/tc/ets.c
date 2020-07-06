@@ -283,7 +283,7 @@ int config_parse_ets_prio(
                                    lvalue, word);
                         continue;
                 }
-                if (ets->n_quanta > TC_PRIO_MAX) {
+                if (ets->n_prio > TC_PRIO_MAX) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "Too many priomap in '%s=', ignoring assignment: %s",
                                    lvalue, word);
