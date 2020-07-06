@@ -319,7 +319,7 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link,
                         continue;
 
                 r = dhcp6_get_preferred_delegated_prefix(manager, link, &prefix.in6, pd_prefix_len,
-                                                        &assigned_prefix.in6);
+                                                         &assigned_prefix.in6);
 
                 if (assign_preferred_subnet_id && r == -EAGAIN) {
                         /* A link has a preferred subnet_id but that one is
