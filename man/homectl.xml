@@ -532,7 +532,7 @@
         <term><option>--cpu-weight=</option><replaceable>WEIGHT</replaceable></term>
         <term><option>--io-weight=</option><replaceable>WEIGHT</replaceable></term>
 
-        <listitem><para>Set a CPU and IO scheduling weights of the processes of the user, including those of
+        <listitem><para>Set CPU and IO scheduling weights of the processes of the user, including those of
         processes forked off by the user that changed user credentials. Takes a numeric value in the range
         1…10000. This controls the <varname>CPUWeight=</varname> and <varname>IOWeight=</varname> settings of
         the per-user systemd slice unit <filename>user-$UID.slice</filename>. See
