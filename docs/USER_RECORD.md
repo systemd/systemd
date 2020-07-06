@@ -368,11 +368,11 @@ directory is first created, and defaults to `/etc/skel` if not defined.
 access mask for the home directory when it is first created.
 
 `tasksMax` → Takes an unsigned 64bit integer indicating the maximum number of
-tasks the user may start in parallel during system runtime. This value is
-enforced on all tasks (i.e. processes and threads) the user starts or that are
-forked off these processes regardless if the change user identity (for example
-by setuid binaries/`su`/`sudo` and
-similar). [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html)
+tasks the user may start in parallel during system runtime. This counts
+all tasks (i.e. threads, where each process is at least one thread) the user starts or that are
+forked from these processes even if the user identity is changed (for example
+by setuid binaries/`su`/`sudo` and similar).
+[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html)
 enforces this by setting the `TasksMax` slice property for the user's slice
 `user-$UID.slice`.
 
