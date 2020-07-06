@@ -320,7 +320,6 @@ sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnVayne*
 sensor:modalias:platform:cros-ec-accel:dmi:*Google_Nocturne*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
-
 #########################################
 # GP-electronic
 #########################################
