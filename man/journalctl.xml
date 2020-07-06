@@ -555,7 +555,7 @@
         is also added for <literal>_SYSTEMD_SLICE=<replaceable>UNIT</replaceable></literal>,
         such that if the provided <replaceable>UNIT</replaceable> is a
         <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        unit, all logs of the children of the slice will be logged.
+        unit, all logs of children of the slice will be shown.
        </para>
 
         <para>This parameter can be specified multiple times.</para>
@@ -574,7 +574,7 @@
         is also added for <literal>_SYSTEMD_USER_SLICE=<replaceable>UNIT</replaceable></literal>,
         such that if the provided <replaceable>UNIT</replaceable> is a
         <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        unit, all logs of the children of the unit will be logged.</para>
+        unit, all logs of children of the unit will be shown.</para>
 
         <para>This parameter can be specified multiple times.</para>
         </listitem>
@@ -761,8 +761,8 @@
         underneath the specified directory instead of the root
         directory (e.g. <option>--update-catalog</option> will create
         <filename><replaceable>ROOT</replaceable>/var/lib/systemd/catalog/database</filename>,
-        and journal files under <filename><replaceable>ROOT</replaceable>/run/journal</filename>
-        or <filename><replaceable>ROOT</replaceable>/var/log/journal</filename> will be displayed).
+        and journal files under <filename><replaceable>ROOT</replaceable>/run/journal/</filename>
+        or <filename><replaceable>ROOT</replaceable>/var/log/journal/</filename> will be displayed).
         </para></listitem>
       </varlistentry>
 
@@ -929,10 +929,10 @@
         <filename>/run/log/journal/</filename> into <filename>/var/log/journal/</filename>, if persistent
         storage is enabled. This call does not return until the operation is complete. Note that this call is
         idempotent: the data is only flushed from <filename>/run/log/journal/</filename> into
-        <filename>/var/log/journal</filename> once during system runtime (but see
+        <filename>/var/log/journal/</filename> once during system runtime (but see
         <option>--relinquish-var</option> below), and this command exits cleanly without executing any
         operation if this has already happened. This command effectively guarantees that all data is flushed
-        to <filename>/var/log/journal</filename> at the time it returns.</para></listitem>
+        to <filename>/var/log/journal/</filename> at the time it returns.</para></listitem>
       </varlistentry>
 
       <varlistentry>

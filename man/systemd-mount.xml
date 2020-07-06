@@ -50,10 +50,11 @@
     <replaceable>WHERE</replaceable>.</para>
 
     <para>In many ways, <command>systemd-mount</command> is similar to the lower-level
-    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> command, however instead
-    of executing the mount operation directly and immediately, <command>systemd-mount</command> schedules it through
-    the service manager job queue, so that it may pull in further dependencies (such as parent mounts, or a file system
-    checker to execute a priori), and may make use of the auto-mounting logic.</para>
+    <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    command, however instead of executing the mount operation directly and immediately,
+    <command>systemd-mount</command> schedules it through the service manager job queue, so that it may pull
+    in further dependencies (such as parent mounts, or a file system checker to execute a priori), and may
+    make use of the auto-mounting logic.</para>
 
     <para>The command takes either one or two arguments. If only one argument is specified it should refer to
     a block device or regular file containing a file system (e.g. <literal>/dev/sdb1</literal> or
@@ -61,15 +62,15 @@
     label and other metadata, and is mounted to a directory below <filename>/run/media/system/</filename>
     whose name is generated from the file system label. In this mode the block device or image file must
     exist at the time of invocation of the command, so that it may be probed. If the device is found to be a
-    removable block device (e.g. a USB stick) an automount point instead of a regular mount point is created
+    removable block device (e.g. a USB stick), an automount point is created instead of a regular mount point
     (i.e. the <option>--automount=</option> option is implied, see below).</para>
 
-    <para>If two arguments are specified the first indicates the mount source (the <replaceable>WHAT</replaceable>) and
-    the second indicates the path to mount it on (the <replaceable>WHERE</replaceable>). In this mode no probing of the
-    source is attempted, and a backing device node doesn't have to exist yet. However, if this mode is combined with
-    <option>--discover</option>, device node probing for additional metadata is enabled, and – much like in the
-    single-argument case discussed above – the specified device has to exist at the time of invocation of the
-    command.</para>
+    <para>If two arguments are specified, the first indicates the mount source (the
+    <replaceable>WHAT</replaceable>) and the second indicates the path to mount it on (the
+    <replaceable>WHERE</replaceable>). In this mode no probing of the source is attempted, and a backing
+    device node doesn't have to exist. However, if this mode is combined with <option>--discover</option>,
+    device node probing for additional metadata is enabled, and – much like in the single-argument case
+    discussed above – the specified device has to exist at the time of invocation of the command.</para>
 
     <para>Use the <option>--list</option> command to show a terse table of all local, known block devices with file
     systems that may be mounted with this command.</para>

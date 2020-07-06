@@ -166,7 +166,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>Swap files must include a [Swap] section, which carries
+    <para>Swap unit files must include a [Swap] section, which carries
     information about the swap device it supervises. A number of
     options that may be used in this section are shared with other
     unit types. These options are documented in

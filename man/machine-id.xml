@@ -39,7 +39,7 @@
 
     <para>The machine ID may be set, for example when network booting, with the
     <varname>systemd.machine_id=</varname> kernel command line parameter or by passing the
-    option <option>--machine-id=</option> to systemd. An ID is specified in this manner
+    option <option>--machine-id=</option> to systemd. An ID specified in this manner
     has higher priority and will be used instead of the ID stored in
     <filename>/etc/machine-id</filename>.</para>
 

@@ -19,7 +19,7 @@
     <refname>systemd-gpt-auto-generator</refname>
     <refpurpose>Generator for automatically discovering and mounting root, <filename>/home/</filename>,
     <filename>/srv/</filename>, <filename>/var/</filename> and <filename>/var/tmp/</filename> partitions, as
-    well as discovering and enabling swap partitions, based on GPT partition type GUIDs.</refpurpose>
+    well as discovering and enabling swap partitions, based on GPT partition type GUIDs</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

@@ -412,7 +412,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
             memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
-            loading it, <literal>not-found</literal> if not unit file was found for this unit,
+            loading it, <literal>not-found</literal> if no unit file was found for this unit,
             <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
             <literal>masked</literal> if the unit file has been masked. Along with showing the path to the unit file,
             this line will also show the enablement state.  Enabled commands start at boot.  See the full table of
@@ -773,7 +773,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                   </row>
                   <row>
                     <entry><literal>indirect</literal></entry>
-                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in <varname>Also=</varname>. For template unit file, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
+                    <entry>The unit file itself is not enabled, but it has a non-empty <varname>Also=</varname> setting in the <literal>[Install]</literal> unit file section, listing other unit files that might be enabled, or it has an alias under a different name through a symlink that is not specified in <varname>Also=</varname>. For template unit files, an instance different than the one specified in <varname>DefaultInstance=</varname> is enabled.</entry>
                     <entry>0</entry>
                   </row>
                   <row>

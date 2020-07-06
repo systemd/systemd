@@ -16,7 +16,7 @@
   </refmeta>
   <refnamediv>
     <refname>systemd-socket-proxyd</refname>
-    <refpurpose>Bidirectionally proxy local sockets to another (possibly remote) socket.</refpurpose>
+    <refpurpose>Bidirectionally proxy local sockets to another (possibly remote) socket</refpurpose>
   </refnamediv>
   <refsynopsisdiv>
     <cmdsynopsis>

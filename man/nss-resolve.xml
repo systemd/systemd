@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>nss-resolve</refname>
     <refname>libnss_resolve.so.2</refname>
-    <refpurpose>Provide hostname resolution via <filename>systemd-resolved.service</filename></refpurpose>
+    <refpurpose>Hostname resolution via <filename>systemd-resolved.service</filename></refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

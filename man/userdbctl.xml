@@ -163,11 +163,10 @@
     <title>Well-Known Services</title>
 
     <para>The <command>userdbctl services</command> command will list all currently running services that
-    provide user or group definitions to the system. The following are well-known services are shown among
-    this list.</para>
+    provide user or group definitions to the system. The following well-known services are shown among
+    this list:</para>
 
     <variablelist>
-
       <varlistentry>
         <term><constant>io.systemd.DynamicUser</constant></term>
 

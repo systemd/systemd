@@ -777,7 +777,7 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                         return false;
 
                 if (in_charset(u, "0123456789")) /* Don't allow fully numeric strings, they might be confused
-                                                  * with with UIDs (note that this test is more broad than
+                                                  * with UIDs (note that this test is more broad than
                                                   * the parse_uid() test above, as it will cover more than
                                                   * the 32bit range, and it will detect 65535 (which is in
                                                   * invalid UID, even though in the unsigned 32 bit range) */

@@ -98,18 +98,20 @@
   <refsect1>
     <title>Parsing Timestamps</title>
 
-    <para>When parsing, systemd will accept a similar syntax, but expects no timezone specification, unless it is given
-    as the literal string <literal>UTC</literal> (for the UTC timezone), or is specified to be the locally configured
-    timezone, or the timezone name in the IANA timezone database format. The complete list of timezones
-    supported on your system can be obtained using the <literal>timedatectl list-timezones</literal>
-    (see <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
-    Using IANA format is recommended over local timezone names, as less prone to errors (eg: with local timezone it's possible to
-    specify daylight saving time in winter, while it's incorrect). The weekday specification is optional, but when
-    the weekday is specified, it must either be in the abbreviated (<literal>Wed</literal>) or non-abbreviated
-    (<literal>Wednesday</literal>) English language form (case does not matter), and is not subject to the locale
-    choice of the user.  Either the date, or the time part may be omitted, in which case the current date or 00:00:00,
-    respectively, is assumed. The seconds component of the time may also be omitted, in which case ":00" is
-    assumed. Year numbers may be specified in full or may be abbreviated (omitting the century).</para>
+    <para>When parsing, systemd will accept a similar syntax, but expects no timezone specification, unless
+    it is given as the literal string <literal>UTC</literal> (for the UTC timezone), or is specified to be
+    the locally configured timezone, or the timezone name in the IANA timezone database format. The complete
+    list of timezones supported on your system can be obtained using the <literal>timedatectl
+    list-timezones</literal> (see
+    <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).  Using
+    IANA format is recommended over local timezone names, as less prone to errors (e.g. with local timezone
+    it's possible to specify daylight saving time in winter, even though that is not correct). The weekday
+    specification is optional, but when the weekday is specified, it must either be in the abbreviated
+    (<literal>Wed</literal>) or non-abbreviated (<literal>Wednesday</literal>) English language form (case
+    does not matter), and is not subject to the locale choice of the user. Either the date, or the time part
+    may be omitted, in which case the current date or 00:00:00, respectively, is assumed. The seconds
+    component of the time may also be omitted, in which case ":00" is assumed. Year numbers may be specified
+    in full or may be abbreviated (omitting the century).</para>
 
     <para>A timestamp is considered invalid if a weekday is specified and the date does not match the specified day of
     the week.</para>
@@ -282,7 +284,7 @@ Wed..Sat,Tue 12-10-15 1:2:3 → Tue..Sat 2012-10-15 01:02:03
       <para>Use the <command>calendar</command> command of
       <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry> to validate
       and normalize calendar time specifications for testing purposes. The tool also calculates when a specified
-      calendar event would elapse next.</para>
+      calendar event would occur next.</para>
   </refsect1>
 
   <refsect1>

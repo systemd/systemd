@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>nss-systemd</refname>
     <refname>libnss_systemd.so.2</refname>
-    <refpurpose>Provide UNIX user and group name resolution for user/group lookup via Varlink</refpurpose>
+    <refpurpose>UNIX user and group name resolution for user/group lookup via Varlink</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

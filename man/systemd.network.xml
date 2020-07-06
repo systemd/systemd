@@ -132,9 +132,8 @@
           <listitem>
             <para>A whitespace-separated list of hardware address of the currently connected wireless
             LAN. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example in
-            <varname>MACAddress=</varname>. This option may appear more than one, in which case the
-            lists are merged. If the empty string is assigned to this option, the list of BSSID defined
-            prior to this is reset.</para>
+            <varname>MACAddress=</varname>. This option may appear more than once, in which case the
+            lists are merged. If the empty string is assigned to this option, the list is reset.</para>
           </listitem>
         </varlistentry>
 
@@ -211,7 +210,7 @@
           <para>Link groups are similar to port ranges found in managed switches.
           When network interfaces are added to a numbered group, operations on
           all the interfaces from that group can be performed at once. An unsigned
-          integer ranges 0 to 4294967294. Default to unset.</para>
+          integer in the range 0—4294967294. Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -495,10 +494,8 @@
         <varlistentry>
           <term><varname>DNSSEC=</varname></term>
           <listitem>
-            <para>Takes a boolean. or
-            <literal>allow-downgrade</literal>. When true, enables
-            <ulink
-            url="https://tools.ietf.org/html/rfc4033">DNSSEC</ulink>
+            <para>Takes a boolean or <literal>allow-downgrade</literal>. When true, enables
+            <ulink url="https://tools.ietf.org/html/rfc4033">DNSSEC</ulink>
             DNS validation support on the link. When set to
             <literal>allow-downgrade</literal>, compatibility with
             non-DNSSEC capable networks is increased, by automatically
@@ -770,7 +767,7 @@
           <term><varname>IPv4ProxyARP=</varname></term>
           <listitem><para>Takes a boolean. Configures proxy ARP for IPv4. Proxy ARP is the technique in which one host,
           usually a router, answers ARP requests intended for another machine. By "faking" its identity,
-          the router accepts responsibility for routing packets to the "real" destination. (see <ulink
+          the router accepts responsibility for routing packets to the "real" destination. See <ulink
           url="https://tools.ietf.org/html/rfc1027">RFC 1027</ulink>.
           When unset, the kernel's default will be used.
         </para></listitem>
@@ -1031,7 +1028,7 @@
           <term><varname>Scope=</varname></term>
           <listitem>
             <para>The scope of the address, which can be <literal>global</literal>,
-            <literal>link</literal> or <literal>host</literal> or an unsigned integer ranges 0 to 255.
+            <literal>link</literal> or <literal>host</literal> or an unsigned integer in the range 0—255.
             Defaults to <literal>global</literal>.</para>
           </listitem>
         </varlistentry>
@@ -1129,8 +1126,8 @@
         <varlistentry>
           <term><varname>Label=</varname></term>
           <listitem>
-            <para> The label for the prefix (an unsigned integer) ranges 0 to 4294967294.
-            0xffffffff is reserved. This key is mandatory.</para>
+            <para>The label for the prefix, an unsigned integer in the range 0–4294967294.
+            0xffffffff is reserved. This setting is mandatory.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1154,7 +1151,7 @@
         <varlistentry>
           <term><varname>TypeOfService=</varname></term>
           <listitem>
-            <para>Specifies the type of service to match a number between 0 to 255.</para>
+            <para>Takes a number between 0 and 255 that specifies the type of service to match.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1261,10 +1258,9 @@
 
     <refsect1>
       <title>[NextHop] Section Options</title>
-      <para>The <literal>[NextHop]</literal> section accepts the
-      following keys. Specify several <literal>[NextHop]</literal>
-      sections to configure several nexthop. Nexthop is used to manipulate entries in the kernel's nexthop
-      tables.</para>
+      <para>The [NextHop] section is used to manipulate entries in the kernel's "nexthop" tables.  The
+      [NextHop] section accepts the following keys. Specify several [NextHop] sections to configure several
+      hops.</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
@@ -1333,10 +1329,10 @@
           <term><varname>IPv6Preference=</varname></term>
           <listitem>
             <para>Specifies the route preference as defined in <ulink
-            url="https://tools.ietf.org/html/rfc4191">RFC4191</ulink> for Router Discovery messages.
-            Which can be one of <literal>low</literal> the route has a lowest priority,
-            <literal>medium</literal> the route has a default priority or
-            <literal>high</literal> the route has a highest priority.</para>
+            url="https://tools.ietf.org/html/rfc4191">RFC 4191</ulink> for Router Discovery messages.  Which
+            can be one of <literal>low</literal> the route has a lowest priority, <literal>medium</literal>
+            the route has a default priority or <literal>high</literal> the route has a highest priority.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1717,8 +1713,8 @@
             <para>The table identifier for DHCP routes (a number between 1 and 4294967295, or 0 to unset).
             The table can be retrieved using <command>ip route show table <replaceable>num</replaceable></command>.
             </para>
-            <para>When used in combination with <varname>VRF=</varname> the
-            VRF's routing table is used unless this parameter is specified.
+            <para>When used in combination with <varname>VRF=</varname>, the
+            VRF's routing table is used when this parameter is not specified.
             </para>
           </listitem>
         </varlistentry>
@@ -1757,11 +1753,12 @@
         <varlistentry>
           <term><varname>SendDecline=</varname></term>
           <listitem>
-            <para>A boolean. When <literal>true</literal>, DHCPv4 clients receives IP address from DHCP server.
-            After new IP is received, DHCPv4 performs IPv4 Duplicate Address Detection. If duplicate use of IP is detected
-            the DHCPv4 client rejects the IP by sending a DHCPDECLINE packet DHCP clients try to obtain an IP address again.
-            See <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>.
-            Defaults to <literal>unset</literal>.</para>
+            <para>A boolean. When <literal>true</literal>, the DHCPv4 client receives the IP address from the
+            DHCP server.  After a new IP is received, the DHCPv4 client performs IPv4 Duplicate Address
+            Detection. If duplicate use is detected, the DHCPv4 client rejects the IP by sending a
+            DHCPDECLINE packet and tries to obtain an IP address again. See <ulink
+            url="https://tools.ietf.org/html/rfc5227">RFC 5224</ulink>. Defaults to
+            <literal>unset</literal>.</para>
           </listitem>
         </varlistentry>
 
@@ -1839,7 +1836,7 @@
             <para>Takes a boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
             a rapid two-message exchange (solicit and reply). When the rapid commit option is enabled by both
             the DHCPv6 client and the DHCPv6 server, the two-message exchange is used, rather than the default
-            four-method exchange (solicit, advertise, request, and reply). The two-message exchange provides
+            four-message exchange (solicit, advertise, request, and reply). The two-message exchange provides
             faster client configuration and is beneficial in environments in which networks are under a heavy load.
             See <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
             Defaults to true.</para>
@@ -1867,14 +1864,15 @@
         <varlistentry>
           <term><varname>SendVendorOption=</varname></term>
           <listitem>
-            <para>Send an arbitrary vendor option in the DHCPv6 request. Takes an enterprise identifier, DHCP option number,
-            data type, and data separated with a colon
-            (<literal><replaceable>enterprise identifier</replaceable>:<replaceable>option</replaceable>:<replaceable>type</replaceable>:
-            <replaceable>value</replaceable></literal>). Enterprise identifier is an unsigned integer ranges 1..4294967294.
-            The option number must be an integer in the range 1..254. Data type takes one of <literal>uint8</literal>,
-            <literal>uint16</literal>, <literal>uint32</literal>, <literal>ipv4address</literal>, <literal>ipv6address</literal>, or
-            <literal>string</literal>. Special characters in the data string may be escaped using
-            <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
+            <para>Send an arbitrary vendor option in the DHCPv6 request. Takes an enterprise identifier, DHCP
+            option number, data type, and data separated with a colon (<literal><replaceable>enterprise
+            identifier</replaceable>:<replaceable>option</replaceable>:<replaceable>type</replaceable>:
+            <replaceable>value</replaceable></literal>). Enterprise identifier is an unsigned integer in the
+            range 1–4294967294. The option number must be an integer in the range 1–254. Data type takes one
+            of <literal>uint8</literal>, <literal>uint16</literal>, <literal>uint32</literal>,
+            <literal>ipv4address</literal>, <literal>ipv6address</literal>, or
+            <literal>string</literal>. Special characters in the data string may be escaped using <ulink
+            url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
             escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
             then all options specified earlier are cleared. Defaults to unset.</para>
           </listitem>
@@ -1918,17 +1916,19 @@
         <varlistentry>
           <term><varname>PrefixDelegationHint=</varname></term>
           <listitem>
-            <para>Takes an IPv6 address with prefix length as <varname>Address=</varname> in
-            the "[Network]" section. Specifies the DHCPv6 client for the requesting router to include
-            a prefix-hint in the DHCPv6 solicitation. Prefix ranges 1..128. Defaults to unset.</para>
+            <para>Takes an IPv6 address with prefix length in the same format as the
+            <varname>Address=</varname> in the [Network] section. The DHCPv6 client will include a prefix
+            hint in the DHCPv6 solicitation sent to the server. The prefix length must be in the range
+            1–128. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>WithoutRA=</varname></term>
           <listitem>
-            <para>Allows DHCPv6 client to start without router advertisements's managed or other address configuration flag.
-            Takes one of <literal>solicit</literal> or <literal>information-request</literal>. Defaults to unset.</para>
+            <para>Allows DHCPv6 client to start without router advertisements's managed or other address
+            configuration flag. Takes one of <literal>solicit</literal> or
+            <literal>information-request</literal>. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 
@@ -2275,10 +2275,9 @@
 
     <refsect1>
     <title>[IPv6Prefix] Section Options</title>
-    <para>One or more <literal>[IPv6Prefix]</literal> sections contain the IPv6
-    prefixes that are announced via Router Advertisements. See
-    <ulink url="https://tools.ietf.org/html/rfc4861">RFC 4861</ulink>
-    for further details.</para>
+    <para>One or more [IPv6Prefix] sections contain the IPv6 prefixes that are announced via Router
+    Advertisements. See <ulink url="https://tools.ietf.org/html/rfc4861">RFC 4861</ulink> for further
+    details.</para>
 
     <variablelist class='network-directives'>
 
@@ -2405,10 +2404,9 @@
         <varlistentry>
           <term><varname>HairPin=</varname></term>
           <listitem>
-            <para>Takes a boolean. Configures whether traffic may be sent back
-            out of the port on which it was received. When this flag is false, and the bridge
-            will not forward traffic back out of the receiving port.
-            When unset, the kernel's default will be used.</para>
+            <para>Takes a boolean. Configures whether traffic may be sent back out of the port on which it
+            was received. When this flag is false, then the bridge will not forward traffic back out of the
+            receiving port. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2684,7 +2682,7 @@
         <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the maximum number of packets the qdisc may hold queued at a time.
-          An unsigned integer ranges 0 to 4294967294. Defaults to 1000.</para>
+          An unsigned integer in the range 0–4294967294. Defaults to 1000.</para>
         </listitem>
       </varlistentry>
 
@@ -2708,8 +2706,8 @@
 
   <refsect1>
     <title>[TokenBucketFilter] Section Options</title>
-    <para>The <literal>[TokenBucketFilter]</literal> section manages the queueing discipline (qdisc) of
-    token bucket filter (tbf).</para>
+    <para>The [TokenBucketFilter] section manages the queueing discipline (qdisc) of token bucket filter
+    (tbf).</para>
 
     <variablelist class='network-directives'>
       <xi:include href="tc.xml" xpointer="qdisc-parent" />
@@ -2793,7 +2791,7 @@
         <term><varname>PacketLimit=</varname></term>
         <listitem>
           <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
-          dropped. An unsigned integer ranges 1 to 4294967294. Defaults to unset and kernel's default is used.</para>
+          dropped. An unsigned integer in the range 1–4294967294. Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2811,8 +2809,9 @@
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
-          dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
+          incoming packets are dropped. An unsigned integer in the range 0–4294967294. Defaults to unset and
+          kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2848,10 +2847,11 @@
       <varlistentry>
         <term><varname>LimitBytes=</varname></term>
         <listitem>
-          <para>Specifies the hard limit on the FIFO size in bytes. The size limit (a buffer size) to prevent it
-          from overflowing in case it is unable to dequeue packets as quickly as it receives them. When this limit
-          is reached, incoming packets are dropped. When suffixed with K, M, or G, the specified size is parsed as
-          Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies the hard limit on the FIFO size in bytes. The size limit (a buffer size) to prevent
+          it from overflowing in case it is unable to dequeue packets as quickly as it receives them. When
+          this limit is reached, incoming packets are dropped. When suffixed with K, M, or G, the specified
+          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults
+          to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2869,9 +2869,10 @@
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>Specifies the hard limit on the FIFO size in number of packets. The size limit (a buffer size) to prevent it
-          from overflowing in case it is unable to dequeue packets as quickly as it receives them. When this limit is reached,
-          incoming packets are dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies the hard limit on the FIFO size in number of packets. The size limit (a buffer
+          size) to prevent it from overflowing in case it is unable to dequeue packets as quickly as it
+          receives them. When this limit is reached, incoming packets are dropped. An unsigned integer in the
+          range 0–4294967294. Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2917,8 +2918,8 @@
       <varlistentry>
         <term><varname>OverheadBytes=</varname></term>
         <listitem>
-          <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative.
-          Takes an integer ranges -64 to 256. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative. Takes
+          an integer in the range from -64 to 256. Defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
 
@@ -2945,8 +2946,9 @@
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
-          dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
+          incoming packets are dropped. An unsigned integer in the range 0–4294967294. Defaults to unset and
+          kernel's default is used.</para>
         </listitem>
       </varlistentry>
 
@@ -3029,18 +3031,17 @@
       <varlistentry>
         <term><varname>Bands=</varname></term>
         <listitem>
-          <para>Specifies the number of bands. An unsigned integer ranges 1 to 16. This value has to be
-          at least large enough to cover the strict bands specified through the
-          <varname>StrictBands=</varname> and bandwidth-sharing bands specified in
-          <varname>QuantumBytes=</varname>.</para>
+          <para>Specifies the number of bands. An unsigned integer in the range 1–16. This value has to be at
+          least large enough to cover the strict bands specified through the <varname>StrictBands=</varname>
+          and bandwidth-sharing bands specified in <varname>QuantumBytes=</varname>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>StrictBands=</varname></term>
         <listitem>
-          <para>Specifies the number of bands that should be created in strict mode. An unsigned integer
-          ranges 1 to 16.</para>
+          <para>Specifies the number of bands that should be created in strict mode. An unsigned integer in
+          the range 1–16.</para>
         </listitem>
       </varlistentry>
 
@@ -3156,7 +3157,7 @@
       <varlistentry>
         <term><varname>QuantumBytes=</varname></term>
         <listitem>
-          <para>Specifies the number of bytes used as 'deficit' in the fair queuing algorithmtimespan.
+          <para>Specifies the number of bytes used as the "deficit" in the fair queuing algorithm timespan.
           When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
           respectively, to the base of 1024. Defaults to unset and kernel's default is used.</para>
         </listitem>
@@ -3411,8 +3412,9 @@
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
-          dropped. An unsigned integer ranges 0 to 4294967294. Defaults to unset and kernel's default is used.</para>
+          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
+          incoming packets are dropped. An unsigned integer in the range 0–4294967294. Defaults to unset and
+          kernel's default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>

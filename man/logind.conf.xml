@@ -277,7 +277,7 @@
       <varlistentry>
         <term><varname>HoldoffTimeoutSec=</varname></term>
 
-        <listitem><para>Specifies the timeout after system startup or
+        <listitem><para>Specifies a period of time after system startup or
         system resume in which systemd will hold off on reacting to
         lid events. This is required for the system to properly
         detect any hotplugged devices so systemd can ignore lid events

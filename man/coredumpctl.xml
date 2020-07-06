@@ -52,8 +52,8 @@
         matching specified characteristics. If no command is
         specified, this is the implied default.</para>
 
-        <para>The output is designed to be human readable and contains list contains
-        a table with the following columns:</para>
+        <para>The output is designed to be human readable and contains a table with the following
+        columns:</para>
         <variablelist>
           <varlistentry>
             <term>TIME</term>

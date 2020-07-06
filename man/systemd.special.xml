@@ -1043,7 +1043,7 @@
             <para>By default, all user processes and services started on
             behalf of the user, including the per-user systemd instance
             are found in this slice.  This is pulled in by
-            <filename>systemd-logind.service</filename></para>
+            <filename>systemd-logind.service</filename>.</para>
           </listitem>
         </varlistentry>
 
@@ -1052,8 +1052,8 @@
           <listitem>
             <para>By default, all virtual machines and containers
             registered with <command>systemd-machined</command> are
-            found in this slice.  This is pulled in by
-            <filename>systemd-machined.service</filename></para>
+            found in this slice. This is pulled in by
+            <filename>systemd-machined.service</filename>.</para>
           </listitem>
         </varlistentry>
       </variablelist>

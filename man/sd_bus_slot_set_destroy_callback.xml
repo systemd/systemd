@@ -23,7 +23,7 @@
     <refname>sd_bus_track_get_destroy_callback</refname>
     <refname>sd_bus_destroy_t</refname>
 
-    <refpurpose>Define the callback function for resource cleanup.</refpurpose>
+    <refpurpose>Define the callback function for resource cleanup</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

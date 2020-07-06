@@ -22,7 +22,7 @@
     <refname>sd_bus_message_new_method_errno</refname>
     <refname>sd_bus_message_new_method_errnof</refname>
 
-    <refpurpose>Create a an error reply for a method call</refpurpose>
+    <refpurpose>Create an error reply for a method call</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

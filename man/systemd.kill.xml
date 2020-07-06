@@ -151,7 +151,7 @@
         terminate upon receiving the initial <constant>SIGTERM</constant>
         signal. This can be achieved by configuring <varname>LimitCORE=</varname>
         and setting <varname>FinalKillSignal=</varname> to either
-        <constant>SIGQUIT</constant> or <constant>SIGABRT</constant>
+        <constant>SIGQUIT</constant> or <constant>SIGABRT</constant>.
         Defaults to <constant>SIGKILL</constant>.
         </para></listitem>
       </varlistentry>

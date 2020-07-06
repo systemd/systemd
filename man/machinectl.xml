@@ -320,7 +320,7 @@
 
         <listitem><para>Copies files or directories from a container
         into the host system. Takes a container name, followed by the
-        source path in the container the destination path on the host.
+        source path in the container and the destination path on the host.
         If the destination path is omitted, the same as the source path
         is used.</para>
 

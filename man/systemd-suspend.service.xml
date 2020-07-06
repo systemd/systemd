@@ -71,14 +71,11 @@
     url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor
     interface</ulink>.</para>
 
-    <para>Note that
-    <filename>systemd-suspend.service</filename>,
-    <filename>systemd-hibernate.service</filename>, and
-    <filename>systemd-hybrid-sleep.service</filename>
-    <filename>systemd-suspend-then-hibernate.service</filename>
-    should never be executed directly. Instead, trigger system sleep
-    states with a command such as <literal>systemctl suspend</literal>
-    or similar.</para>
+    <para>Note that <filename>systemd-suspend.service</filename>,
+    <filename>systemd-hibernate.service</filename>, <filename>systemd-hybrid-sleep.service</filename>, and
+    <filename>systemd-suspend-then-hibernate.service</filename> should never be executed directly. Instead,
+    trigger system sleep with a command such as <command>systemctl suspend</command> or <command>systemctl
+    hibernate</command>.</para>
 
     <para>Internally, this service will echo a string like
     <literal>mem</literal> into <filename>/sys/power/state</filename>,

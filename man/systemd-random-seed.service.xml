@@ -44,7 +44,7 @@
     <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>, with
     its <command>bootctl random-seed</command> functionality.</para>
 
-    <para>When loading the random seed from disk its file is immediately updated with a new seed retrieved
+    <para>When loading the random seed from disk, the file is immediately updated with a new seed retrieved
     from the kernel, in order to ensure no two boots operate with the same random seed. This new seed is
     retrieved synchronously from the kernel, which means the service will not complete start-up until the
     random pool is fully initialized. On entropy-starved systems this may take a while. This functionality is

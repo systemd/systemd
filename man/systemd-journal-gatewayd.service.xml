@@ -217,9 +217,9 @@
     </para>
 
     <para>where
-      <option>cursor</option> is a cursor string,
-      <option>num_skip</option> is an integer,
-      <option>num_entries</option> is an unsigned integer.
+      <replaceable>cursor</replaceable> is a cursor string,
+      <replaceable>num_skip</replaceable> is an integer,
+      <replaceable>num_entries</replaceable> is an unsigned integer.
     </para>
 
     <para>Range defaults to all available events.</para>

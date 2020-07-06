@@ -60,7 +60,7 @@
     <para>Device units will be reloaded by systemd whenever the
     corresponding device generates a <literal>changed</literal> event.
     Other units can use <varname>ReloadPropagatedFrom=</varname> to react
-    to that event</para>
+    to that event.</para>
   </refsect1>
 
   <refsect1>

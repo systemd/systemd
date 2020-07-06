@@ -18,8 +18,7 @@
   <refnamediv>
     <refname>nss-myhostname</refname>
     <refname>libnss_myhostname.so.2</refname>
-    <refpurpose>Provide hostname resolution for the locally
-    configured system hostname.</refpurpose>
+    <refpurpose>Hostname resolution for the locally configured system hostname</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

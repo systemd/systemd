@@ -387,9 +387,9 @@
         units. See
         <citerefentry><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details. These settings may be overridden in individual units using the corresponding
-        <varname>LimitXXX=</varname> directives, see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>, for
-        details, and they accept the same parameter syntax. Note that these resource limits are only defaults
+        <varname>LimitXXX=</varname> directives and they accept the same parameter syntax,
+        see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details. Note that these resource limits are only defaults
         for units, they are not applied to the service manager process (i.e. PID 1) itself.</para></listitem>
       </varlistentry>
 

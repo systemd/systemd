@@ -117,10 +117,9 @@
         <listitem><para>Socket units automatically gain a <varname>Before=</varname>
         dependency on the service units they activate.</para></listitem>
 
-        <listitem><para>Socket units referring to file system paths (such as AF_UNIX
-        sockets or FIFOs) implicitly gain <varname>Requires=</varname> and
-        <varname>After=</varname> dependencies on all mount units
-        necessary to access those paths.</para></listitem>
+        <listitem><para>Socket units referring to file system paths (such as <constant>AF_UNIX</constant>
+        sockets or FIFOs) implicitly gain <varname>Requires=</varname> and <varname>After=</varname>
+        dependencies on all mount units necessary to access those paths.</para></listitem>
 
         <listitem><para>Socket units using the <varname>BindToDevice=</varname>
         setting automatically gain a <varname>BindsTo=</varname> and
@@ -300,7 +299,7 @@
         url="https://www.kernel.org/doc/Documentation/usb/functionfs.txt">USB
         FunctionFS</ulink> endpoints location to listen on, for
         implementation of USB gadget functions. This expects an
-        absolute file system path of functionfs mount point as the argument.
+        absolute file system path of FunctionFS mount point as the argument.
         Behavior otherwise is very similar to the <varname>ListenFIFO=</varname>
         directive above. Use this to open the FunctionFS endpoint
         <filename>ep0</filename>. When using this option, the
@@ -313,9 +312,9 @@
       <varlistentry>
         <term><varname>SocketProtocol=</varname></term>
         <listitem><para>Takes one of <option>udplite</option>
-        or <option>sctp</option>. Specifies a socket protocol
-        (<constant>IPPROTO_UDPLITE</constant>) UDP-Lite
-        (<constant>IPPROTO_SCTP</constant>) SCTP socket respectively. </para>
+        or <option>sctp</option>. The socket will use the UDP-Lite
+        (<constant>IPPROTO_UDPLITE</constant>) or SCTP
+        (<constant>IPPROTO_SCTP</constant>) protocol, respectively.</para>
         </listitem>
       </varlistentry>
 
@@ -349,16 +348,14 @@
 
       <varlistentry>
         <term><varname>BindToDevice=</varname></term>
-        <listitem><para>Specifies a network interface name to bind
-        this socket to. If set, traffic will only be accepted from the
-        specified network interfaces. This controls the
-        SO_BINDTODEVICE socket option (see <citerefentry
-        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details). If this option is used, an implicit dependency
-        from this socket unit on the network interface device unit
-        (<citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        is created. Note that setting this parameter might result in
-        additional dependencies to be added to the unit (see
+        <listitem><para>Specifies a network interface name to bind this socket to. If set, traffic will only
+        be accepted from the specified network interfaces. This controls the
+        <constant>SO_BINDTODEVICE</constant> socket option (see <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details). If this option is used, an implicit dependency from this socket unit on the network
+        interface device unit is created
+        (see <citerefentry><refentrytitle>systemd.device</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        Note that setting this parameter might result in additional dependencies to be added to the unit (see
         above).</para></listitem>
       </varlistentry>
 
@@ -366,12 +363,10 @@
         <term><varname>SocketUser=</varname></term>
         <term><varname>SocketGroup=</varname></term>
 
-        <listitem><para>Takes a UNIX user/group name. When specified,
-        all AF_UNIX sockets and FIFO nodes in the file system are
-        owned by the specified user and group. If unset (the default),
-        the nodes are owned by the root user/group (if run in system
-        context) or the invoking user/group (if run in user context).
-        If only a user is specified but no group, then the group is
+        <listitem><para>Takes a UNIX user/group name. When specified, all <constant>AF_UNIX</constant>
+        sockets and FIFO nodes in the file system are owned by the specified user and group. If unset (the
+        default), the nodes are owned by the root user/group (if run in system context) or the invoking
+        user/group (if run in user context).  If only a user is specified but no group, then the group is
         derived from the user's default group.</para></listitem>
       </varlistentry>
 
@@ -420,10 +415,10 @@
         to work unmodified with systemd socket
         activation.</para>
 
-        <para>For IPv4 and IPv6 connections, the <varname>REMOTE_ADDR</varname>
-        environment variable will contain the remote IP address, and <varname>REMOTE_PORT</varname>
-        will contain the remote port. This is the same as the format used by CGI.
-        For SOCK_RAW, the port is the IP protocol.</para></listitem>
+        <para>For IPv4 and IPv6 connections, the <varname>REMOTE_ADDR</varname> environment variable will
+        contain the remote IP address, and <varname>REMOTE_PORT</varname> will contain the remote port. This
+        is the same as the format used by CGI. For <constant>SOCK_RAW</constant>, the port is the IP
+        protocol.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -456,17 +451,13 @@
 
        <varlistentry>
         <term><varname>KeepAlive=</varname></term>
-        <listitem><para>Takes a boolean argument. If true, the TCP/IP
-        stack will send a keep alive message after 2h (depending on
-        the configuration of
-        <filename>/proc/sys/net/ipv4/tcp_keepalive_time</filename>)
-        for all TCP streams accepted on this socket. This controls the
-        SO_KEEPALIVE socket option (see
-        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        and the <ulink
-        url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
-        Keepalive HOWTO</ulink> for details.) Defaults to
-        <option>false</option>.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, the TCP/IP stack will send a keep alive message
+        after 2h (depending on the configuration of
+        <filename>/proc/sys/net/ipv4/tcp_keepalive_time</filename>) for all TCP streams accepted on this
+        socket. This controls the <constant>SO_KEEPALIVE</constant> socket option (see <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+        the <ulink url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP Keepalive
+        HOWTO</ulink> for details.) Defaults to <option>false</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -483,15 +474,12 @@
 
       <varlistentry>
         <term><varname>KeepAliveIntervalSec=</varname></term>
-        <listitem><para>Takes time (in seconds) as argument between
-        individual keepalive probes, if the socket option SO_KEEPALIVE
-        has been set on this socket. This controls
-        the TCP_KEEPINTVL socket option (see
-        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        and the <ulink
-        url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
-        Keepalive HOWTO</ulink> for details.) Defaults value is 75
-        seconds.</para></listitem>
+        <listitem><para>Takes time (in seconds) as argument between individual keepalive probes, if the
+        socket option <constant>SO_KEEPALIVE</constant> has been set on this socket. This controls the
+        <constant>TCP_KEEPINTVL</constant> socket option (see <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+        the <ulink url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP Keepalive
+        HOWTO</ulink> for details.) Defaults value is 75 seconds.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -513,17 +501,16 @@
         algorithm works by combining a number of small outgoing
         messages, and sending them all at once. This controls the
         TCP_NODELAY socket option (see
-        <citerefentry project='die-net'><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        <citerefentry project='die-net'><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
         Defaults to <option>false</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>Priority=</varname></term>
-        <listitem><para>Takes an integer argument controlling the
-        priority for all traffic sent from this socket. This controls
-        the SO_PRIORITY socket option (see
-        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details.).</para></listitem>
+        <listitem><para>Takes an integer argument controlling the priority for all traffic sent from this
+        socket. This controls the <constant>SO_PRIORITY</constant> socket option (see <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -559,12 +546,12 @@
       <varlistentry>
         <term><varname>ReceiveBuffer=</varname></term>
         <term><varname>SendBuffer=</varname></term>
-        <listitem><para>Takes an integer argument controlling the
-        receive or send buffer sizes of this socket, respectively.
-        This controls the SO_RCVBUF and SO_SNDBUF socket options (see
-        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details.). The usual suffixes K, M, G are supported and
-        are understood to the base of 1024.</para></listitem>
+        <listitem><para>Takes an integer argument controlling the receive or send buffer sizes of this
+        socket, respectively.  This controls the <constant>SO_RCVBUF</constant> and
+        <constant>SO_SNDBUF</constant> socket options (see <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.). The usual suffixes K, M, G are supported and are understood to the base of
+        1024.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -593,23 +580,20 @@
 
       <varlistentry>
         <term><varname>Mark=</varname></term>
-        <listitem><para>Takes an integer value. Controls the firewall
-        mark of packets generated by this socket. This can be used in
-        the firewall logic to filter packets from this socket. This
-        sets the SO_MARK socket option. See
-        <citerefentry project='die-net'><refentrytitle>iptables</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details.</para></listitem>
+        <listitem><para>Takes an integer value. Controls the firewall mark of packets generated by this
+        socket. This can be used in the firewall logic to filter packets from this socket. This sets the
+        <constant>SO_MARK</constant> socket option. See <citerefentry
+        project='die-net'><refentrytitle>iptables</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ReusePort=</varname></term>
-        <listitem><para>Takes a boolean value. If true, allows
-        multiple
-        <citerefentry><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry>s
-        to this TCP or UDP port. This controls the SO_REUSEPORT socket
-        option. See
-        <citerefentry project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details.</para></listitem>
+        <listitem><para>Takes a boolean value. If true, allows multiple
+        <citerefentry><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry>s to this TCP
+        or UDP port. This controls the <constant>SO_REUSEPORT</constant> socket option. See <citerefentry
+        project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -685,28 +669,23 @@
 
       <varlistentry>
         <term><varname>Broadcast=</varname></term>
-        <listitem><para>Takes a boolean value. This controls the
-        SO_BROADCAST socket option, which allows broadcast datagrams
-        to be sent from this socket. Defaults to
+        <listitem><para>Takes a boolean value. This controls the <constant>SO_BROADCAST</constant> socket
+        option, which allows broadcast datagrams to be sent from this socket. Defaults to
         <option>false</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>PassCredentials=</varname></term>
-        <listitem><para>Takes a boolean value. This controls the
-        SO_PASSCRED socket option, which allows
-        <constant>AF_UNIX</constant> sockets to receive the
-        credentials of the sending process in an ancillary message.
-        Defaults to <option>false</option>.</para></listitem>
+        <listitem><para>Takes a boolean value. This controls the <constant>SO_PASSCRED</constant> socket
+        option, which allows <constant>AF_UNIX</constant> sockets to receive the credentials of the sending
+        process in an ancillary message. Defaults to <option>false</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>PassSecurity=</varname></term>
-        <listitem><para>Takes a boolean value. This controls the
-        SO_PASSSEC socket option, which allows
-        <constant>AF_UNIX</constant> sockets to receive the security
-        context of the sending process in an ancillary message.
-        Defaults to <option>false</option>.</para></listitem>
+        <listitem><para>Takes a boolean value. This controls the <constant>SO_PASSSEC</constant> socket
+        option, which allows <constant>AF_UNIX</constant> sockets to receive the security context of the
+        sending process in an ancillary message.  Defaults to <option>false</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -720,11 +699,10 @@
 
       <varlistentry>
         <term><varname>TCPCongestion=</varname></term>
-        <listitem><para>Takes a string value. Controls the TCP
-        congestion algorithm used by this socket. Should be one of
-        "westwood", "veno", "cubic", "lp" or any other available
-        algorithm supported by the IP stack. This setting applies only
-        to stream sockets.</para></listitem>
+        <listitem><para>Takes a string value. Controls the TCP congestion algorithm used by this
+        socket. Should be one of <literal>westwood</literal>, <literal>veno</literal>,
+        <literal>cubic</literal>, <literal>lp</literal> or any other available algorithm supported by the IP
+        stack. This setting applies only to stream sockets.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -788,15 +766,12 @@
 
       <varlistentry>
         <term><varname>RemoveOnStop=</varname></term>
-        <listitem><para>Takes a boolean argument. If enabled, any file
-        nodes created by this socket unit are removed when it is
-        stopped. This applies to AF_UNIX sockets in the file system,
-        POSIX message queues, FIFOs, as well as any symlinks to them
-        configured with <varname>Symlinks=</varname>. Normally, it
-        should not be necessary to use this option, and is not
-        recommended as services might continue to run after the socket
-        unit has been terminated and it should still be possible to
-        communicate with them via their file system node. Defaults to
+        <listitem><para>Takes a boolean argument. If enabled, any file nodes created by this socket unit are
+        removed when it is stopped. This applies to <constant>AF_UNIX</constant> sockets in the file system,
+        POSIX message queues, FIFOs, as well as any symlinks to them configured with
+        <varname>Symlinks=</varname>. Normally, it should not be necessary to use this option, and is not
+        recommended as services might continue to run after the socket unit has been terminated and it should
+        still be possible to communicate with them via their file system node. Defaults to
         off.</para></listitem>
       </varlistentry>
 

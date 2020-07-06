@@ -648,7 +648,7 @@
     <filename>/usr/share/</filename> hierarchy to the locations
     defined by the various relevant specifications.</para>
 
-    <para>During runtime, and for local configuration and state,
+    <para>During runtime, and for local configuration and runtime state,
     additional directories are defined:</para>
 
     <table>
