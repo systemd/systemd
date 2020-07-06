@@ -1043,6 +1043,39 @@ static bool dhcp6_link_has_dhcpv6_prefix(Link *link) {
         return false;
 }
 
+static int dhcp6_assign_delegated_prefix_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+          int r;
+
+          assert(rtnl);
+          assert(m);
+          assert(link);
+          assert(link->ifname);
+          assert(link->dhcp6_delegation_prefix_address_messages > 0);
+          assert(IN_SET(link->state, LINK_STATE_CONFIGURING,
+                 LINK_STATE_FAILED, LINK_STATE_LINGER));
+
+          link->dhcp6_delegation_prefix_address_messages--;
+
+          if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                  return 1;
+
+          r = sd_netlink_message_get_errno(m);
+          if (r < 0 && r != -EEXIST) {
+                  log_link_message_warning_errno(link, m, r, "Could not set DHCP6 delegated prefix address");
+                  link_enter_failed(link);
+                  return 1;
+          } else if (r >= 0)
+                  (void) manager_rtnl_process_address(rtnl, m, link->manager);
+
+          if (link->dhcp6_delegation_prefix_address_messages == 0) {
+                  log_link_debug(link, "DHCP6 deletaged prefix addresses set");
+                  link->dhcp6_delegation_prefix_address_configured = true;
+                  link_check_ready(link);
+          }
+
+          return 1;
+  }
+
 static int dhcp6_assign_delegated_prefix(Link *link,
                                          const struct in6_addr *prefix,
                                          uint8_t prefix_len,
@@ -1080,11 +1113,11 @@ static int dhcp6_assign_delegated_prefix(Link *link,
 
         link_set_state(link, LINK_STATE_CONFIGURING);
 
-        r = address_configure(address, link, address_handler, true);
+        r = address_configure(address, link, dhcp6_assign_delegated_prefix_address_handler, true);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to set acquired DHCPv6 delegated prefix address: %m");
         if (r > 0)
-                link->address_messages++;
+                link->dhcp6_delegation_prefix_address_messages++;
 
         return 0;
 }

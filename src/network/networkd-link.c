@@ -1149,6 +1149,9 @@ void link_check_ready(Link *link) {
                         /* When DHCP or RA is enabled, at least one protocol must provide an address, or
                          * an IPv4ll fallback address must be configured. */
                         return;
+
+                if (link->network->dhcp6_pd_assign_prefix && !link->dhcp6_delegation_prefix_address_configured)
+                        return;
         }
 
         if (link->state != LINK_STATE_CONFIGURED)
