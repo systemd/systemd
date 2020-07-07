@@ -61,8 +61,8 @@
     <command>nss-systemd</command> correctly:</para>
 
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
-    <programlisting>passwd:         compat mymachines <command>systemd</command>
-group:          compat [SUCCESS=merge] mymachines [SUCCESS=merge] <command>systemd</command>
+    <programlisting>passwd:         compat <command>systemd</command>
+group:          compat [SUCCESS=merge] <command>systemd</command>
 shadow:         compat
 
 hosts:          mymachines resolve [!UNAVAIL=return] myhostname files dns

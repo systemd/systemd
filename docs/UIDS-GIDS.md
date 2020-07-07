@@ -132,7 +132,7 @@ but downstreams are strongly advised against doing that.)
    range is above the 16bit boundary. Moreover it's below the 31bit boundary,
    as some broken code (specifically: the kernel's `devpts` file system)
    erroneously considers UIDs signed integers, and hence can't deal with values
-   above 2^31. The `nss-mymachines` glibc NSS module will synthesize user
+   above 2^31. The `systemd-machined.service` service will synthesize user
    database records for all UIDs assigned to a running container from this
    range.
 
@@ -240,14 +240,14 @@ the artifacts the container manager persistently leaves in the system.
 |                     5 | `tty` group           | `systemd`     | `/etc/passwd`                 |
 |                 6…999 | System users          | Distributions | `/etc/passwd`                 |
 |            1000…60000 | Regular users         | Distributions | `/etc/passwd` + LDAP/NIS/…    |
-|           60001…60513 | Human Users (homed)   | `systemd`     | `nss-systemd`
+|           60001…60513 | Human Users (homed)   | `systemd`     | `nss-systemd`                 |
 |           60514…61183 | Unused                |               |                               |
 |           61184…65519 | Dynamic service users | `systemd`     | `nss-systemd`                 |
 |           65520…65533 | Unused                |               |                               |
 |                 65534 | `nobody` user         | Linux         | `/etc/passwd` + `nss-systemd` |
 |                 65535 | 16bit `(uid_t) -1`    | Linux         |                               |
 |          65536…524287 | Unused                |               |                               |
-|     524288…1879048191 | Container UID ranges  | `systemd`     | `nss-mymachines`              |
+|     524288…1879048191 | Container UID ranges  | `systemd`     | `nss-systemd`                 |
 | 1879048192…2147483647 | Unused                |               |                               |
 | 2147483648…4294967294 | HIC SVNT LEONES       |               |                               |
 |            4294967295 | 32bit `(uid_t) -1`    | Linux         |                               |

@@ -262,19 +262,19 @@ USERS AND GROUPS:
 NSS:
         systemd ships with four glibc NSS modules:
 
-        nss-myhostname resolves the local hostname to locally
-        configured IP addresses, as well as "localhost" to
-        127.0.0.1/::1.
+        nss-myhostname resolves the local hostname to locally configured IP
+        addresses, as well as "localhost" to 127.0.0.1/::1.
 
-        nss-resolve enables DNS resolution via the systemd-resolved
-        DNS/LLMNR caching stub resolver "systemd-resolved".
+        nss-resolve enables DNS resolution via the systemd-resolved DNS/LLMNR
+        caching stub resolver "systemd-resolved".
 
         nss-mymachines enables resolution of all local containers registered
-        with machined to their respective IP addresses. It also maps UID/GIDs
-        ranges used by containers to useful names.
+        with machined to their respective IP addresses.
 
-        nss-systemd enables resolution of all dynamically allocated service
-        users. (See the DynamicUser= setting in unit files.)
+        nss-systemd enables resolution of users/group registered via the
+        User/Group Record Lookup API (https://systemd.io/USER_GROUP_API/),
+        including all dynamically allocated service users. (See the
+        DynamicUser= setting in unit files.)
 
         To make use of these NSS modules, please add them to the "hosts:",
         "passwd:" and "group:" lines in /etc/nsswitch.conf. The "resolve"
@@ -283,8 +283,8 @@ NSS:
 
         The four modules should be used in the following order:
 
-                passwd: compat mymachines systemd
-                group: compat mymachines systemd
+                passwd: compat systemd
+                group: compat systemd
                 hosts: files mymachines resolve [!UNAVAIL=return] dns myhostname
 
 SYSV INIT.D SCRIPTS:

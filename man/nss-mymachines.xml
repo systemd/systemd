@@ -39,22 +39,13 @@
     Note that the name that is resolved is the one registered with <command>systemd-machined</command>, which
     may be different than the hostname configured inside of the container.</para>
 
-    <para>The module also provides name resolution for user and group identifiers mapped to containers. All names from
-    the range allocated to a given container <replaceable>container</replaceable> are exposed on the host as
-    <literal>vu-<replaceable>container</replaceable>-<replaceable>uid</replaceable></literal> and
-    <literal>vg-<replaceable>container</replaceable>-<replaceable>gid</replaceable></literal> (see example below). This
-    functionality only applies to containers using user namespacing (see the description of
-    <option>--private-users</option> in
-    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>).</para>
-
-    <para>To activate the NSS module, add <literal>mymachines</literal> to the lines starting with
-    <literal>hosts:</literal>, <literal>passwd:</literal> and <literal>group:</literal> in
-    <filename>/etc/nsswitch.conf</filename>.</para>
+    <para>To activate the NSS module, add <literal>mymachines</literal> to the line starting with
+    <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
 
     <para>It is recommended to place <literal>mymachines</literal> after the <literal>files</literal> or
-    <literal>compat</literal> entry of the <filename>/etc/nsswitch.conf</filename> lines to make sure that its mappings
-    are preferred over other resolvers such as DNS, but so that <filename>/etc/hosts</filename>,
-    <filename>/etc/passwd</filename> and <filename>/etc/group</filename> based mappings take precedence.</para>
+    <literal>compat</literal> entry of the <filename>/etc/nsswitch.conf</filename> line to make sure that its
+    mappings are preferred over other resolvers such as DNS, but so that <filename>/etc/hosts</filename>
+    based mappings take precedence.</para>
   </refsect1>
 
   <refsect1>
@@ -64,8 +55,8 @@
     <command>nss-mymachines</command> correctly:</para>
 
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
-    <programlisting>passwd:         compat <command>mymachines</command> systemd
-group:          compat <command>mymachines</command> systemd
+    <programlisting>passwd:         compat systemd
+group:          compat systemd
 shadow:         compat
 
 hosts:          <command>mymachines</command> resolve [!UNAVAIL=return] myhostname files dns
@@ -81,7 +72,7 @@ netgroup:       nis</programlisting>
   </refsect1>
 
   <refsect1>
-    <title>Mappings provided by <filename>nss-mymachines</filename></title>
+    <title>Example: Mappings provided by <filename>nss-mymachines</filename></title>
 
     <para>The container <literal>rawhide</literal> is spawned using
     <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
@@ -95,29 +86,6 @@ Selected user namespace base 20119552 and range 65536.
 $ machinectl --max-addresses=3
 MACHINE CLASS     SERVICE        OS     VERSION ADDRESSES
 rawhide container systemd-nspawn fedora 30      169.254.40.164 fe80::94aa:3aff:fe7b:d4b9
-
-$ getent passwd vu-rawhide-0 vu-rawhide-81
-vu-rawhide-0:*:20119552:65534:vu-rawhide-0:/:/usr/sbin/nologin
-vu-rawhide-81:*:20119633:65534:vu-rawhide-81:/:/usr/sbin/nologin
-
-$ getent group vg-rawhide-0 vg-rawhide-81
-vg-rawhide-0:*:20119552:
-vg-rawhide-81:*:20119633:
-
-$ ps -o user:15,pid,tty,command -e|grep '^vu-rawhide'
-vu-rawhide-0      692 ?        /usr/lib/systemd/systemd
-vu-rawhide-0      731 ?        /usr/lib/systemd/systemd-journald
-vu-rawhide-192    734 ?        /usr/lib/systemd/systemd-networkd
-vu-rawhide-193    738 ?        /usr/lib/systemd/systemd-resolved
-vu-rawhide-0      742 ?        /usr/lib/systemd/systemd-logind
-vu-rawhide-81     744 ?        /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
-vu-rawhide-0      746 ?        /usr/sbin/sshd -D ...
-vu-rawhide-0      752 ?        /usr/lib/systemd/systemd --user
-vu-rawhide-0      753 ?        (sd-pam)
-vu-rawhide-0     1628 ?        login -- zbyszek
-vu-rawhide-1000  1630 ?        /usr/lib/systemd/systemd --user
-vu-rawhide-1000  1631 ?        (sd-pam)
-vu-rawhide-1000  1637 pts/8    -zsh
 
 $ ping -c1 rawhide
 PING rawhide(fe80::94aa:3aff:fe7b:d4b9%ve-rawhide (fe80::94aa:3aff:fe7b:d4b9%ve-rawhide)) 56 data bytes
