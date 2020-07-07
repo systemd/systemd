@@ -316,6 +316,10 @@ sensor:modalias:platform:cros-ec-accel:dmi:*:svnGoogle:pnCaroline*
 sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnVayne*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
 
+# nocturne board (Google Pixel Slate)
+sensor:modalias:platform:cros-ec-accel:dmi:*Google_Nocturne*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
 #########################################
 # GP-electronic
 #########################################
