@@ -71,7 +71,7 @@ static int write_hibernate_location_info(const HibernateLocation *hibernate_loca
                         return 0;
                 }
 
-                return log_debug_errno(errno, "/sys/power/resume_offset not writeable: %m");
+                return log_debug_errno(errno, "/sys/power/resume_offset not writable: %m");
         }
 
         xsprintf(offset_str, "%" PRIu64, hibernate_location->offset);
