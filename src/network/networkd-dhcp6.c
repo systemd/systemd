@@ -78,7 +78,7 @@ static int dhcp6_get_preferred_delegated_prefix(
 
         if (subnet_id >= 0) {
                 /* If the link has a preference for a particular subnet id try to allocate that */
-                if ((uint64_t)subnet_id >= n_prefixes)
+                if ((uint64_t) subnet_id >= n_prefixes)
                         return log_link_debug_errno(link,
                                         SYNTHETIC_ERRNO(ERANGE),
                                         "subnet id %" PRIi64 " is out of range. Only have %" PRIu64 " subnets.",
@@ -112,28 +112,24 @@ static int dhcp6_get_preferred_delegated_prefix(
                 log_link_debug(link, "The requested prefix %s is available. Using it.",
                                strnull(assigned_buf));
                 return 0;
-        } else {
-                for (uint64_t n = 0; n < n_prefixes; n++) {
-                        /* if we do not have an allocation preference just iterate
-                         * through the address space and return the first free prefix. */
-                        Link* assigned_link = dhcp6_prefix_get(manager, &prefix.in6);
-
-                        if (!assigned_link || assigned_link == link) {
-                                *ret_addr = prefix.in6;
-                                return 0;
-                        }
-
-                        r = in_addr_prefix_next(AF_INET6, &prefix, 64);
-                        if (r < 0)
-                                return log_link_error_errno(link,
-                                                r,
-                                                "Can't allocate another prefix. Out of address space?");
-                }
-
-                log_link_warning(link, "Couldn't find a suitable prefix. Ran out of address space.");
         }
 
-        return -ERANGE;
+        for (uint64_t n = 0; n < n_prefixes; n++) {
+                /* if we do not have an allocation preference just iterate
+                 * through the address space and return the first free prefix. */
+                Link* assigned_link = dhcp6_prefix_get(manager, &prefix.in6);
+
+                if (!assigned_link || assigned_link == link) {
+                        *ret_addr = prefix.in6;
+                        return 0;
+                }
+
+                r = in_addr_prefix_next(AF_INET6, &prefix, 64);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Can't allocate another prefix. Out of address space?");
+        }
+
+        return log_link_warning_errno(link, SYNTHETIC_ERRNO(ERANGE), "Couldn't find a suitable prefix. Ran out of address space.");
 }
 
 static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
