@@ -17,6 +17,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "namespace-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -36,15 +37,13 @@ static int fake_filesystems(void) {
                 { "test/run",       "/etc/udev/rules.d",       "Failed to mount empty /etc/udev/rules.d",          true },
                 { "test/run",       UDEVLIBEXECDIR "/rules.d", "Failed to mount empty " UDEVLIBEXECDIR "/rules.d", true },
         };
-        unsigned i;
+        int r;
 
-        if (unshare(CLONE_NEWNS) < 0)
-                return log_error_errno(errno, "Failed to call unshare(): %m");
+        r = detach_mount_namespace();
+        if (r < 0)
+                return log_error_errno(r, "Failed to detach mount namespace: %m");
 
-        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                return log_error_errno(errno, "Failed to mount / as private: %m");
-
-        for (i = 0; i < ELEMENTSOF(fakefss); i++)
+        for (size_t i = 0; i < ELEMENTSOF(fakefss); i++)
                 if (mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL) < 0) {
                         log_full_errno(fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR, errno, "%s: %m", fakefss[i].error);
                         if (!fakefss[i].ignore_mount_error)

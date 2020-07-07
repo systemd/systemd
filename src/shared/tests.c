@@ -21,6 +21,7 @@
 #include "env-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "namespace-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "strv.h"
@@ -137,10 +138,7 @@ bool have_namespaces(void) {
 
         if (pid == 0) {
                 /* child */
-                if (unshare(CLONE_NEWNS) < 0)
-                        _exit(EXIT_FAILURE);
-
-                if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                if (detach_mount_namespace() < 0)
                         _exit(EXIT_FAILURE);
 
                 _exit(EXIT_SUCCESS);

@@ -58,8 +58,8 @@ int umount_recursive(const char *prefix, int flags) {
                         if (!path_startswith(path, prefix))
                                 continue;
 
-                        if (umount2(path, flags) < 0) {
-                                r = log_debug_errno(errno, "Failed to umount %s: %m", path);
+                        if (umount2(path, flags | UMOUNT_NOFOLLOW) < 0) {
+                                log_debug_errno(errno, "Failed to umount %s, ignoring: %m", path);
                                 continue;
                         }
 
@@ -70,7 +70,6 @@ int umount_recursive(const char *prefix, int flags) {
 
                         break;
                 }
-
         } while (again);
 
         return n;

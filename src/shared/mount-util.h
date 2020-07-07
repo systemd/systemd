@@ -3,7 +3,9 @@
 
 #include <mntent.h>
 #include <stdio.h>
+#include <unistd.h>
 
+#include "errno-util.h"
 #include "macro.h"
 
 /* 4MB for contents of regular files, 64k inodes for directories, symbolic links and device specials,
@@ -53,3 +55,12 @@ int mount_option_mangle(
                 char **ret_remaining_options);
 
 int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest);
+
+/* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
+static inline void umount_and_rmdir_and_free(char *p) {
+        PROTECT_ERRNO;
+        (void) umount_recursive(p, 0);
+        (void) rmdir(p);
+        free(p);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
