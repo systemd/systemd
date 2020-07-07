@@ -22,7 +22,7 @@ const TClassVTable * const tclass_vtable[_TCLASS_KIND_MAX] = {
 };
 
 static int tclass_new(TClassKind kind, TClass **ret) {
-        TClass *tclass;
+        _cleanup_(tclass_freep) TClass *tclass = NULL;
         int r;
 
         tclass = malloc0(tclass_vtable[kind]->object_size);

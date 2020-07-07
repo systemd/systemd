@@ -39,7 +39,7 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
 };
 
 static int qdisc_new(QDiscKind kind, QDisc **ret) {
-        QDisc *qdisc;
+        _cleanup_(qdisc_freep) QDisc *qdisc = NULL;
         int r;
 
         if (kind == _QDISC_KIND_INVALID) {
