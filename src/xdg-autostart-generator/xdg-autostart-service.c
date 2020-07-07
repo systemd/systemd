@@ -182,6 +182,37 @@ static int xdg_config_parse_string(
         return 0;
 }
 
+static int strv_strndup_unescape_and_push(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                char ***sv,
+                size_t *n_allocated,
+                size_t *n,
+                const char *start,
+                const char *end) {
+
+        _cleanup_free_ char *copy = NULL;
+        int r;
+
+        copy = strndup(start, end - start);
+        if (!copy)
+                return log_oom();
+
+        r = xdg_unescape_string(unit, filename, line, copy);
+        if (r < 0)
+                return r;
+
+        if (!greedy_realloc((void**) sv, n_allocated, *n + 2, sizeof(char*))) /* One extra for NULL */
+                return log_oom();
+
+        (*sv)[*n] = TAKE_PTR(copy);
+        (*sv)[*n + 1] = NULL;
+        (*n)++;
+
+        return 0;
+}
+
 static int xdg_config_parse_strv(
                 const char *unit,
                 const char *filename,
@@ -194,9 +225,7 @@ static int xdg_config_parse_strv(
                 void *data,
                 void *userdata) {
 
-        char ***sv = data;
-        const char *start;
-        const char *end;
+        char ***ret_sv = data;
         int r;
 
         assert(filename);
@@ -205,23 +234,25 @@ static int xdg_config_parse_strv(
         assert(data);
 
         /* XDG does not allow duplicate definitions. */
-        if (*sv) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Key %s was defined multiple times, ignoring.", lvalue);
+        if (*ret_sv) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Key %s was already defined, ignoring.", lvalue);
                 return 0;
         }
 
-        *sv = strv_new(NULL);
-        if (!*sv)
+        size_t n = 0, n_allocated = 0;
+        _cleanup_strv_free_ char **sv = NULL;
+
+        if (!GREEDY_REALLOC0(sv, n_allocated, 1))
                 return log_oom();
 
         /* We cannot use strv_split because it does not handle escaping correctly. */
-        start = rvalue;
+        const char *start = rvalue, *end;
 
         for (end = start; *end; end++) {
                 if (*end == '\\') {
                         /* Move forward, and ensure it is a valid escape. */
                         end++;
-                        if (strchr("sntr\\;", *end) == NULL) {
+                        if (!strchr("sntr\\;", *end)) {
                                 log_syntax(unit, LOG_ERR, filename, line, 0, "Undefined escape sequence \\%c.", *end);
                                 return 0;
                         }
@@ -229,17 +260,11 @@ static int xdg_config_parse_strv(
                 }
 
                 if (*end == ';') {
-                        _cleanup_free_ char *copy = NULL;
-
-                        copy = strndup(start, end - start);
-                        if (!copy)
-                                return log_oom();
-                        r = xdg_unescape_string(unit, filename, line, copy);
+                        r = strv_strndup_unescape_and_push(unit, filename, line,
+                                                           &sv, &n_allocated, &n,
+                                                           start, end);
                         if (r < 0)
                                 return r;
-                        r = strv_consume(sv, TAKE_PTR(copy));
-                        if (r < 0)
-                                return log_oom();
 
                         start = end + 1;
                 }
@@ -247,11 +272,14 @@ static int xdg_config_parse_strv(
 
         /* Any trailing entry should be ignored if it is empty. */
         if (end > start) {
-                r = strv_extend(sv, start);
+                r = strv_strndup_unescape_and_push(unit, filename, line,
+                                                   &sv, &n_allocated, &n,
+                                                   start, end);
                 if (r < 0)
-                        return log_oom();
+                        return r;
         }
 
+        *ret_sv = TAKE_PTR(sv);
         return 0;
 }
 
