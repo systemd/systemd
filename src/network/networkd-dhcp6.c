@@ -28,7 +28,6 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 static Link *dhcp6_prefix_get(Manager *m, struct in6_addr *addr);
 static int dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link);
 static int dhcp6_prefix_remove_all(Manager *m, Link *link);
-static bool dhcp6_link_has_dhcpv6_prefix(Link *link);
 static int dhcp6_assign_delegated_prefix(Link *link, const struct in6_addr *prefix,
                                          uint8_t prefix_len,
                                          uint32_t lifetime_preferred,
@@ -306,9 +305,6 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link,
                         continue;
 
                 if (!dhcp6_get_prefix_delegation(link))
-                        continue;
-
-                if (dhcp6_link_has_dhcpv6_prefix(link))
                         continue;
 
                 if (assign_preferred_subnet_id != dhcp6_has_preferred_subnet_id(link))
@@ -1023,20 +1019,6 @@ static int dhcp6_prefix_remove_all(Manager *m, Link *link) {
                         (void) dhcp6_prefix_remove(m, addr);
 
         return 0;
-}
-
-static bool dhcp6_link_has_dhcpv6_prefix(Link *link) {
-        Iterator i;
-        Link *l;
-
-        assert(link);
-        assert(link->manager);
-
-        HASHMAP_FOREACH(l, link->manager->dhcp6_prefixes, i)
-                if (link == l)
-                        return true;
-
-        return false;
 }
 
 static int dhcp6_assign_delegated_prefix(Link *link,
