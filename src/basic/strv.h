@@ -80,6 +80,11 @@ char **strv_split_newlines(const char *s);
 
 int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags);
 
+/* Given a string containing white-space separated tuples of words themselves separated by ':',
+ * returns a vector of strings. If the second element in a tuple is missing, the corresponding
+ * string in the vector is an empty string. */
+int strv_split_colon_pairs(char ***t, const char *s);
+
 char *strv_join_prefix(char * const *l, const char *separator, const char *prefix);
 static inline char *strv_join(char * const *l, const char *separator) {
         return strv_join_prefix(l, separator, NULL);

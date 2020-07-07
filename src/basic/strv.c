@@ -353,6 +353,58 @@ int strv_split_extract(char ***t, const char *s, const char *separators, Extract
         return (int) n;
 }
 
+int strv_split_colon_pairs(char ***t, const char *s) {
+        _cleanup_strv_free_ char **l = NULL;
+        size_t n = 0, allocated = 0;
+        int r;
+
+        assert(t);
+        assert(s);
+
+        for (;;) {
+                _cleanup_free_ char *first = NULL, *second = NULL, *tuple = NULL, *second_or_empty = NULL;
+
+                r = extract_first_word(&s, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                const char *p = tuple;
+                r = extract_many_words(&p, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
+                                       &first, &second, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+                /* Enforce that at most 2 colon-separated words are contained in each group */
+                if (!isempty(p))
+                        return -EINVAL;
+
+                second_or_empty = strdup(strempty(second));
+                if (!second_or_empty)
+                        return -ENOMEM;
+
+                if (!GREEDY_REALLOC(l, allocated, n + 3))
+                        return -ENOMEM;
+
+                l[n++] = TAKE_PTR(first);
+                l[n++] = TAKE_PTR(second_or_empty);
+
+                l[n] = NULL;
+        }
+
+        if (!l) {
+                l = new0(char*, 1);
+                if (!l)
+                        return -ENOMEM;
+        }
+
+        *t = TAKE_PTR(l);
+
+        return (int) n;
+}
+
 char *strv_join_prefix(char * const *l, const char *separator, const char *prefix) {
         char * const *s;
         char *r, *e;
