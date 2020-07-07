@@ -840,7 +840,7 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
         }
 
         if (link->radv) {
-                k = sd_radv_stop(link->radv, true);
+                k = sd_radv_stop(link->radv);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Advertisement: %m");
         }
