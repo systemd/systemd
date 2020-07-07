@@ -24,7 +24,7 @@
     <title>Introduction</title>
 
     <para><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    is a system service which may be used to to create, remove, change or inspect home areas. This page
+    is a system service which may be used to create, remove, change or inspect home areas. This page
     describes the D-Bus interface.
     </para>
   </refsect1>

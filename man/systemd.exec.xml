@@ -1699,7 +1699,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         <option>shared</option> mount propagation is used, but — as mentioned — as <option>slave</option> is applied
         first, propagation from the unit's processes to the host is still turned off.</para>
 
-        <para>It is not recommended to to use <option>private</option> mount propagation for units, as this means
+        <para>It is not recommended to use <option>private</option> mount propagation for units, as this means
         temporary mounts (such as removable media) of the host will stay mounted and thus indefinitely busy in forked
         off processes, as unmount propagation events won't be received by the file system namespace of the unit.</para>
 

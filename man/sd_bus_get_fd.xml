@@ -79,7 +79,7 @@
     <constant>POLLIN</constant>, <constant>POLLOUT</constant>, … events, or negative on error.
     </para>
 
-    <para><function>sd_bus_get_timeout()</function> returns the timeout in µs to pass to to
+    <para><function>sd_bus_get_timeout()</function> returns the timeout in µs to pass to
     <function>poll()</function> or a similar call when waiting for events on the specified bus
     connection. The returned timeout may be zero, in which case a subsequent I/O polling call
     should be invoked in non-blocking mode. The returned timeout may be

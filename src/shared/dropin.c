@@ -204,7 +204,7 @@ static int unit_file_find_dirs(
         type = unit_name_to_type(name);
         if (type < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to to derive unit type from unit name: %s",
+                                       "Failed to derive unit type from unit name: %s",
                                        name);
 
         if (is_instance) {
@@ -254,7 +254,7 @@ int unit_file_find_dropin_paths(
                 type = unit_name_to_type(n);
                 if (type < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Failed to to derive unit type from unit name: %s", n);
+                                               "Failed to derive unit type from unit name: %s", n);
 
                 /* Special top level drop in for "<unit type>.<suffix>". Add this last as it's the most generic
                  * and should be able to be overridden by more specific drop-ins. */

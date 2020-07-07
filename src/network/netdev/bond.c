@@ -327,7 +327,7 @@ int config_parse_arp_ip_target_address(
                 r = extract_first_word(&rvalue, &n, NULL, 0);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to parse Bond ARP ip target address, ignoring assignment: %s",
+                                   "Failed to parse Bond ARP IP target address, ignoring assignment: %s",
                                    rvalue);
                         return 0;
                 }
@@ -337,7 +337,7 @@ int config_parse_arp_ip_target_address(
                 r = in_addr_from_string(AF_INET, n, &ip);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Bond ARP ip target address is invalid, ignoring assignment: %s", n);
+                                   "Bond ARP IP target address is invalid, ignoring assignment: %s", n);
                         continue;
                 }
 
@@ -347,7 +347,7 @@ int config_parse_arp_ip_target_address(
 
                 if (ordered_set_size(b->arp_ip_targets) >= NETDEV_BOND_ARP_TARGETS_MAX) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Too many ARP ip targets are specified. The maximum number is %d. Ignoring assignment: %s",
+                                   "Too many ARP IP targets are specified. The maximum number is %d. Ignoring assignment: %s",
                                    NETDEV_BOND_ARP_TARGETS_MAX, n);
                         continue;
                 }
@@ -355,10 +355,10 @@ int config_parse_arp_ip_target_address(
                 r = ordered_set_put(b->arp_ip_targets, UINT32_TO_PTR(ip.in.s_addr));
                 if (r == -EEXIST)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Bond ARP ip target address is duplicated, ignoring assignment: %s", n);
+                                   "Bond ARP IP target address is duplicated, ignoring assignment: %s", n);
                 if (r < 0)
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to store bond ARP ip target address '%s', ignoring assignment: %m", n);
+                                   "Failed to store bond ARP IP target address '%s', ignoring assignment: %m", n);
         }
 }
 

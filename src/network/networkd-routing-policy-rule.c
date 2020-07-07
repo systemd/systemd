@@ -506,17 +506,17 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         if (rule->tos > 0) {
                 r = sd_rtnl_message_routing_policy_rule_set_tos(m, rule->tos);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set ip rule tos: %m");
+                        return log_link_error_errno(link, r, "Could not set IP rule TOS: %m");
         }
 
         if (rule->table < 256) {
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, rule->table);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set ip rule table: %m");
+                        return log_link_error_errno(link, r, "Could not set IP rule table: %m");
         } else {
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set ip rule table: %m");
+                        return log_link_error_errno(link, r, "Could not set IP rule table: %m");
 
                 r = sd_netlink_message_append_u32(m, FRA_TABLE, rule->table);
                 if (r < 0)
@@ -698,7 +698,7 @@ int config_parse_routing_policy_rule_tos(
 
         r = safe_atou8(rvalue, &n->tos);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule tos, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule TOS, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1372,7 +1372,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         } else if (streq(a, "tos")) {
                                 r = safe_atou8(b, &rule->tos);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule tos, ignoring: %s", b);
+                                        log_error_errno(r, "Failed to parse RPDB rule TOS, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "table")) {
