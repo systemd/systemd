@@ -392,7 +392,7 @@ static int output_table(Table *table) {
         else
                 r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to show table: %m");
+                return table_log_show_error(r);
 
         return 0;
 }

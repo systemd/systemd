@@ -750,7 +750,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
 
                 r = table_print(table, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        return table_log_show_error(r);
         }
 
         if (arg_legend) {

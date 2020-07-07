@@ -160,7 +160,7 @@ static int print_status_info(const StatusInfo *i) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to show table: %m");
+                return table_log_show_error(r);
 
         if (i->rtc_local)
                 printf("\n%s"
@@ -433,7 +433,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
 
                 r = table_print(table, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        return table_log_show_error(r);
 
                 return 0;
         }
@@ -442,7 +442,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 log_error("Invalid NTP response");
                 r = table_print(table, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        return table_log_show_error(r);
 
                 return 0;
         }
@@ -526,7 +526,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to show table: %m");
+                table_log_show_error(r);
 
         return 0;
 }
