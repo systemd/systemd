@@ -185,6 +185,7 @@ error NoRecordFound()
 error BadService()
 error ServiceNotAvailable()
 error ConflictingRecordFound()
+error EnumerationNotSupported()
 ```
 
 The `GetUserRecord` method looks up or enumerates a user record. If the `uid`
@@ -263,5 +264,12 @@ acquire the full list of memberships. The full list can only bet determined by
 services. Result of this is that it can be one service that defines a user A,
 and another service that defines a group B, and a third service that declares
 that A is a member of B.
+
+Looking up explicit users/groups by their name or UID/GID, or querying
+user/group memberships must be supported by all services implementing these
+interfaces. However, supporting enumeration (i.e. user/group lookups that may
+result in more than one reply, because neither UID/GID nor name is specified)
+is optional. Services which are asked for enumeration may return the
+`EnumerationNotSupported` error in this case.
 
 And that's really all there is to it.
