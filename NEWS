@@ -91,6 +91,15 @@ CHANGES WITH 246 in spe:
           from the documentation, but will now result in warnings when used,
           and be converted to "journal" and "journal+console" automatically.
 
+        * If the service setting User= is set to the "nobody" user, a warning
+          message is now written to the logs (but the value is nonetheless
+          accepted). Setting User=nobody is unsafe, since the primary purpose
+          of the "nobody" user is to own all files whose owner cannot be mapped
+          locally. It's in particular used by the NFS subsystem and in user
+          namespacing. By running a service under this user's UID it might get
+          read and even write access to all these otherwise unmappable files,
+          which is quite likely a major security problem.
+
         * A new kernel command line option systemd.hostname= has been added
           that allows controlling the hostname that is initialized early during
           boot.
@@ -370,6 +379,21 @@ CHANGES WITH 246 in spe:
           storage and file system may now be configured explicitly, too, via
           the new /etc/systemd/homed.conf configuration file.
 
+        * systemd-homed now supports unlocking home directories with FIDO2
+          security tokens that support the 'hmac-secret' extension, in addition
+          to the existing support for PKCS#11 security token unlocking
+          support. Note that many recent hardware security tokens support both
+          interfaces. The FIDO2 support is accessible via homectl's
+          --fido2-device= option.
+
+        * homectl's --pkcs11-uri= setting now accepts two special parameters:
+          if "auto" is specified and only one suitable PKCS#11 security token
+          is plugged in, its URL is automatically determined and enrolled for
+          unlocking the home directory. If "list" is specified a brief table of
+          suitable PKCS#11 security tokens is shown. Similar, the new
+          --fido2-device= option also supports these two special values, for
+          automatically selecting and listing suitable FIDO2 devices.
+
         * The /etc/crypttab tmp option now optionally takes an argument
           selecting the file system to use. Moreover, the default is now
           changed from ext2 to ext4.
@@ -495,7 +519,6 @@ CHANGES WITH 246 in spe:
         * All D-Bus services shipped in systemd now implement the generic
           LogControl1 D-Bus API which allows clients to change log level +
           target of the service during runtime.
-
 
 CHANGES WITH 245:
 
