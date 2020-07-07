@@ -489,7 +489,7 @@ static void test_extract_first_word_and_warn(void) {
 
 static void test_extract_many_words(void) {
         const char *p, *original;
-        char *a, *b, *c;
+        char *a, *b, *c, *d, *e, *f;
 
         p = original = "foobar waldi piep";
         assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 3);
@@ -500,6 +500,24 @@ static void test_extract_many_words(void) {
         free(a);
         free(b);
         free(c);
+
+        p = original = "foobar:waldi:piep ba1:ba2";
+        assert_se(extract_many_words(&p, ":" WHITESPACE, 0, &a, &b, &c, NULL) == 3);
+        assert_se(!isempty(p));
+        assert_se(streq_ptr(a, "foobar"));
+        assert_se(streq_ptr(b, "waldi"));
+        assert_se(streq_ptr(c, "piep"));
+        assert_se(extract_many_words(&p, ":" WHITESPACE, 0, &d, &e, &f, NULL) == 2);
+        assert_se(isempty(p));
+        assert_se(streq_ptr(d, "ba1"));
+        assert_se(streq_ptr(e, "ba2"));
+        assert_se(isempty(f));
+        free(a);
+        free(b);
+        free(c);
+        free(d);
+        free(e);
+        free(f);
 
         p = original = "'foobar' wa\"ld\"i   ";
         assert_se(extract_many_words(&p, NULL, 0, &a, &b, &c, NULL) == 2);
