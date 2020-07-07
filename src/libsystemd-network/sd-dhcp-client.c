@@ -1441,7 +1441,10 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         sd_dhcp_client *client = userdata;
         DHCP_CLIENT_DONT_DESTROY(client);
 
-        client->state = DHCP_STATE_RENEWING;
+        if (client->lease)
+                client->state = DHCP_STATE_RENEWING;
+        else if (client->state != DHCP_STATE_INIT)
+                client->state = DHCP_STATE_INIT_REBOOT;
         client->attempt = 0;
 
         return client_initialize_time_events(client);
@@ -2011,6 +2014,9 @@ static int client_receive_message_raw(
 int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
         assert_return(client->fd >= 0, -EINVAL);
+
+        if (IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_INIT_REBOOT, DHCP_STATE_STOPPED))
+                return 0;
 
         client->start_delay = 0;
         client->attempt = 1;
