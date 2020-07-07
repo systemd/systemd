@@ -314,6 +314,29 @@ static int write_requires_mounts_for(FILE *f, const char *opts) {
         return 0;
 }
 
+static int write_extra_dependencies(FILE *f, const char *opts) {
+        int r;
+
+        assert(f);
+
+        if (opts) {
+                r = write_after(f, opts);
+                if (r < 0)
+                        return r;
+                r = write_requires_after(f, opts);
+                if (r < 0)
+                        return r;
+                r = write_before(f, opts);
+                if (r < 0)
+                        return r;
+                r = write_requires_mounts_for(f, opts);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int add_mount(
                 const char *dest,
                 const char *what,
@@ -406,20 +429,9 @@ static int add_mount(
                 SET_FLAG(flags, NOFAIL, true);
         }
 
-        if (!(flags & AUTOMOUNT) && opts) {
-                 r = write_after(f, opts);
-                 if (r < 0)
-                         return r;
-                 r = write_requires_after(f, opts);
-                 if (r < 0)
-                         return r;
-                 r = write_before(f, opts);
-                 if (r < 0)
-                         return r;
-                 r = write_requires_mounts_for(f, opts);
-                 if (r < 0)
-                         return r;
-        }
+        r = write_extra_dependencies(f, opts);
+        if (r < 0)
+                return r;
 
         if (passno != 0) {
                 r = generator_write_fsck_deps(f, dest, what, where, fstype);
@@ -529,21 +541,6 @@ static int add_mount(
                         "SourcePath=%s\n"
                         "Documentation=man:fstab(5) man:systemd-fstab-generator(8)\n",
                         source);
-
-                if (opts) {
-                        r = write_after(f, opts);
-                        if (r < 0)
-                                return r;
-                        r = write_requires_after(f, opts);
-                        if (r < 0)
-                                return r;
-                        r = write_before(f, opts);
-                        if (r < 0)
-                                return r;
-                        r = write_requires_mounts_for(f, opts);
-                        if (r < 0)
-                                return r;
-                }
 
                 fprintf(f,
                         "\n"
