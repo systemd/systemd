@@ -28,7 +28,6 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 static Link *dhcp6_prefix_get(Manager *m, struct in6_addr *addr);
 static int dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link);
 static int dhcp6_prefix_remove_all(Manager *m, Link *link);
-static bool dhcp6_link_has_dhcpv6_prefix(Link *link);
 static int dhcp6_assign_delegated_prefix(Link *link, const struct in6_addr *prefix,
                                          uint8_t prefix_len,
                                          uint32_t lifetime_preferred,
@@ -78,7 +77,7 @@ static int dhcp6_get_preferred_delegated_prefix(
 
         if (subnet_id >= 0) {
                 /* If the link has a preference for a particular subnet id try to allocate that */
-                if ((uint64_t)subnet_id >= n_prefixes)
+                if ((uint64_t) subnet_id >= n_prefixes)
                         return log_link_debug_errno(link,
                                         SYNTHETIC_ERRNO(ERANGE),
                                         "subnet id %" PRIi64 " is out of range. Only have %" PRIu64 " subnets.",
@@ -112,28 +111,24 @@ static int dhcp6_get_preferred_delegated_prefix(
                 log_link_debug(link, "The requested prefix %s is available. Using it.",
                                strnull(assigned_buf));
                 return 0;
-        } else {
-                for (uint64_t n = 0; n < n_prefixes; n++) {
-                        /* if we do not have an allocation preference just iterate
-                         * through the address space and return the first free prefix. */
-                        Link* assigned_link = dhcp6_prefix_get(manager, &prefix.in6);
-
-                        if (!assigned_link || assigned_link == link) {
-                                *ret_addr = prefix.in6;
-                                return 0;
-                        }
-
-                        r = in_addr_prefix_next(AF_INET6, &prefix, 64);
-                        if (r < 0)
-                                return log_link_error_errno(link,
-                                                r,
-                                                "Can't allocate another prefix. Out of address space?");
-                }
-
-                log_link_warning(link, "Couldn't find a suitable prefix. Ran out of address space.");
         }
 
-        return -ERANGE;
+        for (uint64_t n = 0; n < n_prefixes; n++) {
+                /* if we do not have an allocation preference just iterate
+                 * through the address space and return the first free prefix. */
+                Link* assigned_link = dhcp6_prefix_get(manager, &prefix.in6);
+
+                if (!assigned_link || assigned_link == link) {
+                        *ret_addr = prefix.in6;
+                        return 0;
+                }
+
+                r = in_addr_prefix_next(AF_INET6, &prefix, 64);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Can't allocate another prefix. Out of address space?");
+        }
+
+        return log_link_warning_errno(link, SYNTHETIC_ERRNO(ERANGE), "Couldn't find a suitable prefix. Ran out of address space.");
 }
 
 static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
@@ -289,14 +284,11 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link,
                 if (!dhcp6_get_prefix_delegation(link))
                         continue;
 
-                if (dhcp6_link_has_dhcpv6_prefix(link))
-                        continue;
-
                 if (assign_preferred_subnet_id != dhcp6_has_preferred_subnet_id(link))
                         continue;
 
                 r = dhcp6_get_preferred_delegated_prefix(manager, link, &prefix.in6, pd_prefix_len,
-                                                        &assigned_prefix.in6);
+                                                         &assigned_prefix.in6);
 
                 if (assign_preferred_subnet_id && r == -EAGAIN) {
                         /* A link has a preferred subnet_id but that one is
@@ -1004,20 +996,6 @@ static int dhcp6_prefix_remove_all(Manager *m, Link *link) {
                         (void) dhcp6_prefix_remove(m, addr);
 
         return 0;
-}
-
-static bool dhcp6_link_has_dhcpv6_prefix(Link *link) {
-        Iterator i;
-        Link *l;
-
-        assert(link);
-        assert(link->manager);
-
-        HASHMAP_FOREACH(l, link->manager->dhcp6_prefixes, i)
-                if (link == l)
-                        return true;
-
-        return false;
 }
 
 static int dhcp6_assign_delegated_prefix(Link *link,
