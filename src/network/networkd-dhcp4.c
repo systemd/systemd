@@ -1025,7 +1025,7 @@ static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {
 
         link->dhcp_lease_old = TAKE_PTR(link->dhcp_lease);
 
-        /* On ip address change, to keep the connectability, we would like to assign new address and
+        /* On IP address change, to keep the connectability, we would like to assign new address and
          * routes, and then release old lease. There are two possible success paths:
          *
          * 1. new address and routes are configured.
@@ -1066,12 +1066,12 @@ static int dhcp_server_is_deny_listed(Link *link, sd_dhcp_client *client) {
 
         r = sd_dhcp_lease_get_server_identifier(lease, &addr);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to get DHCP server ip address: %m");
+                return log_link_debug_errno(link, r, "Failed to get DHCP server IP address: %m");
 
         if (set_contains(link->network->dhcp_deny_listed_ip, UINT32_TO_PTR(addr.s_addr))) {
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
-                           LOG_LINK_MESSAGE(link, "DHCPv4 ip '%u.%u.%u.%u' found in deny-listed ip addresses, ignoring offer",
+                           LOG_LINK_MESSAGE(link, "DHCPv4 IP '%u.%u.%u.%u' found in deny-listed IP addresses, ignoring offer",
                                             ADDRESS_FMT_VAL(addr)));
                 return true;
         }
@@ -1094,12 +1094,12 @@ static int dhcp_server_is_allow_listed(Link *link, sd_dhcp_client *client) {
 
         r = sd_dhcp_lease_get_server_identifier(lease, &addr);
         if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to get DHCP server ip address: %m");
+                return log_link_debug_errno(link, r, "Failed to get DHCP server IP address: %m");
 
         if (set_contains(link->network->dhcp_allow_listed_ip, UINT32_TO_PTR(addr.s_addr))) {
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
-                           LOG_LINK_MESSAGE(link, "DHCPv4 ip '%u.%u.%u.%u' found in allow-listed ip addresses, accepting offer",
+                           LOG_LINK_MESSAGE(link, "DHCPv4 IP '%u.%u.%u.%u' found in allow-listed IP addresses, accepting offer",
                                             ADDRESS_FMT_VAL(addr)));
                 return true;
         }
@@ -1520,7 +1520,7 @@ int dhcp4_configure(Link *link) {
         if (link->network->ip_service_type > 0) {
                 r = sd_dhcp_client_set_service_type(link->dhcp_client, link->network->ip_service_type);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set ip service type: %m");
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set IP service type: %m");
         }
 
         if (link->network->dhcp_fallback_lease_lifetime > 0) {
