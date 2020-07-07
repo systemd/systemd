@@ -672,6 +672,37 @@ int radv_configure(Link *link) {
         return 0;
 }
 
+int radv_add_prefix(Link *link, struct in6_addr *prefix, uint8_t prefix_len,
+                    uint32_t lifetime_preferred, uint32_t lifetime_valid) {
+        _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
+        int r;
+
+        assert(link);
+        assert(link->radv);
+
+        r = sd_radv_prefix_new(&p);
+        if (r < 0)
+                return r;
+
+        r = sd_radv_prefix_set_prefix(p, prefix, prefix_len);
+        if (r < 0)
+                return r;
+
+        r = sd_radv_prefix_set_preferred_lifetime(p, lifetime_preferred);
+        if (r < 0)
+                return r;
+
+        r = sd_radv_prefix_set_valid_lifetime(p, lifetime_valid);
+        if (r < 0)
+                return r;
+
+        r = sd_radv_add_prefix(link->radv, p, true);
+        if (r < 0 && r != -EEXIST)
+                return r;
+
+        return 0;
+}
+
 int config_parse_radv_dns(
                 const char *unit,
                 const char *filename,

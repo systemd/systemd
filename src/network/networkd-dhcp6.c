@@ -6,7 +6,6 @@
 #include <netinet/in.h>
 #include <linux/if.h>
 #include <linux/if_arp.h>
-#include "sd-radv.h"
 
 #include "sd-dhcp6-client.h"
 
@@ -18,6 +17,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-radv.h"
 #include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -167,32 +167,10 @@ static int dhcp6_pd_prefix_assign(Link *link, struct in6_addr *prefix,
                                   uint8_t prefix_len,
                                   uint32_t lifetime_preferred,
                                   uint32_t lifetime_valid) {
-        sd_radv *radv = link->radv;
         int r;
-        _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
 
-        r = sd_radv_prefix_new(&p);
+        r = radv_add_prefix(link, prefix, prefix_len, lifetime_preferred, lifetime_valid);
         if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_prefix(p, prefix, prefix_len);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_preferred_lifetime(p, lifetime_preferred);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_prefix_set_valid_lifetime(p, lifetime_valid);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_stop(radv);
-        if (r < 0)
-                return r;
-
-        r = sd_radv_add_prefix(radv, p, true);
-        if (r < 0 && r != -EEXIST)
                 return r;
 
         r = dhcp6_prefix_add(link->manager, prefix, link);
@@ -205,7 +183,7 @@ static int dhcp6_pd_prefix_assign(Link *link, struct in6_addr *prefix,
                         return r;
         }
 
-        return sd_radv_start(radv);
+        return 0;
 }
 
 static int dhcp6_route_remove_handler(sd_netlink *nl, sd_netlink_message *m, Link *link) {
