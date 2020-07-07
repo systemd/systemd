@@ -133,3 +133,6 @@ int table_print_json(Table *t, FILE *f, JsonFormatFlags json_flags);
 
 #define table_log_show_error(r) \
         log_error_errno(r, "Failed to show table: %m")
+
+#define table_log_sort_error(r) \
+        log_error_errno(r, "Failed to sort table: %m")

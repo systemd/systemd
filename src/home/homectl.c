@@ -168,7 +168,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         if (table_get_rows(table) > 1 || arg_json) {
                 r = table_set_sort(table, (size_t) 0, (size_t) -1);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to sort table: %m");
+                        return table_log_sort_error(r);
 
                 table_set_header(table, arg_legend);
 
