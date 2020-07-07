@@ -521,7 +521,7 @@ layout: default
   hence we might want to call it "big endian" right-away.
 
 - Please never use `dup()`. Use `fcntl(fd, F_DUPFD_CLOEXEC, 3)` instead. For
-  two reason: first, you want `O_CLOEXEC` set on the new `fd` (see
+  two reasons: first, you want `O_CLOEXEC` set on the new `fd` (see
   above). Second, `dup()` will happily duplicate your `fd` as 0, 1, 2,
   i.e. stdin, stdout, stderr, should those `fd`s be closed. Given the special
   semantics of those `fd`s, it's probably a good idea to avoid
