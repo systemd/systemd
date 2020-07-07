@@ -852,8 +852,6 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
         size_t in_allocsize, out_allocsize;
         size_t z;
         uint64_t left = max_bytes, in_bytes = 0;
-        /* This can be used in the future to add uncompressed size to the header */
-        uint64_t in_totalsize = 0;
 
         assert(fdf >= 0);
         assert(fdt >= 0);
@@ -867,11 +865,6 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
         if (!cctx || !out_buff || !in_buff)
                 return -ENOMEM;
 
-        if (in_totalsize) {
-                z = ZSTD_CCtx_setPledgedSrcSize(cctx, in_totalsize);
-                if (z)
-                        log_debug("Failed to enable ZSTD input size, ignoring: %s", ZSTD_getErrorName(z));
-        }
         z = ZSTD_CCtx_setParameter(cctx, ZSTD_c_checksumFlag, 1);
         if (ZSTD_isError(z))
                 log_debug("Failed to enable ZSTD checksum, ignoring: %s", ZSTD_getErrorName(z));
