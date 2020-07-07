@@ -180,7 +180,7 @@ strictly local context and without signatures doesn't have to deal with the
 `perMachine` or `binding` sections and can include its data exclusively in the
 regular section. A service that uses a separate, private channel for
 authenticating users (or that doesn't have a concept of authentication at all)
-does not need to to be concerned with the `secret` section of user records, as
+does not need to be concerned with the `secret` section of user records, as
 the fields included therein are only useful when executing authentication
 operations natively against JSON user records.
 

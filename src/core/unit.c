@@ -258,7 +258,7 @@ int unit_add_name(Unit *u, const char *text) {
         t = unit_name_to_type(name);
         if (t < 0)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "failed to to derive unit type from name '%s': %m", name);
+                                            "failed to derive unit type from name '%s': %m", name);
 
         if (u->type != _UNIT_TYPE_INVALID && t != u->type)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),

@@ -636,7 +636,7 @@ static void test_setpriority_closest(void) {
                 q = getpriority(PRIO_PROCESS, 0);
                 assert_se(errno == 0 && p == q);
 
-                /* It should also be possible to to set the nice level to one higher */
+                /* It should also be possible to set the nice level to one higher */
                 if (p < PRIO_MAX-1) {
                         assert_se(setpriority_closest(++p) > 0);
 
@@ -645,7 +645,7 @@ static void test_setpriority_closest(void) {
                         assert_se(errno == 0 && p == q);
                 }
 
-                /* It should also be possible to to set the nice level to two higher */
+                /* It should also be possible to set the nice level to two higher */
                 if (p < PRIO_MAX-1) {
                         assert_se(setpriority_closest(++p) > 0);
 
