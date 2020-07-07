@@ -339,12 +339,12 @@ static int radv_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
         return 0;
 
 fail:
-        sd_radv_stop(ra, true);
+        sd_radv_stop(ra);
 
         return 0;
 }
 
-_public_ int sd_radv_stop(sd_radv *ra, bool zero_router_lifetime) {
+_public_ int sd_radv_stop(sd_radv *ra) {
         int r;
 
         assert_return(ra, -EINVAL);
@@ -354,15 +354,11 @@ _public_ int sd_radv_stop(sd_radv *ra, bool zero_router_lifetime) {
 
         log_radv("Stopping IPv6 Router Advertisement daemon");
 
-        if (zero_router_lifetime) {
-                /* RFC 4861, Section 6.2.5, send at least one Router Advertisement
-                with zero lifetime  */
-                r = radv_send(ra, NULL, 0);
-                if (r < 0)
-                        log_radv_errno(r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
-                else
-                        log_radv("Sent last Router Advertisement with router lifetime set to zero");
-        }
+        /* RFC 4861, Section 6.2.5, send at least one Router Advertisement
+           with zero lifetime  */
+        r = radv_send(ra, NULL, 0);
+        if (r < 0)
+                log_radv_errno(r, "Unable to send last Router Advertisement with router lifetime set to zero: %m");
 
         radv_reset(ra);
         ra->fd = safe_close(ra->fd);
