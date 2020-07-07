@@ -192,6 +192,9 @@ static int strv_strndup_unescape_and_push(
                 const char *start,
                 const char *end) {
 
+        if (end == start)
+                return 0;
+
         _cleanup_free_ char *copy = NULL;
         int r;
 
@@ -270,14 +273,12 @@ static int xdg_config_parse_strv(
                 }
         }
 
-        /* Any trailing entry should be ignored if it is empty. */
-        if (end > start) {
-                r = strv_strndup_unescape_and_push(unit, filename, line,
-                                                   &sv, &n_allocated, &n,
-                                                   start, end);
-                if (r < 0)
-                        return r;
-        }
+        /* Handle the trailing entry after the last separator */
+        r = strv_strndup_unescape_and_push(unit, filename, line,
+                                           &sv, &n_allocated, &n,
+                                           start, end);
+        if (r < 0)
+                return r;
 
         *ret_sv = TAKE_PTR(sv);
         return 0;
