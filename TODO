@@ -138,11 +138,11 @@ Features:
 
 * homed: support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt
 
-* busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
-  exists and responds.
-
 * homed: maybe pre-create ~/.cache as subvol so that it can have separate quota
   easily?
+
+* busctl: maybe expose a verb "ping" for pinging a dbus service to see if it
+  exists and responds.
 
 * when systemd-nspawn and suchlike dissect an OS image, and there are multiple
   root partitions, do an strverscmp() on the partition label and boot
@@ -343,7 +343,8 @@ Features:
     beefing up logind to make pam session close hook synchronous and wait until
     systemd --user is shut down.
   - logind: maybe keep a "busy fd" as long as there's a non-released session around or the user@.service
-  - maybe make automatic, read-only, time-based reflink-copies of LUKS disk images (think: time machine)
+  - maybe make automatic, read-only, time-based reflink-copies of LUKS disk
+    images (and btrfs snapshots of subvolumes) (think: time machine)
   - distinguish destroy / remove (i.e. currently we can unregister a user, unregister+remove their home directory, but not just remove their home directory)
   - in systemd's PAMName= logic: query passwords with ssh-askpassword, so that we can make "loginctl set-linger" mode work
   - fingerprint authentication, pattern authentication, …
@@ -359,6 +360,9 @@ Features:
   - make slice for users configurable (requires logind rework)
   - logind: populate auto-login list bus property from PKCS#11 token
   - when determining state of a LUKS home directory, check DM suspended sysfs file
+  - introduce API for "making room", that grows/shrinks home directory
+    according to elastic parameters, discards blocks, and removes additional snapshots. Call it
+    either from UI when disk space gets low
 
 * introduce a new per-process uuid, similar to the boot id, the machine id, the
   invocation id, that is derived from process creds, specifically a hashed
