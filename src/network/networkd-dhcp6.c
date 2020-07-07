@@ -159,8 +159,7 @@ static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
         return false;
 }
 
-static int dhcp6_lease_information_acquired(sd_dhcp6_client *client,
-                                        Link *link) {
+static int dhcp6_lease_information_acquired(sd_dhcp6_client *client, Link *link) {
         return 0;
 }
 
