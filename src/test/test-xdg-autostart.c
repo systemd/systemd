@@ -67,7 +67,7 @@ static void test_xdg_desktop_parse(unsigned i, const char *s) {
         case 0:
                 assert_se(streq(service->exec_string, "/bin/sleep 100"));
                 assert_se(strv_equal(service->only_show_in, STRV_MAKE("A", "B")));
-                assert_se(strv_equal(service->not_show_in, STRV_MAKE("C", "", "D\\;", "E")));
+                assert_se(strv_equal(service->not_show_in, STRV_MAKE("C", "D\\;", "E")));
                 assert_se(!service->hidden);
                 break;
         case 1:
@@ -81,14 +81,12 @@ static void test_xdg_desktop_parse(unsigned i, const char *s) {
 }
 
 int main(int argc, char *argv[]) {
-        size_t i;
-
         test_setup_logging(LOG_DEBUG);
 
         test_translate_name();
         test_xdg_format_exec_start();
 
-        for (i = 0; i < ELEMENTSOF(xdg_desktop_file); i++)
+        for (size_t i = 0; i < ELEMENTSOF(xdg_desktop_file); i++)
                 test_xdg_desktop_parse(i, xdg_desktop_file[i]);
 
         return 0;
