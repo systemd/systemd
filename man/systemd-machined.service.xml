@@ -116,6 +116,13 @@
     <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     is also available, which implements importing, exporting, and downloading of container and VM images.
     </para>
+
+    <para>For each container registered with <filename>systemd-machined.service</filename> that employs user
+    namespacing, users/groups are synthesized for the used UIDs/GIDs. These are made available to the system
+    using the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via
+    Varlink</ulink>, and thus may be resolved with
+    <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> or the
+    usual glibc NSS calls.</para>
   </refsect1>
 
   <refsect1>

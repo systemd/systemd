@@ -108,7 +108,7 @@ example, introspection is not available, and the resolver logic is not used.
 
 ## Other Services
 
-The `systemd` project provides two other services implementing this
+The `systemd` project provides three other services implementing this
 interface. Specifically:
 
 1. `io.systemd.DynamicUser` → This service is implemented by the service
@@ -118,6 +118,10 @@ interface. Specifically:
 2. `io.systemd.Home` → This service is implemented by `systemd-homed.service`
    and provides records for the users and groups defined by the home
    directories it manages.
+
+3. `io.systemd.Machine` → This service is implemented by
+   `systemd-machined.service` and provides records for the users and groups used
+   by local containers that use user namespacing.
 
 Other projects are invited to implement these services too. For example it
 would make sense for LDAP/ActiveDirectory projects to implement these
