@@ -220,7 +220,6 @@ int link_request_set_routes(Link *link);
 int link_request_set_nexthop(Link *link);
 
 int link_reconfigure(Link *link, bool force);
-int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link);
 
 int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);
 #define log_link_message_error_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_ERR, err, msg)
