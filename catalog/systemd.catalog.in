@@ -484,3 +484,36 @@ It is strongly recommended to avoid running services under this user identity,
 in particular on systems using NFS or running containers. Allocate a user ID
 specific to this service, either statically via systemd-sysusers or dynamically
 via the DynamicUser= service setting.
+
+-- 1c0454c1bd2241e0ac6fefb4bc631433
+Subject: systemd-udev-settle.service is deprecated.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Usage of the systemd service unit systemd-udev-settle.service is deprecated. It
+inserts artificial delays into the boot process without providing the
+guarantees other subsystems traditionally assumed it provides. Relying on this
+service is racy, and it is generally a bug to make use of it and depend on it.
+
+Traditionally, this service's job was to wait until all devices a system
+possesses have been fully probed and initialized, delaying boot until this
+phase is completed. However, today's systems and hardware generally don't work
+this way anymore, hardware today may show up any time and take any time to be
+probed and initialized. Thus, in the general case, it's no longer possible to
+correctly delay boot until "all devices" have been processed, as it is not
+clear what "all devices" means and when they have been found. This is in
+particular the case if USB hardware or network-attached hardware is used.
+
+Modern software that requires some specific hardware (such as a network device
+or block device) to operate should only wait for the specific devices it needs
+to show up, and otherwise operate asynchronously initializing devices as they
+appear during boot and during runtime without delaying the boot process.
+
+It is a defect of the software in question if it doesn't work this way, and
+still pulls systemd-udev-settle.service into the boot process.
+
+Please file a bug report against the following units, with a request for it to
+be updated to operate in a hotplug fashion without depending on
+systemd-udev-settle.service:
+
+    @OFFENDING_UNITS@

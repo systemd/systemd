@@ -170,6 +170,11 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_NOBODY_USER_UNSUITABLE_STR \
                                           SD_ID128_MAKE_STR(b4,80,32,5f,9c,39,4a,7b,80,2c,23,1e,51,a2,75,2c)
 
+#define SD_MESSAGE_SYSTEMD_UDEV_SETTLE_DEPRECATED \
+                                          SD_ID128_MAKE(1c,04,54,c1,bd,22,41,e0,ac,6f,ef,b4,bc,63,14,33)
+#define SD_MESSAGE_SYSTEMD_UDEV_SETTLE_DEPRECATED_STR \
+                                          SD_ID128_MAKE_STR(1c,04,54,c1,bd,22,41,e0,ac,6f,ef,b4,bc,63,14,33)
+
 _SD_END_DECLARATIONS;
 
 #endif
