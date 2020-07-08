@@ -5955,7 +5955,7 @@ const char *unit_label_path(const Unit *u) {
                 return NULL;
 
         /* If a unit is masked, then don't read the SELinux label of /dev/null, as that really makes no sense */
-        if (path_equal(p, "/dev/null"))
+        if (null_or_empty_path(p) > 0)
                 return NULL;
 
         return p;
