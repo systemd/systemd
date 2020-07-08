@@ -2,6 +2,7 @@
 Name=dummy98
 
 [Network]
+IPv6AcceptRA=no
 Tunnel=vti6tun99
 Tunnel=vti6tun98
 Tunnel=vti6tun97

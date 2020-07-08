@@ -1,6 +1,9 @@
 [Match]
 Name=dummy98
 
+[Network]
+IPv6AcceptRA=no
+
 [IPv6AddressLabel]
 Label=4444
 Prefix=2004:da8:1:0::/64

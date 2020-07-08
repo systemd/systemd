@@ -2,4 +2,5 @@
 Name=veth99
 
 [Network]
+IPv6AcceptRA=no
 LLDP=yes

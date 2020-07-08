@@ -1,6 +1,9 @@
 [Match]
 Name=test1
 
+[Network]
+IPv6AcceptRA=no
+
 [RoutingPolicyRule]
 TypeOfService=0x08
 Table=7

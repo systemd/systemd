@@ -1,2 +1,5 @@
 [Match]
 Name=vrf99
+
+[Network]
+IPv6AcceptRA=no

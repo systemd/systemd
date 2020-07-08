@@ -5,6 +5,7 @@ Name=dummy98
 RequiredForOnline=routable
 
 [Network]
+IPv6AcceptRA=no
 DNS=10.10.10.10 10.10.10.11
 NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org
 Domains=hogehoge ~foofoo

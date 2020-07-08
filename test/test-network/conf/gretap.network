@@ -2,5 +2,6 @@
 Name=dummy98
 
 [Network]
+IPv6AcceptRA=no
 Tunnel=gretap99
 Tunnel=gretap98
