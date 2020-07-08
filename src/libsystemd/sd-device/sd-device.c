@@ -1586,7 +1586,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
                         /* this is a child device, skipping */
                         return 0;
                 if (errno != ENOENT) {
-                        log_debug_errno(errno, "Failed to stat %s, ignoring subdir: %m", p);
+                        log_device_debug_errno(device, errno, "sd-device: Failed to stat %s, ignoring subdir: %m", p);
                         return 0;
                 }
 
