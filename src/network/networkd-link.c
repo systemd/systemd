@@ -1141,9 +1141,10 @@ void link_check_ready(Link *link) {
                     in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
                         return;
 
-                if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || link_ipv6_accept_ra_enabled(link)) &&
+                if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || dhcp6_get_prefix_delegation(link) || link_ipv6_accept_ra_enabled(link)) &&
                     !link->dhcp4_configured &&
-                    !link->dhcp6_configured &&
+                    !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
+                    !(link->dhcp6_pd_address_configured && link->dhcp6_pd_route_configured) &&
                     !link->ndisc_configured &&
                     !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address))
                         /* When DHCP or RA is enabled, at least one protocol must provide an address, or

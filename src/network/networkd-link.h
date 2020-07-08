@@ -100,10 +100,17 @@ typedef struct Link {
         char *lease_file;
         uint32_t original_mtu;
         unsigned dhcp4_messages;
+        unsigned dhcp6_address_messages;
+        unsigned dhcp6_route_messages;
+        unsigned dhcp6_pd_address_messages;
+        unsigned dhcp6_pd_route_messages;
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
-        bool dhcp6_configured:1;
+        bool dhcp6_address_configured:1;
+        bool dhcp6_route_configured:1;
+        bool dhcp6_pd_address_configured:1;
+        bool dhcp6_pd_route_configured:1;
 
         unsigned ndisc_messages;
         bool ndisc_configured;
