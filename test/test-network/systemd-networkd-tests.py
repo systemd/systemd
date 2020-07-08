@@ -2915,7 +2915,6 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
                     self.check_link_attr('bridge99', 'carrier', '0')
 
                 output = check_output(*networkctl_cmd, '-n', '0', 'status', 'bridge99', env=env)
-                print(output)
                 self.assertRegex(output, '10.1.2.3')
                 self.assertRegex(output, '10.1.2.1')
 
