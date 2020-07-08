@@ -499,9 +499,20 @@
           <para>The MACVLAN mode to use. The supported options are
           <literal>private</literal>,
           <literal>vepa</literal>,
-          <literal>bridge</literal>, and
-          <literal>passthru</literal>.
+          <literal>bridge</literal>,
+          <literal>passthru</literal>, and
+          <literal>source</literal>.
           </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>SourceMACAddress=</varname></term>
+        <listitem>
+          <para>A whitespace-separated list of remote hardware addresses allowed on the MACVLAN. This
+          option only has an affect in source mode. Use full colon-, hyphen- or dot-delimited
+          hexadecimal. This option may appear more than once, in which case the lists are merged. If
+          the empty string is assigned to this option, the list of hardware addresses defined prior
+          to this is reset. Defaults to unset.</para>
         </listitem>
       </varlistentry>
     </variablelist>

@@ -5,11 +5,13 @@ typedef struct MacVlan MacVlan;
 
 #include "macvlan-util.h"
 #include "netdev.h"
+#include "set.h"
 
 struct MacVlan {
         NetDev meta;
 
         MacVlanMode mode;
+        Set *match_source_mac;
 };
 
 DEFINE_NETDEV_CAST(MACVLAN, MacVlan);
