@@ -16,7 +16,7 @@ test_create_image() {
         mask_supporting_services
 
         ../create-busybox-container $initdir/testsuite-13.nc-container
-        initdir="$initdir/testsuite-13.nc-container" dracut_install nc ip
+        initdir="$initdir/testsuite-13.nc-container" dracut_install nc ip md5sum
     )
 }
 

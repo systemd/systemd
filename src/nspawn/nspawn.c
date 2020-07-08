@@ -2931,7 +2931,8 @@ static int inner_child(
                 int kmsg_socket,
                 int rtnl_socket,
                 int master_pty_socket,
-                FDSet *fds) {
+                FDSet *fds,
+                char **os_release_pairs) {
 
         _cleanup_free_ char *home = NULL;
         char as_uuid[ID128_UUID_STRING_MAX];
@@ -3190,7 +3191,7 @@ static int inner_child(
         if (asprintf((char **)(envp + n_env++), "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
                 return log_oom();
 
-        env_use = strv_env_merge(2, envp, arg_setenv);
+        env_use = strv_env_merge(3, envp, arg_setenv, os_release_pairs);
         if (!env_use)
                 return log_oom();
 
@@ -3316,6 +3317,7 @@ static int outer_child(
                 FDSet *fds,
                 int netns_fd) {
 
+        _cleanup_strv_free_ char **os_release_pairs = NULL;
         _cleanup_close_ int fd = -1;
         const char *p;
         pid_t pid;
@@ -3336,6 +3338,10 @@ static int outer_child(
         assert(kmsg_socket >= 0);
 
         log_debug("Outer child is initializing.");
+
+        r = load_os_release_pairs_with_prefix("/", "container_host_", &os_release_pairs);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read os-release from host for container, ignoring: %m");
 
         if (prctl(PR_SET_PDEATHSIG, SIGKILL) < 0)
                 return log_error_errno(errno, "PR_SET_PDEATHSIG failed: %m");
@@ -3602,7 +3608,7 @@ static int outer_child(
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
 
-                r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, master_pty_socket, fds);
+                r = inner_child(barrier, directory, secondary, kmsg_socket, rtnl_socket, master_pty_socket, fds, os_release_pairs);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 

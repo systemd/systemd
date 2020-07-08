@@ -121,6 +121,16 @@ manager, please consider supporting the following interfaces.
    `container_ttys=pts/7 pts/8 pts/14` it will spawn three additional login
    gettys on ptys 7, 8, and 14.
 
+4. To allow applications to detect the OS version and other metadata of the host
+   running the container manager, if this is considered desirable, please parse
+   the host's `/etc/os-release` and set a `$container_host_<key>=<VALUE>`
+   environment variable for the ID fields described by the [os-release
+   interface](https://www.freedesktop.org/software/systemd/man/os-release.html), eg:
+   `$container_host_id=debian`
+   `$container_host_build_id=2020-06-15`
+   `$container_host_variant_id=server`
+   `$container_host_version_id=10`
+
 ## Advanced Integration
 
 1. Consider syncing `/etc/localtime` from the host file system into the

@@ -10,6 +10,7 @@
 #include "mkdir.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "user-util.h"
 
 int mkdir_label(const char *path, mode_t mode) {
         int r;
@@ -50,9 +51,9 @@ int mkdir_safe_label(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirF
 }
 
 int mkdir_parents_label(const char *path, mode_t mode) {
-        return mkdir_parents_internal(NULL, path, mode, mkdir_label);
+        return mkdir_parents_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdir_label);
 }
 
 int mkdir_p_label(const char *path, mode_t mode) {
-        return mkdir_p_internal(NULL, path, mode, mkdir_label);
+        return mkdir_p_internal(NULL, path, mode, UID_INVALID, UID_INVALID, 0, mkdir_label);
 }
