@@ -254,7 +254,7 @@ static int path_is_vendor_or_generator(const LookupPaths *p, const char *path) {
 int unit_file_changes_add(
                 UnitFileChange **changes,
                 size_t *n_changes,
-                UnitFileChangeType type,
+                int type,
                 const char *path,
                 const char *source) {
 
