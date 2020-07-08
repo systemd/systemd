@@ -371,7 +371,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         else
                 r = table_print(table, stdout);
         if (r < 0)
-                return table_log_show_error(r);
+                return table_log_print_error(r);
 
         return 0;
 }

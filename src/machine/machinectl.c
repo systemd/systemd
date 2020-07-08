@@ -246,7 +246,7 @@ static int show_table(Table *table, const char *word) {
                 else
                         r = table_print(table, NULL);
                 if (r < 0)
-                        return table_log_show_error(r);
+                        return table_log_print_error(r);
         }
 
         if (arg_legend) {

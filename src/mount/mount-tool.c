@@ -1436,7 +1436,7 @@ static int list_devices(void) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to print table: %m");
+                return table_log_print_error(r);
 
         return 0;
 }
