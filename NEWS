@@ -516,6 +516,14 @@ CHANGES WITH 246:
 
               https://systemd.io/JOURNAL_FILE_FORMAT
 
+        * The interface for containers (https://systemd.io/CONTAINER_INTERFACE)
+          has been extended by a set of environment variables that expose
+          select fields from the host's os-release file to the container
+          payload. Similarly, host's os-release files can be mounted into the
+          container underneath /run/hosts. Together, those mechanisms provide a
+          standardized way to expose information about the host to the
+          container payload. Both interfaces are implemented in systemd-nspawn.
+
         * All D-Bus services shipped in systemd now implement the generic
           LogControl1 D-Bus API which allows clients to change log level +
           target of the service during runtime.
