@@ -180,7 +180,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         if (table) {
                 r = table_print(table, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        return table_log_print_error(r);
         }
 
         return ret;
@@ -330,7 +330,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         if (table) {
                 r = table_print(table, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        return table_log_print_error(r);
         }
 
         return ret;
@@ -463,7 +463,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
         if (table) {
                 r = table_print(table, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        return table_log_print_error(r);
         }
 
         return ret;

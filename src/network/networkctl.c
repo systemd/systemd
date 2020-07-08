@@ -719,7 +719,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to print table: %m");
+                return table_log_print_error(r);
 
         if (arg_legend)
                 printf("\n%i links listed.\n", c);
@@ -1064,7 +1064,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to print table: %m");
+                return table_log_print_error(r);
 
         return 0;
 }
@@ -2129,7 +2129,7 @@ static int link_status_one(
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to print table: %m");
+                return table_log_print_error(r);
 
         return show_logs(info);
 }
@@ -2201,7 +2201,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to print table: %m");
+                return table_log_print_error(r);
 
         return show_logs(NULL);
 }
@@ -2421,7 +2421,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to print table: %m");
+                return table_log_print_error(r);
 
         if (arg_legend) {
                 lldp_capabilities_legend(all);

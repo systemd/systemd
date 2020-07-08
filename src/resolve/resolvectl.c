@@ -1079,7 +1079,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to print table: %m");
+                return table_log_print_error(r);
 
         return 0;
 }
@@ -1519,7 +1519,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to print table: %m");
+                return table_log_print_error(r);
 
         if (empty_line)
                 *empty_line = true;
@@ -1760,7 +1760,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         r = table_print(table, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to print table: %m");
+                return table_log_print_error(r);
 
         *empty_line = true;
 

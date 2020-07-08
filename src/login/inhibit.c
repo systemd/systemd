@@ -132,13 +132,13 @@ static int print_inhibitors(sd_bus *bus) {
         if (table_get_rows(table) > 1) {
                 r = table_set_sort(table, (size_t) 1, (size_t) 0, (size_t) 5, (size_t) 6, (size_t) -1);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to sort table: %m");
+                        return table_log_sort_error(r);
 
                 table_set_header(table, arg_legend);
 
                 r = table_print(table, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to show table: %m");
+                        return table_log_print_error(r);
         }
 
         if (arg_legend) {
