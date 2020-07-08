@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 246 in spe:
+CHANGES WITH 246:
 
         * The service manager gained basic support for cgroup v2 freezer. Units
           can now be suspended or resumed either using new systemctl verbs,
@@ -519,6 +519,43 @@ CHANGES WITH 246 in spe:
         * All D-Bus services shipped in systemd now implement the generic
           LogControl1 D-Bus API which allows clients to change log level +
           target of the service during runtime.
+
+        Contributions from: 24bisquitz, Adam Nielsen, Alan Perry, Alexander
+        Malafeev, Alin Popa, Amos Bird, Andreas Rammhold, AndreRH, Andrew
+        Doran, Anita Zhang, Ankit Jain, antznin, Arnaud Ferraris, Arthur Moraes
+        do Lago, Arusekk, Balaji Punnuru, Balint Reczey, Bastien Nocera,
+        bemarek, Benjamin Berg, Benjamin Dahlhoff, Benjamin Robin, Chris Down,
+        Chris Kerr, Christian Göttsche, Christian Hesse, Christian Oder,
+        Ciprian Hacman, codicodi, Corey Hinshaw, Daan De Meyer, Dana Olson, Dan
+        Callaghan, Daniel Fullmer, Daniel Rusek, Dan Streetman, Dave Reisner,
+        David Edmundson, David Wood, Denis Pronin, Diego Escalante Urrelo,
+        Dimitri John Ledkov, dolphrundgren, duguxy, Einsler Lee, Elisei Roca,
+        Emmanuel Garette, Eric Anderson, Eric DeVolder, Evgeny Vereshchagin,
+        ExtinctFire, fangxiuning, Ferran Pallarès Roca, Filipe Brandenburger,
+        Finn, Florian Klink, Franck Bui, Frantisek Sumsal, Gaoyi, gaurav, Georg
+        Müller, Gergely Polonkai, Giedrius Statkevičius, Gigadoc2, gogogogi,
+        gzjsgdsb, Hans de Goede, Haochen Tong, ianhi, ignapk, Jakov Smolic,
+        James T. Lee, Jan Janssen, Jan Klötzke, Jan Palus, Jay Burger, Jeremy
+        Cline, Jérémy Rosen, Jian-Hong Pan, Jiri Slaby, Joel Shapiro, Joerg
+        Behrmann, Jörg Thalheim, Jouke Witteveen, Kai-Heng Feng, Kenny
+        Levinsen, Kevin Kuehler, Kumar Kartikeya Dwivedi, layderv, laydervus,
+        Lénaïc Huard, Lennart Poettering, Lidong Zhong, Luca Boccassi, Luca
+        BRUNO, Lucas Werkmeister, Lukas Klingsbo, Lukáš Nykrýn, Łukasz
+        Stelmach, Maciej S. Szmigiero, MadMcCrow, Marc-André Lureau, Marcel
+        Holtmann, Marc Kleine-Budde, Martin Hundebøll, Matthew Leeds, Matt
+        Ranostay, Maxim Fomin, MaxVerevkin, Michael Biebl, Michael Chapman,
+        Michael Gubbels, Michael Marley, Michał Bartoszkiewicz, Michal Koutný,
+        Michal Sekletar, Michal Sekletár, Mike Gilbert, Mike Kazantsev, ml,
+        Motiejus Jakštys, nabijaczleweli, nerdopolis, Niccolò Maggioni, Niklas
+        Hambüchen, Norbert Lange, Paul Cercueil, pelzvieh, Peter Hutterer,
+        Piero La Terza, Pieter Lexis, Piotr Drąg, Rafael Fontenelle, Richard
+        Petri, Ronan Pigott, Ross Lagerwall, Rubens Figueiredo, satmandu,
+        Sean-StarLabs, Sebastian Jennen, sterlinghughes, Susant Sahani, Thomas
+        Haller, Tobias Hunger, Tom, Tomáš Pospíšek, Tomer Shechner, Tom Hughes,
+        Topi Miettinen, Tudor Roman, Uwe Kleine-König, Valery0xff, Vito Caputo,
+        Vladimir Panteleev, Vladyslav Tronko, Wen Yang, Yegor Vialov, Yigal
+        Korman, YmrDtnJu, Yuri Chornoivan, Yu Watanabe, Zbigniew
+        Jędrzejewski-Szmek, Zhu Li, Дамјан Георгиевски, наб
 
 CHANGES WITH 245:
 
