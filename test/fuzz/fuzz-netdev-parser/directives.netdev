@@ -6,6 +6,7 @@ Id=
 GVRP=
 [MACVLAN]
 Mode=
+SourceMACAddress=
 [WireGuard]
 ListenPort=
 PrivateKey=
@@ -14,6 +15,7 @@ FwMark=
 FirewallMark=
 [MACVTAP]
 Mode=
+SourceMACAddress=
 [Match]
 Architecture=
 Host=

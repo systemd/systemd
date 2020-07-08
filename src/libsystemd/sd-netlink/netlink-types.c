@@ -93,9 +93,20 @@ static const NLType rtnl_link_info_data_ipvlan_types[] = {
         [IFLA_IPVLAN_FLAGS]  = { .type = NETLINK_TYPE_U16 },
 };
 
+static const NLType rtnl_macvlan_macaddr_types[] = {
+        [IFLA_MACVLAN_MACADDR] = { .type = NETLINK_TYPE_ETHER_ADDR },
+};
+
+static const NLTypeSystem rtnl_macvlan_macaddr_type_system = {
+        .count = ELEMENTSOF(rtnl_macvlan_macaddr_types),
+        .types = rtnl_macvlan_macaddr_types,
+};
+
 static const NLType rtnl_link_info_data_macvlan_types[] = {
         [IFLA_MACVLAN_MODE]  = { .type = NETLINK_TYPE_U32 },
         [IFLA_MACVLAN_FLAGS] = { .type = NETLINK_TYPE_U16 },
+        [IFLA_MACVLAN_MACADDR_MODE] = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACVLAN_MACADDR_DATA] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_macvlan_macaddr_type_system },
 };
 
 static const NLType rtnl_link_info_data_bridge_types[] = {
