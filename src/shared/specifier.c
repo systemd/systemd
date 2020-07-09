@@ -13,8 +13,10 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "macro.h"
 #include "os-util.h"
+#include "path-util.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
@@ -120,7 +122,10 @@ int specifier_machine_id(char specifier, const void *data, const void *userdata,
         char *n;
         int r;
 
-        r = sd_id128_get_machine(&id);
+        if (empty_or_root(data))
+                r = sd_id128_get_machine(&id);
+        else
+                r = id128_read_prefix("/etc/machine-id", data, ID128_PLAIN, &id);
         if (r < 0)
                 return r;
 
@@ -199,11 +204,11 @@ int specifier_architecture(char specifier, const void *data, const void *userdat
         return 0;
 }
 
-static int specifier_os_release_common(const char *field, char **ret) {
+static int specifier_os_release_common(const char *prefix, const char *field, char **ret) {
         char *t = NULL;
         int r;
 
-        r = parse_os_release(NULL, field, &t, NULL);
+        r = parse_os_release(empty_or_root(prefix) ? NULL : prefix, field, &t, NULL);
         if (r < 0)
                 return r;
         if (!t) {
@@ -219,19 +224,19 @@ static int specifier_os_release_common(const char *field, char **ret) {
 }
 
 int specifier_os_id(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("ID", ret);
+        return specifier_os_release_common(data, "ID", ret);
 }
 
 int specifier_os_version_id(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("VERSION_ID", ret);
+        return specifier_os_release_common(data, "VERSION_ID", ret);
 }
 
 int specifier_os_build_id(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("BUILD_ID", ret);
+        return specifier_os_release_common(data, "BUILD_ID", ret);
 }
 
 int specifier_os_variant_id(char specifier, const void *data, const void *userdata, char **ret) {
-        return specifier_os_release_common("VARIANT_ID", ret);
+        return specifier_os_release_common(data, "VARIANT_ID", ret);
 }
 
 int specifier_group_name(char specifier, const void *data, const void *userdata, char **ret) {
