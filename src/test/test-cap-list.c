@@ -12,12 +12,10 @@
 
 /* verify the capability parser */
 static void test_cap_list(void) {
-        int i;
-
         assert_se(!capability_to_name(-1));
         assert_se(!capability_to_name(capability_list_length()));
 
-        for (i = 0; i < capability_list_length(); i++) {
+        for (int i = 0; i < capability_list_length(); i++) {
                 const char *n;
 
                 assert_se(n = capability_to_name(i));
@@ -35,7 +33,7 @@ static void test_cap_list(void) {
         assert_se(capability_from_name("64") == -EINVAL);
         assert_se(capability_from_name("-1") == -EINVAL);
 
-        for (i = 0; i < capability_list_length(); i++) {
+        for (int i = 0; i < capability_list_length(); i++) {
                 _cleanup_cap_free_charp_ char *a = NULL;
                 const char *b;
                 unsigned u;

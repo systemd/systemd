@@ -18,7 +18,6 @@ static const struct capability_name* lookup_capability(register const char *str,
 #include "cap-to-name.h"
 
 const char *capability_to_name(int id) {
-
         if (id < 0)
                 return NULL;
 
@@ -94,11 +93,10 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
 
 int capability_set_from_string(const char *s, uint64_t *set) {
         uint64_t val = 0;
-        const char *p;
 
         assert(set);
 
-        for (p = s;;) {
+        for (const char *p = s;;) {
                 _cleanup_free_ char *word = NULL;
                 int r;
 
