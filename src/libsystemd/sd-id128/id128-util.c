@@ -128,12 +128,12 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
         return sd_id128_from_string(buffer, ret);
 }
 
-int id128_read(const char *p, Id128Format f, sd_id128_t *ret) {
+int id128_read_prefix(const char *p, const char *root, Id128Format f, sd_id128_t *ret) {
         _cleanup_close_ int fd = -1;
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        fd = chase_symlinks_and_open(p, root, CHASE_PREFIX_ROOT, O_RDONLY | O_CLOEXEC | O_NOCTTY, NULL);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return id128_read_fd(fd, f, ret);
 }

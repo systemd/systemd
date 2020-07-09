@@ -22,7 +22,11 @@ typedef enum Id128Format {
 } Id128Format;
 
 int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret);
-int id128_read(const char *p, Id128Format f, sd_id128_t *ret);
+
+int id128_read_prefix(const char *p, const char *root, Id128Format f, sd_id128_t *ret);
+static inline int id128_read(const char *p, Id128Format f, sd_id128_t *ret) {
+        return id128_read_prefix(p, NULL, f, ret);
+}
 
 int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync);
 int id128_write(const char *p, Id128Format f, sd_id128_t id, bool do_sync);
