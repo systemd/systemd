@@ -31,6 +31,8 @@ static void test_cap_list(void) {
         assert_se(capability_from_name("cAp_aUdIt_rEAd") == CAP_AUDIT_READ);
         assert_se(capability_from_name("0") == 0);
         assert_se(capability_from_name("15") == 15);
+        assert_se(capability_from_name("63") == 63);
+        assert_se(capability_from_name("64") == -EINVAL);
         assert_se(capability_from_name("-1") == -EINVAL);
 
         for (i = 0; i < capability_list_length(); i++) {
@@ -65,7 +67,7 @@ static void test_capability_set_one(uint64_t c, const char *t) {
 
         free(t1);
         assert_se(t1 = strjoin("'cap_chown cap_dac_override' \"cap_setgid cap_setuid\"", t,
-                               " hogehoge foobar 12345 3.14 -3 ", t));
+                               " hogehoge foobar 18446744073709551616 3.14 -3 ", t));
         assert_se(capability_set_from_string(t1, &c1) == 0);
         assert_se(c1 == c_masked);
 }
