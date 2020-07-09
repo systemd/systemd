@@ -565,6 +565,8 @@ CHANGES WITH 246:
         Korman, YmrDtnJu, Yuri Chornoivan, Yu Watanabe, Zbigniew
         Jędrzejewski-Szmek, Zhu Li, Дамјан Георгиевски, наб
 
+        – Warsaw, 2020-07-09
+
 CHANGES WITH 245:
 
         * A new tool "systemd-repart" has been added, that operates as an
