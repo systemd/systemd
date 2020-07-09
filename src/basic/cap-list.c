@@ -10,6 +10,7 @@
 #include "macro.h"
 #include "missing.h"
 #include "parse-util.h"
+#include "stdio-util.h"
 #include "util.h"
 
 static const struct capability_name* lookup_capability(register const char *str, register GPERF_LEN_TYPE len);
@@ -37,7 +38,7 @@ int capability_from_name(const char *name) {
         /* Try to parse numeric capability */
         r = safe_atoi(name, &i);
         if (r >= 0) {
-                if (i >= 0 && i < (int) ELEMENTSOF(capability_names))
+                if (i >= 0 && i < 64)
                         return i;
                 else
                         return -EINVAL;
@@ -65,11 +66,14 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
         for (i = 0; i < cap_last_cap(); i++)
                 if (set & (UINT64_C(1) << i)) {
                         const char *p;
+                        char buf[2 + 16 + 1];
                         size_t add;
 
                         p = capability_to_name(i);
-                        if (!p)
-                                return -EINVAL;
+                        if (!p) {
+                                xsprintf(buf, "0x%lx", i);
+                                p = buf;
+                        }
 
                         add = strlen(p);
 
