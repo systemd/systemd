@@ -1865,6 +1865,10 @@ static void mount_enumerate(Manager *m) {
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
+
+                r = sd_event_source_set_ratelimit(m->mount_event_source, 1000000, 5);
+                if (r < 0)
+                        log_error_errno(r, "Failed to enable rate limit for mount events: %m. Ignoring.");
         }
 
         r = mount_load_proc_self_mountinfo(m, false);
