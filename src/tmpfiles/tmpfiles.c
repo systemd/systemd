@@ -27,6 +27,7 @@
 #include "def.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
+#include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -184,8 +185,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 
 static int specifier_machine_id_safe(char specifier, const void *data, const void *userdata, char **ret);
 static int specifier_directory(char specifier, const void *data, const void *userdata, char **ret);
+static int disabled_specifier(char specifier, const void *data, const void *userdata, char **ret);
 
-static const Specifier specifier_table[] = {
+static Specifier specifier_table[] = {
         { 'm', specifier_machine_id_safe, NULL },
         { 'b', specifier_boot_id,         NULL },
         { 'H', specifier_host_name,       NULL },
@@ -211,6 +213,29 @@ static const Specifier specifier_table[] = {
         { 'V', specifier_var_tmp_dir,     NULL },
         {}
 };
+
+static void setup_specifier_table(const char *prefix) {
+        int r, i;
+        int prohibit_runtime = 0;
+
+        r = getenv_bool("SYSTEMD_SPECIFIER_PROHIBIT_RUNTIME");
+        if (r > 0)
+                prohibit_runtime = r;
+        if (!prohibit_runtime || !prefix)
+                return;
+
+        for (i = 0; i < (int) ELEMENTSOF(specifier_table) - 1; ++i) {
+                const char spec = specifier_table[i].specifier;
+                if (memchr("mowBW", spec, sizeof("mowBW") - 1))
+                        /* specifier takes an argument for root prefix */
+                        specifier_table[i].data = prefix;
+                else if (spec == 'T' || spec == 'V') {
+                        specifier_table[i].lookup = specifier_string;
+                        specifier_table[i].data = spec == 'T' ? "/tmp" : "/var/tmp";
+                } else if (specifier_table[i].lookup != specifier_directory)
+                        specifier_table[i].lookup = disabled_specifier;
+        }
+}
 
 static int specifier_machine_id_safe(char specifier, const void *data, const void *userdata, char **ret) {
         int r;
@@ -256,6 +281,10 @@ static int specifier_directory(char specifier, const void *data, const void *use
         assert(i < ELEMENTSOF(paths_system));
 
         return sd_path_lookup(paths[i].type, paths[i].suffix, ret);
+}
+
+static int disabled_specifier(char specifier, const void *data, const void *userdata, char **ret) {
+        return -ENXIO;
 }
 
 static int log_unresolvable_specifier(const char *filename, unsigned line) {
@@ -3341,6 +3370,8 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         }
+
+        setup_specifier_table(arg_root);
 
         items = ordered_hashmap_new(&item_array_hash_ops);
         globs = ordered_hashmap_new(&item_array_hash_ops);

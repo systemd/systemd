@@ -250,3 +250,11 @@ systemd-firstboot and localectl:
 * `SYSTEMD_LIST_NON_UTF8_LOCALES=1` – if set non-UTF-8 locales are listed among
   the installed ones. By default non-UTF-8 locales are suppressed from the
   selection, since we are living in the 21st century.
+
+systemd-tmpfiles:
+
+* `SYSTEMD_SPECIFIER_PROHIBIT_RUNTIME=1` – If in offline mode (`--root=`),
+  then do not resolve specifiers from the running system. Entries containing
+  such specifiers will be skipped.
+  The only specifiers resolved in this mode are `machine-id` and fields from
+  `os-release`, which will be looked up in the filesystem pointed by `--root=`.
