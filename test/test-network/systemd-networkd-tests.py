@@ -2879,8 +2879,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
             with self.subTest(test=test):
                 if test == 'no-slave':
                     # bridge has no slaves; it's up but *might* not have carrier
-                    # It may take very long time that the interface become configured state.
-                    self.wait_online(['bridge99:no-carrier'], timeout='2m', setup_state=None)
+                    self.wait_operstate('bridge99', operstate=r'(no-carrier|routable)', setup_state=None, setup_timeout=30)
                     # due to a bug in the kernel, newly-created bridges are brought up
                     # *with* carrier, unless they have had any setting changed; e.g.
                     # their mac set, priority set, etc.  Then, they will lose carrier
@@ -2891,7 +2890,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
                     # add slave to bridge, but leave it down; bridge is definitely no-carrier
                     self.check_link_attr('test1', 'operstate', 'down')
                     check_output('ip link set dev test1 master bridge99')
-                    self.wait_online(['bridge99:no-carrier:no-carrier'], setup_state=None)
+                    self.wait_operstate('bridge99', operstate='no-carrier', setup_state=None)
                     self.check_link_attr('bridge99', 'carrier', '0')
                 elif test == 'slave-up':
                     # bring up slave, which will have carrier; bridge gains carrier
@@ -2915,7 +2914,6 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
                     self.check_link_attr('bridge99', 'carrier', '0')
 
                 output = check_output(*networkctl_cmd, '-n', '0', 'status', 'bridge99', env=env)
-                print(output)
                 self.assertRegex(output, '10.1.2.3')
                 self.assertRegex(output, '10.1.2.1')
 
