@@ -1763,6 +1763,12 @@ static void mount_enumerate(Manager *m) {
                         goto fail;
                 }
 
+                r = sd_event_source_set_ratelimit(m->mount_event_source, 1 * USEC_PER_SEC, 5);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to enable rate limit for mount events: %m");
+                        goto fail;
+                }
+
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
         }
 
