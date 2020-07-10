@@ -57,12 +57,11 @@ int capability_list_length(void) {
 
 int capability_set_to_string_alloc(uint64_t set, char **s) {
         _cleanup_free_ char *str = NULL;
-        unsigned long i;
         size_t allocated = 0, n = 0;
 
         assert(s);
 
-        for (i = 0; i <= cap_last_cap(); i++)
+        for (unsigned i = 0; i <= cap_last_cap(); i++)
                 if (set & (UINT64_C(1) << i)) {
                         const char *p;
                         char buf[2 + 16 + 1];
@@ -70,7 +69,7 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
 
                         p = capability_to_name(i);
                         if (!p) {
-                                xsprintf(buf, "0x%lx", i);
+                                xsprintf(buf, "0x%x", i);
                                 p = buf;
                         }
 
