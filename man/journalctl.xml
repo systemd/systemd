@@ -1022,7 +1022,7 @@ journalctl _SYSTEMD_CGROUP=/user.slice/user-42.slice/session-c1.scope</programli
   + OBJECT_SYSTEMD_UNIT=<replaceable>name</replaceable>.service _UID=0
   + COREDUMP_UNIT=<replaceable>name</replaceable>.service _UID=0 MESSAGE_ID=fc2e22bc6ee647b6b90729ab34a250b1
     </programlisting>
-    (see <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    (see <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for an explanation of those patterns).
     </para>
 

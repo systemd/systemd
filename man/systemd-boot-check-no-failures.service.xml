@@ -45,7 +45,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>
   </refsect1>
 

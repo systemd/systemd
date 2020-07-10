@@ -43,12 +43,12 @@
     <para>By default, service and scope units are placed in
     <filename>system.slice</filename>, virtual machines and containers
     registered with
-    <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     are found in <filename>machine.slice</filename>, and user sessions
     handled by
-    <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     in <filename>user.slice</filename>. See
-    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for more information.</para>
 
     <para>See

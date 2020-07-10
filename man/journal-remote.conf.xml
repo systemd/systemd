@@ -39,7 +39,7 @@
     <para>These files configure various parameters of
     <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     See
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for a general description of the syntax.</para>
   </refsect1>
 

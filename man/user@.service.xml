@@ -39,7 +39,7 @@
     hierarchy of units specific to that user. See
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for a
     discussion of units and
-    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>1</manvolnum></citerefentry> for a
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
     list of units that form the basis of the unit hierarchies of system and user units.</para>
 
     <para><filename>user@<replaceable>UID</replaceable>.service</filename> is accompanied by the
@@ -60,7 +60,7 @@
 
     <para>Individual <filename>user-<replaceable>UID</replaceable>.slice</filename> slices are
     collected under <filename>user.slice</filename>, see
-    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
   </refsect1>
 

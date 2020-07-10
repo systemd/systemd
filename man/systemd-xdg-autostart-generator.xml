@@ -38,7 +38,7 @@
     <para>Units created by <filename>systemd-xdg-autostart-generator</filename>
     can be started by the desktop environment using <literal>xdg-desktop-autostart.target</literal>.
     See
-    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for more details.</para>
 
     <para><filename>systemd-xdg-autostart-generator</filename> implements

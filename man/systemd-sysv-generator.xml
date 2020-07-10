@@ -43,7 +43,7 @@
     <literal>$named</literal>, <literal>$portmap</literal>,
     <literal>$time</literal> are supported and will be turned into
     dependencies on specific native systemd targets.  See
-    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for more details.</para>
 
     <para>SysV runlevels have corresponding systemd targets
