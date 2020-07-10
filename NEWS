@@ -422,15 +422,6 @@ CHANGES WITH 246:
           control the inode limit for the per-user $XDG_RUNTIME_DIR tmpfs
           instance.
 
-        * systemd-firstboot gained a new --root-password-hashed= parameter for
-          setting the root user's password as UNIX password hash. There's a new
-          --delete-root-password switch which instead of setting a password for
-          the root user, removes it so that log-in without a password is
-          permitted. There's now --force which if specified means any existing
-          configuration is overwritten by the specified settings. It also
-          gained a new --kernel-command-line= parameter which may be used to
-          set the /etc/kernel/cmdline file of an OS image.
-
         * A new generator systemd-xdg-autostart-generator has been added. It
           generates systemd unit files from XDG autostart .desktop files, and
           may be used to let the systemd user instance manage services that are
@@ -448,6 +439,10 @@ CHANGES WITH 246:
           be used to override any already set settings with the parameters
           specified on the command line (by default, the tool will not override
           what has already been set before, i.e. is purely incremental).
+
+        * systemd-firstboot gained support for a new --image= switch, which is
+          similar to --root= but accepts the path to a disk image file, on
+          which it then operates.
 
         * A new sd-path.h API has been added to libsystemd. It provides a
           simple API for retrieving various search paths and primary
