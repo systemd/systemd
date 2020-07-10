@@ -240,7 +240,7 @@ static void test_ensure_cap_64bit(void) {
         assert_se(p <= 63);
 
         /* Also check for the header definition */
-        assert_se(CAP_LAST_CAP <= 63);
+        assert_cc(CAP_LAST_CAP <= 63);
 }
 
 int main(int argc, char *argv[]) {
