@@ -103,9 +103,9 @@ int make_inaccessible_nodes(
                         return log_oom();
 
                 if (S_ISDIR(table[i].mode))
-                        r = mkdir(path, table[i].mode & 07777);
+                        r = mkdir_label(path, table[i].mode & 07777);
                 else
-                        r = mknod(path, table[i].mode, makedev(0, 0));
+                        r = mknod_label(path, table[i].mode, makedev(0, 0));
                 if (r < 0) {
                         if (errno != EEXIST)
                                 log_debug_errno(errno, "Failed to create '%s', ignoring: %m", path);
