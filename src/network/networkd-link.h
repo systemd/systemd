@@ -224,7 +224,6 @@ uint32_t link_get_vrf_table(Link *link);
 uint32_t link_get_dhcp_route_table(Link *link);
 uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
 int link_request_set_routes(Link *link);
-int link_request_set_nexthop(Link *link);
 
 int link_reconfigure(Link *link, bool force);
 

@@ -972,7 +972,7 @@ static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-int link_request_set_nexthop(Link *link) {
+static int link_request_set_nexthop(Link *link) {
         NextHop *nh;
         int r;
 
