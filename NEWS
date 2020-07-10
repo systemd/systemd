@@ -40,8 +40,8 @@ CHANGES WITH 246:
 
         * .socket units gained a new boolean setting PassPacketInfo=. If
           enabled, the kernel will attach additional per-packet metadata to all
-          packets read from the socket, as ancillary message. This controls the
-          IP_PKTINFO, IPV6_RECVPKTINFO, NETLINK_PKTINFO socket options,
+          packets read from the socket, as an ancillary message. This controls
+          the IP_PKTINFO, IPV6_RECVPKTINFO, NETLINK_PKTINFO socket options,
           depending on socket type.
 
         * .service units gained a new setting RootHash= which may be used to
@@ -141,8 +141,8 @@ CHANGES WITH 246:
           enabled by default, please submit a patch that adds it to the
           database (see /usr/lib/udev/hwdb.d/60-autosuspend.hwdb).
 
-        * systemd-udevd gained new configuration option timeout_signal= as well
-          as corresponding kernel command line option udev.timeout_signal=.
+        * systemd-udevd gained the new configuration option timeout_signal= as well
+          as a corresponding kernel command line option udev.timeout_signal=.
           The option can be used to configure the UNIX signal that the main
           daemon sends to the worker processes on timeout. Setting the signal
           to SIGABRT is useful for debugging.
@@ -497,10 +497,10 @@ CHANGES WITH 246:
           document the methods, signals and properties.
 
         * The expectations on user/group name syntax are now documented in
-          detail; documentation how classic home directories may be converted
-          into home directories managed by homed has been added; documentation
-          regarding integration of homed/userdb functionality in desktops has
-          been added:
+          detail; documentation on how classic home directories may be
+          converted into home directories managed by homed has been added;
+          documentation regarding integration of homed/userdb functionality in
+          desktops has been added:
 
               https://systemd.io/USER_NAMES
               https://systemd.io/CONVERTING_TO_HOMED
