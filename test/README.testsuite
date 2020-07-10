@@ -104,19 +104,19 @@ Ubuntu CI
 New PR submitted to the project are run through regression tests, and one set
 of those is the 'autopkgtest' runs for several different architectures, called
 'Ubuntu CI'.  Part of that testing is to run all these tests.  Sometimes these
-tests are temporarily blacklisted from running in the 'autopkgtest' tests while
+tests are temporarily deny-listed from running in the 'autopkgtest' tests while
 debugging a flaky test; that is done by creating a file in the test directory
-named 'blacklist-ubuntu-ci', for example to prevent the TEST-01-BASIC test from
+named 'deny-list-ubuntu-ci', for example to prevent the TEST-01-BASIC test from
 running in the 'autopkgtest' runs, create the file
-'TEST-01-BASIC/blacklist-ubuntu-ci'.
+'TEST-01-BASIC/deny-list-ubuntu-ci'.
 
-The tests may be disabled only for specific archs, by creating a blacklist file
+The tests may be disabled only for specific archs, by creating a deny-list file
 with the arch name at the end, e.g.
-'TEST-01-BASIC/blacklist-ubuntu-ci-arm64' to disable the TEST-01-BASIC test
+'TEST-01-BASIC/deny-list-ubuntu-ci-arm64' to disable the TEST-01-BASIC test
 only on test runs for the 'arm64' architecture.
 
 Note the arch naming is not from 'uname -m', it is Debian arch names:
 https://wiki.debian.org/ArchitectureSpecificsMemo
 
-For PRs that fix a currently blacklisted test, the PR should include removal
-of the blacklist file.
+For PRs that fix a currently deny-listed test, the PR should include removal
+of the deny-list file.
