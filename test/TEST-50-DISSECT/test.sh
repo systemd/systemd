@@ -10,6 +10,7 @@ TEST_NO_NSPAWN=1
 
 command -v mksquashfs >/dev/null 2>&1 || exit 0
 command -v veritysetup >/dev/null 2>&1 || exit 0
+command -v sfdisk >/dev/null 2>&1 || exit 0
 
 # Need loop devices for systemd-dissect
 test_create_image() {
@@ -30,6 +31,8 @@ test_create_image() {
         inst_binary md5sum
         inst_binary mksquashfs
         inst_binary veritysetup
+        inst_binary sfdisk
+        inst_binary losetup
     )
 }
 
