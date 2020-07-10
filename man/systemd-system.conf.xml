@@ -48,7 +48,7 @@
     <filename>user.conf.d</filename> directories. These configuration
     files contain a few settings controlling basic manager
     operations. See
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for a general description of the syntax.</para>
   </refsect1>
 

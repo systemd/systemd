@@ -81,7 +81,7 @@
     target, a watched file system path, a timer controlled and supervised by
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>, a
     resource management slice or a group of externally created processes. See
-    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     for a general description of the syntax.</para>
 
     <para>This man page lists the common configuration options of all

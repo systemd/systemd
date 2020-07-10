@@ -437,7 +437,7 @@
 
         <listitem><para>Each of these options takes a time span specification as argument (in the syntax
         documented in
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>) and
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>) and
         configures various aspects of the user's password expiration policy. Specifically,
         <option>--password-change-min=</option> configures how much time has to pass after changing the
         password of the user until the password may be changed again. If the user tries to change their
