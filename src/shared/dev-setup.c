@@ -107,8 +107,8 @@ int make_inaccessible_nodes(
                 else
                         r = mknod_label(path, table[i].mode, makedev(0, 0));
                 if (r < 0) {
-                        if (errno != EEXIST)
-                                log_debug_errno(errno, "Failed to create '%s', ignoring: %m", path);
+                        if (r != -EEXIST)
+                                log_debug_errno(r, "Failed to create '%s', ignoring: %m", path);
                         continue;
                 }
 
