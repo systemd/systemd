@@ -1322,7 +1322,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
 
                         r = sd_bus_message_read(m, "s", &name);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to read lost name: %m");
+                                return bus_log_parse_error(r);
 
                         if (streq(name, unique_name))
                                 is_monitor = true;

@@ -664,7 +664,7 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
 
         r = sd_bus_message_read(m, "s", &name);
         if (r < 0)
-                return log_error_errno(r, "Failed to read interface name: %m");
+                return bus_log_parse_error(r);
 
         if (!streq_ptr(name, "org.freedesktop.timesync1.Manager"))
                 return 0;
