@@ -1987,7 +1987,7 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse PrepareForSleep signal: %m");
+                bus_log_parse_error(r);
                 return 0;
         }
 
