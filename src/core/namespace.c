@@ -876,7 +876,7 @@ static int mount_tmpfs(const MountEntry *m) {
 
         r = label_fix_container(entry_path, source_path, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, source_path);
+                return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, source_path);
 
         return 1;
 }
