@@ -917,7 +917,8 @@ static int config_parse_label(
 
         if (char16_strlen(recoded) > 36) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Partition label too long for GPT table, ignoring: %s", rvalue);
+                           "Partition label too long for GPT table, ignoring: \"%s\" (from \"%s\")",
+                           resolved, rvalue);
                 return 0;
         }
 
