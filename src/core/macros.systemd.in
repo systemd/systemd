@@ -122,7 +122,7 @@ SYSTEMD_INLINE_EOF\
 #   %{_sysusersdir}/%{name}.conf
 %sysusers_create_package() \
 %{expand:%%{?!__systemd_twoargs_%#:%%{error:This macro requires two arguments}}} \
-systemd-sysusers --replace=%_sysusersdir/%1.conf - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
+systemd-sysusers --replace=%_sysusersdir/%1.conf - <<SYSTEMD_INLINE_EOF || : \
 %(cat %2) \
 SYSTEMD_INLINE_EOF\
 %{nil}
@@ -142,7 +142,7 @@ SYSTEMD_INLINE_EOF\
 #   %{_tmpfilesdir}/%{name}.conf
 %tmpfiles_create_package() \
 %{expand:%%{?!__systemd_twoargs_%#:%%{error:This macro requires two arguments}}} \
-systemd-tmpfiles --replace=%_tmpfilesdir/%1.conf --create - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
+systemd-tmpfiles --replace=%_tmpfilesdir/%1.conf --create - <<SYSTEMD_INLINE_EOF || : \
 %(cat %2) \
 SYSTEMD_INLINE_EOF\
 %{nil}
