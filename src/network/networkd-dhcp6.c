@@ -124,7 +124,7 @@ static int dhcp6_get_preferred_delegated_prefix(
 
                 r = in_addr_prefix_next(AF_INET6, &prefix, 64);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Can't allocate another prefix. Out of address space?");
+                        return log_link_error_errno(link, r, "Can't allocate another prefix. Out of address space?: %m");
         }
 
         return log_link_warning_errno(link, SYNTHETIC_ERRNO(ERANGE), "Couldn't find a suitable prefix. Ran out of address space.");
@@ -482,14 +482,14 @@ int dhcp6_request_prefix_delegation(Link *link) {
 
                 r = sd_dhcp6_client_get_prefix_delegation(l->dhcp6_client, &enabled);
                 if (r < 0) {
-                        log_link_warning_errno(l, r, "Cannot get prefix delegation when adding new link");
+                        log_link_warning_errno(l, r, "Cannot get prefix delegation when adding new link: %m");
                         continue;
                 }
 
                 if (enabled == 0) {
                         r = sd_dhcp6_client_set_prefix_delegation(l->dhcp6_client, 1);
                         if (r < 0) {
-                                log_link_warning_errno(l, r, "Cannot enable prefix delegation when adding new link");
+                                log_link_warning_errno(l, r, "Cannot enable prefix delegation when adding new link: 5m");
                                 continue;
                         }
                 }
@@ -507,13 +507,13 @@ int dhcp6_request_prefix_delegation(Link *link) {
 
                 r = sd_dhcp6_client_stop(l->dhcp6_client);
                 if (r < 0) {
-                        log_link_warning_errno(l, r, "Cannot stop DHCPv6 prefix delegation client after adding new link");
+                        log_link_warning_errno(l, r, "Cannot stop DHCPv6 prefix delegation client after adding new link: %m");
                         continue;
                 }
 
                 r = sd_dhcp6_client_start(l->dhcp6_client);
                 if (r < 0) {
-                        log_link_warning_errno(l, r, "Cannot restart DHCPv6 prefix delegation client after adding new link");
+                        log_link_warning_errno(l, r, "Cannot restart DHCPv6 prefix delegation client after adding new link: %m");
                         continue;
                 }
 
@@ -656,7 +656,7 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
 
                 r = dhcp6_lease_pd_prefix_acquired(client, link);
                 if (r < 0)
-                        log_link_debug_errno(link, r, "DHCPv6 did not receive prefixes to delegate");
+                        log_link_debug_errno(link, r, "DHCPv6 did not receive prefixes to delegate: %m");
 
                 _fallthrough_;
         case SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST:
@@ -850,7 +850,6 @@ int dhcp6_configure(Link *link) {
                         log_link_debug(link, "DHCP6 CLIENT: Failed to set request flag for '%u' already exists, ignoring.", option);
                         continue;
                 }
-
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set request flag for '%u': %m", option);
         }
