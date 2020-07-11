@@ -820,6 +820,7 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *r
                 break;
 
         case SD_NDISC_EVENT_TIMEOUT:
+                log_link_debug(link, "NDISC handler get timeout event");
                 link->ndisc_configured = true;
                 link_check_ready(link);
 
