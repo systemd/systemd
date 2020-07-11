@@ -9,6 +9,7 @@
 #include "extract-word.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "stdio-util.h"
 #include "util.h"
 
 static const struct capability_name* lookup_capability(register const char *str, register GPERF_LEN_TYPE len);
@@ -17,7 +18,6 @@ static const struct capability_name* lookup_capability(register const char *str,
 #include "cap-to-name.h"
 
 const char *capability_to_name(int id) {
-
         if (id < 0)
                 return NULL;
 
@@ -36,7 +36,7 @@ int capability_from_name(const char *name) {
         /* Try to parse numeric capability */
         r = safe_atoi(name, &i);
         if (r >= 0) {
-                if (i >= 0 && (size_t) i < ELEMENTSOF(capability_names))
+                if (i >= 0 && i < 64)
                         return i;
                 else
                         return -EINVAL;
@@ -56,19 +56,21 @@ int capability_list_length(void) {
 
 int capability_set_to_string_alloc(uint64_t set, char **s) {
         _cleanup_free_ char *str = NULL;
-        unsigned long i;
         size_t allocated = 0, n = 0;
 
         assert(s);
 
-        for (i = 0; i <= cap_last_cap(); i++)
+        for (unsigned i = 0; i <= cap_last_cap(); i++)
                 if (set & (UINT64_C(1) << i)) {
                         const char *p;
+                        char buf[2 + 16 + 1];
                         size_t add;
 
                         p = capability_to_name(i);
-                        if (!p)
-                                return -EINVAL;
+                        if (!p) {
+                                xsprintf(buf, "0x%x", i);
+                                p = buf;
+                        }
 
                         add = strlen(p);
 
@@ -91,11 +93,10 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
 
 int capability_set_from_string(const char *s, uint64_t *set) {
         uint64_t val = 0;
-        const char *p;
 
         assert(set);
 
-        for (p = s;;) {
+        for (const char *p = s;;) {
                 _cleanup_free_ char *word = NULL;
                 int r;
 

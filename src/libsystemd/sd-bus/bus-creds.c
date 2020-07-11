@@ -650,16 +650,15 @@ _public_ int sd_bus_creds_get_description(sd_bus_creds *c, const char **ret) {
 }
 
 static int has_cap(sd_bus_creds *c, size_t offset, int capability) {
-        unsigned long lc;
         size_t sz;
 
         assert(c);
         assert(capability >= 0);
         assert(c->capability);
 
-        lc = cap_last_cap();
+        unsigned lc = cap_last_cap();
 
-        if ((unsigned long) capability > lc)
+        if ((unsigned) capability > lc)
                 return 0;
 
         /* If the last cap is 63, then there are 64 caps defined, and we need 2 entries á 32bit hence. *
