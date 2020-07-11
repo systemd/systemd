@@ -104,7 +104,7 @@ fi \
 %sysusers_create_inline() \
 [ -x @bindir@/systemd-sysusers ] && @bindir@/systemd-sysusers - <<SYSTEMD_INLINE_EOF || : \
 %{?*} \
-SYSTEMD_INLINE_EOF \
+SYSTEMD_INLINE_EOF\
 %{nil}
 
 # This should be used by package installation scripts which require users or
@@ -124,7 +124,7 @@ SYSTEMD_INLINE_EOF \
 %{expand:%%{?!__systemd_twoargs_%#:%%{error:This macro requires two arguments}}} \
 systemd-sysusers --replace=%_sysusersdir/%1.conf - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
 %(cat %2) \
-SYSTEMD_INLINE_EOF \
+SYSTEMD_INLINE_EOF\
 %{nil}
 
 # This may be used by package installation scripts to create files according to
@@ -144,7 +144,7 @@ SYSTEMD_INLINE_EOF \
 %{expand:%%{?!__systemd_twoargs_%#:%%{error:This macro requires two arguments}}} \
 systemd-tmpfiles --replace=%_tmpfilesdir/%1.conf --create - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
 %(cat %2) \
-SYSTEMD_INLINE_EOF \
+SYSTEMD_INLINE_EOF\
 %{nil}
 
 %sysctl_apply() \
