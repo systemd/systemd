@@ -860,15 +860,23 @@ static int mount_procfs(const MountEntry *m) {
 }
 
 static int mount_tmpfs(const MountEntry *m) {
+        int r;
+        const char *entry_path = mount_entry_path(m);
+        const char *source_path = m->path_const;
+
         assert(m);
 
         /* First, get rid of everything that is below if there is anything. Then, overmount with our new tmpfs */
 
-        (void) mkdir_p_label(mount_entry_path(m), 0755);
-        (void) umount_recursive(mount_entry_path(m), 0);
+        (void) mkdir_p_label(entry_path, 0755);
+        (void) umount_recursive(entry_path, 0);
 
-        if (mount("tmpfs", mount_entry_path(m), "tmpfs", m->flags, mount_entry_options(m)) < 0)
-                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+        if (mount("tmpfs", entry_path, "tmpfs", m->flags, mount_entry_options(m)) < 0)
+                return log_debug_errno(errno, "Failed to mount %s: %m", entry_path);
+
+        r = label_fix_container(entry_path, source_path, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, source_path);
 
         return 1;
 }
