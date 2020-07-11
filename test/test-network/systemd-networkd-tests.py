@@ -3168,6 +3168,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2600::')
         self.assertNotRegex(output, '192.168.5')
 
+        output = check_output('ip addr show dev veth99')
+        print(output)
+        self.assertRegex(output, '2600::')
+        self.assertNotRegex(output, '192.168.5')
+        self.assertNotRegex(output, 'tentative')
+
         # Confirm that ipv6 token is not set in the kernel
         output = check_output('ip token show dev veth99')
         print(output)
