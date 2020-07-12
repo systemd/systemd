@@ -1709,13 +1709,6 @@ int bus_unit_queue_job(
         assert(type >= 0 && type < _JOB_TYPE_MAX);
         assert(mode >= 0 && mode < _JOB_MODE_MAX);
 
-        r = mac_selinux_unit_access_check(
-                        u, message,
-                        job_type_to_access_method(type),
-                        error);
-        if (r < 0)
-                return r;
-
         if (FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE) && unit_can_reload(u)) {
                 if (type == JOB_RESTART)
                         type = JOB_RELOAD_OR_START;
