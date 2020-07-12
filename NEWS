@@ -217,6 +217,9 @@ CHANGES WITH 246:
           Description"). Support for "MUD" URLs was also added to the LLDP
           stack, configurable in the [LLDP] section in .network files.
 
+        * The Mode= settings in [MACVLAN] and [MACVTAP] now support 'source'
+          mode. Also, the sections now support a new setting SourceMACAddress=.
+
         * systemd-networkd's .netdev files now support a new setting
           VLANProtocol= in the [Bridge] section that allows configuration of
           the VLAN protocol to use.
