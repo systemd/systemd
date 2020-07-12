@@ -1168,6 +1168,11 @@ void link_check_ready(Link *link) {
                         return;
                 }
 
+                if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) && set_isempty(link->addresses)) {
+                        log_link_debug(link, "%s(): DHCP4 or DHCP6 is enabled but no address is assigned yet.", __func__);
+                        return;
+                }
+
                 if (link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || dhcp6_get_prefix_delegation(link) || link_ipv6_accept_ra_enabled(link)) {
                         if (!link->dhcp4_configured &&
                             !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
