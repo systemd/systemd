@@ -404,7 +404,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 } else if (lifetime_valid > 0)
                         a->cinfo.ifa_valid = lifetime_valid;
                 else
-                        return 0; /* see RFC4862 section 5.5.3.d */
+                        continue; /* see RFC4862 section 5.5.3.d */
 
                 if (a->cinfo.ifa_valid == 0)
                         continue;
@@ -415,7 +415,6 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                         link_enter_failed(link);
                         return r;
                 }
-
                 if (r > 0)
                         link->ndisc_messages++;
         }
