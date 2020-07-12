@@ -33,3 +33,18 @@ static inline int in_addr_ifindex_name_from_string_auto(const char *s, int *fami
 static inline int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex) {
         return in_addr_ifindex_name_from_string_auto(s, family, ret, ifindex, NULL);
 }
+
+struct in_addr_full {
+        int family;
+        union in_addr_union address;
+        uint16_t port;
+        int ifindex;
+        char *server_name;
+        char *cached_server_string; /* Should not be handled directly, but through in_addr_full_to_string(). */
+};
+
+struct in_addr_full *in_addr_full_free(struct in_addr_full *a);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct in_addr_full*, in_addr_full_free);
+int in_addr_full_new(int family, union in_addr_union *a, uint16_t port, int ifindex, const char *server_name, struct in_addr_full **ret);
+int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret);
+const char *in_addr_full_to_string(struct in_addr_full *a);

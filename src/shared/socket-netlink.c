@@ -454,3 +454,70 @@ int in_addr_port_ifindex_name_from_string_auto(
 
         return r;
 }
+
+struct in_addr_full *in_addr_full_free(struct in_addr_full *a) {
+        if (!a)
+                return NULL;
+
+        free(a->server_name);
+        free(a->cached_server_string);
+        return mfree(a);
+}
+
+int in_addr_full_new(int family, union in_addr_union *a, uint16_t port, int ifindex, const char *server_name, struct in_addr_full **ret) {
+        _cleanup_free_ char *name = NULL;
+        struct in_addr_full *x;
+
+        assert(ret);
+
+        if (!isempty(server_name)) {
+                name = strdup(server_name);
+                if (!name)
+                        return -ENOMEM;
+        }
+
+        x = new(struct in_addr_full, 1);
+        if (!x)
+                return -ENOMEM;
+
+        *x = (struct in_addr_full) {
+                .family = family,
+                .address = *a,
+                .port = port,
+                .ifindex = ifindex,
+                .server_name = TAKE_PTR(name),
+        };
+
+        *ret = x;
+        return 0;
+}
+
+int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret) {
+        _cleanup_free_ char *server_name = NULL;
+        int family, ifindex, r;
+        union in_addr_union a;
+        uint16_t port;
+
+        assert(s);
+
+        r = in_addr_port_ifindex_name_from_string_auto(s, &family, &a, &port, &ifindex, &server_name);
+        if (r < 0)
+                return r;
+
+        return in_addr_full_new(family, &a, port, ifindex, server_name, ret);
+}
+
+const char *in_addr_full_to_string(struct in_addr_full *a) {
+        assert(a);
+
+        if (!a->cached_server_string)
+                (void) in_addr_port_ifindex_name_to_string(
+                                a->family,
+                                &a->address,
+                                a->port,
+                                a->ifindex,
+                                a->server_name,
+                                &a->cached_server_string);
+
+        return a->cached_server_string;
+}
