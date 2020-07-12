@@ -1036,6 +1036,10 @@ static int method_start_transient_unit(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
+        r = mac_selinux_unit_access_check(u, message, MAC_SELINUX_UNIT_START, error);
+        if (r < 0)
+                return r;
+
         /* Finally, start it */
         return bus_unit_queue_job(message, u, JOB_START, mode, 0, error);
 }
