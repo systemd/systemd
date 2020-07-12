@@ -82,64 +82,60 @@ static int make_stableprivate_address(Link *link, const struct in6_addr *prefix,
         return 0;
 }
 
-static int ndisc_netlink_route_message_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
-        assert(link->ndisc_messages > 0);
+        assert(link->ndisc_routes_messages > 0);
 
-        link->ndisc_messages--;
+        link->ndisc_routes_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_message_error_errno(link, m, r, "Could not set NDisc route or address");
+                log_link_message_error_errno(link, m, r, "Could not set NDisc route");
                 link_enter_failed(link);
                 return 1;
         }
 
-        if (link->ndisc_messages == 0) {
-                link->ndisc_configured = true;
-                r = link_request_set_routes(link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return 1;
-                }
+        if (link->ndisc_routes_messages == 0) {
+                log_link_debug(link, "NDisc routes set.");
+                link->ndisc_routes_configured = true;
                 link_check_ready(link);
         }
 
         return 1;
 }
 
-static int ndisc_netlink_address_message_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(link);
-        assert(link->ndisc_messages > 0);
+        assert(link->ndisc_addresses_messages > 0);
 
-        link->ndisc_messages--;
+        link->ndisc_addresses_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
-                log_link_message_error_errno(link, m, r, "Could not set NDisc route or address");
+                log_link_message_error_errno(link, m, r, "Could not set NDisc address");
                 link_enter_failed(link);
                 return 1;
         } else if (r >= 0)
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
-        if (link->ndisc_messages == 0) {
-                link->ndisc_configured = true;
+        if (link->ndisc_addresses_messages == 0) {
+                log_link_debug(link, "NDisc SLAAC addresses set.");
+                link->ndisc_addresses_configured = true;
                 r = link_request_set_routes(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return 1;
                 }
-                link_check_ready(link);
         }
 
         return 1;
@@ -223,14 +219,14 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
         route->mtu = mtu;
 
-        r = route_configure(route, link, ndisc_netlink_route_message_handler);
+        r = route_configure(route, link, ndisc_route_handler);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set default route: %m");
                 link_enter_failed(link);
                 return r;
         }
         if (r > 0)
-                link->ndisc_messages++;
+                link->ndisc_routes_messages++;
 
         Route *route_gw;
         LIST_FOREACH(routes, route_gw, link->network->static_routes) {
@@ -242,14 +238,14 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
                 route_gw->gw = gateway;
 
-                r = route_configure(route_gw, link, ndisc_netlink_route_message_handler);
+                r = route_configure(route_gw, link, ndisc_route_handler);
                 if (r < 0) {
                         log_link_error_errno(link, r, "Could not set gateway: %m");
                         link_enter_failed(link);
                         return r;
                 }
                 if (r > 0)
-                        link->ndisc_messages++;
+                        link->ndisc_routes_messages++;
         }
 
         return 0;
@@ -409,14 +405,14 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 if (a->cinfo.ifa_valid == 0)
                         continue;
 
-                r = address_configure(a, link, ndisc_netlink_address_message_handler, true);
+                r = address_configure(a, link, ndisc_address_handler, true);
                 if (r < 0) {
                         log_link_warning_errno(link, r, "Could not set SLAAC address: %m");
                         link_enter_failed(link);
                         return r;
                 }
                 if (r > 0)
-                        link->ndisc_messages++;
+                        link->ndisc_addresses_messages++;
         }
 
         return 0;
@@ -460,14 +456,14 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
-        r = route_configure(route, link, ndisc_netlink_route_message_handler);
+        r = route_configure(route, link, ndisc_route_handler);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set prefix route: %m");
                 link_enter_failed(link);
                 return r;
         }
         if (r > 0)
-                link->ndisc_messages++;
+                link->ndisc_routes_messages++;
 
         return 0;
 }
@@ -522,14 +518,14 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get route address: %m");
 
-        r = route_configure(route, link, ndisc_netlink_route_message_handler);
+        r = route_configure(route, link, ndisc_route_handler);
         if (r < 0) {
                 log_link_warning_errno(link, r, "Could not set additional route: %m");
                 link_enter_failed(link);
                 return r;
         }
         if (r > 0)
-                link->ndisc_messages++;
+                link->ndisc_routes_messages++;
 
         return 0;
 }
@@ -815,12 +811,31 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *r
         switch (event) {
 
         case SD_NDISC_EVENT_ROUTER:
+                link->ndisc_addresses_configured = false;
+                link->ndisc_routes_configured = false;
+
                 (void) ndisc_router_handler(link, rt);
+
+                if (link->ndisc_addresses_messages == 0)
+                        link->ndisc_addresses_configured = true;
+                else
+                        log_link_debug(link, "Setting SLAAC addresses.");
+
+                if (link->ndisc_routes_messages == 0)
+                        link->ndisc_routes_configured = true;
+                else
+                        log_link_debug(link, "Setting NDisc routes.");
+
+                if (link->ndisc_addresses_configured && link->ndisc_routes_configured)
+                        link_check_ready(link);
+                else
+                        link_set_state(link, LINK_STATE_CONFIGURING);
                 break;
 
         case SD_NDISC_EVENT_TIMEOUT:
                 log_link_debug(link, "NDISC handler get timeout event");
-                link->ndisc_configured = true;
+                link->ndisc_addresses_configured = true;
+                link->ndisc_routes_configured = true;
                 link_check_ready(link);
 
                 break;

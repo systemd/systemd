@@ -1172,7 +1172,7 @@ void link_check_ready(Link *link) {
                         if (!link->dhcp4_configured &&
                             !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
                             !(link->dhcp6_pd_address_configured && link->dhcp6_pd_route_configured) &&
-                            !link->ndisc_configured &&
+                            !(link->ndisc_addresses_configured && link->ndisc_routes_configured) &&
                             !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address)) {
                                 /* When DHCP or RA is enabled, at least one protocol must provide an address, or
                                  * an IPv4ll fallback address must be configured. */
@@ -1180,14 +1180,15 @@ void link_check_ready(Link *link) {
                                 return;
                         }
 
-                        log_link_debug(link, "%s(): dhcp4:%s dhcp6_addresses:%s dhcp_routes:%s dhcp_pd_addresses:%s dhcp_pd_routes:%s ndisc:%s",
+                        log_link_debug(link, "%s(): dhcp4:%s dhcp6_addresses:%s dhcp_routes:%s dhcp_pd_addresses:%s dhcp_pd_routes:%s ndisc_addresses:%s ndisc_routes:%s",
                                        __func__,
                                        yes_no(link->dhcp4_configured),
                                        yes_no(link->dhcp6_address_configured),
                                        yes_no(link->dhcp6_route_configured),
                                        yes_no(link->dhcp6_pd_address_configured),
                                        yes_no(link->dhcp6_pd_route_configured),
-                                       yes_no(link->ndisc_configured));
+                                       yes_no(link->ndisc_addresses_configured),
+                                       yes_no(link->ndisc_routes_configured));
                 }
         }
 

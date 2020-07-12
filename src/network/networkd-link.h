@@ -112,8 +112,10 @@ typedef struct Link {
         bool dhcp6_pd_address_configured:1;
         bool dhcp6_pd_route_configured:1;
 
-        unsigned ndisc_messages;
-        bool ndisc_configured;
+        unsigned ndisc_addresses_messages;
+        unsigned ndisc_routes_messages;
+        bool ndisc_addresses_configured:1;
+        bool ndisc_routes_configured:1;
 
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address:1;
