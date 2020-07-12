@@ -398,6 +398,33 @@ static int link_set_dhcp_routes(Link *link) {
                 }
         }
 
+        Iterator j, k;
+        Route *rt;
+        SET_FOREACH(rt, link->multipath_dhcp_routes, j) {
+                if (rt->family != AF_INET)
+                        continue;
+
+                MultipathRoute *m;
+                ORDERED_SET_FOREACH(m, rt->multipath_routes, k) {
+                        if (!m->gateway_from_dhcp)
+                                continue;
+
+                        if (m->ifindex != link->ifindex)
+                                continue;
+
+                        m->gateway.family = AF_INET;
+                        m->gateway.address.in = router[0];
+                }
+
+                if (route_all_nexthops_gw_resolved(rt)) {
+                        r = route_configure(rt, rt->link, dhcp4_route_handler);
+                        if (r < 0)
+                                return log_link_error_errno(rt->link, r, "Could not set multipath route: %m");
+                        if (r > 0)
+                                rt->link->dhcp4_messages++;
+                }
+        }
+
         return link_set_dns_routes(link, &address);
 }
 

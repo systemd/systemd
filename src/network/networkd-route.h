@@ -11,12 +11,13 @@ typedef struct NetworkConfigSection NetworkConfigSection;
 #include "networkd-util.h"
 
 typedef struct MultipathRouteVia {
-        uint16_t family;
+        int family;
         union in_addr_union address;
-} _packed_ MultipathRouteVia;
+} MultipathRouteVia;
 
 typedef struct MultipathRoute {
         MultipathRouteVia gateway;
+        bool gateway_from_dhcp;
         int ifindex;
         uint32_t weight;
 } MultipathRoute;
@@ -76,6 +77,9 @@ bool route_equal(Route *r1, Route *r2);
 
 int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata);
 int route_section_verify(Route *route, Network *network);
+
+bool route_any_nexthop_gw_from_dhcp(const Route *route);
+bool route_all_nexthops_gw_resolved(const Route *route);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 

@@ -1,0 +1,8 @@
+[NetDev]
+Name=veth99-2
+Kind=veth
+MACAddress=12:34:56:78:9a:be
+
+[Peer]
+Name=veth-peer-2
+MACAddress=12:34:56:78:9a:bf
