@@ -14,6 +14,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "string-util.h"
 #include "strxcpyx.h"
 #include "util.h"
 
@@ -443,6 +444,61 @@ int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifin
 
 fallback:
         return in_addr_to_string(family, u, ret);
+}
+
+int in_addr_port_ifindex_name_to_string(int family, const union in_addr_union *u, uint16_t port, int ifindex, const char *server_name, char **ret) {
+        _cleanup_free_ char *ip_str = NULL, *x = NULL;
+        int r;
+
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(u);
+        assert(ret);
+
+        /* Much like in_addr_to_string(), but optionally appends the zone interface index to the address, to properly
+         * handle IPv6 link-local addresses. */
+
+        r = in_addr_to_string(family, u, &ip_str);
+        if (r < 0)
+                return r;
+
+        if (family == AF_INET6) {
+                r = in_addr_is_link_local(family, u);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        ifindex = 0;
+        } else
+                ifindex = 0; /* For IPv4 address, ifindex is always ignored. */
+
+        if (port == 0 && ifindex == 0 && isempty(server_name)) {
+                *ret = TAKE_PTR(ip_str);
+                return 0;
+        }
+
+        const char *separator = isempty(server_name) ? "" : "#";
+        server_name = strempty(server_name);
+
+        if (port > 0) {
+                if (family == AF_INET6) {
+                        if (ifindex > 0)
+                                r = asprintf(&x, "[%s]:%"PRIu16"%%%i%s%s", ip_str, port, ifindex, separator, server_name);
+                        else
+                                r = asprintf(&x, "[%s]:%"PRIu16"%s%s", ip_str, port, separator, server_name);
+                } else
+                        r = asprintf(&x, "%s:%"PRIu16"%s%s", ip_str, port, separator, server_name);
+        } else {
+                if (ifindex > 0)
+                        r = asprintf(&x, "%s%%%i%s%s", ip_str, ifindex, separator, server_name);
+                else {
+                        x = strjoin(ip_str, separator, server_name);
+                        r = x ? 0 : -ENOMEM;
+                }
+        }
+        if (r < 0)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(x);
+        return 0;
 }
 
 int in_addr_from_string(int family, const char *s, union in_addr_union *ret) {
