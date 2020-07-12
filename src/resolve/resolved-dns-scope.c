@@ -447,8 +447,8 @@ static int dns_scope_socket(
         return TAKE_FD(fd);
 }
 
-int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port) {
-        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, server, port, NULL);
+int dns_scope_socket_udp(DnsScope *s, DnsServer *server) {
+        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, server, dns_server_port(server), NULL);
 }
 
 int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port, union sockaddr_union *ret_socket_address) {

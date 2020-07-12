@@ -285,7 +285,7 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {
-                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i].family, &dns[i].address, 0, NULL);
+                        r = dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, dns[i].family, &dns[i].address, 0, 0, NULL);
                         if (r < 0)
                                 goto clear;
                 }

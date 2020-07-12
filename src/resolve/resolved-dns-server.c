@@ -26,6 +26,7 @@ int dns_server_new(
                 Link *l,
                 int family,
                 const union in_addr_union *in_addr,
+                uint16_t port,
                 int ifindex,
                 const char *server_name) {
 
@@ -63,6 +64,7 @@ int dns_server_new(
                 .type = type,
                 .family = family,
                 .address = *in_addr,
+                .port = port,
                 .ifindex = ifindex,
                 .server_name = TAKE_PTR(name),
         };
@@ -546,6 +548,15 @@ int dns_server_ifindex(const DnsServer *s) {
                 return s->ifindex;
 
         return 0;
+}
+
+uint16_t dns_server_port(const DnsServer *s) {
+        assert(s);
+
+        if (s->port > 0)
+                return s->port;
+
+        return 53;
 }
 
 const char *dns_server_string(DnsServer *server) {
