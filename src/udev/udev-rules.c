@@ -452,6 +452,11 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
                                 }
                         }
                         *b = '\0';
+
+                        /* Make sure the value is end, so NULSTR_FOREACH can read correct match */
+                        if (b < a)
+                                b[1] = '\0';
+
                         if (bar)
                                 empty = true;
 
