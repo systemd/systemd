@@ -65,11 +65,11 @@ for phase in "${PHASES[@]}"; do
             info "Setup phase"
             info "Using Fedora $FEDORA_RELEASE"
             # Pull a Docker image and start a new container
-            docker pull fedora:$FEDORA_RELEASE
+            printf "FROM fedora:$FEDORA_RELEASE\nRUN bash -c 'dnf install -y systemd'\n" | docker build -t fedora-with-systemd/latest -
             info "Starting container $CONT_NAME"
             $DOCKER_RUN -v $REPO_ROOT:/build:rw \
                         -w /build --privileged=true --name $CONT_NAME \
-                        -dit --net=host fedora:$FEDORA_RELEASE /sbin/init
+                        -dit --net=host fedora-with-systemd/latest /sbin/init
             # Wait for the container to properly boot up, otherwise we were
             # running following dnf commands during the initializing/starting
             # (early/late bootup) phase, which caused nasty race conditions

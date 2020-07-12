@@ -45,7 +45,7 @@ jobs:
     - stage: Coverity
       language: bash
       env:
-        - FEDORA_RELEASE="latest"
+        - FEDORA_RELEASE="31"
         - TOOL_BASE="/var/tmp/coverity-scan-analysis"
         - CONT_NAME="coverity-fedora-$FEDORA_RELEASE"
         - DOCKER_EXEC="docker exec -ti $CONT_NAME"
