@@ -557,7 +557,7 @@ class Utilities():
             if i > 0:
                 time.sleep(1)
             output = check_output(f'ip {ipv} address show dev {link} scope {scope}')
-            if re.search(address_regex, output):
+            if re.search(address_regex, output) and 'tentative' not in output:
                 break
         else:
             self.assertRegex(output, address_regex)
