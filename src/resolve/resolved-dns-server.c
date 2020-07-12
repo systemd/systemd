@@ -47,7 +47,7 @@ int dns_server_new(
                         return -E2BIG;
         }
 
-        if (server_name) {
+        if (!isempty(server_name)) {
                 name = strdup(server_name);
                 if (!name)
                         return -ENOMEM;
