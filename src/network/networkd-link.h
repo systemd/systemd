@@ -124,7 +124,6 @@ typedef struct Link {
         bool addresses_ready:1;
         bool neighbors_configured:1;
         bool static_routes_configured:1;
-        bool static_routes_ready:1;
         bool static_nexthops_configured:1;
         bool routing_policy_rules_configured:1;
         bool tc_configured:1;

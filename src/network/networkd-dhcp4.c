@@ -842,6 +842,12 @@ static int dhcp4_update_address(Link *link,
         assert(netmask);
         assert(lifetime);
 
+        /* address_handler calls link_request_set_routes() and link_request_set_nexthop(). Before they
+         * are called, the related flags must be cleared. Otherwise, the link becomes configured state
+         * before routes are configured. */
+        link->static_routes_configured = false;
+        link->static_nexthops_configured = false;
+
         prefixlen = in4_addr_netmask_to_prefixlen(netmask);
 
         r = address_new(&addr);

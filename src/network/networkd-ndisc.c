@@ -818,8 +818,15 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *r
 
                 if (link->ndisc_addresses_messages == 0)
                         link->ndisc_addresses_configured = true;
-                else
+                else {
                         log_link_debug(link, "Setting SLAAC addresses.");
+
+                        /* address_handler calls link_request_set_routes() and link_request_set_nexthop().
+                         * Before they are called, the related flags must be cleared. Otherwise, the link
+                         * becomes configured state before routes are configured. */
+                        link->static_routes_configured = false;
+                        link->static_nexthops_configured = false;
+                }
 
                 if (link->ndisc_routes_messages == 0)
                         link->ndisc_routes_configured = true;

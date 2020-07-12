@@ -596,7 +596,6 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
         struct in6_addr ip6_addr;
         uint32_t lifetime_preferred, lifetime_valid;
 
-
         link->dhcp6_address_configured = false;
 
         r = sd_dhcp6_client_get_lease(client, &lease);
@@ -618,6 +617,11 @@ static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link) {
                 return link_request_set_routes(link);
         } else {
                 log_link_debug(link, "Setting DHCPv6 addresses");
+                /* address_handler calls link_request_set_routes() and link_request_set_nexthop().
+                 * Before they are called, the related flags must be cleared. Otherwise, the link
+                 * becomes configured state before routes are configured. */
+                link->static_routes_configured = false;
+                link->static_nexthops_configured = false;
                 link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
@@ -1118,6 +1122,11 @@ static int dhcp6_assign_delegated_prefix(Link *link,
         address->cinfo.ifa_prefered = lifetime_preferred;
         address->cinfo.ifa_valid = lifetime_valid;
 
+        /* address_handler calls link_request_set_routes() and link_request_set_nexthop(). Before they
+         * are called, the related flags must be cleared. Otherwise, the link becomes configured state
+         * before routes are configured. */
+        link->static_routes_configured = false;
+        link->static_nexthops_configured = false;
         link->dhcp6_pd_address_configured = false;
         link_set_state(link, LINK_STATE_CONFIGURING);
 

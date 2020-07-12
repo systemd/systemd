@@ -976,6 +976,8 @@ static int link_request_set_nexthop(Link *link) {
         NextHop *nh;
         int r;
 
+        link->static_nexthops_configured = false;
+
         LIST_FOREACH(nexthops, nh, link->network->static_nexthops) {
                 r = nexthop_configure(nh, link, nexthop_handler);
                 if (r < 0)
@@ -1018,7 +1020,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         if (link->route_messages == 0) {
                 log_link_debug(link, "Routes set");
                 link->static_routes_configured = true;
-                link_check_ready(link);
+                link_request_set_nexthop(link);
         }
 
         return 1;
@@ -1040,7 +1042,6 @@ int link_request_set_routes(Link *link) {
         assert(link->state != _LINK_STATE_INVALID);
 
         link->static_routes_configured = false;
-        link->static_routes_ready = false;
 
         if (!link_has_carrier(link) && !link->network->configure_without_carrier)
                 /* During configuring addresses, the link lost its carrier. As networkd is dropping
@@ -1069,7 +1070,7 @@ int link_request_set_routes(Link *link) {
 
         if (link->route_messages == 0) {
                 link->static_routes_configured = true;
-                link_check_ready(link);
+                link_request_set_nexthop(link);
         } else {
                 log_link_debug(link, "Setting routes");
                 link_set_state(link, LINK_STATE_CONFIGURING);
@@ -1123,15 +1124,6 @@ void link_check_ready(Link *link) {
 
         if (!link->static_routes_configured) {
                 log_link_debug(link, "%s(): static routes are not configured.", __func__);
-                return;
-        }
-
-        if (!link->static_routes_ready) {
-                link->static_routes_ready = true;
-                r = link_request_set_nexthop(link);
-                if (r < 0)
-                        link_enter_failed(link);
-                log_link_debug(link, "%s(): static routes are configured. Configuring static nexthops.", __func__);
                 return;
         }
 
@@ -1291,7 +1283,6 @@ static int link_request_set_addresses(Link *link) {
         link->addresses_ready = false;
         link->neighbors_configured = false;
         link->static_routes_configured = false;
-        link->static_routes_ready = false;
         link->static_nexthops_configured = false;
         link->routing_policy_rules_configured = false;
 
