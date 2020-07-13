@@ -313,7 +313,7 @@ static int file_of_seat(const char *seat, char **_p) {
                 if (!filename_is_valid(seat))
                         return -EINVAL;
 
-                p = path_join("/run/systemd/seats", seat);
+                p = path_join(PATH_RUN_SYSTEMD_SEATS, seat);
         } else {
                 _cleanup_free_ char *buf = NULL;
 
@@ -321,7 +321,7 @@ static int file_of_seat(const char *seat, char **_p) {
                 if (r < 0)
                         return r;
 
-                p = path_join("/run/systemd/seats", buf);
+                p = path_join(PATH_RUN_SYSTEMD_SEATS, buf);
         }
         if (!p)
                 return -ENOMEM;
@@ -760,7 +760,7 @@ _public_ int sd_seat_can_graphical(const char *seat) {
 _public_ int sd_get_seats(char ***seats) {
         int r;
 
-        r = get_files_in_directory("/run/systemd/seats/", seats);
+        r = get_files_in_directory(PATH_RUN_SYSTEMD_SEATS, seats);
         if (r == -ENOENT) {
                 if (seats)
                         *seats = NULL;
@@ -964,7 +964,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
                 return -errno;
 
         if (!category || streq(category, "seat")) {
-                k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, PATH_RUN_SYSTEMD_SEATS, IN_MOVED_TO|IN_DELETE);
                 if (k < 0)
                         return -errno;
 

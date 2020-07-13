@@ -249,12 +249,12 @@ static int manager_enumerate_seats(Manager *m) {
          * actually create any seats. Removes data of seats that no
          * longer exist. */
 
-        d = opendir("/run/systemd/seats");
+        d = opendir(PATH_RUN_SYSTEMD_SEATS);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/seats: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", PATH_RUN_SYSTEMD_SEATS);
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -267,7 +267,8 @@ static int manager_enumerate_seats(Manager *m) {
                 s = hashmap_get(m->seats, de->d_name);
                 if (!s) {
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning("Failed to remove /run/systemd/seats/%s: %m",
+                                log_warning("Failed to remove %s/%s: %m",
+                                            PATH_RUN_SYSTEMD_SEATS,
                                             de->d_name);
                         continue;
                 }
@@ -1179,7 +1180,7 @@ static int run(int argc, char *argv[]) {
         /* Always create the directories people can create inotify watches in. Note that some applications might check
          * for the existence of /run/systemd/seats/ to determine whether logind is available, so please always make
          * sure these directories are created early on and unconditionally. */
-        (void) mkdir_label("/run/systemd/seats", 0755);
+        (void) mkdir_label(PATH_RUN_SYSTEMD_SEATS, 0755);
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
 

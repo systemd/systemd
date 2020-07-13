@@ -44,7 +44,7 @@ int seat_new(Seat** ret, Manager *m, const char *id) {
                 .manager = m,
         };
 
-        s->state_file = path_join("/run/systemd/seats", id);
+        s->state_file = path_join(PATH_RUN_SYSTEMD_SEATS, id);
         if (!s->state_file)
                 return -ENOMEM;
 
@@ -91,7 +91,7 @@ int seat_save(Seat *s) {
         if (!s->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label(PATH_RUN_SYSTEMD_SEATS, 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 goto fail;
 
