@@ -609,7 +609,10 @@ static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
 
         siphash24_compress(&s->family, sizeof(s->family), state);
         siphash24_compress(&s->address, FAMILY_ADDRESS_SIZE(s->family), state);
+        siphash24_compress(&s->port, sizeof(s->port), state);
         siphash24_compress(&s->ifindex, sizeof(s->ifindex), state);
+        if (s->server_name)
+                siphash24_compress(s->server_name, strlen(s->server_name), state);
 }
 
 static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
@@ -623,11 +626,15 @@ static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         if (r != 0)
                 return r;
 
+        r = CMP(x->port, y->port);
+        if (r != 0)
+                return r;
+
         r = CMP(x->ifindex, y->ifindex);
         if (r != 0)
                 return r;
 
-        return 0;
+        return streq_ptr(x->server_name, y->server_name);
 }
 
 DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);
