@@ -15,8 +15,9 @@ typedef struct condition_definition {
 } condition_definition;
 
 static const condition_definition condition_definitions[] = {
-        { "ConditionPathExists",             config_parse_unit_condition_path,   CONDITION_PATH_EXISTS              },
+        /* ConditionPathExistsGlob must be listed earlier than CondtionPathExists. */
         { "ConditionPathExistsGlob",         config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB         },
+        { "ConditionPathExists",             config_parse_unit_condition_path,   CONDITION_PATH_EXISTS              },
         { "ConditionPathIsDirectory",        config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY        },
         { "ConditionPathIsSymbolicLink",     config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK    },
         { "ConditionPathIsMountPoint",       config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT      },
@@ -39,8 +40,9 @@ static const condition_definition condition_definitions[] = {
         { "ConditionGroup",                  config_parse_unit_condition_string, CONDITION_GROUP                    },
         { "ConditionControlGroupController", config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER },
 
-        { "AssertPathExists",                config_parse_unit_condition_path,   CONDITION_PATH_EXISTS              },
+        /* AssertPathExistsGlob must be listed earlier than AssertPathExists. */
         { "AssertPathExistsGlob",            config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB         },
+        { "AssertPathExists",                config_parse_unit_condition_path,   CONDITION_PATH_EXISTS              },
         { "AssertPathIsDirectory",           config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY        },
         { "AssertPathIsSymbolicLink",        config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK    },
         { "AssertPathIsMountPoint",          config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT      },
