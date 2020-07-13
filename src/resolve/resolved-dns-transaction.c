@@ -314,7 +314,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                            "DNS_TRANSACTION=%" PRIu16, t->id,
                            "DNS_QUESTION=%s", key_str,
                            "DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result),
-                           "DNS_SERVER=%s", dns_server_string(t->server),
+                           "DNS_SERVER=%s", strna(dns_server_string_full(t->server)),
                            "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level));
         }
 
@@ -398,7 +398,7 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
 
         t->n_picked_servers ++;
 
-        log_debug("Using DNS server %s for transaction %u.", dns_server_string(t->server), t->id);
+        log_debug("Using DNS server %s for transaction %u.", strna(dns_server_string_full(t->server)), t->id);
 
         return 1;
 }
