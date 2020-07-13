@@ -41,6 +41,9 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         if (r < 0)
                 return r;
 
+        if (IN_SET(port, 53, 853))
+                port = 0;
+
         /* Silently filter out 0.0.0.0 and 127.0.0.53 (our own stub DNS listener) */
         if (!dns_server_address_valid(family, &address))
                 return 0;
@@ -51,7 +54,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 port = 0;
 
         /* Filter out duplicates */
-        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, ifindex);
+        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name);
         if (s) {
                 /*
                  * Drop the marker. This is used to find the servers

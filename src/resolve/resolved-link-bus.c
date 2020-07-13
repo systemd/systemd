@@ -281,7 +281,7 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         for (i = 0; i < n; i++) {
                 DnsServer *s;
 
-                s = dns_server_find(l->dns_servers, dns[i].family, &dns[i].address, 0);
+                s = dns_server_find(l->dns_servers, dns[i].family, &dns[i].address, 0, 0, NULL);
                 if (s)
                         dns_server_move_back_and_unmark(s);
                 else {

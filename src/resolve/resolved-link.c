@@ -263,7 +263,7 @@ static int link_update_dns_server_one(Link *l, const char *name) {
         if (r < 0)
                 return r;
 
-        s = dns_server_find(l->dns_servers, family, &a, 0);
+        s = dns_server_find(l->dns_servers, family, &a, 0, 0, NULL);
         if (s) {
                 dns_server_move_back_and_unmark(s);
                 return 0;

@@ -666,11 +666,15 @@ void dns_server_mark_all(DnsServer *first) {
         dns_server_mark_all(first->servers_next);
 }
 
-DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, int ifindex) {
+DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name) {
         DnsServer *s;
 
         LIST_FOREACH(servers, s, first)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0 && s->ifindex == ifindex)
+                if (s->family == family &&
+                    in_addr_equal(family, &s->address, in_addr) > 0 &&
+                    s->port == port &&
+                    s->ifindex == ifindex &&
+                    streq_ptr(s->server_name, name))
                         return s;
 
         return NULL;
