@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="systemd-initctl.service">
+<refentry id="systemd-initctl.service" conditional='HAVE_SYSV_COMPAT'>
 
   <refentryinfo>
     <title>systemd-initctl.service</title>

@@ -180,7 +180,7 @@ in_units = [
          'sysinit.target.wants/'],
         ['systemd-importd.service',              'ENABLE_IMPORTD',
          'dbus-org.freedesktop.import1.service'],
-        ['systemd-initctl.service',               ''],
+        ['systemd-initctl.service',              'HAVE_SYSV_COMPAT'],
         ['systemd-journal-gatewayd.service',     'ENABLE_REMOTE HAVE_MICROHTTPD'],
         ['systemd-journal-remote.service',       'ENABLE_REMOTE HAVE_MICROHTTPD'],
         ['systemd-journal-upload.service',       'ENABLE_REMOTE HAVE_LIBCURL'],
