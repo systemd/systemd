@@ -167,6 +167,7 @@
       <varlistentry>
         <term><keycap>h</keycap></term>
         <term><keycap>?</keycap></term>
+        <term><keycap>F1</keycap></term>
         <listitem><para>Show a help screen</para></listitem>
       </varlistentry>
 
