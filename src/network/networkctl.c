@@ -1662,7 +1662,7 @@ static int link_status_one(
                 r = table_add_many(table,
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Mode:",
-                                   TABLE_STRING,  bond_mode_to_string(info->mode),
+                                   TABLE_STRING, bond_mode_to_string(info->mode),
                                    TABLE_EMPTY,
                                    TABLE_STRING, "Miimon:",
                                    TABLE_TIMESPAN_MSEC, jiffies_to_usec(info->miimon),

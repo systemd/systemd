@@ -52,7 +52,7 @@ void network_apply_anonymize_if_set(Network *network) {
         /* RFC7844 section 3.6.:
          The client intending to protect its privacy SHOULD only request a
          minimal number of options in the PRL and SHOULD also randomly shuffle
-         the ordering of option codes in the PRL.  If this random ordering
+         the ordering of option codes in the PRL. If this random ordering
          cannot be implemented, the client MAY order the option codes in the
          PRL by option code number (lowest to highest).
         */

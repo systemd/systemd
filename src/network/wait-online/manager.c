@@ -323,7 +323,7 @@ int manager_new(Manager **ret, Hashmap *interfaces, char **ignore,
         if (r < 0)
                 return r;
 
-        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL,  NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
         (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         if (timeout > 0) {

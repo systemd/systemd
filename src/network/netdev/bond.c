@@ -288,7 +288,7 @@ int link_set_bond(Link *link) {
         r = netlink_call_async(link->manager->rtnl, NULL, req, link_set_bond_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
-                return log_link_error_errno(link, r,  "Could not send rtnetlink message: %m");
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
