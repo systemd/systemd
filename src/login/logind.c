@@ -519,12 +519,12 @@ static int manager_enumerate_inhibitors(Manager *m) {
 
         assert(m);
 
-        d = opendir("/run/systemd/inhibit");
+        d = opendir(PATH_RUN_SYSTEMD_INHIBIT);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/inhibit: %m");
+                return log_error_errno(errno, "Failed to open %s: %m",PATH_RUN_SYSTEMD_INHIBIT);
         }
 
         FOREACH_DIRENT(de, d, return -errno) {

@@ -46,7 +46,7 @@ int inhibitor_new(Inhibitor **ret, Manager *m, const char* id) {
                 .fifo_fd = -1,
         };
 
-        i->state_file = path_join("/run/systemd/inhibit", id);
+        i->state_file = path_join(PATH_RUN_SYSTEMD_INHIBIT, id);
         if (!i->state_file)
                 return -ENOMEM;
 
@@ -88,7 +88,7 @@ static int inhibitor_save(Inhibitor *i) {
 
         assert(i);
 
-        r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label(PATH_RUN_SYSTEMD_INHIBIT, 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 goto fail;
 
@@ -301,11 +301,11 @@ int inhibitor_create_fifo(Inhibitor *i) {
 
         /* Create FIFO */
         if (!i->fifo_path) {
-                r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0, MKDIR_WARN_MODE);
+                r = mkdir_safe_label(PATH_RUN_SYSTEMD_INHIBIT, 0755, 0, 0, MKDIR_WARN_MODE);
                 if (r < 0)
                         return r;
 
-                i->fifo_path = strjoin("/run/systemd/inhibit/", i->id, ".ref");
+                i->fifo_path = strjoin(PATH_RUN_SYSTEMD_INHIBIT "/", i->id, ".ref");
                 if (!i->fifo_path)
                         return -ENOMEM;
 

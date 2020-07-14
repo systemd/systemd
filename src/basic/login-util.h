@@ -7,6 +7,7 @@
 #define PATH_RUN_SYSTEMD_SEATS "/run/systemd/seats"
 #define PATH_RUN_SYSTEMD_USERS "/run/systemd/users"
 #define PATH_RUN_SYSTEMD_SESSIONS "/run/systemd/sessions"
+#define PATH_RUN_SYSTEMD_INHIBIT "/run/systemd/inhibit"
 
 bool session_id_valid(const char *id);
 
