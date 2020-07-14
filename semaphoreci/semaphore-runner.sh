@@ -35,7 +35,7 @@ sed 's/^deb/deb-src/' /etc/apt/sources.list >> /etc/apt/sources.list.d/sources.l
 while [ -z "\$(ip route list 0/0)" ]; do sleep 1; done
 apt-get -q --allow-releaseinfo-change update
 apt-get -y dist-upgrade
-apt-get install -y eatmydata
+apt-get install -y eatmydata rpm
 # The following four are needed as long as these deps are not covered by Debian's own packaging
 apt-get install -y fdisk libfdisk-dev libp11-kit-dev libssl-dev libpwquality-dev
 apt-get purge --auto-remove -y unattended-upgrades
