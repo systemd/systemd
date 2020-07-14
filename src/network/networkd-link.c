@@ -932,10 +932,9 @@ static int link_request_set_routing_policy_rule(Link *link) {
         }
 
         routing_policy_rule_purge(link->manager, link);
-        if (link->routing_policy_rule_messages == 0) {
+        if (link->routing_policy_rule_messages == 0)
                 link->routing_policy_rules_configured = true;
-                link_check_ready(link);
-        } else {
+        else {
                 log_link_debug(link, "Setting routing policy rules");
                 link_set_state(link, LINK_STATE_CONFIGURING);
         }
