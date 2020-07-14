@@ -2111,13 +2111,14 @@ void manager_dump(Manager *m, FILE *f, const char *prefix) {
 
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 const dual_timestamp *t = m->timestamps + q;
+                dual_timestamp dts;
                 char buf[CONST_MAX(FORMAT_TIMESPAN_MAX, FORMAT_TIMESTAMP_MAX)];
 
                 if (dual_timestamp_is_set(t))
                         fprintf(f, "%sTimestamp %s: %s\n",
                                 strempty(prefix),
                                 manager_timestamp_to_string(q),
-                                timestamp_is_set(t->realtime) ? format_timestamp(buf, sizeof buf, t->realtime) :
+                                timestamp_is_set(t->realtime) ? format_timestamp(buf, sizeof buf, dual_timestamp_from_monotonic(&dts, t->monotonic)->realtime) :
                                                                 format_timespan(buf, sizeof buf, t->monotonic, 1));
         }
 

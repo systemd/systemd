@@ -3,6 +3,7 @@
 #include "bus-get-properties.h"
 #include "rlimit-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 int bus_property_get_bool(
                 sd_bus *bus,
@@ -146,4 +147,23 @@ int bus_property_get_rlimit(
         u = x == RLIM_INFINITY ? (uint64_t) -1 : (uint64_t) x;
 
         return sd_bus_message_append(reply, "t", u);
+}
+
+int bus_property_get_realtime_from_monotonic(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        dual_timestamp dts;
+
+        assert(reply);
+        assert(userdata);
+
+        dual_timestamp_from_monotonic(&dts, *(usec_t *) userdata);
+
+        return sd_bus_message_append_basic(reply, 't', &dts.realtime);
 }

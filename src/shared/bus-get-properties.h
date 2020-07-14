@@ -10,6 +10,7 @@
 int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 int bus_property_set_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error);
 int bus_property_get_id128(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+int bus_property_get_realtime_from_monotonic(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 
 #define bus_property_get_usec ((sd_bus_property_get_t) NULL)
 #define bus_property_set_usec ((sd_bus_property_set_t) NULL)
@@ -99,5 +100,5 @@ int bus_property_get_rlimit(sd_bus *bus, const char *path, const char *interface
         BUS_DEFINE_PROPERTY_GET_REF(function, "s", type, name##_to_string)
 
 #define BUS_PROPERTY_DUAL_TIMESTAMP(name, offset, flags) \
-        SD_BUS_PROPERTY(name, "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, realtime), (flags)), \
+        SD_BUS_PROPERTY(name, "t", bus_property_get_realtime_from_monotonic, (offset) + offsetof(struct dual_timestamp, monotonic), (flags)), \
         SD_BUS_PROPERTY(name "Monotonic", "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, monotonic), (flags))
