@@ -100,6 +100,7 @@ typedef struct Link {
         char *lease_file;
         uint32_t original_mtu;
         unsigned dhcp4_messages;
+        unsigned dhcp4_remove_messages;
         unsigned dhcp6_address_messages;
         unsigned dhcp6_route_messages;
         unsigned dhcp6_pd_address_messages;
