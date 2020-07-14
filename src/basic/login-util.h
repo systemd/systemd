@@ -6,6 +6,7 @@
 
 #define PATH_RUN_SYSTEMD_SEATS "/run/systemd/seats"
 #define PATH_RUN_SYSTEMD_USERS "/run/systemd/users"
+#define PATH_RUN_SYSTEMD_SESSIONS "/run/systemd/sessions"
 
 bool session_id_valid(const char *id);
 

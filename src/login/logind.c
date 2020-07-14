@@ -478,12 +478,12 @@ static int manager_enumerate_sessions(Manager *m) {
         assert(m);
 
         /* Read in session data stored on disk */
-        d = opendir("/run/systemd/sessions");
+        d = opendir(PATH_RUN_SYSTEMD_SESSIONS);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/sessions: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", PATH_RUN_SYSTEMD_SESSIONS);
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -1184,7 +1184,7 @@ static int run(int argc, char *argv[]) {
          * sure these directories are created early on and unconditionally. */
         (void) mkdir_label(PATH_RUN_SYSTEMD_SEATS, 0755);
         (void) mkdir_label(PATH_RUN_SYSTEMD_USERS, 0755);
-        (void) mkdir_label("/run/systemd/sessions", 0755);
+        (void) mkdir_label(PATH_RUN_SYSTEMD_SESSIONS, 0755);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, SIGCHLD, -1) >= 0);
 

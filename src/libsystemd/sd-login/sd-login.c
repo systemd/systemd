@@ -425,7 +425,7 @@ static int file_of_session(const char *session, char **_p) {
                 if (!session_id_valid(session))
                         return -EINVAL;
 
-                p = path_join("/run/systemd/sessions", session);
+                p = path_join(PATH_RUN_SYSTEMD_SESSIONS, session);
         } else {
                 _cleanup_free_ char *buf = NULL;
 
@@ -433,7 +433,7 @@ static int file_of_session(const char *session, char **_p) {
                 if (r < 0)
                         return r;
 
-                p = path_join("/run/systemd/sessions", buf);
+                p = path_join(PATH_RUN_SYSTEMD_SESSIONS, buf);
         }
 
         if (!p)
@@ -772,7 +772,7 @@ _public_ int sd_get_seats(char ***seats) {
 _public_ int sd_get_sessions(char ***sessions) {
         int r;
 
-        r = get_files_in_directory("/run/systemd/sessions/", sessions);
+        r = get_files_in_directory(PATH_RUN_SYSTEMD_SESSIONS, sessions);
         if (r == -ENOENT) {
                 if (sessions)
                         *sessions = NULL;
@@ -972,7 +972,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         }
 
         if (!category || streq(category, "session")) {
-                k = inotify_add_watch(fd, "/run/systemd/sessions/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, PATH_RUN_SYSTEMD_SESSIONS, IN_MOVED_TO|IN_DELETE);
                 if (k < 0)
                         return -errno;
 
