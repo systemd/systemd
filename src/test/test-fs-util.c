@@ -858,7 +858,7 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
                 return;
         assert_se(r >= 0);
 
-        printf("%s encrypted: %s\n", p, yes_no(r));
+        log_info("%s encrypted: %s", p, yes_no(r));
 
         assert_se(expect < 0 || ((r > 0) == (expect > 0)));
 }
