@@ -85,7 +85,7 @@ else
 fi
 
 # PPA with some newer build dependencies (like zstd)
-#add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
+add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
 apt-get -y update
 apt-get -y build-dep systemd
 apt-get -y install "${PACKAGES[@]}"
