@@ -1437,7 +1437,7 @@ int decrypted_image_relinquish(DecryptedImage *d) {
                 if (p->relinquished)
                         continue;
 
-                r = dm_deferred_remove(p->name);
+                r = crypt_deactivate_by_name(NULL, p->name, CRYPT_DEACTIVATE_DEFERRED);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
 
