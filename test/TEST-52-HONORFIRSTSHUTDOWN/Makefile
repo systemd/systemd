@@ -13,4 +13,4 @@ all setup run clean clean-again:
 finish:
 	@basedir=../.. TEST_BASE_DIR=../ BUILD_DIR=$(BUILD_DIR) ./fini.sh --$@
 
-.PHONY: all setup run clean clean-again
+.PHONY: all setup run clean clean-again finish
