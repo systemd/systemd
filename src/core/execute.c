@@ -1921,6 +1921,9 @@ static bool exec_needs_mount_namespace(
         if (context->root_image)
                 return true;
 
+        if (!LIST_IS_EMPTY(context->mount_images))
+                return true;
+
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
             !strv_isempty(context->inaccessible_paths))
@@ -2570,6 +2573,9 @@ static bool insist_on_sandboxing(
         if (root_dir || root_image)
                 return true;
 
+        if (!LIST_IS_EMPTY(context->mount_images))
+                return true;
+
         if (context->dynamic_user)
                 return true;
 
@@ -2661,6 +2667,7 @@ static int apply_mount_namespace(
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
         r = setup_namespace(root_dir, root_image, context->root_image_options,
+                            context->mount_images,
                             &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
@@ -4215,6 +4222,7 @@ void exec_context_done(ExecContext *c) {
         c->root_hash_sig_size = 0;
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
+        c->mount_images = mount_images_free_all(c->mount_images);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -5025,6 +5033,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 else
                         fprintf(f, "%d\n", c->syscall_errno);
         }
+
+        for (const MountEntry *m = c->mount_images; m; m = mount_images_next(m))
+                fprintf(f, "%sMountImages: %s%s:%s\n", prefix,
+                        mount_entry_ignore(m) ? "-": "",
+                        mount_entry_source(m),
+                        mount_entry_path(m));
 }
 
 bool exec_context_maintains_privileges(const ExecContext *c) {

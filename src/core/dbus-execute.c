@@ -815,6 +815,39 @@ static int property_get_root_image_options(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_mount_images(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(ssb)");
+        if (r < 0)
+                return r;
+
+        for (const MountEntry *m = c->mount_images; m; m = mount_images_next(m)) {
+                r = sd_bus_message_append(reply, "(ssb)",
+                                          mount_entry_source(m),
+                                          mount_entry_path(m),
+                                          mount_entry_ignore(m));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -863,6 +896,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootHashSignature", "ay", property_get_root_hash_sig, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashSignaturePath", "s", NULL, offsetof(ExecContext, root_hash_sig_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootVerity", "s", NULL, offsetof(ExecContext, root_verity), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MountImages", "a(ssb)", property_get_mount_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CoredumpFilter", "t", property_get_coredump_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Nice", "i", property_get_nice, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2896,6 +2930,59 @@ int bus_exec_context_set_transient_property(
                         return 1;
                 }
 
+        } else if (streq(name, "MountImages")) {
+                _cleanup_(mount_images_free_allp) MountEntry *images = NULL;
+                _cleanup_free_ char *format_str = NULL;
+                char *source, *destination;
+                int permissive;
+
+                r = sd_bus_message_enter_container(message, 'a', "(ssb)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(ssb)", &source, &destination, &permissive)) > 0) {
+                        char *tuple;
+
+                        if (!path_is_absolute(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
+                        if (!path_is_normalized(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
+                        if (!path_is_absolute(destination))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", destination);
+                        if (!path_is_normalized(destination))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
+
+                        tuple = strjoin(format_str, format_str ? " " : "", permissive ? "-" : "", source, ":", destination);
+                        if (!tuple)
+                                return -ENOMEM;
+                        free_and_replace(format_str, tuple);
+
+                        r = mount_images_append(&images, source, destination, permissive);
+                        if (r < 0)
+                                return r;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        if (LIST_IS_EMPTY(images)) {
+                                c->mount_images = mount_images_free_all(c->mount_images);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                mount_images_join(&c->mount_images, &images);
+                                unit_write_settingf(u, flags|UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS,
+                                                    name,
+                                                    "%s=%s",
+                                                    name,
+                                                    format_str);
+                        }
+                }
+
+                return 1;
         }
 
         return 0;

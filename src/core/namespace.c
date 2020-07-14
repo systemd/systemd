@@ -15,6 +15,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "label.h"
+#include "list.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
 #include "mkdir.h"
@@ -40,6 +41,7 @@
 typedef enum MountMode {
         /* This is ordered by priority! */
         INACCESSIBLE,
+        MOUNT_IMAGES,
         BIND_MOUNT,
         BIND_MOUNT_RECURSIVE,
         PRIVATE_TMP,
@@ -65,12 +67,13 @@ typedef struct MountEntry {
         bool nosuid:1;            /* Shall set MS_NOSUID on the mount itself */
         bool applied:1;           /* Already applied */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
-        const char *source_const; /* The source path, for bind mounts */
+        const char *source_const; /* The source path, for bind mounts or path images */
         char *source_malloc;
         const char *options_const;/* Mount options for tmpfs */
         char *options_malloc;
         unsigned long flags;      /* Mount flags used by EMPTY_DIR and TMPFS. Do not include MS_RDONLY here, but please use read_only. */
         unsigned n_followed;
+        LIST_FIELDS(MountEntry, mount_entry);
 } MountEntry;
 
 /* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
@@ -205,12 +208,13 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [READONLY]             = "read-only",
         [READWRITE]            = "read-write",
         [TMPFS]                = "tmpfs",
+        [MOUNT_IMAGES]         = "mount-images",
         [READWRITE_IMPLICIT]   = "rw-implicit",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
 
-static const char *mount_entry_path(const MountEntry *p) {
+const char *mount_entry_path(const MountEntry *p) {
         assert(p);
 
         /* Returns the path of this bind mount. If the malloc()-allocated ->path_buffer field is set we return that,
@@ -225,7 +229,7 @@ static bool mount_entry_read_only(const MountEntry *p) {
         return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE, PRIVATE_TMP_READONLY);
 }
 
-static const char *mount_entry_source(const MountEntry *p) {
+const char *mount_entry_source(const MountEntry *p) {
         assert(p);
 
         return p->source_malloc ?: p->source_const;
@@ -235,6 +239,12 @@ static const char *mount_entry_options(const MountEntry *p) {
         assert(p);
 
         return p->options_malloc ?: p->options_const;
+}
+
+bool mount_entry_ignore(const MountEntry *p) {
+        assert(p);
+
+        return p->ignore;
 }
 
 static void mount_entry_done(MountEntry *p) {
@@ -320,6 +330,46 @@ static int append_bind_mounts(MountEntry **p, const BindMount *binds, size_t n) 
                         .source_const = b->source,
                         .ignore = b->ignore_enoent,
                 };
+        }
+
+        return 0;
+}
+
+static int mount_image_copy_from(MountEntry *dst, const MountEntry *src) {
+        _cleanup_free_ char *s = NULL, *d = NULL;
+
+        assert(dst);
+        assert(src);
+
+        s = strdup(mount_entry_source(src));
+        if (!s)
+                return -ENOMEM;
+
+        d = strdup(mount_entry_path(src));
+        if (!d)
+                return -ENOMEM;
+
+        *dst = (MountEntry) {
+                .mode = MOUNT_IMAGES,
+                .ignore = src->ignore,
+                .path_malloc = TAKE_PTR(d),
+                .source_malloc = TAKE_PTR(s),
+        };
+
+        return 0;
+}
+
+static int append_mount_images(MountEntry **p, const MountEntry *mount_images) {
+        MountEntry *m;
+
+        assert(p);
+
+        LIST_FOREACH(mount_entry, m, (MountEntry *)mount_images) {
+                int r;
+
+                r = mount_image_copy_from((*p)++, m);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -882,6 +932,61 @@ static int mount_tmpfs(const MountEntry *m) {
         return 1;
 }
 
+static int mount_images(const MountEntry *m) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_free_ void *root_hash_decoded = NULL;
+        _cleanup_free_ char *verity_data = NULL, *hash_sig = NULL;
+        DissectImageFlags dissect_image_flags = m->read_only ? DISSECT_IMAGE_READ_ONLY : 0;
+        size_t root_hash_size = 0;
+        int r;
+
+        r = loop_device_make_by_path(mount_entry_source(m),
+                                     m->read_only ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
+                                     LO_FLAGS_PARTSCAN,
+                                     &loop_device);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create loop device for image: %m");
+
+        r = verity_metadata_load(mount_entry_source(m), NULL, &root_hash_decoded, &root_hash_size, &verity_data, &hash_sig);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load root hash: %m");
+        dissect_image_flags |= verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
+
+        r = dissect_image(loop_device->fd, root_hash_decoded, root_hash_size, verity_data, NULL, dissect_image_flags, &dissected_image);
+        /* No partition table? Might be a single-filesystem image, try again */
+        if (!verity_data && r < 0 && r == -ENOPKG)
+                 r = dissect_image(loop_device->fd, root_hash_decoded, root_hash_size, verity_data, NULL, dissect_image_flags|DISSECT_IMAGE_NO_PARTITION_TABLE, &dissected_image);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to dissect image: %m");
+
+        r = dissected_image_decrypt(dissected_image, NULL, root_hash_decoded, root_hash_size, verity_data, hash_sig, NULL, 0, dissect_image_flags, &decrypted_image);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+
+        r = mkdir_p_label(mount_entry_path(m), 0755);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create destination directory %s: %m", mount_entry_path(m));
+        r = umount_recursive(mount_entry_path(m), 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to umount under destination directory %s: %m", mount_entry_path(m));
+
+        r = dissected_image_mount(dissected_image, mount_entry_path(m), UID_INVALID, dissect_image_flags);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mount image: %m");
+
+        if (decrypted_image) {
+                r = decrypted_image_relinquish(decrypted_image);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to relinquish decrypted image: %m");
+        }
+
+        loop_device_relinquish(loop_device);
+
+        return 1;
+}
+
 static int follow_symlink(
                 const char *root_directory,
                 MountEntry *m) {
@@ -1031,6 +1136,9 @@ static int apply_mount(
         case PROCFS:
                 return mount_procfs(m);
 
+        case MOUNT_IMAGES:
+                return mount_images(m);
+
         default:
                 assert_not_reached("Unknown mode");
         }
@@ -1152,9 +1260,12 @@ static size_t namespace_calculate_mounts(
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 const char* log_namespace,
+                const MountEntry *mount_images,
                 ProtectHome protect_home,
                 ProtectSystem protect_system) {
 
+        MountEntry *m;
+        size_t n_mount_images = 0;
         size_t protect_home_cnt;
         size_t protect_system_cnt =
                 (protect_system == PROTECT_SYSTEM_STRICT ?
@@ -1172,12 +1283,16 @@ static size_t namespace_calculate_mounts(
                   ((protect_home == PROTECT_HOME_TMPFS) ?
                    ELEMENTSOF(protect_home_tmpfs_table) : 0)));
 
+        LIST_FOREACH(mount_entry, m, (MountEntry *)mount_images)
+                ++n_mount_images;
+
         return !!tmp_dir + !!var_tmp_dir +
                 strv_length(read_write_paths) +
                 strv_length(read_only_paths) +
                 strv_length(inaccessible_paths) +
                 strv_length(empty_directories) +
                 n_bind_mounts +
+                n_mount_images +
                 n_temporary_filesystems +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
@@ -1258,6 +1373,7 @@ int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
                 const MountOptions *root_image_options,
+                const MountEntry *mount_images,
                 const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
@@ -1376,6 +1492,7 @@ int setup_namespace(
                         n_temporary_filesystems,
                         tmp_dir, var_tmp_dir,
                         log_namespace,
+                        mount_images,
                         protect_home, protect_system);
 
         if (n_mounts > 0) {
@@ -1426,6 +1543,10 @@ int setup_namespace(
                                 .source_const = var_tmp_dir,
                         };
                 }
+
+                r = append_mount_images(&m, mount_images);
+                if (r < 0)
+                        goto finish;
 
                 if (ns_info->private_dev) {
                         *(m++) = (MountEntry) {
@@ -1740,6 +1861,58 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
 
         return 0;
 }
+
+MountEntry* mount_images_free_all(MountEntry *images_list) {
+        MountEntry *m;
+
+        while ((m = images_list)) {
+                LIST_REMOVE(mount_entry, images_list, m);
+                mount_entry_done(m);
+                free(m);
+        }
+
+        return NULL;
+}
+
+int mount_images_append(MountEntry **images_list, const char *source, const char *destination, bool ignore) {
+        MountEntry *m;
+        int r;
+
+        assert(images_list);
+        assert(source);
+        assert(destination);
+
+        m = new(MountEntry, 1);
+        if (!m)
+                return log_oom();
+
+        r = mount_image_copy_from(m,
+                                  &(MountEntry) {
+                                        .source_const = source,
+                                        .path_const = destination,
+                                        .ignore = ignore,
+                                  });
+        if (r < 0)
+                return r;
+
+        LIST_APPEND(mount_entry, *images_list, m);
+
+        return 0;
+}
+
+void mount_images_join(MountEntry **destination, MountEntry **source) {
+        assert(source);
+        assert(destination);
+
+        LIST_JOIN(mount_entry, *destination, *source);
+}
+
+const MountEntry* mount_images_next(const MountEntry *p) {
+        if (!p)
+                return NULL;
+
+        return p->mount_entry_next;
+};
 
 void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n) {
         size_t i;

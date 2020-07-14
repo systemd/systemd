@@ -4675,6 +4675,96 @@ int config_parse_bind_paths(
         return 0;
 }
 
+int config_parse_mount_images(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(mount_images_free_allp) MountEntry *images = NULL;
+        ExecContext *c = data;
+        const Unit *u = userdata;
+        char **source = NULL, **destination = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                c->mount_images = mount_images_free_all(c->mount_images);
+                return 0;
+        }
+
+        r = strv_split_colon_pairs(&l, rvalue);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        STRV_FOREACH_PAIR(source, destination, l) {
+                _cleanup_free_ char *sresolved = NULL, *dresolved = NULL;
+                char *s = NULL;
+                bool permissive = false;
+
+                r = unit_full_printf(u, *source, &sresolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", *source);
+                        continue;
+                }
+
+                s = sresolved;
+                if (s[0] == '-') {
+                        permissive = true;
+                        s++;
+                }
+
+                r = path_simplify_and_warn(s, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
+
+                if (isempty(*destination)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Missing destination in %s, ignoring: %s", lvalue, rvalue);
+                        continue;
+                }
+
+                r = unit_full_printf(u, *destination, &dresolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                        "Failed to resolve specifiers in \"%s\", ignoring: %m", *destination);
+                        continue;
+                }
+
+                r = path_simplify_and_warn(dresolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
+
+                r = mount_images_append(&images, s, dresolved, permissive);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        /* empty spaces/separators only */
+        if (LIST_IS_EMPTY(images))
+                c->mount_images = mount_images_free_all(c->mount_images);
+        else
+                mount_images_join(&c->mount_images, &images);
+
+        return 0;
+}
+
 int config_parse_job_timeout_sec(
                 const char* unit,
                 const char *filename,
