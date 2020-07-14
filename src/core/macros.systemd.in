@@ -40,12 +40,12 @@ OrderWithRequires(preun): systemd \
 OrderWithRequires(postun): systemd \
 %{nil}
 
-%__systemd_someargs_0() %{error:This macro requires some arguments}
+%__systemd_someargs_0(:) %{error:The %%%1 macro requires some arguments}
 %__systemd_twoargs_2() %{nil}
 
 %systemd_post() \
-%{expand:%%{?__systemd_someargs_%#}} \
-if [ $1 -eq 1 ] && [ -x @bindir@/systemctl ] ; then \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_post}} \
+if [ $1 -eq 1 ] && [ -x @bindir@/systemctl ]; then \
         # Initial installation \
         @bindir@/systemctl --no-reload preset %{?*} || : \
 fi \
@@ -54,34 +54,40 @@ fi \
 %systemd_user_post() %{expand:%systemd_post \\--global %%{?*}}
 
 %systemd_preun() \
-%{expand:%%{?__systemd_someargs_%#}} \
-if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ] ; then \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_preun}} \
+if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ]; then \
         # Package removal, not upgrade \
         @bindir@/systemctl --no-reload disable --now %{?*} || : \
 fi \
 %{nil}
 
 %systemd_user_preun() \
-%{expand:%%{?__systemd_someargs_%#}} \
-if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ] ; then \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_user_preun}} \
+if [ $1 -eq 0 ] && [ -x @bindir@/systemctl ]; then \
         # Package removal, not upgrade \
         @bindir@/systemctl --global disable %{?*} || : \
 fi \
 %{nil}
 
-%systemd_postun() %{expand:%%{?__systemd_someargs_%#}}%{nil}
+%systemd_postun() \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_postun}} \
+%{nil}
 
-%systemd_user_postun() %{expand:%%{?__systemd_someargs_%#}}%{nil}
+%systemd_user_postun() \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_user_postun}} \
+%{nil}
 
 %systemd_postun_with_restart() \
-%{expand:%%{?__systemd_someargs_%#}} \
-if [ $1 -ge 1 ] && [ -x @bindir@/systemctl ] ; then \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_postun_with_restart}} \
+if [ $1 -ge 1 ] && [ -x @bindir@/systemctl ]; then \
         # Package upgrade, not uninstall \
         @bindir@/systemctl try-restart %{?*} || : \
 fi \
 %{nil}
 
-%systemd_user_postun_with_restart() %{expand:%%{?__systemd_someargs_%#}}%{nil}
+%systemd_user_postun_with_restart() \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# systemd_postun_with_restart}} \
+%{nil}
 
 %udev_hwdb_update() %{nil}
 
@@ -91,13 +97,13 @@ fi \
 
 # Deprecated. Use %tmpfiles_create_package instead
 %tmpfiles_create() \
-%{expand:%%{?__systemd_someargs_%#}} \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# tmpfiles_create}} \
 [ -x @bindir@/systemd-tmpfiles ] && @bindir@/systemd-tmpfiles --create %{?*} || : \
 %{nil}
 
 # Deprecated. Use %sysusers_create_package instead
 %sysusers_create() \
-%{expand:%%{?__systemd_someargs_%#}} \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# sysusers_create}} \
 [ -x @bindir@/systemd-sysusers ] && @bindir@/systemd-sysusers %{?*} || : \
 %{nil}
 
@@ -148,11 +154,11 @@ SYSTEMD_INLINE_EOF\
 %{nil}
 
 %sysctl_apply() \
-%{expand:%%{?__systemd_someargs_%#}} \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# sysctl_apply}} \
 [ -x @rootlibexecdir@/systemd-sysctl ] && @rootlibexecdir@/systemd-sysctl %{?*} || : \
 %{nil}
 
 %binfmt_apply() \
-%{expand:%%{?__systemd_someargs_%#}} \
+%{expand:%%{?__systemd_someargs_%#:%%__systemd_someargs_%# binfmt_apply}} \
 [ -x @rootlibexecdir@/systemd-binfmt ] && @rootlibexecdir@/systemd-binfmt %{?*} || : \
 %{nil}
