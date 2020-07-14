@@ -322,12 +322,12 @@ static int manager_enumerate_users(Manager *m) {
         r = manager_enumerate_linger_users(m);
 
         /* Read in user data stored on disk */
-        d = opendir("/run/systemd/users");
+        d = opendir(PATH_RUN_SYSTEMD_USERS);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/users: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", PATH_RUN_SYSTEMD_USERS);
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
@@ -339,7 +339,9 @@ static int manager_enumerate_users(Manager *m) {
 
                 k = parse_uid(de->d_name, &uid);
                 if (k < 0) {
-                        r = log_warning_errno(k, "Failed to parse filename /run/systemd/users/%s as UID.", de->d_name);
+                        r = log_warning_errno(k, "Failed to parse filename %s/%s as UID.",
+                                PATH_RUN_SYSTEMD_USERS,
+                                de->d_name);
                         continue;
                 }
 
@@ -1181,7 +1183,7 @@ static int run(int argc, char *argv[]) {
          * for the existence of /run/systemd/seats/ to determine whether logind is available, so please always make
          * sure these directories are created early on and unconditionally. */
         (void) mkdir_label(PATH_RUN_SYSTEMD_SEATS, 0755);
-        (void) mkdir_label("/run/systemd/users", 0755);
+        (void) mkdir_label(PATH_RUN_SYSTEMD_USERS, 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, SIGCHLD, -1) >= 0);

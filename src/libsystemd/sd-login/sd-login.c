@@ -250,7 +250,7 @@ static int file_of_uid(uid_t uid, char **p) {
         assert_return(uid_is_valid(uid), -EINVAL);
         assert(p);
 
-        if (asprintf(p, "/run/systemd/users/" UID_FMT, uid) < 0)
+        if (asprintf(p, PATH_RUN_SYSTEMD_USERS "/" UID_FMT, uid) < 0)
                 return -ENOMEM;
 
         return 0;
@@ -788,7 +788,7 @@ _public_ int sd_get_uids(uid_t **users) {
         unsigned n = 0;
         _cleanup_free_ uid_t *l = NULL;
 
-        d = opendir("/run/systemd/users/");
+        d = opendir(PATH_RUN_SYSTEMD_USERS);
         if (!d) {
                 if (errno == ENOENT) {
                         if (users)
@@ -980,7 +980,7 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         }
 
         if (!category || streq(category, "uid")) {
-                k = inotify_add_watch(fd, "/run/systemd/users/", IN_MOVED_TO|IN_DELETE);
+                k = inotify_add_watch(fd, PATH_RUN_SYSTEMD_USERS, IN_MOVED_TO|IN_DELETE);
                 if (k < 0)
                         return -errno;
 

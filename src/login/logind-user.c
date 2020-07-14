@@ -63,7 +63,7 @@ int user_new(User **ret,
                 .last_session_timestamp = USEC_INFINITY,
         };
 
-        if (asprintf(&u->state_file, "/run/systemd/users/" UID_FMT, ur->uid) < 0)
+        if (asprintf(&u->state_file, PATH_RUN_SYSTEMD_USERS "/" UID_FMT, ur->uid) < 0)
                 return -ENOMEM;
 
         if (asprintf(&u->runtime_path, "/run/user/" UID_FMT, ur->uid) < 0)
@@ -146,7 +146,7 @@ static int user_save_internal(User *u) {
         assert(u);
         assert(u->state_file);
 
-        r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0, MKDIR_WARN_MODE);
+        r = mkdir_safe_label(PATH_RUN_SYSTEMD_USERS, 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 goto fail;
 

@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #define PATH_RUN_SYSTEMD_SEATS "/run/systemd/seats"
+#define PATH_RUN_SYSTEMD_USERS "/run/systemd/users"
 
 bool session_id_valid(const char *id);
 
