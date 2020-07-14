@@ -1,56 +1,58 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
-testdata_dir = testsdir + '/testdata/'
+if install_tests
+        testdata_dir = testsdir + '/testdata/'
 
-install_subdir('journal-data',
-               install_dir : testdata_dir)
-install_subdir('units',
-               install_dir : testdata_dir)
-install_subdir('test-execute',
-               install_dir : testdata_dir)
-install_subdir('test-path',
-               install_dir : testdata_dir)
-install_subdir('test-umount',
-               install_dir : testdata_dir)
-install_subdir('test-network-generator-conversion',
-               install_dir : testdata_dir)
-install_subdir('testsuite-04.units',
-               install_dir : testdata_dir)
-install_subdir('testsuite-06.units',
-               install_dir : testdata_dir)
-install_subdir('testsuite-10.units',
-               install_dir : testdata_dir)
-install_subdir('testsuite-11.units',
-               install_dir : testdata_dir)
-install_subdir('testsuite-16.units',
-               install_dir : testdata_dir)
-install_subdir('testsuite-28.units',
-               install_dir : testdata_dir)
-install_subdir('testsuite-30.units',
-               install_dir : testdata_dir)
-install_subdir('testsuite-52.units',
-               install_dir : testdata_dir)
-
-testsuite08_dir = testdata_dir + '/testsuite-08.units'
-install_data('testsuite-08.units/-.mount',
-             install_dir : testsuite08_dir)
-install_data('testsuite-08.units/systemd-remount-fs.service',
-             install_dir : testsuite08_dir)
-meson.add_install_script(meson_make_symlink,
-                         './-.mount',
-                         testsuite08_dir + '/root.mount')
-meson.add_install_script(meson_make_symlink,
-                         '../-.mount',
-                         testsuite08_dir + '/local-fs.target.wants/-.mount')
-
-if conf.get('ENABLE_RESOLVE') == 1
-        install_subdir('test-resolve',
+        install_subdir('journal-data',
                        install_dir : testdata_dir)
-endif
+        install_subdir('units',
+                       install_dir : testdata_dir)
+        install_subdir('test-execute',
+                       install_dir : testdata_dir)
+        install_subdir('test-path',
+                       install_dir : testdata_dir)
+        install_subdir('test-umount',
+                       install_dir : testdata_dir)
+        install_subdir('test-network-generator-conversion',
+                       install_dir : testdata_dir)
+        install_subdir('testsuite-04.units',
+                       install_dir : testdata_dir)
+        install_subdir('testsuite-06.units',
+                       install_dir : testdata_dir)
+        install_subdir('testsuite-10.units',
+                       install_dir : testdata_dir)
+        install_subdir('testsuite-11.units',
+                       install_dir : testdata_dir)
+        install_subdir('testsuite-16.units',
+                       install_dir : testdata_dir)
+        install_subdir('testsuite-28.units',
+                       install_dir : testdata_dir)
+        install_subdir('testsuite-30.units',
+                       install_dir : testdata_dir)
+        install_subdir('testsuite-52.units',
+                       install_dir : testdata_dir)
 
-install_data('create-busybox-container',
-             install_mode : 'rwxr-xr-x',
-             install_dir : testdata_dir)
+        testsuite08_dir = testdata_dir + '/testsuite-08.units'
+        install_data('testsuite-08.units/-.mount',
+                     install_dir : testsuite08_dir)
+        install_data('testsuite-08.units/systemd-remount-fs.service',
+                     install_dir : testsuite08_dir)
+        meson.add_install_script(meson_make_symlink,
+                                 './-.mount',
+                                 testsuite08_dir + '/root.mount')
+        meson.add_install_script(meson_make_symlink,
+                                 '../-.mount',
+                                 testsuite08_dir + '/local-fs.target.wants/-.mount')
+
+        if conf.get('ENABLE_RESOLVE') == 1
+                install_subdir('test-resolve',
+                               install_dir : testdata_dir)
+        endif
+
+        install_data('create-busybox-container',
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : testdata_dir)
+endif
 
 test_network_generator_conversion_sh = find_program('test-network-generator-conversion.sh')
 
