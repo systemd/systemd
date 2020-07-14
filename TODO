@@ -17,6 +17,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* complement root=, rootflags=, rootfstype= with rootsubdir= which allows
+  mounting a subdir of the root fs as actual root. This can be used as
+  fstype-agnostic version of btrfs' rootflags=subvol=foobar.
+
 * add --copy-from and --copy-to command to systemd-dissect which copies stuff
   in and out of a disk image
 
