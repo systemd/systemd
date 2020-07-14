@@ -239,6 +239,8 @@ struct ExecContext {
         size_t n_bind_mounts;
         TemporaryFileSystem *temporary_filesystems;
         size_t n_temporary_filesystems;
+        MountImage *mount_images;
+        size_t n_mount_images;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;

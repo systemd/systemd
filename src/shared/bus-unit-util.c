@@ -18,6 +18,7 @@
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "ip-protocol-list.h"
+#include "libmount-util.h"
 #include "locale-util.h"
 #include "log.h"
 #include "missing_fs.h"
@@ -1503,6 +1504,65 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 mount_options = first;
 
                         r = sd_bus_message_append(m, "(us)", partition_number, mount_options);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (streq(field, "MountImages")) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **source = NULL, **destination = NULL;
+                const char *p = eq;
+
+                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "a(ssb)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "(ssb)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = strv_split_colon_pairs(&l, p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse argument: %m");
+
+                STRV_FOREACH_PAIR(source, destination, l) {
+                        char *s = *source;
+                        bool permissive = false;
+
+                        if (s[0] == '-') {
+                                permissive = true;
+                                s++;
+                        }
+
+                        if (isempty(*destination))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                        "Missing argument after ':': %s",
+                                                        eq);
+
+                        r = sd_bus_message_append(m, "(ssb)", s, *destination, permissive);
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }

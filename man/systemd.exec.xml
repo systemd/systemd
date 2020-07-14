@@ -261,6 +261,42 @@
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>MountImages=</varname></term>
+
+        <listitem><para>This setting is similar to <varname>RootImage=</varname> in that it mounts a file
+        system hierarchy from a block device node or loopback file, but the destination directory can be
+        specified as well as mount options. This option expects a whitespace separated list of mount
+        definitions. Each definition consists of a colon-separated tuple of source path and destination
+        directory. Each mount definition may be prefixed with <literal>-</literal>, in which case it will be
+        ignored when its source path does not exist. The source argument is a path to a block device node or
+        regular file. If source or destination contain a <literal>:</literal>, it needs to be escaped as
+        <literal>\:</literal>.
+        The device node or file system image file needs to follow the same rules as specified
+        for <varname>RootImage=</varname>. Any mounts created with this option are specific to the unit, and
+        are not visible in the host's mount table.</para>
+
+        <para>These settings may be used more than once, each usage appends to the unit's list of mount
+        paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
+        reset.</para>
+
+        <para>Note that the destination directory must exist or systemd must be able to create it.  Thus, it
+        is not possible to use those options for mount points nested underneath paths specified in
+        <varname>InaccessiblePaths=</varname>, or under <filename>/home/</filename> and other protected
+        directories if <varname>ProtectHome=yes</varname> is specified.</para>
+
+        <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
+        <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
+        set, then this setting adds <filename>/dev/loop-control</filename> with <constant>rw</constant> mode,
+        <literal>block-loop</literal> and <literal>block-blkext</literal> with <constant>rwm</constant> mode
+        to <varname>DeviceAllow=</varname>. See
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>. Also, see
+        <varname>PrivateDevices=</varname> below, as it may change the setting of
+        <varname>DevicePolicy=</varname>.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

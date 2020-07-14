@@ -155,6 +155,26 @@ journalctl -b -u testservice-50b.service | grep -F "squashfs" | grep -q -F "noat
 # Check that specifier escape is applied %%foo -> %foo
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/testservice_2d50b_2eservice org.freedesktop.systemd1.Service RootImageOptions | grep -F "nosuid,dev,%foo"
 
+# Now do some checks with MountImages, both by itself and in combination with RootImage, and as single FS or GPT image
+systemd-run -t --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t --property MountImages="${image}.raw:/run/img2\:3" /usr/bin/cat /run/img2:3/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t --property TemporaryFileSystem=/run --property RootImage=${image}.raw --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t --property TemporaryFileSystem=/run --property RootImage=${image}.raw --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t --property TemporaryFileSystem=/run --property RootImage=${image}.gpt --property RootHash=${roothash} --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+cat >/run/systemd/system/testservice-50.service <<EOF
+[Service]
+TemporaryFileSystem=/run
+RootImage=${image}.raw
+MountImages=${image}.gpt:/run/img1
+MountImages=${image}.raw:/run/img2\:3
+ExecStart=/usr/bin/cat /run/img1/usr/lib/os-release
+ExecStart=/usr/bin/cat /run/img2:3/usr/lib/os-release
+Type=oneshot
+EOF
+systemctl start testservice-50.service
+journalctl -b -u testservice-50.service | grep -q -F "MARKER=1"
+
 echo OK > /testok
 
 exit 0
