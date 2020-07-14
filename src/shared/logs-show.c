@@ -50,6 +50,7 @@
 
 static int print_catalog(FILE *f, sd_journal *j) {
         _cleanup_free_ char *t = NULL, *z = NULL;
+        const char *newline, *prefix;
         int r;
 
         assert(j);
@@ -60,13 +61,31 @@ static int print_catalog(FILE *f, sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find catalog entry: %m");
 
-        z = strreplace(strstrip(t), "\n", "\n-- ");
+        if (is_locale_utf8())
+                prefix = strjoina(special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), special_glyph(SPECIAL_GLYPH_LIGHT_SHADE));
+        else
+                prefix = "--";
+
+        if (colors_enabled())
+                newline = strjoina(ANSI_NORMAL "\n" ANSI_GREY, prefix, ANSI_NORMAL " " ANSI_GREEN);
+        else
+                newline = strjoina("\n", prefix, " ");
+
+        z = strreplace(strstrip(t), "\n", newline);
         if (!z)
                 return log_oom();
 
-        fputs("-- ", f);
+        if (colors_enabled())
+                fprintf(f, ANSI_GREY "%s" ANSI_NORMAL " " ANSI_GREEN, prefix);
+        else
+                fprintf(f, "%s ", prefix);
+
         fputs(z, f);
-        fputc('\n', f);
+
+        if (colors_enabled())
+                fputs(ANSI_NORMAL "\n", f);
+        else
+                fputc('\n', f);
 
         return 1;
 }
