@@ -144,8 +144,9 @@ static int access_init(sd_bus_error *error) {
 
         if (avc_open(NULL, 0) != 0) {
                 int saved_errno = errno;
-                const bool enforce = mac_selinux_enforcing();
+                bool enforce;
 
+                enforce = security_getenforce() != 0;
                 log_full_errno(enforce ? LOG_ERR : LOG_WARNING, saved_errno, "Failed to open the SELinux AVC: %m");
 
                 /* If enforcement isn't on, then let's suppress this
@@ -197,7 +198,7 @@ int mac_selinux_generic_access_check(
                 return r;
 
         /* delay call until we checked in `access_init()` if SELinux is actually enabled */
-        enforce = mac_selinux_enforcing();
+        enforce = security_getenforce() != 0;
 
         r = sd_bus_query_sender_creds(
                         message,
