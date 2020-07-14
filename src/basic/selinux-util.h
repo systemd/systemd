@@ -16,7 +16,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char*, freecon);
 #endif
 
 bool mac_selinux_use(void);
-bool mac_selinux_enforcing(void);
 void mac_selinux_retest(void);
 
 int mac_selinux_init(void);

@@ -35,14 +35,14 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 static int mac_selinux_reload(int seqno);
 
 static int cached_use = -1;
-static int cached_enforcing = -1;
 static struct selabel_handle *label_hnd = NULL;
 
-#define log_enforcing(...) log_full(mac_selinux_enforcing() ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
+#define log_enforcing(...)                                              \
+        log_full(security_getenforce() != 0 ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
 
 #define log_enforcing_errno(error, ...)                                 \
         ({                                                              \
-                bool _enforcing = mac_selinux_enforcing();              \
+                bool _enforcing = security_getenforce() != 0;           \
                 int _level = _enforcing ? LOG_ERR : LOG_WARNING;        \
                 int _e = (error);                                       \
                                                                         \
@@ -66,40 +66,11 @@ bool mac_selinux_use(void) {
 #endif
 }
 
-bool mac_selinux_enforcing(void) {
-#if HAVE_SELINUX
-        if (_unlikely_(cached_enforcing < 0)) {
-                cached_enforcing = security_getenforce();
-                if (cached_enforcing < 0) {
-                        log_debug_errno(errno, "Failed to get SELinux enforced status, continuing in enforcing mode: %m");
-                        return true; /* treat failure as enforcing mode */
-                }
-
-                log_debug("SELinux enforcing state cached to: %s", cached_enforcing ? "enforcing" : "permissive");
-        }
-
-        return cached_enforcing > 0;
-#else
-        return false;
-#endif
-}
-
 void mac_selinux_retest(void) {
 #if HAVE_SELINUX
         cached_use = -1;
-        cached_enforcing = -1;
 #endif
 }
-
-#if HAVE_SELINUX
-static int setenforce_callback(int enforcing) {
-        cached_enforcing = enforcing;
-
-        log_debug("SELinux enforcing state updated to: %s", cached_enforcing ? "enforcing" : "permissive");
-
-        return 0;
-}
-#endif
 
 int mac_selinux_init(void) {
 #if HAVE_SELINUX
@@ -109,7 +80,6 @@ int mac_selinux_init(void) {
         int l;
 
         selinux_set_callback(SELINUX_CB_POLICYLOAD, (union selinux_callback) mac_selinux_reload);
-        selinux_set_callback(SELINUX_CB_SETENFORCE, (union selinux_callback) setenforce_callback);
 
         if (label_hnd)
                 return 0;
