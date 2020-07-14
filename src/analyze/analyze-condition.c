@@ -85,11 +85,14 @@ static int parse_condition(Unit *u, const char *line) {
                 p = startswith(line, c->name);
                 if (!p)
                         continue;
-                p += strspn(p, WHITESPACE);
-                if (*p != '=')
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected \"=\" in \"%s\".", line);
 
-                p += 1 + strspn(p + 1, WHITESPACE);
+                p += strspn(p, WHITESPACE);
+
+                if (*p != '=')
+                        continue;
+                p++;
+
+                p += strspn(p, WHITESPACE);
 
                 return c->parser(NULL, "(stdin)", 0, NULL, 0, c->name, c->type, p, target, u);
         }
