@@ -156,6 +156,8 @@ static int userdb_on_query_reply(
                         r = -ESRCH;
                 else if (streq(error_id, "io.systemd.UserDatabase.ServiceNotAvailable"))
                         r = -EHOSTDOWN;
+                else if (streq(error_id, "io.systemd.UserDatabase.EnumerationNotSupported"))
+                        r = -EOPNOTSUPP;
                 else if (streq(error_id, VARLINK_ERROR_TIMEOUT))
                         r = -ETIMEDOUT;
                 else

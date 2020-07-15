@@ -187,6 +187,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><constant>io.systemd.Machine</constant></term>
+
+        <listitem><para>This service is provided by
+        <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and synthesizes records for all users/groups used by a container that employs user
+        namespacing.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>io.systemd.Multiplexer</constant></term>
 
         <listitem><para>This service is provided by

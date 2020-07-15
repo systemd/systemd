@@ -108,7 +108,7 @@ example, introspection is not available, and the resolver logic is not used.
 
 ## Other Services
 
-The `systemd` project provides two other services implementing this
+The `systemd` project provides three other services implementing this
 interface. Specifically:
 
 1. `io.systemd.DynamicUser` → This service is implemented by the service
@@ -118,6 +118,10 @@ interface. Specifically:
 2. `io.systemd.Home` → This service is implemented by `systemd-homed.service`
    and provides records for the users and groups defined by the home
    directories it manages.
+
+3. `io.systemd.Machine` → This service is implemented by
+   `systemd-machined.service` and provides records for the users and groups used
+   by local containers that use user namespacing.
 
 Other projects are invited to implement these services too. For example it
 would make sense for LDAP/ActiveDirectory projects to implement these
@@ -185,6 +189,7 @@ error NoRecordFound()
 error BadService()
 error ServiceNotAvailable()
 error ConflictingRecordFound()
+error EnumerationNotSupported()
 ```
 
 The `GetUserRecord` method looks up or enumerates a user record. If the `uid`
@@ -263,5 +268,12 @@ acquire the full list of memberships. The full list can only bet determined by
 services. Result of this is that it can be one service that defines a user A,
 and another service that defines a group B, and a third service that declares
 that A is a member of B.
+
+Looking up explicit users/groups by their name or UID/GID, or querying
+user/group memberships must be supported by all services implementing these
+interfaces. However, supporting enumeration (i.e. user/group lookups that may
+result in more than one reply, because neither UID/GID nor name is specified)
+is optional. Services which are asked for enumeration may return the
+`EnumerationNotSupported` error in this case.
 
 And that's really all there is to it.

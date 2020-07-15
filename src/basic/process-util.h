@@ -20,14 +20,16 @@
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \
                 pid_t _pid_ = (pid);                                    \
-                const char *_r_;                                        \
+                const char *_field_ = (field);                          \
+                char *_r_;                                              \
                 if (_pid_ == 0) {                                       \
-                        _r_ = ("/proc/self/" field);                    \
+                        _r_ = newa(char, STRLEN("/proc/self/") + strlen(_field_) + 1); \
+                        strcpy(stpcpy(_r_, "/proc/self/"), _field_);    \
                 } else {                                                \
-                        _r_ = newa(char, STRLEN("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
-                        sprintf((char*) _r_, "/proc/"PID_FMT"/" field, _pid_); \
+                        _r_ = newa(char, STRLEN("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + strlen(_field_) + 1); \
+                        sprintf(_r_, "/proc/" PID_FMT "/%s", _pid_, _field_); \
                 }                                                       \
-                _r_;                                                    \
+                (const char*) _r_;                                      \
         })
 
 typedef enum ProcessCmdlineFlags {

@@ -4636,7 +4636,7 @@ static int run_container(
         if (!barrier_place_and_sync(&barrier)) /* #5 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
-        /* At this point we have made use of the UID we picked, and thus nss-mymachines
+        /* At this point we have made use of the UID we picked, and thus nss-systemd/systemd-machined.service
          * will make them appear in getpwuid(), thus we can release the /etc/passwd lock. */
         etc_passwd_lock = safe_close(etc_passwd_lock);
 

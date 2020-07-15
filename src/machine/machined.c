@@ -20,6 +20,7 @@
 #include "hostname-util.h"
 #include "label.h"
 #include "machine-image.h"
+#include "machined-varlink.h"
 #include "machined.h"
 #include "main-func.h"
 #include "process-util.h"
@@ -85,6 +86,8 @@ static Manager* manager_unref(Manager *m) {
         sd_event_source_unref(m->nscd_cache_flush_event);
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
+
+        manager_varlink_done(m);
 
         sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
@@ -272,6 +275,11 @@ static int manager_startup(Manager *m) {
         if (r < 0)
                 return r;
 
+        /* Set up Varlink service */
+        r = manager_varlink_init(m);
+        if (r < 0)
+                return r;
+
         /* Deserialize state */
         manager_enumerate_machines(m);
 
@@ -289,6 +297,9 @@ static bool check_idle(void *userdata) {
         Manager *m = userdata;
 
         if (m->operations)
+                return false;
+
+        if (varlink_server_current_connections(m->varlink_server) > 0)
                 return false;
 
         manager_gc(m, true);

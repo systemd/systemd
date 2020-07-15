@@ -336,7 +336,6 @@ Features:
 
 * homed:
   - when user tries to log into record signed by unrecognized key, automatically add key to our chain after polkit auth
-  - hook up machined/nspawn users with a varlink user query interface
   - rollback when resize fails mid-operation
   - GNOME's side for forget key on suspend (requires rework so that lock screen runs outside of uid)
   - resize on login?

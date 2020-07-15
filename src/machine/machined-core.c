@@ -3,6 +3,7 @@
 #include "machined.h"
 #include "nscd-flush.h"
 #include "strv.h"
+#include "user-util.h"
 
 static int on_nscd_cache_flush_event(sd_event_source *s, void *userdata) {
         /* Let's ask glibc's nscd daemon to flush its caches. We request this for the three database machines may show
@@ -33,4 +34,73 @@ int manager_enqueue_nscd_cache_flush(Manager *m) {
         }
 
         return 0;
+}
+
+int manager_find_machine_for_uid(Manager *m, uid_t uid, Machine **ret_machine, uid_t *ret_internal_uid) {
+        Machine *machine;
+        Iterator i;
+        int r;
+
+        assert(m);
+        assert(uid_is_valid(uid));
+
+        /* Finds the machine for the specified host UID and returns it along with the UID translated into the
+         * internal UID inside the machine */
+
+        HASHMAP_FOREACH(machine, m->machines, i) {
+                uid_t converted;
+
+                r = machine_owns_uid(machine, uid, &converted);
+                if (r < 0)
+                        return r;
+                if (r) {
+                        if (ret_machine)
+                                *ret_machine = machine;
+
+                        if (ret_internal_uid)
+                                *ret_internal_uid = converted;
+
+                        return true;
+                }
+        }
+
+        if (ret_machine)
+                *ret_machine = NULL;
+        if (ret_internal_uid)
+                *ret_internal_uid = UID_INVALID;
+
+        return false;
+}
+
+int manager_find_machine_for_gid(Manager *m, gid_t gid, Machine **ret_machine, gid_t *ret_internal_gid) {
+        Machine *machine;
+        Iterator i;
+        int r;
+
+        assert(m);
+        assert(gid_is_valid(gid));
+
+        HASHMAP_FOREACH(machine, m->machines, i) {
+                gid_t converted;
+
+                r = machine_owns_gid(machine, gid, &converted);
+                if (r < 0)
+                        return r;
+                if (r) {
+                        if (ret_machine)
+                                *ret_machine = machine;
+
+                        if (ret_internal_gid)
+                                *ret_internal_gid = converted;
+
+                        return true;
+                }
+        }
+
+        if (ret_machine)
+                *ret_machine = NULL;
+        if (ret_internal_gid)
+                *ret_internal_gid = GID_INVALID;
+
+        return false;
 }

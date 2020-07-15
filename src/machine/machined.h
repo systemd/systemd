@@ -6,15 +6,15 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
-#include "hashmap.h"
-#include "list.h"
-
 typedef struct Manager Manager;
 
+#include "hashmap.h"
 #include "image-dbus.h"
+#include "list.h"
 #include "machine-dbus.h"
 #include "machine.h"
 #include "operation.h"
+#include "varlink.h"
 
 struct Manager {
         sd_event *event;
@@ -37,6 +37,8 @@ struct Manager {
         unsigned n_operations;
 
         sd_event_source *nscd_cache_flush_event;
+
+        VarlinkServer *varlink_server;
 };
 
 int manager_add_machine(Manager *m, const char *name, Machine **_machine);
@@ -56,3 +58,6 @@ int manager_unit_is_active(Manager *manager, const char *unit);
 int manager_job_is_active(Manager *manager, const char *path);
 
 int manager_enqueue_nscd_cache_flush(Manager *m);
+
+int manager_find_machine_for_uid(Manager *m, uid_t host_uid, Machine **ret_machine, uid_t *ret_internal_uid);
+int manager_find_machine_for_gid(Manager *m, gid_t host_gid, Machine **ret_machine, gid_t *ret_internal_gid);

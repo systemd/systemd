@@ -35,8 +35,8 @@
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> (for its
     <varname>DynamicUser=</varname> feature, see
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-    details) or
-    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    details),
+    <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
     <para>This module also ensures that the root and nobody users and groups (i.e. the users/groups with the UIDs/GIDs
     0 and 65534) remain resolvable at all times, even if they aren't listed in <filename>/etc/passwd</filename> or
@@ -55,14 +55,14 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Configuration in <filename>/etc/nsswitch.conf</filename></title>
 
     <para>Here is an example <filename>/etc/nsswitch.conf</filename> file that enables
     <command>nss-systemd</command> correctly:</para>
 
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
-    <programlisting>passwd:         compat mymachines <command>systemd</command>
-group:          compat [SUCCESS=merge] mymachines [SUCCESS=merge] <command>systemd</command>
+    <programlisting>passwd:         compat <command>systemd</command>
+group:          compat [SUCCESS=merge] <command>systemd</command>
 shadow:         compat
 
 hosts:          mymachines resolve [!UNAVAIL=return] myhostname files dns
@@ -78,6 +78,47 @@ netgroup:       nis</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>Example: Mappings provided by <filename>systemd-machined.service</filename></title>
+
+    <para>The container <literal>rawhide</literal> is spawned using
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+    </para>
+
+    <programlisting># systemd-nspawn -M rawhide --boot --network-veth --private-users=pick
+Spawning container rawhide on /var/lib/machines/rawhide.
+Selected user namespace base 20119552 and range 65536.
+...
+
+$ machinectl --max-addresses=3
+MACHINE CLASS     SERVICE        OS     VERSION ADDRESSES
+rawhide container systemd-nspawn fedora 30      169.254.40.164 fe80::94aa:3aff:fe7b:d4b9
+
+$ getent passwd vu-rawhide-0 vu-rawhide-81
+vu-rawhide-0:*:20119552:65534:vu-rawhide-0:/:/usr/sbin/nologin
+vu-rawhide-81:*:20119633:65534:vu-rawhide-81:/:/usr/sbin/nologin
+
+$ getent group vg-rawhide-0 vg-rawhide-81
+vg-rawhide-0:*:20119552:
+vg-rawhide-81:*:20119633:
+
+$ ps -o user:15,pid,tty,command -e|grep '^vu-rawhide'
+vu-rawhide-0      692 ?        /usr/lib/systemd/systemd
+vu-rawhide-0      731 ?        /usr/lib/systemd/systemd-journald
+vu-rawhide-192    734 ?        /usr/lib/systemd/systemd-networkd
+vu-rawhide-193    738 ?        /usr/lib/systemd/systemd-resolved
+vu-rawhide-0      742 ?        /usr/lib/systemd/systemd-logind
+vu-rawhide-81     744 ?        /usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+vu-rawhide-0      746 ?        /usr/sbin/sshd -D ...
+vu-rawhide-0      752 ?        /usr/lib/systemd/systemd --user
+vu-rawhide-0      753 ?        (sd-pam)
+vu-rawhide-0     1628 ?        login -- zbyszek
+vu-rawhide-1000  1630 ?        /usr/lib/systemd/systemd --user
+vu-rawhide-1000  1631 ?        (sd-pam)
+vu-rawhide-1000  1637 pts/8    -zsh
+</programlisting>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
@@ -85,6 +126,9 @@ netgroup:       nis</programlisting>
       <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-mymachines</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
