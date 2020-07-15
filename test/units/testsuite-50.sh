@@ -45,6 +45,14 @@ cat ${image_dir}/mount/etc/os-release | grep -q -F -f /usr/lib/os-release
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"
 umount ${image_dir}/mount
 
+systemd-run -t --property RootImage=${image}.raw /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
+mv ${image}.verity ${image}.fooverity
+mv ${image}.roothash ${image}.foohash
+systemd-run -t --property RootImage=${image}.raw --property RootHash=${image}.foohash --property RootVerity=${image}.fooverity /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t --property RootImage=${image}.raw --property RootHash=${roothash} --property RootVerity=${image}.fooverity /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
+mv ${image}.fooverity ${image}.verity
+mv ${image}.foohash ${image}.roothash
+
 # Make a GPT disk on the fly, with the squashfs as partition 1 and the verity hash tree as partition 2
 machine="$(uname -m)"
 if [ "${machine}" = "x86_64" ]; then
@@ -97,6 +105,8 @@ cat ${image_dir}/mount/usr/lib/os-release | grep -q -F -f /usr/lib/os-release
 cat ${image_dir}/mount/etc/os-release | grep -q -F -f /usr/lib/os-release
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"
 umount ${image_dir}/mount
+
+systemd-run -t --property RootImage=${image}.gpt --property RootHash=${roothash} /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
 
 echo OK > /testok
 
