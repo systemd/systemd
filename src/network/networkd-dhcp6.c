@@ -489,7 +489,7 @@ int dhcp6_request_prefix_delegation(Link *link) {
                 if (enabled == 0) {
                         r = sd_dhcp6_client_set_prefix_delegation(l->dhcp6_client, 1);
                         if (r < 0) {
-                                log_link_warning_errno(l, r, "Cannot enable prefix delegation when adding new link: 5m");
+                                log_link_warning_errno(l, r, "Cannot enable prefix delegation when adding new link: %m");
                                 continue;
                         }
                 }
