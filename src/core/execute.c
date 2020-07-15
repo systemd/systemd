@@ -1733,7 +1733,8 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-        our_env = new0(char*, 15 + _EXEC_DIRECTORY_TYPE_MAX);
+#define N_ENV_VARS 15
+        our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1881,7 +1882,8 @@ static int build_environment(
         }
 
         our_env[n_env++] = NULL;
-        assert(n_env <= 14 + _EXEC_DIRECTORY_TYPE_MAX);
+        assert(n_env <= N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
+#undef N_ENV_VARS
 
         *ret = TAKE_PTR(our_env);
 
