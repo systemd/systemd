@@ -37,6 +37,16 @@ usb:v058Fp9540*
  ID_AUTOSUSPEND=1
 
 #########################################
+# QEMU
+#########################################
+
+# Emulated USB HID devices
+usb:v0627p0001:*QEMU USB Keyboard*
+usb:v0627p0001:*QEMU USB Mouse*
+usb:v0627p0001:*QEMU USB Tablet*
+ ID_AUTOSUSPEND=1
+
+#########################################
 # Wacom
 #########################################
 
