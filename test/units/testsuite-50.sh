@@ -22,31 +22,27 @@ fi
 
 trap cleanup EXIT
 
-image="${image_dir}/img"
-mkdir -p ${image}/usr/lib ${image}/etc
-cp /usr/lib/os-release ${image}/usr/lib/
-cp /etc/machine-id /etc/os-release ${image}/etc/
-mksquashfs ${image} ${image}.raw
-veritysetup format ${image}.raw ${image}.verity | grep '^Root hash:' | cut -f2 | tr -d '\n' > ${image}.roothash
+cp /usr/share/minimal.* "${image_dir}/"
+image="${image_dir}/minimal"
 roothash="$(cat ${image}.roothash)"
 
 /usr/lib/systemd/systemd-dissect ${image}.raw | grep -q -F "Found read-only 'root' partition of type squashfs with verity"
+/usr/lib/systemd/systemd-dissect ${image}.raw | grep -q -F "MARKER=1"
 /usr/lib/systemd/systemd-dissect ${image}.raw | grep -q -F -f /usr/lib/os-release
 
 mv ${image}.verity ${image}.fooverity
 mv ${image}.roothash ${image}.foohash
 /usr/lib/systemd/systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F "Found read-only 'root' partition of type squashfs with verity"
+/usr/lib/systemd/systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F "MARKER=1"
 /usr/lib/systemd/systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F -f /usr/lib/os-release
 mv ${image}.fooverity ${image}.verity
 mv ${image}.foohash ${image}.roothash
 
 mkdir -p ${image_dir}/mount
 /usr/lib/systemd/systemd-dissect --mount ${image}.raw ${image_dir}/mount
-pushd ${image_dir}/mount/etc/
-(cd /etc; md5sum os-release) | md5sum -c
-cd ../usr/lib
-(cd /usr/lib; md5sum os-release) | md5sum -c
-popd
+cat ${image_dir}/mount/usr/lib/os-release | grep -q -F -f /usr/lib/os-release
+cat ${image_dir}/mount/etc/os-release | grep -q -F -f /usr/lib/os-release
+cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"
 umount ${image_dir}/mount
 
 # Make a GPT disk on the fly, with the squashfs as partition 1 and the verity hash tree as partition 2
@@ -93,14 +89,13 @@ losetup -d ${loop}
 
 /usr/lib/systemd/systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q "Found read-only 'root' partition (UUID $(head -c 32 ${image}.roothash)) of type squashfs for .* with verity on partition #1"
 /usr/lib/systemd/systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q "Found read-only 'root-verity' partition (UUID $(tail -c 32 ${image}.roothash)) of type DM_verity_hash for .* on partition #2"
+/usr/lib/systemd/systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F "MARKER=1"
 /usr/lib/systemd/systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F -f /usr/lib/os-release
 
 /usr/lib/systemd/systemd-dissect --root-hash ${roothash} --mount ${image}.gpt ${image_dir}/mount
-pushd ${image_dir}/mount/etc/
-(cd /etc; md5sum os-release) | md5sum -c
-cd ../usr/lib
-(cd /usr/lib; md5sum os-release) | md5sum -c
-popd
+cat ${image_dir}/mount/usr/lib/os-release | grep -q -F -f /usr/lib/os-release
+cat ${image_dir}/mount/etc/os-release | grep -q -F -f /usr/lib/os-release
+cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"
 umount ${image_dir}/mount
 
 echo OK > /testok

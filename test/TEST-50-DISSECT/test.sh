@@ -28,11 +28,24 @@ test_create_image() {
         instmods dm_verity =md
         install_dmevent
         generate_module_dependencies
-        inst_binary md5sum
-        inst_binary mksquashfs
-        inst_binary veritysetup
         inst_binary sfdisk
         inst_binary losetup
+
+        BASICTOOLS=(
+            bash
+            cat
+        )
+        oldinitdir=$initdir
+        export initdir=$TESTDIR/minimal
+        mkdir -p $initdir
+        setup_basic_dirs
+        install_basic_tools
+        inst /usr/lib/os-release
+        ln -s ../usr/lib/os-release $initdir/etc/os-release
+        echo MARKER=1 >> $initdir/usr/lib/os-release
+        mksquashfs $initdir $oldinitdir/usr/share/minimal.raw
+        veritysetup format $oldinitdir/usr/share/minimal.raw $oldinitdir/usr/share/minimal.verity | grep '^Root hash:' | cut -f2 | tr -d '\n' > $oldinitdir/usr/share/minimal.roothash
+        export initdir=$oldinitdir
     )
 }
 
