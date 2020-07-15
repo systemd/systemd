@@ -2015,7 +2015,7 @@ int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
         assert_return(client->fd >= 0, -EINVAL);
 
-        if (IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_INIT_REBOOT, DHCP_STATE_STOPPED))
+        if (!client->lease)
                 return 0;
 
         client->start_delay = 0;
