@@ -272,7 +272,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
 
         fd = open_parent(t, O_PATH|O_CLOEXEC, 0);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return fd_is_mount_point(fd, last_path_component(t), flags);
 }
