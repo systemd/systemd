@@ -26,7 +26,7 @@ int tc_init(double *ret_ticks_in_usec, uint32_t *ret_hz) {
                 if (r < 4)
                         return -EIO;
 
-                clock_factor =  (double) clock_resolution / USEC_PER_SEC;
+                clock_factor = (double) clock_resolution / USEC_PER_SEC;
                 ticks_in_usec = (double) ticks_to_usec / usec_to_ticks * clock_factor;
         }
 
@@ -57,7 +57,7 @@ int tc_time_to_tick(usec_t t, uint32_t *ret) {
         return 0;
 }
 
-int parse_tc_percent(const char *s, uint32_t *percent)  {
+int parse_tc_percent(const char *s, uint32_t *percent) {
         int r;
 
         assert(s);

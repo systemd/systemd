@@ -444,6 +444,8 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EADDRNOTAVAIL)
                 log_link_message_warning_errno(link, m, r, "Could not drop address");
+        else
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         return 1;
 }

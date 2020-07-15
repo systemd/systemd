@@ -376,7 +376,7 @@ DHCP={}
                 # IPv6, but we want to wait for both
                 for _ in range(10):
                     out = subprocess.check_output(['ip', 'a', 'show', 'dev', self.iface])
-                    if b'state UP' in out and b'inet6 2600' in out and b'inet 192.168' in out:
+                    if b'state UP' in out and b'inet6 2600' in out and b'inet 192.168' in out and b'tentative' not in out:
                         break
                     time.sleep(1)
                 else:

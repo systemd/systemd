@@ -932,10 +932,9 @@ static int link_request_set_routing_policy_rule(Link *link) {
         }
 
         routing_policy_rule_purge(link->manager, link);
-        if (link->routing_policy_rule_messages == 0) {
+        if (link->routing_policy_rule_messages == 0)
                 link->routing_policy_rules_configured = true;
-                link_check_ready(link);
-        } else {
+        else {
                 log_link_debug(link, "Setting routing policy rules");
                 link_set_state(link, LINK_STATE_CONFIGURING);
         }
@@ -972,9 +971,11 @@ static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-int link_request_set_nexthop(Link *link) {
+static int link_request_set_nexthop(Link *link) {
         NextHop *nh;
         int r;
+
+        link->static_nexthops_configured = false;
 
         LIST_FOREACH(nexthops, nh, link->network->static_nexthops) {
                 r = nexthop_configure(nh, link, nexthop_handler);
@@ -1018,7 +1019,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         if (link->route_messages == 0) {
                 log_link_debug(link, "Routes set");
                 link->static_routes_configured = true;
-                link_check_ready(link);
+                link_request_set_nexthop(link);
         }
 
         return 1;
@@ -1040,7 +1041,6 @@ int link_request_set_routes(Link *link) {
         assert(link->state != _LINK_STATE_INVALID);
 
         link->static_routes_configured = false;
-        link->static_routes_ready = false;
 
         if (!link_has_carrier(link) && !link->network->configure_without_carrier)
                 /* During configuring addresses, the link lost its carrier. As networkd is dropping
@@ -1069,7 +1069,7 @@ int link_request_set_routes(Link *link) {
 
         if (link->route_messages == 0) {
                 link->static_routes_configured = true;
-                link_check_ready(link);
+                link_request_set_nexthop(link);
         } else {
                 log_link_debug(link, "Setting routes");
                 link_set_state(link, LINK_STATE_CONFIGURING);
@@ -1085,70 +1085,107 @@ void link_check_ready(Link *link) {
 
         assert(link);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
+                log_link_debug(link, "%s(): link is in failed or linger state.", __func__);
                 return;
+        }
 
         if (!link->network)
                 return;
 
-        if (!link->addresses_configured)
+        if (!link->addresses_configured) {
+                log_link_debug(link, "%s(): static addresses are not configured.", __func__);
                 return;
+        }
 
-        if (!link->neighbors_configured)
+        if (!link->neighbors_configured) {
+                log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
                 return;
+        }
 
         SET_FOREACH(a, link->addresses, i)
-                if (!address_is_ready(a))
+                if (!address_is_ready(a)) {
+                        _cleanup_free_ char *str = NULL;
+
+                        (void) in_addr_to_string(a->family, &a->in_addr, &str);
+                        log_link_debug(link, "%s(): an address %s/%d is not ready.", __func__, strnull(str), a->prefixlen);
                         return;
+                }
 
         if (!link->addresses_ready) {
                 link->addresses_ready = true;
                 r = link_request_set_routes(link);
                 if (r < 0)
                         link_enter_failed(link);
+                log_link_debug(link, "%s(): static addresses are configured. Configuring static routes.", __func__);
                 return;
         }
 
-        if (!link->static_routes_configured)
-                return;
-
-        if (!link->static_routes_ready) {
-                link->static_routes_ready = true;
-                r = link_request_set_nexthop(link);
-                if (r < 0)
-                        link_enter_failed(link);
+        if (!link->static_routes_configured) {
+                log_link_debug(link, "%s(): static routes are not configured.", __func__);
                 return;
         }
 
-        if (!link->static_nexthops_configured)
+        if (!link->static_nexthops_configured) {
+                log_link_debug(link, "%s(): static nexthops are not configured.", __func__);
                 return;
+        }
 
-        if (!link->routing_policy_rules_configured)
+        if (!link->routing_policy_rules_configured) {
+                log_link_debug(link, "%s(): static routing policy rules are not configured.", __func__);
                 return;
+        }
 
-        if (!link->tc_configured)
+        if (!link->tc_configured) {
+                log_link_debug(link, "%s(): traffic controls are not configured.", __func__);
                 return;
+        }
 
-        if (!link->sr_iov_configured)
+        if (!link->sr_iov_configured) {
+                log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
                 return;
+        }
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
 
-                if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4) && !link->ipv4ll_address)
+                if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4) && !link->ipv4ll_address) {
+                        log_link_debug(link, "%s(): IPv4LL is not configured.", __func__);
                         return;
+                }
 
                 if (link_ipv6ll_enabled(link) &&
-                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
+                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address)) {
+                        log_link_debug(link, "%s(): IPv6LL is not configured.", __func__);
                         return;
+                }
 
-                if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || link_ipv6_accept_ra_enabled(link)) &&
-                    !link->dhcp4_configured &&
-                    !link->dhcp6_configured &&
-                    !link->ndisc_configured &&
-                    !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address))
-                        /* When DHCP or RA is enabled, at least one protocol must provide an address, or
-                         * an IPv4ll fallback address must be configured. */
+                if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) && set_isempty(link->addresses)) {
+                        log_link_debug(link, "%s(): DHCP4 or DHCP6 is enabled but no address is assigned yet.", __func__);
                         return;
+                }
+
+                if (link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || dhcp6_get_prefix_delegation(link) || link_ipv6_accept_ra_enabled(link)) {
+                        if (!link->dhcp4_configured &&
+                            !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
+                            !(link->dhcp6_pd_address_configured && link->dhcp6_pd_route_configured) &&
+                            !(link->ndisc_addresses_configured && link->ndisc_routes_configured) &&
+                            !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address)) {
+                                /* When DHCP or RA is enabled, at least one protocol must provide an address, or
+                                 * an IPv4ll fallback address must be configured. */
+                                log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
+                                return;
+                        }
+
+                        log_link_debug(link, "%s(): dhcp4:%s dhcp6_addresses:%s dhcp_routes:%s dhcp_pd_addresses:%s dhcp_pd_routes:%s ndisc_addresses:%s ndisc_routes:%s",
+                                       __func__,
+                                       yes_no(link->dhcp4_configured),
+                                       yes_no(link->dhcp6_address_configured),
+                                       yes_no(link->dhcp6_route_configured),
+                                       yes_no(link->dhcp6_pd_address_configured),
+                                       yes_no(link->dhcp6_pd_route_configured),
+                                       yes_no(link->ndisc_addresses_configured),
+                                       yes_no(link->ndisc_routes_configured));
+                }
         }
 
         if (link->state != LINK_STATE_CONFIGURED)
@@ -1245,7 +1282,6 @@ static int link_request_set_addresses(Link *link) {
         link->addresses_ready = false;
         link->neighbors_configured = false;
         link->static_routes_configured = false;
-        link->static_routes_ready = false;
         link->static_nexthops_configured = false;
         link->routing_policy_rules_configured = false;
 

@@ -557,7 +557,7 @@ class Utilities():
             if i > 0:
                 time.sleep(1)
             output = check_output(f'ip {ipv} address show dev {link} scope {scope}')
-            if re.search(address_regex, output):
+            if re.search(address_regex, output) and 'tentative' not in output:
                 break
         else:
             self.assertRegex(output, address_regex)
@@ -3167,6 +3167,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, '2600::')
         self.assertNotRegex(output, '192.168.5')
+
+        output = check_output('ip addr show dev veth99')
+        print(output)
+        self.assertRegex(output, '2600::')
+        self.assertNotRegex(output, '192.168.5')
+        self.assertNotRegex(output, 'tentative')
 
         # Confirm that ipv6 token is not set in the kernel
         output = check_output('ip token show dev veth99')

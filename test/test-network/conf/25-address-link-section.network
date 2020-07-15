@@ -3,3 +3,6 @@ Name=dummy98
 
 [Link]
 MACAddress=00:01:02:aa:bb:cc
+
+[Network]
+IPv6AcceptRA=no

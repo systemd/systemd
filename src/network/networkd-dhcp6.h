@@ -17,6 +17,7 @@ typedef enum DHCP6ClientStartMode {
 typedef struct Link Link;
 typedef struct Manager Manager;
 
+bool dhcp6_get_prefix_delegation(Link *link);
 int dhcp6_request_prefix_delegation(Link *link);
 int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
