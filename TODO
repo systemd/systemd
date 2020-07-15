@@ -17,6 +17,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* repart: support setting up dm-integrity with HMAC
+
+* add /etc/integritytab, to support dm-integrity setups. In particular those
+  with HMAC as hash function, so that we can have a protected /home without
+  encryption (leaving encryption to the individual dirs/homed).
+
 * complement root=, rootflags=, rootfstype= with rootsubdir= which allows
   mounting a subdir of the root fs as actual root. This can be used as
   fstype-agnostic version of btrfs' rootflags=subvol=foobar.
