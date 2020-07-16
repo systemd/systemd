@@ -222,6 +222,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         _cleanup_free_ struct unipair* unipairs = NULL;
         _cleanup_free_ void *fontbuf = NULL;
         unsigned i;
+        int log_level;
         int r;
 
         unipairs = new(struct unipair, USHRT_MAX);
@@ -230,11 +231,20 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                 return;
         }
 
+        log_level = LOG_WARNING;
+
         /* get metadata of the current font (width, height, count) */
         r = ioctl(src_fd, KDFONTOP, &cfo);
-        if (r < 0)
-                log_warning_errno(errno, "KD_FONT_OP_GET failed while trying to get the font metadata: %m");
-        else {
+        if (r < 0) {
+                /* We might be called to operate on the dummy console (to setup keymap
+                 * mainly) when fbcon deferred takeover is used for example. In such case,
+                 * setting font is not supported and is expected to fail. */
+                if (errno == ENOSYS)
+                        log_level = LOG_DEBUG;
+
+                log_full_errno(log_level, errno,
+                               "KD_FONT_OP_GET failed while trying to get the font metadata: %m");
+        } else {
                 /* verify parameter sanity first */
                 if (cfo.width > 32 || cfo.height > 32 || cfo.charcount > 512)
                         log_warning("Invalid font metadata - width: %u (max 32), height: %u (max 32), count: %u (max 512)",
@@ -269,7 +279,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         }
 
         if (cfo.op != KD_FONT_OP_SET)
-                log_warning("Fonts will not be copied to remaining consoles");
+                log_full(log_level, "Fonts will not be copied to remaining consoles");
 
         for (i = 1; i <= 63; i++) {
                 char ttyname[sizeof("/dev/tty63")];
