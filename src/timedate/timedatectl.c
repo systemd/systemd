@@ -431,7 +431,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_add_cell_stringf(table, NULL, "%s (%s)", i->server_address, i->server_name);
+        r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->server_address), strna(i->server_name));
         if (r < 0)
                 return table_log_add_error(r);
 
