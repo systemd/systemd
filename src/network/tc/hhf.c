@@ -63,9 +63,11 @@ int config_parse_heavy_hitter_filter_packet_limit(
         r = qdisc_new_static(QDISC_KIND_HHF, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         hhf = HHF(qdisc);
 
@@ -78,7 +80,7 @@ int config_parse_heavy_hitter_filter_packet_limit(
 
         r = safe_atou32(rvalue, &hhf->packet_limit);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;

@@ -208,7 +208,7 @@ int config_parse_ipv4ll(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse %s=%s, ignoring assignment. "
                            "Note that the setting %s= is deprecated, please use LinkLocalAddressing= instead.",
                            lvalue, rvalue, lvalue);

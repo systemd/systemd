@@ -459,7 +459,7 @@ int config_parse_wireguard_listen_port(
 
         r = parse_ip_port(rvalue, s);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid port specification, ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -494,10 +494,10 @@ static int wireguard_decode_key_and_warn(
 
         r = unbase64mem_full(rvalue, strlen(rvalue), true, &key, &len);
         if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
+                return log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to decode wireguard key provided by %s=, ignoring assignment: %m", lvalue);
         if (len != WG_KEY_LEN)
-                return log_syntax(unit, LOG_ERR, filename, line, 0,
+                return log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
                            "Wireguard key provided by %s= has invalid length (%zu bytes), ignoring assignment.",
                            lvalue, len);
 
@@ -583,9 +583,10 @@ int config_parse_wireguard_preshared_key(
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
-                return r;
+                return log_oom();
 
-        return wireguard_decode_key_and_warn(rvalue, peer->preshared_key, unit, filename, line, lvalue);
+        (void) wireguard_decode_key_and_warn(rvalue, peer->preshared_key, unit, filename, line, lvalue);
+        return 0;
 }
 
 int config_parse_wireguard_preshared_key_file(
@@ -611,7 +612,7 @@ int config_parse_wireguard_preshared_key_file(
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
-                return r;
+                return log_oom();
 
         if (isempty(rvalue)) {
                 peer->preshared_key_file = mfree(peer->preshared_key_file);
@@ -653,11 +654,11 @@ int config_parse_wireguard_public_key(
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = wireguard_decode_key_and_warn(rvalue, peer->public_key, unit, filename, line, lvalue);
         if (r < 0)
-                return r;
+                return 0;
 
         TAKE_PTR(peer);
         return 0;
@@ -690,25 +691,25 @@ int config_parse_wireguard_allowed_ips(
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
-                return r;
+                return log_oom();
 
-        for (;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&rvalue, &word, "," WHITESPACE, 0);
+                r = extract_first_word(&p, &word, "," WHITESPACE, 0);
                 if (r == 0)
                         break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to split allowed ips \"%s\" option: %m", rvalue);
                         break;
                 }
 
                 r = in_addr_prefix_from_string_auto(word, &family, &addr, &prefixlen);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Network address is invalid, ignoring assignment: %s", word);
                         continue;
                 }
@@ -758,7 +759,7 @@ int config_parse_wireguard_endpoint(
                 begin = &rvalue[1];
                 end = strchr(rvalue, ']');
                 if (!end) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Unable to find matching brace of endpoint, ignoring assignment: %s",
                                    rvalue);
                         return 0;
@@ -766,7 +767,7 @@ int config_parse_wireguard_endpoint(
                 len = end - begin;
                 ++end;
                 if (*end != ':' || !*(end + 1)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Unable to find port of endpoint, ignoring assignment: %s",
                                    rvalue);
                         return 0;
@@ -776,7 +777,7 @@ int config_parse_wireguard_endpoint(
                 begin = rvalue;
                 end = strrchr(rvalue, ':');
                 if (!end || !*(end + 1)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Unable to find port of endpoint, ignoring assignment: %s",
                                    rvalue);
                         return 0;
@@ -787,7 +788,7 @@ int config_parse_wireguard_endpoint(
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = free_and_strndup(&peer->endpoint_host, begin, len);
         if (r < 0)
@@ -830,14 +831,14 @@ int config_parse_wireguard_keepalive(
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
-                return r;
+                return log_oom();
 
         if (streq(rvalue, "off"))
                 keepalive = 0;
         else {
                 r = safe_atou16(rvalue, &keepalive);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse \"%s\" as keepalive interval (range 0–65535), ignoring assignment: %m",
                                    rvalue);
                         return 0;

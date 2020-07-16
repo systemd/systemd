@@ -67,9 +67,11 @@ int config_parse_pfifo_size(
         r = qdisc_new_static(ltype, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         switch(qdisc->kind) {
         case QDISC_KIND_PFIFO:
@@ -91,7 +93,7 @@ int config_parse_pfifo_size(
 
         r = safe_atou32(rvalue, &fifo->limit);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -127,9 +129,11 @@ int config_parse_bfifo_size(
         r = qdisc_new_static(QDISC_KIND_BFIFO, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         fifo = BFIFO(qdisc);
 
@@ -142,13 +146,13 @@ int config_parse_bfifo_size(
 
         r = parse_size(rvalue, 1024, &u);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
         if (u > UINT32_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid '%s=', ignoring assignment: %s",
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }

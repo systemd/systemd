@@ -214,15 +214,20 @@ int config_parse_tclass_parent(
         assert(data);
 
         r = tclass_new_static(ltype, network, filename, section_line, &tclass);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to create traffic control class, ignoring assignment: %m");
+                return 0;
+        }
 
         if (streq(rvalue, "root"))
                 tclass->parent = TC_H_ROOT;
         else {
                 r = parse_handle(rvalue, &tclass->parent);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse 'Parent=', ignoring assignment: %s",
                                    rvalue);
                         return 0;
@@ -256,8 +261,13 @@ int config_parse_tclass_classid(
         assert(data);
 
         r = tclass_new_static(ltype, network, filename, section_line, &tclass);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to create traffic control class, ignoring assignment: %m");
+                return 0;
+        }
 
         if (isempty(rvalue)) {
                 tclass->classid = TC_H_UNSPEC;
@@ -267,7 +277,7 @@ int config_parse_tclass_classid(
 
         r = parse_handle(rvalue, &tclass->classid);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse 'ClassId=', ignoring assignment: %s",
                            rvalue);
                 return 0;

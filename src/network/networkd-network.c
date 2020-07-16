@@ -902,7 +902,7 @@ int config_parse_stacked_netdev(const char *unit,
                       NETDEV_KIND_XFRM));
 
         if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid netdev name in %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
@@ -917,7 +917,7 @@ int config_parse_stacked_netdev(const char *unit,
 
         r = hashmap_put(*h, name, INT_TO_PTR(kind));
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Cannot add NetDev '%s' to network, ignoring assignment: %m", name);
         else if (r == 0)
                 log_syntax(unit, LOG_DEBUG, filename, line, r,
@@ -940,7 +940,6 @@ int config_parse_domains(
                 void *data,
                 void *userdata) {
 
-        const char *p;
         Network *n = data;
         int r;
 
@@ -954,20 +953,21 @@ int config_parse_domains(
                 return 0;
         }
 
-        p = rvalue;
-        for (;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL, *normalized = NULL;
                 const char *domain;
                 bool is_route;
 
                 r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to extract search or route domain, ignoring: %s", rvalue);
-                        break;
+                        return 0;
                 }
                 if (r == 0)
-                        break;
+                        return 0;
 
                 is_route = w[0] == '~';
                 domain = is_route ? w + 1 : w;
@@ -981,7 +981,7 @@ int config_parse_domains(
                 } else {
                         r = dns_name_normalize(domain, 0, &normalized);
                         if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
                                            "'%s' is not a valid domain name, ignoring.", domain);
                                 continue;
                         }
@@ -989,7 +989,7 @@ int config_parse_domains(
                         domain = normalized;
 
                         if (is_localhost(domain)) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0,
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,
                                            "'localhost' domain may not be configured as search or route domain, ignoring assignment: %s",
                                            domain);
                                 continue;
@@ -999,14 +999,12 @@ int config_parse_domains(
                 OrderedSet **set = is_route ? &n->route_domains : &n->search_domains;
                 r = ordered_set_ensure_allocated(set, &string_hash_ops);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 r = ordered_set_put_strdup(*set, domain);
                 if (r < 0)
                         return log_oom();
         }
-
-        return 0;
 }
 
 int config_parse_ipv6token(
@@ -1032,19 +1030,19 @@ int config_parse_ipv6token(
 
         r = in_addr_from_string(AF_INET6, rvalue, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse IPv6 token, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (in_addr_is_null(AF_INET6, &buffer)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "IPv6 token cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 
         if ((buffer.in6.s6_addr32[0] | buffer.in6.s6_addr32[1]) != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "IPv6 token cannot be longer than 64 bits, ignoring: %s", rvalue);
                 return 0;
         }
@@ -1087,7 +1085,7 @@ int config_parse_ipv6_privacy_extensions(
                 if (streq(rvalue, "kernel"))
                         s = _IPV6_PRIVACY_EXTENSIONS_INVALID;
                 else {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
                         return 0;
                 }
@@ -1123,19 +1121,19 @@ int config_parse_hostname(
                 return r;
 
         if (!hostname_is_valid(hn, false)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Hostname is not valid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         r = dns_name_is_valid(hn);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to check validity of hostname '%s', ignoring assignment: %m", rvalue);
                 return 0;
         }
         if (r == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Hostname is not a valid DNS domain name, ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -1167,8 +1165,8 @@ int config_parse_timezone(
         if (r < 0)
                 return r;
 
-        if (!timezone_is_valid(tz, LOG_ERR)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+        if (!timezone_is_valid(tz, LOG_WARNING)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Timezone is not valid, ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -1195,26 +1193,32 @@ int config_parse_dns(
         assert(lvalue);
         assert(rvalue);
 
-        for (;;) {
+        if (isempty(rvalue)) {
+                n->dns = mfree(n->dns);
+                n->n_dns = 0;
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
                 union in_addr_union a;
                 struct in_addr_data *m;
                 int family;
 
-                r = extract_first_word(&rvalue, &w, NULL, 0);
+                r = extract_first_word(&p, &w, NULL, 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Invalid syntax, ignoring: %s", rvalue);
-                        break;
+                        return 0;
                 }
                 if (r == 0)
-                        break;
+                        return 0;
 
                 r = in_addr_from_string_auto(w, &family, &a);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse dns server address, ignoring: %s", w);
                         continue;
                 }
@@ -1230,8 +1234,6 @@ int config_parse_dns(
 
                 n->dns = m;
         }
-
-        return 0;
 }
 
 int config_parse_dnssec_negative_trust_anchors(
@@ -1246,7 +1248,6 @@ int config_parse_dnssec_negative_trust_anchors(
                 void *data,
                 void *userdata) {
 
-        const char *p = rvalue;
         Network *n = data;
         int r;
 
@@ -1259,21 +1260,23 @@ int config_parse_dnssec_negative_trust_anchors(
                 return 0;
         }
 
-        for (;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
 
                 r = extract_first_word(&p, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to extract negative trust anchor domain, ignoring: %s", rvalue);
-                        break;
+                        return 0;
                 }
                 if (r == 0)
-                        break;
+                        return 0;
 
                 r = dns_name_is_valid(w);
                 if (r <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "%s is not a valid domain name, ignoring.", w);
                         continue;
                 }
@@ -1282,8 +1285,6 @@ int config_parse_dnssec_negative_trust_anchors(
                 if (r < 0)
                         return log_oom();
         }
-
-        return 0;
 }
 
 int config_parse_ntp(
@@ -1310,23 +1311,23 @@ int config_parse_ntp(
                 return 0;
         }
 
-        for (;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
 
-                r = extract_first_word(&rvalue, &w, NULL, 0);
+                r = extract_first_word(&p, &w, NULL, 0);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to extract NTP server name, ignoring: %s", rvalue);
-                        break;
+                        return 0;
                 }
                 if (r == 0)
-                        break;
+                        return 0;
 
                 r = dns_name_is_valid_or_address(w);
                 if (r <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "%s is not a valid domain name or IP address, ignoring.", w);
                         continue;
                 }
@@ -1335,15 +1336,13 @@ int config_parse_ntp(
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "More than %u NTP servers specified, ignoring \"%s\" and any subsequent entries.",
                                    MAX_NTP_SERVERS, w);
-                        break;
+                        return 0;
                 }
 
                 r = strv_consume(l, TAKE_PTR(w));
                 if (r < 0)
                         return log_oom();
         }
-
-        return 0;
 }
 
 int config_parse_required_for_online(
@@ -1373,7 +1372,7 @@ int config_parse_required_for_online(
         if (r < 0) {
                 r = parse_boolean(rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse %s= setting, ignoring assignment: %s",
                                    lvalue, rvalue);
                         return 0;

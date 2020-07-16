@@ -86,7 +86,7 @@ int config_parse_address_family_with_kernel(
                 if (streq(rvalue, "kernel"))
                         s = ADDRESS_FAMILY_NO;
                 else {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IPForward= option, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse IPForward= option, ignoring: %s", rvalue);
                         return 0;
                 }
         }

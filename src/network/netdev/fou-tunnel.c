@@ -167,14 +167,14 @@ int config_parse_ip_protocol(
         else {
                 r = safe_atou(rvalue, &protocol);
                 if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse IP protocol '%s' for FooOverUDP tunnel, "
                                    "ignoring assignment: %m", rvalue);
                 return 0;
         }
 
         if (protocol > UINT8_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "IP protocol '%s' for FooOverUDP tunnel out of range, "
                            "ignoring assignment: %m", rvalue);
                 return 0;
@@ -212,7 +212,7 @@ int config_parse_fou_tunnel_address(
 
         r = in_addr_from_string_auto(rvalue, f, addr);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "FooOverUDP tunnel '%s' address is invalid, ignoring assignment: %s",
                            lvalue, rvalue);
 

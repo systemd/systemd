@@ -459,7 +459,7 @@ int config_parse_l2tp_tunnel_address(
         else
                 r = in_addr_from_string(t->family, rvalue, addr);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid L2TP Tunnel address specified in %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
@@ -489,13 +489,13 @@ int config_parse_l2tp_tunnel_id(
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse L2TP tunnel id. Ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         if (k == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid L2TP tunnel id. Ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -530,17 +530,17 @@ int config_parse_l2tp_session_id(
 
         r = l2tp_session_new_static(t, filename, section_line, &session);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse L2TP session id. Ignoring assignment: %s", rvalue);
                 return 0;
         }
 
         if (k == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid L2TP session id. Ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -579,11 +579,11 @@ int config_parse_l2tp_session_l2spec(
 
         r = l2tp_session_new_static(t, filename, section_line, &session);
         if (r < 0)
-                return r;
+                return log_oom();
 
         spec = l2tp_l2spec_type_from_string(rvalue);
         if (spec < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse layer2 specific header type. Ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -618,10 +618,10 @@ int config_parse_l2tp_session_name(
 
         r = l2tp_session_new_static(t, filename, section_line, &session);
         if (r < 0)
-                return r;
+                return log_oom();
 
         if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse L2TP tunnel session name. Ignoring assignment: %s", rvalue);
                 return 0;
         }

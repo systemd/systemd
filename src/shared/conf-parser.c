@@ -548,7 +548,7 @@ int config_parse_iec_size(const char* unit,
         if (r >= 0 && (uint64_t) (size_t) v != v)
                 r = -ERANGE;
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
@@ -577,10 +577,8 @@ int config_parse_si_uint64(
         assert(data);
 
         r = parse_size(rvalue, 1000, sz);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
 
         return 0;
 }
@@ -607,7 +605,7 @@ int config_parse_iec_uint64(
 
         r = parse_size(rvalue, 1024, bytes);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
 
         return 0;
 }
@@ -634,7 +632,7 @@ int config_parse_bool(const char* unit,
 
         k = parse_boolean(rvalue);
         if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k,
+                log_syntax(unit, fatal ? LOG_ERR : LOG_WARNING, filename, line, k,
                            "Failed to parse boolean value%s: %s",
                            fatal ? "" : ", ignoring", rvalue);
                 return fatal ? -ENOEXEC : 0;
@@ -664,10 +662,15 @@ int config_parse_id128(
         assert(rvalue);
 
         r = sd_id128_from_string(rvalue, &t);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse 128bit ID/UUID, ignoring: %s", rvalue);
-        else if (sd_id128_is_null(t))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "128bit ID/UUID is all 0, ignoring: %s", rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128bit ID/UUID, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (sd_id128_is_null(t)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "128bit ID/UUID is all 0, ignoring: %s", rvalue);
+                return 0;
+        }
 
         *result = t;
         return 0;
@@ -698,7 +701,7 @@ int config_parse_tristate(
 
         k = parse_boolean(rvalue);
         if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse boolean value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, k, "Failed to parse boolean value, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -793,25 +796,23 @@ int config_parse_strv(
                 return 0;
         }
 
-        for (;;) {
+        for (const char *p = rvalue;;) {
                 char *word = NULL;
 
-                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                 if (r == 0)
-                        break;
+                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
-                        break;
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
                 }
 
                 r = strv_consume(sv, word);
                 if (r < 0)
                         return log_oom();
         }
-
-        return 0;
 }
 
 int config_parse_warn_compat(
@@ -870,7 +871,7 @@ int config_parse_log_facility(
 
         x = log_facility_unshifted_from_string(rvalue);
         if (x < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse log facility, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse log facility, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -900,7 +901,7 @@ int config_parse_log_level(
 
         x = log_level_from_string(rvalue);
         if (x < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse log level, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse log level, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -933,7 +934,7 @@ int config_parse_signal(
 
         r = signal_from_string(rvalue);
         if (r <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse signal name, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse signal name, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -965,7 +966,7 @@ int config_parse_personality(
         else {
                 p = personality_from_string(rvalue);
                 if (p == PERSONALITY_INVALID) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse personality, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse personality, ignoring: %s", rvalue);
                         return 0;
                 }
         }
@@ -1000,7 +1001,7 @@ int config_parse_ifname(
         }
 
         if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface name is not valid or too long, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Interface name is not valid or too long, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -1025,7 +1026,6 @@ int config_parse_ifnames(
 
         _cleanup_strv_free_ char **names = NULL;
         char ***s = data;
-        const char *p;
         int r;
 
         assert(filename);
@@ -1038,13 +1038,14 @@ int config_parse_ifnames(
                 return 0;
         }
 
-        p = rvalue;
-        for (;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to extract interface name, ignoring assignment: %s",
                                    rvalue);
                         return 0;
@@ -1053,7 +1054,7 @@ int config_parse_ifnames(
                         break;
 
                 if (!ifname_valid_full(word, ltype)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Interface name is not valid or too long, ignoring assignment: %s",
                                    word);
                         continue;
@@ -1099,7 +1100,7 @@ int config_parse_ip_port(
 
         r = parse_ip_port(rvalue, &port);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse port '%s'.", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse port '%s'.", rvalue);
                 return 0;
         }
 
@@ -1128,14 +1129,14 @@ int config_parse_mtu(
 
         r = parse_mtu(ltype, rvalue, mtu);
         if (r == -ERANGE) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Maximum transfer unit (MTU) value out of range. Permitted range is %" PRIu32 "…%" PRIu32 ", ignoring: %s",
                            (uint32_t) (ltype == AF_INET6 ? IPV6_MIN_MTU : IPV4_MIN_MTU), (uint32_t) UINT32_MAX,
                            rvalue);
                 return 0;
         }
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse MTU value '%s', ignoring: %m", rvalue);
                 return 0;
         }
@@ -1167,7 +1168,7 @@ int config_parse_rlimit(
                 return 0;
         }
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1203,7 +1204,7 @@ int config_parse_permille(const char* unit,
 
         r = parse_permille(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse permille value, ignoring: %s", rvalue);
                 return 0;
         }
@@ -1237,7 +1238,7 @@ int config_parse_vlanprotocol(const char* unit,
         else if (STR_IN_SET(rvalue, "802.1q", "802.1Q"))
                 *vlan_protocol = ETH_P_8021Q;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse VLAN protocol value, ignoring: %s", rvalue);
                 return 0;
         }

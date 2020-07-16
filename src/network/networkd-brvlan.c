@@ -241,7 +241,7 @@ int config_parse_brvlan_vlan(const char *unit, const char *filename,
 
         r = parse_vid_range(rvalue, &vid, &vid_end);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VLAN, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse VLAN, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -269,7 +269,7 @@ int config_parse_brvlan_untagged(const char *unit, const char *filename,
 
         r = parse_vid_range(rvalue, &vid, &vid_end);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse VLAN: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Could not parse VLAN: %s", rvalue);
                 return 0;
         }
 

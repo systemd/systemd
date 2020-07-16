@@ -185,12 +185,12 @@ int config_parse_geneve_vni(const char *unit,
 
         r = safe_atou32(rvalue, &f);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Geneve VNI '%s'.", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse Geneve VNI '%s'.", rvalue);
                 return 0;
         }
 
         if (f > GENEVE_VID_MAX){
-                log_syntax(unit, LOG_ERR, filename, line, r, "Geneve VNI out is of range '%s'.", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Geneve VNI out is of range '%s'.", rvalue);
                 return 0;
         }
 
@@ -220,13 +220,13 @@ int config_parse_geneve_address(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "geneve '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "geneve '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
         r = in_addr_is_multicast(f, &buffer);
         if (r > 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "geneve invalid multicast '%s' address, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "geneve invalid multicast '%s' address, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -257,12 +257,12 @@ int config_parse_geneve_flow_label(const char *unit,
 
         r = safe_atou32(rvalue, &f);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Geneve flow label '%s'.", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse Geneve flow label '%s'.", rvalue);
                 return 0;
         }
 
         if (f & ~GENEVE_FLOW_LABEL_MAX_MASK) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Geneve flow label '%s' not valid. Flow label range should be [0-1048575].", rvalue);
                 return 0;
         }
@@ -296,13 +296,13 @@ int config_parse_geneve_ttl(const char *unit,
         else {
                 r = safe_atou(rvalue, &f);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse Geneve TTL '%s', ignoring assignment: %m", rvalue);
                         return 0;
                 }
 
                 if (f > 255) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid Geneve TTL '%s'. TTL must be <= 255. Ignoring assignment.", rvalue);
                         return 0;
                 }

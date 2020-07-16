@@ -283,20 +283,20 @@ int config_parse_sr_iov_uint32(
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
         if (streq(lvalue, "VLANId")) {
                 if (k == 0 || k > 4095) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid SR-IOV VLANId: %d", k);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV VLANId: %d", k);
                         return 0;
                 }
                 sr_iov->vlan = k;
         } else if (streq(lvalue, "VirtualFunction")) {
                 if (k >= INT_MAX) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid SR-IOV virtual function: %d", k);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid SR-IOV virtual function: %d", k);
                         return 0;
                 }
                 sr_iov->vf = k;
@@ -339,7 +339,7 @@ int config_parse_sr_iov_vlan_proto(
         else if (streq(rvalue, "802.1ad"))
                 sr_iov->vlan_proto = ETH_P_8021AD;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
@@ -390,7 +390,7 @@ int config_parse_sr_iov_link_state(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
@@ -441,7 +441,7 @@ int config_parse_sr_iov_boolean(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse '%s=', ignoring: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse '%s=', ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -491,7 +491,7 @@ int config_parse_sr_iov_mac(
 
         r = ether_addr_from_string(rvalue, &sr_iov->mac);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse SR-IOV '%s=', ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }

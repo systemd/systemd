@@ -694,11 +694,11 @@ int config_parse_routing_policy_rule_tos(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = safe_atou8(rvalue, &n->tos);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule TOS, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule TOS, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -731,11 +731,11 @@ int config_parse_routing_policy_rule_priority(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = safe_atou32(rvalue, &n->priority);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule priority, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule priority, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -768,11 +768,11 @@ int config_parse_routing_policy_rule_table(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = safe_atou32(rvalue, &n->table);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule table, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule table, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -805,11 +805,11 @@ int config_parse_routing_policy_rule_fwmark_mask(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_fwmark_fwmask(rvalue, &n->fwmark, &n->fwmask);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -844,7 +844,7 @@ int config_parse_routing_policy_rule_prefix(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         if (streq(lvalue, "To")) {
                 buffer = &n->to;
@@ -859,7 +859,7 @@ int config_parse_routing_policy_rule_prefix(
         else
                 r = in_addr_prefix_from_string(rvalue, n->family, buffer, prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "RPDB rule prefix is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "RPDB rule prefix is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -892,10 +892,10 @@ int config_parse_routing_policy_rule_device(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         if (!ifname_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse '%s' interface name, ignoring: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse '%s' interface name, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -938,11 +938,11 @@ int config_parse_routing_policy_rule_port_range(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_ip_port_range(rvalue, &low, &high);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse routing policy rule port range '%s'", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse routing policy rule port range '%s'", rvalue);
                 return 0;
         }
 
@@ -983,11 +983,11 @@ int config_parse_routing_policy_rule_ip_protocol(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_ip_protocol(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IP protocol '%s' for routing policy rule, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse IP protocol '%s' for routing policy rule, ignoring: %m", rvalue);
                 return 0;
         }
 
@@ -1022,11 +1022,11 @@ int config_parse_routing_policy_rule_invert(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule invert, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule invert, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1062,11 +1062,11 @@ int config_parse_routing_policy_rule_family(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         a = routing_policy_rule_address_family_from_string(rvalue);
         if (a < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid address family '%s', ignoring.", rvalue);
                 return 0;
         }
@@ -1102,7 +1102,7 @@ int config_parse_routing_policy_rule_uid_range(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = get_user_creds(&rvalue, &start, NULL, NULL, NULL, 0);
         if (r >= 0)
@@ -1110,7 +1110,7 @@ int config_parse_routing_policy_rule_uid_range(
         else {
                 r = parse_uid_range(rvalue, &start, &end);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Invalid uid or uid range '%s', ignoring: %m", rvalue);
                         return 0;
                 }
@@ -1147,15 +1147,15 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
 
         r = routing_policy_rule_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = parse_ip_prefix_length(rvalue, &n->suppress_prefixlen);
         if (r == -ERANGE) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length outside of valid range 0-128, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Prefix length outside of valid range 0-128, ignoring: %s", rvalue);
                 return 0;
         }
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", rvalue);
                 return 0;
         }
 

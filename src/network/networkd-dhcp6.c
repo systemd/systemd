@@ -1161,12 +1161,12 @@ int config_parse_dhcp6_pd_hint(
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, (union in_addr_union *) &network->dhcp6_pd_address, &network->dhcp6_pd_length);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse PrefixDelegationHint=%s, ignoring assignment", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse PrefixDelegationHint=%s, ignoring assignment", rvalue);
                 return 0;
         }
 
         if (network->dhcp6_pd_length < 1 || network->dhcp6_pd_length > 128) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid prefix length='%d', ignoring assignment", network->dhcp6_pd_length);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid prefix length='%d', ignoring assignment", network->dhcp6_pd_length);
                 network->dhcp6_pd_length = 0;
                 return 0;
         }
@@ -1201,13 +1201,13 @@ int config_parse_dhcp6_mud_url(
 
         r = cunescape(rvalue, 0, &unescaped);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to Failed to unescape MUD URL, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (!http_url_is_valid(unescaped) || strlen(unescaped) > UINT8_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse MUD URL '%s', ignoring: %m", rvalue);
 
                 return 0;
@@ -1243,13 +1243,13 @@ int config_parse_dhcp6_delegated_prefix_token(
 
         r = in_addr_from_string(AF_INET6, rvalue, &network->dhcp6_delegation_prefix_token);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse DHCPv6 %s, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
         if (in_addr_is_null(AF_INET6, &network->dhcp6_delegation_prefix_token)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "DHCPv6 %s cannot be the ANY address, ignoring: %s", lvalue, rvalue);
                 return 0;
         }

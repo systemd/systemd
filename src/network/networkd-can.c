@@ -35,14 +35,14 @@ int config_parse_can_bitrate(
 
         r = parse_size(rvalue, 1000, &sz);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse can bitrate '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
         /* Linux uses __u32 for bitrates, so the value should not exceed that. */
         if (sz <= 0 || sz > UINT32_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Bit rate out of permitted range 1...4294967295");
                 return 0;
         }

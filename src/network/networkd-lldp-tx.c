@@ -447,7 +447,7 @@ int config_parse_lldp_emit(
         else {
                 r = parse_boolean(rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse LLDP emission setting, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse LLDP emission setting, ignoring: %s", rvalue);
                         return 0;
                 }
 
@@ -479,13 +479,13 @@ int config_parse_lldp_mud(
 
         r = cunescape(rvalue, 0, &unescaped);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to Failed to unescape LLDP MUD URL, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (!http_url_is_valid(unescaped) || strlen(unescaped) > 255) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse LLDP MUD URL '%s', ignoring: %m", rvalue);
 
                 return 0;
