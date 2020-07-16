@@ -95,7 +95,7 @@
     <para>Environment variables exported by the user manager (<command>systemd --user</command> instance
     started in the <filename>user@<replaceable>uid</replaceable>.service</filename> system service) apply to
     any services started by that manager. In particular, this may include services which run user shells. For
-    example in the Gnome environment, the graphical terminal emulator runs as the
+    example in the GNOME environment, the graphical terminal emulator runs as the
     <filename>gnome-terminal-server.service</filename> user unit, which in turn runs the user shell, so that
     shell will inherit environment variables exported by the user manager. For other instances of the shell,
     not launched by the user manager, the environment they inherit is defined by the program that starts
