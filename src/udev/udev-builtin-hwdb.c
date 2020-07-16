@@ -47,7 +47,7 @@ int udev_builtin_hwdb_lookup(sd_device *dev,
 }
 
 static const char *modalias_usb(sd_device *dev, char *s, size_t size) {
-        const char *v, *p;
+        const char *v, *p, *n = NULL;
         uint16_t vn, pn;
 
         if (sd_device_get_sysattr_value(dev, "idVendor", &v) < 0)
@@ -58,15 +58,16 @@ static const char *modalias_usb(sd_device *dev, char *s, size_t size) {
                 return NULL;
         if (safe_atoux16(p, &pn) < 0)
                 return NULL;
-        snprintf(s, size, "usb:v%04Xp%04X*", vn, pn);
+        (void) sd_device_get_sysattr_value(dev, "product", &n);
+
+        snprintf(s, size, "usb:v%04Xp%04X:%s", vn, pn, strempty(n));
         return s;
 }
 
 static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
                                     const char *subsystem, const char *prefix,
                                     const char *filter, bool test) {
-        sd_device *d;
-        char s[16];
+        char s[LINE_MAX];
         bool last = false;
         int r = 0;
 
@@ -75,7 +76,7 @@ static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
         if (!srcdev)
                 srcdev = dev;
 
-        for (d = srcdev; d; ) {
+        for (sd_device *d = srcdev; d; ) {
                 const char *dsubsys, *devtype, *modalias = NULL;
 
                 if (sd_device_get_subsystem(d, &dsubsys) < 0)
@@ -100,6 +101,8 @@ static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
 
                 if (!modalias)
                         goto next;
+
+                log_device_debug(dev, "hwdb modalias key: \"%s\"", modalias);
 
                 r = udev_builtin_hwdb_lookup(dev, prefix, modalias, filter, test);
                 if (r > 0)
