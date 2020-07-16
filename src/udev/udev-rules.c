@@ -809,10 +809,8 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         return log_token_invalid_attr(rules, key);
                 if (is_match || op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
-                if (op == OP_ADD) {
-                        log_token_debug(rules, "Operator '+=' is specified to %s key, assuming '='.", key);
+                if (op == OP_ADD)
                         op = OP_ASSIGN;
-                }
 
                 if (streq(value, "string_escape=none"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_NONE, op, NULL, NULL);
