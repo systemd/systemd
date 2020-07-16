@@ -67,6 +67,8 @@ if [ -n "${VERSION_ID:+set}" ] && [ "${VERSION_ID}" != "${container_host_version
 if [ -n "${BUILD_ID:+set}" ] && [ "${BUILD_ID}" != "${container_host_build_id}" ]; then exit 1; fi
 if [ -n "${VARIANT_ID:+set}" ] && [ "${VARIANT_ID}" != "${container_host_variant_id}" ]; then exit 1; fi
 cd /tmp; (cd /run/host/usr/lib; md5sum os-release) | md5sum -c
+if echo test >> /run/host/usr/lib/os-release; then exit 1; fi
+if echo test >> /run/host/etc/os-release; then exit 1; fi
 '
 
     systemd-nspawn --register=no -D /testsuite-13.nc-container --bind=/etc/os-release:/tmp/os-release /bin/sh -x -e -c "$_cmd"

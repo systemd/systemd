@@ -563,10 +563,14 @@ int mount_all(const char *dest,
                   MOUNT_FATAL|MOUNT_MKDIR },
                 { "tmpfs",                  "/run",                         "tmpfs", "mode=755" TMPFS_LIMITS_RUN,      MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
-                { "/usr/lib/os-release",    "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_TOUCH },
-                { "/etc/os-release",        "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "/usr/lib/os-release",    "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND,
+                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_TOUCH }, /* As per kernel interface requirements, bind mount first (creating mount points) and make read-only later */
+                { NULL,                     "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                  0 },
+                { "/etc/os-release",        "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND,
                   MOUNT_MKDIR|MOUNT_TOUCH },
+                { NULL,                     "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                  0 },
 
 #if HAVE_SELINUX
                 { "/sys/fs/selinux",        "/sys/fs/selinux",              NULL,    NULL,                             MS_BIND,
