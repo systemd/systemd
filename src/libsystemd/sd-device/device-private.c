@@ -363,10 +363,9 @@ static int device_append(sd_device *device, char *key, const char **_major, cons
         assert(_minor);
 
         value = strchr(key, '=');
-        if (!value) {
-                log_device_debug(device, "sd-device: Not a key-value pair: '%s'", key);
-                return -EINVAL;
-        }
+        if (!value)
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
+                                              "sd-device: Not a key-value pair: '%s'", key);
 
         *value = '\0';
 
@@ -400,10 +399,9 @@ void device_seal(sd_device *device) {
 static int device_verify(sd_device *device) {
         assert(device);
 
-        if (!device->devpath || !device->subsystem || device->action < 0 || device->seqnum == 0) {
-                log_device_debug(device, "sd-device: Device created from strv or nulstr lacks devpath, subsystem, action or seqnum.");
-                return -EINVAL;
-        }
+        if (!device->devpath || !device->subsystem || device->action < 0 || device->seqnum == 0)
+                return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
+                                              "sd-device: Device created from strv or nulstr lacks devpath, subsystem, action or seqnum.");
 
         device->sealed = true;
 
@@ -464,10 +462,10 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
 
                 key = (char*)&nulstr[i];
                 end = memchr(key, '\0', len - i);
-                if (!end) {
-                        log_device_debug(device, "sd-device: Failed to parse nulstr");
-                        return -EINVAL;
-                }
+                if (!end)
+                        return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
+                                                      "sd-device: Failed to parse nulstr");
+
                 i += end - key + 1;
 
                 r = device_append(device, key, &major, &minor);
