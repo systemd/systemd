@@ -36,9 +36,12 @@ building clean OS images from an upstream distribution in combination with a
 fresh build of the project in the local working directory. To make use of this,
 please acquire `mkosi` from https://github.com/systemd/mkosi first, unless your
 distribution has packaged it already and you can get it from there. After the
-tool is installed it is sufficient to type `mkosi` in the systemd project
-directory to generate a disk image `image.raw` you can boot either in
-`systemd-nspawn` or in an UEFI-capable VM:
+tool is installed, symlink the settings file for your distribution of choice from
+.mkosi/ to mkosi.default in the project root directory (note that the package
+manager for this distro needs to be installed on your host system). After doing
+that, it is sufficient to type `mkosi` in the systemd project directory to
+generate a disk image `image.raw` you can boot either in `systemd-nspawn` or in
+an UEFI-capable VM:
 
 ```
 # systemd-nspawn -bi image.raw
@@ -72,22 +75,23 @@ Putting this all together, here's a series of commands for preparing a patch
 for systemd (this example is for Fedora):
 
 ```sh
-$ sudo dnf builddep systemd            # install build dependencies
-$ sudo dnf install mkosi               # install tool to quickly build images
+$ sudo dnf builddep systemd               # install build dependencies
+$ sudo dnf install mkosi                  # install tool to quickly build images
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
-$ vim src/core/main.c                  # or wherever you'd like to make your changes
-$ meson build                          # configure the build
-$ ninja -C build                       # build it locally, see if everything compiles fine
-$ ninja -C build test                  # run some simple regression tests
-$ (umask 077; echo 123 > mkosi.rootpw) # set root password used by mkosi
-$ sudo mkosi                           # build a test image
-$ sudo systemd-nspawn -bi image.raw    # boot up the test image
-$ git add -p                           # interactively put together your patch
-$ git commit                           # commit it
+$ vim src/core/main.c                     # or wherever you'd like to make your changes
+$ meson build                             # configure the build
+$ ninja -C build                          # build it locally, see if everything compiles fine
+$ ninja -C build test                     # run some simple regression tests
+$ ln -s .mkosi/mkosi.fedora mkosi.default # Configure mkosi to build a fedora image
+$ (umask 077; echo 123 > mkosi.rootpw)    # set root password used by mkosi
+$ sudo mkosi                              # build a test image
+$ sudo systemd-nspawn -bi image.raw       # boot up the test image
+$ git add -p                              # interactively put together your patch
+$ git commit                              # commit it
 $ git push REMOTE HEAD:refs/heads/BRANCH
-                                       # where REMOTE is your "fork" on GitHub
-                                       # and BRANCH is a branch name.
+                                          # where REMOTE is your "fork" on GitHub
+                                          # and BRANCH is a branch name.
 ```
 
 And after that, head over to your repo on GitHub and click "Compare & pull request"
