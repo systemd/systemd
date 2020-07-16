@@ -130,7 +130,7 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
         STRV_FOREACH_PAIR(p, q, os_release_pairs) {
                 char *line;
 
-                // We strictly return only the four main ID fields and ignore the rest
+                /* We strictly return only the four main ID fields and ignore the rest */
                 if (!STR_IN_SET(*p, "ID", "VERSION_ID", "BUILD_ID", "VARIANT_ID"))
                         continue;
 

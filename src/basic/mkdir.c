@@ -136,7 +136,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
                 if (prefix && path_startswith(prefix, t))
                         continue;
 
-                if (uid == UID_INVALID && gid == UID_INVALID && flags == 0) {
+                if (!uid_is_valid(uid) && !gid_is_valid(gid) && flags == 0) {
                         r = _mkdir(t, mode);
                         if (r < 0 && r != -EEXIST)
                                 return r;
@@ -167,7 +167,7 @@ int mkdir_p_internal(const char *prefix, const char *path, mode_t mode, uid_t ui
         if (r < 0)
                 return r;
 
-        if (uid == UID_INVALID && gid == UID_INVALID && flags == 0) {
+        if (!uid_is_valid(uid) && !gid_is_valid(gid) && flags == 0) {
                 r = _mkdir(path, mode);
                 if (r < 0 && (r != -EEXIST || is_dir(path, true) <= 0))
                         return r;

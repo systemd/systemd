@@ -563,10 +563,14 @@ int mount_all(const char *dest,
                   MOUNT_FATAL|MOUNT_MKDIR },
                 { "tmpfs",                  "/run",                         "tmpfs", "mode=755" TMPFS_LIMITS_RUN,      MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
-                { "/usr/lib/os-release",    "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_TOUCH },
-                { "/etc/os-release",        "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                { "/usr/lib/os-release",    "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND,
+                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_TOUCH }, /* As per kernel interface requirements, bind mount first (creating mount points) and make read-only later */
+                { NULL,                     "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                  0 },
+                { "/etc/os-release",        "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND,
                   MOUNT_MKDIR|MOUNT_TOUCH },
+                { NULL,                     "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                  0 },
 
 #if HAVE_SELINUX
                 { "/sys/fs/selinux",        "/sys/fs/selinux",              NULL,    NULL,                             MS_BIND,
@@ -587,7 +591,6 @@ int mount_all(const char *dest,
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL, *options = NULL;
                 const char *o;
-                struct stat source_st;
                 bool fatal = FLAGS_SET(mount_table[k].mount_settings, MOUNT_FATAL);
 
                 if (in_userns != FLAGS_SET(mount_table[k].mount_settings, MOUNT_IN_USERNS))
@@ -617,7 +620,7 @@ int mount_all(const char *dest,
                         /* Shortcut for optional bind mounts: if the source can't be found skip ahead to avoid creating
                          * empty and unused directories. */
                         if (!fatal && FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR) && FLAGS_SET(mount_table[k].flags, MS_BIND)) {
-                                r = stat(mount_table[k].what, &source_st);
+                                r = access(mount_table[k].what, F_OK);
                                 if (r < 0) {
                                         if (errno == ENOENT)
                                                 continue;
