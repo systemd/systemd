@@ -173,11 +173,11 @@ int config_parse_address_label_prefix(const char *unit,
 
         r = address_label_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = in_addr_prefix_from_string(rvalue, AF_INET6, &n->in_addr, &n->prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Address label is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Address label is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -211,16 +211,16 @@ int config_parse_address_label(
 
         r = address_label_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address label, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse address label, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (k == 0xffffffffUL) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Address label is invalid, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Address label is invalid, ignoring: %s", rvalue);
                 return 0;
         }
 

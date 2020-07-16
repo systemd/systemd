@@ -196,7 +196,7 @@ int config_parse_vxlan_address(const char *unit,
 
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "vxlan '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "vxlan '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -204,14 +204,14 @@ int config_parse_vxlan_address(const char *unit,
 
         if (streq(lvalue, "Group")) {
                 if (r <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s invalid multicast address, ignoring assignment: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "vxlan %s invalid multicast address, ignoring assignment: %s", lvalue, rvalue);
                         return 0;
                 }
 
                 v->group_family = f;
         } else {
                 if (r > 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s cannot be a multicast address, ignoring assignment: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "vxlan %s cannot be a multicast address, ignoring assignment: %s", lvalue, rvalue);
                         return 0;
                 }
 
@@ -247,7 +247,7 @@ int config_parse_port_range(const char *unit,
 
         r = parse_ip_port_range(rvalue, &low, &high);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse VXLAN port range '%s'. Port should be greater than 0 and less than 65535.", rvalue);
                 return 0;
         }
@@ -279,12 +279,12 @@ int config_parse_flow_label(const char *unit,
 
         r = safe_atou(rvalue, &f);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse VXLAN flow label '%s'.", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse VXLAN flow label '%s'.", rvalue);
                 return 0;
         }
 
         if (f & ~VXLAN_FLOW_LABEL_MAX_MASK) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "VXLAN flow label '%s' not valid. Flow label range should be [0-1048575].", rvalue);
                 return 0;
         }
@@ -318,13 +318,13 @@ int config_parse_vxlan_ttl(const char *unit,
         else {
                 r = safe_atou(rvalue, &f);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse VXLAN TTL '%s', ignoring assignment: %m", rvalue);
                         return 0;
                 }
 
                 if (f > 255) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid VXLAN TTL '%s'. TTL must be <= 255. Ignoring assignment.", rvalue);
                         return 0;
                 }

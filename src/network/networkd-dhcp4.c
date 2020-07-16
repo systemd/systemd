@@ -1700,13 +1700,13 @@ int config_parse_dhcp_max_attempts(
 
         r = safe_atou64(rvalue, &a);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse DHCP maximum attempts, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (a == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "%s= must be positive integer or 'infinity', ignoring: %s", lvalue, rvalue);
                 return 0;
         }
@@ -1749,8 +1749,10 @@ int config_parse_dhcp_acl_ip_address(
                 union in_addr_union ip;
 
                 r = extract_first_word(&p, &n, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse DHCP '%s=' IP address, ignoring assignment: %s",
                                    lvalue, rvalue);
                         return 0;
@@ -1760,18 +1762,16 @@ int config_parse_dhcp_acl_ip_address(
 
                 r = in_addr_from_string(AF_INET, n, &ip);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "DHCP '%s=' IP address is invalid, ignoring assignment: %s", lvalue, n);
                         continue;
                 }
 
                 r = set_ensure_put(acl, NULL, UINT32_TO_PTR(ip.in.s_addr));
                 if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to store DHCP '%s=' IP address '%s', ignoring assignment: %m", lvalue, n);
         }
-
-        return 0;
 }
 
 int config_parse_dhcp_ip_service_type(
@@ -1828,13 +1828,13 @@ int config_parse_dhcp_mud_url(
 
         r = cunescape(rvalue, 0, &unescaped);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to Failed to unescape MUD URL, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (!http_url_is_valid(unescaped) || strlen(unescaped) > 255) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse MUD URL '%s', ignoring: %m", rvalue);
 
                 return 0;
@@ -1871,7 +1871,7 @@ int config_parse_dhcp_fallback_lease_lifetime(const char *unit,
         if (STR_IN_SET(rvalue, "forever", "infinity"))
                 k = CACHE_INFO_INFINITY_LIFE_TIME;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid LeaseLifetime= value, ignoring: %s", rvalue);
                 return 0;
         }

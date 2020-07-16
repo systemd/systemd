@@ -66,9 +66,13 @@ int config_parse_drr_size(
         assert(data);
 
         r = tclass_new_static(TCLASS_KIND_DRR, network, filename, section_line, &tclass);
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to create traffic control class, ignoring assignment: %m");
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to create traffic control class, ignoring assignment: %m");
+                return 0;
+        }
 
         drr = TCLASS_TO_DRR(tclass);
 
@@ -81,13 +85,13 @@ int config_parse_drr_size(
 
         r = parse_size(rvalue, 1024, &u);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
         if (u > UINT32_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid '%s=', ignoring assignment: %s",
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }

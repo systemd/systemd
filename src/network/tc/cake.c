@@ -68,9 +68,11 @@ int config_parse_cake_bandwidth(
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         c = CAKE(qdisc);
 
@@ -83,7 +85,7 @@ int config_parse_cake_bandwidth(
 
         r = parse_size(rvalue, 1000, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -121,9 +123,11 @@ int config_parse_cake_overhead(
         r = qdisc_new_static(QDISC_KIND_CAKE, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         c = CAKE(qdisc);
 
@@ -135,13 +139,13 @@ int config_parse_cake_overhead(
 
         r = safe_atoi32(rvalue, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
         if (v < -64 || v > 256) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;

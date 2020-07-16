@@ -969,8 +969,10 @@ int config_parse_ndisc_deny_listed_prefix(
                 union in_addr_union ip;
 
                 r = extract_first_word(&p, &n, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse NDISC deny-listed prefix, ignoring assignment: %s",
                                    rvalue);
                         return 0;
@@ -980,7 +982,7 @@ int config_parse_ndisc_deny_listed_prefix(
 
                 r = in_addr_from_string(AF_INET6, n, &ip);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "NDISC deny-listed prefix is invalid, ignoring assignment: %s", n);
                         continue;
                 }
@@ -996,8 +998,6 @@ int config_parse_ndisc_deny_listed_prefix(
                 if (r < 0)
                         return log_oom();
         }
-
-        return 0;
 }
 
 int config_parse_address_generation_type(
@@ -1043,13 +1043,13 @@ int config_parse_address_generation_type(
 
         r = in_addr_from_string(AF_INET6, p, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse IPv6 %s, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
         if (in_addr_is_null(AF_INET6, &buffer)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "IPv6 %s cannot be the ANY address, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
@@ -1062,7 +1062,7 @@ int config_parse_address_generation_type(
 
         r = ordered_hashmap_put(network->ipv6_tokens, &token->prefix, token);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to store IPv6 token '%s'", rvalue);
                 return 0;
         }

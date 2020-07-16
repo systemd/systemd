@@ -15,6 +15,7 @@
 #include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "strxcpyx.h"
 #include "sysctl-util.h"
 #include "vrf.h"
@@ -991,12 +992,22 @@ int config_parse_gateway(
                 /* we are not in an Route section, so treat
                  * this as the special '0' section */
                 r = route_new_static(network, NULL, 0, &n);
-                if (r < 0)
-                        return r;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to allocate route, ignoring assignment: %m");
+                        return 0;
+                }
         } else {
                 r = route_new_static(network, filename, section_line, &n);
-                if (r < 0)
-                        return r;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to allocate route, ignoring assignment: %m");
+                        return 0;
+                }
 
                 if (streq(rvalue, "_dhcp")) {
                         n->gateway_from_dhcp = true;
@@ -1010,7 +1021,7 @@ int config_parse_gateway(
         else
                 r = in_addr_from_string(n->family, rvalue, &n->gw);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
@@ -1042,15 +1053,20 @@ int config_parse_preferred_src(
         assert(data);
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         if (n->family == AF_UNSPEC)
                 r = in_addr_from_string_auto(rvalue, &n->family, &n->prefsrc);
         else
                 r = in_addr_from_string(n->family, rvalue, &n->prefsrc);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
@@ -1084,8 +1100,13 @@ int config_parse_destination(
         assert(data);
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         if (streq(lvalue, "Destination")) {
                 buffer = &n->dst;
@@ -1101,7 +1122,7 @@ int config_parse_destination(
         else
                 r = in_addr_prefix_from_string(rvalue, n->family, buffer, prefixlen);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, EINVAL,
+                log_syntax(unit, LOG_WARNING, filename, line, EINVAL,
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
@@ -1133,12 +1154,17 @@ int config_parse_route_priority(
         assert(data);
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         r = safe_atou32(rvalue, &n->priority);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse route priority \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
@@ -1170,12 +1196,17 @@ int config_parse_route_scope(
         assert(data);
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         r = route_scope_from_string(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Unknown route scope: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown route scope: %s", rvalue);
                 return 0;
         }
 
@@ -1208,8 +1239,13 @@ int config_parse_route_table(
         assert(data);
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         r = route_table_from_string(rvalue);
         if (r >= 0)
@@ -1217,7 +1253,7 @@ int config_parse_route_table(
         else {
                 r = safe_atou32(rvalue, &n->table);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
                         return 0;
                 }
@@ -1228,7 +1264,7 @@ int config_parse_route_table(
         return 0;
 }
 
-int config_parse_gateway_onlink(
+int config_parse_route_boolean(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1251,17 +1287,31 @@ int config_parse_gateway_onlink(
         assert(data);
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse %s=\"%s\", ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
 
-        n->gateway_onlink = r;
+        if (STR_IN_SET(lvalue, "GatewayOnLink", "GatewayOnlink"))
+                n->gateway_onlink = r;
+        else if (streq(lvalue, "QuickAck"))
+                n->quickack = r;
+        else if (streq(lvalue, "FastOpenNoCookie"))
+                n->fast_open_no_cookie = r;
+        else if (streq(lvalue, "TTLPropagate"))
+                n->ttl_propagate = r;
+        else
+                assert_not_reached("Invalid lvalue");
 
         TAKE_PTR(n);
         return 0;
@@ -1284,8 +1334,13 @@ int config_parse_ipv6_route_preference(
         int r;
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         if (streq(rvalue, "low"))
                 n->pref = ICMPV6_ROUTER_PREF_LOW;
@@ -1294,7 +1349,7 @@ int config_parse_ipv6_route_preference(
         else if (streq(rvalue, "high"))
                 n->pref = ICMPV6_ROUTER_PREF_HIGH;
         else {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Unknown route preference: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown route preference: %s", rvalue);
                 return 0;
         }
 
@@ -1319,8 +1374,13 @@ int config_parse_route_protocol(
         int r;
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         r = route_protocol_from_string(rvalue);
         if (r >= 0)
@@ -1328,7 +1388,7 @@ int config_parse_route_protocol(
         else {
                 r = safe_atou8(rvalue , &n->protocol);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Could not parse route protocol \"%s\", ignoring assignment: %m", rvalue);
                         return 0;
                 }
@@ -1355,12 +1415,17 @@ int config_parse_route_type(
         int t, r;
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         t = route_type_from_string(rvalue);
         if (t < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
@@ -1395,17 +1460,22 @@ int config_parse_tcp_window(
         assert(data);
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         r = parse_size(rvalue, 1024, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse TCP %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
         if (k > UINT32_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified TCP %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
@@ -1417,82 +1487,6 @@ int config_parse_tcp_window(
         else
                 assert_not_reached("Invalid TCP window type.");
 
-        TAKE_PTR(n);
-        return 0;
-}
-
-int config_parse_quickack(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        Network *network = userdata;
-        int k, r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
-
-        k = parse_boolean(rvalue);
-        if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k,
-                           "Failed to parse TCP quickack, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        n->quickack = !!k;
-        TAKE_PTR(n);
-        return 0;
-}
-
-int config_parse_fast_open_no_cookie(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        Network *network = userdata;
-        int k, r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
-
-        k = parse_boolean(rvalue);
-        if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k,
-                           "Failed to parse TCP fastopen no cookie, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        n->fast_open_no_cookie = k;
         TAKE_PTR(n);
         return 0;
 }
@@ -1520,51 +1514,17 @@ int config_parse_route_mtu(
         assert(data);
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->mtu, userdata);
         if (r < 0)
                 return r;
-
-        TAKE_PTR(n);
-        return 0;
-}
-
-int config_parse_route_ttl_propagate(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        int r, k;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
-
-        k = parse_boolean(rvalue);
-        if (k < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, k,
-                           "Failed to parse TTLPropagate= value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        n->ttl_propagate = k;
 
         TAKE_PTR(n);
         return 0;
@@ -1597,8 +1557,13 @@ int config_parse_multipath_route(
         assert(data);
 
         r = route_new_static(network, filename, section_line, &n);
-        if (r < 0)
-                return r;
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
 
         if (isempty(rvalue)) {
                 n->multipath_routes = ordered_set_free_free(n->multipath_routes);
@@ -1614,7 +1579,7 @@ int config_parse_multipath_route(
         if (r == -ENOMEM)
                 return log_oom();
         if (r <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid multipath route option, ignoring assignment: %s", rvalue);
                 return 0;
         }
@@ -1631,7 +1596,7 @@ int config_parse_multipath_route(
 
         r = in_addr_from_string_auto(ip, &family, &a);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
                 return 0;
         }
@@ -1641,7 +1606,7 @@ int config_parse_multipath_route(
         if (dev) {
                 r = resolve_interface(NULL, dev);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Invalid interface name or index, ignoring assignment: %s", dev);
                         return 0;
                 }
@@ -1651,12 +1616,12 @@ int config_parse_multipath_route(
         if (!isempty(p)) {
                 r = safe_atou32(p, &m->weight);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Invalid multipath route weight, ignoring assignment: %s", p);
                         return 0;
                 }
                 if (m->weight == 0 || m->weight > 256) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid multipath route weight, ignoring assignment: %s", p);
                         return 0;
                 }
@@ -1668,7 +1633,7 @@ int config_parse_multipath_route(
 
         r = ordered_set_put(n->multipath_routes, m);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to store multipath route, ignoring assignment: %m");
                 return 0;
         }

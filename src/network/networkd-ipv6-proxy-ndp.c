@@ -113,17 +113,18 @@ int config_parse_ipv6_proxy_ndp_address(
 
         r = ipv6_proxy_ndp_address_new_static(network, &ipv6_proxy_ndp_address);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = in_addr_from_string(AF_INET6, rvalue, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 proxy NDP address, ignoring: %s",
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse IPv6 proxy NDP address, ignoring: %s",
                            rvalue);
                 return 0;
         }
 
         if (in_addr_is_null(AF_INET6, &buffer)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "IPv6 proxy NDP address cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }

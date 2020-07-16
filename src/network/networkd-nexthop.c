@@ -414,11 +414,11 @@ int config_parse_nexthop_id(
 
         r = nexthop_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = safe_atou32(rvalue, &n->id);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse nexthop id \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
@@ -451,11 +451,11 @@ int config_parse_nexthop_gateway(
 
         r = nexthop_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }

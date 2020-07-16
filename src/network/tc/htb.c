@@ -69,9 +69,11 @@ int config_parse_hierarchy_token_bucket_default_class(
         r = qdisc_new_static(QDISC_KIND_HTB, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         htb = HTB(qdisc);
 
@@ -84,7 +86,7 @@ int config_parse_hierarchy_token_bucket_default_class(
 
         r = safe_atou32_full(rvalue, 16, &htb->default_class);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -120,9 +122,11 @@ int config_parse_hierarchy_token_bucket_u32(
         r = qdisc_new_static(QDISC_KIND_HTB, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         htb = HTB(qdisc);
 
@@ -135,7 +139,7 @@ int config_parse_hierarchy_token_bucket_u32(
 
         r = safe_atou32(rvalue, &htb->rate_to_quantum);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -258,9 +262,13 @@ int config_parse_hierarchy_token_bucket_class_u32(
         assert(data);
 
         r = tclass_new_static(TCLASS_KIND_HTB, network, filename, section_line, &tclass);
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to create traffic control class, ignoring assignment: %m");
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to create traffic control class, ignoring assignment: %m");
+                return 0;
+        }
 
         htb = TCLASS_TO_HTB(tclass);
 
@@ -272,7 +280,7 @@ int config_parse_hierarchy_token_bucket_class_u32(
 
         r = safe_atou32(rvalue, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -308,9 +316,13 @@ int config_parse_hierarchy_token_bucket_class_size(
         assert(data);
 
         r = tclass_new_static(TCLASS_KIND_HTB, network, filename, section_line, &tclass);
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to create traffic control class, ignoring assignment: %m");
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to create traffic control class, ignoring assignment: %m");
+                return 0;
+        }
 
         htb = TCLASS_TO_HTB(tclass);
 
@@ -334,13 +346,13 @@ int config_parse_hierarchy_token_bucket_class_size(
 
         r = parse_size(rvalue, 1024, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
         if ((streq(lvalue, "OverheadBytes") && v > UINT16_MAX) || v > UINT32_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -388,9 +400,13 @@ int config_parse_hierarchy_token_bucket_class_rate(
         assert(data);
 
         r = tclass_new_static(TCLASS_KIND_HTB, network, filename, section_line, &tclass);
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "Failed to create traffic control class, ignoring assignment: %m");
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to create traffic control class, ignoring assignment: %m");
+                return 0;
+        }
 
         htb = TCLASS_TO_HTB(tclass);
         if (streq(lvalue, "Rate"))
@@ -409,7 +425,7 @@ int config_parse_hierarchy_token_bucket_class_rate(
 
         r = parse_size(rvalue, 1000, v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;

@@ -136,9 +136,11 @@ int config_parse_token_bucket_filter_size(
         r = qdisc_new_static(QDISC_KIND_TBF, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         tbf = TBF(qdisc);
 
@@ -160,7 +162,7 @@ int config_parse_token_bucket_filter_size(
 
         r = parse_size(rvalue, 1024, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -208,9 +210,11 @@ int config_parse_token_bucket_filter_rate(
         r = qdisc_new_static(QDISC_KIND_TBF, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         tbf = TBF(qdisc);
         if (streq(lvalue, "Rate"))
@@ -229,7 +233,7 @@ int config_parse_token_bucket_filter_rate(
 
         r = parse_size(rvalue, 1000, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
@@ -268,9 +272,11 @@ int config_parse_token_bucket_filter_latency(
         r = qdisc_new_static(QDISC_KIND_TBF, network, filename, section_line, &qdisc);
         if (r == -ENOMEM)
                 return log_oom();
-        if (r < 0)
-                return log_syntax(unit, LOG_ERR, filename, line, r,
-                                  "More than one kind of queueing discipline, ignoring assignment: %m");
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "More than one kind of queueing discipline, ignoring assignment: %m");
+                return 0;
+        }
 
         tbf = TBF(qdisc);
 
@@ -283,7 +289,7 @@ int config_parse_token_bucket_filter_latency(
 
         r = parse_sec(rvalue, &u);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;

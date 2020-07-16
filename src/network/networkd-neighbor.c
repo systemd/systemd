@@ -399,11 +399,12 @@ int config_parse_neighbor_address(
 
         r = neighbor_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = in_addr_from_string_auto(rvalue, &n->family, &n->in_addr);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Neighbor Address is invalid, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Neighbor Address is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -436,7 +437,7 @@ int config_parse_neighbor_lladdr(
 
         r = neighbor_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = ether_addr_from_string(rvalue, &n->lladdr.mac);
         if (r >= 0)
@@ -444,7 +445,7 @@ int config_parse_neighbor_lladdr(
         else {
                 r = in_addr_from_string_auto(rvalue, &family, &n->lladdr.ip);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Neighbor LinkLayerAddress= is invalid, ignoring assignment: %s",
                                    rvalue);
                         return 0;
@@ -481,11 +482,11 @@ int config_parse_neighbor_hwaddr(
 
         r = neighbor_new_static(network, filename, section_line, &n);
         if (r < 0)
-                return r;
+                return log_oom();
 
         r = ether_addr_from_string(rvalue, &n->lladdr.mac);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Neighbor MACAddress= is invalid, ignoring assignment: %s", rvalue);
                 return 0;
         }

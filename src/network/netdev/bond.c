@@ -320,13 +320,15 @@ int config_parse_arp_ip_target_address(
                 return 0;
         }
 
-        for (;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *n = NULL;
                 union in_addr_union ip;
 
-                r = extract_first_word(&rvalue, &n, NULL, 0);
+                r = extract_first_word(&p, &n, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to parse Bond ARP IP target address, ignoring assignment: %s",
                                    rvalue);
                         return 0;
@@ -336,7 +338,7 @@ int config_parse_arp_ip_target_address(
 
                 r = in_addr_from_string(AF_INET, n, &ip);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Bond ARP IP target address is invalid, ignoring assignment: %s", n);
                         continue;
                 }
@@ -357,7 +359,7 @@ int config_parse_arp_ip_target_address(
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Bond ARP IP target address is duplicated, ignoring assignment: %s", n);
                 if (r < 0)
-                        log_syntax(unit, LOG_ERR, filename, line, r,
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to store bond ARP IP target address '%s', ignoring assignment: %m", n);
         }
 }
@@ -384,13 +386,13 @@ int config_parse_ad_actor_sys_prio(
 
         r = safe_atou16(rvalue, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse actor system priority '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
         if (v == 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse actor system priority '%s'. Range is [1,65535], ignoring.",
                            rvalue);
                 return 0;
@@ -423,13 +425,13 @@ int config_parse_ad_user_port_key(
 
         r = safe_atou16(rvalue, &v);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse user port key '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
         if (v > 1023) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse user port key '%s'. Range is [0…1023], ignoring.", rvalue);
                 return 0;
         }
@@ -461,13 +463,13 @@ int config_parse_ad_actor_system(
 
         r = ether_addr_from_string(rvalue, &n);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Not a valid MAC address %s. Ignoring assignment: %m",
                            rvalue);
                 return 0;
         }
         if (ether_addr_is_null(&n) || (n.ether_addr_octet[0] & 0x01)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment.",
                            rvalue);
                 return 0;

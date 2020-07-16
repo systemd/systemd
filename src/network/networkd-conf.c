@@ -144,26 +144,29 @@ int config_parse_duid_rawdata(
         assert(ret);
 
         /* RawData contains DUID in format "NN:NN:NN..." */
-        for (;;) {
+        for (const char *p = rvalue;;) {
                 int n1, n2, len, r;
                 uint32_t byte;
                 _cleanup_free_ char *cbyte = NULL;
 
-                r = extract_first_word(&rvalue, &cbyte, ":", 0);
+                r = extract_first_word(&p, &cbyte, ":", 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to read DUID, ignoring assignment: %s.", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to read DUID, ignoring assignment: %s.", rvalue);
                         return 0;
                 }
                 if (r == 0)
                         break;
+
                 if (count >= MAX_DUID_LEN) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Max DUID length exceeded, ignoring assignment: %s.", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Max DUID length exceeded, ignoring assignment: %s.", rvalue);
                         return 0;
                 }
 
                 len = strlen(cbyte);
                 if (!IN_SET(len, 1, 2)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid length - DUID byte: %s, ignoring assignment: %s.", cbyte, rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid length - DUID byte: %s, ignoring assignment: %s.", cbyte, rvalue);
                         return 0;
                 }
                 n1 = unhexchar(cbyte[0]);
@@ -173,7 +176,7 @@ int config_parse_duid_rawdata(
                         n2 = 0;
 
                 if (n1 < 0 || n2 < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid DUID byte: %s. Ignoring assignment: %s.", cbyte, rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid DUID byte: %s. Ignoring assignment: %s.", cbyte, rvalue);
                         return 0;
                 }
 
