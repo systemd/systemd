@@ -2630,7 +2630,7 @@ static int apply_mount_namespace(
 
                         if (streq_ptr(runtime->var_tmp_dir, RUN_SYSTEMD_EMPTY))
                                 var_tmp_dir = runtime->var_tmp_dir;
-                        else if (runtime->tmp_dir)
+                        else if (runtime->var_tmp_dir)
                                 var_tmp_dir = strjoina(runtime->var_tmp_dir, "/tmp");
                 }
 
