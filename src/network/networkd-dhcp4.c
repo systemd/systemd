@@ -847,7 +847,9 @@ static void dhcp_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 (void) in_addr_to_string(AF_INET, &address, &pretty);
                 log_link_warning(link, "DAD conflict. Dropping DHCP4 address %s", strna(pretty));
 
-                (void) sd_dhcp_client_send_decline(link->dhcp_client);
+                r = sd_dhcp_client_send_decline(link->dhcp_client);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to send DHCP DECLINE, ignoring: %m");
 
                 if (link->dhcp_lease) {
                         r = dhcp_lease_lost(link);
@@ -1263,8 +1265,11 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         }
 
                         if (link->dhcp_lease) {
-                                if (link->network->dhcp_send_release)
-                                        (void) sd_dhcp_client_send_release(client);
+                                if (link->network->dhcp_send_release) {
+                                        r = sd_dhcp_client_send_release(client);
+                                        if (r < 0)
+                                                log_link_warning_errno(link, r, "Failed to send DHCP RELEASE, ignoring: %m");
+                                }
 
                                 r = dhcp_lease_lost(link);
                                 if (r < 0) {
@@ -1586,7 +1591,6 @@ int dhcp4_configure(Link *link) {
                         log_link_debug(link, "DHCP4 CLIENT: Failed to set request flag for '%u' already exists, ignoring.", option);
                         continue;
                 }
-
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for '%u': %m", option);
         }
