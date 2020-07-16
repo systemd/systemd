@@ -108,6 +108,7 @@ typedef struct Link {
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
+        bool dhcp4_address_bind:1;
         bool dhcp6_address_configured:1;
         bool dhcp6_route_configured:1;
         bool dhcp6_pd_address_configured:1;
