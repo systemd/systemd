@@ -22,7 +22,7 @@
 
   <refnamediv>
     <refname>environment.d</refname>
-    <refpurpose>Definition of user session environment</refpurpose>
+    <refpurpose>Definition of user service environment</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
