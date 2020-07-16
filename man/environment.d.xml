@@ -36,8 +36,8 @@
   <refsect1>
     <title>Description</title>
 
-    <para>The <filename>environment.d</filename> directories contain a list of environment variable
-    assignments for services started by the systemd user instance.
+    <para>Configuration files in the <filename>environment.d/</filename> directories contain lists of
+    environment variable assignments for services started by the systemd user instance.
     <citerefentry><refentrytitle>systemd-environment-d-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     parses them and updates the environment exported by the systemd user instance. See below for an
     discussion of which processes inherit those variables.</para>
@@ -58,7 +58,6 @@
     variable assignments, separated by newlines. The right hand side of these assignments may
     reference previously defined environment variables, using the <literal>${OTHER_KEY}</literal>
     and <literal>$OTHER_KEY</literal> format. It is also possible to use
-
     <literal>${<replaceable>FOO</replaceable>:-<replaceable>DEFAULT_VALUE</replaceable>}</literal>
     to expand in the same way as <literal>${<replaceable>FOO</replaceable>}</literal> unless the
     expansion would be empty, in which case it expands to <replaceable>DEFAULT_VALUE</replaceable>,
