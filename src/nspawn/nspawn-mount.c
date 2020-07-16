@@ -587,7 +587,6 @@ int mount_all(const char *dest,
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL, *options = NULL;
                 const char *o;
-                struct stat source_st;
                 bool fatal = FLAGS_SET(mount_table[k].mount_settings, MOUNT_FATAL);
 
                 if (in_userns != FLAGS_SET(mount_table[k].mount_settings, MOUNT_IN_USERNS))
@@ -617,7 +616,7 @@ int mount_all(const char *dest,
                         /* Shortcut for optional bind mounts: if the source can't be found skip ahead to avoid creating
                          * empty and unused directories. */
                         if (!fatal && FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR) && FLAGS_SET(mount_table[k].flags, MS_BIND)) {
-                                r = stat(mount_table[k].what, &source_st);
+                                r = access(mount_table[k].what, F_OK);
                                 if (r < 0) {
                                         if (errno == ENOENT)
                                                 continue;
