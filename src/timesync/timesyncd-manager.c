@@ -136,14 +136,8 @@ static int manager_send_request(Manager *m) {
                 return manager_connect(m);
         }
 
-        /* re-arm timer with increasing timeout, in case the packets never arrive back */
-        if (m->retry_interval > 0) {
-                if (m->retry_interval < m->poll_interval_max_usec)
-                        m->retry_interval *= 2;
-        } else
-                m->retry_interval = m->poll_interval_min_usec;
-
-        r = manager_arm_timer(m, m->retry_interval);
+        /* re-arm timer with the minimum poll interval, in case the packets never arrive back */
+        r = manager_arm_timer(m, m->poll_interval_min_usec);
         if (r < 0)
                 return log_error_errno(r, "Failed to rearm timer: %m");
 
@@ -516,7 +510,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         /* valid packet */
         m->pending = false;
-        m->retry_interval = 0;
 
         /* Stop listening */
         manager_listen_stop(m);

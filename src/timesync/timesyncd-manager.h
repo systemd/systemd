@@ -56,7 +56,6 @@ struct Manager {
         /* last sent packet */
         struct timespec trans_time_mon;
         struct timespec trans_time;
-        usec_t retry_interval;
         bool pending;
 
         /* poll timer */
