@@ -595,7 +595,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (!is_match) {
                         if (streq(value, "%k"))
                                 return log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),
-                                                             "Ignoring NAME=\"%%k\" is ignored, as it breaks kernel supplied names.");
+                                                             "NAME=\"%%k\" is ignored, as it breaks kernel supplied names.");
                         if (isempty(value))
                                 return log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),
                                                              "Ignoring NAME=\"\", as udev will not delete any device nodes.");
@@ -860,7 +860,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         check_value_format_and_warn(rules, key, value, true);
                         r = rule_line_add_token(rule_line, TK_A_OWNER, op, value, NULL);
                 } else {
-                        log_token_debug(rules, "Resolving user name is disabled, ignoring %s=%s", key, value);
+                        log_token_debug(rules, "User name resolution is disabled, ignoring %s=%s", key, value);
                         return 0;
                 }
         } else if (streq(key, "GROUP")) {
@@ -943,7 +943,7 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 if (op != OP_ASSIGN)
                         return log_token_invalid_op(rules, key);
                 if (FLAGS_SET(rule_line->type, LINE_HAS_GOTO)) {
-                        log_token_warning(rules, "Contains multiple GOTO key, ignoring GOTO=\"%s\".", value);
+                        log_token_warning(rules, "Contains multiple GOTO keys, ignoring GOTO=\"%s\".", value);
                         return 0;
                 }
 
@@ -1655,7 +1655,7 @@ static int udev_rule_apply_token_to_event(
                 if (r == -ENOENT)
                         return token->op == OP_NOMATCH;
                 if (r < 0)
-                        return log_rule_error_errno(dev, rules, r, "Failed to test the existence of '%s': %m", buf);
+                        return log_rule_error_errno(dev, rules, r, "Failed to test for the existence of '%s': %m", buf);
 
                 if (stat(buf, &statbuf) < 0)
                         return token->op == OP_NOMATCH;
@@ -1676,16 +1676,16 @@ static int udev_rule_apply_token_to_event(
                 r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof(result));
                 if (r != 0) {
                         if (r < 0)
-                                log_rule_warning_errno(dev, rules, r, "Failed to execute '%s', ignoring: %m", buf);
+                                log_rule_warning_errno(dev, rules, r, "Failed to execute \"%s\": %m", buf);
                         else /* returned value is positive when program fails */
-                                log_rule_debug(dev, rules, "Command \"%s\" returned %d (error), ignoring", buf, r);
+                                log_rule_debug(dev, rules, "Command \"%s\" returned %d (error)", buf, r);
                         return token->op == OP_NOMATCH;
                 }
 
                 delete_trailing_chars(result, "\n");
                 count = util_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
                 if (count > 0)
-                        log_rule_debug(dev, rules, "Replaced %zu character(s) from result of '%s'",
+                        log_rule_debug(dev, rules, "Replaced %zu character(s) in result of \"%s\"",
                                        count, buf);
 
                 event->program_result = strdup(result);
