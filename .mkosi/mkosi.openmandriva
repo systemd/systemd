@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: LGPL-2.1+
+
+# This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
+# Simply invoke "mkosi" in the project directory to build an OS image.
+
+[Distribution]
+Distribution=openmandriva
+Release=cooker
+
+[Output]
+Format=gpt_ext4
+Bootable=yes
+
+[Partitions]
+RootSize=3G
+
+[Packages]
+BuildPackages=
+        basesystem
+		task-devel
+        pkgconfig(bzip2)
+        pkgconfig(libcryptsetup)
+        pkgconfig(dbus-1)
+        diffutils
+        docbook-style-xsl
+        pkgconfig(libelf)
+        gettext
+        git
+        locales-en
+        gnu-efi
+        pkgconfig(gnutls)
+        gperf
+        iptables-devel
+        pkgconfig(libkmod)
+        pkgconfig(libacl)
+        pkgconfig(libcap)
+        pkgconfig(libcurl)
+        pkgconfig(fdisk)
+        pkgconfig(libgcrypt)
+        pkgconfig(libmicrohttpd)
+        pkgconfig(mount)
+        pkgconfig(pwquality)
+        pkgconfig(libseccomp)
+        pkgconfig(xkbcommon)
+        pkgconfig(libzstd)
+        lz4
+        pkgconfig(liblz4)
+        m4
+        meson
+        pkgconfig(libssl)
+        pam-devel
+        pkgconfig(libpcre2-posix)
+        pkgconf
+        pkgconfig(python)
+        python-lxml
+        pkgconfig(libqrencode)
+        pkgconfig(liblzma)
+		xsltproc
+        zstd
+
+Packages=
+		acpi
+		acpid
+		at
+		basesystem
+		btrfs-progs
+		cronie-anacron
+		distro-release-OpenMandriva
+		dhcp-client
+		e2fsprogs
+		iproute2
+		efibootmgr
+		kernel-release-desktop
+		kernel-firmware
+		kernel-firmware-extra
+		nscd
+		openssh-server
+		openssh-clients
+		omv-bug-report
+		pciutils
+		timezone
+		usbutils
+		vim-enhanced
+		nano
+		wireless-tools
+
+BuildDirectory=mkosi.builddir
+Cache=mkosi.cache
