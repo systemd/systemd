@@ -125,8 +125,7 @@ int udev_watch_end(sd_device *dev) {
         int wd, r;
 
         if (inotify_fd < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Invalid inotify descriptor.");
+                return 0; /* Nothing to do. */
 
         r = device_get_watch_handle(dev, &wd);
         if (r == -ENOENT)
