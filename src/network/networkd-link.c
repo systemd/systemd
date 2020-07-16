@@ -800,8 +800,6 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
         assert(link->manager);
         assert(link->manager->event);
 
-        dhcp4_release_old_lease(link);
-
         bool keep_dhcp = may_keep_dhcp &&
                          link->network &&
                          (link->manager->restarting ||

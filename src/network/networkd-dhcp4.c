@@ -27,7 +27,7 @@ static int dhcp_remove_address(Link *link, sd_dhcp_lease *lease, const struct in
 static int dhcp4_update_address(Link *link, bool announce);
 static int dhcp4_remove_all(Link *link);
 
-void dhcp4_release_old_lease(Link *link) {
+static void dhcp4_release_old_lease(Link *link) {
         struct in_addr address = {}, address_old = {};
 
         assert(link);
@@ -792,6 +792,9 @@ static int dhcp_lease_lost(Link *link) {
         log_link_info(link, "DHCP lease lost");
 
         link->dhcp4_configured = false;
+
+        /* dhcp_lease_lost() may be called during renewing IP address. */
+        dhcp4_release_old_lease(link);
 
         r = dhcp4_remove_all(link);
         if (r < 0)
