@@ -3,7 +3,7 @@
 # Copyright © 2016 Zeal Jagannatha
 
 # This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
-# Simply invoke "mkosi" in the project directory to build an OS image.
+# Symlink this file to mkosi.default in the project root directory and invoke "mkosi" to build an OS image.
 
 [Distribution]
 Distribution=arch
