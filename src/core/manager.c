@@ -1998,7 +1998,7 @@ int manager_load_unit_prepare(
                  * this particular unit. */
                 if (manager_unit_file_maybe_loadable_from_cache(ret))
                         ret->load_state = UNIT_STUB;
-                else {
+                else if (ret->load_state != UNIT_ERROR) {
                         *_ret = ret;
                         return 1;
                 }
