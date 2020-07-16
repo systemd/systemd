@@ -268,7 +268,7 @@ static int group_lookup_name(Manager *m, const char *name, gid_t *ret_gid) {
                 return -ENOMEM;
 
         machine = hashmap_get(m->machines, mn);
-        if (!mn)
+        if (!machine)
                 return -ESRCH;
 
         if (machine->class != MACHINE_CONTAINER)
