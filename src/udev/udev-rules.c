@@ -755,10 +755,8 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 check_value_format_and_warn(rules, key, value, true);
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
-                if (!is_match) {
-                        log_token_debug(rules, "%s key takes '==' or '!=' operator, assuming '=='.", key);
+                if (!is_match)
                         op = OP_MATCH;
-                }
 
                 r = rule_line_add_token(rule_line, TK_M_PROGRAM, op, value, NULL);
         } else if (streq(key, "IMPORT")) {
@@ -767,10 +765,8 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                 check_value_format_and_warn(rules, key, value, true);
                 if (op == OP_REMOVE)
                         return log_token_invalid_op(rules, key);
-                if (!is_match) {
-                        log_token_debug(rules, "%s key takes '==' or '!=' operator, assuming '=='.", key);
+                if (!is_match)
                         op = OP_MATCH;
-                }
 
                 if (streq(attr, "file"))
                         r = rule_line_add_token(rule_line, TK_M_IMPORT_FILE, op, value, NULL);
