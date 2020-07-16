@@ -17,7 +17,7 @@ RootSize=3G
 [Packages]
 BuildPackages=
         basesystem
-		task-devel
+	task-devel
         pkgconfig(bzip2)
         pkgconfig(libcryptsetup)
         pkgconfig(dbus-1)
@@ -55,34 +55,33 @@ BuildPackages=
         python-lxml
         pkgconfig(libqrencode)
         pkgconfig(liblzma)
-		xsltproc
+	xsltproc
         zstd
 
 Packages=
-		acpi
-		acpid
-		at
-		basesystem
-		btrfs-progs
-		cronie-anacron
-		distro-release-OpenMandriva
-		dhcp-client
-		e2fsprogs
-		iproute2
-		efibootmgr
-		kernel-release-desktop
-		kernel-firmware
-		kernel-firmware-extra
-		nscd
-		openssh-server
-		openssh-clients
-		omv-bug-report
-		pciutils
-		timezone
-		usbutils
-		vim-enhanced
-		nano
-		wireless-tools
+        acpi
+        acpid
+        at
+        basesystem
+        cronie-anacron
+        distro-release-OpenMandriva
+        dhcp-client
+        e2fsprogs
+        iproute2
+        efibootmgr
+        kernel-release-desktop
+        kernel-firmware
+        kernel-firmware-extra
+        nscd
+        openssh-server
+        openssh-clients
+        omv-bug-report
+        pciutils
+        timezone
+        usbutils
+        vim-enhanced
+        nano
+        wireless-tools
 
 BuildDirectory=mkosi.builddir
 Cache=mkosi.cache
