@@ -815,14 +815,14 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *r
                 break;
 
         case SD_NDISC_EVENT_TIMEOUT:
-                log_link_debug(link, "NDISC handler get timeout event");
+                log_link_debug(link, "NDisc handler get timeout event");
                 link->ndisc_addresses_configured = true;
                 link->ndisc_routes_configured = true;
                 link_check_ready(link);
 
                 break;
         default:
-                assert_not_reached("IPv6 Neighbor Discovery unknown event");
+                assert_not_reached("Unknown NDisc event");
         }
 }
 
@@ -948,7 +948,7 @@ int config_parse_ndisc_deny_listed_prefix(
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse NDISC deny-listed prefix, ignoring assignment: %s",
+                                   "Failed to parse NDisc deny-listed prefix, ignoring assignment: %s",
                                    rvalue);
                         return 0;
                 }
@@ -958,7 +958,7 @@ int config_parse_ndisc_deny_listed_prefix(
                 r = in_addr_from_string(AF_INET6, n, &ip);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "NDISC deny-listed prefix is invalid, ignoring assignment: %s", n);
+                                   "NDisc deny-listed prefix is invalid, ignoring assignment: %s", n);
                         continue;
                 }
 
