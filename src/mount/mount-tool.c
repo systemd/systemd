@@ -936,10 +936,9 @@ static int umount_by_device(sd_bus *bus, const char *what) {
         if (r < 0)
                 return log_device_error_errno(d, r, "Failed to get device property: %m");
 
-        if (!streq(v, "filesystem")) {
-                log_device_error(d, "%s does not contain a known file system.", what);
-                return -EINVAL;
-        }
+        if (!streq(v, "filesystem"))
+                return log_device_error_errno(d, SYNTHETIC_ERRNO(EINVAL),
+                                              "%s does not contain a known file system.", what);
 
         if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE", &v) >= 0)
                 r2 = stop_mounts(bus, v);
@@ -1275,10 +1274,9 @@ static int discover_loop_backing_file(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get device from device number: %m");
 
-        if (sd_device_get_property_value(d, "ID_FS_USAGE", &v) < 0 || !streq(v, "filesystem")) {
-                log_device_error(d, "%s does not contain a known file system.", arg_mount_what);
-                return -EINVAL;
-        }
+        if (sd_device_get_property_value(d, "ID_FS_USAGE", &v) < 0 || !streq(v, "filesystem"))
+                return log_device_error_errno(d, SYNTHETIC_ERRNO(EINVAL),
+                                              "%s does not contain a known file system.", arg_mount_what);
 
         r = acquire_mount_type(d);
         if (r < 0)

@@ -37,7 +37,7 @@
                 sd_device *_d = (device);                               \
                 int _level = (level), _error = (error);                 \
                                                                         \
-                if (_d && _unlikely_(log_get_max_level() >= _level))    \
+                if (_d && _unlikely_(log_get_max_level() >= LOG_PRI(_level))) \
                         (void) sd_device_get_sysname(_d, &_sysname);    \
                 log_object_internal(_level, _error, PROJECT_FILE, __LINE__, __func__, \
                                     _sysname ? "DEVICE=" : NULL, _sysname, \

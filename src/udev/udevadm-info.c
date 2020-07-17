@@ -44,17 +44,15 @@ static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
 
 static bool skip_attribute(const char *name) {
-        static const char* const skip[] = {
-                "uevent",
-                "dev",
-                "modalias",
-                "resource",
-                "driver",
-                "subsystem",
-                "module",
-        };
-
-        return string_table_lookup(skip, ELEMENTSOF(skip), name) >= 0;
+        /* Those are either displayed separately or should not be shown at all. */
+        return STR_IN_SET(name,
+                          "uevent",
+                          "dev",
+                          "modalias",
+                          "resource",
+                          "driver",
+                          "subsystem",
+                          "module");
 }
 
 typedef struct SysAttr {

@@ -320,24 +320,22 @@ _public_ int sd_device_new_from_subsystem_sysname(sd_device **ret, const char *s
         return -ENODEV;
 }
 
-int device_set_devtype(sd_device *device, const char *_devtype) {
-        _cleanup_free_ char *devtype = NULL;
+int device_set_devtype(sd_device *device, const char *devtype) {
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(device);
-        assert(_devtype);
+        assert(devtype);
 
-        devtype = strdup(_devtype);
-        if (!devtype)
+        t = strdup(devtype);
+        if (!t)
                 return -ENOMEM;
 
-        r = device_add_property_internal(device, "DEVTYPE", devtype);
+        r = device_add_property_internal(device, "DEVTYPE", t);
         if (r < 0)
                 return r;
 
-        free_and_replace(device->devtype, devtype);
-
-        return 0;
+        return free_and_replace(device->devtype, t);
 }
 
 int device_set_ifindex(sd_device *device, const char *name) {
@@ -359,30 +357,25 @@ int device_set_ifindex(sd_device *device, const char *name) {
         return 0;
 }
 
-int device_set_devname(sd_device *device, const char *_devname) {
-        _cleanup_free_ char *devname = NULL;
+int device_set_devname(sd_device *device, const char *devname) {
+        _cleanup_free_ char *t = NULL;
         int r;
 
         assert(device);
-        assert(_devname);
+        assert(devname);
 
-        if (_devname[0] != '/') {
-                r = asprintf(&devname, "/dev/%s", _devname);
-                if (r < 0)
-                        return -ENOMEM;
-        } else {
-                devname = strdup(_devname);
-                if (!devname)
-                        return -ENOMEM;
-        }
+        if (devname[0] != '/')
+                t = strjoin("/dev/", devname);
+        else
+                t = strdup(devname);
+        if (!t)
+                return -ENOMEM;
 
-        r = device_add_property_internal(device, "DEVNAME", devname);
+        r = device_add_property_internal(device, "DEVNAME", t);
         if (r < 0)
                 return r;
 
-        free_and_replace(device->devname, devname);
-
-        return 0;
+        return free_and_replace(device->devname, t);
 }
 
 int device_set_devmode(sd_device *device, const char *_devmode) {
@@ -1250,17 +1243,15 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                         if (!subsystem)
                                 return -EINVAL;
 
-                        if (streq(subsystem, "drivers")) {
+
+                        if (streq(subsystem, "drivers"))
                                 /* the 'drivers' pseudo-subsystem is special, and needs the real subsystem
                                  * encoded as well */
-                                r = asprintf(&id, "+drivers:%s:%s", device->driver_subsystem, sysname);
-                                if (r < 0)
-                                        return -ENOMEM;
-                        } else {
-                                r = asprintf(&id, "+%s:%s", subsystem, sysname);
-                                if (r < 0)
-                                        return -ENOMEM;
-                        }
+                                id = strjoin("+drivers:", device->driver_subsystem, ":", sysname);
+                        else
+                                id = strjoin("+", subsystem, ":", sysname);
+                        if (!id)
+                                return -ENOMEM;
                 }
 
                 device->id_filename = TAKE_PTR(id);
