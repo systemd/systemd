@@ -270,7 +270,7 @@ BridgeFDB.AssociatedWith,                    config_parse_fdb_ntf_flags,        
 BridgeVLAN.PVID,                             config_parse_brvlan_pvid,                                 0,                             0
 BridgeVLAN.VLAN,                             config_parse_brvlan_vlan,                                 0,                             0
 BridgeVLAN.EgressUntagged,                   config_parse_brvlan_untagged,                             0,                             0
-Network.IPv6PrefixDelegation,                config_parse_router_prefix_delegation,                    0,                             0
+Network.IPv6PrefixDelegation,                config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
 Network.IPv6PDSubnetId,                      config_parse_router_prefix_subnet_id,                     0,                             0
 IPv6PrefixDelegation.RouterLifetimeSec,      config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
 IPv6PrefixDelegation.Managed,                config_parse_bool,                                        0,                             offsetof(Network, router_managed)
