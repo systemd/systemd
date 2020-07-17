@@ -2,6 +2,7 @@
 
 #include "sd-netlink.h"
 
+#include "format-util.h"
 #include "memory-util.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
@@ -9,6 +10,8 @@
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_strv_free_ char **alternative_names = NULL;
+        char old_name[IF_NAMESIZE + 1] = {};
         int r;
 
         assert(rtnl);
@@ -18,10 +21,18 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         if (!ifname_valid(name))
                 return -EINVAL;
 
-        if (!*rtnl) {
-                r = sd_netlink_open(rtnl);
+        r = rtnl_get_link_alternative_names(rtnl, ifindex, &alternative_names);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get alternative names on network interface %i, ignoring: %m",
+                                ifindex);
+
+        if (strv_contains(alternative_names, name)) {
+                r = rtnl_delete_link_alternative_names(rtnl, ifindex, STRV_MAKE(name));
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to remove '%s' from alternative names on network interface %i: %m",
+                                               name, ifindex);
+
+                format_ifname(ifindex, old_name);
         }
 
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
@@ -35,6 +46,13 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         r = sd_netlink_call(*rtnl, message, 0, NULL);
         if (r < 0)
                 return r;
+
+        if (!isempty(old_name)) {
+                r = rtnl_set_link_alternative_names(rtnl, ifindex, STRV_MAKE(old_name));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set '%s' as an alternative name on network interface %i, ignoring: %m",
+                                        old_name, ifindex);
+        }
 
         return 0;
 }
