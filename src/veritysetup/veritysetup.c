@@ -100,7 +100,7 @@ static int run(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", argv[6]);
                         } else {
-                                r = read_full_file_full(AT_FDCWD, argv[6], 0, &hash_sig, &hash_sig_size);
+                                r = read_full_file_full(AT_FDCWD, argv[6], READ_FULL_FILE_CONNECT_SOCKET, &hash_sig, &hash_sig_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to read root hash signature: %m");
                         }

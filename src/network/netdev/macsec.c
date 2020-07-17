@@ -983,7 +983,10 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
 
         (void) warn_file_is_world_accessible(sa->key_file, NULL, NULL, 0);
 
-        r = read_full_file_full(AT_FDCWD, sa->key_file, READ_FULL_FILE_SECURE | READ_FULL_FILE_UNHEX | READ_FULL_FILE_WARN_WORLD_READABLE, (char **) &key, &key_len);
+        r = read_full_file_full(
+                        AT_FDCWD, sa->key_file,
+                        READ_FULL_FILE_SECURE | READ_FULL_FILE_UNHEX | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET,
+                        (char **) &key, &key_len);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
                                               "Failed to read key from '%s', ignoring: %m",
