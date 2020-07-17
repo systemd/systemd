@@ -79,6 +79,9 @@ GENERAL_MATCHES = {'acpi',
                    'OUI',
                    }
 
+def upperhex_word(length):
+    return Word(nums + 'ABCDEF', exact=length)
+
 @lru_cache()
 def hwdb_grammar():
     ParserElement.setDefaultWhitespaceChars('')
@@ -180,8 +183,27 @@ def parse(fname):
         return []
     return [convert_properties(g) for g in parsed.GROUPS]
 
-def check_match_uniqueness(groups):
+def check_matches(groups):
     matches = sum((group[0] for group in groups), [])
+
+    # This is a partial check. The other cases could be also done, but those
+    # two are most commonly wrong.
+    grammars = { 'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4)),
+                 'pci' : 'v' + upperhex_word(8) + Optional('d' + upperhex_word(8)),
+    }
+
+    for match in matches:
+        prefix, rest = match.split(':', maxsplit=1)
+        gr = grammars.get(prefix)
+        if gr:
+            try:
+                gr.parseString(rest)
+            except ParseBaseException as e:
+                error('Pattern {!r} is invalid: {}', rest, e)
+                continue
+            if rest[-1] not in '*:':
+                error('pattern {} does not end with "*" or ":"', match)
+
     matches.sort()
     prev = None
     for match in matches:
@@ -256,7 +278,7 @@ if __name__ == '__main__':
     for fname in args:
         groups = parse(fname)
         print_summary(fname, groups)
-        check_match_uniqueness(groups)
+        check_matches(groups)
         check_properties(groups)
 
     sys.exit(ERROR)
