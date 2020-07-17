@@ -22,6 +22,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
@@ -535,21 +536,18 @@ int read_full_stream_full(
 
                 errno = 0;
                 k = fread(buf + l, 1, n - l, f);
-                if (k > 0)
-                        l += k;
+
+                assert(k <= n - l);
+                l += k;
 
                 if (ferror(f)) {
                         r = errno_or_else(EIO);
                         goto finalize;
                 }
-
                 if (feof(f))
                         break;
 
-                /* We aren't expecting fread() to return a short read outside
-                 * of (error && eof), assert buffer is full and enlarge buffer.
-                 */
-                assert(l == n);
+                assert(k > 0); /* we can't have read zero bytes because that would have been EOF */
 
                 /* Safety check */
                 if (n >= READ_FULL_BYTES_MAX) {
@@ -603,8 +601,54 @@ int read_full_file_full(int dir_fd, const char *filename, ReadFullFileFlags flag
         assert(contents);
 
         r = xfopenat(dir_fd, filename, "re", 0, &f);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                _cleanup_close_ int dfd = -1, sk = -1;
+                union sockaddr_union sa;
+
+                /* ENXIO is what Linux returns if we open a node that is an AF_UNIX socket */
+                if (r != -ENXIO)
+                        return r;
+
+                /* If this is enabled, let's try to connect to it */
+                if (!FLAGS_SET(flags, READ_FULL_FILE_CONNECT_SOCKET))
+                        return -ENXIO;
+
+                if (dir_fd == AT_FDCWD)
+                        r = sockaddr_un_set_path(&sa.un, filename);
+                else {
+                        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+
+                        /* If we shall operate relative to some directory, then let's use O_PATH first to
+                         * open the socket inode, and then connect to it via /proc/self/fd/. We have to do
+                         * this since there's not connectat() that takes a directory fd as first arg. */
+
+                        dfd = openat(dir_fd, filename, O_PATH|O_CLOEXEC);
+                        if (dfd < 0)
+                                return -errno;
+
+                        xsprintf(procfs_path, "/proc/self/fd/%i", dfd);
+                        r = sockaddr_un_set_path(&sa.un, procfs_path);
+                }
+                if (r < 0)
+                        return r;
+
+                sk = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+                if (sk < 0)
+                        return -errno;
+
+                if (connect(sk, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
+                        return errno == ENOTSOCK ? -ENXIO : -errno; /* propagate original error if this is
+                                                                     * not a socket after all */
+
+                if (shutdown(sk, SHUT_WR) < 0)
+                        return -errno;
+
+                f = fdopen(sk, "r");
+                if (!f)
+                        return -errno;
+
+                TAKE_FD(sk);
+        }
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 

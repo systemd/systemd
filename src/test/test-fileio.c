@@ -15,6 +15,8 @@
 #include "io-util.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "rm-rf.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -842,6 +844,53 @@ static void test_read_nul_string(void) {
         assert_se(read_nul_string(f, LONG_LINE_MAX, &s) == 0 && streq_ptr(s, ""));
 }
 
+static void test_read_full_file_socket(void) {
+        _cleanup_(rm_rf_physical_and_freep) char *z = NULL;
+        _cleanup_close_ int listener = -1;
+        _cleanup_free_ char *data = NULL;
+        union sockaddr_union sa;
+        const char *j;
+        size_t size;
+        pid_t pid;
+        int r;
+
+        log_info("/* %s */", __func__);
+
+        listener = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        assert_se(listener >= 0);
+
+        assert_se(mkdtemp_malloc(NULL, &z) >= 0);
+        j = strjoina(z, "/socket");
+
+        assert_se(sockaddr_un_set_path(&sa.un, j) >= 0);
+
+        assert_se(bind(listener, &sa.sa, SOCKADDR_UN_LEN(sa.un)) >= 0);
+        assert_se(listen(listener, 1) >= 0);
+
+        r = safe_fork("(server)", FORK_DEATHSIG|FORK_LOG, &pid);
+        assert_se(r >= 0);
+        if (r == 0) {
+                _cleanup_close_ int rfd = -1;
+                /* child */
+
+                rfd = accept4(listener, NULL, 0, SOCK_CLOEXEC);
+                assert_se(rfd >= 0);
+
+#define TEST_STR "This is a test\nreally."
+
+                assert_se(write(rfd, TEST_STR, strlen(TEST_STR)) == strlen(TEST_STR));
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(read_full_file_full(AT_FDCWD, j, 0, &data, &size) == -ENXIO);
+        assert_se(read_full_file_full(AT_FDCWD, j, READ_FULL_FILE_CONNECT_SOCKET, &data, &size) >= 0);
+        assert_se(size == strlen(TEST_STR));
+        assert_se(streq(data, TEST_STR));
+
+        assert_se(wait_for_terminate_and_check("(server)", pid, WAIT_LOG) >= 0);
+#undef TEST_STR
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -867,6 +916,7 @@ int main(int argc, char *argv[]) {
         test_read_line3();
         test_read_line4();
         test_read_nul_string();
+        test_read_full_file_socket();
 
         return 0;
 }
