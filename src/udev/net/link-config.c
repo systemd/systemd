@@ -358,7 +358,7 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
 
 int link_config_apply(link_config_ctx *ctx, link_config *config,
                       sd_device *device, const char **name) {
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_strv_free_ char **altnames = NULL, **current_altnames = NULL;
         struct ether_addr generated_mac;
         struct ether_addr *mac = NULL;
         const char *new_name = NULL;
@@ -539,9 +539,17 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (new_name)
                 strv_remove(altnames, new_name);
         strv_remove(altnames, old_name);
+
+        r = rtnl_get_link_alternative_names(&ctx->rtnl, ifindex, &current_altnames);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get alternative names on %s, ignoring: %m", old_name);
+
+        char **p;
+        STRV_FOREACH(p, current_altnames)
+                strv_remove(altnames, *p);
+
         strv_uniq(altnames);
         strv_sort(altnames);
-
         r = rtnl_set_link_alternative_names(&ctx->rtnl, ifindex, altnames);
         if (r == -EOPNOTSUPP)
                 log_debug_errno(r, "Could not set AlternativeName= or apply AlternativeNamesPolicy= on %s, ignoring: %m", old_name);
