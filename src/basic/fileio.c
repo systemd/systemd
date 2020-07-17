@@ -505,7 +505,7 @@ int read_full_stream_full(
                         if (st.st_size > 0)
                                 n_next = st.st_size + 1;
 
-                        if (flags & READ_FULL_FILE_SECURE)
+                        if (flags & READ_FULL_FILE_WARN_WORLD_READABLE)
                                 (void) warn_file_is_world_accessible(filename, &st, NULL, 0);
                 }
         }

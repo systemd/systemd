@@ -32,9 +32,10 @@ typedef enum {
 } WriteStringFileFlags;
 
 typedef enum {
-        READ_FULL_FILE_SECURE   = 1 << 0,
-        READ_FULL_FILE_UNBASE64 = 1 << 1,
-        READ_FULL_FILE_UNHEX    = 1 << 2,
+        READ_FULL_FILE_SECURE              = 1 << 0,
+        READ_FULL_FILE_UNBASE64            = 1 << 1,
+        READ_FULL_FILE_UNHEX               = 1 << 2,
+        READ_FULL_FILE_WARN_WORLD_READABLE = 1 << 3,
 } ReadFullFileFlags;
 
 int fopen_unlocked(const char *path, const char *options, FILE **ret);
