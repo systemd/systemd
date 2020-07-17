@@ -148,8 +148,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         unsigned preference;
         uint32_t mtu;
         usec_t time_now;
-        Address *address;
-        Iterator i;
         int r;
 
         assert(link);
@@ -166,34 +164,15 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        SET_FOREACH(address, link->addresses, i) {
-                if (address->family != AF_INET6)
-                        continue;
-                if (in_addr_equal(AF_INET6, &gateway, &address->in_addr)) {
-                        if (DEBUG_LOGGING) {
-                                _cleanup_free_ char *buffer = NULL;
+        if (address_exists(link, AF_INET6, &gateway)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *buffer = NULL;
 
-                                (void) in_addr_to_string(AF_INET6, &address->in_addr, &buffer);
-                                log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                               strnull(buffer));
-                        }
-                        return 0;
+                        (void) in_addr_to_string(AF_INET6, &gateway, &buffer);
+                        log_link_debug(link, "No NDisc route added, gateway %s matches local address",
+                                       strnull(buffer));
                 }
-        }
-
-        SET_FOREACH(address, link->addresses_foreign, i) {
-                if (address->family != AF_INET6)
-                        continue;
-                if (in_addr_equal(AF_INET6, &gateway, &address->in_addr)) {
-                        if (DEBUG_LOGGING) {
-                                _cleanup_free_ char *buffer = NULL;
-
-                                (void) in_addr_to_string(AF_INET6, &address->in_addr, &buffer);
-                                log_link_debug(link, "No NDisc route added, gateway %s matches local address",
-                                               strnull(buffer));
-                        }
-                        return 0;
-                }
+                return 0;
         }
 
         r = sd_ndisc_router_get_preference(rt, &preference);
