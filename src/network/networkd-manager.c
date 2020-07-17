@@ -2031,6 +2031,9 @@ int manager_rtnl_enumerate_routes(Manager *m) {
         assert(m);
         assert(m->rtnl);
 
+        if (!m->manage_foreign_routes)
+                return 0;
+
         r = sd_rtnl_message_new_route(m->rtnl, &req, RTM_GETROUTE, 0, 0);
         if (r < 0)
                 return r;
