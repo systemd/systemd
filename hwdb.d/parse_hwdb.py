@@ -87,7 +87,7 @@ def hwdb_grammar():
                 for category, conn in TYPES.items())
 
     matchline_typed = Combine(prefix + Word(printables + ' ' + '®'))
-    matchline_general = Combine(Or(GENERAL_MATCHES) + ':' + Word(printables))
+    matchline_general = Combine(Or(GENERAL_MATCHES) + ':' + Word(printables + ' ' + '®'))
     matchline = (matchline_typed | matchline_general) + EOL
 
     propertyline = (White(' ', exact=1).suppress() +
