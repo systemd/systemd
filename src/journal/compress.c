@@ -326,7 +326,7 @@ int decompress_blob(
                                 src, src_size,
                                 dst, dst_alloc_size, dst_size, dst_max);
         else
-                return -EBADMSG;
+                return -EPROTONOSUPPORT;
 }
 
 int decompress_startswith_xz(const void *src, uint64_t src_size,
