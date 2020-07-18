@@ -2,6 +2,6 @@
 
 systemd_tmpfiles_sources = [
         'src/tmpfiles/tmpfiles.c',
-        'src/tmpfiles/offline-passwd.c',
-        'src/tmpfiles/offline-passwd.h',
+        'src/shared/offline-passwd.c',
+        'src/shared/offline-passwd.h',
 ]
