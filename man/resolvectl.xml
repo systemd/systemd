@@ -145,15 +145,20 @@
           settings for network interfaces. These commands may be used to inform
           <command>systemd-resolved</command> or <command>systemd-networkd</command> about per-interface DNS
           configuration determined through external means. The <command>dns</command> command expects IPv4 or
-          IPv6 address specifications of DNS servers to use. The <command>domain</command> command expects
-          valid DNS domains, possibly prefixed with <literal>~</literal>, and configures a per-interface
-          search or route-only domain. The <command>default-route</command> command expects a boolean
-          parameter, and configures whether the link may be used as default route for DNS lookups, i.e. if it
-          is suitable for lookups on domains no other link explicitly is configured for. The
-          <command>llmnr</command>, <command>mdns</command>, <command>dnssec</command> and
-          <command>dnsovertls</command> commands may be used to configure the per-interface LLMNR,
-          MulticastDNS, DNSSEC and DNSOverTLS settings. Finally, <command>nta</command> command may be used
-          to configure additional per-interface DNSSEC NTA domains.</para>
+          IPv6 address specifications of DNS servers to use. Each address can optionally take a port number
+          separated with <literal>:</literal>, a network interface name or index separated with
+          <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>. When
+          IPv6 address is specified with a port number, then the address must be in the square brackets. That
+          is, the acceptable full formats are <literal>111.222.333.444:9953%ifname#example.com</literal> for
+          IPv4 and <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. The
+          <command>domain</command> command expects valid DNS domains, possibly prefixed with
+          <literal>~</literal>, and configures a per-interface search or route-only domain. The
+          <command>default-route</command> command expects a boolean parameter, and configures whether the
+          link may be used as default route for DNS lookups, i.e. if it is suitable for lookups on domains no
+          other link explicitly is configured for. The <command>llmnr</command>, <command>mdns</command>,
+          <command>dnssec</command> and <command>dnsovertls</command> commands may be used to configure the
+          per-interface LLMNR, MulticastDNS, DNSSEC and DNSOverTLS settings. Finally, <command>nta</command>
+          command may be used to configure additional per-interface DNSSEC NTA domains.</para>
 
           <para>Commands <command>dns</command>, <command>domain</command> and <command>nta</command> can take
           a single empty string argument to clear their respective value lists.</para>
