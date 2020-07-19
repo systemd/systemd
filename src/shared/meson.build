@@ -35,6 +35,8 @@ shared_sources = files('''
         bus-log-control-api.h
         bus-map-properties.c
         bus-map-properties.h
+        bus-message-util.c
+        bus-message-util.h
         bus-object.c
         bus-object.h
         bus-polkit.c
