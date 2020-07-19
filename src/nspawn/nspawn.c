@@ -3191,7 +3191,7 @@ static int inner_child(
         if (asprintf((char **)(envp + n_env++), "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
                 return log_oom();
 
-        env_use = strv_env_merge(3, envp, arg_setenv, os_release_pairs);
+        env_use = strv_env_merge(3, envp, os_release_pairs, arg_setenv);
         if (!env_use)
                 return log_oom();
 
