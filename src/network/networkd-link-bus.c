@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
+#include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
 #include "networkd-link-bus.h"
@@ -115,9 +116,9 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
 }
 
 static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
-        struct in_addr_full **dns = NULL;
-        size_t allocated = 0, n = 0;
+        struct in_addr_full **dns;
         Link *l = userdata;
+        size_t n;
         int r;
 
         assert(message);
@@ -127,81 +128,9 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(message, 'a', extended ? "(iayqs)" : "(iay)");
+        r = bus_message_read_dns_servers(message, error, extended, &dns, &n);
         if (r < 0)
                 return r;
-
-        for (;;) {
-                const char *server_name = NULL;
-                union in_addr_union a;
-                uint16_t port = 0;
-                const void *d;
-                int family;
-                size_t sz;
-
-                assert_cc(sizeof(int) == sizeof(int32_t));
-
-                r = sd_bus_message_enter_container(message, 'r', extended ? "iayqs" : "iay");
-                if (r < 0)
-                        goto finalize;
-                if (r == 0)
-                        break;
-
-                r = sd_bus_message_read(message, "i", &family);
-                if (r < 0)
-                        goto finalize;
-
-                if (!IN_SET(family, AF_INET, AF_INET6)) {
-                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
-                        goto finalize;
-                }
-
-                r = sd_bus_message_read_array(message, 'y', &d, &sz);
-                if (r < 0)
-                        goto finalize;
-                if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
-                        goto finalize;
-                }
-
-                if (!dns_server_address_valid(family, d)) {
-                        r = sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
-                        goto finalize;
-                }
-
-                if (extended) {
-                        r = sd_bus_message_read(message, "q", &port);
-                        if (r < 0)
-                                goto finalize;
-
-                        if (IN_SET(port, 53, 853))
-                                port = 0;
-
-                        r = sd_bus_message_read(message, "s", &server_name);
-                        if (r < 0)
-                                goto finalize;
-                }
-
-                r = sd_bus_message_exit_container(message);
-                if (r < 0)
-                        goto finalize;
-
-                if (!GREEDY_REALLOC(dns, allocated, n+1)) {
-                        r = -ENOMEM;
-                        goto finalize;
-                }
-
-                memcpy(&a, d, sz);
-                r = in_addr_full_new(family, &a, port, 0, server_name, dns + n);
-                if (r < 0)
-                        goto finalize;
-
-                n++;
-        }
-
-        r = sd_bus_message_exit_container(message);
-        if (r < 0)
-                goto finalize;
 
         r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
                                     "org.freedesktop.network1.set-dns-servers",
