@@ -4,6 +4,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
+#include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
 #include "memory-util.h"
@@ -454,11 +455,10 @@ finish:
 static int bus_method_resolve_address(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         Manager *m = userdata;
+        union in_addr_union a;
         int family, ifindex;
         uint64_t flags;
-        const void *d;
         DnsQuery *q;
-        size_t sz;
         int r;
 
         assert(message);
@@ -466,19 +466,13 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
 
         assert_cc(sizeof(int) == sizeof(int32_t));
 
-        r = sd_bus_message_read(message, "ii", &ifindex, &family);
+        r = sd_bus_message_read(message, "i", &ifindex);
         if (r < 0)
                 return r;
 
-        if (!IN_SET(family, AF_INET, AF_INET6))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
-
-        r = sd_bus_message_read_array(message, 'y', &d, &sz);
+        r = bus_message_read_in_addr_auto(message, error, &family, &a);
         if (r < 0)
                 return r;
-
-        if (sz != FAMILY_ADDRESS_SIZE(family))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
 
         r = sd_bus_message_read(message, "t", &flags);
         if (r < 0)
@@ -488,7 +482,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = dns_question_new_reverse(&question, family, d);
+        r = dns_question_new_reverse(&question, family, &a);
         if (r < 0)
                 return r;
 
@@ -498,7 +492,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
 
         q->request = sd_bus_message_ref(message);
         q->request_family = family;
-        memcpy(&q->request_address, d, sz);
+        q->request_address = a;
         q->complete = bus_method_resolve_address_complete;
 
         r = dns_query_bus_track(q, message);
@@ -1583,9 +1577,6 @@ static int get_any_link(Manager *m, int ifindex, Link **ret, sd_bus_error *error
         assert(m);
         assert(ret);
 
-        if (ifindex <= 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
-
         l = hashmap_get(m->links, INT_TO_PTR(ifindex));
         if (!l)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %i not known", ifindex);
@@ -1602,8 +1593,7 @@ static int call_link_method(Manager *m, sd_bus_message *message, sd_bus_message_
         assert(message);
         assert(handler);
 
-        assert_cc(sizeof(int) == sizeof(int32_t));
-        r = sd_bus_message_read(message, "i", &ifindex);
+        r = bus_message_read_ifindex(message, error, &ifindex);
         if (r < 0)
                 return r;
 
@@ -1663,8 +1653,7 @@ static int bus_method_get_link(sd_bus_message *message, void *userdata, sd_bus_e
         assert(message);
         assert(m);
 
-        assert_cc(sizeof(int) == sizeof(int32_t));
-        r = sd_bus_message_read(message, "i", &ifindex);
+        r = bus_message_read_ifindex(message, error, &ifindex);
         if (r < 0)
                 return r;
 
