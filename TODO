@@ -1026,7 +1026,7 @@ Features:
   - journal: add a setgid "systemd-journal" utility to invoke from libsystemd-journal, which passes fds via STDOUT and does PK access
   - journactl: support negative filtering, i.e. FOOBAR!="waldo",
     and !FOOBAR for events without FOOBAR.
-  - journal: store timestamp of journal_file_set_offline() int he header,
+  - journal: store timestamp of journal_file_set_offline() in the header,
     so it is possible to display when the file was last synced.
   - journal-send.c, log.c: when the log socket is clogged, and we drop, count this and write a message about this when it gets unclogged again.
   - journal: find a way to allow dropping history early, based on priority, other rules
@@ -1068,6 +1068,7 @@ Features:
     them via machined, and also watch containers coming and going.
     Benefit: nspawn --ephemeral would start working nicely with the journal.
   - assign MESSAGE_ID to log messages about failed services
+  - check if loop in decompress_blob_xz() is necessary
 
 * add a test if all entries in the catalog are properly formatted.
     (Adding dashes in a catalog entry currently results in the catalog entry
