@@ -236,10 +236,10 @@ int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t seria
         if (r < 0)
                 return r;
 
+        rtnl_message_seal(*ret);
         (*ret)->hdr->nlmsg_seq = serial;
 
         err = NLMSG_DATA((*ret)->hdr);
-
         err->error = error;
 
         return 0;
