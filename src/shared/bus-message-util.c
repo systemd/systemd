@@ -4,6 +4,26 @@
 
 #include "resolve-util.h"
 
+int bus_message_read_ifindex(sd_bus_message *message, sd_bus_error *error, int *ret) {
+        int ifindex, r;
+
+        assert(message);
+        assert(ret);
+
+        assert_cc(sizeof(int) == sizeof(int32_t));
+
+        r = sd_bus_message_read(message, "i", &ifindex);
+        if (r < 0)
+                return r;
+
+        if (ifindex <= 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+
+        *ret = ifindex;
+
+        return 0;
+}
+
 int bus_message_read_family(sd_bus_message *message, sd_bus_error *error, int *ret) {
         int family, r;
 
