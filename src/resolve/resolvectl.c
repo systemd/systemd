@@ -13,6 +13,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
+#include "bus-message-util.h"
 #include "dns-domain.h"
 #include "escape.h"
 #include "format-table.h"
@@ -209,34 +210,29 @@ static int resolve_host(sd_bus *bus, const char *name) {
         while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
                 _cleanup_free_ char *pretty = NULL;
                 int ifindex, family, k;
-                const void *a;
-                size_t sz;
+                union in_addr_union a;
 
                 assert_cc(sizeof(int) == sizeof(int32_t));
 
-                r = sd_bus_message_read(reply, "ii", &ifindex, &family);
+                r = sd_bus_message_read(reply, "i", &ifindex);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_bus_message_read_array(reply, 'y', &a, &sz);
-                if (r < 0)
-                        return bus_log_parse_error(r);
+                sd_bus_error_free(&error);
+                r = bus_message_read_in_addr_auto(reply, &error, &family, &a);
+                if (r < 0 && !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
+                        return log_error_errno(r, "%s: systemd-resolved returned invalid result: %s", name, bus_error_message(&error, r));
 
                 r = sd_bus_message_exit_container(reply);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (!IN_SET(family, AF_INET, AF_INET6)) {
-                        log_debug("%s: skipping entry with family %d (%s)", name, family, af_to_name(family) ?: "unknown");
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
+                        log_debug_errno(r, "%s: systemd-resolved returned invalid result, ignoring: %s", name, bus_error_message(&error, r));
                         continue;
                 }
 
-                if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                        log_error("%s: systemd-resolved returned address of invalid size %zu for family %s", name, sz, af_to_name(family) ?: "unknown");
-                        return -EINVAL;
-                }
-
-                r = in_addr_ifindex_to_string(family, a, ifindex, &pretty);
+                r = in_addr_ifindex_to_string(family, &a, ifindex, &pretty);
                 if (r < 0)
                         return log_error_errno(r, "Failed to print address for %s: %m", name);
 
@@ -740,33 +736,29 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
                 while ((r = sd_bus_message_enter_container(reply, 'r', "iiay")) > 0) {
                         _cleanup_free_ char *pretty = NULL;
                         int ifindex, family, k;
-                        const void *a;
+                        union in_addr_union a;;
 
                         assert_cc(sizeof(int) == sizeof(int32_t));
 
-                        r = sd_bus_message_read(reply, "ii", &ifindex, &family);
+                        r = sd_bus_message_read(reply, "i", &ifindex);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        r = sd_bus_message_read_array(reply, 'y', &a, &sz);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
+                        sd_bus_error_free(&error);
+                        r = bus_message_read_in_addr_auto(reply, &error, &family, &a);
+                        if (r < 0 && !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
+                                return log_error_errno(r, "%s: systemd-resolved returned invalid result: %s", name, bus_error_message(&error, r));
 
                         r = sd_bus_message_exit_container(reply);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (!IN_SET(family, AF_INET, AF_INET6)) {
-                                log_debug("%s: skipping entry with family %d (%s)", name, family, af_to_name(family) ?: "unknown");
+                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
+                                log_debug_errno(r, "%s: systemd-resolved returned invalid result, ignoring: %s", name, bus_error_message(&error, r));
                                 continue;
                         }
 
-                        if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                                log_error("%s: systemd-resolved returned address of invalid size %zu for family %s", name, sz, af_to_name(family) ?: "unknown");
-                                return -EINVAL;
-                        }
-
-                        r = in_addr_ifindex_to_string(family, a, ifindex, &pretty);
+                        r = in_addr_ifindex_to_string(family, &a, ifindex, &pretty);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to print address for %s: %m", name);
 
@@ -1121,12 +1113,12 @@ static int reset_server_features(int argc, char **argv, void *userdata) {
 }
 
 static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extended, char **ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *pretty = NULL;
-        int ifindex, family, r;
+        int ifindex, family, r, k;
+        union in_addr_union a;
         const char *name = NULL;
         uint16_t port = 0;
-        const void *a;
-        size_t sz;
 
         assert(m);
         assert(ret);
@@ -1141,13 +1133,9 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
                         return r;
         }
 
-        r = sd_bus_message_read(m, "i", &family);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_read_array(m, 'y', &a, &sz);
-        if (r < 0)
-                return r;
+        k = bus_message_read_in_addr_auto(m, &error, &family, &a);
+        if (k < 0 && !sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS))
+                return k;
 
         if (extended) {
                 r = sd_bus_message_read(m, "q", &port);
@@ -1163,27 +1151,19 @@ static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, bool extend
         if (r < 0)
                 return r;
 
+        if (k < 0) {
+                log_debug("Invalid DNS server, ignoring: %s", bus_error_message(&error, k));
+                *ret = NULL;
+                return 1;
+        }
+
         if (with_ifindex && ifindex != 0) {
                 /* only show the global ones here */
                 *ret = NULL;
                 return 1;
         }
 
-        if (!IN_SET(family, AF_INET, AF_INET6)) {
-                log_debug("Unexpected family, ignoring: %i", family);
-
-                *ret = NULL;
-                return 1;
-        }
-
-        if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                log_debug("Address size mismatch, ignoring.");
-
-                *ret = NULL;
-                return 1;
-        }
-
-        r = in_addr_port_ifindex_name_to_string(family, a, port, ifindex, name, &pretty);
+        r = in_addr_port_ifindex_name_to_string(family, &a, port, ifindex, name, &pretty);
         if (r < 0)
                 return r;
 
