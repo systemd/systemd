@@ -3932,77 +3932,113 @@ int link_update(Link *link, sd_netlink_message *m) {
         /* The kernel may broadcast NEWLINK messages without the MAC address
            set, simply ignore them. */
         r = sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &mac);
-        if (r >= 0) {
-                if (memcmp(link->mac.ether_addr_octet, mac.ether_addr_octet,
-                           ETH_ALEN)) {
+        if (r >= 0 && memcmp(link->mac.ether_addr_octet, mac.ether_addr_octet, ETH_ALEN) != 0) {
 
-                        memcpy(link->mac.ether_addr_octet, mac.ether_addr_octet,
-                               ETH_ALEN);
+                memcpy(link->mac.ether_addr_octet, mac.ether_addr_octet, ETH_ALEN);
 
-                        log_link_debug(link, "MAC address: "
-                                       "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                                       mac.ether_addr_octet[0],
-                                       mac.ether_addr_octet[1],
-                                       mac.ether_addr_octet[2],
-                                       mac.ether_addr_octet[3],
-                                       mac.ether_addr_octet[4],
-                                       mac.ether_addr_octet[5]);
+                log_link_debug(link, "Gained new MAC address: "
+                               "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+                               mac.ether_addr_octet[0],
+                               mac.ether_addr_octet[1],
+                               mac.ether_addr_octet[2],
+                               mac.ether_addr_octet[3],
+                               mac.ether_addr_octet[4],
+                               mac.ether_addr_octet[5]);
 
-                        if (link->ipv4ll) {
-                                r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
+                if (link->ipv4ll) {
+                        bool restart = sd_ipv4ll_is_running(link->ipv4ll) > 0;
+
+                        if (restart) {
+                                r = sd_ipv4ll_stop(link->ipv4ll);
                                 if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not update MAC address in IPv4LL client: %m");
+                                        return log_link_warning_errno(link, r, "Could not stop IPv4LL client: %m");
                         }
 
-                        if (link->dhcp_client) {
-                                r = sd_dhcp_client_set_mac(link->dhcp_client,
-                                                           (const uint8_t *) &link->mac,
-                                                           sizeof (link->mac),
-                                                           ARPHRD_ETHER);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not update MAC address in DHCP client: %m");
+                        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not update MAC address in IPv4LL client: %m");
 
-                                r = dhcp4_set_client_identifier(link);
+                        if (restart) {
+                                r = sd_ipv4ll_start(link->ipv4ll);
                                 if (r < 0)
-                                        return r;
+                                        return log_link_warning_errno(link, r, "Could not restart IPv4LL client: %m");
+                        }
+                }
+
+                if (link->dhcp_client) {
+                        r = sd_dhcp_client_set_mac(link->dhcp_client,
+                                                   (const uint8_t *) &link->mac,
+                                                   sizeof (link->mac),
+                                                   ARPHRD_ETHER);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not update MAC address in DHCP client: %m");
+
+                        r = dhcp4_set_client_identifier(link);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not set DHCP client identifier: %m");
+                }
+
+                if (link->dhcp6_client) {
+                        const DUID* duid = link_get_duid(link);
+                        bool restart = sd_dhcp6_client_is_running(link->dhcp6_client) > 0;
+
+                        if (restart) {
+                                r = sd_dhcp6_client_stop(link->dhcp6_client);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m");
                         }
 
-                        if (link->dhcp6_client) {
-                                const DUID* duid = link_get_duid(link);
+                        r = sd_dhcp6_client_set_mac(link->dhcp6_client,
+                                                    (const uint8_t *) &link->mac,
+                                                    sizeof (link->mac),
+                                                    ARPHRD_ETHER);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
 
-                                r = sd_dhcp6_client_set_mac(link->dhcp6_client,
-                                                            (const uint8_t *) &link->mac,
-                                                            sizeof (link->mac),
-                                                            ARPHRD_ETHER);
+                        if (link->network->iaid_set) {
+                                r = sd_dhcp6_client_set_iaid(link->dhcp6_client, link->network->iaid);
                                 if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
-
-                                if (link->network->iaid_set) {
-                                        r = sd_dhcp6_client_set_iaid(link->dhcp6_client,
-                                                                     link->network->iaid);
-                                        if (r < 0)
-                                                return log_link_warning_errno(link, r, "Could not update DHCPv6 IAID: %m");
-                                }
-
-                                r = sd_dhcp6_client_set_duid(link->dhcp6_client,
-                                                             duid->type,
-                                                             duid->raw_data_len > 0 ? duid->raw_data : NULL,
-                                                             duid->raw_data_len);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not update DHCPv6 DUID: %m");
+                                        return log_link_warning_errno(link, r, "Could not update DHCPv6 IAID: %m");
                         }
 
-                        if (link->radv) {
-                                r = sd_radv_set_mac(link->radv, &link->mac);
+                        r = sd_dhcp6_client_set_duid(link->dhcp6_client,
+                                                     duid->type,
+                                                     duid->raw_data_len > 0 ? duid->raw_data : NULL,
+                                                     duid->raw_data_len);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not update DHCPv6 DUID: %m");
+
+                        if (restart) {
+                                r = sd_dhcp6_client_start(link->dhcp6_client);
                                 if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not update MAC for Router Advertisement: %m");
+                                        return log_link_warning_errno(link, r, "Could not restart DHCPv6 client: %m");
+                        }
+                }
+
+                if (link->radv) {
+                        bool restart = sd_radv_is_running(link->radv);
+
+                        if (restart) {
+                                r = sd_radv_stop(link->radv);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Could not stop Router Advertisement: %m");
                         }
 
-                        if (link->ndisc) {
-                                r = sd_ndisc_set_mac(link->ndisc, &link->mac);
+                        r = sd_radv_set_mac(link->radv, &link->mac);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not update MAC for Router Advertisement: %m");
+
+                        if (restart) {
+                                r = sd_radv_start(link->radv);
                                 if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not update MAC for ndisc: %m");
+                                        return log_link_warning_errno(link, r, "Could not restart Router Advertisement: %m");
                         }
+                }
+
+                if (link->ndisc) {
+                        r = sd_ndisc_set_mac(link->ndisc, &link->mac);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not update MAC for NDisc: %m");
                 }
         }
 
