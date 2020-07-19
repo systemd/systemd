@@ -232,6 +232,8 @@ static void test_lz4_decompress_partial(void) {
         int r;
         _cleanup_free_ char *huge = NULL;
 
+        log_debug("/* %s */", __func__);
+
         assert_se(huge = malloc(HUGE_SIZE));
         memcpy(huge, "HUGE=", STRLEN("HUGE="));
         memset(&huge[STRLEN("HUGE=")], 'x', HUGE_SIZE - STRLEN("HUGE=") - 1);
