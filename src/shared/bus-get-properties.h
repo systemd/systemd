@@ -3,8 +3,6 @@
 
 #include "sd-bus.h"
 
-#include "sd-bus.h"
-
 #include "macro.h"
 
 int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
