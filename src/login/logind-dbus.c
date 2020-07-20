@@ -2855,14 +2855,14 @@ static int method_set_reboot_to_boot_loader_menu(
                         return r;
         } else {
                 if (x == UINT64_MAX) {
-                        if (unlink("/run/systemd/reboot-to-loader-menu") < 0 && errno != ENOENT)
+                        if (unlink("/run/systemd/reboot-to-boot-loader-menu") < 0 && errno != ENOENT)
                                 return -errno;
                 } else {
                         char buf[DECIMAL_STR_MAX(uint64_t) + 1];
 
                         xsprintf(buf, "%" PRIu64, x); /* µs granularity */
 
-                        r = write_string_file_atomic_label("/run/systemd/reboot-to-loader-menu", buf);
+                        r = write_string_file_atomic_label("/run/systemd/reboot-to-boot-loader-menu", buf);
                         if (r < 0)
                                 return r;
                 }
