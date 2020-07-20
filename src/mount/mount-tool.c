@@ -1456,7 +1456,7 @@ static int run(int argc, char* argv[]) {
 
         r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to create bus connection: %m");
+                return bus_log_connect_error(r);
 
         if (arg_action == ACTION_UMOUNT)
                 return action_umount(bus, argc, argv);

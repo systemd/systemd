@@ -1753,7 +1753,7 @@ static int run(int argc, char* argv[]) {
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to create bus connection: %m");
+                return bus_log_connect_error(r);
 
         if (arg_scope)
                 r = start_transient_scope(bus);

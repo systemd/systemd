@@ -37,6 +37,9 @@ int bus_connect_user_systemd(sd_bus **_bus);
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
+#define bus_log_connect_error(r) \
+        log_error_errno(r, "Failed to create bus connection: %m")
+
 #define bus_log_parse_error(r) \
         log_error_errno(r, "Failed to parse bus message: %m")
 
