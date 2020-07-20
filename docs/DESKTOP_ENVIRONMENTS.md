@@ -91,16 +91,18 @@ global default for all (graphical) applications.
 
 ## XDG autostart integration
 
-To allow XDG autostart integration, systemd will ship a cross-desktop generator
-to create appropriate units for the autostart directory.
-Desktop Environments will be able to make use of this simply by starting the
-appropriate XDG related targets (representing e.g. content of the
-`$XDG_CURRENT_DESKTOP` environment variable to handle `OnlyShowIn/NotShowIn`).
-The names and ordering rules for these targets are to be defined.
+To allow XDG autostart integration, systemd ships a cross-desktop generator
+to create appropriate units for the autostart directory
+(`systemd-xdg-autostart-generator`).
+Desktop Environments can opt-in to using this by starting
+`xdg-desktop-autostart.target`. The systemd generator correctly handles
+`OnlyShowIn=` and `NotShowin=`. It also handles the KDE and GNOME specific
+`X-KDE-autostart-condition=` and `AutostartCondition=` by using desktop
+environment provided binaries in an `ExecCondition=` line.
 
-This generator will likely never support certain desktop specific extensions.
-One such example is the GNOME specific feature to bind a service to a settings
-variable.
+However, this generator is somewhat limited in what it supports. For example,
+all generated units will have `After=graphical-session.target` set on them,
+it may therefore not be useful to start session services.
 
 ## Startup and shutdown best practices
 
