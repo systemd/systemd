@@ -2592,7 +2592,9 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         path = os.path.join('/run/systemd/netif/links/', ifindex)
         self.assertTrue(os.path.exists(path))
-        time.sleep(2)
+
+        # make link state file updated
+        check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
 
         with open(path) as f:
             data = f.read()
@@ -2616,7 +2618,6 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         check_output(*resolvectl_cmd, 'mdns', 'dummy98', 'no', env=env)
         check_output(*resolvectl_cmd, 'dnssec', 'dummy98', 'yes', env=env)
         check_output(*timedatectl_cmd, 'ntp-servers', 'dummy98', '2.fedora.pool.ntp.org', '3.fedora.pool.ntp.org', env=env)
-        time.sleep(2)
 
         with open(path) as f:
             data = f.read()
@@ -2629,7 +2630,6 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
             self.assertRegex(data, r'DNSSEC=yes')
 
         check_output(*timedatectl_cmd, 'revert', 'dummy98', env=env)
-        time.sleep(2)
 
         with open(path) as f:
             data = f.read()
@@ -2642,7 +2642,6 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
             self.assertRegex(data, r'DNSSEC=yes')
 
         check_output(*resolvectl_cmd, 'revert', 'dummy98', env=env)
-        time.sleep(2)
 
         with open(path) as f:
             data = f.read()
