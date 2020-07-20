@@ -77,6 +77,12 @@ _public_ sd_event *sd_radv_get_event(sd_radv *ra) {
         return ra->event;
 }
 
+_public_ int sd_radv_is_running(sd_radv *ra) {
+        assert_return(ra, false);
+
+        return ra->state != SD_RADV_STATE_IDLE;
+}
+
 static void radv_reset(sd_radv *ra) {
         assert(ra);
 
