@@ -104,6 +104,10 @@ However, this generator is somewhat limited in what it supports. For example,
 all generated units will have `After=graphical-session.target` set on them,
 it may therefore not be useful to start session services.
 
+Desktop files can be marked to be explicitly excluded from the generator using the line
+`X-systemd-skip=true`. This should be set if an application provides its own
+systemd service file for startup.
+
 ## Startup and shutdown best practices
 
 Question here are:
