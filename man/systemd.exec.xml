@@ -2168,7 +2168,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>Note that services which specify <option>DefaultDependencies=no</option> and use
         <varname>StandardInput=</varname> or <varname>StandardOutput=</varname> with
         <option>tty</option>/<option>tty-force</option>/<option>tty-fail</option>, should specify
-        <option>After=systemd-vconsole-setup.service</option>, to make sure that the tty initialization is
+        <option>Wants=systemd-vconsole-setup.service</option> and
+        <option>After=systemd-vconsole-setup.service</option>, to make sure that tty initialization is
         finished before they start.</para></listitem>
       </varlistentry>
 
