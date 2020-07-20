@@ -4229,7 +4229,7 @@ int link_save(Link *link) {
                                     sd_dhcp6_lease_get_dns,
                                     NULL);
 
-                /* Make sure to flush out old entries before we use the NDISC data */
+                /* Make sure to flush out old entries before we use the NDisc data */
                 ndisc_vacuum(link);
 
                 if (link->network->ipv6_accept_ra_use_dns && link->ndisc_rdnss) {

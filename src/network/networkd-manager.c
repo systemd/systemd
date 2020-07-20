@@ -505,7 +505,8 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
 
                 log_link_debug(link,
                                "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               (!route && !link->manager->manage_foreign_routes) || type == RTM_DELROUTE ? "Forgetting" :
+                               (!route && !link->manager->manage_foreign_routes) ? "Ignoring received foreign" :
+                               type == RTM_DELROUTE ? "Forgetting" :
                                route ? "Received remembered" : "Remembering",
                                strna(buf_dst), strempty(buf_dst_prefixlen),
                                strna(buf_src), strna(buf_gw), strna(buf_prefsrc),
@@ -2030,6 +2031,9 @@ int manager_rtnl_enumerate_routes(Manager *m) {
 
         assert(m);
         assert(m->rtnl);
+
+        if (!m->manage_foreign_routes)
+                return 0;
 
         r = sd_rtnl_message_new_route(m->rtnl, &req, RTM_GETROUTE, 0, 0);
         if (r < 0)
