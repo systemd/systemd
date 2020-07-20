@@ -4,6 +4,8 @@
 set -ex
 set -o pipefail
 
+export SYSTEMD_LOG_LEVEL=debug
+
 cleanup()
 {
     if [ -z "${image_dir}" ]; then
@@ -70,6 +72,9 @@ elif [ "${machine}" = "arm" ]; then
 elif [ "${machine}" = "ia64" ]; then
     root_guid=993d8d3d-f80e-4225-855a-9daf8ed7ea97
     verity_guid=86ed10d5-b607-45bb-8957-d350f23d0571
+else
+    echo "Unexpected uname -m: ${machine} in testsuite-50.sh, please fix me"
+    exit 1
 fi
 # du rounds up to block size, which is more helpful for partitioning
 root_size="$(du -k ${image}.raw | cut -f1)"
