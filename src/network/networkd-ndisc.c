@@ -70,7 +70,7 @@ static int make_stableprivate_address(Link *link, const struct in6_addr *prefix,
 
         l = MAX(DIV_ROUND_UP(prefix_len, 8), 8);
         siphash24_compress(prefix, l, &state);
-        siphash24_compress(link->ifname, strlen(link->ifname), &state);
+        siphash24_compress_string(link->ifname, &state);
         siphash24_compress(&link->mac, sizeof(struct ether_addr), &state);
         siphash24_compress(&dad_counter, sizeof(uint8_t), &state);
 
@@ -577,7 +577,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
 }
 
 static void ndisc_dnssl_hash_func(const NDiscDNSSL *x, struct siphash *state) {
-        siphash24_compress(NDISC_DNSSL_DOMAIN(x), strlen(NDISC_DNSSL_DOMAIN(x)), state);
+        siphash24_compress_string(NDISC_DNSSL_DOMAIN(x), state);
 }
 
 static int ndisc_dnssl_compare_func(const NDiscDNSSL *a, const NDiscDNSSL *b) {

@@ -132,11 +132,8 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
                 siphash24_compress(&rule->dport, sizeof(rule->dport), state);
                 siphash24_compress(&rule->uid_range, sizeof(rule->uid_range), state);
 
-                if (rule->iif)
-                        siphash24_compress(rule->iif, strlen(rule->iif), state);
-
-                if (rule->oif)
-                        siphash24_compress(rule->oif, strlen(rule->oif), state);
+                siphash24_compress_string(rule->iif, state);
+                siphash24_compress_string(rule->oif, state);
 
                 break;
         default:
