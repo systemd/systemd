@@ -151,12 +151,6 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
         }
 }
 
-void siphash24_compress_boolean(bool in, struct siphash *state) {
-        int i = in;
-
-        siphash24_compress(&i, sizeof i, state);
-}
-
 uint64_t siphash24_finalize(struct siphash *state) {
         uint64_t b;
 
