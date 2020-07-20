@@ -1486,6 +1486,7 @@ static int link_status_one(
         if (r < 0)
                 return table_log_add_error(r);
 
+        strv_sort(info->alternative_names);
         r = dump_list(table, "Alternative Names:", info->alternative_names);
         if (r < 0)
                 return r;
