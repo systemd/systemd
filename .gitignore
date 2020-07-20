@@ -35,4 +35,5 @@ __pycache__/
 /.mkosi-*
 /mkosi.builddir/
 /mkosi.output/
+/mkosi.default
 /tags
