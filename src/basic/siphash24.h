@@ -25,6 +25,13 @@ static inline void siphash24_compress_boolean(bool in, struct siphash *state) {
         siphash24_compress(&i, sizeof i, state);
 }
 
+static inline void siphash24_compress_string(const char *in, struct siphash *state) {
+        if (!in)
+                return;
+
+        siphash24_compress(in, strlen(in), state);
+}
+
 uint64_t siphash24_finalize(struct siphash *state);
 
 uint64_t siphash24(const void *in, size_t inlen, const uint8_t k[static 16]);
