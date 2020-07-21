@@ -241,7 +241,7 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
                 return 0;
         }
         if (r > 0) {
-                log_device_debug(device, "Interface is under renaming, wait for the interface to be renamed: %m");
+                log_device_debug(device, "Interface is under renaming, wait for the interface to be renamed.");
                 return 0;
         }
 
