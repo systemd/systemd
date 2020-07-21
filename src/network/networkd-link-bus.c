@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
+#include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
 #include "networkd-link-bus.h"
@@ -14,6 +15,7 @@
 #include "networkd-manager.h"
 #include "parse-util.h"
 #include "resolve-util.h"
+#include "socket-netlink.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -113,10 +115,10 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
         return sd_bus_reply_method_return(message, NULL);
 }
 
-int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ struct in_addr_data *dns = NULL;
-        size_t allocated = 0, n = 0;
+static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
+        struct in_addr_full **dns;
         Link *l = userdata;
+        size_t n;
         int r;
 
         assert(message);
@@ -126,52 +128,7 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_enter_container(message, 'a', "(iay)");
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                int family;
-                size_t sz;
-                const void *d;
-
-                assert_cc(sizeof(int) == sizeof(int32_t));
-
-                r = sd_bus_message_enter_container(message, 'r', "iay");
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                r = sd_bus_message_read(message, "i", &family);
-                if (r < 0)
-                        return r;
-
-                if (!IN_SET(family, AF_INET, AF_INET6))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
-
-                r = sd_bus_message_read_array(message, 'y', &d, &sz);
-                if (r < 0)
-                        return r;
-                if (sz != FAMILY_ADDRESS_SIZE(family))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid address size");
-
-                if (!dns_server_address_valid(family, d))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNS server address");
-
-                r = sd_bus_message_exit_container(message);
-                if (r < 0)
-                        return r;
-
-                if (!GREEDY_REALLOC(dns, allocated, n+1))
-                        return -ENOMEM;
-
-                dns[n].family = family;
-                memcpy(&dns[n].address, d, sz);
-                n++;
-        }
-
-        r = sd_bus_message_exit_container(message);
+        r = bus_message_read_dns_servers(message, error, extended, &dns, &n);
         if (r < 0)
                 return r;
 
@@ -180,9 +137,15 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
                                     NULL, true, UID_INVALID,
                                     &l->manager->polkit_registry, error);
         if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Polkit will call us back */
+                goto finalize;
+        if (r == 0) {
+                r = 1; /* Polkit will call us back */
+                goto finalize;
+        }
+
+        if (l->n_dns != (unsigned) -1)
+                for (unsigned i = 0; i < l->n_dns; i++)
+                        in_addr_full_free(l->dns[i]);
 
         free_and_replace(l->dns, dns);
         l->n_dns = n;
@@ -190,6 +153,21 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
         (void) link_dirty(l);
 
         return sd_bus_reply_method_return(message, NULL);
+
+finalize:
+        for (size_t i = 0; i < n; i++)
+                in_addr_full_free(dns[i]);
+        free(dns);
+
+        return r;
+}
+
+int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, false);
+}
+
+int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return bus_link_method_set_dns_servers_internal(message, userdata, error, true);
 }
 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -670,6 +648,7 @@ const sd_bus_vtable link_vtable[] = {
 
         SD_BUS_METHOD("SetNTP", "as", NULL, bus_link_method_set_ntp_servers, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDNS", "a(iay)", NULL, bus_link_method_set_dns_servers, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetDNSEx", "a(iayqs)", NULL, bus_link_method_set_dns_servers_ex, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDefaultRoute", "b", NULL, bus_link_method_set_default_route, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, SD_BUS_VTABLE_UNPRIVILEGED),

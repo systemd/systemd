@@ -302,6 +302,38 @@ static void test_in_addr_ifindex_name_from_string_auto(void) {
         test_in_addr_ifindex_name_from_string_auto_one("fe80::18%19#another.test.com", "another.test.com");
 }
 
+static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str, int family, uint16_t port, int ifindex, const char *server_name) {
+        _cleanup_free_ char *name = NULL, *x = NULL;
+        union in_addr_union a;
+        uint16_t p;
+        int f, i;
+
+        assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, &name) >= 0);
+        assert_se(family == f);
+        assert_se(port == p);
+        assert_se(ifindex == i);
+        assert_se(streq_ptr(server_name, name));
+        assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, i, name, &x) >= 0);
+        assert_se(streq(str, x));
+}
+
+static void test_in_addr_port_ifindex_name_from_string_auto(void) {
+        log_info("/* %s */", __func__);
+
+        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1", AF_INET, 0, 0, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1#test.com", AF_INET, 0, 0, "test.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1:53", AF_INET, 53, 0, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1:53#example.com", AF_INET, 53, 0, "example.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18", AF_INET6, 0, 0, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18#hoge.com", AF_INET6, 0, 0, "hoge.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18%19", AF_INET6, 0, 19, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53", AF_INET6, 53, 0, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18%19#hoge.com", AF_INET6, 0, 19, "hoge.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53#hoge.com", AF_INET6, 53, 0, "hoge.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%19", AF_INET6, 53, 19, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%19#hoge.com", AF_INET6, 53, 19, "hoge.com");
+}
+
 static void test_sockaddr_equal(void) {
         union sockaddr_union a = {
                 .in.sin_family = AF_INET,
@@ -735,6 +767,7 @@ int main(int argc, char *argv[]) {
         test_in_addr_ifindex_to_string();
         test_in_addr_ifindex_from_string_auto();
         test_in_addr_ifindex_name_from_string_auto();
+        test_in_addr_port_ifindex_name_from_string_auto();
 
         test_sockaddr_equal();
 

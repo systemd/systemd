@@ -56,10 +56,11 @@ struct DnsServer {
         int family;
         union in_addr_union address;
         int ifindex; /* for IPv6 link-local DNS servers */
+        uint16_t port;
+        char *server_name;
 
         char *server_string;
-
-        char *server_name;
+        char *server_string_full;
 
         /* The long-lived stream towards this server. */
         DnsStream *stream;
@@ -102,6 +103,7 @@ int dns_server_new(
                 Link *link,
                 int family,
                 const union in_addr_union *address,
+                uint16_t port,
                 int ifindex,
                 const char *server_string);
 
@@ -123,13 +125,15 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeatureLevel level);
 
 const char *dns_server_string(DnsServer *server);
+const char *dns_server_string_full(DnsServer *server);
 int dns_server_ifindex(const DnsServer *s);
+uint16_t dns_server_port(const DnsServer *s);
 
 bool dns_server_dnssec_supported(DnsServer *server);
 
 void dns_server_warn_downgrade(DnsServer *server);
 
-DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, int ifindex);
+DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name);
 
 void dns_server_unlink_all(DnsServer *first);
 void dns_server_unlink_marked(DnsServer *first);

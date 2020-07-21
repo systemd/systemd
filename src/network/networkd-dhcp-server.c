@@ -61,10 +61,10 @@ static int link_push_uplink_to_dhcp_server(
                         struct in_addr ia;
 
                         /* Only look for IPv4 addresses */
-                        if (link->network->dns[i].family != AF_INET)
+                        if (link->network->dns[i]->family != AF_INET)
                                 continue;
 
-                        ia = link->network->dns[i].address.in;
+                        ia = link->network->dns[i]->address.in;
 
                         /* Never propagate obviously borked data */
                         if (in4_addr_is_null(&ia) || in4_addr_is_localhost(&ia))

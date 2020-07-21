@@ -606,7 +606,15 @@
             <para>A DNS server address, which must be in the format
             described in
             <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-            This option may be specified more than once. This setting is read by
+            This option may be specified more than once. Each address can optionally take a port number
+            separated with <literal>:</literal>, a network interface name or index separated with
+            <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>.
+            When IPv6 address is specified with a port number, then the address must be in the square
+            brackets. That is, the acceptable full formats are
+            <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
+            <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. This setting can be
+            specified multiple times. If an empty string is assigned, then the all previous assignments
+            are cleared. This setting is read by
             <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>

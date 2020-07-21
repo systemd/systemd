@@ -32,6 +32,7 @@
 #include "networkd-util.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
+#include "socket-netlink.h"
 
 typedef enum IPv6PrivacyExtensions {
         /* The values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values */
@@ -316,7 +317,7 @@ struct Network {
         OrderedHashmap *sr_iov_by_section;
 
         /* All kinds of DNS configuration */
-        struct in_addr_data *dns;
+        struct in_addr_full **dns;
         unsigned n_dns;
         OrderedSet *search_domains, *route_domains;
 

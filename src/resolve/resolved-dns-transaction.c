@@ -314,7 +314,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                            "DNS_TRANSACTION=%" PRIu16, t->id,
                            "DNS_QUESTION=%s", key_str,
                            "DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result),
-                           "DNS_SERVER=%s", dns_server_string(t->server),
+                           "DNS_SERVER=%s", strna(dns_server_string_full(t->server)),
                            "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level));
         }
 
@@ -398,7 +398,7 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
 
         t->n_picked_servers ++;
 
-        log_debug("Using DNS server %s for transaction %u.", dns_server_string(t->server), t->id);
+        log_debug("Using DNS server %s for transaction %u.", strna(dns_server_string_full(t->server)), t->id);
 
         return 1;
 }
@@ -544,8 +544,10 @@ static int on_stream_packet(DnsStream *s) {
         return 0;
 }
 
-static uint16_t dns_port_for_feature_level(DnsServerFeatureLevel level) {
-        return DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? 853 : 53;
+static uint16_t dns_transaction_port(DnsTransaction *t) {
+        if (t->server->port > 0)
+                return t->server->port;
+        return DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53;
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
@@ -576,7 +578,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted))
                         s = dns_stream_ref(t->server->stream);
                 else
-                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_port_for_feature_level(t->current_feature_level), &sa);
+                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_transaction_port(t), &sa);
 
                 type = DNS_STREAM_LOOKUP;
                 break;
@@ -1243,7 +1245,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
 
                         dns_transaction_close_connection(t);
 
-                        fd = dns_scope_socket_udp(t->scope, t->server, 53);
+                        fd = dns_scope_socket_udp(t->scope, t->server);
                         if (fd < 0)
                                 return fd;
 

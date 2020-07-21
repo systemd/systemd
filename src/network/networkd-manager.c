@@ -1425,33 +1425,36 @@ static int manager_connect_rtnl(Manager *m) {
         return 0;
 }
 
-static int ordered_set_put_in_addr_data(OrderedSet *s, const struct in_addr_data *address) {
-        char *p;
+static int ordered_set_put_dns_server(OrderedSet *s, int ifindex, struct in_addr_full *dns) {
+        const char *p;
         int r;
 
         assert(s);
-        assert(address);
+        assert(dns);
 
-        r = in_addr_to_string(address->family, &address->address, &p);
-        if (r < 0)
-                return r;
+        if (dns->ifindex != 0 && dns->ifindex != ifindex)
+                return 0;
 
-        r = ordered_set_consume(s, p);
+        p = in_addr_full_to_string(dns);
+        if (!p)
+                return 0;
+
+        r = ordered_set_put_strdup(s, p);
         if (r == -EEXIST)
                 return 0;
 
         return r;
 }
 
-static int ordered_set_put_in_addr_datav(OrderedSet *s, const struct in_addr_data *addresses, unsigned n) {
+static int ordered_set_put_dns_servers(OrderedSet *s, int ifindex, struct in_addr_full **dns, unsigned n) {
         int r, c = 0;
         unsigned i;
 
         assert(s);
-        assert(addresses || n == 0);
+        assert(dns || n == 0);
 
         for (i = 0; i < n; i++) {
-                r = ordered_set_put_in_addr_data(s, addresses+i);
+                r = ordered_set_put_dns_server(s, ifindex, dns[i]);
                 if (r < 0)
                         return r;
 
@@ -1558,7 +1561,10 @@ static int manager_save(Manager *m) {
                         continue;
 
                 /* First add the static configured entries */
-                r = ordered_set_put_in_addr_datav(dns, link->network->dns, link->network->n_dns);
+                if (link->n_dns != (unsigned) -1)
+                        r = ordered_set_put_dns_servers(dns, link->ifindex, link->dns, link->n_dns);
+                else
+                        r = ordered_set_put_dns_servers(dns, link->ifindex, link->network->dns, link->network->n_dns);
                 if (r < 0)
                         return r;
 

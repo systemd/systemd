@@ -327,68 +327,197 @@ int make_socket_fd(int log_level, const char* address, int type, int flags) {
         return fd;
 }
 
-int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret_addr, int *ret_ifindex) {
-        _cleanup_free_ char *buf = NULL;
-        const char *suffix;
-        int r, ifindex = 0;
+int in_addr_port_ifindex_name_from_string_auto(
+                const char *s,
+                int *ret_family,
+                union in_addr_union *ret_address,
+                uint16_t *ret_port,
+                int *ret_ifindex,
+                char **ret_server_name) {
+
+        _cleanup_free_ char *buf1 = NULL, *buf2 = NULL, *name = NULL;
+        int family, ifindex = 0, r;
+        union in_addr_union a;
+        uint16_t port = 0;
+        const char *m;
 
         assert(s);
-        assert(family);
-        assert(ret_addr);
 
-        /* Similar to in_addr_from_string_auto() but also parses an optionally appended IPv6 zone suffix ("scope id")
-         * if one is found. */
+        /* This accepts the following:
+         * 192.168.0.1:53#example.com
+         * [2001:4860:4860::8888]:53%eth0#example.com */
 
-        suffix = strchr(s, '%');
-        if (suffix) {
+        /* if ret_port is NULL, then strings with port cannot be specified.
+         * Also, if ret_server_name is NULL, then server_name cannot be specified. */
+
+        m = strchr(s, '#');
+        if (m) {
+                if (!ret_server_name)
+                        return -EINVAL;
+
+                if (isempty(m + 1))
+                        return -EINVAL;
+
+                name = strdup(m + 1);
+                if (!name)
+                        return -ENOMEM;
+
+                s = buf1 = strndup(s, m - s);
+                if (!buf1)
+                        return -ENOMEM;
+        }
+
+        m = strchr(s, '%');
+        if (m) {
+                if (isempty(m + 1))
+                        return -EINVAL;
+
                 if (ret_ifindex) {
                         /* If we shall return the interface index, try to parse it */
-                        ifindex = resolve_interface(NULL, suffix + 1);
+                        ifindex = resolve_interface(NULL, m + 1);
                         if (ifindex < 0)
                                 return ifindex;
                 }
 
-                s = buf = strndup(s, suffix - s);
-                if (!buf)
+                s = buf2 = strndup(s, m - s);
+                if (!buf2)
                         return -ENOMEM;
         }
 
-        r = in_addr_from_string_auto(s, family, ret_addr);
-        if (r < 0)
-                return r;
+        m = strrchr(s, ':');
+        if (m) {
+                if (*s == '[') {
+                        _cleanup_free_ char *ip_str = NULL;
 
+                        if (!ret_port)
+                                return -EINVAL;
+
+                        if (*(m - 1) != ']')
+                                return -EINVAL;
+
+                        family = AF_INET6;
+
+                        r = parse_ip_port(m + 1, &port);
+                        if (r < 0)
+                                return r;
+
+                        ip_str = strndup(s + 1, m - s - 2);
+                        if (!ip_str)
+                                return -ENOMEM;
+
+                        r = in_addr_from_string(family, ip_str, &a);
+                        if (r < 0)
+                                return r;
+                } else {
+                        /* First try to parse the string as IPv6 address without port number */
+                        r = in_addr_from_string(AF_INET6, s, &a);
+                        if (r < 0) {
+                                /* Then the input should be IPv4 address with port number */
+                                _cleanup_free_ char *ip_str = NULL;
+
+                                if (!ret_port)
+                                        return -EINVAL;
+
+                                family = AF_INET;
+
+                                ip_str = strndup(s, m - s);
+                                if (!ip_str)
+                                        return -ENOMEM;
+
+                                r = in_addr_from_string(family, ip_str, &a);
+                                if (r < 0)
+                                        return r;
+
+                                r = parse_ip_port(m + 1, &port);
+                                if (r < 0)
+                                        return r;
+                        } else
+                                family = AF_INET6;
+                }
+        } else {
+                family = AF_INET;
+                r = in_addr_from_string(family, s, &a);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_family)
+                *ret_family = family;
+        if (ret_address)
+                *ret_address = a;
+        if (ret_port)
+                *ret_port = port;
         if (ret_ifindex)
                 *ret_ifindex = ifindex;
+        if (ret_server_name)
+                *ret_server_name = TAKE_PTR(name);
 
         return r;
 }
 
-int in_addr_ifindex_name_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex, char **server_name) {
-        _cleanup_free_ char *buf = NULL, *name = NULL;
-        const char *m;
-        int r;
+struct in_addr_full *in_addr_full_free(struct in_addr_full *a) {
+        if (!a)
+                return NULL;
+
+        free(a->server_name);
+        free(a->cached_server_string);
+        return mfree(a);
+}
+
+int in_addr_full_new(int family, union in_addr_union *a, uint16_t port, int ifindex, const char *server_name, struct in_addr_full **ret) {
+        _cleanup_free_ char *name = NULL;
+        struct in_addr_full *x;
+
+        assert(ret);
+
+        if (!isempty(server_name)) {
+                name = strdup(server_name);
+                if (!name)
+                        return -ENOMEM;
+        }
+
+        x = new(struct in_addr_full, 1);
+        if (!x)
+                return -ENOMEM;
+
+        *x = (struct in_addr_full) {
+                .family = family,
+                .address = *a,
+                .port = port,
+                .ifindex = ifindex,
+                .server_name = TAKE_PTR(name),
+        };
+
+        *ret = x;
+        return 0;
+}
+
+int in_addr_full_new_from_string(const char *s, struct in_addr_full **ret) {
+        _cleanup_free_ char *server_name = NULL;
+        int family, ifindex, r;
+        union in_addr_union a;
+        uint16_t port;
 
         assert(s);
 
-        m = strchr(s, '#');
-        if (m) {
-                name = strdup(m+1);
-                if (!name)
-                        return -ENOMEM;
-
-                buf = strndup(s, m - s);
-                if (!buf)
-                        return -ENOMEM;
-
-                s = buf;
-        }
-
-        r = in_addr_ifindex_from_string_auto(s, family, ret, ifindex);
+        r = in_addr_port_ifindex_name_from_string_auto(s, &family, &a, &port, &ifindex, &server_name);
         if (r < 0)
                 return r;
 
-        if (server_name)
-                *server_name = TAKE_PTR(name);
+        return in_addr_full_new(family, &a, port, ifindex, server_name, ret);
+}
 
-        return r;
+const char *in_addr_full_to_string(struct in_addr_full *a) {
+        assert(a);
+
+        if (!a->cached_server_string)
+                (void) in_addr_port_ifindex_name_to_string(
+                                a->family,
+                                &a->address,
+                                a->port,
+                                a->ifindex,
+                                a->server_name,
+                                &a->cached_server_string);
+
+        return a->cached_server_string;
 }

@@ -2601,7 +2601,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
             self.assertRegex(data, r'REQUIRED_FOR_ONLINE=yes')
             self.assertRegex(data, r'REQUIRED_OPER_STATE_FOR_ONLINE=routable')
             self.assertRegex(data, r'NETWORK_FILE=/run/systemd/network/state-file-tests.network')
-            self.assertRegex(data, r'DNS=10.10.10.10 10.10.10.11')
+            self.assertRegex(data, r'DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com \[1111:2222::3333\]:1234#ccc.com')
             self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
             self.assertRegex(data, r'DOMAINS=hogehoge')
             self.assertRegex(data, r'ROUTE_DOMAINS=foofoo')
@@ -2610,7 +2610,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
             self.assertRegex(data, r'DNSSEC=no')
             self.assertRegex(data, r'ADDRESSES=192.168.(10.10|12.12)/24 192.168.(12.12|10.10)/24')
 
-        check_output(*resolvectl_cmd, 'dns', 'dummy98', '10.10.10.12', '10.10.10.13', env=env)
+        check_output(*resolvectl_cmd, 'dns', 'dummy98', '10.10.10.12#ccc.com', '10.10.10.13', '1111:2222::3333', env=env)
         check_output(*resolvectl_cmd, 'domain', 'dummy98', 'hogehogehoge', '~foofoofoo', env=env)
         check_output(*resolvectl_cmd, 'llmnr', 'dummy98', 'yes', env=env)
         check_output(*resolvectl_cmd, 'mdns', 'dummy98', 'no', env=env)
@@ -2620,7 +2620,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         with open(path) as f:
             data = f.read()
-            self.assertRegex(data, r'DNS=10.10.10.12 10.10.10.13')
+            self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
             self.assertRegex(data, r'NTP=2.fedora.pool.ntp.org 3.fedora.pool.ntp.org')
             self.assertRegex(data, r'DOMAINS=hogehogehoge')
             self.assertRegex(data, r'ROUTE_DOMAINS=foofoofoo')
@@ -2633,7 +2633,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         with open(path) as f:
             data = f.read()
-            self.assertRegex(data, r'DNS=10.10.10.12 10.10.10.13')
+            self.assertRegex(data, r'DNS=10.10.10.12#ccc.com 10.10.10.13 1111:2222::3333')
             self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
             self.assertRegex(data, r'DOMAINS=hogehogehoge')
             self.assertRegex(data, r'ROUTE_DOMAINS=foofoofoo')
@@ -2646,7 +2646,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         with open(path) as f:
             data = f.read()
-            self.assertRegex(data, r'DNS=10.10.10.10 10.10.10.11')
+            self.assertRegex(data, r'DNS=10.10.10.10#aaa.com 10.10.10.11:1111#bbb.com \[1111:2222::3333\]:1234#ccc.com')
             self.assertRegex(data, r'NTP=0.fedora.pool.ntp.org 1.fedora.pool.ntp.org')
             self.assertRegex(data, r'DOMAINS=hogehoge')
             self.assertRegex(data, r'ROUTE_DOMAINS=foofoo')

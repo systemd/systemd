@@ -666,6 +666,9 @@ void link_ntp_settings_clear(Link *link) {
 }
 
 void link_dns_settings_clear(Link *link) {
+        if (link->n_dns != (unsigned) -1)
+                for (unsigned i = 0; i < link->n_dns; i++)
+                        in_addr_full_free(link->dns[i]);
         link->dns = mfree(link->dns);
         link->n_dns = (unsigned) -1;
 
@@ -4108,20 +4111,20 @@ static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
         fputc('\n', f);
 }
 
-static void link_save_dns(FILE *f, struct in_addr_data *dns, unsigned n_dns, bool *space) {
+static void link_save_dns(Link *link, FILE *f, struct in_addr_full **dns, unsigned n_dns, bool *space) {
         for (unsigned j = 0; j < n_dns; j++) {
-                _cleanup_free_ char *b = NULL;
-                int r;
+                const char *str;
 
-                r = in_addr_to_string(dns[j].family, &dns[j].address, &b);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to format address, ignoring: %m");
+                if (dns[j]->ifindex != 0 && dns[j]->ifindex != link->ifindex)
                         continue;
-                }
+
+                str = in_addr_full_to_string(dns[j]);
+                if (!str)
+                        continue;
 
                 if (*space)
                         fputc(' ', f);
-                fputs(b, f);
+                fputs(str, f);
                 *space = true;
         }
 }
@@ -4251,9 +4254,9 @@ int link_save(Link *link) {
                 fputs("DNS=", f);
                 space = false;
                 if (link->n_dns != (unsigned) -1)
-                        link_save_dns(f, link->dns, link->n_dns, &space);
+                        link_save_dns(link, f, link->dns, link->n_dns, &space);
                 else
-                        link_save_dns(f, link->network->dns, link->network->n_dns, &space);
+                        link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
 
                 serialize_addresses(f, NULL, &space,
                                     NULL,

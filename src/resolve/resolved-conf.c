@@ -28,24 +28,33 @@ static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MA
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_stub_listener_mode, DnsStubListenerMode, DNS_STUB_LISTENER_YES);
 
 static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
+        _cleanup_free_ char *server_name = NULL;
         union in_addr_union address;
         int family, r, ifindex = 0;
+        uint16_t port;
         DnsServer *s;
-        _cleanup_free_ char *server_name = NULL;
 
         assert(m);
         assert(word);
 
-        r = in_addr_ifindex_name_from_string_auto(word, &family, &address, &ifindex, &server_name);
+        r = in_addr_port_ifindex_name_from_string_auto(word, &family, &address, &port, &ifindex, &server_name);
         if (r < 0)
                 return r;
+
+        if (IN_SET(port, 53, 853))
+                port = 0;
 
         /* Silently filter out 0.0.0.0 and 127.0.0.53 (our own stub DNS listener) */
         if (!dns_server_address_valid(family, &address))
                 return 0;
 
+        /* By default, the port number is determined with the transaction feature level.
+         * See dns_transaction_port() and dns_server_port(). */
+        if (IN_SET(port, 53, 853))
+                port = 0;
+
         /* Filter out duplicates */
-        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, ifindex);
+        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name);
         if (s) {
                 /*
                  * Drop the marker. This is used to find the servers
@@ -57,7 +66,7 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
                 return 0;
         }
 
-        return dns_server_new(m, NULL, type, NULL, family, &address, ifindex, server_name);
+        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name);
 }
 
 int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {

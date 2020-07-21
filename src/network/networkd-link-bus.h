@@ -21,6 +21,7 @@ int property_get_address_state(sd_bus *bus, const char *path, const char *interf
 
 int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error);

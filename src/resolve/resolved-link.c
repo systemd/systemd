@@ -15,6 +15,7 @@
 #include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-mdns.h"
+#include "socket-netlink.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -251,25 +252,35 @@ int link_process_rtnl(Link *l, sd_netlink_message *m) {
         return 0;
 }
 
-static int link_update_dns_server_one(Link *l, const char *name) {
+static int link_update_dns_server_one(Link *l, const char *str) {
+        _cleanup_free_ char *name = NULL;
+        int family, ifindex, r;
         union in_addr_union a;
         DnsServer *s;
-        int family, r;
+        uint16_t port;
 
         assert(l);
-        assert(name);
+        assert(str);
 
-        r = in_addr_from_string_auto(name, &family, &a);
+        r = in_addr_port_ifindex_name_from_string_auto(str, &family, &a, &port, &ifindex, &name);
         if (r < 0)
                 return r;
 
-        s = dns_server_find(l->dns_servers, family, &a, 0);
+        if (ifindex != 0 && ifindex != l->ifindex)
+                return -EINVAL;
+
+        /* By default, the port number is determined with the transaction feature level.
+         * See dns_transaction_port() and dns_server_port(). */
+        if (IN_SET(port, 53, 853))
+                port = 0;
+
+        s = dns_server_find(l->dns_servers, family, &a, port, 0, name);
         if (s) {
                 dns_server_move_back_and_unmark(s);
                 return 0;
         }
 
-        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, 0, NULL);
+        return dns_server_new(l->manager, NULL, DNS_SERVER_LINK, l, family, &a, port, 0, name);
 }
 
 static int link_update_dns_servers(Link *l) {
@@ -652,7 +663,9 @@ int link_update(Link *l) {
         assert(l);
 
         link_read_settings(l);
-        link_load_user(l);
+        r = link_load_user(l);
+        if (r < 0)
+                return r;
 
         if (l->llmnr_support != RESOLVE_SUPPORT_NO) {
                 r = manager_llmnr_start(l->manager);
@@ -730,7 +743,7 @@ DnsServer* link_set_dns_server(Link *l, DnsServer *s) {
                 return s;
 
         if (s)
-                log_debug("Switching to DNS server %s for interface %s.", dns_server_string(s), l->ifname);
+                log_debug("Switching to DNS server %s for interface %s.", strna(dns_server_string_full(s)), l->ifname);
 
         dns_server_unref(l->current_dns_server);
         l->current_dns_server = dns_server_ref(s);
@@ -1207,7 +1220,7 @@ int link_save_user(Link *l) {
                         if (server != l->dns_servers)
                                 fputc(' ', f);
 
-                        v = dns_server_string(server);
+                        v = dns_server_string_full(server);
                         if (!v) {
                                 r = -ENOMEM;
                                 goto fail;

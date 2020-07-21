@@ -47,8 +47,13 @@
 
       <varlistentry>
         <term><varname>DNS=</varname></term>
-        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as system DNS servers. DNS requests
-        are sent to one of the listed DNS servers in parallel to suitable per-link DNS servers acquired from
+        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as system DNS servers. Each address can
+        optionally take a port number separated with <literal>:</literal>, a network interface name or index separated with
+        <literal>%</literal>, and a Server Name Indication (SNI) separated with <literal>#</literal>. When IPv6 address is
+        specified with a port number, then the address must be in the square brackets. That is, the acceptable full formats
+        are <literal>111.222.333.444:9953%ifname#example.com</literal> for IPv4 and
+        <literal>[1111:2222::3333]:9953%ifname#example.com</literal> for IPv6. DNS requests are sent to one of the listed
+        DNS servers in parallel to suitable per-link DNS servers acquired from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
         set at runtime by external applications.  For compatibility reasons, if this setting is not specified, the DNS
         servers listed in <filename>/etc/resolv.conf</filename> are used instead, if that file exists and any servers
@@ -57,8 +62,8 @@
 
       <varlistentry>
         <term><varname>FallbackDNS=</varname></term>
-        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as the fallback DNS servers. Any
-        per-link DNS servers obtained from
+        <listitem><para>A space-separated list of IPv4 and IPv6 addresses to use as the fallback DNS servers. Please see
+        <varname>DNS=</varname> for acceptable format of adddresses. Any per-link DNS servers obtained from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         take precedence over this setting, as do any servers set via <varname>DNS=</varname> above or
         <filename>/etc/resolv.conf</filename>. This setting is hence only used if no other DNS server information is

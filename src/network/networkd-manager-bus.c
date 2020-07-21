@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
@@ -93,17 +94,16 @@ static int method_get_link_by_index(sd_bus_message *message, void *userdata, sd_
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         Manager *manager = userdata;
-        int32_t index;
+        int ifindex, r;
         Link *link;
-        int r;
 
-        r = sd_bus_message_read(message, "i", &index);
+        r = bus_message_read_ifindex(message, error, &ifindex);
         if (r < 0)
                 return r;
 
-        link = hashmap_get(manager->links, INT_TO_PTR((int) index));
+        link = hashmap_get(manager->links, INT_TO_PTR(ifindex));
         if (!link)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %" PRIi32 " not known", index);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_LINK, "Link %i not known", ifindex);
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -128,13 +128,9 @@ static int call_link_method(Manager *m, sd_bus_message *message, sd_bus_message_
         assert(message);
         assert(handler);
 
-        assert_cc(sizeof(int) == sizeof(int32_t));
-        r = sd_bus_message_read(message, "i", &ifindex);
+        r = bus_message_read_ifindex(message, error, &ifindex);
         if (r < 0)
                 return r;
-
-        if (ifindex <= 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
 
         l = hashmap_get(m->links, INT_TO_PTR(ifindex));
         if (!l)
@@ -149,6 +145,10 @@ static int bus_method_set_link_ntp_servers(sd_bus_message *message, void *userda
 
 static int bus_method_set_link_dns_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return call_link_method(userdata, message, bus_link_method_set_dns_servers, error);
+}
+
+static int bus_method_set_link_dns_servers_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_set_dns_servers_ex, error);
 }
 
 static int bus_method_set_link_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -243,6 +243,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("GetLinkByIndex", "i", "so", method_get_link_by_index, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkNTP", "ias", NULL, bus_method_set_link_ntp_servers, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkDNS", "ia(iay)", NULL, bus_method_set_link_dns_servers, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SetLinkDNSEx", "ia(iayqs)", NULL, bus_method_set_link_dns_servers_ex, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkDefaultRoute", "ib", NULL, bus_method_set_link_default_route, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLinkLLMNR", "is", NULL, bus_method_set_link_llmnr, SD_BUS_VTABLE_UNPRIVILEGED),

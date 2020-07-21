@@ -26,6 +26,7 @@ int dns_server_new(
                 Link *l,
                 int family,
                 const union in_addr_union *in_addr,
+                uint16_t port,
                 int ifindex,
                 const char *server_name) {
 
@@ -47,7 +48,7 @@ int dns_server_new(
                         return -E2BIG;
         }
 
-        if (server_name) {
+        if (!isempty(server_name)) {
                 name = strdup(server_name);
                 if (!name)
                         return -ENOMEM;
@@ -63,6 +64,7 @@ int dns_server_new(
                 .type = type,
                 .family = family,
                 .address = *in_addr,
+                .port = port,
                 .ifindex = ifindex,
                 .server_name = TAKE_PTR(name),
         };
@@ -117,6 +119,7 @@ static DnsServer* dns_server_free(DnsServer *s)  {
 #endif
 
         free(s->server_string);
+        free(s->server_string_full);
         free(s->server_name);
         return mfree(s);
 }
@@ -223,7 +226,7 @@ static void dns_server_verified(DnsServer *s, DnsServerFeatureLevel level) {
         if (s->verified_feature_level != level) {
                 log_debug("Verified we get a response at feature level %s from DNS server %s.",
                           dns_server_feature_level_to_string(level),
-                          dns_server_string(s));
+                          strna(dns_server_string_full(s)));
                 s->verified_feature_level = level;
         }
 
@@ -360,7 +363,7 @@ void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level
                 dns_server_reset_counters(s);
         }
 
-        log_debug("Downgrading transaction feature level fixed an RCODE error, downgrading server %s too.", dns_server_string(s));
+        log_debug("Downgrading transaction feature level fixed an RCODE error, downgrading server %s too.", strna(dns_server_string_full(s)));
 }
 
 static bool dns_server_grace_period_expired(DnsServer *s) {
@@ -414,7 +417,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
                 log_info("Grace period over, resuming full feature set (%s) for DNS server %s.",
                          dns_server_feature_level_to_string(s->possible_feature_level),
-                         dns_server_string(s));
+                         strna(dns_server_string_full(s)));
 
                 dns_server_flush_cache(s);
 
@@ -500,7 +503,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
                         log_full(log_level, "Using degraded feature set %s instead of %s for DNS server %s.",
                                  dns_server_feature_level_to_string(s->possible_feature_level),
-                                 dns_server_feature_level_to_string(p), dns_server_string(s));
+                                 dns_server_feature_level_to_string(p), strna(dns_server_string_full(s)));
                 }
         }
 
@@ -548,13 +551,37 @@ int dns_server_ifindex(const DnsServer *s) {
         return 0;
 }
 
+uint16_t dns_server_port(const DnsServer *s) {
+        assert(s);
+
+        if (s->port > 0)
+                return s->port;
+
+        return 53;
+}
+
 const char *dns_server_string(DnsServer *server) {
         assert(server);
 
         if (!server->server_string)
                 (void) in_addr_ifindex_to_string(server->family, &server->address, dns_server_ifindex(server), &server->server_string);
 
-        return strna(server->server_string);
+        return server->server_string;
+}
+
+const char *dns_server_string_full(DnsServer *server) {
+        assert(server);
+
+        if (!server->server_string_full)
+                (void) in_addr_port_ifindex_name_to_string(
+                                server->family,
+                                &server->address,
+                                server->port,
+                                dns_server_ifindex(server),
+                                server->server_name,
+                                &server->server_string_full);
+
+        return server->server_string_full;
 }
 
 bool dns_server_dnssec_supported(DnsServer *server) {
@@ -586,8 +613,8 @@ void dns_server_warn_downgrade(DnsServer *server) {
 
         log_struct(LOG_NOTICE,
                    "MESSAGE_ID=" SD_MESSAGE_DNSSEC_DOWNGRADE_STR,
-                   LOG_MESSAGE("Server %s does not support DNSSEC, downgrading to non-DNSSEC mode.", dns_server_string(server)),
-                   "DNS_SERVER=%s", dns_server_string(server),
+                   LOG_MESSAGE("Server %s does not support DNSSEC, downgrading to non-DNSSEC mode.", strna(dns_server_string_full(server))),
+                   "DNS_SERVER=%s", strna(dns_server_string_full(server)),
                    "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(server->possible_feature_level));
 
         server->warned_downgrade = true;
@@ -598,7 +625,10 @@ static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
 
         siphash24_compress(&s->family, sizeof(s->family), state);
         siphash24_compress(&s->address, FAMILY_ADDRESS_SIZE(s->family), state);
+        siphash24_compress(&s->port, sizeof(s->port), state);
         siphash24_compress(&s->ifindex, sizeof(s->ifindex), state);
+        if (s->server_name)
+                siphash24_compress(s->server_name, strlen(s->server_name), state);
 }
 
 static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
@@ -612,11 +642,15 @@ static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {
         if (r != 0)
                 return r;
 
+        r = CMP(x->port, y->port);
+        if (r != 0)
+                return r;
+
         r = CMP(x->ifindex, y->ifindex);
         if (r != 0)
                 return r;
 
-        return 0;
+        return streq_ptr(x->server_name, y->server_name);
 }
 
 DEFINE_HASH_OPS(dns_server_hash_ops, DnsServer, dns_server_hash_func, dns_server_compare_func);
@@ -655,11 +689,15 @@ void dns_server_mark_all(DnsServer *first) {
         dns_server_mark_all(first->servers_next);
 }
 
-DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, int ifindex) {
+DnsServer *dns_server_find(DnsServer *first, int family, const union in_addr_union *in_addr, uint16_t port, int ifindex, const char *name) {
         DnsServer *s;
 
         LIST_FOREACH(servers, s, first)
-                if (s->family == family && in_addr_equal(family, &s->address, in_addr) > 0 && s->ifindex == ifindex)
+                if (s->family == family &&
+                    in_addr_equal(family, &s->address, in_addr) > 0 &&
+                    s->port == port &&
+                    s->ifindex == ifindex &&
+                    streq_ptr(s->server_name, name))
                         return s;
 
         return NULL;
@@ -690,7 +728,7 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         if (s)
                 log_debug("Switching to %s DNS server %s.",
                           dns_server_type_to_string(s->type),
-                          dns_server_string(s));
+                          strna(dns_server_string_full(s)));
 
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);
@@ -830,7 +868,7 @@ void dns_server_dump(DnsServer *s, FILE *f) {
                 f = stdout;
 
         fputs("[Server ", f);
-        fputs(dns_server_string(s), f);
+        fputs(strna(dns_server_string_full(s)), f);
         fputs(" type=", f);
         fputs(dns_server_type_to_string(s->type), f);
 

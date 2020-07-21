@@ -163,7 +163,7 @@ typedef struct Link {
         bool stats_updated;
 
         /* All kinds of DNS configuration the user configured via D-Bus */
-        struct in_addr_data *dns;
+        struct in_addr_full **dns;
         unsigned n_dns;
         OrderedSet *search_domains, *route_domains;
 
