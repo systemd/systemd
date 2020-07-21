@@ -881,8 +881,7 @@ static int update_devnode(UdevEvent *event) {
                 return log_device_error_errno(dev, r, "Failed to get devnum: %m");
 
         /* remove/update possible left-over symlinks from old database entry */
-        if (event->dev_db_clone)
-                (void) udev_node_update_old_links(dev, event->dev_db_clone);
+        (void) udev_node_update_old_links(dev, event->dev_db_clone);
 
         if (!uid_is_valid(event->uid)) {
                 r = device_get_devnode_uid(dev, &event->uid);
@@ -945,8 +944,7 @@ static int udev_event_on_move(UdevEvent *event) {
         sd_device *dev = event->dev;
         int r;
 
-        if (event->dev_db_clone &&
-            sd_device_get_devnum(dev, NULL) < 0) {
+        if (sd_device_get_devnum(dev, NULL) < 0) {
                 r = device_copy_properties(dev, event->dev_db_clone);
                 if (r < 0)
                         log_device_debug_errno(dev, r, "Failed to copy properties from cloned sd_device object, ignoring: %m");
@@ -992,7 +990,7 @@ int udev_event_execute_rules(UdevEvent *event,
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to clone sd_device object: %m");
 
-        if (event->dev_db_clone && sd_device_get_devnum(dev, NULL) >= 0)
+        if (sd_device_get_devnum(dev, NULL) >= 0)
                 /* Disable watch during event processing. */
                 (void) udev_watch_end(event->dev_db_clone);
 
@@ -1029,8 +1027,6 @@ int udev_event_execute_rules(UdevEvent *event,
                 return log_device_debug_errno(dev, r, "Failed to update database under /run/udev/data/: %m");
 
         device_set_is_initialized(dev);
-
-        event->dev_db_clone = sd_device_unref(event->dev_db_clone);
 
         return 0;
 }
