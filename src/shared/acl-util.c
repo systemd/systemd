@@ -378,11 +378,20 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
         return 0;
 }
 
-int add_acls_for_user(int fd, uid_t uid) {
+int fd_add_uid_acl_permission(
+                int fd,
+                uid_t uid,
+                bool rd,
+                bool wr,
+                bool ex) {
+
         _cleanup_(acl_freep) acl_t acl = NULL;
         acl_permset_t permset;
         acl_entry_t entry;
         int r;
+
+        /* Adds an ACL entry for the specified file to allow the indicated access to the specified
+         * user. Operates purely incrementally. */
 
         assert(fd >= 0);
         assert(uid_is_valid(uid));
@@ -399,10 +408,14 @@ int add_acls_for_user(int fd, uid_t uid) {
                         return -errno;
         }
 
-        /* We do not recalculate the mask unconditionally here, so that the fchmod() mask above stays
-         * intact. */
-        if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0)
+        if (acl_get_permset(entry, &permset) < 0)
+                return -errno;
+
+        if (rd && acl_add_perm(permset, ACL_READ) < 0)
+                return -errno;
+        if (wr && acl_add_perm(permset, ACL_WRITE) < 0)
+                return -errno;
+        if (ex && acl_add_perm(permset, ACL_EXECUTE) < 0)
                 return -errno;
 
         r = calc_acl_mask_if_needed(&acl);
