@@ -290,7 +290,7 @@ int get_user_creds(
                     (empty_or_root(p->pw_dir) ||
                      !path_is_valid(p->pw_dir) ||
                      !path_is_absolute(p->pw_dir)))
-                    *home = NULL; /* Note: we don't insist on normalized paths, since there are setups that have /./ in the path */
+                        *home = NULL; /* Note: we don't insist on normalized paths, since there are setups that have /./ in the path */
                 else
                         *home = p->pw_dir;
         }
