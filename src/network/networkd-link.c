@@ -1297,7 +1297,10 @@ static int link_request_set_addresses(Link *link) {
         LIST_FOREACH(addresses, ad, link->network->static_addresses) {
                 bool update;
 
-                update = address_get(link, ad->family, &ad->in_addr, ad->prefixlen, NULL) > 0;
+                if (ad->family == AF_INET6 && !in_addr_is_null(ad->family, &ad->in_addr_peer))
+                        update = address_get(link, ad->family, &ad->in_addr_peer, ad->prefixlen, NULL) > 0;
+                else
+                        update = address_get(link, ad->family, &ad->in_addr, ad->prefixlen, NULL) > 0;
 
                 r = address_configure(ad, link, address_handler, update);
                 if (r < 0)
@@ -2602,6 +2605,9 @@ static bool link_is_static_address_configured(Link *link, Address *address) {
 
         LIST_FOREACH(addresses, net_address, link->network->static_addresses)
                 if (address_equal(net_address, address))
+                        return true;
+                else if (address->family == AF_INET6 && net_address->family == AF_INET6 &&
+                         in_addr_equal(AF_INET6, &address->in_addr, &net_address->in_addr_peer) > 0)
                         return true;
 
         return false;
