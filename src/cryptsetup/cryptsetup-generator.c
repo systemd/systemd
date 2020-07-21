@@ -570,7 +570,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                n = strspn(value, LETTERS DIGITS "-");
+                n = strspn(value, ALPHANUMERICAL "-");
                 if (value[n] != '=') {
                         if (free_and_strdup(&arg_default_keyfile, value) < 0)
                                  return log_oom();
