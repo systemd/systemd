@@ -1086,8 +1086,11 @@ void link_check_ready(Link *link) {
 
         assert(link);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                log_link_debug(link, "%s(): link is in failed or linger state.", __func__);
+        if (link->state == LINK_STATE_CONFIGURED)
+                return;
+
+        if (link->state != LINK_STATE_CONFIGURING) {
+                log_link_debug(link, "%s(): link is in %s state.", __func__, link_state_to_string(link->state));
                 return;
         }
 
