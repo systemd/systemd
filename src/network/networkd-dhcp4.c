@@ -48,7 +48,6 @@ static void dhcp4_release_old_lease(Link *link) {
                 (void) dhcp_remove_address(link, link->dhcp_lease_old, &address_old, NULL);
 
         link->dhcp_lease_old = sd_dhcp_lease_unref(link->dhcp_lease_old);
-        link_dirty(link);
 }
 
 static void dhcp4_check_ready(Link *link) {
