@@ -606,6 +606,8 @@ static int write_root_passwd(const char *passwd_path, const char *password) {
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
 
+        assert(password);
+
         r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
         if (r < 0)
                 return r;
@@ -668,6 +670,8 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         int r;
+
+        assert(hashed_password);
 
         r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
         if (r < 0)
@@ -734,69 +738,52 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
 static int process_root_password(void) {
         _cleanup_close_ int lock = -1;
         struct crypt_data cd = {};
-        const char *hashed_password;
-        const char *etc_shadow;
+        const char *password, *hashed_password;
+        const char *etc_passwd, *etc_shadow;
         int r;
 
+        etc_passwd = prefix_roota(arg_root, "/etc/passwd");
         etc_shadow = prefix_roota(arg_root, "/etc/shadow");
-        if (laccess(etc_shadow, F_OK) >= 0 && !arg_force)
+
+        /* We only mess with passwd and shadow if both do not exist or --force is specified. These files are
+         * tightly coupled and hence we make sure we have permission from the user to create/modify both
+         * files. */
+        if ((laccess(etc_passwd, F_OK) >= 0 || laccess(etc_shadow, F_OK) >= 0) && !arg_force)
                 return 0;
 
-        (void) mkdir_parents(etc_shadow, 0755);
+        (void) mkdir_parents(etc_passwd, 0755);
 
         lock = take_etc_passwd_lock(arg_root);
         if (lock < 0)
-                return log_error_errno(lock, "Failed to take a lock: %m");
-
-        if (arg_delete_root_password) {
-                const char *etc_passwd;
-
-                /* Mixing alloca() and other stuff that touches the stack in one expression is not portable. */
-                etc_passwd = prefix_roota(arg_root, "/etc/passwd");
-
-                r = write_root_passwd(etc_passwd, "");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write %s: %m", etc_passwd);
-
-                log_info("%s written", etc_passwd);
-
-                return 0;
-        }
+                return log_error_errno(lock, "Failed to take a lock on %s: %m", etc_passwd);
 
         if (arg_copy_root_password && arg_root) {
                 struct spwd *p;
 
                 errno = 0;
                 p = getspnam("root");
-                if (p || errno != ENOENT) {
-                        if (!p) {
-                                if (!errno)
-                                        errno = EIO;
+                if (!p)
+                        return log_error_errno(errno_or_else(EIO), "Failed to find shadow entry for root: %m");
 
-                                return log_error_errno(errno, "Failed to find shadow entry for root: %m");
-                        }
+                r = free_and_strdup(&arg_root_password, p->sp_pwdp);
+                if (r < 0)
+                        return log_oom();
 
-                        r = write_root_shadow(etc_shadow, p->sp_pwdp);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to write %s: %m", etc_shadow);
-
-                        log_info("%s copied.", etc_shadow);
-                        return 0;
-                }
+                arg_root_password_is_hashed = true;
         }
 
         r = prompt_root_password();
         if (r < 0)
                 return r;
 
-        if (!arg_root_password)
-                return 0;
-
-        if (arg_root_password_is_hashed)
+        if (arg_root_password && arg_root_password_is_hashed) {
+                password = "x";
                 hashed_password = arg_root_password;
-        else {
+        } else if (arg_root_password) {
                 _cleanup_free_ char *salt = NULL;
                 /* hashed_password points inside cd after crypt_r returns so cd has function scope. */
+
+                password = "x";
 
                 r = make_salt(&salt);
                 if (r < 0)
@@ -807,7 +794,16 @@ static int process_root_password(void) {
                 if (!hashed_password)
                         return log_error_errno(errno == 0 ? SYNTHETIC_ERRNO(EINVAL) : errno,
                                         "Failed to encrypt password: %m");
-        }
+        } else if (arg_delete_root_password)
+                password = hashed_password = "";
+        else
+                password = hashed_password = "!";
+
+        r = write_root_passwd(etc_passwd, password);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write %s: %m", etc_passwd);
+
+        log_info("%s written", etc_passwd);
 
         r = write_root_shadow(etc_shadow, hashed_password);
         if (r < 0)
