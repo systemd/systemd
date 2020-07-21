@@ -12,12 +12,13 @@
 #include "user-util.h"
 #include "util.h"
 
-int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
+int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *ret_entry) {
         acl_entry_t i;
         int r;
 
         assert(acl);
-        assert(entry);
+        assert(uid_is_valid(uid));
+        assert(ret_entry);
 
         for (r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
              r > 0;
@@ -41,13 +42,14 @@ int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
                 acl_free(u);
 
                 if (b) {
-                        *entry = i;
+                        *ret_entry = i;
                         return 1;
                 }
         }
         if (r < 0)
                 return -errno;
 
+        *ret_entry = NULL;
         return 0;
 }
 
