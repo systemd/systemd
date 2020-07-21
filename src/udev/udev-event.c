@@ -840,11 +840,6 @@ static int rename_netif(UdevEvent *event) {
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to get ifindex: %m");
 
-        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m",
-                                              ifindex, oldname, event->name);
-
         /* Set ID_RENAMING boolean property here, and drop it in the corresponding move uevent later. */
         r = device_add_property(dev, "ID_RENAMING", "1");
         if (r < 0)
@@ -853,6 +848,22 @@ static int rename_netif(UdevEvent *event) {
         r = device_rename(dev, event->name);
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to update properties with new name '%s': %m", event->name);
+
+        /* Also set ID_RENAMING boolean property to cloned sd_device object and save it to database
+         * before calling rtnl_set_link_name(). Otherwise, clients (e.g., systemd-networkd) may receive
+         * RTM_NEWLINK netlink message before the database is updated. */
+        r = device_add_property(event->dev_db_clone, "ID_RENAMING", "1");
+        if (r < 0)
+                return log_device_warning_errno(event->dev_db_clone, r, "Failed to add 'ID_RENAMING' property: %m");
+
+        r = device_update_db(event->dev_db_clone);
+        if (r < 0)
+                return log_device_debug_errno(event->dev_db_clone, r, "Failed to update database under /run/udev/data/: %m");
+
+        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m",
+                                              ifindex, oldname, event->name);
 
         log_device_debug(dev, "Network interface %i is renamed from '%s' to '%s'", ifindex, oldname, event->name);
 
