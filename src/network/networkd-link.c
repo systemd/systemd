@@ -691,7 +691,6 @@ static void link_free_engines(Link *link) {
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
-        link->dhcp_routes = set_free(link->dhcp_routes);
 
         link->lldp = sd_lldp_unref(link->lldp);
 
@@ -713,6 +712,8 @@ static Link *link_free(Link *link) {
 
         link->routes = set_free(link->routes);
         link->routes_foreign = set_free(link->routes_foreign);
+        link->dhcp_routes = set_free(link->dhcp_routes);
+        link->dhcp_routes_old = set_free(link->dhcp_routes_old);
 
         link->nexthops = set_free(link->nexthops);
         link->nexthops_foreign = set_free(link->nexthops_foreign);

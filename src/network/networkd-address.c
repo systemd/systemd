@@ -125,6 +125,10 @@ void address_free(Address *address) {
         if (address->link && !address->acd) {
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
+                if (address->link->dhcp_address == address)
+                        address->link->dhcp_address = NULL;
+                if (address->link->dhcp_address_old == address)
+                        address->link->dhcp_address_old = NULL;
 
                 if (in_addr_equal(AF_INET6, &address->in_addr, (const union in_addr_union *) &address->link->ipv6ll_address))
                         memzero(&address->link->ipv6ll_address, sizeof(struct in6_addr));
