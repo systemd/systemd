@@ -26,31 +26,107 @@ static int dhcp_remove_dns_routes(Link *link, sd_dhcp_lease *lease, const struct
 static int dhcp_remove_address(Link *link, sd_dhcp_lease *lease, const struct in_addr *address, link_netlink_message_handler_t callback);
 static int dhcp4_update_address(Link *link, bool announce);
 static int dhcp4_remove_all(Link *link);
+static int dhcp4_release_old_lease(Link *link, bool force);
 
-static void dhcp4_release_old_lease(Link *link) {
-        struct in_addr address = {}, address_old = {};
+static int dhcp4_address_callback(Address *address) {
+        assert(address);
+        assert(address->link);
+
+        if (!address->link->dhcp_lease)
+                return 0;
+
+        /* Do not call this callback again. */
+        address->callback = NULL;
+
+        return dhcp4_release_old_lease(address->link, true);
+}
+
+static int dhcp4_address_set_callback(Link *link) {
+        union in_addr_union address;
+        struct in_addr netmask;
+        unsigned char prefixlen;
+        Address *a;
+        int r;
+
+        assert(link);
+        assert(link->dhcp_lease);
+
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address.in);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: could not get address: %m");
+
+        r = sd_dhcp_lease_get_netmask(link->dhcp_lease, &netmask);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: no netmask: %m");
+
+        prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
+
+        r = address_get(link, AF_INET, &address, prefixlen, &a);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "DHCPv4 address does not exist anymore? Ignoring: %m");
+                return false;
+        }
+
+        if (address_is_ready(a))
+                /* If address is already ready, then we can release old lease now. */
+                return false;
+
+        a->callback = dhcp4_address_callback;
+        return true;
+}
+
+static int dhcp4_release_old_lease(Link *link, bool force) {
+        struct in_addr address, address_old;
+        int r;
 
         assert(link);
 
         if (!link->dhcp_lease_old)
-                return;
+                return 0;
 
         assert(link->dhcp_lease);
 
-        (void) sd_dhcp_lease_get_address(link->dhcp_lease_old, &address_old);
-        (void) sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+        if (!force) {
+                r = dhcp4_address_set_callback(link);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 0;
+        }
 
-        (void) dhcp_remove_routes(link, link->dhcp_lease_old, &address_old, false, NULL);
-        (void) dhcp_remove_router(link, link->dhcp_lease_old, &address_old, false, NULL);
-        (void) dhcp_remove_dns_routes(link, link->dhcp_lease_old, &address_old, false, NULL);
+        r = sd_dhcp_lease_get_address(link->dhcp_lease_old, &address_old);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: could not get address from old lease: %m");
 
-        if (!in4_addr_equal(&address_old, &address))
-                (void) dhcp_remove_address(link, link->dhcp_lease_old, &address_old, NULL);
+        r = sd_dhcp_lease_get_address(link->dhcp_lease, &address);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: could not get address from current lease: %m");
+
+        r = dhcp_remove_routes(link, link->dhcp_lease_old, &address_old, false, NULL);
+        if (r < 0)
+                return r;
+
+        r = dhcp_remove_router(link, link->dhcp_lease_old, &address_old, false, NULL);
+        if (r < 0)
+                return r;
+
+        r = dhcp_remove_dns_routes(link, link->dhcp_lease_old, &address_old, false, NULL);
+        if (r < 0)
+                return r;
+
+        if (!in4_addr_equal(&address_old, &address)) {
+                r = dhcp_remove_address(link, link->dhcp_lease_old, &address_old, NULL);
+                if (r < 0)
+                        return r;
+        }
 
         link->dhcp_lease_old = sd_dhcp_lease_unref(link->dhcp_lease_old);
+        return 0;
 }
 
 static void dhcp4_check_ready(Link *link) {
+        int r;
+
         if (link->network->dhcp_send_decline && !link->dhcp4_address_bind)
                 return;
 
@@ -58,8 +134,14 @@ static void dhcp4_check_ready(Link *link) {
                 return;
 
         link->dhcp4_configured = true;
+
         /* New address and routes are configured now. Let's release old lease. */
-        dhcp4_release_old_lease(link);
+        r = dhcp4_release_old_lease(link, false);
+        if (r < 0) {
+                link_enter_failed(link);
+                return;
+        }
+
         link_check_ready(link);
 }
 
@@ -795,7 +877,9 @@ static int dhcp_lease_lost(Link *link) {
         link->dhcp4_configured = false;
 
         /* dhcp_lease_lost() may be called during renewing IP address. */
-        dhcp4_release_old_lease(link);
+        r = dhcp4_release_old_lease(link, true);
+        if (r < 0)
+                return r;
 
         r = dhcp4_remove_all(link);
         if (r < 0)
