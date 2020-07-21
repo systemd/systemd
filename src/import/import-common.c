@@ -79,6 +79,17 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
+                const char *cmdline[] = {
+                       "tar",
+                       "--numeric-owner",
+                       "-C", path,
+                       "-px",
+                       "--xattrs",
+                       "--xattrs-include=*",
+                       use_selinux ? "--selinux" : "--no-selinux",
+                       NULL
+                };
+
                 uint64_t retain =
                         (1ULL << CAP_CHOWN) |
                         (1ULL << CAP_FOWNER) |
@@ -104,8 +115,15 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
                 if (r < 0)
                         log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execlp("tar", "tar", "--numeric-owner", "-C", path, "-px", "--xattrs", "--xattrs-include=*",
-                       use_selinux ? "--selinux" : "--no-selinux", NULL);
+                /* Try "gtar" before "tar". We only test things upstream with GNU tar. Some distros appear to
+                 * install a different implementation as "tar" (in particular some that do not support the
+                 * same command line switches), but then provide "gtar" as alias for the real thing, hence
+                 * let's prefer that. (Yes, it's a bad idea they do that, given they don't provide equivalent
+                 * command line support, but we are not here to argue, let's just expose the same
+                 * behaviour/implementation everywhere.) */
+                execvp("gtar", (char* const*) cmdline);
+                execvp("tar", (char* const*) cmdline);
+
                 log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -133,6 +151,17 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
+                const char *cmdline[] = {
+                        "tar",
+                        "-C", path,
+                        "-c",
+                        "--xattrs",
+                        "--xattrs-include=*",
+                       use_selinux ? "--selinux" : "--no-selinux",
+                        ".",
+                        NULL
+                };
+
                 uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
@@ -152,8 +181,9 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
                 if (r < 0)
                         log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execlp("tar", "tar", "-C", path, "-c", "--xattrs", "--xattrs-include=*",
-                       use_selinux ? "--selinux" : "--no-selinux", ".", NULL);
+                execvp("gtar", (char* const*) cmdline);
+                execvp("tar", (char* const*) cmdline);
+
                 log_error_errno(errno, "Failed to execute tar: %m");
                 _exit(EXIT_FAILURE);
         }
