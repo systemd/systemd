@@ -20,6 +20,7 @@ typedef struct Address Address;
 typedef struct Network Network;
 typedef struct Link Link;
 typedef struct NetworkConfigSection NetworkConfigSection;
+typedef int (*address_ready_callback_t)(Address *address);
 
 struct Address {
         Network *network;
@@ -46,6 +47,9 @@ struct Address {
         bool prefix_route:1;
         bool autojoin:1;
         AddressFamily duplicate_address_detection;
+
+        /* Called when address become ready */
+        address_ready_callback_t callback;
 
         sd_ipv4acd *acd;
 
