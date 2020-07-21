@@ -1077,12 +1077,12 @@ static int parse_argv(int argc, char *argv[]) {
 static int load_certificates(char **key, char **cert, char **trust) {
         int r;
 
-        r = read_full_file(arg_key ?: PRIV_KEY_FILE, key, NULL);
+        r = read_full_file_full(AT_FDCWD, arg_key ?: PRIV_KEY_FILE, READ_FULL_FILE_CONNECT_SOCKET, key, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read key from file '%s': %m",
                                        arg_key ?: PRIV_KEY_FILE);
 
-        r = read_full_file(arg_cert ?: CERT_FILE, cert, NULL);
+        r = read_full_file_full(AT_FDCWD, arg_cert ?: CERT_FILE, READ_FULL_FILE_CONNECT_SOCKET, cert, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read certificate from file '%s': %m",
                                        arg_cert ?: CERT_FILE);
@@ -1090,7 +1090,7 @@ static int load_certificates(char **key, char **cert, char **trust) {
         if (arg_trust_all)
                 log_info("Certificate checking disabled.");
         else {
-                r = read_full_file(arg_trust ?: TRUST_FILE, trust, NULL);
+                r = read_full_file_full(AT_FDCWD, arg_trust ?: TRUST_FILE, READ_FULL_FILE_CONNECT_SOCKET, trust, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read CA certificate file '%s': %m",
                                                arg_trust ?: TRUST_FILE);

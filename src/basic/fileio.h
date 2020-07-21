@@ -32,9 +32,11 @@ typedef enum {
 } WriteStringFileFlags;
 
 typedef enum {
-        READ_FULL_FILE_SECURE   = 1 << 0,
-        READ_FULL_FILE_UNBASE64 = 1 << 1,
-        READ_FULL_FILE_UNHEX    = 1 << 2,
+        READ_FULL_FILE_SECURE              = 1 << 0, /* erase any buffers we employ internally, after use */
+        READ_FULL_FILE_UNBASE64            = 1 << 1, /* base64 decode what we read */
+        READ_FULL_FILE_UNHEX               = 1 << 2, /* hex decode what we read */
+        READ_FULL_FILE_WARN_WORLD_READABLE = 1 << 3, /* if regular file, log at LOG_WARNING level if access mode above 0700 */
+        READ_FULL_FILE_CONNECT_SOCKET      = 1 << 4, /* if socket inode, connect to it and read off it */
 } ReadFullFileFlags;
 
 int fopen_unlocked(const char *path, const char *options, FILE **ret);

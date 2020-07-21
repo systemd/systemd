@@ -58,26 +58,25 @@
       <varlistentry>
         <term><option>--cert=</option></term>
 
-        <listitem><para>Specify the path to a file containing a server
-        certificate in PEM format. This option switches
-        <command>systemd-journal-gatewayd</command> into HTTPS mode
-        and must be used together with
+        <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read the
+        server certificate from. The certificate must be in PEM format. This option switches
+        <command>systemd-journal-gatewayd</command> into HTTPS mode and must be used together with
         <option>--key=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--key=</option></term>
 
-        <listitem><para>Specify the path to a file containing a server
-        key in PEM format corresponding to the certificate specified
-        with <option>--cert=</option>.</para></listitem>
+        <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read the
+        server key corresponding to the certificate specified with <option>--cert=</option> from. The key
+        must be in PEM format.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--trust=</option></term>
 
-        <listitem><para>Specify the path to a file containing a
-        CA certificate in PEM format.</para></listitem>
+        <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read a CA
+        certificate from. The certificate must be in PEM format.</para></listitem>
       </varlistentry>
 
       <varlistentry>

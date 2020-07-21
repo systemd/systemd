@@ -180,33 +180,29 @@
       <varlistentry>
         <term><option>--key=</option></term>
 
-        <listitem><para>
-          Takes a path to a SSL key file in PEM format.
-          Defaults to <filename>&CERTIFICATE_ROOT;/private/journal-remote.pem</filename>.
-          This option can be used with <option>--listen-https=</option>.
-        </para></listitem>
+        <listitem><para> Takes a path to a SSL key file in PEM format. Defaults to
+        <filename>&CERTIFICATE_ROOT;/private/journal-remote.pem</filename>. This option can be used with
+        <option>--listen-https=</option>. If the path refers to an <constant>AF_UNIX</constant> stream socket
+        in the file system a connection is made to it and the key read from it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--cert=</option></term>
 
-        <listitem><para>
-          Takes a path to a SSL certificate file in PEM format.
-          Defaults to <filename>&CERTIFICATE_ROOT;/certs/journal-remote.pem</filename>.
-          This option can be used with <option>--listen-https=</option>.
-        </para></listitem>
+        <listitem><para> Takes a path to a SSL certificate file in PEM format. Defaults to
+        <filename>&CERTIFICATE_ROOT;/certs/journal-remote.pem</filename>. This option can be used with
+        <option>--listen-https=</option>. If the path refers to an <constant>AF_UNIX</constant> stream socket
+        in the file system a connection is made to it and the certificate read from it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--trust=</option></term>
 
-        <listitem><para>
-          Takes a path to a SSL CA certificate file in PEM format,
-          or <option>all</option>. If <option>all</option> is set,
-          then certificate checking will be disabled.
-          Defaults to <filename>&CERTIFICATE_ROOT;/ca/trusted.pem</filename>.
-          This option can be used with <option>--listen-https=</option>.
-        </para></listitem>
+        <listitem><para> Takes a path to a SSL CA certificate file in PEM format, or <option>all</option>. If
+        <option>all</option> is set, then certificate checking will be disabled. Defaults to
+        <filename>&CERTIFICATE_ROOT;/ca/trusted.pem</filename>. This option can be used with
+        <option>--listen-https=</option>. If the path refers to an <constant>AF_UNIX</constant> stream socket
+        in the file system a connection is made to it and the certificate read from it.</para></listitem>
       </varlistentry>
 
       <varlistentry>
