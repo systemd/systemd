@@ -526,6 +526,18 @@ CHANGES WITH 246:
           LogControl1 D-Bus API which allows clients to change log level +
           target of the service during runtime.
 
+        * Various command line parameters and configuration file settings that
+          configure key or certificate files now optionally take paths to
+          AF_UNIX sockets in the file system. If configured that way a stream
+          connection is made to the socket and the required data read from
+          it. This is a simple and natural extension to the existing regular
+          file logic, and permits other software to provide keys or
+          certificates via simple IPC services, for example when unencrypted
+          storage on disk is not desired. Specifically, systemd-networkd's
+          Wireguard and MACSEC key file settings as well as
+          systemd-journal-gatewayd's and systemd-journal-remote's PEM
+          key/certificate parameters support this now.
+
         Contributions from: 24bisquitz, Adam Nielsen, Alan Perry, Alexander
         Malafeev, Alin Popa, Amos Bird, Andreas Rammhold, AndreRH, Andrew
         Doran, Anita Zhang, Ankit Jain, antznin, Arnaud Ferraris, Arthur Moraes
