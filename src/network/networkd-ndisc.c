@@ -819,10 +819,11 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *r
 
         case SD_NDISC_EVENT_TIMEOUT:
                 log_link_debug(link, "NDisc handler get timeout event");
-                link->ndisc_addresses_configured = true;
-                link->ndisc_routes_configured = true;
-                link_check_ready(link);
-
+                if (link->ndisc_addresses_messages == 0 && link->ndisc_routes_messages == 0) {
+                        link->ndisc_addresses_configured = true;
+                        link->ndisc_routes_configured = true;
+                        link_check_ready(link);
+                }
                 break;
         default:
                 assert_not_reached("Unknown NDisc event");
