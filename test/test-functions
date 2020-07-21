@@ -633,6 +633,9 @@ install_dmevent() {
     else
         inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
     fi
+    if [[ "$LOOKS_LIKE_SUSE" ]]; then
+        inst_rules 60-persistent-storage.rules 61-persistent-storage-compat.rules 99-systemd.rules
+    fi
 }
 
 install_systemd() {
@@ -932,7 +935,7 @@ install_config_files() {
     inst /etc/sysconfig/init || :
     inst /etc/passwd
     inst /etc/shadow
-    inst /etc/login.defs
+    inst_any /etc/login.defs /usr/etc/login.defs
     inst /etc/group
     inst /etc/shells
     inst_any /etc/nsswitch.conf /usr/etc/nsswitch.conf
@@ -1948,6 +1951,7 @@ setup_suse() {
     ln -fs ../usr/bin/systemctl $initdir/bin/
     ln -fs ../usr/lib/systemd $initdir/lib/
     inst_simple "/usr/lib/systemd/system/haveged.service"
+    instmods ext4
 }
 
 _umount_dir() {
