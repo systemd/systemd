@@ -711,17 +711,17 @@ static Link *link_free(Link *link) {
         link_ntp_settings_clear(link);
         link_dns_settings_clear(link);
 
-        link->routes = set_free_with_destructor(link->routes, route_free);
-        link->routes_foreign = set_free_with_destructor(link->routes_foreign, route_free);
+        link->routes = set_free(link->routes);
+        link->routes_foreign = set_free(link->routes_foreign);
 
-        link->nexthops = set_free_with_destructor(link->nexthops, nexthop_free);
-        link->nexthops_foreign = set_free_with_destructor(link->nexthops_foreign, nexthop_free);
+        link->nexthops = set_free(link->nexthops);
+        link->nexthops_foreign = set_free(link->nexthops_foreign);
 
-        link->neighbors = set_free_with_destructor(link->neighbors, neighbor_free);
-        link->neighbors_foreign = set_free_with_destructor(link->neighbors_foreign, neighbor_free);
+        link->neighbors = set_free(link->neighbors);
+        link->neighbors_foreign = set_free(link->neighbors_foreign);
 
-        link->addresses = set_free_with_destructor(link->addresses, address_free);
-        link->addresses_foreign = set_free_with_destructor(link->addresses_foreign, address_free);
+        link->addresses = set_free(link->addresses);
+        link->addresses_foreign = set_free(link->addresses_foreign);
 
         while ((address = link->pool_addresses)) {
                 LIST_REMOVE(addresses, link->pool_addresses, address);

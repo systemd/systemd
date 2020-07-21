@@ -247,7 +247,7 @@ static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
         return memcmp(&a->lladdr, &b->lladdr, a->lladdr_size);
 }
 
-DEFINE_PRIVATE_HASH_OPS(neighbor_hash_ops, Neighbor, neighbor_hash_func, neighbor_compare_func);
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(neighbor_hash_ops, Neighbor, neighbor_hash_func, neighbor_compare_func, neighbor_free);
 
 int neighbor_get(Link *link, int family, const union in_addr_union *addr, const union lladdr_union *lladdr, size_t lladdr_size, Neighbor **ret) {
         Neighbor neighbor, *existing;
