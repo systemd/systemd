@@ -483,6 +483,38 @@ static void test_in_utc_timezone(void) {
         assert_se(unsetenv("TZ") >= 0);
 }
 
+static void test_map_clock_usec(void) {
+        usec_t nowr, x, y, z;
+
+        log_info("/* %s */", __func__);
+        nowr = now(CLOCK_REALTIME);
+
+        x = nowr; /* right now */
+        y = map_clock_usec(x, CLOCK_REALTIME, CLOCK_MONOTONIC);
+        z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
+        /* Converting forth and back will introduce inaccuracies, since we cannot query both clocks atomically, but it should be small. Even on the slowest CI smaller than 1h */
+
+        assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
+
+        assert_se(nowr < USEC_INFINITY - USEC_PER_DAY*7); /* overflow check */
+        x = nowr + USEC_PER_DAY*7; /* 1 week from now */
+        y = map_clock_usec(x, CLOCK_REALTIME, CLOCK_MONOTONIC);
+        assert_se(y > 0 && y < USEC_INFINITY);
+        z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
+        assert_se(z > 0 && z < USEC_INFINITY);
+        assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
+
+        assert_se(nowr > USEC_PER_DAY * 7); /* underflow check */
+        x = nowr - USEC_PER_DAY*7; /* 1 week ago */
+        y = map_clock_usec(x, CLOCK_REALTIME, CLOCK_MONOTONIC);
+        if (y != 0) { /* might underflow if machine is not up long enough for the monotonic clock to be beyond 1w */
+                assert_se(y < USEC_INFINITY);
+                z = map_clock_usec(y, CLOCK_MONOTONIC, CLOCK_REALTIME);
+                assert_se(z > 0 && z < USEC_INFINITY);
+                assert_se((z > x ? z - x : x - z) < USEC_PER_HOUR);
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -511,6 +543,7 @@ int main(int argc, char *argv[]) {
         test_deserialize_dual_timestamp();
         test_usec_shift_clock();
         test_in_utc_timezone();
+        test_map_clock_usec();
 
         /* Ensure time_t is signed */
         assert_cc((time_t) -1 < (time_t) 1);
