@@ -253,7 +253,7 @@ static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address,
         if (!addresses)
                 return log_oom();
 
-        ORDERED_HASHMAP_FOREACH(j, link->network->ipv6_tokens, i) {
+        ORDERED_SET_FOREACH(j, link->network->ipv6_tokens, i) {
                 _cleanup_free_ struct in6_addr *new_address = NULL;
 
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
@@ -907,12 +907,26 @@ int ipv6token_new(IPv6Token **ret) {
         return 0;
 }
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+static void ipv6_token_hash_func(const IPv6Token *p, struct siphash *state) {
+        siphash24_compress(&p->address_generation_type, sizeof(p->address_generation_type), state);
+        siphash24_compress(&p->prefix, sizeof(p->prefix), state);
+}
+
+static int ipv6_token_compare_func(const IPv6Token *a, const IPv6Token *b) {
+        int r;
+
+        r = CMP(a->address_generation_type, b->address_generation_type);
+        if (r != 0)
+                return r;
+
+        return memcmp(&a->prefix, &b->prefix, sizeof(struct in6_addr));
+}
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 ipv6_token_hash_ops,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
                 IPv6Token,
+                ipv6_token_hash_func,
+                ipv6_token_compare_func,
                 free);
 
 int config_parse_ndisc_deny_listed_prefix(
@@ -1002,7 +1016,7 @@ int config_parse_address_generation_type(
         assert(data);
 
         if (isempty(rvalue)) {
-                network->ipv6_tokens = ordered_hashmap_free(network->ipv6_tokens);
+                network->ipv6_tokens = ordered_set_free(network->ipv6_tokens);
                 return 0;
         }
 
@@ -1034,18 +1048,19 @@ int config_parse_address_generation_type(
 
         token->prefix = buffer.in6;
 
-        r = ordered_hashmap_ensure_allocated(&network->ipv6_tokens, &ipv6_token_hash_ops);
+        r = ordered_set_ensure_allocated(&network->ipv6_tokens, &ipv6_token_hash_ops);
         if (r < 0)
                 return log_oom();
 
-        r = ordered_hashmap_put(network->ipv6_tokens, &token->prefix, token);
-        if (r < 0) {
+        r = ordered_set_put(network->ipv6_tokens, token);
+        if (r == -EEXIST)
+                log_syntax(unit, LOG_DEBUG, filename, line, r,
+                           "IPv6 token '%s' is duplicated, ignoring: %m", rvalue);
+        else if (r < 0)
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to store IPv6 token '%s'", rvalue);
-                return 0;
-        }
-
-        TAKE_PTR(token);
+                           "Failed to store IPv6 token '%s', ignoring: %m", rvalue);
+        else
+                TAKE_PTR(token);
 
         return 0;
 }
