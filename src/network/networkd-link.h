@@ -95,8 +95,9 @@ typedef struct Link {
         Set *nexthops_foreign;
 
         sd_dhcp_client *dhcp_client;
-        sd_dhcp_lease *dhcp_lease, *dhcp_lease_old;
-        Set *dhcp_routes;
+        sd_dhcp_lease *dhcp_lease;
+        Address *dhcp_address, *dhcp_address_old;
+        Set *dhcp_routes, *dhcp_routes_old;
         char *lease_file;
         uint32_t original_mtu;
         unsigned dhcp4_messages;
