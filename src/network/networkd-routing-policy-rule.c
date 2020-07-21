@@ -227,7 +227,12 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
         }
 }
 
-DEFINE_PRIVATE_HASH_OPS(routing_policy_rule_hash_ops, RoutingPolicyRule, routing_policy_rule_hash_func, routing_policy_rule_compare_func);
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                routing_policy_rule_hash_ops,
+                RoutingPolicyRule,
+                routing_policy_rule_hash_func,
+                routing_policy_rule_compare_func,
+                routing_policy_rule_free);
 
 int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
 
