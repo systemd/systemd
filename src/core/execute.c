@@ -5761,7 +5761,10 @@ void exec_params_clear(ExecParameters *p) {
         if (!p)
                 return;
 
-        strv_free(p->environment);
+        p->environment = strv_free(p->environment);
+        p->fd_names = strv_free(p->fd_names);
+        p->fds = mfree(p->fds);
+        p->exec_fd = safe_close(p->exec_fd);
 }
 
 static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
