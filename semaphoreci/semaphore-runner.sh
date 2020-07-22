@@ -4,7 +4,7 @@ set -eux
 
 # default to Debian testing
 DISTRO=${DISTRO:-debian}
-RELEASE=${RELEASE:-buster}
+RELEASE=${RELEASE:-bullseye}
 BRANCH=${BRANCH:-upstream-ci}
 ARCH=${ARCH:-amd64}
 CONTAINER=${RELEASE}-${ARCH}
