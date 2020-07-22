@@ -10,6 +10,8 @@
 [Unit]
 Description=Initrd Default Target
 Documentation=man:systemd.special(7)
+OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
 ConditionPathExists=/etc/initrd-release
 Requires=basic.target
 Wants=initrd-root-fs.target initrd-root-device.target initrd-fs.target initrd-parse-etc.service
