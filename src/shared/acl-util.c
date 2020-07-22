@@ -378,9 +378,12 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
 
 int add_acls_for_user(int fd, uid_t uid) {
         _cleanup_(acl_freep) acl_t acl = NULL;
-        acl_entry_t entry;
         acl_permset_t permset;
+        acl_entry_t entry;
         int r;
+
+        assert(fd >= 0);
+        assert(uid_is_valid(uid));
 
         acl = acl_get_fd(fd);
         if (!acl)
@@ -394,8 +397,8 @@ int add_acls_for_user(int fd, uid_t uid) {
                         return -errno;
         }
 
-        /* We do not recalculate the mask unconditionally here,
-         * so that the fchmod() mask above stays intact. */
+        /* We do not recalculate the mask unconditionally here, so that the fchmod() mask above stays
+         * intact. */
         if (acl_get_permset(entry, &permset) < 0 ||
             acl_add_perm(permset, ACL_READ) < 0)
                 return -errno;
@@ -404,5 +407,8 @@ int add_acls_for_user(int fd, uid_t uid) {
         if (r < 0)
                 return r;
 
-        return acl_set_fd(fd, acl);
+        if (acl_set_fd(fd, acl) < 0)
+                return -errno;
+
+        return 0;
 }

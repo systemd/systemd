@@ -177,38 +177,18 @@ static uint64_t storage_size_max(void) {
 static int fix_acl(int fd, uid_t uid) {
 
 #if HAVE_ACL
-        _cleanup_(acl_freep) acl_t acl = NULL;
-        acl_entry_t entry;
-        acl_permset_t permset;
         int r;
 
         assert(fd >= 0);
+        assert(uid_is_valid(uid));
 
         if (uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY)
                 return 0;
 
-        /* Make sure normal users can read (but not write or delete)
-         * their own coredumps */
-
-        acl = acl_get_fd(fd);
-        if (!acl)
-                return log_error_errno(errno, "Failed to get ACL: %m");
-
-        if (acl_create_entry(&acl, &entry) < 0 ||
-            acl_set_tag_type(entry, ACL_USER) < 0 ||
-            acl_set_qualifier(entry, &uid) < 0)
-                return log_error_errno(errno, "Failed to patch ACL: %m");
-
-        if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0)
-                return log_warning_errno(errno, "Failed to patch ACL: %m");
-
-        r = calc_acl_mask_if_needed(&acl);
+        /* Make sure normal users can read (but not write or delete) their own coredumps */
+        r = add_acls_for_user(fd, uid);
         if (r < 0)
-                return log_warning_errno(r, "Failed to patch ACL: %m");
-
-        if (acl_set_fd(fd, acl) < 0)
-                return log_error_errno(errno, "Failed to apply ACL: %m");
+                return log_error_errno(r, "Failed to adjust ACL of coredump: %m");
 #endif
 
         return 0;
