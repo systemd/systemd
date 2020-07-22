@@ -102,23 +102,10 @@ typedef struct Link {
         uint32_t original_mtu;
         unsigned dhcp4_messages;
         unsigned dhcp4_remove_messages;
-        unsigned dhcp6_address_messages;
-        unsigned dhcp6_route_messages;
-        unsigned dhcp6_pd_address_messages;
-        unsigned dhcp6_pd_route_messages;
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;
         bool dhcp4_address_bind:1;
-        bool dhcp6_address_configured:1;
-        bool dhcp6_route_configured:1;
-        bool dhcp6_pd_address_configured:1;
-        bool dhcp6_pd_route_configured:1;
-
-        unsigned ndisc_addresses_messages;
-        unsigned ndisc_routes_messages;
-        bool ndisc_addresses_configured:1;
-        bool ndisc_routes_configured:1;
 
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address_configured:1;
@@ -144,10 +131,27 @@ typedef struct Link {
         Set *ndisc_dnssl;
         Set *ndisc_addresses, *ndisc_addresses_old;
         Set *ndisc_routes, *ndisc_routes_old;
+        unsigned ndisc_addresses_messages;
+        unsigned ndisc_routes_messages;
+        bool ndisc_addresses_configured:1;
+        bool ndisc_routes_configured:1;
 
         sd_radv *radv;
 
         sd_dhcp6_client *dhcp6_client;
+        sd_dhcp6_lease *dhcp6_lease;
+        Set *dhcp6_addresses, *dhcp6_addresses_old;
+        Set *dhcp6_routes, *dhcp6_routes_old;
+        Set *dhcp6_pd_addresses, *dhcp6_pd_addresses_old;
+        Set *dhcp6_pd_routes, *dhcp6_pd_routes_old;
+        unsigned dhcp6_address_messages;
+        unsigned dhcp6_route_messages;
+        unsigned dhcp6_pd_address_messages;
+        unsigned dhcp6_pd_route_messages;
+        bool dhcp6_address_configured:1;
+        bool dhcp6_route_configured:1;
+        bool dhcp6_pd_address_configured:1;
+        bool dhcp6_pd_route_configured:1;
 
         /* This is about LLDP reception */
         sd_lldp *lldp;

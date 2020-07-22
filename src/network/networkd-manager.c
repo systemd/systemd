@@ -1826,24 +1826,21 @@ void manager_free(Manager *m) {
         struct in6_addr *a;
         AddressPool *pool;
         Link *link;
+        Iterator i;
 
         if (!m)
                 return;
 
         free(m->state_file);
 
-        while ((a = hashmap_first_key(m->dhcp6_prefixes)))
-                (void) dhcp6_prefix_remove(m, a);
-        m->dhcp6_prefixes = hashmap_free(m->dhcp6_prefixes);
-
-        while ((link = hashmap_steal_first(m->links))) {
-                if (link->dhcp6_client)
-                        (void) dhcp6_lease_pd_prefix_lost(link->dhcp6_client, link);
-
+        HASHMAP_FOREACH(link, m->links, i)
                 (void) link_stop_clients(link, true);
 
+        while ((link = hashmap_steal_first_key_and_value(m->dhcp6_prefixes, (void **) &a))) {
                 link_unref(link);
+                free(a);
         }
+        m->dhcp6_prefixes = hashmap_free(m->dhcp6_prefixes);
 
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
         m->links_requesting_uuid = set_free_with_destructor(m->links_requesting_uuid, link_unref);

@@ -679,7 +679,7 @@ int radv_configure(Link *link) {
         return 0;
 }
 
-int radv_add_prefix(Link *link, struct in6_addr *prefix, uint8_t prefix_len,
+int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
                     uint32_t lifetime_preferred, uint32_t lifetime_valid) {
         _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
         int r;

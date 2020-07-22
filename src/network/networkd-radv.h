@@ -52,7 +52,7 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(RoutePrefix, route_prefix_free);
 
 int radv_emit_dns(Link *link);
 int radv_configure(Link *link);
-int radv_add_prefix(Link *link, struct in6_addr *prefix, uint8_t prefix_len,
+int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
                     uint32_t lifetime_preferred, uint32_t lifetime_valid);
 
 const char* radv_prefix_delegation_to_string(RADVPrefixDelegation i) _const_;
