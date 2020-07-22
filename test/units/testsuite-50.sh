@@ -40,12 +40,23 @@ mv ${image}.roothash ${image}.foohash
 mv ${image}.fooverity ${image}.verity
 mv ${image}.foohash ${image}.roothash
 
-mkdir -p ${image_dir}/mount
+mkdir -p ${image_dir}/mount ${image_dir}/mount2
 /usr/lib/systemd/systemd-dissect --mount ${image}.raw ${image_dir}/mount
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F -f /usr/lib/os-release
 cat ${image_dir}/mount/etc/os-release | grep -q -F -f /usr/lib/os-release
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"
+# Verity volume should be shared (opened only once)
+/usr/lib/systemd/systemd-dissect --mount ${image}.raw ${image_dir}/mount2
+verity_count=$(ls -1 /dev/mapper/ | grep -c verity)
+# In theory we should check that count is exactly one. In practice, libdevmapper
+# randomly and unpredictably fails with an unhelpful EINVAL when a device is open
+# (and even mounted and in use), so best-effort is the most we can do for now
+if [ ${verity_count} -lt 1 ]; then
+    echo "Verity device ${image}.raw not found in /dev/mapper/"
+    exit 1
+fi
 umount ${image_dir}/mount
+umount ${image_dir}/mount2
 
 systemd-run -t --property RootImage=${image}.raw /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv ${image}.verity ${image}.fooverity

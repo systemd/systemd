@@ -1140,8 +1140,9 @@ static int make_dm_name_and_node(const void *original_node, const char *suffix, 
 
         base = strrchr(original_node, '/');
         if (!base)
-                return -EINVAL;
-        base++;
+                base = original_node;
+        else
+                base++;
         if (isempty(base))
                 return -EINVAL;
 
@@ -1217,6 +1218,50 @@ static int decrypt_partition(
         return 0;
 }
 
+static int verity_can_reuse(const void *root_hash, size_t root_hash_size, bool has_sig, const char *name, struct crypt_device **ret_cd) {
+        /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
+        _cleanup_free_ char *root_hash_existing = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        struct crypt_params_verity crypt_params = {};
+        size_t root_hash_existing_size = root_hash_size;
+        int r;
+
+        assert(ret_cd);
+
+        r = crypt_init_by_name(&cd, name);
+        if (r < 0)
+                return log_debug_errno(r, "Error opening verity device, crypt_init_by_name failed: %m");
+        r = crypt_get_verity_info(cd, &crypt_params);
+        if (r < 0)
+                return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
+        root_hash_existing = malloc0(root_hash_size);
+        if (!root_hash_existing)
+                return -ENOMEM;
+        r = crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing, &root_hash_existing_size, NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Error opening verity device, crypt_volume_key_get failed: %m");
+        if (root_hash_size != root_hash_existing_size || memcmp(root_hash_existing, root_hash, root_hash_size) != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
+#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
+        /* Ensure that, if signatures are supported, we only reuse the device if the previous mount
+         * used the same settings, so that a previous unsigned mount will not be reused if the user
+         * asks to use signing for the new one, and viceversa. */
+        if (has_sig != !!(crypt_params.flags & CRYPT_VERITY_ROOT_HASH_SIGNATURE))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
+#endif
+
+        *ret_cd = TAKE_PTR(cd);
+        return 0;
+}
+
+static inline void dm_deferred_remove_clean(char *name) {
+        if (!name)
+                return;
+        (void) crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
+        free(name);
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
+
 static int verity_partition(
                 DissectedPartition *m,
                 DissectedPartition *v,
@@ -1229,8 +1274,9 @@ static int verity_partition(
                 DissectImageFlags flags,
                 DecryptedImage *d) {
 
-        _cleanup_free_ char *node = NULL, *name = NULL;
+        _cleanup_free_ char *node = NULL, *name = NULL, *hash_sig_from_file = NULL;
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
         int r;
 
         assert(m);
@@ -1249,12 +1295,23 @@ static int verity_partition(
                         return 0;
         }
 
-        r = make_dm_name_and_node(m->node, "-verity", &name, &node);
+        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
+                /* Use the roothash, which is unique per volume, as the device node name, so that it can be reused */
+                _cleanup_free_ char *root_hash_encoded = NULL;
+                root_hash_encoded = hexmem(root_hash, root_hash_size);
+                if (!root_hash_encoded)
+                        return -ENOMEM;
+                r = make_dm_name_and_node(root_hash_encoded, "-verity", &name, &node);
+        } else
+                r = make_dm_name_and_node(m->node, "-verity", &name, &node);
         if (r < 0)
                 return r;
 
-        if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
-                return -ENOMEM;
+        if (!root_hash_sig && root_hash_sig_path) {
+                r = read_full_file_full(AT_FDCWD, root_hash_sig_path, 0, &hash_sig_from_file, &root_hash_sig_size);
+                if (r < 0)
+                        return r;
+        }
 
         r = crypt_init(&cd, verity_data ?: v->node);
         if (r < 0)
@@ -1270,27 +1327,69 @@ static int verity_partition(
         if (r < 0)
                 return r;
 
-        if (root_hash_sig || root_hash_sig_path) {
+        if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
+                return -ENOMEM;
+
+        /* If activating fails because the device already exists, check the metadata and reuse it if it matches.
+         * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
+         * retry a few times before giving up. */
+        for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
+                if (root_hash_sig || hash_sig_from_file) {
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-                if (root_hash_sig)
-                        r = crypt_activate_by_signed_key(cd, name, root_hash, root_hash_size, root_hash_sig, root_hash_sig_size, CRYPT_ACTIVATE_READONLY);
-                else {
-                        _cleanup_free_ char *hash_sig = NULL;
-                        size_t hash_sig_size;
-
-                        r = read_full_file_full(AT_FDCWD, root_hash_sig_path, 0, &hash_sig, &hash_sig_size);
-                        if (r < 0)
-                                return r;
-
-                        r = crypt_activate_by_signed_key(cd, name, root_hash, root_hash_size, hash_sig, hash_sig_size, CRYPT_ACTIVATE_READONLY);
-                }
+                        r = crypt_activate_by_signed_key(cd, name, root_hash, root_hash_size, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, CRYPT_ACTIVATE_READONLY);
 #else
-                r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()");
+                        r = log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()");
 #endif
-        } else
-                r = crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
-        if (r < 0)
-                return r;
+                } else
+                        r = crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
+                /* libdevmapper can return EINVAL when the device is already in the activation stage.
+                 * There's no way to distinguish this situation from a genuine error due to invalid
+                 * parameters, so immediately fallback to activating the device with a unique name.
+                 * Improvements in libcrypsetup can ensure this never happens: https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
+                if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                        return verity_partition(m, v, root_hash, root_hash_size, verity_data, NULL, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                if (!IN_SET(r, 0, -EEXIST, -ENODEV))
+                        return r;
+                if (r == -EEXIST) {
+                        struct crypt_device *existing_cd = NULL;
+
+                        if (!restore_deferred_remove){
+                                /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
+                                r = dm_deferred_remove_cancel(name);
+                                if (r < 0)
+                                        return log_debug_errno(r, "Disabling automated deferred removal for verity device %s failed: %m", node);
+                                restore_deferred_remove = strdup(name);
+                                if (!restore_deferred_remove)
+                                        return -ENOMEM;
+                        }
+
+                        r = verity_can_reuse(root_hash, root_hash_size, !!root_hash_sig || !!hash_sig_from_file, name, &existing_cd);
+                        /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
+                        if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                                return verity_partition(m, v, root_hash, root_hash_size, verity_data, NULL, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                        if (!IN_SET(r, 0, -ENODEV, -ENOENT))
+                                return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
+                        if (r == 0) {
+                                if (cd)
+                                        crypt_free(cd);
+                                cd = existing_cd;
+                        }
+                }
+                if (r == 0)
+                        break;
+        }
+
+        /* Sanity check: libdevmapper is known to report that the device already exists and is active,
+        * but it's actually not there, so the later filesystem probe or mount would fail. */
+        if (r == 0)
+                r = access(node, F_OK);
+        /* An existing verity device was reported by libcryptsetup/libdevmapper, but we can't use it at this time.
+         * Fall back to activating it with a unique device name. */
+        if (r != 0 && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
+                return verity_partition(m, v, root_hash, root_hash_size, verity_data, NULL, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+
+        /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
+        restore_deferred_remove = mfree(restore_deferred_remove);
 
         d->decrypted[d->n_decrypted].name = TAKE_PTR(name);
         d->decrypted[d->n_decrypted].device = TAKE_PTR(cd);
@@ -1357,7 +1456,7 @@ int dissected_image_decrypt(
 
                 k = PARTITION_VERITY_OF(i);
                 if (k >= 0) {
-                        r = verity_partition(p, m->partitions + k, root_hash, root_hash_size, verity_data, root_hash_sig_path, root_hash_sig, root_hash_sig_size, flags, d);
+                        r = verity_partition(p, m->partitions + k, root_hash, root_hash_size, verity_data, root_hash_sig_path, root_hash_sig, root_hash_sig_size, flags | DISSECT_IMAGE_VERITY_SHARE, d);
                         if (r < 0)
                                 return r;
                 }
@@ -1437,7 +1536,7 @@ int decrypted_image_relinquish(DecryptedImage *d) {
                 if (p->relinquished)
                         continue;
 
-                r = dm_deferred_remove(p->name);
+                r = crypt_deactivate_by_name(NULL, p->name, CRYPT_DEACTIVATE_DEFERRED);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
 

@@ -1295,7 +1295,7 @@ int home_activate_luks(
 
         loop_device_relinquish(setup.loop);
 
-        r = dm_deferred_remove(setup.dm_name);
+        r = crypt_deactivate_by_name(NULL, setup.dm_name, CRYPT_DEACTIVATE_DEFERRED);
         if (r < 0)
                 log_warning_errno(r, "Failed to relinquish DM device, ignoring: %m");
 
