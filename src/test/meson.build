@@ -671,7 +671,8 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         '', 'timeout=120'],
 
         [['src/test/test-execute.c'],
          [libcore,
