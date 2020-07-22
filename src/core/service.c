@@ -1442,17 +1442,15 @@ static int service_spawn(
                 pid_t *_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags      = flags,
-                .stdin_fd   = -1,
-                .stdout_fd  = -1,
-                .stderr_fd  = -1,
-                .exec_fd    = -1,
+                .flags     = flags,
+                .stdin_fd  = -1,
+                .stdout_fd = -1,
+                .stderr_fd = -1,
+                .exec_fd   = -1,
         };
-        _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL, **fd_names = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
-        size_t n_socket_fds = 0, n_storage_fds = 0, n_env = 0;
-        _cleanup_close_ int exec_fd = -1;
-        _cleanup_free_ int *fds = NULL;
+        _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
+        size_t n_env = 0;
         pid_t pid;
         int r;
 
@@ -1477,17 +1475,21 @@ static int service_spawn(
             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
             s->exec_context.std_error == EXEC_OUTPUT_SOCKET) {
 
-                r = service_collect_fds(s, &fds, &fd_names, &n_socket_fds, &n_storage_fds);
+                r = service_collect_fds(s,
+                                        &exec_params.fds,
+                                        &exec_params.fd_names,
+                                        &exec_params.n_socket_fds,
+                                        &exec_params.n_storage_fds);
                 if (r < 0)
                         return r;
 
-                log_unit_debug(UNIT(s), "Passing %zu fds to service", n_socket_fds + n_storage_fds);
+                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds);
         }
 
         if (!FLAGS_SET(flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
                 assert(!s->exec_fd_event_source);
 
-                r = service_allocate_exec_fd(s, &exec_fd_source, &exec_fd);
+                r = service_allocate_exec_fd(s, &exec_fd_source, &exec_params.exec_fd);
                 if (r < 0)
                         return r;
         }
@@ -1527,7 +1529,6 @@ static int service_spawn(
 
                 if (getpeername(s->socket_fd, &sa.sa, &salen) >= 0 &&
                     IN_SET(sa.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
-
                         _cleanup_free_ char *addr = NULL;
                         char *t;
                         unsigned port;
@@ -1582,10 +1583,6 @@ static int service_spawn(
                  MANAGER_IS_SYSTEM(UNIT(s)->manager) && unit_has_name(UNIT(s), SPECIAL_DBUS_SERVICE));
 
         strv_free_and_replace(exec_params.environment, final_env);
-        exec_params.fds = fds;
-        exec_params.fd_names = fd_names;
-        exec_params.n_socket_fds = n_socket_fds;
-        exec_params.n_storage_fds = n_storage_fds;
         exec_params.watchdog_usec = service_get_watchdog_usec(s);
         exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)
@@ -1593,7 +1590,6 @@ static int service_spawn(
         exec_params.stdin_fd = s->stdin_fd;
         exec_params.stdout_fd = s->stdout_fd;
         exec_params.stderr_fd = s->stderr_fd;
-        exec_params.exec_fd = exec_fd;
 
         r = exec_spawn(UNIT(s),
                        c,
