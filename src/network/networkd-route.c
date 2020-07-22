@@ -597,7 +597,8 @@ static int append_nexthops(Route *route, sd_netlink_message *req) {
 int route_configure(
                 Route *route,
                 Link *link,
-                link_netlink_message_handler_t callback) {
+                link_netlink_message_handler_t callback,
+                Route **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
@@ -802,6 +803,9 @@ int route_configure(
 
         sd_event_source_unref(route->expire);
         route->expire = TAKE_PTR(expire);
+
+        if (ret)
+                *ret = route;
 
         return 1;
 }

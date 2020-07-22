@@ -155,7 +155,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
         route->mtu = mtu;
 
-        r = route_configure(route, link, ndisc_route_handler);
+        r = route_configure(route, link, ndisc_route_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set default route: %m");
         if (r > 0)
@@ -171,7 +171,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
                 route_gw->gw = gateway;
 
-                r = route_configure(route_gw, link, ndisc_route_handler);
+                r = route_configure(route_gw, link, ndisc_route_handler, NULL);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set gateway: %m");
                 if (r > 0)
@@ -387,7 +387,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
                 address->in_addr.in6 = *a;
 
-                r = address_configure(address, link, ndisc_address_handler, true);
+                r = address_configure(address, link, ndisc_address_handler, true, NULL);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set SLAAC address: %m");
                 if (r > 0)
@@ -435,7 +435,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get prefix address: %m");
 
-        r = route_configure(route, link, ndisc_route_handler);
+        r = route_configure(route, link, ndisc_route_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set prefix route: %m");;
         if (r > 0)
@@ -494,7 +494,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get route address: %m");
 
-        r = route_configure(route, link, ndisc_route_handler);
+        r = route_configure(route, link, ndisc_route_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set additional route: %m");
         if (r > 0)
