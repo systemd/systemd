@@ -526,6 +526,17 @@ static crypto_device *get_crypto_device(const char *uuid) {
         return d;
 }
 
+static bool warn_uuid_invalid(const char *uuid, const char *key) {
+        assert(key);
+
+        if (!id128_is_valid(uuid)) {
+                log_warning("Failed to parse %s= kernel command line switch. UUID is invalid, ignoring.", key);
+                return true;
+        }
+
+        return false;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         _cleanup_free_ char *uuid = NULL, *uuid_value = NULL;
         crypto_device *d;
@@ -592,10 +603,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!uuid)
                         return log_oom();
 
-                if (!id128_is_valid(uuid)) {
-                        log_warning("Failed to parse luks.key= kernel command line switch. UUID is invalid, ignoring.");
+                if (warn_uuid_invalid(uuid, key))
                         return 0;
-                }
 
                 d = get_crypto_device(uuid);
                 if (!d)
