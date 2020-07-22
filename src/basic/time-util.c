@@ -82,43 +82,82 @@ triple_timestamp* triple_timestamp_get(triple_timestamp *ts) {
         return ts;
 }
 
+static usec_t map_clock_usec_internal(usec_t from, usec_t from_base, usec_t to_base) {
+
+        /* Maps the time 'from' between two clocks, based on a common reference point where the first clock
+         * is at 'from_base' and the second clock at 'to_base'. Basically calculates:
+         *
+         *         from - from_base + to_base
+         *
+         * But takes care of overflows/underflows and avoids signed operations. */
+
+        if (from >= from_base) { /* In the future */
+                usec_t delta = from - from_base;
+
+                if (to_base >= USEC_INFINITY - delta) /* overflow? */
+                        return USEC_INFINITY;
+
+                return to_base + delta;
+
+        } else { /* In the past */
+                usec_t delta = from_base - from;
+
+                if (to_base <= delta) /* underflow? */
+                        return 0;
+
+                return to_base - delta;
+        }
+}
+
+usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock) {
+
+        /* Try to avoid any inaccuracy needlessly added in case we convert from effectively the same clock
+         * onto itself */
+        if (map_clock_id(from_clock) == map_clock_id(to_clock))
+                return from;
+
+        /* Keep infinity as is */
+        if (from == USEC_INFINITY)
+                return from;
+
+        return map_clock_usec_internal(from, now(from_clock), now(to_clock));
+}
+
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
-        int64_t delta;
         assert(ts);
 
-        if (u == USEC_INFINITY || u <= 0) {
+        if (u == USEC_INFINITY || u == 0) {
                 ts->realtime = ts->monotonic = u;
                 return ts;
         }
 
         ts->realtime = u;
-
-        delta = (int64_t) now(CLOCK_REALTIME) - (int64_t) u;
-        ts->monotonic = usec_sub_signed(now(CLOCK_MONOTONIC), delta);
-
+        ts->monotonic = map_clock_usec(u, CLOCK_REALTIME, CLOCK_MONOTONIC);
         return ts;
 }
 
 triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u) {
-        int64_t delta;
+        usec_t nowr;
 
         assert(ts);
 
-        if (u == USEC_INFINITY || u <= 0) {
+        if (u == USEC_INFINITY || u == 0) {
                 ts->realtime = ts->monotonic = ts->boottime = u;
                 return ts;
         }
 
+        nowr = now(CLOCK_REALTIME);
+
         ts->realtime = u;
-        delta = (int64_t) now(CLOCK_REALTIME) - (int64_t) u;
-        ts->monotonic = usec_sub_signed(now(CLOCK_MONOTONIC), delta);
-        ts->boottime = clock_boottime_supported() ? usec_sub_signed(now(CLOCK_BOOTTIME), delta) : USEC_INFINITY;
+        ts->monotonic = map_clock_usec_internal(u, nowr, now(CLOCK_MONOTONIC));
+        ts->boottime = clock_boottime_supported() ?
+                map_clock_usec_internal(u, nowr, now(CLOCK_BOOTTIME)) :
+                USEC_INFINITY;
 
         return ts;
 }
 
 dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
-        int64_t delta;
         assert(ts);
 
         if (u == USEC_INFINITY) {
@@ -127,25 +166,28 @@ dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
         }
 
         ts->monotonic = u;
-        delta = (int64_t) now(CLOCK_MONOTONIC) - (int64_t) u;
-        ts->realtime = usec_sub_signed(now(CLOCK_REALTIME), delta);
-
+        ts->realtime = map_clock_usec(u, CLOCK_MONOTONIC, CLOCK_REALTIME);
         return ts;
 }
 
 dual_timestamp* dual_timestamp_from_boottime_or_monotonic(dual_timestamp *ts, usec_t u) {
-        int64_t delta;
+        clockid_t cid;
+        usec_t nowm;
 
         if (u == USEC_INFINITY) {
                 ts->realtime = ts->monotonic = USEC_INFINITY;
                 return ts;
         }
 
-        dual_timestamp_get(ts);
-        delta = (int64_t) now(clock_boottime_or_monotonic()) - (int64_t) u;
-        ts->realtime = usec_sub_signed(ts->realtime, delta);
-        ts->monotonic = usec_sub_signed(ts->monotonic, delta);
+        cid = clock_boottime_or_monotonic();
+        nowm = now(cid);
 
+        if (cid == CLOCK_MONOTONIC)
+                ts->monotonic = u;
+        else
+                ts->monotonic = map_clock_usec_internal(u, nowm, now(CLOCK_MONOTONIC));
+
+        ts->realtime = map_clock_usec_internal(u, nowm, now(CLOCK_REALTIME));
         return ts;
 }
 

@@ -29,8 +29,8 @@ typedef struct triple_timestamp {
         usec_t boottime;
 } triple_timestamp;
 
-#define USEC_INFINITY ((usec_t) -1)
-#define NSEC_INFINITY ((nsec_t) -1)
+#define USEC_INFINITY ((usec_t) UINT64_MAX)
+#define NSEC_INFINITY ((nsec_t) UINT64_MAX)
 
 #define MSEC_PER_SEC  1000ULL
 #define USEC_PER_SEC  ((usec_t) 1000000ULL)
@@ -66,6 +66,8 @@ typedef struct triple_timestamp {
 
 usec_t now(clockid_t clock);
 nsec_t now_nsec(clockid_t clock);
+
+usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock);
 
 dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);

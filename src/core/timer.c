@@ -346,7 +346,6 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         bool found_monotonic = false, found_realtime = false;
         bool leave_around = false;
         triple_timestamp ts;
-        dual_timestamp dts;
         TimerValue *v;
         Unit *trigger;
         int r;
@@ -368,7 +367,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         continue;
 
                 if (v->base == TIMER_CALENDAR) {
-                        usec_t b;
+                        usec_t b, rebased;
 
                         /* If we know the last time this was
                          * triggered, schedule the job based relative
@@ -388,12 +387,14 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         if (r < 0)
                                 continue;
 
-                        /* To make the delay due to RandomizedDelaySec= work even at boot,
-                         * if the scheduled time has already passed, set the time when systemd
-                         * first started as the scheduled time. */
-                        dual_timestamp_from_monotonic(&dts, UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic);
-                        if (v->next_elapse < dts.realtime)
-                                v->next_elapse = dts.realtime;
+                        /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
+                         * time has already passed, set the time when systemd first started as the scheduled
+                         * time. Note that we base this on the monotonic timestamp of the boot, not the
+                         * realtime one, since the wallclock might have been off during boot. */
+                        rebased = map_clock_usec(UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic,
+                                                 CLOCK_MONOTONIC, CLOCK_REALTIME);
+                        if (v->next_elapse < rebased)
+                                v->next_elapse = rebased;
 
                         if (!found_realtime)
                                 t->next_elapse_realtime = v->next_elapse;
