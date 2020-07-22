@@ -990,9 +990,10 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
         j->result = result;
 
-        log_unit_debug(u, "Job %" PRIu32 " %s/%s finished, result=%s", j->id, u->id, job_type_to_string(t), job_result_to_string(result));
+        log_unit_debug(u, "Job %" PRIu32 " %s/%s finished, result=%s",
+                       j->id, u->id, job_type_to_string(t), job_result_to_string(result));
 
-        /* If this job did nothing to respective unit we don't log the status message */
+        /* If this job did nothing to the respective unit we don't log the status message */
         if (!already)
                 job_emit_done_status_message(u, j->id, t, result);
 
