@@ -142,6 +142,8 @@ typedef struct Link {
         sd_ndisc *ndisc;
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
+        Set *ndisc_addresses, *ndisc_addresses_old;
+        Set *ndisc_routes, *ndisc_routes_old;
 
         sd_radv *radv;
 

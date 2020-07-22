@@ -129,6 +129,8 @@ void address_free(Address *address) {
                         address->link->dhcp_address = NULL;
                 if (address->link->dhcp_address_old == address)
                         address->link->dhcp_address_old = NULL;
+                set_remove(address->link->ndisc_addresses, address);
+                set_remove(address->link->ndisc_addresses_old, address);
 
                 if (in_addr_equal(AF_INET6, &address->in_addr, (const union in_addr_union *) &address->link->ipv6ll_address))
                         memzero(&address->link->ipv6ll_address, sizeof(struct in6_addr));
