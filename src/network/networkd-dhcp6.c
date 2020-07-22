@@ -390,7 +390,7 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
                         route->table = link_get_dhcp_route_table(link);
                         route->type = RTN_UNREACHABLE;
 
-                        r = route_configure(route, link, dhcp6_route_handler);
+                        r = route_configure(route, link, dhcp6_route_handler, NULL);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Cannot configure unreachable route for delegated subnet %s/%u: %m",
                                                        strnull(buf),
@@ -581,7 +581,7 @@ static int dhcp6_address_change(
                       "DHCPv6 address %s/%d timeout preferred %d valid %d",
                       strnull(buffer), addr->prefixlen, lifetime_preferred, lifetime_valid);
 
-        r = address_configure(addr, link, dhcp6_address_handler, true);
+        r = address_configure(addr, link, dhcp6_address_handler, true, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not assign DHCPv6 address: %m");
         if (r > 0)
@@ -954,7 +954,7 @@ static int dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
         link->dhcp6_pd_route_configured = false;
         link_set_state(link, LINK_STATE_CONFIGURING);
 
-        r = route_configure(route, link, dhcp6_pd_route_handler);
+        r = route_configure(route, link, dhcp6_pd_route_handler, NULL);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1130,7 +1130,7 @@ static int dhcp6_assign_delegated_prefix(Link *link,
         link->dhcp6_pd_address_configured = false;
         link_set_state(link, LINK_STATE_CONFIGURING);
 
-        r = address_configure(address, link, dhcp6_pd_address_handler, true);
+        r = address_configure(address, link, dhcp6_pd_address_handler, true, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to set acquired DHCPv6 delegated prefix address: %m");
         if (r > 0)

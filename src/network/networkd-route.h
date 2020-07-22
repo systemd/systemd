@@ -66,7 +66,7 @@ extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);
 void route_free(Route *route);
-int route_configure(Route *route, Link *link, link_netlink_message_handler_t callback);
+int route_configure(Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
 int route_remove(Route *route, Link *link, link_netlink_message_handler_t callback);
 
 int route_get(Link *link, Route *in, Route **ret);

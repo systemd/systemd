@@ -1061,7 +1061,7 @@ int link_request_set_routes(Link *link) {
                         if ((in_addr_is_null(rt->family, &rt->gw) && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
                                 continue;
 
-                        r = route_configure(rt, link, route_handler);
+                        r = route_configure(rt, link, route_handler, NULL);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Could not set routes: %m");
                         if (r > 0)
@@ -1304,7 +1304,7 @@ static int link_request_set_addresses(Link *link) {
                 else
                         update = address_get(link, ad->family, &ad->in_addr, ad->prefixlen, NULL) > 0;
 
-                r = address_configure(ad, link, address_handler, update);
+                r = address_configure(ad, link, address_handler, update, NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set addresses: %m");
                 if (r > 0)
@@ -1333,7 +1333,7 @@ static int link_request_set_addresses(Link *link) {
                                 return r;
 
                         address->family = AF_INET6;
-                        r = address_configure(address, link, address_handler, true);
+                        r = address_configure(address, link, address_handler, true, NULL);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Could not set addresses: %m");
                         if (r > 0)

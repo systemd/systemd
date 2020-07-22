@@ -592,9 +592,11 @@ int address_configure(
                 Address *address,
                 Link *link,
                 link_netlink_message_handler_t callback,
-                bool update) {
+                bool update,
+                Address **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        Address *a;
         int r;
 
         assert(address);
@@ -703,9 +705,9 @@ int address_configure(
         link_ref(link);
 
         if (address->family == AF_INET6 && !in_addr_is_null(address->family, &address->in_addr_peer))
-                r = address_add(link, address->family, &address->in_addr_peer, address->prefixlen, NULL);
+                r = address_add(link, address->family, &address->in_addr_peer, address->prefixlen, &a);
         else
-                r = address_add(link, address->family, &address->in_addr, address->prefixlen, NULL);
+                r = address_add(link, address->family, &address->in_addr, address->prefixlen, &a);
         if (r < 0) {
                 address_release(address);
                 return log_link_error_errno(link, r, "Could not add address: %m");
@@ -724,6 +726,9 @@ int address_configure(
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to start IPv4ACD client, ignoring: %m");
         }
+
+        if (ret)
+                *ret = a;
 
         return 1;
 }
