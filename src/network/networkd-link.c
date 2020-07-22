@@ -1157,7 +1157,7 @@ void link_check_ready(Link *link) {
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
 
-                if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4) && !link->ipv4ll_address) {
+                if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4) && !link->ipv4ll_address_configured) {
                         log_link_debug(link, "%s(): IPv4LL is not configured.", __func__);
                         return;
                 }
@@ -1178,7 +1178,7 @@ void link_check_ready(Link *link) {
                             !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
                             !(link->dhcp6_pd_address_configured && link->dhcp6_pd_route_configured) &&
                             !(link->ndisc_addresses_configured && link->ndisc_routes_configured) &&
-                            !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address)) {
+                            !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address_configured)) {
                                 /* When DHCP or RA is enabled, at least one protocol must provide an address, or
                                  * an IPv4ll fallback address must be configured. */
                                 log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);

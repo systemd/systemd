@@ -121,7 +121,7 @@ typedef struct Link {
         bool ndisc_routes_configured:1;
 
         sd_ipv4ll *ipv4ll;
-        bool ipv4ll_address:1;
+        bool ipv4ll_address_configured:1;
 
         bool addresses_configured:1;
         bool addresses_ready:1;

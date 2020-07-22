@@ -17,7 +17,7 @@ static int ipv4ll_address_lost(Link *link) {
 
         assert(link);
 
-        link->ipv4ll_address = false;
+        link->ipv4ll_address_configured = false;
 
         r = sd_ipv4ll_get_address(link->ipv4ll, &addr);
         if (r < 0)
@@ -47,7 +47,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         int r;
 
         assert(link);
-        assert(!link->ipv4ll_address);
+        assert(!link->ipv4ll_address_configured);
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0 && r != -EEXIST) {
@@ -57,7 +57,7 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         } else if (r >= 0)
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
-        link->ipv4ll_address = true;
+        link->ipv4ll_address_configured = true;
         link_check_ready(link);
 
         return 1;
@@ -71,7 +71,7 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         assert(ll);
         assert(link);
 
-        link->ipv4ll_address = false;
+        link->ipv4ll_address_configured = false;
 
         r = sd_ipv4ll_get_address(ll, &address);
         if (r == -ENOENT)
