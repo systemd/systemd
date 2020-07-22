@@ -146,6 +146,8 @@ void route_free(Route *route) {
                 set_remove(route->link->routes_foreign, route);
                 set_remove(route->link->dhcp_routes, route);
                 set_remove(route->link->dhcp_routes_old, route);
+                set_remove(route->link->ndisc_routes, route);
+                set_remove(route->link->ndisc_routes_old, route);
         }
 
         ordered_set_free_free(route->multipath_routes);

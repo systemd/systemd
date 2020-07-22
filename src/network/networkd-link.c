@@ -714,6 +714,8 @@ static Link *link_free(Link *link) {
         link->routes_foreign = set_free(link->routes_foreign);
         link->dhcp_routes = set_free(link->dhcp_routes);
         link->dhcp_routes_old = set_free(link->dhcp_routes_old);
+        link->ndisc_routes = set_free(link->ndisc_routes);
+        link->ndisc_routes_old = set_free(link->ndisc_routes_old);
 
         link->nexthops = set_free(link->nexthops);
         link->nexthops_foreign = set_free(link->nexthops_foreign);
@@ -723,6 +725,8 @@ static Link *link_free(Link *link) {
 
         link->addresses = set_free(link->addresses);
         link->addresses_foreign = set_free(link->addresses_foreign);
+        link->ndisc_addresses = set_free(link->ndisc_addresses);
+        link->ndisc_addresses_old = set_free(link->ndisc_addresses_old);
 
         while ((address = link->pool_addresses)) {
                 LIST_REMOVE(addresses, link->pool_addresses, address);
