@@ -54,6 +54,8 @@ static int ndisc_address_callback(Address *address) {
 static int ndisc_remove_old(Link *link, bool force) {
         Address *address;
         Route *route;
+        NDiscDNSSL *dnssl;
+        NDiscRDNSS *rdnss;
         Iterator i;
         int r;
 
@@ -94,6 +96,14 @@ static int ndisc_remove_old(Link *link, bool force) {
                 if (r < 0)
                         return r;
         }
+
+        SET_FOREACH(rdnss, link->ndisc_rdnss, i)
+                if (rdnss->marked)
+                        free(set_remove(link->ndisc_rdnss, rdnss));
+
+        SET_FOREACH(dnssl, link->ndisc_dnssl, i)
+                if (dnssl->marked)
+                        free(set_remove(link->ndisc_dnssl, dnssl));
 
         return 0;
 }
@@ -622,12 +632,19 @@ static int ndisc_rdnss_compare_func(const NDiscRDNSS *a, const NDiscRDNSS *b) {
         return memcmp(&a->address, &b->address, sizeof(a->address));
 }
 
-DEFINE_PRIVATE_HASH_OPS(ndisc_rdnss_hash_ops, NDiscRDNSS, ndisc_rdnss_hash_func, ndisc_rdnss_compare_func);
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ndisc_rdnss_hash_ops,
+                NDiscRDNSS,
+                ndisc_rdnss_hash_func,
+                ndisc_rdnss_compare_func,
+                free);
 
 static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         uint32_t lifetime;
         const struct in6_addr *a;
+        NDiscRDNSS *rdnss;
         usec_t time_now;
+        Iterator i;
         int n, r;
 
         assert(link);
@@ -645,28 +662,27 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         if (n < 0)
                 return log_link_error_errno(link, n, "Failed to get RDNSS addresses: %m");
 
-        for (int i = 0; i < n; i++) {
+        SET_FOREACH(rdnss, link->ndisc_rdnss, i)
+                rdnss->marked = true;
+
+        if (lifetime == 0)
+                return 0;
+
+        if (n >= (int) NDISC_RDNSS_MAX) {
+                log_link_warning(link, "Too many RDNSS records per link. Only first %i records will be used.", NDISC_RDNSS_MAX);
+                n = NDISC_RDNSS_MAX;
+        }
+
+        for (int j = 0; j < n; j++) {
                 _cleanup_free_ NDiscRDNSS *x = NULL;
                 NDiscRDNSS d = {
-                        .address = a[i],
-                }, *y;
+                        .address = a[j],
+                };
 
-                if (lifetime == 0) {
-                        (void) set_remove(link->ndisc_rdnss, &d);
-                        link_dirty(link);
-                        continue;
-                }
-
-                y = set_get(link->ndisc_rdnss, &d);
-                if (y) {
-                        y->valid_until = time_now + lifetime * USEC_PER_SEC;
-                        continue;
-                }
-
-                ndisc_vacuum(link);
-
-                if (set_size(link->ndisc_rdnss) >= NDISC_RDNSS_MAX) {
-                        log_link_warning(link, "Too many RDNSS records per link, ignoring.");
+                rdnss = set_get(link->ndisc_rdnss, &d);
+                if (rdnss) {
+                        rdnss->marked = false;
+                        rdnss->valid_until = time_now + lifetime * USEC_PER_SEC;
                         continue;
                 }
 
@@ -675,7 +691,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                         return log_oom();
 
                 *x = (NDiscRDNSS) {
-                        .address = a[i],
+                        .address = a[j],
                         .valid_until = time_now + lifetime * USEC_PER_SEC,
                 };
 
@@ -683,8 +699,6 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
-
-                link_dirty(link);
         }
 
         return 0;
@@ -698,13 +712,20 @@ static int ndisc_dnssl_compare_func(const NDiscDNSSL *a, const NDiscDNSSL *b) {
         return strcmp(NDISC_DNSSL_DOMAIN(a), NDISC_DNSSL_DOMAIN(b));
 }
 
-DEFINE_PRIVATE_HASH_OPS(ndisc_dnssl_hash_ops, NDiscDNSSL, ndisc_dnssl_hash_func, ndisc_dnssl_compare_func);
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ndisc_dnssl_hash_ops,
+                NDiscDNSSL,
+                ndisc_dnssl_hash_func,
+                ndisc_dnssl_compare_func,
+                free);
 
 static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         _cleanup_strv_free_ char **l = NULL;
         uint32_t lifetime;
         usec_t time_now;
-        char **i;
+        NDiscDNSSL *dnssl;
+        Iterator i;
+        char **j;
         int r;
 
         assert(link);
@@ -722,32 +743,31 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get DNSSL addresses: %m");
 
-        STRV_FOREACH(i, l) {
-                _cleanup_free_ NDiscDNSSL *s = NULL;
-                NDiscDNSSL *x;
+        SET_FOREACH(dnssl, link->ndisc_dnssl, i)
+                dnssl->marked = true;
 
-                s = malloc0(ALIGN(sizeof(NDiscDNSSL)) + strlen(*i) + 1);
+        if (lifetime == 0)
+                return 0;
+
+        if (strv_length(l) >= NDISC_DNSSL_MAX) {
+                log_link_warning(link, "Too many DNSSL records per link. Only first %i records will be used.", NDISC_DNSSL_MAX);
+                STRV_FOREACH(j, l + NDISC_DNSSL_MAX)
+                        *j = mfree(*j);
+        }
+
+        STRV_FOREACH(j, l) {
+                _cleanup_free_ NDiscDNSSL *s = NULL;
+
+                s = malloc0(ALIGN(sizeof(NDiscDNSSL)) + strlen(*j) + 1);
                 if (!s)
                         return log_oom();
 
-                strcpy(NDISC_DNSSL_DOMAIN(s), *i);
+                strcpy(NDISC_DNSSL_DOMAIN(s), *j);
 
-                if (lifetime == 0) {
-                        (void) set_remove(link->ndisc_dnssl, s);
-                        link_dirty(link);
-                        continue;
-                }
-
-                x = set_get(link->ndisc_dnssl, s);
-                if (x) {
-                        x->valid_until = time_now + lifetime * USEC_PER_SEC;
-                        continue;
-                }
-
-                ndisc_vacuum(link);
-
-                if (set_size(link->ndisc_dnssl) >= NDISC_DNSSL_MAX) {
-                        log_link_warning(link, "Too many DNSSL records per link, ignoring.");
+                dnssl = set_get(link->ndisc_dnssl, s);
+                if (dnssl) {
+                        dnssl->marked = false;
+                        dnssl->valid_until = time_now + lifetime * USEC_PER_SEC;
                         continue;
                 }
 
@@ -757,8 +777,6 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
-
-                link_dirty(link);
         }
 
         return 0;
@@ -992,6 +1010,7 @@ void ndisc_vacuum(Link *link) {
         NDiscDNSSL *d;
         Iterator i;
         usec_t time_now;
+        bool updated = false;
 
         assert(link);
 
@@ -1002,14 +1021,17 @@ void ndisc_vacuum(Link *link) {
         SET_FOREACH(r, link->ndisc_rdnss, i)
                 if (r->valid_until < time_now) {
                         free(set_remove(link->ndisc_rdnss, r));
-                        link_dirty(link);
+                        updated = true;
                 }
 
         SET_FOREACH(d, link->ndisc_dnssl, i)
                 if (d->valid_until < time_now) {
                         free(set_remove(link->ndisc_dnssl, d));
-                        link_dirty(link);
+                        updated = true;
                 }
+
+        if (updated)
+                link_dirty(link);
 }
 
 void ndisc_flush(Link *link) {
@@ -1017,8 +1039,8 @@ void ndisc_flush(Link *link) {
 
         /* Removes all RDNSS and DNSSL entries, without exception */
 
-        link->ndisc_rdnss = set_free_free(link->ndisc_rdnss);
-        link->ndisc_dnssl = set_free_free(link->ndisc_dnssl);
+        link->ndisc_rdnss = set_free(link->ndisc_rdnss);
+        link->ndisc_dnssl = set_free(link->ndisc_dnssl);
 }
 
 int ipv6token_new(IPv6Token **ret) {
