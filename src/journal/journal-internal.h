@@ -127,3 +127,12 @@ void journal_print_header(sd_journal *j);
 
 #define JOURNAL_FOREACH_DATA_RETVAL(j, data, l, retval)                     \
         for (sd_journal_restart_data(j); ((retval) = sd_journal_enumerate_data((j), &(data), &(l))) > 0; )
+
+/* All errors that we might encounter while extracting a field that are not real errors,
+ * but only mean that the field is too large or we don't support the compression. */
+static inline bool JOURNAL_ERRNO_IS_UNAVAILABLE_FIELD(int r) {
+        return IN_SET(abs(r),
+                      ENOBUFS,          /* Field or decompressed field too large */
+                      E2BIG,            /* Field too large for pointer width */
+                      EPROTONOSUPPORT); /* Unsupported compression */
+}

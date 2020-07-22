@@ -16,12 +16,12 @@ struct pkcs11_callback_data {
         X509 *cert;
 };
 
+#if HAVE_P11KIT
 static void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
         erase_and_free(data->pin_used);
         X509_free(data->cert);
 }
 
-#if HAVE_P11KIT
 static int pkcs11_callback(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,

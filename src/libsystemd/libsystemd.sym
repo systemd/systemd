@@ -717,4 +717,7 @@ global:
         sd_path_lookup_strv;
 
         sd_notify_barrier;
+
+        sd_journal_enumerate_available_data;
+        sd_journal_enumerate_available_unique;
 } LIBSYSTEMD_245;

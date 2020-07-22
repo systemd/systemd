@@ -18,6 +18,7 @@
   <refnamediv>
     <refname>sd_journal_get_data</refname>
     <refname>sd_journal_enumerate_data</refname>
+    <refname>sd_journal_enumerate_available_data</refname>
     <refname>sd_journal_restart_data</refname>
     <refname>SD_JOURNAL_FOREACH_DATA</refname>
     <refname>sd_journal_set_data_threshold</refname>
@@ -39,6 +40,13 @@
 
       <funcprototype>
         <funcdef>int <function>sd_journal_enumerate_data</function></funcdef>
+        <paramdef>sd_journal *<parameter>j</parameter></paramdef>
+        <paramdef>const void **<parameter>data</parameter></paramdef>
+        <paramdef>size_t *<parameter>length</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_journal_enumerate_available_data</function></funcdef>
         <paramdef>sd_journal *<parameter>j</parameter></paramdef>
         <paramdef>const void **<parameter>data</parameter></paramdef>
         <paramdef>size_t *<parameter>length</parameter></paramdef>
@@ -73,24 +81,18 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_journal_get_data()</function> gets the data
-    object associated with a specific field from the current journal
-    entry. It takes four arguments: the journal context object, a
-    string with the field name to request, plus a pair of pointers to
-    pointer/size variables where the data object and its size shall be
-    stored in. The field name should be an entry field name.
-    Well-known field names are listed in
-    <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-    The returned data is in a read-only memory map and is only valid
-    until the next invocation of
-    <function>sd_journal_get_data()</function> or
-    <function>sd_journal_enumerate_data()</function>, or the read
-    pointer is altered. Note that the data returned will be prefixed
-    with the field name and '='. Also note that, by default, data fields
-    larger than 64K might get truncated to 64K. This threshold may be
-    changed and turned off with
-    <function>sd_journal_set_data_threshold()</function> (see
-    below).</para>
+    <para><function>sd_journal_get_data()</function> gets the data object associated with a specific field
+    from the current journal entry. It takes four arguments: the journal context object, a string with the
+    field name to request, plus a pair of pointers to pointer/size variables where the data object and its
+    size shall be stored in. The field name should be an entry field name. Well-known field names are listed in
+    <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+    but any field can be specified. The returned data is in a read-only memory map and is only valid until
+    the next invocation of <function>sd_journal_get_data()</function>,
+    <function>sd_journal_enumerate_data()</function>,
+    <function>sd_journal_enumerate_available_data()</function>, or when the read pointer is altered. Note
+    that the data returned will be prefixed with the field name and <literal>=</literal>. Also note that, by
+    default, data fields larger than 64K might get truncated to 64K. This threshold may be changed and turned
+    off with <function>sd_journal_set_data_threshold()</function> (see below).</para>
 
     <para><function>sd_journal_enumerate_data()</function> may be used
     to iterate through all fields of the current entry. On each
@@ -99,15 +101,18 @@
     format as with <function>sd_journal_get_data()</function> and also
     follows the same life-time semantics.</para>
 
+    <para><function>sd_journal_enumerate_available_data()</function> is similar to
+    <function>sd_journal_enumerate_data()</function>, but silently skips any fields which may be valid, but
+    are too large or not supported by current implementation.</para>
+
     <para><function>sd_journal_restart_data()</function> resets the
     data enumeration index to the beginning of the entry. The next
     invocation of <function>sd_journal_enumerate_data()</function>
     will return the first field of the entry again.</para>
 
-    <para>Note that the <function>SD_JOURNAL_FOREACH_DATA()</function>
-    macro may be used as a handy wrapper around
-    <function>sd_journal_restart_data()</function> and
-    <function>sd_journal_enumerate_data()</function>.</para>
+    <para>Note that the <function>SD_JOURNAL_FOREACH_DATA()</function> macro may be used as a handy wrapper
+    around <function>sd_journal_restart_data()</function> and
+    <function>sd_journal_enumerate_available_data()</function>.</para>
 
     <para>Note that these functions will not work before
     <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -139,18 +144,88 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para><function>sd_journal_get_data()</function> returns 0 on
-    success or a negative errno-style error code. If the current entry
-    does not include the specified field, -ENOENT is returned. If
-    <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    has not been called at least once, -EADDRNOTAVAIL is returned.
-    <function>sd_journal_enumerate_data()</function> returns a
-    positive integer if the next field has been read, 0 when no more
-    fields are known, or a negative errno-style error code.
-    <function>sd_journal_restart_data()</function> returns nothing.
-    <function>sd_journal_set_data_threshold()</function> and
-    <function>sd_journal_get_threshold()</function> return 0 on
-    success or a negative errno-style error code.</para>
+    <para><function>sd_journal_get_data()</function> returns 0 on success or a negative errno-style error
+    code. <function>sd_journal_enumerate_data()</function> and
+    <function>sd_journal_enumerate_available_data()</function> return a positive integer if the next field
+    has been read, 0 when no more fields remain, or a negative errno-style error code.
+    <function>sd_journal_restart_data()</function> doesn't return anything.
+    <function>sd_journal_set_data_threshold()</function> and <function>sd_journal_get_threshold()</function>
+    return 0 on success or a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry id='EINVAL'>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>One of the required parameters is <constant>NULL</constant> or invalid.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry id='ECHILD'>
+          <term><constant>-ECHILD</constant></term>
+
+          <listitem><para>The journal object was created in a different process.</para></listitem>
+        </varlistentry>
+
+        <varlistentry id='EADDRNOTAVAIL'>
+          <term><constant>-EADDRNOTAVAIL</constant></term>
+
+          <listitem><para>The read pointer is not positioned at a valid entry;
+          <citerefentry><refentrytitle>sd_journal_next</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          or a related call has not been called at least once.</para></listitem>
+        </varlistentry>
+
+        <varlistentry id='ENOENT'>
+          <term><constant>-ENOENT</constant></term>
+
+          <listitem><para>The current entry does not include the specified field.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry id='ENOMEM'>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry id='ENOBUFS'>
+          <term><constant>-ENOBUFS</constant></term>
+
+          <listitem><para>A compressed entry is too large.</para></listitem>
+        </varlistentry>
+
+        <varlistentry id='E2BIG'>
+          <term><constant>-E2BIG</constant></term>
+
+          <listitem><para>The data field is too large for this computer architecture (e.g. above 4 GB on a
+          32-bit architecture).</para></listitem>
+        </varlistentry>
+
+        <varlistentry id='EPROTONOSUPPORT'>
+          <term><constant>-EPROTONOSUPPORT</constant></term>
+
+          <listitem><para>The journal is compressed with an unsupported method or the journal uses an
+          unsupported feature.</para></listitem>
+        </varlistentry>
+
+        <varlistentry id='EBADMSG'>
+          <term><constant>-EBADMSG</constant></term>
+
+          <listitem><para>The journal is corrupted (possibly just the entry being iterated over).
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry id='EIO'>
+          <term><constant>-EIO</constant></term>
+
+          <listitem><para>An I/O error was reported by the kernel.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
