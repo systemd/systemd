@@ -193,6 +193,8 @@ const UnitVTable target_vtable = {
                 "Target\0"
                 "Install\0",
 
+        .can_fail = true,
+
         .load = target_load,
         .coldplug = target_coldplug,
 
