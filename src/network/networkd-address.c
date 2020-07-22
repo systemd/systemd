@@ -129,6 +129,10 @@ void address_free(Address *address) {
                         address->link->dhcp_address = NULL;
                 if (address->link->dhcp_address_old == address)
                         address->link->dhcp_address_old = NULL;
+                set_remove(address->link->dhcp6_addresses, address);
+                set_remove(address->link->dhcp6_addresses_old, address);
+                set_remove(address->link->dhcp6_pd_addresses, address);
+                set_remove(address->link->dhcp6_pd_addresses_old, address);
                 set_remove(address->link->ndisc_addresses, address);
                 set_remove(address->link->ndisc_addresses_old, address);
 

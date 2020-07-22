@@ -698,6 +698,7 @@ static void link_free_engines(Link *link) {
 
         link->ipv4ll = sd_ipv4ll_unref(link->ipv4ll);
         link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);
+        link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
         link->ndisc = sd_ndisc_unref(link->ndisc);
         link->radv = sd_radv_unref(link->radv);
 }
@@ -714,6 +715,10 @@ static Link *link_free(Link *link) {
         link->routes_foreign = set_free(link->routes_foreign);
         link->dhcp_routes = set_free(link->dhcp_routes);
         link->dhcp_routes_old = set_free(link->dhcp_routes_old);
+        link->dhcp6_routes = set_free(link->dhcp6_routes);
+        link->dhcp6_routes_old = set_free(link->dhcp6_routes_old);
+        link->dhcp6_pd_routes = set_free(link->dhcp6_pd_routes);
+        link->dhcp6_pd_routes_old = set_free(link->dhcp6_pd_routes_old);
         link->ndisc_routes = set_free(link->ndisc_routes);
         link->ndisc_routes_old = set_free(link->ndisc_routes_old);
 
@@ -725,6 +730,10 @@ static Link *link_free(Link *link) {
 
         link->addresses = set_free(link->addresses);
         link->addresses_foreign = set_free(link->addresses_foreign);
+        link->dhcp6_addresses = set_free(link->dhcp6_addresses);
+        link->dhcp6_addresses_old = set_free(link->dhcp6_addresses_old);
+        link->dhcp6_pd_addresses = set_free(link->dhcp6_pd_addresses);
+        link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
         link->ndisc_addresses = set_free(link->ndisc_addresses);
         link->ndisc_addresses_old = set_free(link->ndisc_addresses_old);
 
@@ -837,6 +846,12 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
                 k = sd_dhcp6_client_stop(link->dhcp6_client);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
+        }
+
+        if (link_dhcp6_pd_is_enabled(link)) {
+                k = dhcp6_pd_remove(link);
+                if (k < 0)
+                        r = log_link_warning_errno(link, k, "Could not remove DHCPv6 PD addresses and routes: %m");
         }
 
         if (link->ndisc) {
@@ -1173,7 +1188,7 @@ void link_check_ready(Link *link) {
                         return;
                 }
 
-                if (link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || dhcp6_get_prefix_delegation(link) || link_ipv6_accept_ra_enabled(link)) {
+                if (link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || link_dhcp6_pd_is_enabled(link) || link_ipv6_accept_ra_enabled(link)) {
                         if (!link->dhcp4_configured &&
                             !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
                             !(link->dhcp6_pd_address_configured && link->dhcp6_pd_route_configured) &&
@@ -1619,12 +1634,14 @@ static int link_acquire_ipv6_conf(Link *link) {
 
                 r = dhcp6_request_address(link, link->network->dhcp6_without_ra == DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST);
                 if (r < 0 && r != -EBUSY)
-                        return log_link_warning_errno(link, r,  "Could not acquire DHCPv6 lease: %m");
+                        return log_link_warning_errno(link, r, "Could not acquire DHCPv6 lease: %m");
                 else
                         log_link_debug(link, "Acquiring DHCPv6 lease");
         }
 
-        (void) dhcp6_request_prefix_delegation(link);
+        r = dhcp6_request_prefix_delegation(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to request DHCPv6 prefix delegation: %m");
 
         return 0;
 }
@@ -4242,7 +4259,6 @@ int link_save(Link *link) {
         if (link->network) {
                 char **dhcp6_domains = NULL, **dhcp_domains = NULL;
                 const char *dhcp_domainname = NULL, *p;
-                sd_dhcp6_lease *dhcp6_lease = NULL;
                 bool space;
 
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
@@ -4253,12 +4269,6 @@ int link_save(Link *link) {
                         strempty(link_operstate_to_string(st.min)),
                         st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? ":" : "",
                         st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? strempty(link_operstate_to_string(st.max)) : "");
-
-                if (link->dhcp6_client) {
-                        r = sd_dhcp6_client_get_lease(link->dhcp6_client, &dhcp6_lease);
-                        if (r < 0 && r != -ENOMSG)
-                                log_link_debug_errno(link, r, "Failed to get DHCPv6 lease: %m");
-                }
 
                 fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
 
@@ -4276,7 +4286,7 @@ int link_save(Link *link) {
                                     link->dhcp_lease,
                                     link->network->dhcp_use_dns,
                                     SD_DHCP_LEASE_DNS,
-                                    dhcp6_lease,
+                                    link->dhcp6_lease,
                                     link->network->dhcp6_use_dns,
                                     sd_dhcp6_lease_get_dns,
                                     NULL);
@@ -4300,7 +4310,7 @@ int link_save(Link *link) {
                                     link->dhcp_lease,
                                     link->network->dhcp_use_ntp,
                                     SD_DHCP_LEASE_NTP,
-                                    dhcp6_lease,
+                                    link->dhcp6_lease,
                                     link->network->dhcp6_use_ntp,
                                     sd_dhcp6_lease_get_ntp_addrs,
                                     sd_dhcp6_lease_get_ntp_fqdn);
@@ -4319,8 +4329,8 @@ int link_save(Link *link) {
                                 (void) sd_dhcp_lease_get_domainname(link->dhcp_lease, &dhcp_domainname);
                                 (void) sd_dhcp_lease_get_search_domains(link->dhcp_lease, &dhcp_domains);
                         }
-                        if (dhcp6_lease)
-                                (void) sd_dhcp6_lease_get_domains(dhcp6_lease, &dhcp6_domains);
+                        if (link->dhcp6_lease)
+                                (void) sd_dhcp6_lease_get_domains(link->dhcp6_lease, &dhcp6_domains);
                 }
 
                 fputs("DOMAINS=", f);
