@@ -537,8 +537,10 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
         _cleanup_strv_free_ char **names = NULL;
         int r;
 
-        assert_return(optlen > 1, -ENODATA);
-        assert_return(optval[optlen - 1] == '\0', -EINVAL);
+        if (optlen <= 1)
+                return -ENODATA;
+        if (optval[optlen - 1] != '\0')
+                return -EINVAL;
 
         while (pos < optlen) {
                 _cleanup_free_ char *ret = NULL;
