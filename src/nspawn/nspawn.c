@@ -101,10 +101,8 @@
 #include "user-util.h"
 #include "util.h"
 
-/* nspawn is listening on the socket at the path in the constant nspawn_notify_socket_path
- * nspawn_notify_socket_path is relative to the container
- * the init process in the container pid can send messages to nspawn following the sd_notify(3) protocol */
-#define NSPAWN_NOTIFY_SOCKET_PATH "/run/systemd/nspawn/notify"
+/* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
+#define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"
 
 #define EXIT_FORCE_RESTART 133
 
@@ -3273,7 +3271,7 @@ static int inner_child(
         return log_error_errno(errno, "execv(%s) failed: %m", exec_target);
 }
 
-static int setup_sd_notify_child(void) {
+static int setup_notify_child(void) {
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
@@ -3583,7 +3581,7 @@ static int outer_child(
         if (r < 0)
                 return log_error_errno(r, "Failed to move root directory: %m");
 
-        fd = setup_sd_notify_child();
+        fd = setup_notify_child();
         if (fd < 0)
                 return fd;
 
@@ -3796,7 +3794,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         return 0;
 }
 
-static int setup_sd_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid, sd_event_source **notify_event_source) {
+static int setup_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid, sd_event_source **notify_event_source) {
         int r;
 
         r = sd_event_add_io(event, notify_event_source, fd, EPOLLIN, nspawn_dispatch_notify_fd, inner_child_pid);
@@ -4627,7 +4625,7 @@ static int run_container(
                         return log_error_errno(r, "Failed to attach bus to event loop: %m");
         }
 
-        r = setup_sd_notify_parent(event, notify_socket, PID_TO_PTR(*pid), &notify_event_source);
+        r = setup_notify_parent(event, notify_socket, PID_TO_PTR(*pid), &notify_event_source);
         if (r < 0)
                 return r;
 
