@@ -13,3 +13,5 @@ Documentation=man:systemd.special(7)
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=local-fs-pre.target
+OnFailure=emergency.target
+OnFailureJobMode=replace-irreversibly
