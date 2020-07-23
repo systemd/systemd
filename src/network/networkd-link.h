@@ -87,6 +87,7 @@ typedef struct Link {
 
         Set *addresses;
         Set *addresses_foreign;
+        Set *static_addresses;
         Set *neighbors;
         Set *neighbors_foreign;
         Set *routes;

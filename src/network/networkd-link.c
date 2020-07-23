@@ -730,6 +730,7 @@ static Link *link_free(Link *link) {
 
         link->addresses = set_free(link->addresses);
         link->addresses_foreign = set_free(link->addresses_foreign);
+        link->static_addresses = set_free(link->static_addresses);
         link->dhcp6_addresses = set_free(link->dhcp6_addresses);
         link->dhcp6_addresses_old = set_free(link->dhcp6_addresses_old);
         link->dhcp6_pd_addresses = set_free(link->dhcp6_pd_addresses);
@@ -1057,11 +1058,12 @@ int link_request_set_routes(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->addresses_configured);
-        assert(link->address_messages == 0);
         assert(link->state != _LINK_STATE_INVALID);
 
         link->static_routes_configured = false;
+
+        if (!link->addresses_ready)
+                return 0;
 
         if (!link_has_carrier(link) && !link->network->configure_without_carrier)
                 /* During configuring addresses, the link lost its carrier. As networkd is dropping
@@ -1102,7 +1104,6 @@ int link_request_set_routes(Link *link) {
 void link_check_ready(Link *link) {
         Address *a;
         Iterator i;
-        int r;
 
         assert(link);
 
@@ -1135,15 +1136,6 @@ void link_check_ready(Link *link) {
                         log_link_debug(link, "%s(): an address %s/%d is not ready.", __func__, strnull(str), a->prefixlen);
                         return;
                 }
-
-        if (!link->addresses_ready) {
-                link->addresses_ready = true;
-                r = link_request_set_routes(link);
-                if (r < 0)
-                        link_enter_failed(link);
-                log_link_debug(link, "%s(): static addresses are configured. Configuring static routes.", __func__);
-                return;
-        }
 
         if (!link->static_routes_configured) {
                 log_link_debug(link, "%s(): static routes are not configured.", __func__);
@@ -1246,6 +1238,50 @@ static int link_request_set_neighbors(Link *link) {
         return 0;
 }
 
+static int link_set_bridge_fdb(Link *link) {
+        FdbEntry *fdb_entry;
+        int r;
+
+        LIST_FOREACH(static_fdb_entries, fdb_entry, link->network->static_fdb_entries) {
+                r = fdb_entry_configure(link, fdb_entry);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");
+        }
+
+        return 0;
+}
+
+static int static_address_ready_callback(Address *address) {
+        Address *a;
+        Iterator i;
+        Link *link;
+
+        assert(address);
+        assert(address->link);
+
+        link = address->link;
+
+        if (!link->addresses_configured)
+                return 0;
+
+        SET_FOREACH(a, link->static_addresses, i)
+                if (!address_is_ready(a)) {
+                        _cleanup_free_ char *str = NULL;
+
+                        (void) in_addr_to_string(a->family, &a->in_addr, &str);
+                        log_link_debug(link, "an address %s/%u is not ready", strnull(str), a->prefixlen);
+                        return 0;
+                }
+
+        /* This should not be called again */
+        SET_FOREACH(a, link->static_addresses, i)
+                a->callback = NULL;
+
+        link->addresses_ready = true;
+
+        return link_request_set_routes(link);
+}
+
 static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1271,23 +1307,50 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
         if (link->address_messages == 0) {
+                Address *a;
+
                 log_link_debug(link, "Addresses set");
                 link->addresses_configured = true;
-                link_check_ready(link);
+
+                /* When all static addresses are already ready, then static_address_ready_callback()
+                 * will not be called automatically. So, call it here. */
+                a = set_first(link->static_addresses);
+                if (!a) {
+                        log_link_warning(link, "No static address is stored.");
+                        link_enter_failed(link);
+                        return 1;
+                }
+                if (!a->callback) {
+                        log_link_warning(link, "Address ready callback is not set.");
+                        link_enter_failed(link);
+                        return 1;
+                }
+                r = a->callback(a);
+                if (r < 0)
+                        link_enter_failed(link);
         }
 
         return 1;
 }
 
-static int link_set_bridge_fdb(Link *link) {
-        FdbEntry *fdb_entry;
+static int static_address_configure(Address *address, Link *link, bool update) {
+        Address *ret;
         int r;
 
-        LIST_FOREACH(static_fdb_entries, fdb_entry, link->network->static_fdb_entries) {
-                r = fdb_entry_configure(link, fdb_entry);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");
-        }
+        assert(address);
+        assert(link);
+
+        r = address_configure(address, link, address_handler, update, &ret);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not configure static address: %m");
+
+        link->address_messages++;
+
+        r = set_ensure_put(&link->static_addresses, &address_hash_ops, ret);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to store static address: %m");
+
+        ret->callback = static_address_ready_callback;
 
         return 0;
 }
@@ -1326,11 +1389,9 @@ static int link_request_set_addresses(Link *link) {
                 else
                         update = address_get(link, ad->family, &ad->in_addr, ad->prefixlen, NULL) > 0;
 
-                r = address_configure(ad, link, address_handler, update, NULL);
+                r = static_address_configure(ad, link, update);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set addresses: %m");
-                if (r > 0)
-                        link->address_messages++;
+                        return r;
         }
 
         if (IN_SET(link->network->router_prefix_delegation,
@@ -1344,22 +1405,20 @@ static int link_request_set_addresses(Link *link) {
 
                         r = address_new(&address);
                         if (r < 0)
-                                return log_link_error_errno(link, r, "Could not allocate address: %m");
+                                return log_oom();
 
                         r = sd_radv_prefix_get_prefix(p->radv_prefix, &address->in_addr.in6, &address->prefixlen);
                         if (r < 0)
-                                return r;
+                                return log_link_warning_errno(link, r, "Could not get RA prefix: %m");
 
                         r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
                         if (r < 0)
-                                return r;
+                                return log_link_warning_errno(link, r, "Could not generate EUI64 address: %m");
 
                         address->family = AF_INET6;
-                        r = address_configure(address, link, address_handler, true, NULL);
+                        r = static_address_configure(address, link, true);
                         if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not set addresses: %m");
-                        if (r > 0)
-                                link->address_messages++;
+                                return r;
                 }
 
         LIST_FOREACH(labels, label, link->network->address_labels) {
@@ -1370,8 +1429,7 @@ static int link_request_set_addresses(Link *link) {
                 link->address_label_messages++;
         }
 
-        /* now that we can figure out a default address for the dhcp server,
-           start it */
+        /* now that we can figure out a default address for the dhcp server, start it */
         if (link_dhcp4_server_enabled(link) && (link->flags & IFF_UP)) {
                 r = dhcp4_server_configure(link);
                 if (r < 0)
@@ -1381,7 +1439,10 @@ static int link_request_set_addresses(Link *link) {
 
         if (link->address_messages == 0) {
                 link->addresses_configured = true;
-                link_check_ready(link);
+                link->addresses_ready = true;
+                r = link_request_set_routes(link);
+                if (r < 0)
+                        return r;
         } else {
                 log_link_debug(link, "Setting addresses");
                 link_set_state(link, LINK_STATE_CONFIGURING);
