@@ -116,9 +116,10 @@ typedef enum SettingsMask {
         SETTING_USE_CGNS          = UINT64_C(1) << 27,
         SETTING_CLONE_NS_FLAGS    = UINT64_C(1) << 28,
         SETTING_CONSOLE_MODE      = UINT64_C(1) << 29,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 30, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (30 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (30 + _RLIMIT_MAX)) -1,
+        SETTING_CREDENTIALS       = UINT64_C(1) << 30,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 31, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (31 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (31 + _RLIMIT_MAX)) -1,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
