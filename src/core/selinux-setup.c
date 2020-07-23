@@ -50,7 +50,8 @@ int mac_selinux_setup(bool *loaded_policy) {
 
         /* Already initialized by somebody else? */
         r = getcon_raw(&con);
-        if (r == 0) {
+        /* getcon_raw can return 0, and still give us a NULL pointer. */
+        if (r == 0 && con) {
                 initialized = !streq(con, "kernel");
                 freecon(con);
         }
