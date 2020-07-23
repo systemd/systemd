@@ -75,36 +75,58 @@ static void test_getttyname_malloc(void) {
         assert_se(PATH_IN_SET(ttyname, "ptmx", "pts/ptmx"));
 }
 
-static void test_one_color(const char *name, const char *color) {
-        printf("<%s%s%s>\n", color, name, ansi_normal());
-}
+typedef struct {
+        const char *name;
+        const char* (*func)(void);
+} Color;
+
+static const Color colors[] = {
+        { "normal", ansi_normal },
+        { "highlight", ansi_highlight },
+        { "black", ansi_black },
+        { "red", ansi_red },
+        { "green", ansi_green },
+        { "yellow", ansi_yellow },
+        { "blue", ansi_blue },
+        { "magenta", ansi_magenta },
+        { "cyan", ansi_cyan },
+        { "white", ansi_white },
+        { "grey", ansi_grey },
+
+        { "bright-black", ansi_bright_black },
+        { "bright-red", ansi_bright_red },
+        { "bright-green", ansi_bright_green },
+        { "bright-yellow", ansi_bright_yellow },
+        { "bright-blue", ansi_bright_blue },
+        { "bright-magenta", ansi_bright_magenta },
+        { "bright-cyan", ansi_bright_cyan },
+        { "bright-white", ansi_bright_white },
+
+        { "highlight-black", ansi_highlight_black },
+        { "highlight-red", ansi_highlight_red },
+        { "highlight-green", ansi_highlight_green },
+        { "highlight-yellow", ansi_highlight_yellow },
+        { "highlight-blue", ansi_highlight_blue },
+        { "highlight-magenta", ansi_highlight_magenta },
+        { "highlight-cyan", ansi_highlight_cyan },
+        { "highlight-white", ansi_highlight_white },
+        { "highlight-grey", ansi_highlight_grey },
+
+        { "underline", ansi_underline },
+        { "highlight-underline", ansi_highlight_underline },
+        { "highlight-red-underline", ansi_highlight_red_underline },
+        { "highlight-green-underline", ansi_highlight_green_underline },
+        { "highlight-yellow-underline", ansi_highlight_yellow_underline },
+        { "highlight-blue-underline", ansi_highlight_blue_underline },
+        { "highlight-magenta-underline", ansi_highlight_magenta_underline },
+        { "highlight-grey-underline", ansi_highlight_grey_underline },
+};
 
 static void test_colors(void) {
         log_info("/* %s */", __func__);
 
-        test_one_color("normal", ansi_normal());
-        test_one_color("highlight", ansi_highlight());
-        test_one_color("red", ansi_red());
-        test_one_color("green", ansi_green());
-        test_one_color("yellow", ansi_yellow());
-        test_one_color("blue", ansi_blue());
-        test_one_color("magenta", ansi_magenta());
-        test_one_color("grey", ansi_grey());
-        test_one_color("highlight-red", ansi_highlight_red());
-        test_one_color("highlight-green", ansi_highlight_green());
-        test_one_color("highlight-yellow", ansi_highlight_yellow());
-        test_one_color("highlight-blue", ansi_highlight_blue());
-        test_one_color("highlight-magenta", ansi_highlight_magenta());
-        test_one_color("highlight-grey", ansi_highlight_grey());
-
-        test_one_color("underline", ansi_underline());
-        test_one_color("highlight-underline", ansi_highlight_underline());
-        test_one_color("highlight-red-underline", ansi_highlight_red_underline());
-        test_one_color("highlight-green-underline", ansi_highlight_green_underline());
-        test_one_color("highlight-yellow-underline", ansi_highlight_yellow_underline());
-        test_one_color("highlight-blue-underline", ansi_highlight_blue_underline());
-        test_one_color("highlight-magenta-underline", ansi_highlight_magenta_underline());
-        test_one_color("highlight-grey-underline", ansi_highlight_grey_underline());
+        for (size_t i = 0; i < ELEMENTSOF(colors); i++)
+                printf("<%s%s%s>\n", colors[i].func(), colors[i].name, ansi_normal());
 }
 
 int main(int argc, char *argv[]) {

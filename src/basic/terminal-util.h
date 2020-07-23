@@ -11,19 +11,36 @@
 #include "time-util.h"
 
 /* Regular colors */
+#define ANSI_BLACK   "\x1B[0;30m" /* Some type of grey usually. */
 #define ANSI_RED     "\x1B[0;31m"
 #define ANSI_GREEN   "\x1B[0;32m"
 #define ANSI_YELLOW  "\x1B[0;33m"
 #define ANSI_BLUE    "\x1B[0;34m"
 #define ANSI_MAGENTA "\x1B[0;35m"
+#define ANSI_CYAN    "\x1B[0;36m"
+#define ANSI_WHITE   "\x1B[0;37m" /* This is actually rendered as light grey, legible even on a white
+                                   * background. See ANSI_HIGHLIGHT_WHITE for real white. */
+
+#define ANSI_BRIGHT_BLACK   "\x1B[0;90m"
+#define ANSI_BRIGHT_RED     "\x1B[0;91m"
+#define ANSI_BRIGHT_GREEN   "\x1B[0;92m"
+#define ANSI_BRIGHT_YELLOW  "\x1B[0;93m"
+#define ANSI_BRIGHT_BLUE    "\x1B[0;94m"
+#define ANSI_BRIGHT_MAGENTA "\x1B[0;95m"
+#define ANSI_BRIGHT_CYAN    "\x1B[0;96m"
+#define ANSI_BRIGHT_WHITE   "\x1B[0;97m"
+
 #define ANSI_GREY    "\x1B[0;38;5;245m"
 
 /* Bold/highlighted */
+#define ANSI_HIGHLIGHT_BLACK             "\x1B[0;1;30m"
 #define ANSI_HIGHLIGHT_RED               "\x1B[0;1;31m"
 #define ANSI_HIGHLIGHT_GREEN             "\x1B[0;1;32m"
 #define ANSI_HIGHLIGHT_YELLOW            "\x1B[0;1;38;5;185m"
 #define ANSI_HIGHLIGHT_BLUE              "\x1B[0;1;34m"
 #define ANSI_HIGHLIGHT_MAGENTA           "\x1B[0;1;35m"
+#define ANSI_HIGHLIGHT_CYAN              "\x1B[0;1;36m"
+#define ANSI_HIGHLIGHT_WHITE             "\x1B[0;1;37m"
 #define ANSI_HIGHLIGHT_GREY              "\x1B[0;1;38;5;245m"
 #define ANSI_HIGHLIGHT_YELLOW4           "\x1B[0;1;38;5;100m"
 
@@ -124,18 +141,34 @@ bool dev_console_colors_enabled(void);
 
 DEFINE_ANSI_FUNC(normal,            NORMAL);
 DEFINE_ANSI_FUNC(highlight,         HIGHLIGHT);
+DEFINE_ANSI_FUNC(black,             BLACK);
 DEFINE_ANSI_FUNC(red,               RED);
 DEFINE_ANSI_FUNC(green,             GREEN);
 DEFINE_ANSI_FUNC(yellow,            YELLOW);
 DEFINE_ANSI_FUNC(blue,              BLUE);
 DEFINE_ANSI_FUNC(magenta,           MAGENTA);
+DEFINE_ANSI_FUNC(cyan,              CYAN);
+DEFINE_ANSI_FUNC(white,             WHITE);
 DEFINE_ANSI_FUNC(grey,              GREY);
+
+DEFINE_ANSI_FUNC(bright_black,      BRIGHT_BLACK);
+DEFINE_ANSI_FUNC(bright_red,        BRIGHT_RED);
+DEFINE_ANSI_FUNC(bright_green,      BRIGHT_GREEN);
+DEFINE_ANSI_FUNC(bright_yellow,     BRIGHT_YELLOW);
+DEFINE_ANSI_FUNC(bright_blue,       BRIGHT_BLUE);
+DEFINE_ANSI_FUNC(bright_magenta,    BRIGHT_MAGENTA);
+DEFINE_ANSI_FUNC(bright_cyan,       BRIGHT_CYAN);
+DEFINE_ANSI_FUNC(bright_white,      BRIGHT_WHITE);
+
+DEFINE_ANSI_FUNC(highlight_black,   HIGHLIGHT_BLACK);
 DEFINE_ANSI_FUNC(highlight_red,     HIGHLIGHT_RED);
 DEFINE_ANSI_FUNC(highlight_green,   HIGHLIGHT_GREEN);
 DEFINE_ANSI_FUNC(highlight_yellow,  HIGHLIGHT_YELLOW);
 DEFINE_ANSI_FUNC(highlight_blue,    HIGHLIGHT_BLUE);
 DEFINE_ANSI_FUNC(highlight_magenta, HIGHLIGHT_MAGENTA);
+DEFINE_ANSI_FUNC(highlight_cyan,    HIGHLIGHT_CYAN);
 DEFINE_ANSI_FUNC(highlight_grey,    HIGHLIGHT_GREY);
+DEFINE_ANSI_FUNC(highlight_white,   HIGHLIGHT_WHITE);
 
 DEFINE_ANSI_FUNC_UNDERLINE(underline,                   UNDERLINE, NORMAL);
 DEFINE_ANSI_FUNC_UNDERLINE(highlight_underline,         HIGHLIGHT_UNDERLINE, HIGHLIGHT);
