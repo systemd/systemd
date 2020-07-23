@@ -74,6 +74,18 @@ CHANGES WITH 246:
           notation when the 0o prefix is used and binary notation if the 0b
           prefix is used.
 
+        * Various command line parameters and configuration file settings that
+          configure key or certificate files now optionally take paths to
+          AF_UNIX sockets in the file system. If configured that way a stream
+          connection is made to the socket and the required data read from
+          it. This is a simple and natural extension to the existing regular
+          file logic, and permits other software to provide keys or
+          certificates via simple IPC services, for example when unencrypted
+          storage on disk is not desired. Specifically, systemd-networkd's
+          Wireguard and MACSEC key file settings as well as
+          systemd-journal-gatewayd's and systemd-journal-remote's PEM
+          key/certificate parameters support this now.
+
         * Unit files, tmpfiles.d/ snippets, sysusers.d/ snippets and other
           configuration files that support specifier expansion learnt six new
           specifiers: %a resolves to the current architecture, %o/%w/%B/%W
@@ -99,6 +111,12 @@ CHANGES WITH 246:
           namespacing. By running a service under this user's UID it might get
           read and even write access to all these otherwise unmappable files,
           which is quite likely a major security problem.
+
+        * nss-mymachines lost support for resolution of users and groups, and
+          now only does resolution of hostnames. This functionality is now
+          provided by nss-systemd. Thus, the 'mymachines' entry should be
+          removed from the 'passwd:' and 'group:' lines in /etc/nsswitch.conf
+          (and 'systemd' added if it is not already there).
 
         * A new kernel command line option systemd.hostname= has been added
           that allows controlling the hostname that is initialized early during
@@ -259,10 +277,11 @@ CHANGES WITH 246:
           interface. There are new "up" and "down" commands to bring specific
           interfaces up or down.
 
-        * systemd-resolved's DNS= configuration option now optionally accepts
-          DNS server addresses suffixed by "#" followed by a host name. If
-          used, the DNS-over-TLS certificate is validated to match the
-          specified hostname.
+        * systemd-resolved's DNS= configuration option now optionally accepts a
+          port number (after ":") and a host name (after "#"). When the host
+          name is specified, the DNS-over-TLS certificate is validated to match
+          the specified hostname. Additionally, in case of IPv6 addresses, an
+          interface may be specified (after "%").
 
         * systemd-resolved may be configured to forward single-label DNS names.
           This is not standard-conformant, but may make sense in setups where
@@ -535,17 +554,9 @@ CHANGES WITH 246:
           LogControl1 D-Bus API which allows clients to change log level +
           target of the service during runtime.
 
-        * Various command line parameters and configuration file settings that
-          configure key or certificate files now optionally take paths to
-          AF_UNIX sockets in the file system. If configured that way a stream
-          connection is made to the socket and the required data read from
-          it. This is a simple and natural extension to the existing regular
-          file logic, and permits other software to provide keys or
-          certificates via simple IPC services, for example when unencrypted
-          storage on disk is not desired. Specifically, systemd-networkd's
-          Wireguard and MACSEC key file settings as well as
-          systemd-journal-gatewayd's and systemd-journal-remote's PEM
-          key/certificate parameters support this now.
+        * Only relevant for developers: the mkosi.default symlink has been
+          dropped from version control. Please create a symlink to one of the
+          distribution-specific defaults in .mkosi/ based on your preference.
 
         Contributions from: 24bisquitz, Adam Nielsen, Alan Perry, Alexander
         Malafeev, Alin Popa, Alvin Šipraga, Amos Bird, Andreas Rammhold,
