@@ -119,14 +119,18 @@ Features:
 
 * seccomp: maybe merge all filters we install into one with that libseccomp API that allows merging.
 
-* per-service credential system. Specifically: add LoadCredential= (for loading
-  cred from file), AcquireCredential= (for asking user for cred, via
-  ask-password), PassCredential= (for passing on credential systemd itself
-  got). Then, place credentials in a per-service, immutable ramfs instance (so
-  that it cannot be swapped out), destroy after use. Also pass via keyring
-  (with graceful fallback to cover for containers). Define CredentialPath= for
-  defining subdir of /run/credentials/ where to place it. Set $CREDENTIAL_PATH
-  env var for services to the result. Also pass via fd passing (optionally).
+* credentials system:
+  - maybe add AcquireCredential= for querying a cred via ask-password
+  - maybe try to acquire creds via keyring?
+  - maybe try to pass creds via keyring?
+  - maybe optionally pass creds via memfd
+  - maybe add support for decrypting creds via TPM
+  - maybe add support for decrypting/importing creds via pkcs11
+  - make systemd-cryptsetup acquire pw via creds logic
+  - make PAMName= acquire pw via creds logic
+  - make macsec/wireguard code in networkd read key via creds logic
+  - make gatwayd/remote read key via creds logic
+  - add sd_notify() command for flushing out creds not needed anymore
 
 * homed: add native recovery key support. use 48 lowercase modhex characters
   (192bit), show qr code of it, include pattern expression in user record.
