@@ -355,17 +355,17 @@ int address_update(
         int r;
 
         assert(address);
+        assert(address->link);
         assert(cinfo);
-        assert_return(address->link, 1);
-
-        if (IN_SET(address->link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         ready = address_is_ready(address);
 
         address->flags = flags;
         address->scope = scope;
         address->cinfo = *cinfo;
+
+        if (IN_SET(address->link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
 
         link_update_operstate(address->link, true);
         link_check_ready(address->link);
