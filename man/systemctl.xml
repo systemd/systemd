@@ -263,11 +263,9 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             If a unit name with no extension is given, an extension of
             <literal>.target</literal> will be assumed.</para>
 
-            <para>This is similar to changing the runlevel in a
-            traditional init system. The <command>isolate</command>
-            command will immediately stop processes that are not enabled
-            in the new unit, possibly including the graphical
-            environment or terminal you are currently using.</para>
+            <para>This command is dangerous, since it will immediately stop processes that are not enabled in
+            the new target, possibly including the graphical environment or terminal you are currently using.
+            </para>
 
             <para>Note that this is allowed only on units where
             <option>AllowIsolate=</option> is enabled. See
