@@ -527,7 +527,7 @@ CHANGES WITH 246:
           has been extended by a set of environment variables that expose
           select fields from the host's os-release file to the container
           payload. Similarly, host's os-release files can be mounted into the
-          container underneath /run/hosts. Together, those mechanisms provide a
+          container underneath /run/host. Together, those mechanisms provide a
           standardized way to expose information about the host to the
           container payload. Both interfaces are implemented in systemd-nspawn.
 
