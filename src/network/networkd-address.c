@@ -125,6 +125,7 @@ void address_free(Address *address) {
         if (address->link && !address->acd) {
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
+                set_remove(address->link->static_addresses, address);
                 if (address->link->dhcp_address == address)
                         address->link->dhcp_address = NULL;
                 if (address->link->dhcp_address_old == address)
