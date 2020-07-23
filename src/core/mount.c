@@ -869,7 +869,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
 
         m->exec_runtime = exec_runtime_unref(m->exec_runtime, true);
 
-        unit_destroy_runtime_directory(UNIT(m), &m->exec_context);
+        unit_destroy_runtime_data(UNIT(m), &m->exec_context);
 
         unit_unref_uid_gid(UNIT(m), true);
 

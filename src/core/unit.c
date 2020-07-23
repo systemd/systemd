@@ -5429,6 +5429,8 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         p->cgroup_path = u->cgroup_path;
         SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
 
+        p->received_credentials = u->manager->received_credentials;
+
         return 0;
 }
 
@@ -6123,10 +6125,15 @@ int unit_test_trigger_loaded(Unit *u) {
         return 0;
 }
 
-void unit_destroy_runtime_directory(Unit *u, const ExecContext *context) {
+void unit_destroy_runtime_data(Unit *u, const ExecContext *context) {
+        assert(u);
+        assert(context);
+
         if (context->runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
             (context->runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !unit_will_restart(u)))
                 exec_context_destroy_runtime_directory(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
+
+        exec_context_destroy_credentials(context, u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id);
 }
 
 int unit_clean(Unit *u, ExecCleanMask mask) {

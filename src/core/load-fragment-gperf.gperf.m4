@@ -147,6 +147,8 @@ $1.LogsDirectoryMode,            config_parse_mode,                  0,         
 $1.LogsDirectory,                config_parse_exec_directories,      0,                             offsetof($1, exec_context.directories[EXEC_DIRECTORY_LOGS].paths)
 $1.ConfigurationDirectoryMode,   config_parse_mode,                  0,                             offsetof($1, exec_context.directories[EXEC_DIRECTORY_CONFIGURATION].mode)
 $1.ConfigurationDirectory,       config_parse_exec_directories,      0,                             offsetof($1, exec_context.directories[EXEC_DIRECTORY_CONFIGURATION].paths)
+$1.SetCredential,                config_parse_set_credential,        0,                             offsetof($1, exec_context)
+$1.LoadCredential,               config_parse_load_credential,       0,                             offsetof($1, exec_context)
 $1.TimeoutCleanSec,              config_parse_sec,                   0,                             offsetof($1, exec_context.timeout_clean_usec)
 $1.ProtectHostname,              config_parse_bool,                  0,                             offsetof($1, exec_context.protect_hostname)
 m4_ifdef(`HAVE_PAM',

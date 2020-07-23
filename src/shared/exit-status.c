@@ -70,6 +70,8 @@ const ExitStatusMapping exit_status_mappings[256] = {
         [EXIT_LOGS_DIRECTORY] =          { "LOGS_DIRECTORY",          EXIT_STATUS_SYSTEMD },
         [EXIT_CONFIGURATION_DIRECTORY] = { "CONFIGURATION_DIRECTORY", EXIT_STATUS_SYSTEMD },
         [EXIT_NUMA_POLICY] =             { "NUMA_POLICY",             EXIT_STATUS_SYSTEMD },
+        [EXIT_CREDENTIALS] =             { "CREDENTIALS",             EXIT_STATUS_SYSTEMD },
+
         [EXIT_EXCEPTION] =               { "EXCEPTION",               EXIT_STATUS_SYSTEMD },
 
         [EXIT_INVALIDARGUMENT] =         { "INVALIDARGUMENT",         EXIT_STATUS_LSB },
