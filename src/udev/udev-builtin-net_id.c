@@ -23,6 +23,7 @@
 #include <linux/pci_regs.h>
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -243,17 +244,132 @@ static bool is_pci_ari_enabled(sd_device *dev) {
         return streq(a, "1");
 }
 
+static int pci_hotplug_slot_index(sd_device *dev) {
+        _cleanup_free_ char *slots = NULL;
+        const char *syspath;
+        _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
+        _cleanup_closedir_ DIR *dir = NULL;
+        int r, hotplug_slot = 0;
+
+        if (!dev)
+                return 0;
+
+        /* ACPI _SUN — slot user number */
+        r = sd_device_new_from_subsystem_sysname(&pci, "subsystem", "pci");
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_syspath(pci, &syspath);
+        if (r < 0)
+                return r;
+
+        slots = path_join(syspath, "slots");
+        if (!slots)
+                return -ENOMEM;
+
+        dir = opendir(slots);
+        if (!dir)
+                return -errno;
+
+        /* Walk up the PCI device tree and look for a match with some slot. Because slots
+           can be also associated with inner devices this might cause naming conflicts if more
+           leaf network devices are children of a same PCI bridge associated with the
+           single slot. We detect this issue later on and don't use slot based names
+           at all in such case. */
+        while (dev) {
+                struct dirent *dent;
+                const char *sysname;
+
+                if (sd_device_get_sysname(dev, &sysname) < 0)
+                        continue;
+
+                FOREACH_DIRENT_ALL(dent, dir, break) {
+                        unsigned i;
+                        _cleanup_free_ char *address = NULL, *str = NULL;
+
+                        if (dot_or_dot_dot(dent->d_name))
+                                continue;
+
+                        r = safe_atou_full(dent->d_name, 10, &i);
+                        if (r < 0 || i <= 0)
+                                continue;
+
+                        str = path_join(slots, dent->d_name, "address");
+                        if (!str)
+                                return -ENOMEM;
+
+                        /* match slot address with device by stripping the function */
+                        if (read_one_line_file(str, &address) >= 0 && startswith(sysname, address)) {
+                                hotplug_slot = i;
+                                break;
+                        }
+                }
+                if (hotplug_slot > 0)
+                        break;
+                if (sd_device_get_parent_with_subsystem_devtype(dev, "pci", NULL, &dev) < 0)
+                        break;
+
+                rewinddir(dir);
+        }
+
+        return hotplug_slot;
+}
+
+static int pci_hotplug_slot_conflict(sd_device *dev, int slot) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
+        const char *sysname;
+        int r;
+
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return r;
+
+        /* We will be cautious and we will interpret all errors as slot index conflicts */
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "net", true);
+        if (r < 0)
+                return r;
+
+        /* Iterate over all network devices and detect whether there is some other network
+           device that would want to claim same PCI hotplug slot index */
+        FOREACH_DEVICE(e, d) {
+
+                for (;;) {
+                        sd_device *pcidev;
+                        const char *other;
+
+                        r = sd_device_get_parent_with_subsystem_devtype(d, "pci", NULL, &pcidev);
+                        if (r < 0)
+                                break;
+
+                        d = pcidev;
+
+                        r = sd_device_get_sysname(pcidev, &other);
+                        if (r < 0)
+                                return r;
+
+                        /* Ignore self match */
+                        if (streq(sysname, other))
+                                break;
+
+                        if (pci_hotplug_slot_index(pcidev) == slot)
+                                return 1;
+                }
+        }
+
+        return 0;
+}
+
 static int dev_pci_slot(sd_device *dev, struct netnames *names) {
         unsigned long dev_port = 0;
         unsigned domain, bus, slot, func, hotplug_slot = 0;
         size_t l;
         char *s;
-        const char *sysname, *attr, *port_name = NULL, *syspath;
-        _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
-        sd_device *hotplug_slot_dev;
-        char slots[PATH_MAX];
-        _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *dent;
+        const char *sysname, *attr, *port_name = NULL;
         int r;
 
         r = sd_device_get_sysname(names->pcidev, &sysname);
@@ -305,54 +421,19 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
         if (l == 0)
                 names->pci_path[0] = '\0';
 
-        /* ACPI _SUN — slot user number */
-        r = sd_device_new_from_subsystem_sysname(&pci, "subsystem", "pci");
+        /* figure out PCI hotplug index, but use it as part of the name only if
+           there is no other device claiming the same index */
+        r = pci_hotplug_slot_index(names->pcidev);
         if (r < 0)
                 return r;
 
-        r = sd_device_get_syspath(pci, &syspath);
+        hotplug_slot = r;
+
+        r = pci_hotplug_slot_conflict(names->pcidev, hotplug_slot);
         if (r < 0)
                 return r;
-        if (!snprintf_ok(slots, sizeof slots, "%s/slots", syspath))
-                return -ENAMETOOLONG;
 
-        dir = opendir(slots);
-        if (!dir)
-                return -errno;
-
-        hotplug_slot_dev = names->pcidev;
-        while (hotplug_slot_dev) {
-                if (sd_device_get_sysname(hotplug_slot_dev, &sysname) < 0)
-                        continue;
-
-                FOREACH_DIRENT_ALL(dent, dir, break) {
-                        unsigned i;
-                        char str[PATH_MAX];
-                        _cleanup_free_ char *address = NULL;
-
-                        if (dot_or_dot_dot(dent->d_name))
-                                continue;
-
-                        r = safe_atou_full(dent->d_name, 10, &i);
-                        if (r < 0 || i <= 0)
-                                continue;
-
-                        /* match slot address with device by stripping the function */
-                        if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
-                            read_one_line_file(str, &address) >= 0 &&
-                            startswith(sysname, address)) {
-                                hotplug_slot = i;
-                                break;
-                        }
-                }
-                if (hotplug_slot > 0)
-                        break;
-                if (sd_device_get_parent_with_subsystem_devtype(hotplug_slot_dev, "pci", NULL, &hotplug_slot_dev) < 0)
-                        break;
-                rewinddir(dir);
-        }
-
-        if (hotplug_slot > 0) {
+        if (hotplug_slot > 0 && !r) {
                 s = names->pci_slot;
                 l = sizeof(names->pci_slot);
                 if (domain > 0)
