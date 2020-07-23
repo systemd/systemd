@@ -695,17 +695,28 @@ static int install_chroot_dropin(
         if (!text)
                 return -ENOMEM;
 
-        if (endswith(m->name, ".service"))
+        if (endswith(m->name, ".service")) {
+                const char *os_release_source;
+
+                if (access("/etc/os-release", F_OK) < 0) {
+                        if (errno != ENOENT)
+                                return log_debug_errno(errno, "Failed to check if /etc/os-release exists: %m");
+
+                        os_release_source = "/usr/lib/os-release";
+                } else
+                        os_release_source = "/etc/os-release";
+
                 if (!strextend(&text,
                                "\n"
                                "[Service]\n",
                                IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "RootDirectory=" : "RootImage=", image_path, "\n"
                                "Environment=PORTABLE=", basename(image_path), "\n"
-                               "BindReadOnlyPaths=-/etc/os-release:/run/host/etc/os-release /usr/lib/os-release:/run/host/usr/lib/os-release\n"
+                               "BindReadOnlyPaths=", os_release_source, ":/run/host/os-release\n"
                                "LogExtraFields=PORTABLE=", basename(image_path), "\n",
                                NULL))
 
                         return -ENOMEM;
+        }
 
         r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
