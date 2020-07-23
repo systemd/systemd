@@ -1183,8 +1183,10 @@ void link_check_ready(Link *link) {
                         return;
                 }
 
-                if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) && set_isempty(link->addresses)) {
-                        log_link_debug(link, "%s(): DHCP4 or DHCP6 is enabled but no address is assigned yet.", __func__);
+                if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
+                    !link->dhcp_address && set_isempty(link->dhcp6_addresses) && set_isempty(link->ndisc_addresses) &&
+                    !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address_configured)) {
+                        log_link_debug(link, "%s(): DHCP4 or DHCP6 is enabled but no dynamic address is assigned yet.", __func__);
                         return;
                 }
 
