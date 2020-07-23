@@ -2842,6 +2842,7 @@ static int start_unit_one(
                 BusWaitForUnits *wu) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *default_name = NULL;
         const char *path;
         bool done = false;
         int r;
@@ -2854,6 +2855,11 @@ static int start_unit_one(
         log_debug("%s dbus call org.freedesktop.systemd1.Manager %s(%s, %s)",
                   arg_dry_run ? "Would execute" : "Executing",
                   method, name, mode);
+
+        r = determine_default(&default_name);
+        if (r >= 0 && !strcmp(default_name, name)) {
+                return log_error_errno(-1, "Same run level, do nothing" );
+        }
 
         if (arg_dry_run)
                 return 0;
