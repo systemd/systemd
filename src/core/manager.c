@@ -589,6 +589,8 @@ static char** sanitize_environment(char **l) {
         /* Let's remove some environment variables that we need ourselves to communicate with our clients */
         strv_env_unset_many(
                         l,
+                        "CACHE_DIRECTORY",
+                        "CONFIGURATION_DIRECTORY",
                         "EXIT_CODE",
                         "EXIT_STATUS",
                         "INVOCATION_ID",
@@ -596,13 +598,16 @@ static char** sanitize_environment(char **l) {
                         "LISTEN_FDNAMES",
                         "LISTEN_FDS",
                         "LISTEN_PID",
+                        "LOGS_DIRECTORY",
                         "MAINPID",
                         "MANAGERPID",
                         "NOTIFY_SOCKET",
                         "PIDFILE",
                         "REMOTE_ADDR",
                         "REMOTE_PORT",
+                        "RUNTIME_DIRECTORY",
                         "SERVICE_RESULT",
+                        "STATE_DIRECTORY",
                         "WATCHDOG_PID",
                         "WATCHDOG_USEC",
                         NULL);
