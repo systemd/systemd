@@ -57,7 +57,7 @@ static void test_set_free_with_hash_ops(void) {
 
 static void test_set_put(void) {
         _cleanup_ordered_set_free_ OrderedSet *m = NULL;
-        _cleanup_free_ char **t = NULL;
+        _cleanup_free_ char **t = NULL, *str = NULL;
 
         m = ordered_set_new(&string_hash_ops);
         assert_se(m);
@@ -70,6 +70,9 @@ static void test_set_put(void) {
         assert_se(ordered_set_put(m, (void*) "333") == 1);
         assert_se(ordered_set_put(m, (void*) "333") == 0);
         assert_se(ordered_set_put(m, (void*) "22") == 0);
+
+        assert_se(str = strdup("333"));
+        assert_se(ordered_set_put(m, str) == -EEXIST);
 
         assert_se(t = ordered_set_get_strv(m));
         assert_se(streq(t[0], "1"));
