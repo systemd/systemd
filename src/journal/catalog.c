@@ -55,7 +55,7 @@ typedef struct CatalogItem {
 
 static void catalog_hash_func(const CatalogItem *i, struct siphash *state) {
         siphash24_compress(&i->id, sizeof(i->id), state);
-        siphash24_compress(i->language, strlen(i->language), state);
+        siphash24_compress_string(i->language, state);
 }
 
 static int catalog_compare_func(const CatalogItem *a, const CatalogItem *b) {

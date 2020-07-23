@@ -208,6 +208,7 @@ int link_update(Link *link, sd_netlink_message *message);
 void link_dirty(Link *link);
 void link_clean(Link *link);
 int link_save(Link *link);
+int link_save_and_clean(Link *link);
 
 int link_carrier_reset(Link *link);
 bool link_has_carrier(Link *link);

@@ -117,7 +117,7 @@ int kernel_route_expiration_supported(void) {
 }
 
 static void network_config_hash_func(const NetworkConfigSection *c, struct siphash *state) {
-        siphash24_compress(c->filename, strlen(c->filename), state);
+        siphash24_compress_string(c->filename, state);
         siphash24_compress(&c->line, sizeof(c->line), state);
 }
 

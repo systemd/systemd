@@ -4525,6 +4525,17 @@ void link_clean(Link *link) {
         link_unref(set_remove(link->manager->dirty_links, link));
 }
 
+int link_save_and_clean(Link *link) {
+        int r;
+
+        r = link_save(link);
+        if (r < 0)
+                return r;
+
+        link_clean(link);
+        return 0;
+}
+
 static const char* const link_state_table[_LINK_STATE_MAX] = {
         [LINK_STATE_PENDING] = "pending",
         [LINK_STATE_INITIALIZED] = "initialized",

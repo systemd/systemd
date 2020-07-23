@@ -627,8 +627,7 @@ static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
         siphash24_compress(&s->address, FAMILY_ADDRESS_SIZE(s->family), state);
         siphash24_compress(&s->port, sizeof(s->port), state);
         siphash24_compress(&s->ifindex, sizeof(s->ifindex), state);
-        if (s->server_name)
-                siphash24_compress(s->server_name, strlen(s->server_name), state);
+        siphash24_compress_string(s->server_name, state);
 }
 
 static int dns_server_compare_func(const DnsServer *x, const DnsServer *y) {

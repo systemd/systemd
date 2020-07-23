@@ -1727,8 +1727,7 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
                 manager_save(m);
 
         SET_FOREACH(link, m->dirty_links, i)
-                if (link_save(link) >= 0)
-                        link_clean(link);
+                (void) link_save_and_clean(link);
 
         return 1;
 }
@@ -1899,7 +1898,7 @@ int manager_start(Manager *m) {
         manager_save(m);
 
         HASHMAP_FOREACH(link, m->links, i)
-                link_save(link);
+                (void) link_save(link);
 
         return 0;
 }
