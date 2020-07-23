@@ -3845,12 +3845,6 @@ D0-14-11   (hex)		powerall
 				Gyeonggi-do province    14445
 				KR
 
-D0-14-11   (hex)		CYLTek Co.,LTD.
-B00000-BFFFFF     (base 16)		CYLTek Co.,LTD.
-				R603,6F.,NO.168,Sec.2,Fuxing 3rd.Rd.
-				Zhubei City,Hsinchu County    30273
-				TW
-
 D0-14-11   (hex)		ABB EVI SPA
 A00000-AFFFFF     (base 16)		ABB EVI SPA
 				VIA DI SAN GIORGIO, 642
@@ -3962,11 +3956,71 @@ C0-61-9A   (hex)		MAD PIECE LLC.
 				BROOKLYN  NY  11234
 				US
 
+98-FC-84   (hex)		Shanghai ZeXin Information Technologies Co. Ltd.
+300000-3FFFFF     (base 16)		Shanghai ZeXin Information Technologies Co. Ltd.
+				Room 205E Building 5#,545 Hulan Road,Baoshan District,Shanghai City
+				Shanghai    200000
+				CN
+
 C0-61-9A   (hex)		Uhnder
 D00000-DFFFFF     (base 16)		Uhnder
 				3409 Executive Center Drive Ste205
 				Austin  TX  78731
 				US
+
+98-FC-84   (hex)		Jazwares LLC
+D00000-DFFFFF     (base 16)		Jazwares LLC
+				1067 Shotgun Rd
+				Sunrise  FL  33326
+				US
+
+98-FC-84   (hex)		Sferrum GmbH
+400000-4FFFFF     (base 16)		Sferrum GmbH
+				Kytyzovsky avenue, build 36/3, office 216
+				Moscow    121170
+				RU
+
+98-FC-84   (hex)		Shenzhen Incar Technology Co., Ltd.
+C00000-CFFFFF     (base 16)		Shenzhen Incar Technology Co., Ltd.
+				Zhongxi ECO International Building, Shuiku Rd., Baoan District
+				Shenzhen     518000
+				CN
+
+98-FC-84   (hex)		Leia, Inc
+000000-0FFFFF     (base 16)		Leia, Inc
+				2440 Sand Hill Road, STE 100, Menlo Park
+				Menlo Park  CA  94025
+				US
+
+18-FD-CB   (hex)		Staclar, Inc.
+300000-3FFFFF     (base 16)		Staclar, Inc.
+				2093 Philadelphia Pike
+				Claymont  DE  19703
+				US
+
+18-FD-CB   (hex)		Ark Vision Systems GmbH & Co. KG
+C00000-CFFFFF     (base 16)		Ark Vision Systems GmbH & Co. KG
+				Limburger Str., 51
+				Merenberg  Hessen  35799
+				DE
+
+D0-14-11   (hex)		CYLTek Limited
+B00000-BFFFFF     (base 16)		CYLTek Limited
+				R603,6F.,NO.168,Sec.2,Fuxing 3rd.Rd.
+				Zhubei City,Hsinchu County    30273
+				TW
+
+18-FD-CB   (hex)		SKA Organisation
+600000-6FFFFF     (base 16)		SKA Organisation
+				Jodrell Bank, Lower Withington
+				Macclesfield  Cheshire  SK11 9FT
+				GB
+
+18-FD-CB   (hex)		KWANG YANG MOTOR CO.,LTD
+E00000-EFFFFF     (base 16)		KWANG YANG MOTOR CO.,LTD
+				NO. 35, WAN HSING ST., SAN MIN DIST., KAOHSIUNG, TAIWAN, R.O.C
+				Kaohsiung    807
+				TW
 
 4C-4B-F9   (hex)		Shenzhen dingsheng technology co., LTD
 400000-4FFFFF     (base 16)		Shenzhen dingsheng technology co., LTD
@@ -7675,6 +7729,48 @@ A00000-AFFFFF     (base 16)		Gronn Kontakt AS
 				Kjøita 18
 				Kristiansand    4630
 				NO
+
+98-FC-84   (hex)		Juketek Co., Ltd.
+200000-2FFFFF     (base 16)		Juketek Co., Ltd.
+				18F-6, No. 75, Sec. 1, Xintai 5th Rd., Xizhi Dist., 
+				New Taipei City    221
+				TW
+
+98-FC-84   (hex)		Shield Inc.
+A00000-AFFFFF     (base 16)		Shield Inc.
+				8F-5, No.57, Sec.1, Dunhua S. Rd., Songshan Dist.,
+				Taipei City    10557
+				TW
+
+18-FD-CB   (hex)		CISTECH Solutions
+800000-8FFFFF     (base 16)		CISTECH Solutions
+				170 JAMES ST
+				TOOWOOMBA  QLD  4350
+				AU
+
+18-FD-CB   (hex)		SOTHIS CIC TEC (Shanghai) Co., Ltd
+100000-1FFFFF     (base 16)		SOTHIS CIC TEC (Shanghai) Co., Ltd
+				Shanghai Jiading sichenglu1250-7
+				SHANGHAI  SHANGHAI  200000
+				CN
+
+18-FD-CB   (hex)		Sercomm Corporation.
+A00000-AFFFFF     (base 16)		Sercomm Corporation.
+				3F,No.81,Yu-Yih Rd.,Chu-Nan Chen
+				Miao-Lih Hsuan    115
+				TW
+
+58-20-8A   (hex)		TRING
+400000-4FFFFF     (base 16)		TRING
+				Lejlekusa bb
+				Gracanica  TK  75320
+				BA
+
+58-20-8A   (hex)		Suzhou Ruilisi Technology Ltd.
+900000-9FFFFF     (base 16)		Suzhou Ruilisi Technology Ltd.
+				Gaoqingchuanmei Building, Nantiancheng Road, Xiangcheng District
+				Suzhou  Jiangsu  215000
+				CN
 
 20-85-93   (hex)		UNILUMIN GROUP CO.,LTD
 300000-3FFFFF     (base 16)		UNILUMIN GROUP CO.,LTD
@@ -11453,6 +11549,12 @@ A00000-AFFFFF     (base 16)		Simaudio Ltd
 				Hennef    53773
 				DE
 
+C0-61-9A   (hex)		Grup Arge Enerji ve Kontrol Sistemleri
+200000-2FFFFF     (base 16)		Grup Arge Enerji ve Kontrol Sistemleri
+				?kitelli OSB Mah. YTÜ ?kitelli Teknopark Sok. No:1 / 2B01-2B07-2B08-2B09
+				?stanbul  ?STANBUL  34490
+				TR
+
 28-B7-7C   (hex)		Vehant Technologies Pvt Ltd.
 B00000-BFFFFF     (base 16)		Vehant Technologies Pvt Ltd.
 				Plot no. 97, Ecotech-12, block-Ecotech -12, Sector-Noida Extension
@@ -11465,17 +11567,47 @@ C0-61-9A   (hex)		Stello
 				Saint-Bruno-de-Montarville  Quebec  J3V 6L7
 				CA
 
-C0-61-9A   (hex)		Grup Arge Enerji ve Kontrol Sistemleri
-200000-2FFFFF     (base 16)		Grup Arge Enerji ve Kontrol Sistemleri
-				?kitelli OSB Mah. YTÜ ?kitelli Teknopark Sok. No:1 / 2B01-2B07-2B08-2B09
-				?stanbul  ?STANBUL  34490
-				TR
-
 C0-61-9A   (hex)		IPG Automotive GmbH
 600000-6FFFFF     (base 16)		IPG Automotive GmbH
 				Bannwaldallee 60
 				Karlsruhe    76185
 				DE
+
+C0-61-9A   (hex)		Victron Energy B.V.
+B00000-BFFFFF     (base 16)		Victron Energy B.V.
+				De Paal 35
+				Almere    1351JG
+				NL
+
+98-FC-84   (hex)		Fath Mechatronics
+900000-9FFFFF     (base 16)		Fath Mechatronics
+				Hügelmühle 31
+				Spalt  bavaria  91174
+				DE
+
+98-FC-84   (hex)		Broadtech Technologies Co., Ltd.
+700000-7FFFFF     (base 16)		Broadtech Technologies Co., Ltd.
+				No. 1, Area A, 3rd Floor, Building B1, Shenzhen Digital Technology Park, No. 002, Gaoxin South Seventh Road, Nanshan District,
+				Shenzhen  GuangDong  518057
+				CN
+
+98-FC-84   (hex)		Dongguan Kingtron Electronics Tech Co., Ltd
+E00000-EFFFFF     (base 16)		Dongguan Kingtron Electronics Tech Co., Ltd
+				No.3 Fumin North Rd,Shu'an Industrial Park, Humen Town
+				Dongguan  Guangdong China  523929
+				CN
+
+18-FD-CB   (hex)		StreamLocator
+D00000-DFFFFF     (base 16)		StreamLocator
+				200-155 East Beaver Creek Rd
+				Richmond Hill  ON  L4B 2N1
+				CA
+
+18-FD-CB   (hex)		Gosuncn Technology Group Co.,LTD.
+400000-4FFFFF     (base 16)		Gosuncn Technology Group Co.,LTD.
+				6F,2819 KaiChuang Blvd.,Science Town,Huangpu District
+				Guangzhou City  Guangdong  510530
+				CN
 
 4C-4B-F9   (hex)		Shandong Linkotech Electronic Co., Ltd.
 600000-6FFFFF     (base 16)		Shandong Linkotech Electronic Co., Ltd.
@@ -11938,12 +12070,6 @@ A00000-AFFFFF     (base 16)		OrCam Technologies
 				Kiryat Hamada 3
 				JERUSALEM    97775603
 				IL
-
-C8-63-14   (hex)		Tymphany Acoustic Technology (Huizhou) Co., Ltd.
-200000-2FFFFF     (base 16)		Tymphany Acoustic Technology (Huizhou) Co., Ltd.
-				Tymphany Industrial Area, Xin Lian Village, XinXu Town, HuiYang District
-				Huizhou  Guangdong  516223
-				CN
 
 FC-D2-B6   (hex)		Cirque Audio Technology Co.,Ltd
 600000-6FFFFF     (base 16)		Cirque Audio Technology Co.,Ltd
@@ -15256,6 +15382,36 @@ E00000-EFFFFF     (base 16)		Ray Pte Ltd
 				Suite #09-01, 20 Collyer Quay, 
 				Singapore    049319
 				SG
+
+18-FD-CB   (hex)		Cabtronix AG
+200000-2FFFFF     (base 16)		Cabtronix AG
+				Hohstrass 1
+				Kloten  Zuerich  8302
+				CH
+
+98-FC-84   (hex)		chiconypower
+B00000-BFFFFF     (base 16)		chiconypower
+				23F, No.69, Sec. 2, Guangfu Rd., Sanchong Dist., New Taipei City 241, Taiwan (R.O.C.)
+				New Taipei  Taiwan  241
+				TW
+
+98-FC-84   (hex)		Guangdong DE at science and technology co., LTD
+800000-8FFFFF     (base 16)		Guangdong DE at science and technology co., LTD
+				Taide Technology Park,Jinfenghuang Industrial District, Fenggang Town,
+				Dongguan  GuangDong  523000
+				CN
+
+C8-63-14   (hex)		Tymphany Acoustic Technology (Huizhou) Co.,  Ltd.
+200000-2FFFFF     (base 16)		Tymphany Acoustic Technology (Huizhou) Co.,  Ltd.
+				Tymphany Industrial Area, Xin Lian Village, XinXu Town, HuiYang District
+				Huizhou  Guangdong  516223
+				CN
+
+18-FD-CB   (hex)		Accel Robotics
+500000-5FFFFF     (base 16)		Accel Robotics
+				9160 KEARNY VILLA CT
+				San Diego  CA  92123
+				US
 
 20-85-93   (hex)		Great Lite International
 700000-7FFFFF     (base 16)		Great Lite International
@@ -19040,8 +19196,68 @@ C0-61-9A   (hex)		LYAND ACOUSTIC TECHNOLOGY CO.,LTD.
 				Huizhou city   GuangDong  516023
 				CN
 
+C0-61-9A   (hex)		Paragon Robotics LLC
+000000-0FFFFF     (base 16)		Paragon Robotics LLC
+				5386 Majestic Pkwy Ste 2
+				Bedford Heights  OH  44146
+				US
+
+C0-61-9A   (hex)		Zhejiang Haikang Science And Technology Co.,Ltd
+E00000-EFFFFF     (base 16)		Zhejiang Haikang Science And Technology Co.,Ltd
+				No.797 Binkang Rd, Binjiang District
+				Hangzhou    310053
+				CN
+
+98-FC-84   (hex)		go-e GmbH
+100000-1FFFFF     (base 16)		go-e GmbH
+				Satellitenstrasse 1
+				Feldkirchen  Kaernten  9560
+				AT
+
 C0-61-9A   (hex)		KidKraft
 100000-1FFFFF     (base 16)		KidKraft
 				4630 Olin Rd
 				Dallas  TX  75244
 				US
+
+98-FC-84   (hex)		ZERONE CO., LTD.
+600000-6FFFFF     (base 16)		ZERONE CO., LTD.
+				Shinil IT UTO Bldg. #810, LS-ro 13, Gunpo-si, Gyeonggi-do, Korea
+				SEOUL    15843
+				KR
+
+98-FC-84   (hex)		Zymbit
+500000-5FFFFF     (base 16)		Zymbit
+				53 Cass Place, Suite B
+				Goleta  CA  93117
+				US
+
+18-FD-CB   (hex)		TRANSLITE GLOBAL LLC
+B00000-BFFFFF     (base 16)		TRANSLITE GLOBAL LLC
+				6644 ANTOINE DRIVE 
+				HOUSTON  TX  77091
+				US
+
+18-FD-CB   (hex)		Shenzhen Rui jiali Electronic Technology Co. Ltd.
+000000-0FFFFF     (base 16)		Shenzhen Rui jiali Electronic Technology Co. Ltd.
+				306 ROOM,Building B, ShenZhaoYe Science Park, BaoLong 5 Road No. 1,Baolong Industrial City ,Pingshan District
+				Shenzhen    518118
+				CN
+
+18-FD-CB   (hex)		CreyNox GmbH
+900000-9FFFFF     (base 16)		CreyNox GmbH
+				Autokaderstrasse 29, BT2
+				Vienna    1210
+				AT
+
+18-FD-CB   (hex)		ENERGIE IP
+700000-7FFFFF     (base 16)		ENERGIE IP
+				48 rue du Château d’eau 
+				Paris  Ile-de-France  75010
+				FR
+
+58-20-8A   (hex)		SAMIL CTS Co., Ltd.
+800000-8FFFFF     (base 16)		SAMIL CTS Co., Ltd.
+				8F, Woolim Lion's Valley 3cha, 24 Dunchon Daero 388beon-gil, Jungwon-gu
+				Seongnam-si  Gyeonggi-do, KOREA  13403
+				KR

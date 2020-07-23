@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2020.06.22
-# Date:    2020-06-22 20:34:08
+# Version: 2020.07.06
+# Date:    2020-07-06 20:34:08
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -19328,6 +19328,9 @@
 	0168  VerticalMouse 3 Wireless
 	0191  VerticalMouse 4
 	0195  VerticalMouse C Wireless
+1a7e  Meltec Systementwicklung
+	1001  UFT75, UT150, UT60
+	1003  Thermostick
 1a81  Holtek Semiconductor, Inc.
 	1004  Wireless Dongle 2.4 GHZ HT82D40REW
 	1701  Wireless dongle
