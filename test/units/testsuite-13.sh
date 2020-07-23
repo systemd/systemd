@@ -66,12 +66,25 @@ if [ -n "${ID:+set}" ] && [ "${ID}" != "${container_host_id}" ]; then exit 1; fi
 if [ -n "${VERSION_ID:+set}" ] && [ "${VERSION_ID}" != "${container_host_version_id}" ]; then exit 1; fi
 if [ -n "${BUILD_ID:+set}" ] && [ "${BUILD_ID}" != "${container_host_build_id}" ]; then exit 1; fi
 if [ -n "${VARIANT_ID:+set}" ] && [ "${VARIANT_ID}" != "${container_host_variant_id}" ]; then exit 1; fi
-cd /tmp; (cd /run/host/usr/lib; md5sum os-release) | md5sum -c
-if echo test >> /run/host/usr/lib/os-release; then exit 1; fi
-if echo test >> /run/host/etc/os-release; then exit 1; fi
+cd /tmp; (cd /run/host; md5sum os-release) | md5sum -c
+if echo test >> /run/host/os-release; then exit 1; fi
 '
 
-    systemd-nspawn --register=no -D /testsuite-13.nc-container --bind=/etc/os-release:/tmp/os-release /bin/sh -x -e -c "$_cmd"
+    local _os_release_source="/etc/os-release"
+    if [ ! -r "${_os_release_source}" ]; then
+        _os_release_source="/usr/lib/os-release"
+    elif [ -L "${_os_release_source}" ] && rm /etc/os-release; then
+        # Ensure that /etc always wins if available
+        cp /usr/lib/os-release /etc
+        echo MARKER=1 >> /etc/os-release
+    fi
+
+    systemd-nspawn --register=no -D /testsuite-13.nc-container --bind="${_os_release_source}":/tmp/os-release /bin/sh -x -e -c "$_cmd"
+
+    if grep -q MARKER /etc/os-release; then
+        rm /etc/os-release
+        ln -s ../usr/lib/os-release /etc/os-release
+    fi
 }
 
 function run {
