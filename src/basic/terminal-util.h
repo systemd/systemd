@@ -33,16 +33,19 @@
 #define ANSI_GREY    "\x1B[0;38;5;245m"
 
 /* Bold/highlighted */
-#define ANSI_HIGHLIGHT_BLACK             "\x1B[0;1;30m"
-#define ANSI_HIGHLIGHT_RED               "\x1B[0;1;31m"
-#define ANSI_HIGHLIGHT_GREEN             "\x1B[0;1;32m"
-#define ANSI_HIGHLIGHT_YELLOW            "\x1B[0;1;38;5;185m"
-#define ANSI_HIGHLIGHT_BLUE              "\x1B[0;1;34m"
-#define ANSI_HIGHLIGHT_MAGENTA           "\x1B[0;1;35m"
-#define ANSI_HIGHLIGHT_CYAN              "\x1B[0;1;36m"
-#define ANSI_HIGHLIGHT_WHITE             "\x1B[0;1;37m"
-#define ANSI_HIGHLIGHT_GREY              "\x1B[0;1;38;5;245m"
-#define ANSI_HIGHLIGHT_YELLOW4           "\x1B[0;1;38;5;100m"
+#define ANSI_HIGHLIGHT_BLACK    "\x1B[0;1;30m"
+#define ANSI_HIGHLIGHT_RED      "\x1B[0;1;31m"
+#define ANSI_HIGHLIGHT_GREEN    "\x1B[0;1;32m"
+#define _ANSI_HIGHLIGHT_YELLOW  "\x1B[0;1;33m" /* This yellow is currently not displayed well by some terminals */
+#define ANSI_HIGHLIGHT_BLUE     "\x1B[0;1;34m"
+#define ANSI_HIGHLIGHT_MAGENTA  "\x1B[0;1;35m"
+#define ANSI_HIGHLIGHT_CYAN     "\x1B[0;1;36m"
+#define ANSI_HIGHLIGHT_WHITE    "\x1B[0;1;37m"
+#define ANSI_HIGHLIGHT_YELLOW4  "\x1B[0;1;38;5;100m"
+#define ANSI_HIGHLIGHT_KHAKI3   "\x1B[0;1;38;5;185m"
+#define ANSI_HIGHLIGHT_GREY     "\x1B[0;1;38;5;245m"
+
+#define ANSI_HIGHLIGHT_YELLOW   ANSI_HIGHLIGHT_KHAKI3 /* Replacement yellow that is more legible */
 
 /* Underlined */
 #define ANSI_GREY_UNDERLINE              "\x1B[0;4;38;5;245m"
@@ -169,6 +172,10 @@ DEFINE_ANSI_FUNC(highlight_magenta, HIGHLIGHT_MAGENTA);
 DEFINE_ANSI_FUNC(highlight_cyan,    HIGHLIGHT_CYAN);
 DEFINE_ANSI_FUNC(highlight_grey,    HIGHLIGHT_GREY);
 DEFINE_ANSI_FUNC(highlight_white,   HIGHLIGHT_WHITE);
+
+static inline const char* _ansi_highlight_yellow(void) {
+        return colors_enabled() ? _ANSI_HIGHLIGHT_YELLOW : "";
+}
 
 DEFINE_ANSI_FUNC_UNDERLINE(underline,                   UNDERLINE, NORMAL);
 DEFINE_ANSI_FUNC_UNDERLINE(highlight_underline,         HIGHLIGHT_UNDERLINE, HIGHLIGHT);
