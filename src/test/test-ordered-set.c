@@ -7,6 +7,8 @@
 #include "strv.h"
 
 static void test_set_steal_first(void) {
+        log_info("/* %s */", __func__);
+
         _cleanup_ordered_set_free_ OrderedSet *m = NULL;
         int seen[3] = {};
         char *val;
@@ -42,11 +44,17 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, void, trivial_hash_
 static void test_set_free_with_hash_ops(void) {
         OrderedSet *m;
         struct Item items[4] = {};
-        unsigned i;
+
+        log_info("/* %s */", __func__);
 
         assert_se(m = ordered_set_new(&item_hash_ops));
-        for (i = 0; i < ELEMENTSOF(items) - 1; i++)
+
+        for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
                 assert_se(ordered_set_put(m, items + i) == 1);
+
+        for (size_t i = 0; i < ELEMENTSOF(items) - 1; i++)
+                assert_se(ordered_set_put(m, items + i) == 0);  /* We get 0 here, because we use trivial hash
+                                                                 * ops. Also see below... */
 
         m = ordered_set_free(m);
         assert_se(items[0].seen == 1);
@@ -57,7 +65,9 @@ static void test_set_free_with_hash_ops(void) {
 
 static void test_set_put(void) {
         _cleanup_ordered_set_free_ OrderedSet *m = NULL;
-        _cleanup_free_ char **t = NULL;
+        _cleanup_free_ char **t = NULL, *str = NULL;
+
+        log_info("/* %s */", __func__);
 
         m = ordered_set_new(&string_hash_ops);
         assert_se(m);
@@ -70,6 +80,10 @@ static void test_set_put(void) {
         assert_se(ordered_set_put(m, (void*) "333") == 1);
         assert_se(ordered_set_put(m, (void*) "333") == 0);
         assert_se(ordered_set_put(m, (void*) "22") == 0);
+
+        assert_se(str = strdup("333"));
+        assert_se(ordered_set_put(m, str) == -EEXIST); /* ... and we get -EEXIST here, because we use
+                                                        * non-trivial hash ops. */
 
         assert_se(t = ordered_set_get_strv(m));
         assert_se(streq(t[0], "1"));
@@ -85,6 +99,8 @@ static void test_set_put_string_set(void) {
         _cleanup_ordered_set_free_ OrderedSet *q = NULL;
         _cleanup_free_ char **final = NULL; /* "just free" because the strings are in the set */
         void *t;
+
+        log_info("/* %s */", __func__);
 
         m = ordered_set_new(&string_hash_ops);
         assert_se(m);
