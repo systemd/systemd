@@ -585,7 +585,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         r = sd_bus_message_read(message, "ss", &user, &path);
         if (r < 0)
                 return r;
-        user = empty_to_null(user);
+        user = isempty(user) ? "root" : user;
         r = sd_bus_message_read_strv(message, &args_wire);
         if (r < 0)
                 return r;
@@ -604,7 +604,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 r = asprintf(&args[2],
                              "shell=$(getent passwd %s 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"\
                              "exec \"${shell:-/bin/sh}\" -l", /* -l is means --login */
-                             isempty(user) ? "root" : user);
+                             user);
                 if (r < 0) {
                         args[2] = NULL;
                         return -ENOMEM;
@@ -628,11 +628,18 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (!strv_env_is_valid(env))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment assignments");
 
+        const char *details[] = {
+                "machine", m->name,
+                "user", user,
+                "program", path,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-shell" : "org.freedesktop.machine1.shell",
-                        NULL,
+                        details,
                         false,
                         UID_INVALID,
                         &m->manager->polkit_registry,
@@ -677,7 +684,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        description = strjoina("Shell for User ", isempty(user) ? "root" : user);
+        description = strjoina("Shell for User ", user);
         r = sd_bus_message_append(tm,
                                   "(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)(sv)",
                                   "Description", "s", description,
@@ -695,7 +702,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(tm, "(sv)", "User", "s", isempty(user) ? "root" : user);
+        r = sd_bus_message_append(tm, "(sv)", "User", "s", user);
         if (r < 0)
                 return r;
 
