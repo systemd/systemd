@@ -49,16 +49,19 @@ static char *arg_timezone = NULL;
 static char *arg_hostname = NULL;
 static sd_id128_t arg_machine_id = {};
 static char *arg_root_password = NULL;
+static char *arg_root_shell = NULL;
 static char *arg_kernel_cmdline = NULL;
 static bool arg_prompt_locale = false;
 static bool arg_prompt_keymap = false;
 static bool arg_prompt_timezone = false;
 static bool arg_prompt_hostname = false;
 static bool arg_prompt_root_password = false;
+static bool arg_prompt_root_shell = false;
 static bool arg_copy_locale = false;
 static bool arg_copy_keymap = false;
 static bool arg_copy_timezone = false;
 static bool arg_copy_root_password = false;
+static bool arg_copy_root_shell = false;
 static bool arg_force = false;
 static bool arg_delete_root_password = false;
 static bool arg_root_password_is_hashed = false;
@@ -601,10 +604,45 @@ static int prompt_root_password(void) {
         return 0;
 }
 
-static int write_root_passwd(const char *passwd_path, const char *password) {
+static int prompt_root_shell(void) {
+        int r;
+
+        if (arg_root_shell || !arg_prompt_root_shell)
+                return 0;
+
+        print_welcome();
+        putchar('\n');
+
+        for (;;) {
+                _cleanup_free_ char *s = NULL;
+
+                r = ask_string(&s, "%s Please enter root shell for new system (empty to skip): ", special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query root shell: %m");
+
+                if (isempty(s)) {
+                        log_warning("No shell entered, skipping.");
+                        break;
+                }
+
+                if (!valid_shell(s)) {
+                        log_error("Specified shell invalid.");
+                        continue;
+                }
+
+                arg_root_shell = TAKE_PTR(s);
+                break;
+        }
+
+        return 0;
+}
+
+static int write_root_passwd(const char *passwd_path, const char *password, const char *shell) {
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
+
+        assert(password);
 
         r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
         if (r < 0)
@@ -620,8 +658,11 @@ static int write_root_passwd(const char *passwd_path, const char *password) {
 
                 while ((r = fgetpwent_sane(original, &i)) > 0) {
 
-                        if (streq(i->pw_name, "root"))
+                        if (streq(i->pw_name, "root")) {
                                 i->pw_passwd = (char *) password;
+                                if (shell)
+                                        i->pw_shell = (char *) shell;
+                        }
 
                         r = putpwent_sane(i, passwd);
                         if (r < 0)
@@ -638,7 +679,7 @@ static int write_root_passwd(const char *passwd_path, const char *password) {
                         .pw_gid = 0,
                         .pw_gecos = (char *) "Super User",
                         .pw_dir = (char *) "/root",
-                        .pw_shell = (char *) "/bin/sh",
+                        .pw_shell = (char *) (shell ?: "/bin/sh"),
                 };
 
                 if (errno != ENOENT)
@@ -668,6 +709,8 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         int r;
+
+        assert(hashed_password);
 
         r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
         if (r < 0)
@@ -731,72 +774,72 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
         return 0;
 }
 
-static int process_root_password(void) {
+static int process_root_args(void) {
         _cleanup_close_ int lock = -1;
         struct crypt_data cd = {};
-        const char *hashed_password;
-        const char *etc_shadow;
+        const char *password, *hashed_password;
+        const char *etc_passwd, *etc_shadow;
         int r;
 
+        etc_passwd = prefix_roota(arg_root, "/etc/passwd");
         etc_shadow = prefix_roota(arg_root, "/etc/shadow");
-        if (laccess(etc_shadow, F_OK) >= 0 && !arg_force)
+
+        /* We only mess with passwd and shadow if both do not exist or --force is specified. These files are
+         * tightly coupled and hence we make sure we have permission from the user to create/modify both
+         * files. */
+        if ((laccess(etc_passwd, F_OK) >= 0 || laccess(etc_shadow, F_OK) >= 0) && !arg_force)
                 return 0;
 
-        (void) mkdir_parents(etc_shadow, 0755);
+        (void) mkdir_parents(etc_passwd, 0755);
 
         lock = take_etc_passwd_lock(arg_root);
         if (lock < 0)
-                return log_error_errno(lock, "Failed to take a lock: %m");
+                return log_error_errno(lock, "Failed to take a lock on %s: %m", etc_passwd);
 
-        if (arg_delete_root_password) {
-                const char *etc_passwd;
+        if (arg_copy_root_shell && arg_root) {
+                struct passwd *p;
 
-                /* Mixing alloca() and other stuff that touches the stack in one expression is not portable. */
-                etc_passwd = prefix_roota(arg_root, "/etc/passwd");
+                errno = 0;
+                p = getpwnam("root");
+                if (!p)
+                        return log_error_errno(errno_or_else(EIO), "Failed to find passwd entry for root: %m");
 
-                r = write_root_passwd(etc_passwd, "");
+                r = free_and_strdup(&arg_root_shell, p->pw_shell);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to write %s: %m", etc_passwd);
-
-                log_info("%s written", etc_passwd);
-
-                return 0;
+                        return log_oom();
         }
+
+        r = prompt_root_shell();
+        if (r < 0)
+                return r;
 
         if (arg_copy_root_password && arg_root) {
                 struct spwd *p;
 
                 errno = 0;
                 p = getspnam("root");
-                if (p || errno != ENOENT) {
-                        if (!p) {
-                                if (!errno)
-                                        errno = EIO;
+                if (!p)
+                        return log_error_errno(errno_or_else(EIO), "Failed to find shadow entry for root: %m");
 
-                                return log_error_errno(errno, "Failed to find shadow entry for root: %m");
-                        }
+                r = free_and_strdup(&arg_root_password, p->sp_pwdp);
+                if (r < 0)
+                        return log_oom();
 
-                        r = write_root_shadow(etc_shadow, p->sp_pwdp);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to write %s: %m", etc_shadow);
-
-                        log_info("%s copied.", etc_shadow);
-                        return 0;
-                }
+                arg_root_password_is_hashed = true;
         }
 
         r = prompt_root_password();
         if (r < 0)
                 return r;
 
-        if (!arg_root_password)
-                return 0;
-
-        if (arg_root_password_is_hashed)
+        if (arg_root_password && arg_root_password_is_hashed) {
+                password = "x";
                 hashed_password = arg_root_password;
-        else {
+        } else if (arg_root_password) {
                 _cleanup_free_ char *salt = NULL;
                 /* hashed_password points inside cd after crypt_r returns so cd has function scope. */
+
+                password = "x";
 
                 r = make_salt(&salt);
                 if (r < 0)
@@ -807,7 +850,16 @@ static int process_root_password(void) {
                 if (!hashed_password)
                         return log_error_errno(errno == 0 ? SYNTHETIC_ERRNO(EINVAL) : errno,
                                         "Failed to encrypt password: %m");
-        }
+        } else if (arg_delete_root_password)
+                password = hashed_password = "";
+        else
+                password = hashed_password = "!";
+
+        r = write_root_passwd(etc_passwd, password, arg_root_shell);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write %s: %m", etc_passwd);
+
+        log_info("%s written", etc_passwd);
 
         r = write_root_shadow(etc_shadow, hashed_password);
         if (r < 0)
@@ -968,6 +1020,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT_PASSWORD,
                 ARG_ROOT_PASSWORD_FILE,
                 ARG_ROOT_PASSWORD_HASHED,
+                ARG_ROOT_SHELL,
                 ARG_KERNEL_COMMAND_LINE,
                 ARG_PROMPT,
                 ARG_PROMPT_LOCALE,
@@ -975,11 +1028,13 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PROMPT_TIMEZONE,
                 ARG_PROMPT_HOSTNAME,
                 ARG_PROMPT_ROOT_PASSWORD,
+                ARG_PROMPT_ROOT_SHELL,
                 ARG_COPY,
                 ARG_COPY_LOCALE,
                 ARG_COPY_KEYMAP,
                 ARG_COPY_TIMEZONE,
                 ARG_COPY_ROOT_PASSWORD,
+                ARG_COPY_ROOT_SHELL,
                 ARG_SETUP_MACHINE_ID,
                 ARG_FORCE,
                 ARG_DELETE_ROOT_PASSWORD,
@@ -1000,6 +1055,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "root-password",           required_argument, NULL, ARG_ROOT_PASSWORD           },
                 { "root-password-file",      required_argument, NULL, ARG_ROOT_PASSWORD_FILE      },
                 { "root-password-hashed",    required_argument, NULL, ARG_ROOT_PASSWORD_HASHED    },
+                { "root-shell",              required_argument, NULL, ARG_ROOT_SHELL              },
                 { "kernel-command-line",     required_argument, NULL, ARG_KERNEL_COMMAND_LINE     },
                 { "prompt",                  no_argument,       NULL, ARG_PROMPT                  },
                 { "prompt-locale",           no_argument,       NULL, ARG_PROMPT_LOCALE           },
@@ -1007,11 +1063,13 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prompt-timezone",         no_argument,       NULL, ARG_PROMPT_TIMEZONE         },
                 { "prompt-hostname",         no_argument,       NULL, ARG_PROMPT_HOSTNAME         },
                 { "prompt-root-password",    no_argument,       NULL, ARG_PROMPT_ROOT_PASSWORD    },
+                { "prompt-root-shell",       no_argument,       NULL, ARG_PROMPT_ROOT_SHELL       },
                 { "copy",                    no_argument,       NULL, ARG_COPY                    },
                 { "copy-locale",             no_argument,       NULL, ARG_COPY_LOCALE             },
                 { "copy-keymap",             no_argument,       NULL, ARG_COPY_KEYMAP             },
                 { "copy-timezone",           no_argument,       NULL, ARG_COPY_TIMEZONE           },
                 { "copy-root-password",      no_argument,       NULL, ARG_COPY_ROOT_PASSWORD      },
+                { "copy-root-shell",         no_argument,       NULL, ARG_COPY_ROOT_SHELL         },
                 { "setup-machine-id",        no_argument,       NULL, ARG_SETUP_MACHINE_ID        },
                 { "force",                   no_argument,       NULL, ARG_FORCE                   },
                 { "delete-root-password",    no_argument,       NULL, ARG_DELETE_ROOT_PASSWORD    },
@@ -1108,6 +1166,17 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_root_password_is_hashed = true;
                         break;
 
+                case ARG_ROOT_SHELL:
+                        if (!valid_shell(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "%s is not a valid shell path", optarg);
+
+                        r = free_and_strdup(&arg_root_shell, optarg);
+                        if (r < 0)
+                                return log_oom();
+
+                        break;
+
                 case ARG_HOSTNAME:
                         if (!hostname_is_valid(optarg, true))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1135,7 +1204,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PROMPT:
-                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = true;
+                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname =
+                                arg_prompt_root_password = arg_prompt_root_shell = true;
                         break;
 
                 case ARG_PROMPT_LOCALE:
@@ -1158,8 +1228,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_prompt_root_password = true;
                         break;
 
+                case ARG_PROMPT_ROOT_SHELL:
+                        arg_prompt_root_shell = true;
+                        break;
+
                 case ARG_COPY:
-                        arg_copy_locale = arg_copy_keymap = arg_copy_timezone = arg_copy_root_password = true;
+                        arg_copy_locale = arg_copy_keymap = arg_copy_timezone = arg_copy_root_password =
+                                arg_copy_root_shell = true;
                         break;
 
                 case ARG_COPY_LOCALE:
@@ -1176,6 +1251,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_COPY_ROOT_PASSWORD:
                         arg_copy_root_password = true;
+                        break;
+
+                case ARG_COPY_ROOT_SHELL:
+                        arg_copy_root_shell = true;
                         break;
 
                 case ARG_SETUP_MACHINE_ID:
@@ -1278,7 +1357,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = process_root_password();
+        r = process_root_args();
         if (r < 0)
                 return r;
 

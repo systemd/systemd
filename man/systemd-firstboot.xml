@@ -164,9 +164,10 @@
         <term><option>--root-password-file=<replaceable>PATH</replaceable></option></term>
         <term><option>--root-password-hashed=<replaceable>HASHED_PASSWORD</replaceable></option></term>
 
-        <listitem><para>Sets the password of the system's root user. This creates a
+        <listitem><para>Sets the password of the system's root user. This creates/modifies the
+        <citerefentry project='die-net'><refentrytitle>passwd</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
         <citerefentry project='die-net'><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        file. This setting exists in three forms: <option>--root-password=</option> accepts the password to
+        files. This setting exists in three forms: <option>--root-password=</option> accepts the password to
         set directly on the command line, <option>--root-password-file=</option> reads it from a file and
         <option>--root-password-hashed=</option> accepts an already hashed password on the command line. See
         <citerefentry project='die-net'><refentrytitle>shadow</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -174,6 +175,14 @@
         plaintext passwords on the command line, as other users might be able to see them simply by invoking
         <citerefentry project='die-net'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--root-shell=<replaceable>SHELL</replaceable></option></term>
+
+        <listitem><para>Sets the shell of the system's root user. This creates/modifies the
+        <citerefentry project='die-net'><refentrytitle>passwd</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        file.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -191,6 +200,7 @@
         <term><option>--prompt-timezone</option></term>
         <term><option>--prompt-hostname</option></term>
         <term><option>--prompt-root-password</option></term>
+        <term><option>--prompt-root-shell</option></term>
 
         <listitem><para>Prompt the user interactively for a specific
         basic setting. Note that any explicit configuration settings
@@ -207,7 +217,8 @@
         <option>--prompt-keymap</option>,
         <option>--prompt-timezone</option>,
         <option>--prompt-hostname</option>,
-        <option>--prompt-root-password</option> in combination.</para>
+        <option>--prompt-root-password</option>,
+        <option>--prompt-root-shell</option> in combination.</para>
         </listitem>
       </varlistentry>
 
@@ -216,6 +227,7 @@
         <term><option>--copy-keymap</option></term>
         <term><option>--copy-timezone</option></term>
         <term><option>--copy-root-password</option></term>
+        <term><option>--copy-root-shell</option></term>
 
         <listitem><para>Copy a specific basic setting from the host.
         This only works in combination with <option>--root=</option>
@@ -230,7 +242,8 @@
         <option>--copy-locale</option>,
         <option>--copy-keymap</option>,
         <option>--copy-timezone</option>,
-        <option>--copy-root-password</option> in combination.</para>
+        <option>--copy-root-password</option>,
+        <option>--copy-root-shell</option> in combination.</para>
         </listitem>
       </varlistentry>
 
