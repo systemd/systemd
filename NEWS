@@ -329,6 +329,13 @@ CHANGES WITH 246:
           MESSAGE=. This is useful to retrieve a very specific set of fields
           without any decoration.
 
+        * The sd-journal.h API gained two new functions:
+          sd_journal_enumerate_available_unique() and
+          sd_journal_enumerate_available_data() that operate like their
+          counterparts that lack the _available_ in the name, but skip items
+          that cannot be read and processed by the local implementation
+          (i.e. are compressed in an unsupported format or such),
+
         * coredumpctl gained a new --file= switch, matching the same one in
           journalctl: a specific journal file may be specified to read the
           coredump data from.
@@ -438,10 +445,12 @@ CHANGES WITH 246:
           also gained a new switch --root-password-hashed= which is like
           --root-password= but accepts a pre-hashed UNIX password as
           argument. The new option --delete-root-password may be used to unset
-          any password for the root user (dangerous!). A new --force option may
-          be used to override any already set settings with the parameters
-          specified on the command line (by default, the tool will not override
-          what has already been set before, i.e. is purely incremental).
+          any password for the root user (dangerous!). The --root-shell= switch
+          may be used to control the shell to use for the root account. A new
+          --force option may be used to override any already set settings with
+          the parameters specified on the command line (by default, the tool
+          will not override what has already been set before, i.e. is purely
+          incremental).
 
         * systemd-firstboot gained support for a new --image= switch, which is
           similar to --root= but accepts the path to a disk image file, on
