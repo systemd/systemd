@@ -15,6 +15,12 @@
 #include "tmpfile-util.h"
 #include "util.h"
 
+#define LOREM_IPSUM "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor " \
+        "incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation " \
+        "ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit " \
+        "in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat " \
+        "non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+
 static void test_default_term_for_tty(void) {
         log_info("/* %s */", __func__);
 
@@ -129,6 +135,23 @@ static void test_colors(void) {
                 printf("<%s%s%s>\n", colors[i].func(), colors[i].name, ansi_normal());
 }
 
+static void test_text(void) {
+        log_info("/* %s */", __func__);
+
+        for (size_t i = 0; !streq(colors[i].name, "underline"); i++) {
+                bool blwh = strstr(colors[i].name, "black")
+                        || strstr(colors[i].name, "white");
+
+                printf("\n"
+                       "Testing color %s%s\n%s%s%s\n",
+                       colors[i].name,
+                       blwh ? "" : ", this text should be readable",
+                       colors[i].func(),
+                       LOREM_IPSUM,
+                       ansi_normal());
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -136,6 +159,7 @@ int main(int argc, char *argv[]) {
         test_read_one_char();
         test_getttyname_malloc();
         test_colors();
+        test_text();
 
         return 0;
 }
