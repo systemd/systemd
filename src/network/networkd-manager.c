@@ -857,8 +857,10 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                                                valid_str ? "for " : "forever", strempty(valid_str));
                 }
 
-                /* address_update() logs internally, so we don't need to. */
-                (void) address_update(address, flags, scope, &cinfo);
+                /* address_update() logs internally, so we don't need to here. */
+                r = address_update(address, flags, scope, &cinfo);
+                if (r < 0)
+                        link_enter_failed(link);
 
                 break;
 
