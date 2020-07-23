@@ -563,13 +563,11 @@ int mount_all(const char *dest,
                   MOUNT_FATAL|MOUNT_MKDIR },
                 { "tmpfs",                  "/run",                         "tmpfs", "mode=755" TMPFS_LIMITS_RUN,      MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
-                { "/usr/lib/os-release",    "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND,
+                { "/usr/lib/os-release",    "/run/host/os-release",         NULL,    NULL,                             MS_BIND,
                   MOUNT_FATAL|MOUNT_MKDIR|MOUNT_TOUCH }, /* As per kernel interface requirements, bind mount first (creating mount points) and make read-only later */
-                { NULL,                     "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
-                  0 },
-                { "/etc/os-release",        "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND,
-                  MOUNT_MKDIR|MOUNT_TOUCH },
-                { NULL,                     "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                { "/etc/os-release",        "/run/host/os-release",         NULL,    NULL,                             MS_BIND,
+                  MOUNT_OVERMOUNT|MOUNT_MKDIR|MOUNT_TOUCH }, /* /etc/os-release is optional, but takes precedence if it exists - so mount it last */
+                { NULL,                     "/run/host/os-release",         NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
                   0 },
 
 #if HAVE_SELINUX
@@ -609,14 +607,8 @@ int mount_all(const char *dest,
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, mount_table[k].where);
 
-                /* Skip this entry if it is not a remount. */
+                /* Skip this entry if it is not a remount/overmount. */
                 if (mount_table[k].what) {
-                        r = path_is_mount_point(where, NULL, 0);
-                        if (r < 0 && r != -ENOENT)
-                                return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
-                        if (r > 0)
-                                continue;
-
                         /* Shortcut for optional bind mounts: if the source can't be found skip ahead to avoid creating
                          * empty and unused directories. */
                         if (!fatal && FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR) && FLAGS_SET(mount_table[k].flags, MS_BIND)) {
@@ -626,6 +618,17 @@ int mount_all(const char *dest,
                                                 continue;
                                         return log_error_errno(errno, "Failed to stat %s: %m", mount_table[k].what);
                                 }
+                        }
+
+                        r = path_is_mount_point(where, NULL, 0);
+                        if (r < 0 && r != -ENOENT)
+                                return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
+                        if (r > 0) {
+                                if (!FLAGS_SET(mount_table[k].mount_settings, MOUNT_OVERMOUNT))
+                                        continue;
+                                r = umount_verbose(where);
+                                if (r < 0)
+                                        return r;
                         }
                 }
 

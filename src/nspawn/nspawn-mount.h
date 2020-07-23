@@ -18,6 +18,7 @@ typedef enum MountSettingsMask {
         MOUNT_NON_ROOT_ONLY      = 1 << 7, /* if set, only non-root mounts are mounted */
         MOUNT_MKDIR              = 1 << 8, /* if set, make directory to mount over first */
         MOUNT_TOUCH              = 1 << 9, /* if set, touch file to mount over first */
+        MOUNT_OVERMOUNT          = 1 << 10, /* if set and the mountpoint is already mounted, umount it first */
 } MountSettingsMask;
 
 typedef enum CustomMountType {
