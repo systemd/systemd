@@ -2154,11 +2154,13 @@ SystemCallErrorNumber=EPERM</programlisting>
         project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details
         about environment variables.</para>
 
-        <para>Note that environment variables are not suitable for passing secrets (such as passwords, key material, …)
-        to service processes. Environment variables set for a unit are exposed to unprivileged clients via D-Bus IPC,
-        and generally not understood as being data that requires protection. Moreover, environment variables are
-        propagated down the process tree, including across security boundaries (such as setuid/setgid executables), and
-        hence might leak to processes that should not have access to the secret data.</para></listitem>
+        <para>Note that environment variables are not suitable for passing secrets (such as passwords, key
+        material, …)  to service processes. Environment variables set for a unit are exposed to unprivileged
+        clients via D-Bus IPC, and generally not understood as being data that requires protection. Moreover,
+        environment variables are propagated down the process tree, including across security boundaries
+        (such as setuid/setgid executables), and hence might leak to processes that should not have access to
+        the secret data. Use <varname>LoadCredential=</varname> (see below) to pass data to unit processes
+        securely.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2625,6 +2627,73 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <variablelist class='unit-directives'>
+
+      <varlistentry>
+        <term><varname>LoadCredential=</varname><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
+
+        <listitem><para>Pass a credential to the unit. Credentials are limited-size binary or textual objects
+        that may be passed to unit processes. They are primarily used for passing cryptographic keys (both
+        public and private) or certificates, user account information or identity information from host to
+        services. The data is accessible from the unit's processes via the file system, at a read-only
+        location that (if possible and permitted) is backed by non-swappable memory. The data is only
+        accessible to the user associated with the unit, via the
+        <varname>User=</varname>/<varname>DynamicUser=</varname> settings (as well as the superuser). When
+        available, the location of credentials is exported as the <varname>$CREDENTIALS_DIRECTORY</varname>
+        environment variable to the unit's processes.</para>
+
+        <para>The <varname>LoadCredential=</varname> setting takes a textual ID to use as name for a
+        credential plus a file system path. The ID must be a short ASCII string suitable as filename in the
+        filesystem, and may be chosen freely by the user. If the specified path is absolute it is opened as
+        regular file and the credential data is read from it. If the absolute path refers to an
+        <constant>AF_UNIX</constant> stream socket in the file system a connection is made to it and the
+        credential data read from the connection, providing an easy IPC integration point for dynamically
+        providing credentials from other services. If the specified path is not absolute and itself qualifies
+        as valid credential identifier it is understood to refer to a credential that the service manager
+        itself received via the <varname>$CREDENTIALS_DIRECTORY</varname> environment variable, which may be
+        used to propagate credentials from an invoking environment (e.g. a container manager that invoked the
+        service manager) into a service. The contents of the file/socket may be arbitrary binary or textual
+        data, including newline characters and NUL bytes. This option may be used multiple times, each time
+        defining an additional credential to pass to the unit.</para>
+
+        <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
+        be directly accessible to the unit's processes: the credential data is read and copied into separate,
+        read-only copies for the unit that are accessible to appropriately privileged processes. This is
+        particularly useful in combination with <varname>DynamicUser=</varname> as this way privileged data
+        can be made available to processes running under a dynamic UID (i.e. not a previously known one)
+        without having to open up access to all users.</para>
+
+        <para>In order to reference the path a credential may be read from within a
+        <varname>ExecStart=</varname> command line use <literal>${CREDENTIALS_DIRECTORY}/mycred</literal>,
+        e.g. <literal>ExecStart=cat ${CREDENTIALS_DIRECTORY}/mycred</literal>.</para>
+
+        <para>Currently, an accumulated credential size limit of 1M bytes per unit is
+        enforced.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SetCredential=</varname><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
+
+        <listitem><para>The <varname>SetCredential=</varname> setting is similar to
+        <varname>LoadCredential=</varname> but accepts a literal value to use as data for the credential,
+        instead of a file system path to read the data from. Do not use this option for data that is supposed
+        to be secret, as it is accessible to unprivileged processes via IPC. It's only safe to use this for
+        user IDs, public key material and similar non-sensitive data. For everything else use
+        <varname>LoadCredential=</varname>. In order to embed binary data into the credential data use
+        C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to embed
+        a NUL byte).</para>
+
+        <para>If a credential of the same ID is listed in both <varname>LoadCredential=</varname> and
+        <varname>SetCredential=</varname>, the latter will act as default if the former cannot be
+        retrieved. In this case not being able to retrieve the credential from the path specified in
+        <varname>LoadCredential=</varname> is not considered fatal.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>System V Compatibility</title>
     <variablelist class='unit-directives'>
 
@@ -2777,6 +2846,16 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>, and
         <varname>ConfigurationDirectory=</varname> when those settings are used.</para>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>$CREDENTIALS_DIRECTORY</varname></term>
+
+        <listitem><para>An absolute path to the per-unit directory with credentials configured via
+        <varname>LoadCredential=</varname>/<varname>SetCredential=</varname>. The directory is marked
+        read-only and is placed in unswappable memory (if supported and permitted), and is only accessible to
+        the UID associated with the unit via <varname>User=</varname> or <varname>DynamicUser=</varname> (and
+        the superuser).</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3380,7 +3459,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
             <entry><constant>EXIT_NUMA_POLICY</constant></entry>
             <entry>Failed to set up unit's NUMA memory policy. See <varname>NUMAPolicy=</varname> and <varname>NUMAMask=</varname> above.</entry>
           </row>
-
+          <row>
+            <entry>243</entry>
+            <entry><constant>EXIT_CREDENTIALS</constant></entry>
+            <entry>Failed to set up unit's credentials. See <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> above.</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
