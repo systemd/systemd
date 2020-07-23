@@ -685,7 +685,7 @@ static int write_root_passwd(const char *passwd_path, const char *password, cons
                 if (errno != ENOENT)
                         return -errno;
 
-                r = fchmod(fileno(passwd), 0000);
+                r = fchmod(fileno(passwd), 0644);
                 if (r < 0)
                         return -errno;
 
