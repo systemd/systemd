@@ -112,6 +112,10 @@ CHANGES WITH 246:
           read and even write access to all these otherwise unmappable files,
           which is quite likely a major security problem.
 
+        * tmpfs mounts automatically created by systemd (/tmp, /run, /dev/shm,
+          and others) now have a size and inode limits applied (50% of RAM for
+          /tmp, 10% of RAM for /dev/shm, etc.)
+
         * nss-mymachines lost support for resolution of users and groups, and
           now only does resolution of hostnames. This functionality is now
           provided by nss-systemd. Thus, the 'mymachines' entry should be
