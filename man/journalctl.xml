@@ -453,7 +453,7 @@
         <term><option>--quiet</option></term>
 
         <listitem><para>Suppresses all informational messages
-        (i.e. "-- Logs begin at …", "-- Reboot --"),
+        (i.e. "-- Journal begins at …", "-- Reboot --"),
         any warning messages regarding
         inaccessible system journals when run as a normal
         user.</para></listitem>

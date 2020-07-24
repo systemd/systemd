@@ -2562,10 +2562,10 @@ int main(int argc, char *argv[]) {
 
                 if (r > 0) {
                         if (arg_follow)
-                                printf("-- Logs begin at %s. --\n",
+                                printf("-- Journal begins at %s. --\n",
                                        format_timestamp_maybe_utc(start_buf, sizeof(start_buf), start));
                         else
-                                printf("-- Logs begin at %s, end at %s. --\n",
+                                printf("-- Journal begins at %s, ends at %s. --\n",
                                        format_timestamp_maybe_utc(start_buf, sizeof(start_buf), start),
                                        format_timestamp_maybe_utc(end_buf, sizeof(end_buf), end));
                 }
