@@ -488,3 +488,39 @@ Mocno zalecane jest unikanie wykonywania usług pod tą tożsamością użytkown
 zwłaszcza na komputerach używających NFS lub mających kontenery. Należy
 przydzielić identyfikator użytkownika dla tej konkretnej usługi, statycznie
 przez systemd-sysusers lub dynamicznie przez ustawienie usługi DynamicUser=.
+
+-- 1c0454c1bd2241e0ac6fefb4bc631433
+Subject: Usługa systemd-udev-settle.service jest przestarzała.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Użycie jednostki usługi systemd „systemd-udev-settle.service” jest
+przestarzałe. Wstawia ona sztuczne opóźnienie do procesu uruchamiania
+bez dostarczania gwarancji, które były oczekiwane przez pozostałe
+podsystemy. Korzystanie z tej usługi może prowadzić do hazardów,
+i zasadniczo jest błędem.
+
+W przeszłości zadaniem tej usługi było oczekiwanie, aż wszystkie urządzenia
+komputera zostaną w pełni wykryte i zainicjowane, opóźniając uruchamianie
+do ukończenia tego etapu. Jednakże, współczesne komputery i urządzenia
+na ogół nie działają już w ten sposób, tylko mogą pojawić się w dowolnej
+chwili i zająć dowolny czas na wykrycie i inicjację. Z tego powodu,
+w ogólnym przypadku, nie jest już możliwe poprawne opóźnienie uruchamiania
+do przetworzenia „wszystkich urządzeń”, ponieważ nie jest jasne, co znaczy
+„wszystkie urządzenia” i kiedy zostały odnalezione. Dotyczy to zwłaszcza
+urządzeń podłączonych przez USB lub sieć.
+
+Nowoczesne oprogramowanie wymagające określonego sprzętu (takiego jak
+urządzenie sieciowe lub urządzenie blokowe) do działania powinno oczekiwać
+tylko na pojawienie się danego urządzenia, a w przeciwnym razie działać
+asynchronicznie, inicjując urządzenia, kiedy te pojawiają się w trakcie
+uruchamiania i w trakcie działania systemu bez opóźniania procesu uruchamiania.
+
+Jest to wada danego oprogramowania, jeśli nie działa ono w ten sposób
+i nadal wciąga usługę systemd-udev-settle.service do procesu uruchamiania.
+
+Prosimy zgłosić błąd w następujących jednostkach z prośbą
+o ich aktualizację tak, aby działały w sposób dynamiczny
+bez zależności od usługi systemd-udev-settle.service:
+
+    @OFFENDING_UNITS@
