@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2020.06.24
-#	Date:    2020-06-24 03:15:01
+#	Version: 2020.07.21
+#	Date:    2020-07-21 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -42,6 +42,8 @@
 	7a0b  SPI Controller
 	7a0c  LPC Controller
 	7a0f  DMA (Direct Memory Access) Controller
+# Found on some boards with two sockets
+	7a10  Hyper Transport Bridge Controller
 	7a14  EHCI USB Controller
 	7a15  Vivante GPU (Graphics Processing Unit)
 	7a19  PCI-to-PCI Bridge
@@ -272,6 +274,9 @@
 	0013  53c875a
 		1000 1000  LSI53C875A PCI to Ultra SCSI Controller
 	0014  MegaRAID Tri-Mode SAS3516
+		1000 9460  MegaRAID 9460-16i
+		1000 9480  MegaRAID 9480-8i8e
+		1000 9481  MegaRAID 9480-8e
 		1028 1f3a  PERC H745 Adapter
 		1028 1f3b  PERC H745 Front
 		1028 1fd4  PERC H745P MX
@@ -283,10 +288,15 @@
 		8086 9460  RAID Controller RSP3TD160F
 		8086 9480  RAID Controller RSP3MD088F
 	0015  MegaRAID Tri-Mode SAS3416
+		1000 9441  MegaRAID 9440-16i
 		1028 1f3c  PERC H345 Adapter
 		1028 1f3d  PERC H345 Front
 		1d49 0503  ThinkSystem RAID 530-16i PCIe 12Gb Adapter
 	0016  MegaRAID Tri-Mode SAS3508
+		1000 9461  MegaRAID 9460-8i
+		1000 9462  MegaRAID 9460-4i
+		1000 9463  MegaRAID 9365-28i
+		1000 9464  MegaRAID 9365-24i
 		1028 1fc9  PERC H840 Adapter
 		1028 1fcb  PERC H740P Adapter
 		1028 1fcd  PERC H740P Mini
@@ -297,6 +307,8 @@
 		8086 352f  Integrated RAID Module RMSP3HD080E
 		8086 9461  RAID Controller RSP3DD080F
 	0017  MegaRAID Tri-Mode SAS3408
+		1000 9440  MegaRAID 9440-8i
+		1000 9442  MegaRAID 9440-4i
 		1d49 0500  ThinkSystem RAID 530-8i PCIe 12Gb Adapter
 		1d49 0502  ThinkSystem RAID 530-8i Dense Adapter
 		8086 3528  Integrated RAID RMSP3LD060
@@ -697,6 +709,7 @@
 	00c2  SAS3324 PCI-Express Fusion-MPT SAS-3
 	00c3  SAS3324 PCI-Express Fusion-MPT SAS-3
 	00c4  SAS3224 PCI-Express Fusion-MPT SAS-3
+		1170 0002  SAS3224 PCI Express to 12Gb HBA MEZZ CARD
 	00c5  SAS3316 PCI-Express Fusion-MPT SAS-3
 	00c6  SAS3316 PCI-Express Fusion-MPT SAS-3
 	00c7  SAS3316 PCI-Express Fusion-MPT SAS-3
@@ -744,6 +757,10 @@
 		1d49 0205  ThinkSystem 440-16i SAS/SATA PCIe Gen4 12Gb Internal HBA
 		1d49 0206  ThinkSystem 440-16e SAS/SATA PCIe Gen4 12Gb HBA
 	00e6  Fusion-MPT 12GSAS/PCIe Secure SAS38xx
+		1000 4050  9500-16i Tri-Mode HBA
+		1000 4060  9500-8i Tri-Mode HBA
+		1000 4070  9500-16e Tri-Mode HBA
+		1000 4080  9500-8e Tri-Mode HBA
 		1028 200b  HBA355i Adapter
 		1028 200c  HBA355i Front
 		1028 200d  HBA355e Adapter
@@ -1912,6 +1929,7 @@
 		103c 0b0c  Bonaire [FirePro W4300]
 		103c 230c  FirePro W5100
 		13cc 3d2a  MXRT-5600
+	664d  Bonaire [FirePro W5100 / Barco MXRT-5600]
 	6650  Bonaire
 	6651  Bonaire
 	6658  Bonaire XTX [Radeon R7 260X/360]
@@ -2590,10 +2608,15 @@
 		1462 3413  Radeon RX 480 Gaming X 8GB
 		1462 3416  Radeon RX 570
 		1462 3418  Radeon RX 580 Armor 4G OC
+		1462 341b  Radeon RX 570 Armor 8G OC
 		1462 341e  Radeon RX 570 Armor 4G OC
 		1462 8a92  Radeon RX 580
 		148c 2372  Radeon RX 480 [Red Dragon]
 		148c 2373  Radeon RX 470
+		148c 2377  Red Devil RX 580 8G Golden
+# https://www.techpowerup.com/vgabios/?manufacturer=Powercolor&model=RX+580
+		148c 2378  Radeon RX 580
+		148c 2379  Radeon RX 570 4G [Red Dragon]
 		1682 9470  Radeon RX 470
 		1682 9480  Radeon RX 480
 		1682 9588  Radeon RX 580 XTR
@@ -2606,6 +2629,7 @@
 		1849 5030  Phantom Gaming D Radeon RX580 8G OC
 		1da2 e353  Radeon RX 570 Pulse 4GB
 		1da2 e366  Nitro+ Radeon RX 570/580/590
+		1da2 e387  Radeon RX 570 Pulse 4GB
 	67e0  Baffin [Radeon Pro WX 4170]
 		103c 8270  Radeon Pro WX 4170
 		103c 8272  Radeon Pro WX 4170
@@ -3484,6 +3508,7 @@
 	71c1  RV535 [Radeon X1650 PRO]
 		174b 0880  Radeon X1700 FSC
 	71c2  RV530 [Radeon X1600 PRO]
+	71c3  RV530 [Radeon X1600 PRO]
 	71c4  RV530/M56 GL [Mobility FireGL V5200]
 		17aa 2007  ThinkPad T60p
 	71c5  RV530/M56-P [Mobility Radeon X1600]
@@ -3547,6 +3572,7 @@
 	7310  Navi 10 [Radeon Pro W5700X]
 	7312  Navi 10 [Radeon Pro W5700]
 	731f  Navi 10 [Radeon RX 5600 OEM/5600 XT / 5700/5700 XT]
+		1458 2313  Radeon RX 5700 XT Gaming OC
 		1da2 e411  Radeon RX 5600 XT
 	7340  Navi 14 [Radeon RX 5500/5500M / Pro 5500M]
 	7341  Navi 14 [Radeon Pro W5500]
@@ -10447,7 +10473,7 @@
 	06eb  G98M [Quadro NVS 160M]
 	06ec  G98M [GeForce G 105M]
 	06ed  G98 [GeForce 9600 GT / 9800 GT]
-	06ee  G98 [GeForce 9600 GT / 9800 GT]
+	06ee  G98 [GeForce 9600 GT / 9800 GT / GT 240]
 	06ef  G98M [GeForce G 103M]
 	06f1  G98M [GeForce G 105M]
 	06f8  G98 [Quadro NVS 420]
@@ -11998,6 +12024,7 @@
 	1ed0  TU104BM [GeForce RTX 2080 Mobile]
 	1ed1  TU104BM [GeForce RTX 2070 SUPER Mobile / Max-Q]
 	1ed3  TU104BM [GeForce RTX 2080 SUPER Mobile / Max-Q]
+	1ef5  TU104GLM [Quadro RTX 5000 Mobile Refresh]
 	1f02  TU106 [GeForce RTX 2070]
 		1043 8673  TURBO RTX 2070
 	1f04  TU106
@@ -12026,15 +12053,18 @@
 	1f94  TU117M [GeForce GTX 1650 Mobile]
 	1f95  TU117M [GeForce GTX 1650 Ti Mobile]
 	1f96  TU117M [GeForce GTX 1650 Mobile / Max-Q]
+	1f97  TU117M [GeForce MX450]
 	1f99  TU117M
 	1fae  TU117GL
 	1fb8  TU117GLM [Quadro T2000 Mobile / Max-Q]
 	1fb9  TU117GLM [Quadro T1000 Mobile]
 	1fbf  TU117GL
-	20b0  GA100 [GRID A100X]
+	1fd9  TU117BM [GeForce GTX 1650 Mobile Refresh]
+	1ff9  TU117GLM [Quadro T1000 Mobile]
+	20b0  GA100 [A100 SXM4 40GB]
 	20be  GA100 [GRID A100A]
 	20bf  GA100 [GRID A100B]
-	20f1  GA100 [GRID A100 PCIe 40GB]
+	20f1  GA100 [A100 PCIe 40GB]
 	2182  TU116 [GeForce GTX 1660 Ti]
 	2183  TU116
 	2184  TU116 [GeForce GTX 1660]
@@ -12467,6 +12497,7 @@
 	3fc4  RME Digi9652 (Hammerfall)
 	3fc5  RME Hammerfall DSP
 	3fc6  RME Hammerfall DSP MADI
+	5005  Alveo U250
 	7038  FPGA Card XC7VX690T
 		17aa 402f  FPGA XC7VX690T-3FFG1157E
 	8380  Ellips ProfiXpress Profibus Master
@@ -19143,6 +19174,8 @@
 	43a1  BCM4360 802.11ac Wireless Network Adapter
 	43a2  BCM4360 802.11ac Wireless Network Adapter
 	43a3  BCM4350 802.11ac Wireless Network Adapter
+# Manufactured by Foxconn for Lenovo
+		17aa 075a  00JT494
 	43a9  BCM43217 802.11b/g/n
 	43aa  BCM43131 802.11b/g/n
 	43ae  BCM43162 802.11ac Wireless Network Adapter
@@ -19931,6 +19964,7 @@
 	0250  Spectrum-3, Flash recovery mode
 	0251  Spectrum-3, Secure Flash recovery mode
 	0252  Amos chiplet
+	0253  Amos GearBox Manager
 	0254  Spectrum-4, Flash recovery mode
 	0255  Spectrum-4, Secure Flash recovery mode
 	0256  Ofek chiplet
@@ -20011,8 +20045,10 @@
 	1016  MT27710 Family [ConnectX-4 Lx Virtual Function]
 	1017  MT27800 Family [ConnectX-5]
 		15b3 0006  ConnectX®-5 EN network interface card, 100GbE single-port QSFP28, PCIe3.0 x16, tall bracket; MCX515A-CCAT
+		15b3 0007  Mellanox ConnectX®-5 MCX516A-CCAT
 		15b3 0020  ConnectX®-5 EN network interface card, 10/25GbE dual-port SFP28, PCIe3.0 x8, tall bracket ; MCX512A-ACAT
 		15b3 0068  ConnectX®-5 EN network interface card for OCP2.0, Type 1, with host management, 25GbE dual-port SFP28, PCIe3.0 x8, no bracket Halogen free ; MCX542B-ACAN
+		15b3 0125  Tencent ConnectX-5 EN Ex network interface card for OCP 3.0, with host management, 50GbE Dual-port QSFP28, PCIe4.0 x16, Thumbscrew (pull-tab) bracket
 	1018  MT27800 Family [ConnectX-5 Virtual Function]
 	1019  MT28800 Family [ConnectX-5 Ex]
 		15b3 0008  ConnectX-5 Ex EN network interface card, 100GbE dual-port QSFP28, PCIe4.0 x16, tall bracket; MCX516A-CDAT
@@ -20431,10 +20467,14 @@
 167e  ONNTO Corp.
 1681  Hercules
 1682  XFX Pine Group Inc.
+	5701  Radeon 5700 XT Thicc III Ultra
 	c580  Radeon RX 580
 1688  CastleNet Technology Inc.
 	1170  WLAN 802.11b card
 168a  Utimaco IS GmbH
+	2086  CryptoServer Se-Series Hardware Security Module
+	c040  CryptoServer CSe-Series Hardware Security Module
+	c051  CryptoServer Se-Series Gen2 Hardware Security Module
 # nee Atheros Communications, Inc.
 168c  Qualcomm Atheros
 	0007  AR5210 Wireless Network Adapter [AR5000 802.11a]
@@ -22786,6 +22826,7 @@
 	cd01  NVMe SSD Controller
 	ec20  Elastic Network Adapter (ENA)
 	efa0  Elastic Fabric Adapter (EFA)
+	efa1  Elastic Fabric Adapter (EFA)
 1d17  Zhaoxin
 	070f  ZX-100 PCI Express Root Port
 	0710  ZX-100/ZX-200 PCI Express Root Port
@@ -22910,9 +22951,24 @@
 	1012  AR-MAN-U200 [Manitou Class Accelerator for U200]
 	1013  AR-MAN-U250 [Manitou Class Accelerator for U250]
 	1014  AR-MAN-U280 [Manitou Class Accelerator for U280]
+	1015  AR-ARK-BBDEV-FX0 [Arkville 32B DPDK Baseband Device]
+	1016  AR-ARK-BBDEV-FX1 [Arkville 64B DPDK Baseband Device]
 	4200  A5PL-E1-10GETI [10 GbE Ethernet Traffic Instrument]
 1d72  Xiaomi
-1d78  DERA
+1d78  DERA Storage
+	1512  TAI NVMe Controller
+		1d78 2003  D5457 HHHL 1.6TB NVMe SSD
+		1d78 2004  D5437 HHHL 2TB NVMe SSD
+		1d78 2005  D5457 HHHL 3.2TB NVMe SSD
+		1d78 2006  D5437 HHHL 4TB NVMe SSD
+		1d78 2007  D5457 HHHL 6.4TB NVMe SSD
+		1d78 2008  D5437 HHHL 8TB NVMe SSD
+		1d78 2103  D5457 U.2 1.6TB NVMe SSD
+		1d78 2104  D5437 U.2 2TB NVMe SSD
+		1d78 2105  D5457 U.2 3.2TB NVMe SSD
+		1d78 2106  D5437 U.2 4TB NVMe SSD
+		1d78 2107  D5457 U.2 6.4TB NVMe SSD
+		1d78 2108  D5437 U.2 8TB NVMe SSD
 1d7c  Aerotech, Inc.
 1d82  NETINT Technologies Inc.
 	0101  Codensity D400 SSD
@@ -22966,6 +23022,7 @@
 	0001  HL-1000 AI Inference Accelerator [Goya]
 # PCIe accelerator card for Deep Learning training tasks
 	1000  HL-2000 AI Training Accelerator [Gaudi]
+1db2  ATP ELECTRONICS INC
 1dbb  NGD Systems, Inc.
 1dbf  Guizhou Huaxintong Semiconductor Technology Co., Ltd
 	0401  StarDragon4800 PCI Express Root Port
@@ -23012,6 +23069,7 @@
 1de5  Eideticom, Inc
 	1000  IO Memory Controller
 	2000  NoLoad Hardware Development Kit
+1dee  Biwin Storage Technology Co., Ltd.
 1def  Ampere Computing, LLC
 	e005  eMAG PCI Express Root Port 0
 	e006  eMAG PCI Express Root Port 1
@@ -23065,6 +23123,13 @@
 1e38  Blaize, Inc
 1e3d  Burlywood, Inc
 1e49  Yangtze Memory Technologies Co.,Ltd
+1e4b  MAXIO Technology (Hangzhou) Ltd.
+	1001  NVMe SSD Controller MAP1001
+	1002  NVMe SSD Controller MAP1002
+	1003  NVMe SSD Controller MAP1003
+	1201  NVMe SSD Controller MAP1201
+	1202  NVMe SSD Controller MAP1202
+	1601  NVMe SSD Controller MAP1601
 1e4c  GSI Technology
 # Associative Processing Unit chip
 	0010  Gemini [ Lida ]
@@ -23996,6 +24061,7 @@
 	02e8  Serial IO I2C Host Controller
 	02e9  Comet Lake Serial IO I2C Host Controller
 	02f0  Wireless-AC 9462
+		8086 0070  Intel(R) Wi-Fi 6 AX201 160MHz
 	02f9  Comet Lake Thermal Subsytem
 	02fc  Comet Lake Integrated Sensor Solution
 	0309  80303 I/O Processor PCI-to-PCI Bridge
@@ -25983,7 +26049,6 @@
 		8086 0008  Ethernet Network Adapter OCP XXV710-1
 		8086 0009  Ethernet 25G 2P XXV710 Adapter
 		8086 000a  Ethernet 25G 2P XXV710 OCP
-		8086 000c  Ethernet Network Adapter XXV710-DA2 for OCP 3.0
 		8086 4001  Ethernet Network Adapter XXV710-2
 	1591  Ethernet Controller E810-C for backplane
 	1592  Ethernet Controller E810-C for QSFP
@@ -25994,6 +26059,7 @@
 		8086 0006  Ethernet Network Adapter E810-C-Q2 for OCP3.0
 		8086 0009  Ethernet Network Adapter E810-C-Q1
 		8086 000a  Ethernet Network Adapter E810-C-Q1 for OCP
+		8086 000b  Ethernet 100G 2P E810-C Adapter
 	1593  Ethernet Controller E810-C for SFP
 		1137 02c3  E810XXVDA4 4x25/10 GbE SFP28 PCIe NIC
 		8086 0002  Ethernet Network Adapter E810-L-2
@@ -26002,6 +26068,7 @@
 		8086 0007  Ethernet Network Adapter E810-XXV-4
 		8086 0008  Ethernet Network Adapter E810-XXV-2
 		8086 0009  Ethernet Network Adapter E810-XXV-2 for OCP 2.0
+		8086 000a  Ethernet 25G 4P E810-XXV Adapter
 	1599  Ethernet Controller E810-XXV for backplane
 	159a  Ethernet Controller E810-XXV for QSFP
 	159b  Ethernet Controller E810-XXV for SFP
@@ -31695,6 +31762,7 @@
 		1028 0869  Vostro 3470
 	a36f  Cannon Lake PCH Shared SRAM
 	a370  Wireless-AC 9560 [Jefferson Peak]
+		1a56 1552  Killer(R) Wireless-AC 1550i Wireless Network Adapter (9560NGW)
 	a379  Cannon Lake PCH Thermal Controller
 		1028 0869  Vostro 3470
 	a620  6400/6402 Advanced Memory Buffer (AMB)
