@@ -342,10 +342,9 @@
 
     <para>Container and sandbox runtime managers may make the host's
     identification data available to applications by providing the host's
-    <filename>/etc/os-release</filename> and
-    <filename>/usr/lib/os-release</filename> as respectively
-    <filename>/run/host/etc/os-release</filename> and
-    <filename>/run/host/usr/lib/os-release</filename>.</para>
+    <filename>/etc/os-release</filename> (if available, otherwise
+    <filename>/usr/lib/os-release</filename> as a fallback) as
+    <filename>/run/host/os-release</filename>.</para>
   </refsect1>
 
   <refsect1>

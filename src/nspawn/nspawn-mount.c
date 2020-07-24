@@ -563,15 +563,16 @@ int mount_all(const char *dest,
                   MOUNT_FATAL|MOUNT_MKDIR },
                 { "tmpfs",                  "/run",                         "tmpfs", "mode=755" TMPFS_LIMITS_RUN,      MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
-                { "/usr/lib/os-release",    "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND,
-                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_TOUCH }, /* As per kernel interface requirements, bind mount first (creating mount points) and make read-only later */
-                { NULL,                     "/run/host/usr/lib/os-release", NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
-                  0 },
-                { "/etc/os-release",        "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND,
-                  MOUNT_MKDIR|MOUNT_TOUCH },
-                { NULL,                     "/run/host/etc/os-release",     NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
-                  0 },
-
+                { "/run/host",              "/run/host",                    NULL,    NULL,                             MS_BIND,
+                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_PREFIX_ROOT }, /* Prepare this so that we can make it read-only when we are done */
+                { "/etc/os-release",        "/run/host/os-release",         NULL,    NULL,                             MS_BIND,
+                  MOUNT_TOUCH }, /* As per kernel interface requirements, bind mount first (creating mount points) and make read-only later */
+                { "/usr/lib/os-release",    "/run/host/os-release",         NULL,    NULL,                             MS_BIND,
+                  MOUNT_FATAL }, /* If /etc/os-release doesn't exist use the version in /usr/lib as fallback */
+                { NULL,                     "/run/host/os-release",         NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                  MOUNT_FATAL },
+                { NULL,                     "/run/host",                    NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                  MOUNT_FATAL|MOUNT_IN_USERNS },
 #if HAVE_SELINUX
                 { "/sys/fs/selinux",        "/sys/fs/selinux",              NULL,    NULL,                             MS_BIND,
                   MOUNT_MKDIR },  /* Bind mount first (mkdir/chown the mount point in case /sys/ is mounted as minimal skeleton tmpfs) */
@@ -589,9 +590,9 @@ int mount_all(const char *dest,
         int r;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
-                _cleanup_free_ char *where = NULL, *options = NULL;
-                const char *o;
+                _cleanup_free_ char *where = NULL, *options = NULL, *prefixed = NULL;
                 bool fatal = FLAGS_SET(mount_table[k].mount_settings, MOUNT_FATAL);
+                const char *o;
 
                 if (in_userns != FLAGS_SET(mount_table[k].mount_settings, MOUNT_IN_USERNS))
                         continue;
@@ -616,20 +617,9 @@ int mount_all(const char *dest,
                                 return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
                         if (r > 0)
                                 continue;
-
-                        /* Shortcut for optional bind mounts: if the source can't be found skip ahead to avoid creating
-                         * empty and unused directories. */
-                        if (!fatal && FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR) && FLAGS_SET(mount_table[k].flags, MS_BIND)) {
-                                r = access(mount_table[k].what, F_OK);
-                                if (r < 0) {
-                                        if (errno == ENOENT)
-                                                continue;
-                                        return log_error_errno(errno, "Failed to stat %s: %m", mount_table[k].what);
-                                }
-                        }
                 }
 
-                if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_MKDIR)) {
+                if ((mount_table[k].mount_settings & (MOUNT_MKDIR|MOUNT_TOUCH)) != 0) {
                         uid_t u = (use_userns && !in_userns) ? uid_shift : UID_INVALID;
 
                         if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_TOUCH))
@@ -647,13 +637,17 @@ int mount_all(const char *dest,
                                 if (r != -EROFS)
                                         continue;
                         }
-                        if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_TOUCH)) {
-                                r = touch(where);
-                                if (r < 0 && r != -EEXIST) {
-                                        if (fatal)
-                                                return log_error_errno(r, "Failed to create mount point %s: %m", where);
-                                        log_debug_errno(r, "Failed to create mount point %s: %m", where);
-                                }
+                }
+
+                if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_TOUCH)) {
+                        r = touch(where);
+                        if (r < 0 && r != -EEXIST) {
+                                if (fatal && r != -EROFS)
+                                        return log_error_errno(r, "Failed to create file %s: %m", where);
+
+                                log_debug_errno(r, "Failed to create file %s: %m", where);
+                                if (r != -EROFS)
+                                        continue;
                         }
                 }
 
@@ -666,8 +660,18 @@ int mount_all(const char *dest,
                                 o = options;
                 }
 
+                if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_PREFIX_ROOT)) {
+                        /* Optionally prefix the mount source with the root dir. This is useful in bind
+                         * mounts to be created within the container image before we transition into it. Note
+                         * that MOUNT_IN_USERNS is run after we transitioned hence prefixing is not ncessary
+                         * for those. */
+                        r = chase_symlinks(mount_table[k].what, dest, CHASE_PREFIX_ROOT, &prefixed, NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, mount_table[k].what);
+                }
+
                 r = mount_verbose(fatal ? LOG_ERR : LOG_DEBUG,
-                                  mount_table[k].what,
+                                  prefixed ?: mount_table[k].what,
                                   where,
                                   mount_table[k].type,
                                   mount_table[k].flags,
