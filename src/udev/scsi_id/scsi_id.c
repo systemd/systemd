@@ -113,7 +113,7 @@ static char *get_value(char **buffer) {
                 end = quote_string;
         } else
                 end = comma_string;
-        val = strsep(buffer, end);
+        val = extract_first_word(buffer, end);
         if (val && end == quote_string)
                 /*
                  * skip trailing quote
@@ -178,7 +178,7 @@ static int get_file_options(const char *vendor, const char *model,
         for (;;) {
                 vendor_in = model_in = options_in = NULL;
 
-                buf = fgets(buffer, MAX_BUFFER_LEN, f);
+                buf = read_line(buffer, MAX_BUFFER_LEN, f);
                 if (!buf)
                         break;
                 lineno++;
@@ -198,7 +198,7 @@ static int get_file_options(const char *vendor, const char *model,
                 if (*buf == '#')
                         continue;
 
-                str1 = strsep(&buf, "=");
+                str1 = extract_first_word(&buf, "=");
                 if (str1 && strcaseeq(str1, "VENDOR")) {
                         str1 = get_value(&buf);
                         if (!str1) {
@@ -207,7 +207,7 @@ static int get_file_options(const char *vendor, const char *model,
                         }
                         vendor_in = str1;
 
-                        str1 = strsep(&buf, "=");
+                        str1 = extract_first_word(&buf, "=");
                         if (str1 && strcaseeq(str1, "MODEL")) {
                                 str1 = get_value(&buf);
                                 if (!str1) {
@@ -215,7 +215,7 @@ static int get_file_options(const char *vendor, const char *model,
                                         break;
                                 }
                                 model_in = str1;
-                                str1 = strsep(&buf, "=");
+                                str1 = extract_first_word(&buf, "=");
                         }
                 }
 
@@ -275,7 +275,7 @@ static int get_file_options(const char *vendor, const char *model,
                                  */
                                 (*newargv)[c] = buffer;
                                 for (c = 1; c < *argc; c++)
-                                        (*newargv)[c] = strsep(&buffer, " \t");
+                                        (*newargv)[c] = extract_first_word(&buffer, " \t");
                                 buffer = NULL;
                         }
                 } else {
