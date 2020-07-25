@@ -136,6 +136,9 @@ static void test_cleanup_order(void) {
 static void test_auto_erase_memory(void) {
         _cleanup_(erase_and_freep) uint8_t *p1, *p2;
 
+        /* print address of p2, else e.g. clang-11 will optimize it out */
+        log_debug("p1: %p p2: %p", &p1, &p2);
+
         assert_se(p1 = new(uint8_t, 1024));
         assert_se(p2 = new(uint8_t, 1024));
 
