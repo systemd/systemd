@@ -49,7 +49,7 @@ static void test_clock_is_localtime(void) {
                 log_info("scenario #%zu:, expected result %i", i, scenarios[i].expected_result);
                 log_info("%s", scenarios[i].contents);
                 rewind(f);
-                ftruncate(fileno(f), 0);
+                assert_se(ftruncate(fileno(f), 0) == 0);
                 assert_se(write_string_stream(f, scenarios[i].contents, WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
                 assert_se(clock_is_localtime(adjtime) == scenarios[i].expected_result);
         }

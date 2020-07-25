@@ -101,7 +101,7 @@ static void test_config_parse_duid_rawdata(void) {
         test_config_parse_duid_rawdata_one("11::", 0, &(DUID){0, 1, {0x11}});  /* FIXME: should this be an error? */
         test_config_parse_duid_rawdata_one("abcdef", 0, &(DUID){});
         test_config_parse_duid_rawdata_one(BYTES_0_128, 0, &(DUID){});
-        test_config_parse_duid_rawdata_one(BYTES_0_128 + 2, 0, &(DUID){0, 128, BYTES_1_128});
+        test_config_parse_duid_rawdata_one(&BYTES_0_128[2], 0, &(DUID){0, 128, BYTES_1_128});
 }
 
 static void test_config_parse_hwaddr(void) {
