@@ -604,6 +604,24 @@ static int prompt_root_password(void) {
         return 0;
 }
 
+static int find_shell(const char *path, const char *root) {
+        int r;
+
+        assert(path);
+
+        if (!valid_shell(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid shell", path);
+
+        r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, NULL, NULL);
+        if (r < 0) {
+                const char *p;
+                p = prefix_roota(root, path);
+                return log_error_errno(r, "Failed to resolve shell %s: %m", p);
+        }
+
+        return 0;
+}
+
 static int prompt_root_shell(void) {
         int r;
 
@@ -625,10 +643,9 @@ static int prompt_root_shell(void) {
                         break;
                 }
 
-                if (!valid_shell(s)) {
-                        log_error("Specified shell invalid.");
+                r = find_shell(s, arg_root);
+                if (r < 0)
                         continue;
-                }
 
                 arg_root_shell = TAKE_PTR(s);
                 break;
@@ -1167,9 +1184,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_SHELL:
-                        if (!valid_shell(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "%s is not a valid shell path", optarg);
+                        r = find_shell(optarg, arg_root);
+                        if (r < 0)
+                                return r;
 
                         r = free_and_strdup(&arg_root_shell, optarg);
                         if (r < 0)
