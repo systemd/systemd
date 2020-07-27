@@ -79,21 +79,15 @@ static Service *service_for_path(Manager *m, Path *path, const char *service_nam
 }
 
 static void check_states(Manager *m, Path *path, Service *service, PathState path_state, ServiceState service_state) {
-        usec_t ts;
-        usec_t timeout = 2 * USEC_PER_SEC;
-
         assert_se(m);
         assert_se(service);
 
-        ts = now(CLOCK_MONOTONIC);
+        usec_t end = now(CLOCK_MONOTONIC) + 30 * USEC_PER_SEC;
 
         while (path->result != PATH_SUCCESS || service->result != SERVICE_SUCCESS ||
                path->state != path_state || service->state != service_state) {
-                usec_t n;
-                int r;
 
-                r = sd_event_run(m->event, 100 * USEC_PER_MSEC);
-                assert_se(r >= 0);
+                assert_se(sd_event_run(m->event, 100 * USEC_PER_MSEC) >= 0);
 
                 printf("%s: state = %s; result = %s \n",
                                 UNIT(path)->id,
@@ -104,8 +98,7 @@ static void check_states(Manager *m, Path *path, Service *service, PathState pat
                                 service_state_to_string(service->state),
                                 service_result_to_string(service->result));
 
-                n = now(CLOCK_MONOTONIC);
-                if (ts + timeout < n) {
+                if (now(CLOCK_MONOTONIC) >= end) {
                         log_error("Test timeout when testing %s", UNIT(path)->id);
                         exit(EXIT_FAILURE);
                 }
