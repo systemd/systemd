@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
@@ -84,7 +85,9 @@ static void test_sleep(void) {
 
         log_info("/* %s */", __func__);
 
-        log_info("/= configuration =/");
+        printf("Secure boot: %sd\n", enable_disable(is_efi_secure_boot()));
+
+        log_info("/= individual sleep modes =/");
         log_info("Standby configured: %s", yes_no(can_sleep_state(standby) > 0));
         log_info("Suspend configured: %s", yes_no(can_sleep_state(mem) > 0));
         log_info("Hibernate configured: %s", yes_no(can_sleep_state(disk) > 0));
@@ -94,7 +97,7 @@ static void test_sleep(void) {
         log_info("Hibernate+Shutdown configured: %s", yes_no(can_sleep_disk(shutdown) > 0));
         log_info("Freeze configured: %s", yes_no(can_sleep_state(freeze) > 0));
 
-        log_info("/= running system =/");
+        log_info("/= high-level sleep verbs =/");
         r = can_sleep("suspend");
         log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : strerror_safe(r));
         r = can_sleep("hibernate");
