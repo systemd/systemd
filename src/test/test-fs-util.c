@@ -864,14 +864,17 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
 }
 
 static void test_path_is_encrypted(void) {
-        log_info("/* %s */", __func__);
+        int booted = sd_booted(); /* If this is run in build environments such as koji, /dev might be a
+                                   * reguar fs. Don't assume too much if not running under systemd. */
+
+        log_info("/* %s (sd_booted=%d)*/", __func__, booted);
 
         test_path_is_encrypted_one("/home", -1);
         test_path_is_encrypted_one("/var", -1);
         test_path_is_encrypted_one("/", -1);
         test_path_is_encrypted_one("/proc", false);
         test_path_is_encrypted_one("/sys", false);
-        test_path_is_encrypted_one("/dev", false);
+        test_path_is_encrypted_one("/dev", booted > 0 ? false : -1);
 }
 
 int main(int argc, char *argv[]) {
