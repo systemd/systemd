@@ -50,8 +50,6 @@
 #    MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL
 #    MOUSE_WHEEL_CLICK_COUNT
 #    MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL
-#    MOUSE_WHEEL_TILT_HORIZONTAL
-#    MOUSE_WHEEL_TILT_VERTICAL
 #
 #########################################
 #         ID_INPUT_TRACKBALL            #
@@ -135,26 +133,6 @@
 #
 # MOUSE_WHEEL_CLICK_COUNT_HORIZONTAL works the same way but also follows the
 # rules of MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL.
-
-#########################################
-#    MOUSE_WHEEL_TILT_HORIZONTAL        #
-#    MOUSE_WHEEL_TILT_VERTICAL          #
-#########################################
-#
-# Indicates that the respective axis is not a mouse wheel rotation but a
-# tilt along that axis. Wheel tilt is most commonly used for horizontal
-# scroll wheel emulation on mice with only a single vertical wheel.
-#
-# The vertical and horizontal Axes are independently marked as tilt axes,
-# for example it is permitted to have a MOUSE_WHEEL_CLICK_COUNT or
-# MOUSE_WHEEL_CLICK_ANGLE for the vertical axis and mark the horizontal axis
-# marked as as MOUSE_WHEEL_TILT_HORIZONTAL.
-#
-# It is a bug to have either CLICK_COUNT or CLICK_ANGLE set on the same axis
-# as WHEEL_TILT. Applications should give priority to WHEEL_TILT and ignore
-# other settings.
-#
-# This is a flag only, permitted values: 0 or 1
 
 #
 # Sort by brand, type (usb, bluetooth), DPI, frequency.
@@ -369,6 +347,10 @@ mouse:usb:v046dpc068:name:Logitech G500:
 
 # Logitech G502 Proteus Spectrum
 mouse:usb:v046dpc332:name:Logitech Gaming Mouse G502:
+# Logitech G502 HERO SE
+mouse:usb:v046dpc08b:name:Logitech G502 HERO SE:
+# Logitech G502 Hero
+mouse:usb:v046dpc08b:name:Logitech G502 HERO Gaming Mouse:
  MOUSE_DPI=1200@1000 *2400@1000 3200@1000 6400@1000
 
 # Logitech G700 Laser Mouse (Wired)
@@ -398,6 +380,10 @@ mouse:usb:v046dp1025:name:Logitech M510:
 mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
  MOUSE_DPI=1000@125
+
+# Logitech M705 (newer version?)
+mouse:usb:v046dp406d:name:Logitech M705:
+ MOUSE_DPI=1000@167
 
 # Logitech M305 Wireless Optical Mouse
 mouse:usb:v046dpc52f:name:Logitech USB Receiver:
@@ -751,6 +737,12 @@ mouse:usb:v1d57pad17:*
 
 # Zowie FK2
 mouse:usb:v3057p0001:*
+ MOUSE_DPI=400@125 *800@125 1600@125 3200@125 400@500 800@500 1600@500 3200@500 400@1000 800@1000 1600@1000 3200@1000
+ MOUSE_WHEEL_CLICK_COUNT=16
+ MOUSE_WHEEL_CLICK_ANGLE=23
+
+# Zowie ZA12
+mouse:usb:v1af3p0001:name:Kingsis Peripherals ZOWIE Gaming mouse:
  MOUSE_DPI=400@125 *800@125 1600@125 3200@125 400@500 800@500 1600@500 3200@500 400@1000 800@1000 1600@1000 3200@1000
  MOUSE_WHEEL_CLICK_COUNT=16
  MOUSE_WHEEL_CLICK_ANGLE=23

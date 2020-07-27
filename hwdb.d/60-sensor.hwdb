@@ -93,6 +93,9 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer*:pnSwitchSW312-31:*
 sensor:modalias:acpi:BOSC0200*:dmi:*svn*Acer*:*pn*Spin*SP111-33*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
+sensor:modalias:acpi:BOSC0200*:dmi:*svnAcer*:*pnSpinSP111-34*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
 #########################################
 # Archos
 #########################################
@@ -177,6 +180,10 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrP02A_C106.60E:*:
 sensor:modalias:acpi:BOSC0200*:dmi:*:svn*CHUWIINNOVATIONANDTECHNOLOGY*:pnHi10protablet:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
+# Chuwi Hi10 X
+sensor:modalias:acpi:MXC6655*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
 # Chuwi Hi12
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnP02BD6_HI-122LP:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
@@ -191,6 +198,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnChuwi*:pnHi13:*
 # bios-version + bios-date combo is unique
 sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/07/2016:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnHampoo:rnCherryTrailCR:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
 sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/28/2016:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnHampoo:rnCherryTrailCR:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+# Chuwi HiBook Pro (CWI526)
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo*:pnP1D6_C109K:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Chuwi CoreBook
@@ -249,6 +260,10 @@ sensor:modalias:acpi:*KIOX000A*:dmi:*svn*CytrixTechnology:*pn*Complex11t*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:pnVostro5581:*
  ACCEL_LOCATION=base
 
+# Dell Venue 8 Pro 3845
+sensor:modalias:acpi:INVN6500*:dmi:*svnDellInc.*:pnVenue8Pro3845*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
 # Dell Venue 10 Pro 5055
 sensor:modalias:acpi:INVN6500*:dmi:*svnDell*:pnVenue10Pro5055*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
@@ -280,10 +295,30 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnEVE*:pnEveV:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
+# Geo Computers
+#########################################
+
+# Geoflex
+sensor:modalias:acpi:KIOX010A*:dmi:*:svnGEO*:pnGeoFlex*:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
 # Google Chromebooks
 #########################################
 sensor:modalias:platform:cros-ec-accel:dmi:*:svnGOOGLE*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+
+# caroline board (Samsung Chromebook Pro) reports itself as svnGoogle
+sensor:modalias:platform:cros-ec-accel:dmi:*:svnGoogle:pnCaroline*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+
+# Dell Inspiron Chromebook 14 2-in-1
+sensor:modalias:platform:cros-ec-accel:dmi:*svnGoogle:pnVayne*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
+
+# nocturne board (Google Pixel Slate)
+sensor:modalias:platform:cros-ec-accel:dmi:*Google_Nocturne*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
 # GP-electronic
@@ -407,6 +442,10 @@ sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-830:*
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnLENOVO:pn81H3:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
+# IdeaPad Miix 300
+sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrMIIX300-*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
 # IdeaPad Miix 310 note this only is for BIOS version (bvr) 1HCN4?WW and 1HCN2?WW, which has
 # a portrait LCD panel, versions with bvr 1HCN3?WW have a landscape panel
 sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN4?WW:*:svnLENOVO:pn80SG:*
@@ -449,6 +488,7 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnMEDION:pnAkoyaE2212TMD99720:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 # Medion Akoya E2215T MD60198
+sensor:modalias:acpi:KIOX000A*:dmi:*svnMEDION:pnE2215TMD60198:*
 # Medion Akoya E3216 MD60900
 # Medion Akoya E3221 MD61237
 # Medion Akoya E2292 MD63390
@@ -460,6 +500,12 @@ sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnE*:*
 # Medion Akoya E3222 MD62450
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnMEDION*:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
+# MPMAN
+#########################################
+sensor:modalias:acpi:BMA250E*:dmi:*:svnMPMAN:pnMPWIN8900CL:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
 # MSI
@@ -490,6 +536,12 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnTMAX:pnTM101W610L:*
 # Nuvision Encite Split 11. NES11-C432SSA
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnNuvision:pnNES11:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+#########################################
+# Odys
+#########################################
+sensor:modalias:acpi:BOSC0200*:dmi:bvnINSYDECorp.:bvrODYS.FUSIONWIN12:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
 # Onda
@@ -606,11 +658,22 @@ sensor:modalias:acpi:BMA250E*:dmi:bvnAmericanMegatrendsInc.:bvr5.6.5:bd04/15/201
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
+# Toshiba
+#########################################
+
+# Toshiba Encore WT10A tablet
+sensor:modalias:acpi:INVN6500*:dmi:*:svnTOSHIBA:pnTOSHIBAWT10-A-103:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
 # Trekstor
 #########################################
 sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnInsyde:pnST70416-6:*
 sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnTrekStor:pnSurfTabwintron7.0ST70416-6:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnTrekStor:pnSurfTabtwin10.1:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTREKSTOR*:pnPrimetabS11B:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTREKSTOR:pnPrimetabT13B:*
@@ -630,6 +693,9 @@ sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPRIMEBOOKC11B:*
 #########################################
 # Umax
 #########################################
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnUMAX:pnVisionBook10WiPro:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
 sensor:modalias:acpi:SMO8500*:dmi:*:svnUMAX:pnVisionBook10WiPlus:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 

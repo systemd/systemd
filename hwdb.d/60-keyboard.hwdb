@@ -160,6 +160,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*8930:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspire*7750G:pvr*
  KEYBOARD_KEY_e0=!pageup
 
+# Predator PH 315-52
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PH*315-52:pvr*
+ KEYBOARD_KEY_ef=kbdillumup                             # Fn+F10
+ KEYBOARD_KEY_f0=kbdillumdown                           # Fn+F9
+
 # Travelmate C300
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnTravelMate*C3[01]0*:pvr*
  KEYBOARD_KEY_67=f24                                    # FIXME: rotate screen
@@ -481,6 +486,9 @@ evdev:input:b0003v0458p0708*
 # Hewlett Packard
 ###########################################################
 
+evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*:pvr*
+ KEYBOARD_KEY_8=unknown					# Use hp-wireless instead
+
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:pvr*
  KEYBOARD_KEY_81=fn_esc
@@ -518,11 +526,20 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*Pavilion*dv7*Notebook*PC:
  KEYBOARD_KEY_c6=break
  KEYBOARD_KEY_94=reserved
 
-# Pavilion and Spectre x360 13 (Prevents random airplane mode activation)
+# Pavilion 13 x360 (Tablet mode and SYSRQ key)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*13*x360*:pvr*
+ KEYBOARD_KEY_d7=!f22                                   # touchpad off
+ KEYBOARD_KEY_d9=unknown
+ KEYBOARD_KEY_d2=sysrq                                  # Fn+Print = SYSRQ
+
+# Spectre x360 13 (Prevents random airplane mode activation)
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[sS][pP][eE][cC][tT][rR][eE]*x360*13*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[sS][pP][eE][cC][tT][rR][eE]*x360Convertible*:pvr*
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*13*x360*:pvr*
  KEYBOARD_KEY_d7=unknown
+
+# Spectre x360 13
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPSpectrex360Convertible13*:pvr*
+ KEYBOARD_KEY_82=f20                                    # Fn+F12; Microphone mute button, should be micmute
 
 # Elitebook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Compaq*:pvr*
@@ -581,6 +598,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHDX9494NR:pvr*
 
 # HP EliteBook 725 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPLicrice:pvr*
+# HP EliteBook 840 G1
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBook840G1:pvr*
 # HP ProBook 440 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP440G2:pvr*
 # several HP ProBooks 4xx
@@ -589,6 +608,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHP*ProBook*4*:pvr*
 # HP ZBook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:pvr*
+# Elitebook x360 1040 G6
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pn*EliteBook*x3601040G6:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
 
 # HP ZBook 15 G2
@@ -808,6 +829,15 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*IdeaPad*Z370*:pvr*
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
 
+# Fix for volume keys on Lenovo Yoga S940
+# For 10th gen it should be pn81Q8 instead of pn81Q7 but
+# I don't have a device to test
+# perhaps pn81Q* would work for both generations
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
+
 # Lenovo Y50-70
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*20378*:pvr*
  KEYBOARD_KEY_f3=f21      # Fn+F6 (toggle touchpad)
@@ -999,6 +1029,11 @@ evdev:input:b0005v046DpB30B*
  KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
  KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
 
+# Logitech K811
+evdev:input:b0005v046DpB317*
+ KEYBOARD_KEY_70047=brightnessdown
+ KEYBOARD_KEY_70048=brightnessup
+
 # iTouch
 evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
@@ -1112,6 +1147,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMAXDATA:pnPro*7000*:pvr*
 # Akoya
 evdev:atkbd:dmi:bvn*:bvr*:svnMEDION*:pnS3409*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnAkoya*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:svnMedion*:pnP6669*:pvr*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
@@ -1191,6 +1227,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*PR200*:pvr*
 # MSI Wind U90/U100 generates separate touchpad on/off keycodes so ignore touchpad toggle keycode
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
  KEYBOARD_KEY_e4=reserved
+
+# MSI Prestige15 A10SC specific keycodes. Needed for microphone and screen rotation
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*A10SC*:pvr*
+ KEYBOARD_KEY_f1=f20
+ KEYBOARD_KEY_f2=f21
 
 ###########################################################
 # MSI

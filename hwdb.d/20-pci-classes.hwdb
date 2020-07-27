@@ -470,6 +470,9 @@ pci:v*d*sv*sd*bc0Csc03i20*
 pci:v*d*sv*sd*bc0Csc03i30*
  ID_PCI_INTERFACE_FROM_DATABASE=XHCI
 
+pci:v*d*sv*sd*bc0Csc03i40*
+ ID_PCI_INTERFACE_FROM_DATABASE=USB4 Host Interface
+
 pci:v*d*sv*sd*bc0Csc03i80*
  ID_PCI_INTERFACE_FROM_DATABASE=Unspecified
 

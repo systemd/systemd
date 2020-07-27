@@ -70,3 +70,7 @@ id-input:modalias:input:b0003v28bdp0078*
 # Lite-On Tech IBM USB Travel Keyboard with Ultra Nav Mouse
 id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
  ID_INPUT_POINTINGSTICK=1
+
+# Logitech Ultrathin Touch Mouse
+id-input:modalias:input:b0005v046DpB00De0700*
+ ID_INPUT_MOUSE=1
