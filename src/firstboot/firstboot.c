@@ -23,7 +23,6 @@
 #include "memory-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
-#include "namespace-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
