@@ -1192,6 +1192,60 @@
         </varlistentry>
       </variablelist>
     </refsect2>
+
+    <refsect2>
+      <title>Special User Slice Units</title>
+
+      <para>There are four <literal>.slice</literal> units which form the basis of the user hierarchy for
+      assignment of resources for user applications and services. See
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      for details about slice units and the documentation about
+      <ulink url="https://systemd.io/DESKTOP_ENVIRONMENTS">Desktop Environments</ulink>
+      for further information.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>-.slice</filename></term>
+          <listitem>
+            <para>The root slice is the root of the user's slice hierarchy.
+            It usually does not contain units directly, but may be used to set defaults for the whole tree.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>app.slice</filename></term>
+          <listitem>
+            <para>By default, all user services and applications managed by
+            <command>systemd</command> are found in this slice.
+            All interactively launched applications like web browsers and text editors
+            as well as non-critical services should be placed into this slice.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>session.slice</filename></term>
+          <listitem>
+            <para>All essential services and applications required for the
+            session should use this slice.
+            These are services that either cannot be restarted easily
+            or where latency issues may affect the interactivity of the system and applications.
+            This includes the display server, screen readers and other services such as DBus or XDG portals.
+            Such services should be configured to be part of this slice by
+            adding <varname>Slice=session.slice</varname> to their unit files.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>background.slice</filename></term>
+          <listitem>
+            <para>All services running low-priority background tasks should use this slice.
+            This permits resources to be preferentially assigned to the other slices.
+            Examples include non-interactive tasks like file indexing or backup operations
+            where latency is not important.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
