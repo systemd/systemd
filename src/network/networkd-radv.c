@@ -650,10 +650,7 @@ int radv_configure(Link *link) {
                         return r;
         }
 
-        if (IN_SET(link->network->router_prefix_delegation,
-                   RADV_PREFIX_DELEGATION_STATIC,
-                   RADV_PREFIX_DELEGATION_BOTH)) {
-
+        if (link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_STATIC) {
                 LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
                         r = sd_radv_add_prefix(link->radv, p->radv_prefix, false);
                         if (r == -EEXIST)
@@ -673,7 +670,6 @@ int radv_configure(Link *link) {
                         if (r < 0)
                                 return r;
                 }
-
         }
 
         return 0;

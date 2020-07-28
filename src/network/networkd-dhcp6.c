@@ -430,9 +430,7 @@ bool link_dhcp6_pd_is_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return IN_SET(link->network->router_prefix_delegation,
-                      RADV_PREFIX_DELEGATION_DHCP6,
-                      RADV_PREFIX_DELEGATION_BOTH);
+        return link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_DHCP6;
 }
 
 static bool link_has_preferred_subnet_id(Link *link) {

@@ -1394,9 +1394,7 @@ static int link_request_set_addresses(Link *link) {
                         return r;
         }
 
-        if (IN_SET(link->network->router_prefix_delegation,
-                   RADV_PREFIX_DELEGATION_STATIC,
-                   RADV_PREFIX_DELEGATION_BOTH))
+        if (link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_STATIC)
                 LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
                         _cleanup_(address_freep) Address *address = NULL;
 
