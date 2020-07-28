@@ -3345,12 +3345,16 @@ int unit_set_default_slice(Unit *u) {
                 if (MANAGER_IS_SYSTEM(u->manager))
                         slice_name = strjoina("system-", escaped, ".slice");
                 else
-                        slice_name = strjoina(escaped, ".slice");
-        } else
-                slice_name =
-                        MANAGER_IS_SYSTEM(u->manager) && !unit_has_name(u, SPECIAL_INIT_SCOPE)
-                        ? SPECIAL_SYSTEM_SLICE
-                        : SPECIAL_ROOT_SLICE;
+                        slice_name = strjoina("app-", escaped, ".slice");
+        } else {
+                if (MANAGER_IS_SYSTEM(u->manager))
+                        slice_name =
+                                unit_has_name(u, SPECIAL_INIT_SCOPE)
+                                ? SPECIAL_ROOT_SLICE
+                                : SPECIAL_SYSTEM_SLICE;
+                else
+                        slice_name = SPECIAL_APP_SLICE;
+        }
 
         r = manager_load_unit(u->manager, slice_name, NULL, NULL, &slice);
         if (r < 0)
