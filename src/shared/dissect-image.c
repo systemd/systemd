@@ -1047,6 +1047,12 @@ static int mount_partition(
                 if (!strextend_with_separator(&options, ",", m->mount_options, NULL))
                         return -ENOMEM;
 
+        if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR)) {
+                r = mkdir_p(p, 0755);
+                if (r < 0)
+                        return r;
+        }
+
         r = mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
         if (r < 0)
                 return r;
@@ -1079,6 +1085,10 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
 
         if (flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY)
                 return 0;
+
+        /* Mask DISSECT_IMAGE_MKDIR for all subdirs: the idea is that only the top-level mount point is
+         * created if needed, but the image itself not modified. */
+        flags &= ~DISSECT_IMAGE_MKDIR;
 
         r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", uid_shift, flags);
         if (r < 0)

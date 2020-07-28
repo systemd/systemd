@@ -13,8 +13,10 @@
 #include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -37,15 +39,21 @@ STATIC_DESTRUCTOR_REGISTER(arg_verity_data, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash_sig_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash_sig, freep);
 
-static void help(void) {
-        printf("%s [OPTIONS...] IMAGE\n"
-               "%s [OPTIONS...] --mount IMAGE PATH\n"
-               "Dissect a file system OS image.\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "  -m --mount              Mount the image to the specified directory\n"
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-dissect", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%1$s [OPTIONS...] IMAGE\n"
+               "%1$s [OPTIONS...] --mount IMAGE PATH\n\n"
+               "%5$sDissect a file system OS image.%6$s\n\n"
+               "%3$sOptions:%4$s\n"
                "  -r --read-only          Mount read-only\n"
                "     --fsck=BOOL          Run fsck before mounting\n"
+               "     --mkdir              Make mount directory before mounting, if missing\n"
                "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
                "     --root-hash=HASH     Specify root hash for verity\n"
                "     --root-hash-sig=SIG  Specify pkcs7 signature of root hash for verity\n"
@@ -53,9 +61,19 @@ static void help(void) {
                "                          or as an ASCII base64 encoded string prefixed by\n"
                "                          'base64:'\n"
                "     --verity-data=PATH   Specify data file with hash tree for verity if it is\n"
-               "                          not embedded in IMAGE\n",
-               program_invocation_short_name,
-               program_invocation_short_name);
+               "                          not embedded in IMAGE\n"
+               "\n%3$sCommands:%4$s\n"
+               "  -h --help               Show this help\n"
+               "     --version            Show package version\n"
+               "  -m --mount              Mount the image to the specified directory\n"
+               "  -M                      Shortcut for --mount --mkdir\n"
+               "\nSee the %2$s for details.\n"
+               , program_invocation_short_name
+               , link
+               , ansi_underline(), ansi_normal()
+               , ansi_highlight(), ansi_normal());
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -67,6 +85,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FSCK,
                 ARG_VERITY_DATA,
                 ARG_ROOT_HASH_SIG,
+                ARG_MKDIR,
         };
 
         static const struct option options[] = {
@@ -79,6 +98,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fsck",          required_argument, NULL, ARG_FSCK          },
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
                 { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
+                { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
                 {}
         };
 
@@ -87,19 +107,28 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hmr", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hmrM", options, NULL)) >= 0) {
 
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
 
                 case 'm':
                         arg_action = ACTION_MOUNT;
+                        break;
+
+                case ARG_MKDIR:
+                        arg_flags |= DISSECT_IMAGE_MKDIR;
+                        break;
+
+                case 'M':
+                        /* Shortcut combination of the above two */
+                        arg_action = ACTION_MOUNT;
+                        arg_flags |= DISSECT_IMAGE_MKDIR;
                         break;
 
                 case 'r':
