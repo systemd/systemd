@@ -4,11 +4,14 @@
 #include <getopt.h>
 #include <linux/loop.h>
 #include <stdio.h>
+#include <sys/ioctl.h>
+#include <sys/mount.h>
 
 #include "architecture.h"
 #include "copy.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "log.h"
@@ -342,6 +345,7 @@ static int run(int argc, char *argv[]) {
         switch (arg_action) {
 
         case ACTION_DISSECT: {
+                uint64_t size;
                 unsigned i;
 
                 for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
@@ -373,6 +377,15 @@ static int run(int argc, char *argv[]) {
                                 printf(" (%s)", p->node);
 
                         putchar('\n');
+                }
+
+                printf("      Name: %s\n", basename(arg_image));
+
+                if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
+                        log_debug_errno(errno, "Failed to query size of loopback device: %m");
+                else {
+                        char t[FORMAT_BYTES_MAX];
+                        printf("      Size: %s\n", format_bytes(t, sizeof(t), size));
                 }
 
                 r = dissected_image_acquire_metadata(m);
