@@ -42,9 +42,6 @@ Features:
   mounting a subdir of the root fs as actual root. This can be used as
   fstype-agnostic version of btrfs' rootflags=subvol=foobar.
 
-* add --copy-from and --copy-to command to systemd-dissect which copies stuff
-  in and out of a disk image
-
 * Support ProtectProc= or so, using: https://patchwork.kernel.org/cover/11310197/
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
@@ -111,10 +108,6 @@ Features:
 
 * systemd-path: add ESP and XBOOTLDR path. Add "private" runtime/state/cache dir enum,
   mapping to $RUNTIME_DIRECTORY, $STATE_DIRECTORY and such
-
-* make "systemd-dissect" an official supported tool, i.e. move to /usr/bin/ and
-  provide man page. Given that we now have a tool that can generate images like
-  this, it's useful to have one that can dump contents of them, too.
 
 * All tools that support --root= should also learn --image= so that they can
   operate on disk images directly. Specifically: bootctl, systemctl,
@@ -1152,10 +1145,6 @@ Features:
     PID 1...
   - optionally automatically add FORWARD rules to iptables whenever nspawn is
     running, remove them when shut down.
-
-* dissect
-  - refuse mounting over a mount point
-  - automatically discover .roothash files in dissect, similarly to nspawn
 
 * machined:
   - add an API so that libvirt-lxc can inform us about network interfaces being
