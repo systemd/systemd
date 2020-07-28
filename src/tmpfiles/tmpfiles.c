@@ -2884,6 +2884,27 @@ static int cat_config(char **config_dirs, char **args) {
         return cat_files(NULL, files, 0);
 }
 
+static int exclude_default_prefixes(void) {
+        int r;
+
+        /* Provide an easy way to exclude virtual/memory file systems from what we do here. Useful in
+         * combination with --root= where we probably don't want to apply stuff to these dirs as they are
+         * likely over-mounted if the root directory is actually used, and it wouldbe less than ideal to have
+         * all kinds of files created/adjusted underneath these mount points. */
+
+        r = strv_extend_strv(
+                        &arg_exclude_prefixes,
+                        STRV_MAKE("/dev",
+                                  "/proc",
+                                  "/run",
+                                  "/sys"),
+                                 true);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -2904,6 +2925,7 @@ static int help(void) {
                "     --boot                 Execute actions only safe at boot\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
+               "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --no-pager             Do not pipe output into a pager\n"
@@ -2954,7 +2976,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hE", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -2996,6 +3018,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_EXCLUDE_PREFIX:
                         if (strv_push(&arg_exclude_prefixes, optarg) < 0)
                                 return log_oom();
+                        break;
+
+                case 'E':
+                        r = exclude_default_prefixes();
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case ARG_ROOT:
