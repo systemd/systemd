@@ -106,7 +106,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
         /* return immediately if directory exists */
         e = strrchr(path, '/');
         if (!e)
-                return -EINVAL;
+                return 0;
 
         if (e == path)
                 return 0;
