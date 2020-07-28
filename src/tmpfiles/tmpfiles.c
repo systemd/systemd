@@ -3065,6 +3065,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "When --replace= is given, some configuration items must be specified");
 
+        if (arg_root && arg_user)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Combination of --user and --root= is not supported.");
+
         return 1;
 }
 
