@@ -23,7 +23,7 @@ static void check_p_d_u(const char *path, int code, const char *result) {
         int r;
 
         r = cg_path_decode_unit(path, &unit);
-        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, result, code);
+        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
         assert_se(streq_ptr(unit, result));
 }
@@ -45,7 +45,7 @@ static void check_p_g_u(const char *path, int code, const char *result) {
         int r;
 
         r = cg_path_get_unit(path, &unit);
-        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, result, code);
+        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
         assert_se(streq_ptr(unit, result));
 }
@@ -69,7 +69,7 @@ static void check_p_g_u_u(const char *path, int code, const char *result) {
         int r;
 
         r = cg_path_get_user_unit(path, &unit);
-        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, result, code);
+        printf("%s: %s → %s %d expected %s %d\n", __func__, path, unit, r, strnull(result), code);
         assert_se(r == code);
         assert_se(streq_ptr(unit, result));
 }
