@@ -6,26 +6,38 @@
 #include <stdio.h>
 
 #include "architecture.h"
+#include "copy.h"
 #include "dissect-image.h"
+#include "fd-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "mkdir.h"
+#include "mount-util.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "user-util.h"
 #include "util.h"
 
 static enum {
         ACTION_DISSECT,
         ACTION_MOUNT,
+        ACTION_COPY_FROM,
+        ACTION_COPY_TO,
 } arg_action = ACTION_DISSECT;
 static const char *arg_image = NULL;
 static const char *arg_path = NULL;
+static const char *arg_source = NULL;
+static const char *arg_target = NULL;
 static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK;
 static void *arg_root_hash = NULL;
 static char *arg_verity_data = NULL;
@@ -48,7 +60,9 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] IMAGE\n"
-               "%1$s [OPTIONS...] --mount IMAGE PATH\n\n"
+               "%1$s [OPTIONS...] --mount IMAGE PATH\n"
+               "%1$s [OPTIONS...] --copy-from IMAGE PATH [TARGET]\n"
+               "%1$s [OPTIONS...] --copy-to IMAGE [SOURCE] PATH\n\n"
                "%5$sDissect a file system OS image.%6$s\n\n"
                "%3$sOptions:%4$s\n"
                "  -r --read-only          Mount read-only\n"
@@ -67,6 +81,8 @@ static int help(void) {
                "     --version            Show package version\n"
                "  -m --mount              Mount the image to the specified directory\n"
                "  -M                      Shortcut for --mount --mkdir\n"
+               "  -x --copy-from          Copy files from image to host\n"
+               "  -a --copy-to            Copy files from host to image\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -99,6 +115,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
                 { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
                 { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
+                { "copy-from",     no_argument,       NULL, 'x'               },
+                { "copy-to",       no_argument,       NULL, 'a'               },
                 {}
         };
 
@@ -107,7 +125,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hmrM", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "hmrMxa", options, NULL)) >= 0) {
 
                 switch (c) {
 
@@ -129,6 +147,15 @@ static int parse_argv(int argc, char *argv[]) {
                         /* Shortcut combination of the above two */
                         arg_action = ACTION_MOUNT;
                         arg_flags |= DISSECT_IMAGE_MKDIR;
+                        break;
+
+                case 'x':
+                        arg_action = ACTION_COPY_FROM;
+                        arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                        break;
+
+                case 'a':
+                        arg_action = ACTION_COPY_TO;
                         break;
 
                 case 'r':
@@ -233,7 +260,7 @@ static int parse_argv(int argc, char *argv[]) {
         case ACTION_DISSECT:
                 if (optind + 1 != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Expected a file path as only argument.");
+                                               "Expected an image file path as only argument.");
 
                 arg_image = argv[optind];
                 arg_flags |= DISSECT_IMAGE_READ_ONLY;
@@ -242,10 +269,39 @@ static int parse_argv(int argc, char *argv[]) {
         case ACTION_MOUNT:
                 if (optind + 2 != argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Expected a file path and mount point path as only arguments.");
+                                               "Expected an image file path and mount point path as only arguments.");
 
                 arg_image = argv[optind];
                 arg_path = argv[optind + 1];
+                break;
+
+        case ACTION_COPY_FROM:
+                if (argc < optind + 2 || argc > optind + 3)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected an image file path, a source path and an optional destination path as only arguments.");
+
+                arg_image = argv[optind];
+                arg_source = argv[optind + 1];
+                arg_target = argc > optind + 2 ? argv[optind + 2] : "-" /* this means stdout */ ;
+
+                arg_flags |= DISSECT_IMAGE_READ_ONLY;
+                break;
+
+        case ACTION_COPY_TO:
+                if (argc < optind + 2 || argc > optind + 3)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Expected an image file path, an optional source path and a destination path as only arguments.");
+
+                arg_image = argv[optind];
+
+                if (argc > optind + 2) {
+                        arg_source = argv[optind + 1];
+                        arg_target = argv[optind + 2];
+                } else {
+                        arg_source = "-"; /* this means stdin */
+                        arg_target = argv[optind + 1];
+                }
+
                 break;
 
         default:
@@ -351,7 +407,13 @@ static int run(int argc, char *argv[]) {
         }
 
         case ACTION_MOUNT:
-                r = dissected_image_decrypt_interactively(m, NULL, arg_root_hash, arg_root_hash_size, arg_verity_data, arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size, arg_flags, &di);
+                r = dissected_image_decrypt_interactively(
+                                m, NULL,
+                                arg_root_hash, arg_root_hash_size,
+                                arg_verity_data,
+                                arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size,
+                                arg_flags,
+                                &di);
                 if (r < 0)
                         return r;
 
@@ -369,6 +431,170 @@ static int run(int argc, char *argv[]) {
 
                 loop_device_relinquish(d);
                 break;
+
+        case ACTION_COPY_FROM:
+        case ACTION_COPY_TO: {
+                _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+                _cleanup_(rmdir_and_freep) char *created_dir = NULL;
+                _cleanup_free_ char *temp = NULL;
+
+                r = dissected_image_decrypt_interactively(
+                                m, NULL,
+                                arg_root_hash, arg_root_hash_size,
+                                arg_verity_data,
+                                arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size,
+                                arg_flags,
+                                &di);
+                if (r < 0)
+                        return r;
+
+                r = detach_mount_namespace();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to detach mount namespace: %m");
+
+                r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate temporary mount directory: %m");
+
+                r = mkdir_p(temp, 0700);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create mount point: %m");
+
+                created_dir = TAKE_PTR(temp);
+
+                r = dissected_image_mount(m, created_dir, UID_INVALID, arg_flags);
+                if (r == -EUCLEAN)
+                        return log_error_errno(r, "File system check on image failed: %m");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mount image: %m");
+
+                mounted_dir = TAKE_PTR(created_dir);
+
+                if (di) {
+                        r = decrypted_image_relinquish(di);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to relinquish DM devices: %m");
+                }
+
+                loop_device_relinquish(d);
+
+                if (arg_action == ACTION_COPY_FROM) {
+                        _cleanup_close_ int source_fd = -1, target_fd = -1;
+
+                        source_fd = chase_symlinks_and_open(arg_source, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                        if (source_fd < 0)
+                                return log_error_errno(source_fd, "Failed to open source path '%s' in image '%s': %m", arg_source, arg_image);
+
+                        /* Copying to stdout? */
+                        if (streq(arg_target, "-")) {
+                                r = copy_bytes(source_fd, STDOUT_FILENO, (uint64_t) -1, COPY_REFLINK);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to stdout: %m", arg_source, arg_image);
+
+                                /* When we copy to stdou we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
+                                break;
+                        }
+
+                        /* Try to copy as directory? */
+                        r = copy_directory_fd(source_fd, arg_target, COPY_REFLINK|COPY_MERGE_EMPTY|COPY_SIGINT);
+                        if (r >= 0)
+                                break;
+                        if (r != -ENOTDIR)
+                                return log_error_errno(r, "Failed to copy %s in image '%s' to '%s': %m", arg_source, arg_image, arg_target);
+
+                        r = fd_verify_regular(source_fd);
+                        if (r == -EISDIR)
+                                return log_error_errno(r, "Target '%s' exists already and is not a directory.", arg_target);
+                        if (r < 0)
+                                return log_error_errno(r, "Source path %s in image '%s' is neither regular file nor directory, refusing: %m", arg_source, arg_image);
+
+                        /* Nah, it's a plain file! */
+                        target_fd = open(arg_target, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+                        if (target_fd < 0)
+                                return log_error_errno(errno, "Failed to create regular file at target path '%s': %m", arg_target);
+
+                        r = copy_bytes(source_fd, target_fd, (uint64_t) -1, COPY_REFLINK);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to '%s': %m", arg_source, arg_image, arg_target);
+
+                        (void) copy_xattr(source_fd, target_fd);
+                        (void) copy_access(source_fd, target_fd);
+                        (void) copy_times(source_fd, target_fd, 0);
+
+                        /* When this is a regular file we don't copy ownership! */
+
+                } else {
+                        _cleanup_close_ int source_fd = -1, target_fd = -1;
+                        _cleanup_close_ int dfd = -1;
+                        _cleanup_free_ char *dn = NULL;
+
+                        assert(arg_action == ACTION_COPY_TO);
+
+                        dn = dirname_malloc(arg_target);
+                        if (!dn)
+                                return log_oom();
+
+                        r = chase_symlinks(dn, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open '%s': %m", dn);
+
+                        /* Are we reading from stdin? */
+                        if (streq(arg_source, "-")) {
+                                target_fd = openat(dfd, basename(arg_target), O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0644);
+                                if (target_fd < 0)
+                                        return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
+
+                                r = copy_bytes(STDIN_FILENO, target_fd, (uint64_t) -1, COPY_REFLINK);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to copy bytes from stdin to '%s' in image '%s': %m", arg_target, arg_image);
+
+                                /* When we copy from stdin we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
+                                break;
+                        }
+
+                        source_fd = open(arg_source, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                        if (source_fd < 0)
+                                return log_error_errno(source_fd, "Failed to open source path '%s': %m", arg_source);
+
+                        r = fd_verify_regular(source_fd);
+                        if (r < 0) {
+                                if (r != -EISDIR)
+                                        return log_error_errno(r, "Source '%s' is neither regular file nor directory: %m", arg_source);
+
+                                /* We are looking at a directory. */
+
+                                target_fd = openat(dfd, basename(arg_target), O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                                if (target_fd < 0) {
+                                        if (errno != ENOENT)
+                                                return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
+
+                                        r = copy_tree_at(source_fd, ".", dfd, basename(arg_target), UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT);
+                                } else
+                                        r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
+
+                                break;
+                        }
+
+                        /* We area looking at a regular file */
+                        target_fd = openat(dfd, basename(arg_target), O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0600);
+                        if (target_fd < 0)
+                                return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
+
+                        r = copy_bytes(source_fd, target_fd, (uint64_t) -1, COPY_REFLINK);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy bytes from '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
+
+                        (void) copy_xattr(source_fd, target_fd);
+                        (void) copy_access(source_fd, target_fd);
+                        (void) copy_times(source_fd, target_fd, 0);
+
+                        /* When this is a regular file we don't copy ownership! */
+                }
+
+                break;
+        }
 
         default:
                 assert_not_reached("Unknown action.");
