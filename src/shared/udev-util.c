@@ -182,9 +182,10 @@ int device_wait_for_initialization(sd_device *device, const char *subsystem, use
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
         if (timeout != USEC_INFINITY) {
-                r = sd_event_add_time(event, &timeout_source,
-                                      CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + timeout, 0,
-                                      device_timeout_handler, NULL);
+                r = sd_event_add_time_relative(
+                                event, &timeout_source,
+                                CLOCK_MONOTONIC, timeout, 0,
+                                device_timeout_handler, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add timeout event source: %m");
         }

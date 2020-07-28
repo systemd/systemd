@@ -95,16 +95,14 @@ static int idle_time_cb(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int connection_release(Connection *c) {
-        int r;
         Context *context = c->context;
-        usec_t idle_instant;
+        int r;
 
         connection_free(c);
 
         if (arg_exit_idle_time < USEC_INFINITY && set_isempty(context->connections)) {
-                idle_instant = usec_add(now(CLOCK_MONOTONIC), arg_exit_idle_time);
                 if (context->idle_time) {
-                        r = sd_event_source_set_time(context->idle_time, idle_instant);
+                        r = sd_event_source_set_time_relative(context->idle_time, arg_exit_idle_time);
                         if (r < 0)
                                 return log_error_errno(r, "Error while setting idle time: %m");
 
@@ -112,8 +110,9 @@ static int connection_release(Connection *c) {
                         if (r < 0)
                                 return log_error_errno(r, "Error while enabling idle time: %m");
                 } else {
-                        r = sd_event_add_time(context->event, &context->idle_time, CLOCK_MONOTONIC,
-                                              idle_instant, 0, idle_time_cb, context);
+                        r = sd_event_add_time_relative(
+                                        context->event, &context->idle_time, CLOCK_MONOTONIC,
+                                        arg_exit_idle_time, 0, idle_time_cb, context);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create idle timer: %m");
                 }

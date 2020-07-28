@@ -514,7 +514,6 @@ static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
 }
 
 static void test_addr_acq(sd_event *e) {
-        usec_t time_now = now(clock_boottime_or_monotonic());
         sd_dhcp_client *client;
         int res, r;
 
@@ -535,10 +534,11 @@ static void test_addr_acq(sd_event *e) {
 
         callback_recv = test_addr_acq_recv_discover;
 
-        assert_se(sd_event_add_time(e, &test_hangcheck,
-                                    clock_boottime_or_monotonic(),
-                                    time_now + 2 * USEC_PER_SEC, 0,
-                                    test_dhcp_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time_relative(
+                                  e, &test_hangcheck,
+                                  clock_boottime_or_monotonic(),
+                                  2 * USEC_PER_SEC, 0,
+                                  test_dhcp_hangcheck, NULL) >= 0);
 
         res = sd_dhcp_client_start(client);
         assert_se(IN_SET(res, 0, -EINPROGRESS));

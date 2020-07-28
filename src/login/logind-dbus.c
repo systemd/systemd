@@ -1720,26 +1720,26 @@ static int delay_shutdown_or_sleep(
                 const char *unit_name) {
 
         int r;
-        usec_t timeout_val;
 
         assert(m);
         assert(w >= 0);
         assert(w < _INHIBIT_WHAT_MAX);
         assert(unit_name);
 
-        timeout_val = now(CLOCK_MONOTONIC) + m->inhibit_delay_max;
-
         if (m->inhibit_timeout_source) {
-                r = sd_event_source_set_time(m->inhibit_timeout_source, timeout_val);
+                r = sd_event_source_set_time_relative(m->inhibit_timeout_source, m->inhibit_delay_max);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed: %m");
+                        return log_error_errno(r, "sd_event_source_set_time_relative() failed: %m");
 
                 r = sd_event_source_set_enabled(m->inhibit_timeout_source, SD_EVENT_ONESHOT);
                 if (r < 0)
                         return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
         } else {
-                r = sd_event_add_time(m->event, &m->inhibit_timeout_source, CLOCK_MONOTONIC,
-                                      timeout_val, 0, manager_inhibit_timeout_handler, m);
+                r = sd_event_add_time_relative(
+                                m->event,
+                                &m->inhibit_timeout_source,
+                                CLOCK_MONOTONIC, m->inhibit_delay_max, 0,
+                                manager_inhibit_timeout_handler, m);
                 if (r < 0)
                         return r;
         }

@@ -896,11 +896,12 @@ int session_release(Session *s) {
         if (s->timer_event_source)
                 return 0;
 
-        return sd_event_add_time(s->manager->event,
-                                 &s->timer_event_source,
-                                 CLOCK_MONOTONIC,
-                                 usec_add(now(CLOCK_MONOTONIC), RELEASE_USEC), 0,
-                                 release_timeout_callback, s);
+        return sd_event_add_time_relative(
+                        s->manager->event,
+                        &s->timer_event_source,
+                        CLOCK_MONOTONIC,
+                        RELEASE_USEC, 0,
+                        release_timeout_callback, s);
 }
 
 bool session_is_active(Session *s) {

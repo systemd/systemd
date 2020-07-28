@@ -687,11 +687,11 @@ int dns_query_go(DnsQuery *q) {
 
         dns_query_reset_answer(q);
 
-        r = sd_event_add_time(
+        r = sd_event_add_time_relative(
                         q->manager->event,
                         &q->timeout_event_source,
                         clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + SD_RESOLVED_QUERY_TIMEOUT_USEC,
+                        SD_RESOLVED_QUERY_TIMEOUT_USEC,
                         0, on_query_timeout, q);
         if (r < 0)
                 goto fail;
