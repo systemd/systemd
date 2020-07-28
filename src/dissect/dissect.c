@@ -117,7 +117,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 flags = DISSECT_IMAGE_DISCARD_ON_LOOP | DISSECT_IMAGE_DISCARD;
                         else if (streq(optarg, "crypt"))
                                 flags = DISSECT_IMAGE_DISCARD_ANY;
-                        else
+                        else if (streq(optarg, "list")) {
+                                puts("disabled\n"
+                                     "all\n"
+                                     "crypt\n"
+                                     "loop");
+                                return 0;
+                        } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown --discard= parameter: %s",
                                                        optarg);
