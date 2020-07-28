@@ -1282,6 +1282,13 @@ static int client_parse_message(
 
                         break;
 
+                case SD_DHCP6_OPTION_FQDN:
+                        r = dhcp6_lease_set_fqdn(lease, optval, optlen);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case SD_DHCP6_OPTION_INFORMATION_REFRESH_TIME:
                         if (optlen != 4)
                                 return -EINVAL;
