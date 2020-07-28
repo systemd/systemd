@@ -183,6 +183,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified all operations
+        are applied to file system in the indicated disk image. This is similar to <option>--root=</option>
+        but operates on file systems stored in disk images or block devices. The disk image should either
+        contain just a file system or a set of file systems within a GPT partition table, following the
+        <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para>
+
+        <para>Implies <option>-E</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--replace=<replaceable>PATH</replaceable></option></term>
         <listitem><para>When this option is given, one ore more positional arguments
         must be specified. All configuration files found in the directories listed in

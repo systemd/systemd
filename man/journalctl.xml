@@ -756,14 +756,27 @@
       <varlistentry>
         <term><option>--root=<replaceable>ROOT</replaceable></option></term>
 
-        <listitem><para>Takes a directory path as an argument. If
-        specified, journalctl will operate on journal directories and catalog file hierarchy
-        underneath the specified directory instead of the root
-        directory (e.g. <option>--update-catalog</option> will create
-        <filename><replaceable>ROOT</replaceable>/var/lib/systemd/catalog/database</filename>,
-        and journal files under <filename><replaceable>ROOT</replaceable>/run/journal/</filename>
-        or <filename><replaceable>ROOT</replaceable>/var/log/journal/</filename> will be displayed).
+        <listitem><para>Takes a directory path as an argument. If specified, <command>journalctl</command>
+        will operate on journal directories and catalog file hierarchy underneath the specified directory
+        instead of the root directory (e.g. <option>--update-catalog</option> will create
+        <filename><replaceable>ROOT</replaceable>/var/lib/systemd/catalog/database</filename>, and journal
+        files under <filename><replaceable>ROOT</replaceable>/run/journal/</filename> or
+        <filename><replaceable>ROOT</replaceable>/var/log/journal/</filename> will be displayed).
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>IMAGE</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified,
+        <command>journalctl</command> will operate on the file system in the indicated disk image. This is
+        similar to <option>--root=</option> but operates on file systems stored in disk images or block
+        devices, thus providing an easy way to extract log data from disk images. The disk image should
+        either contain just a file system or a set of file systems within a GPT partition table, following
+        the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para></listitem>
       </varlistentry>
 
       <varlistentry>
