@@ -969,6 +969,21 @@ int copy_times(int fdf, int fdt, CopyFlags flags) {
         return 0;
 }
 
+int copy_access(int fdf, int fdt) {
+        struct stat st;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        if (fstat(fdf, &st) < 0)
+                return -errno;
+
+        if (fchmod(fdt, st.st_mode & 07777) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int copy_xattr(int fdf, int fdt) {
         _cleanup_free_ char *names = NULL;
         int ret = 0, r;
