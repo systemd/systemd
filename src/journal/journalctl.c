@@ -31,6 +31,7 @@
 #include "chattr-util.h"
 #include "def.h"
 #include "device-private.h"
+#include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -51,6 +52,7 @@
 #include "logs-show.h"
 #include "memory-util.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "pager.h"
@@ -121,6 +123,7 @@ static bool arg_reverse = false;
 static int arg_journal_type = 0;
 static int arg_namespace_flags = 0;
 static char *arg_root = NULL;
+static char *arg_image = NULL;
 static const char *arg_machine = NULL;
 static const char *arg_namespace = NULL;
 static uint64_t arg_vacuum_size = 0;
@@ -375,6 +378,7 @@ static int help(void) {
                "  -D --directory=PATH        Show journal files from directory\n"
                "     --file=PATH             Show journal file\n"
                "     --root=ROOT             Operate on files below a root directory\n"
+               "     --image=IMAGE           Operate on files in filesystem image\n"
                "     --namespace=NAMESPACE   Show journal data from specified namespace\n"
                "     --interval=TIME         Time interval for changing the FSS sealing key\n"
                "     --verify-key=KEY        Specify FSS verification key\n"
@@ -422,6 +426,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_HEADER,
                 ARG_FACILITY,
                 ARG_SETUP_KEYS,
@@ -478,6 +483,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "directory",            required_argument, NULL, 'D'                      },
                 { "file",                 required_argument, NULL, ARG_FILE                 },
                 { "root",                 required_argument, NULL, ARG_ROOT                 },
+                { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "header",               no_argument,       NULL, ARG_HEADER               },
                 { "identifier",           required_argument, NULL, 't'                      },
                 { "priority",             required_argument, NULL, 'p'                      },
@@ -713,7 +719,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, true, &arg_root);
+                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ true, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -1043,8 +1055,8 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_follow && !arg_no_tail && !arg_since && arg_lines == ARG_LINES_DEFAULT)
                 arg_lines = 10;
 
-        if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root > 1) {
-                log_error("Please specify at most one of -D/--directory=, --file=, -M/--machine=, --root.");
+        if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root + !!arg_image > 1) {
+                log_error("Please specify at most one of -D/--directory=, --file=, -M/--machine=, --root=, --image=.");
                 return -EINVAL;
         }
 
@@ -2084,6 +2096,9 @@ static int wait_for_change(sd_journal *j, int poll_fd) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         bool previous_boot_id_valid = false, first_line = true, ellipsized = false, need_seek = false;
         bool use_cursor = false, after_cursor = false;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2100,6 +2115,24 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|
+                                (arg_action == ACTION_UPDATE_CATALOG ? DISSECT_IMAGE_FSCK : DISSECT_IMAGE_READ_ONLY),
+                                &unlink_dir,
+                                &loop_device,
+                                &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(unlink_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         signal(SIGWINCH, columns_lines_cache_reset);
         sigbus_install();
