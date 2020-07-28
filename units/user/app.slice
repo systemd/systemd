@@ -8,13 +8,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Exit the Session
+Description=User Application Slice
 Documentation=man:systemd.special(7)
-DefaultDependencies=no
-Requires=shutdown.target
-After=shutdown.target
-SuccessAction=exit-force
-
-[Service]
-# Place into the root slice to not keep another slice unit alive
-Slice=-.slice

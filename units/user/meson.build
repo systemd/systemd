@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 units = [
+        'app.slice',
+        'background.slice',
         'basic.target',
         'bluetooth.target',
         'default.target',
@@ -9,6 +11,7 @@ units = [
         'graphical-session.target',
         'paths.target',
         'printer.target',
+        'session.slice',
         'shutdown.target',
         'smartcard.target',
         'sockets.target',
