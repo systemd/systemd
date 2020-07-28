@@ -7,17 +7,19 @@
 #include "conf-files.h"
 #include "copy.h"
 #include "def.h"
+#include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
 #include "main-func.h"
+#include "mount-util.h"
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "set.h"
 #include "selinux-util.h"
+#include "set.h"
 #include "smack-util.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -63,6 +65,7 @@ typedef struct Item {
 } Item;
 
 static char *arg_root = NULL;
+static char *arg_image = NULL;
 static bool arg_cat_config = false;
 static const char *arg_replace = NULL;
 static bool arg_inline = false;
@@ -93,6 +96,7 @@ STATIC_DESTRUCTOR_REGISTER(database_by_groupname, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(database_groups, set_free_freep);
 STATIC_DESTRUCTOR_REGISTER(uid_range, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 
 static int errno_is_not_exists(int code) {
         /* See getpwnam(3) and getgrnam(3): those codes and others can be returned if the user or group are
@@ -1739,6 +1743,7 @@ static int help(void) {
                "     --version              Show package version\n"
                "     --cat-config           Show configuration files\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
+               "     --image=PATH           Operate on disk image as filesystem root\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --inline               Treat arguments as configuration lines\n"
                "     --no-pager             Do not pipe output into a pager\n"
@@ -1756,6 +1761,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_REPLACE,
                 ARG_INLINE,
                 ARG_NO_PAGER,
@@ -1766,6 +1772,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",    no_argument,       NULL, ARG_VERSION    },
                 { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
                 { "root",       required_argument, NULL, ARG_ROOT       },
+                { "image",      required_argument, NULL, ARG_IMAGE          },
                 { "replace",    required_argument, NULL, ARG_REPLACE    },
                 { "inline",     no_argument,       NULL, ARG_INLINE     },
                 { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
@@ -1793,6 +1800,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ROOT:
                         r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
@@ -1828,6 +1841,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_replace && optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "When --replace= is given, some configuration items must be specified");
+
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
@@ -1880,6 +1896,9 @@ static int read_config_files(char **args) {
 }
 
 static int run(int argc, char *argv[]) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         _cleanup_close_ int lock = -1;
         Iterator iterator;
         Item *i;
@@ -1899,6 +1918,23 @@ static int run(int argc, char *argv[]) {
         r = mac_selinux_init();
         if (r < 0)
                 return r;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
+                                &unlink_dir,
+                                &loop_device,
+                                &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(unlink_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         /* If command line arguments are specified along with --replace, read all
          * configuration files and insert the positional arguments at the specified
