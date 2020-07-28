@@ -420,7 +420,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_dns = true,
 
-                .dhcp6_pd_assign_prefix = true,
+                .dhcp6_pd_subnet_id = -1,
+                .dhcp6_pd_assign = true,
 
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
@@ -429,7 +430,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
 
-                .router_prefix_subnet_id = -1,
                 .router_emit_dns = true,
                 .router_emit_domains = true,
 

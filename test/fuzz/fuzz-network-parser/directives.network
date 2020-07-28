@@ -130,10 +130,12 @@ SendOption=
 RequestOptions=
 UserClass=
 VendorClass=
-AssignAcquiredDelegatedPrefixAddress=
-AssignAcquiredDelegatedPrefixToken=
 SendVendorOption=
 RouteMetric=
+[DHCPv6PrefixDelegation]
+SubnetId=
+Assign=
+Token=
 [Route]
 Destination=
 Protocol=
@@ -203,7 +205,6 @@ NTP=
 DHCP=
 Domains=
 IPv6PrefixDelegation=
-IPv6PDSubnetId=
 VLAN=
 DHCPServer=
 BindCarrier=

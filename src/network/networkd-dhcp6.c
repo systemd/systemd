@@ -367,7 +367,7 @@ static int dhcp6_set_pd_address(Link *link,
         assert(link->network);
         assert(prefix);
 
-        if (!link->network->dhcp6_pd_assign_prefix)
+        if (!link->network->dhcp6_pd_assign)
                 return 0;
 
         r = address_new(&address);
@@ -376,8 +376,8 @@ static int dhcp6_set_pd_address(Link *link,
 
         address->in_addr = *prefix;
 
-        if (!in_addr_is_null(AF_INET6, &link->network->dhcp6_delegation_prefix_token))
-                memcpy(address->in_addr.in6.s6_addr + 8, link->network->dhcp6_delegation_prefix_token.in6.s6_addr + 8, 8);
+        if (!in_addr_is_null(AF_INET6, &link->network->dhcp6_pd_token))
+                memcpy(address->in_addr.in6.s6_addr + 8, link->network->dhcp6_pd_token.in6.s6_addr + 8, 8);
         else {
                 r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
                 if (r < 0)
@@ -437,7 +437,7 @@ static bool link_has_preferred_subnet_id(Link *link) {
         if (!link->network)
                 return false;
 
-        return link->network->router_prefix_subnet_id >= 0;
+        return link->network->dhcp6_pd_subnet_id >= 0;
 }
 
 static int dhcp6_get_preferred_delegated_prefix(
@@ -461,7 +461,7 @@ static int dhcp6_get_preferred_delegated_prefix(
         prefix = *masked_pd_prefix;
 
         if (link_has_preferred_subnet_id(link)) {
-                uint64_t subnet_id = link->network->router_prefix_subnet_id;
+                uint64_t subnet_id = link->network->dhcp6_pd_subnet_id;
 
                 /* If the link has a preference for a particular subnet id try to allocate that */
                 if (subnet_id >= n_prefixes)
@@ -1556,7 +1556,18 @@ int config_parse_dhcp6_mud_url(
         return free_and_replace(network->dhcp6_mudurl, unescaped);
 }
 
-int config_parse_dhcp6_delegated_prefix_token(
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp6_client_start_mode, dhcp6_client_start_mode, DHCP6ClientStartMode,
+                         "Failed to parse WithoutRA= setting");
+
+static const char* const dhcp6_client_start_mode_table[_DHCP6_CLIENT_START_MODE_MAX] = {
+        [DHCP6_CLIENT_START_MODE_NO]                  = "no",
+        [DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST] = "information-request",
+        [DHCP6_CLIENT_START_MODE_SOLICIT]             = "solicit",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(dhcp6_client_start_mode, DHCP6ClientStartMode);
+
+int config_parse_dhcp6_pd_subnet_id(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -1568,7 +1579,52 @@ int config_parse_dhcp6_delegated_prefix_token(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
+        int64_t *p = data;
+        uint64_t t;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue) || streq(rvalue, "auto")) {
+                *p = -1;
+                return 0;
+        }
+
+        r = safe_atoux64(rvalue, &t);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+        if (t > INT64_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid subnet id '%s', ignoring assignment.",
+                           rvalue);
+                return 0;
+        }
+
+        *p = (int64_t) t;
+
+        return 0;
+}
+
+int config_parse_dhcp6_pd_token(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        union in_addr_union *addr = data, tmp;
         int r;
 
         assert(filename);
@@ -1577,33 +1633,24 @@ int config_parse_dhcp6_delegated_prefix_token(
         assert(data);
 
         if (isempty(rvalue)) {
-                network->dhcp6_delegation_prefix_token = IN_ADDR_NULL;
+                *addr = IN_ADDR_NULL;
                 return 0;
         }
 
-        r = in_addr_from_string(AF_INET6, rvalue, &network->dhcp6_delegation_prefix_token);
+        r = in_addr_from_string(AF_INET6, rvalue, &tmp);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse DHCPv6 %s, ignoring: %s", lvalue, rvalue);
+                           "Failed to parse DHCPv6 Prefix Delegation token, ignoring: %s", rvalue);
                 return 0;
         }
 
-        if (in_addr_is_null(AF_INET6, &network->dhcp6_delegation_prefix_token)) {
+        if (in_addr_is_null(AF_INET6, &tmp)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "DHCPv6 %s cannot be the ANY address, ignoring: %s", lvalue, rvalue);
+                           "DHCPv6 Prefix Delegation token cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
+
+        *addr = tmp;
 
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp6_client_start_mode, dhcp6_client_start_mode, DHCP6ClientStartMode,
-                         "Failed to parse WithoutRA= setting");
-
-static const char* const dhcp6_client_start_mode_table[_DHCP6_CLIENT_START_MODE_MAX] = {
-        [DHCP6_CLIENT_START_MODE_NO]                  = "no",
-        [DHCP6_CLIENT_START_MODE_INFORMATION_REQUEST] = "information-request",
-        [DHCP6_CLIENT_START_MODE_SOLICIT]             = "solicit",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(dhcp6_client_start_mode, DHCP6ClientStartMode);
