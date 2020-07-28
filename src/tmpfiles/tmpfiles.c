@@ -26,6 +26,7 @@
 #include "copy.h"
 #include "def.h"
 #include "dirent-util.h"
+#include "dissect-image.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -38,6 +39,7 @@
 #include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "offline-passwd.h"
 #include "pager.h"
@@ -164,6 +166,7 @@ static PagerFlags arg_pager_flags = 0;
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
+static char *arg_image = NULL;
 static char *arg_replace = NULL;
 
 #define MAX_DEPTH 256
@@ -177,6 +180,7 @@ STATIC_DESTRUCTOR_REGISTER(unix_sockets, set_free_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 
 static int specifier_machine_id_safe(char specifier, const void *data, const void *userdata, char **ret);
 static int specifier_directory(char specifier, const void *data, const void *userdata, char **ret);
@@ -2927,6 +2931,7 @@ static int help(void) {
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
+               "     --image=PATH           Operate on disk image as filesystem root\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --no-pager             Do not pipe output into a pager\n"
                "\nSee the %s for details.\n"
@@ -2950,6 +2955,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
                 ARG_ROOT,
+                ARG_IMAGE,
                 ARG_REPLACE,
                 ARG_NO_PAGER,
         };
@@ -2966,6 +2972,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 { "root",           required_argument,   NULL, ARG_ROOT           },
+                { "image",          required_argument,   NULL, ARG_IMAGE          },
                 { "replace",        required_argument,   NULL, ARG_REPLACE        },
                 { "no-pager",       no_argument,         NULL, ARG_NO_PAGER       },
                 {}
@@ -3020,17 +3027,25 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_oom();
                         break;
 
+                case ARG_ROOT:
+                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+
+                        /* Imply -E here since it makes little sense to create files persistently in the /run mointpoint of a disk image */
+                        _fallthrough_;
+
                 case 'E':
                         r = exclude_default_prefixes();
                         if (r < 0)
                                 return r;
 
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_root);
-                        if (r < 0)
-                                return r;
                         break;
 
                 case ARG_REPLACE:
@@ -3068,6 +3083,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_root && arg_user)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Combination of --user and --root= is not supported.");
+
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
@@ -3244,6 +3262,9 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_array_hash_ops, char, string_
                                               ItemArray, item_array_free);
 
 static int run(int argc, char *argv[]) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         _cleanup_strv_free_ char **config_dirs = NULL;
         bool invalid_config = false;
         Iterator iterator;
@@ -3303,6 +3324,23 @@ static int run(int argc, char *argv[]) {
         r = mac_selinux_init();
         if (r < 0)
                 return r;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
+                                &unlink_dir,
+                                &loop_device,
+                                &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(unlink_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         items = ordered_hashmap_new(&item_array_hash_ops);
         globs = ordered_hashmap_new(&item_array_hash_ops);
