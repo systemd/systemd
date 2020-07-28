@@ -33,8 +33,10 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -1940,7 +1942,82 @@ const char* mount_options_from_part(const MountOptions *options, unsigned int pa
         LIST_FOREACH(mount_options, m, (MountOptions *)options)
                 if (partition_number == m->partition_number && !isempty(m->options))
                         return m->options;
+
         return NULL;
+}
+
+int mount_image_privately_interactively(
+                const char *image,
+                DissectImageFlags flags,
+                char **ret_directory,
+                LoopDevice **ret_loop_device,
+                DecryptedImage **ret_decrypted_image) {
+
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_(rmdir_and_freep) char *created_dir = NULL;
+        _cleanup_free_ char *temp = NULL;
+        int r;
+
+        /* Mounts an OS image at a temporary place, inside a newly created mount namespace of our own. This
+         * is used by tools such as systemd-tmpfiles or systemd-firstboot to operate on some disk image
+         * easily. */
+
+        assert(image);
+        assert(ret_directory);
+        assert(ret_loop_device);
+        assert(ret_decrypted_image);
+
+        r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate temporary mount directory: %m");
+
+        r = loop_device_make_by_path(
+                        image,
+                        FLAGS_SET(flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR,
+                        FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                        &d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up loopback device: %m");
+
+        r = dissect_image_and_warn(d->fd, image, NULL, 0, NULL, NULL, flags, &dissected_image);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_decrypt_interactively(dissected_image, NULL, NULL, 0, NULL, NULL, NULL, 0, flags, &decrypted_image);
+        if (r < 0)
+                return r;
+
+        r = detach_mount_namespace();
+        if (r < 0)
+                return log_error_errno(r, "Failed to detach mount namespace: %m");
+
+        r = mkdir_p(temp, 0700);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create mount point: %m");
+
+        created_dir = TAKE_PTR(temp);
+
+        r = dissected_image_mount(dissected_image, created_dir, UID_INVALID, flags);
+        if (r == -EUCLEAN)
+                return log_error_errno(r, "File system check on image failed: %m");
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount image: %m");
+
+        if (decrypted_image) {
+                r = decrypted_image_relinquish(decrypted_image);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
+        }
+
+        loop_device_relinquish(d);
+
+        *ret_directory = TAKE_PTR(created_dir);
+        *ret_loop_device = TAKE_PTR(d);
+        *ret_decrypted_image = TAKE_PTR(decrypted_image);
+
+        return 0;
 }
 
 static const char *const partition_designator_table[] = {
