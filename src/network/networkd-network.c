@@ -501,6 +501,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCP\0" /* compat */
                         "DHCPv4\0"
                         "DHCPv6\0"
+                        "DHCPv6PrefixDelegation\0"
                         "DHCPServer\0"
                         "IPv6AcceptRA\0"
                         "IPv6NDPProxyAddress\0"
