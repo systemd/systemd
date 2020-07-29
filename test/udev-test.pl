@@ -947,7 +947,7 @@ EOF
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "test",
                 rules           => <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo link test this" SYMLINK+="%c{2+}"
+SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo link test this", SYMLINK+="%c{2+}"
 EOF
         },
         {
@@ -998,7 +998,7 @@ EOF
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "node",
                 rules           => <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/usr/bin/test -b %N" SYMLINK+="node"
+SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/usr/bin/test -b %N", SYMLINK+="node"
 EOF
         },
         {
@@ -1126,7 +1126,7 @@ EOF
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
                 exp_name        => "uber",
                 rules           => <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xc3\\xbcber" RESULT=="\xc3\xbcber", SYMLINK+="uber"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xc3\\xbcber", RESULT=="\xc3\xbcber", SYMLINK+="uber"
 EOF
         },
         {
