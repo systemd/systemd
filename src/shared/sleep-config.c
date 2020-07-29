@@ -125,10 +125,16 @@ int can_sleep_state(char **types) {
 
                 k = strlen(*type);
                 FOREACH_WORD_SEPARATOR(word, l, p, WHITESPACE, state)
-                        if (l == k && memcmp(word, *type, l) == 0)
+                        if (l == k && memcmp(word, *type, l) == 0) {
+                                log_debug("Sleep mode \"%s\" is supported by the kernel.", *type);
                                 return true;
+                        }
         }
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *t = strv_join(types, "/");
+                log_debug("Sleep mode %s not supported by the kernel, sorry.", strnull(t));
+        }
         return false;
 }
 
