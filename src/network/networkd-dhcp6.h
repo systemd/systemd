@@ -17,17 +17,26 @@ typedef enum DHCP6ClientStartMode {
 typedef struct Link Link;
 typedef struct Manager Manager;
 
-bool dhcp6_get_prefix_delegation(Link *link);
-int dhcp6_request_prefix_delegation(Link *link);
+typedef struct DHCP6DelegatedPrefix {
+        struct in6_addr prefix;     /* Prefix assigned to the link */
+        struct in6_addr pd_prefix;  /* PD prefix provided by DHCP6 lease */
+        Link *link;
+} DHCP6DelegatedPrefix;
+
+DHCP6DelegatedPrefix *dhcp6_pd_free(DHCP6DelegatedPrefix *p);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DHCP6DelegatedPrefix*, dhcp6_pd_free);
+
+bool link_dhcp6_pd_is_enabled(Link *link);
+int dhcp6_pd_remove(Link *link);
 int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
-int dhcp6_lease_pd_prefix_lost(sd_dhcp6_client *client, Link* link);
-int dhcp6_prefix_remove(Manager *m, struct in6_addr *addr);
+int dhcp6_request_prefix_delegation(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_hint);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_mud_url);
-CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_delegated_prefix_token);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_client_start_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_subnet_id);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp6_pd_token);
 
 const char* dhcp6_client_start_mode_to_string(DHCP6ClientStartMode i) _const_;
 DHCP6ClientStartMode dhcp6_client_start_mode_from_string(const char *s) _pure_;

@@ -20,6 +20,7 @@ typedef struct Address Address;
 typedef struct Network Network;
 typedef struct Link Link;
 typedef struct NetworkConfigSection NetworkConfigSection;
+typedef int (*address_ready_callback_t)(Address *address);
 
 struct Address {
         Network *network;
@@ -47,6 +48,9 @@ struct Address {
         bool autojoin:1;
         AddressFamily duplicate_address_detection;
 
+        /* Called when address become ready */
+        address_ready_callback_t callback;
+
         sd_ipv4acd *acd;
 
         LIST_FIELDS(Address, addresses);
@@ -60,7 +64,7 @@ int address_get(Link *link, int family, const union in_addr_union *in_addr, unsi
 bool address_exists(Link *link, int family, const union in_addr_union *in_addr);
 int address_update(Address *address, unsigned char flags, unsigned char scope, const struct ifa_cacheinfo *cinfo);
 int address_drop(Address *address);
-int address_configure(Address *address, Link *link, link_netlink_message_handler_t callback, bool update);
+int address_configure(Address *address, Link *link, link_netlink_message_handler_t callback, bool update, Address **ret);
 int address_remove(Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(Address *a1, Address *a2);
 bool address_is_ready(const Address *a);

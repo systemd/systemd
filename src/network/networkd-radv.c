@@ -650,10 +650,7 @@ int radv_configure(Link *link) {
                         return r;
         }
 
-        if (IN_SET(link->network->router_prefix_delegation,
-                   RADV_PREFIX_DELEGATION_STATIC,
-                   RADV_PREFIX_DELEGATION_BOTH)) {
-
+        if (link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_STATIC) {
                 LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
                         r = sd_radv_add_prefix(link->radv, p->radv_prefix, false);
                         if (r == -EEXIST)
@@ -673,13 +670,12 @@ int radv_configure(Link *link) {
                         if (r < 0)
                                 return r;
                 }
-
         }
 
         return 0;
 }
 
-int radv_add_prefix(Link *link, struct in6_addr *prefix, uint8_t prefix_len,
+int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
                     uint32_t lifetime_preferred, uint32_t lifetime_valid) {
         _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
         int r;
@@ -867,49 +863,6 @@ int config_parse_router_preference(const char *unit,
         else
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid router preference, ignoring assignment: %s", rvalue);
-
-        return 0;
-}
-
-int config_parse_router_prefix_subnet_id(const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-        Network *network = userdata;
-        uint64_t t;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue) || streq(rvalue, "auto")) {
-                network->router_prefix_subnet_id = -1;
-                return 0;
-        }
-
-        r = safe_atoux64(rvalue, &t);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse %s=, ignoring assignment: %s",
-                           lvalue, rvalue);
-                return 0;
-        }
-        if (t > INT64_MAX) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid subnet id '%s', ignoring assignment.",
-                           rvalue);
-                return 0;
-        }
-
-        network->router_prefix_subnet_id = (int64_t)t;
 
         return 0;
 }

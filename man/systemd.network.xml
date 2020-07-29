@@ -810,16 +810,6 @@
           configuration options.</para></listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>IPv6PDSubnetId=</varname></term>
-          <listitem><para>Configure a specific subnet ID on the interface from a (previously) received prefix delegation.
-          You can either set "auto" (the default) or a specific subnet ID
-          (as defined in <ulink url="https://tools.ietf.org/html/rfc4291#section-2.5.4">RFC 4291</ulink>, section 2.5.4),
-          in which case the allowed value is hexadecimal, from 0 to 0x7fffffffffffffff inclusive.
-          This option is only effective when used together with <varname>IPv6PrefixDelegation=</varname>
-          and the corresponding configuration on the upstream interface.
-          </para></listitem>
-        </varlistentry>
-        <varlistentry>
           <term><varname>IPv6MTUBytes=</varname></term>
           <listitem><para>Configures IPv6 maximum transmission unit (MTU).
           An integer greater than or equal to 1280 bytes. When unset, the kernel's default will be used.
@@ -1894,25 +1884,6 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>AssignAcquiredDelegatedPrefixAddress=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Specifies whether to add an address from the delegated prefixes which are received
-            from the WAN interface by the <varname>IPv6PrefixDelegation=</varname>. When true (on LAN interfce), the EUI-64
-            algorithm will be used to form an interface identifier from the delegated prefixes. Defaults to true.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-        <term><varname>AssignAcquiredDelegatedPrefixToken=</varname></term>
-          <listitem>
-            <para>Specifies an optional address generation mode for <varname>AssignAcquiredDelegatedPrefixAddress=</varname>.
-            Takes an IPv6 address. When set, the lower bits of the supplied address are combined with the upper bits of a
-            delegatad prefix received from the WAN interface by the <varname>IPv6PrefixDelegation=</varname> prefixes to
-            form a complete address.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><varname>PrefixDelegationHint=</varname></term>
           <listitem>
             <para>Takes an IPv6 address with prefix length in the same format as the
@@ -1964,6 +1935,48 @@
           </listitem>
         </varlistentry>
       </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[DHCPv6PrefixDelegation] Section Options</title>
+    <para>The [DHCPv6PrefixDelegation] section configures delegated prefix assigned by DHCPv6 server.
+    The settings in this section are used only when <varname>IPv6PrefixDelegation=</varname> setting is
+    enabled, or set to <literal>dhcp6</literal>.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>SubnetId=</varname></term>
+        <listitem>
+          <para>Configure a specific subnet ID on the interface from a (previously) received prefix
+          delegation. You can either set "auto" (the default) or a specific subnet ID (as defined in
+          <ulink url="https://tools.ietf.org/html/rfc4291#section-2.5.4">RFC 4291</ulink>, section
+          2.5.4), in which case the allowed value is hexadecimal, from 0 to 0x7fffffffffffffff
+          inclusive. This option is only effective when used together with
+          <varname>IPv6PrefixDelegation=</varname> and the corresponding configuration on the upstream
+          interface.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Assign=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Specifies whether to add an address from the delegated prefixes which
+          are received from the WAN interface by the <varname>IPv6PrefixDelegation=</varname>. When
+          true (on LAN interfce), the EUI-64 algorithm will be used to form an interface identifier
+          from the delegated prefixes. Defaults to true.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Token=</varname></term>
+        <listitem>
+          <para>Specifies an optional address generation mode for <varname>Assign=</varname>. Takes an
+          IPv6 address. When set, the lower bits of the supplied address are combined with the upper
+          bits of a delegatad prefix received from the WAN interface by the
+          <varname>IPv6PrefixDelegation=</varname> prefixes to form a complete address.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
