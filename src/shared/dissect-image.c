@@ -1776,7 +1776,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 }
 
                 for (k = 0; k < _META_MAX; k++) {
-                        _cleanup_close_ int fd = -1;
+                        _cleanup_close_ int fd = -ENOENT;
                         const char *p;
 
                         fds[2*k] = safe_close(fds[2*k]);
@@ -1788,6 +1788,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         }
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
+                                fds[2*k+1] = safe_close(fds[2*k+1]);
                                 continue;
                         }
 

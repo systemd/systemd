@@ -315,10 +315,328 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int run(int argc, char *argv[]) {
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+static int action_dissect(DissectedImage *m, LoopDevice *d) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        uint64_t size;
+        int r;
+
+        assert(m);
+        assert(d);
+
+        r = dissected_image_acquire_metadata(m);
+        if (r == -EMEDIUMTYPE)
+                return log_error_errno(r, "Not a valid OS image, no os-release file included.");
+        if (r == -ENXIO)
+                return log_error_errno(r, "No root partition discovered.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire image metadata: %m");
+
+        printf("      Name: %s\n", basename(arg_image));
+
+        if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
+                log_debug_errno(errno, "Failed to query size of loopback device: %m");
+        else {
+                char s[FORMAT_BYTES_MAX];
+                printf("      Size: %s\n", format_bytes(s, sizeof(s), size));
+        }
+
+        if (m->hostname)
+                printf("  Hostname: %s\n", m->hostname);
+
+        if (!sd_id128_is_null(m->machine_id))
+                printf("Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->machine_id));
+
+        if (!strv_isempty(m->machine_info)) {
+                char **p, **q;
+
+                STRV_FOREACH_PAIR(p, q, m->machine_info)
+                        printf("%s %s=%s\n",
+                               p == m->machine_info ? "Mach. Info:" : "           ",
+                               *p, *q);
+        }
+
+        if (!strv_isempty(m->os_release)) {
+                char **p, **q;
+
+                STRV_FOREACH_PAIR(p, q, m->os_release)
+                        printf("%s %s=%s\n",
+                               p == m->os_release ? "OS Release:" : "           ",
+                               *p, *q);
+        }
+
+        putc('\n', stdout);
+
+        t = table_new("rw", "designator", "partition uuid", "fstype", "architecture", "verity", "node", "partno");
+        if (!t)
+                return log_oom();
+
+        (void) table_set_empty_string(t, "-");
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
+
+        for (unsigned i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                DissectedPartition *p = m->partitions + i;
+
+                if (!p->found)
+                        continue;
+
+                r = table_add_many(
+                                t,
+                                TABLE_STRING, p->rw ? "rw" : "ro",
+                                TABLE_STRING, partition_designator_to_string(i));
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (sd_id128_is_null(p->uuid))
+                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                else
+                        r = table_add_cell(t, NULL, TABLE_UUID, &p->uuid);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                r = table_add_many(
+                                t,
+                                TABLE_STRING, p->fstype,
+                                TABLE_STRING, architecture_to_string(p->architecture));
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (arg_verity_data)
+                        r = table_add_cell(t, NULL, TABLE_STRING, "external");
+                else if (dissected_image_can_do_verity(m, i))
+                        r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_has_verity(m, i)));
+                else
+                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (p->partno < 0) /* no partition table, naked file system */ {
+                        r = table_add_cell(t, NULL, TABLE_STRING, arg_image);
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                } else {
+                        r = table_add_cell(t, NULL, TABLE_STRING, p->node);
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        r = table_add_cell(t, NULL, TABLE_INT, &p->partno);
+                }
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_print(t, stdout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump table: %m");
+
+        return 0;
+}
+
+static int action_mount(DissectedImage *m, LoopDevice *d) {
         _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
+        int r;
+
+        assert(m);
+        assert(d);
+
+        r = dissected_image_decrypt_interactively(
+                        m, NULL,
+                        arg_root_hash, arg_root_hash_size,
+                        arg_verity_data,
+                        arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size,
+                        arg_flags,
+                        &di);
+        if (r < 0)
+                return r;
+
+        r = dissected_image_mount(m, arg_path, UID_INVALID, arg_flags);
+        if (r == -EUCLEAN)
+                return log_error_errno(r, "File system check on image failed: %m");
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount image: %m");
+
+        if (di) {
+                r = decrypted_image_relinquish(di);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
+        }
+
+        loop_device_relinquish(d);
+        return 0;
+}
+
+static int action_copy(DissectedImage *m, LoopDevice *d) {
+        _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
+        _cleanup_(decrypted_image_unrefp) DecryptedImage *di = NULL;
+        _cleanup_(rmdir_and_freep) char *created_dir = NULL;
+        _cleanup_free_ char *temp = NULL;
+        int r;
+
+        assert(m);
+        assert(d);
+
+        r = dissected_image_decrypt_interactively(
+                        m, NULL,
+                        arg_root_hash, arg_root_hash_size,
+                        arg_verity_data,
+                        arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size,
+                        arg_flags,
+                        &di);
+        if (r < 0)
+                return r;
+
+        r = detach_mount_namespace();
+        if (r < 0)
+                return log_error_errno(r, "Failed to detach mount namespace: %m");
+
+        r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate temporary mount directory: %m");
+
+        r = mkdir_p(temp, 0700);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create mount point: %m");
+
+        created_dir = TAKE_PTR(temp);
+
+        r = dissected_image_mount(m, created_dir, UID_INVALID, arg_flags);
+        if (r == -EUCLEAN)
+                return log_error_errno(r, "File system check on image failed: %m");
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount image: %m");
+
+        mounted_dir = TAKE_PTR(created_dir);
+
+        if (di) {
+                r = decrypted_image_relinquish(di);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
+        }
+
+        loop_device_relinquish(d);
+
+        if (arg_action == ACTION_COPY_FROM) {
+                _cleanup_close_ int source_fd = -1, target_fd = -1;
+
+                source_fd = chase_symlinks_and_open(arg_source, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                if (source_fd < 0)
+                        return log_error_errno(source_fd, "Failed to open source path '%s' in image '%s': %m", arg_source, arg_image);
+
+                /* Copying to stdout? */
+                if (streq(arg_target, "-")) {
+                        r = copy_bytes(source_fd, STDOUT_FILENO, (uint64_t) -1, COPY_REFLINK);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to stdout: %m", arg_source, arg_image);
+
+                        /* When we copy to stdou we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
+                        return 0;
+                }
+
+                /* Try to copy as directory? */
+                r = copy_directory_fd(source_fd, arg_target, COPY_REFLINK|COPY_MERGE_EMPTY|COPY_SIGINT);
+                if (r >= 0)
+                        return 0;
+                if (r != -ENOTDIR)
+                        return log_error_errno(r, "Failed to copy %s in image '%s' to '%s': %m", arg_source, arg_image, arg_target);
+
+                r = fd_verify_regular(source_fd);
+                if (r == -EISDIR)
+                        return log_error_errno(r, "Target '%s' exists already and is not a directory.", arg_target);
+                if (r < 0)
+                        return log_error_errno(r, "Source path %s in image '%s' is neither regular file nor directory, refusing: %m", arg_source, arg_image);
+
+                /* Nah, it's a plain file! */
+                target_fd = open(arg_target, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+                if (target_fd < 0)
+                        return log_error_errno(errno, "Failed to create regular file at target path '%s': %m", arg_target);
+
+                r = copy_bytes(source_fd, target_fd, (uint64_t) -1, COPY_REFLINK);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to '%s': %m", arg_source, arg_image, arg_target);
+
+                (void) copy_xattr(source_fd, target_fd);
+                (void) copy_access(source_fd, target_fd);
+                (void) copy_times(source_fd, target_fd, 0);
+
+                /* When this is a regular file we don't copy ownership! */
+
+        } else {
+                _cleanup_close_ int source_fd = -1, target_fd = -1;
+                _cleanup_close_ int dfd = -1;
+                _cleanup_free_ char *dn = NULL;
+
+                assert(arg_action == ACTION_COPY_TO);
+
+                dn = dirname_malloc(arg_target);
+                if (!dn)
+                        return log_oom();
+
+                r = chase_symlinks(dn, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open '%s': %m", dn);
+
+                /* Are we reading from stdin? */
+                if (streq(arg_source, "-")) {
+                        target_fd = openat(dfd, basename(arg_target), O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0644);
+                        if (target_fd < 0)
+                                return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
+
+                        r = copy_bytes(STDIN_FILENO, target_fd, (uint64_t) -1, COPY_REFLINK);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy bytes from stdin to '%s' in image '%s': %m", arg_target, arg_image);
+
+                        /* When we copy from stdin we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
+                        return 0;
+                }
+
+                source_fd = open(arg_source, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (source_fd < 0)
+                        return log_error_errno(source_fd, "Failed to open source path '%s': %m", arg_source);
+
+                r = fd_verify_regular(source_fd);
+                if (r < 0) {
+                        if (r != -EISDIR)
+                                return log_error_errno(r, "Source '%s' is neither regular file nor directory: %m", arg_source);
+
+                        /* We are looking at a directory. */
+
+                        target_fd = openat(dfd, basename(arg_target), O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                        if (target_fd < 0) {
+                                if (errno != ENOENT)
+                                        return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
+
+                                r = copy_tree_at(source_fd, ".", dfd, basename(arg_target), UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT);
+                        } else
+                                r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
+
+                        return 0;
+                }
+
+                /* We area looking at a regular file */
+                target_fd = openat(dfd, basename(arg_target), O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0600);
+                if (target_fd < 0)
+                        return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
+
+                r = copy_bytes(source_fd, target_fd, (uint64_t) -1, COPY_REFLINK);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy bytes from '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
+
+                (void) copy_xattr(source_fd, target_fd);
+                (void) copy_access(source_fd, target_fd);
+                (void) copy_times(source_fd, target_fd, 0);
+
+                /* When this is a regular file we don't copy ownership! */
+        }
+
+        return 0;
+}
+
+static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         int r;
 
         log_parse_environment();
@@ -364,316 +682,24 @@ static int run(int argc, char *argv[]) {
 
         switch (arg_action) {
 
-        case ACTION_DISSECT: {
-                _cleanup_(table_unrefp) Table *t = NULL;
-                uint64_t size;
-
-                r = dissected_image_acquire_metadata(m);
-                if (r == -EMEDIUMTYPE)
-                        return log_error_errno(r, "Not a valid OS image, no os-release file included.");
-                if (r == -ENXIO)
-                        return log_error_errno(r, "No root partition discovered.");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to acquire image metadata: %m");
-
-                printf("      Name: %s\n", basename(arg_image));
-
-                if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
-                        log_debug_errno(errno, "Failed to query size of loopback device: %m");
-                else {
-                        char s[FORMAT_BYTES_MAX];
-                        printf("      Size: %s\n", format_bytes(s, sizeof(s), size));
-                }
-
-                if (m->hostname)
-                        printf("  Hostname: %s\n", m->hostname);
-
-                if (!sd_id128_is_null(m->machine_id))
-                        printf("Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->machine_id));
-
-                if (!strv_isempty(m->machine_info)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->machine_info)
-                                printf("%s %s=%s\n",
-                                       p == m->machine_info ? "Mach. Info:" : "           ",
-                                       *p, *q);
-                }
-
-                if (!strv_isempty(m->os_release)) {
-                        char **p, **q;
-
-                        STRV_FOREACH_PAIR(p, q, m->os_release)
-                                printf("%s %s=%s\n",
-                                       p == m->os_release ? "OS Release:" : "           ",
-                                       *p, *q);
-                }
-
-                putc('\n', stdout);
-
-                t = table_new("rw", "designator", "partition uuid", "fstype", "architecture", "verity", "node", "partno");
-                if (!t)
-                        return log_oom();
-
-                (void) table_set_empty_string(t, "-");
-                (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
-
-                for (unsigned i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
-                        DissectedPartition *p = m->partitions + i;
-
-                        if (!p->found)
-                                continue;
-
-                        r = table_add_many(
-                                        t,
-                                        TABLE_STRING, p->rw ? "rw" : "ro",
-                                        TABLE_STRING, partition_designator_to_string(i));
-                        if (r < 0)
-                                return table_log_add_error(r);
-
-                        if (sd_id128_is_null(p->uuid))
-                                r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
-                        else
-                                r = table_add_cell(t, NULL, TABLE_UUID, &p->uuid);
-                        if (r < 0)
-                                return table_log_add_error(r);
-
-                        r = table_add_many(
-                                        t,
-                                        TABLE_STRING, p->fstype,
-                                        TABLE_STRING, architecture_to_string(p->architecture));
-                        if (r < 0)
-                                return table_log_add_error(r);
-
-                        if (arg_verity_data)
-                                r = table_add_cell(t, NULL, TABLE_STRING, "external");
-                        else if (dissected_image_can_do_verity(m, i))
-                                r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_has_verity(m, i)));
-                        else
-                                r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
-                        if (r < 0)
-                                return table_log_add_error(r);
-
-
-                        if (p->partno < 0) /* no partition table, naked file system */ {
-                                r = table_add_cell(t, NULL, TABLE_STRING, arg_image);
-                                if (r < 0)
-                                        return table_log_add_error(r);
-
-                                r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
-                        } else {
-                                r = table_add_cell(t, NULL, TABLE_STRING, p->node);
-                                if (r < 0)
-                                        return table_log_add_error(r);
-
-                                r = table_add_cell(t, NULL, TABLE_INT, &p->partno);
-                        }
-                        if (r < 0)
-                                return table_log_add_error(r);
-                }
-
-                r = table_print(t, stdout);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to dump table: %m");
-
+        case ACTION_DISSECT:
+                r = action_dissect(m, d);
                 break;
-        }
 
         case ACTION_MOUNT:
-                r = dissected_image_decrypt_interactively(
-                                m, NULL,
-                                arg_root_hash, arg_root_hash_size,
-                                arg_verity_data,
-                                arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size,
-                                arg_flags,
-                                &di);
-                if (r < 0)
-                        return r;
-
-                r = dissected_image_mount(m, arg_path, UID_INVALID, arg_flags);
-                if (r == -EUCLEAN)
-                        return log_error_errno(r, "File system check on image failed: %m");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to mount image: %m");
-
-                if (di) {
-                        r = decrypted_image_relinquish(di);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to relinquish DM devices: %m");
-                }
-
-                loop_device_relinquish(d);
+                r = action_mount(m, d);
                 break;
 
         case ACTION_COPY_FROM:
-        case ACTION_COPY_TO: {
-                _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-                _cleanup_(rmdir_and_freep) char *created_dir = NULL;
-                _cleanup_free_ char *temp = NULL;
-
-                r = dissected_image_decrypt_interactively(
-                                m, NULL,
-                                arg_root_hash, arg_root_hash_size,
-                                arg_verity_data,
-                                arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size,
-                                arg_flags,
-                                &di);
-                if (r < 0)
-                        return r;
-
-                r = detach_mount_namespace();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to detach mount namespace: %m");
-
-                r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to generate temporary mount directory: %m");
-
-                r = mkdir_p(temp, 0700);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create mount point: %m");
-
-                created_dir = TAKE_PTR(temp);
-
-                r = dissected_image_mount(m, created_dir, UID_INVALID, arg_flags);
-                if (r == -EUCLEAN)
-                        return log_error_errno(r, "File system check on image failed: %m");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to mount image: %m");
-
-                mounted_dir = TAKE_PTR(created_dir);
-
-                if (di) {
-                        r = decrypted_image_relinquish(di);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to relinquish DM devices: %m");
-                }
-
-                loop_device_relinquish(d);
-
-                if (arg_action == ACTION_COPY_FROM) {
-                        _cleanup_close_ int source_fd = -1, target_fd = -1;
-
-                        source_fd = chase_symlinks_and_open(arg_source, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
-                        if (source_fd < 0)
-                                return log_error_errno(source_fd, "Failed to open source path '%s' in image '%s': %m", arg_source, arg_image);
-
-                        /* Copying to stdout? */
-                        if (streq(arg_target, "-")) {
-                                r = copy_bytes(source_fd, STDOUT_FILENO, (uint64_t) -1, COPY_REFLINK);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to stdout: %m", arg_source, arg_image);
-
-                                /* When we copy to stdou we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
-                                break;
-                        }
-
-                        /* Try to copy as directory? */
-                        r = copy_directory_fd(source_fd, arg_target, COPY_REFLINK|COPY_MERGE_EMPTY|COPY_SIGINT);
-                        if (r >= 0)
-                                break;
-                        if (r != -ENOTDIR)
-                                return log_error_errno(r, "Failed to copy %s in image '%s' to '%s': %m", arg_source, arg_image, arg_target);
-
-                        r = fd_verify_regular(source_fd);
-                        if (r == -EISDIR)
-                                return log_error_errno(r, "Target '%s' exists already and is not a directory.", arg_target);
-                        if (r < 0)
-                                return log_error_errno(r, "Source path %s in image '%s' is neither regular file nor directory, refusing: %m", arg_source, arg_image);
-
-                        /* Nah, it's a plain file! */
-                        target_fd = open(arg_target, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
-                        if (target_fd < 0)
-                                return log_error_errno(errno, "Failed to create regular file at target path '%s': %m", arg_target);
-
-                        r = copy_bytes(source_fd, target_fd, (uint64_t) -1, COPY_REFLINK);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to copy bytes from %s in mage '%s' to '%s': %m", arg_source, arg_image, arg_target);
-
-                        (void) copy_xattr(source_fd, target_fd);
-                        (void) copy_access(source_fd, target_fd);
-                        (void) copy_times(source_fd, target_fd, 0);
-
-                        /* When this is a regular file we don't copy ownership! */
-
-                } else {
-                        _cleanup_close_ int source_fd = -1, target_fd = -1;
-                        _cleanup_close_ int dfd = -1;
-                        _cleanup_free_ char *dn = NULL;
-
-                        assert(arg_action == ACTION_COPY_TO);
-
-                        dn = dirname_malloc(arg_target);
-                        if (!dn)
-                                return log_oom();
-
-                        r = chase_symlinks(dn, mounted_dir, CHASE_PREFIX_ROOT|CHASE_WARN, NULL, &dfd);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to open '%s': %m", dn);
-
-                        /* Are we reading from stdin? */
-                        if (streq(arg_source, "-")) {
-                                target_fd = openat(dfd, basename(arg_target), O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0644);
-                                if (target_fd < 0)
-                                        return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
-
-                                r = copy_bytes(STDIN_FILENO, target_fd, (uint64_t) -1, COPY_REFLINK);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to copy bytes from stdin to '%s' in image '%s': %m", arg_target, arg_image);
-
-                                /* When we copy from stdin we don't copy any attributes (i.e. no access mode, no ownership, no xattr, no times) */
-                                break;
-                        }
-
-                        source_fd = open(arg_source, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                        if (source_fd < 0)
-                                return log_error_errno(source_fd, "Failed to open source path '%s': %m", arg_source);
-
-                        r = fd_verify_regular(source_fd);
-                        if (r < 0) {
-                                if (r != -EISDIR)
-                                        return log_error_errno(r, "Source '%s' is neither regular file nor directory: %m", arg_source);
-
-                                /* We are looking at a directory. */
-
-                                target_fd = openat(dfd, basename(arg_target), O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-                                if (target_fd < 0) {
-                                        if (errno != ENOENT)
-                                                return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
-
-                                        r = copy_tree_at(source_fd, ".", dfd, basename(arg_target), UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT);
-                                } else
-                                        r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
-
-                                break;
-                        }
-
-                        /* We area looking at a regular file */
-                        target_fd = openat(dfd, basename(arg_target), O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_EXCL, 0600);
-                        if (target_fd < 0)
-                                return log_error_errno(errno, "Failed to open target file '%s': %m", arg_target);
-
-                        r = copy_bytes(source_fd, target_fd, (uint64_t) -1, COPY_REFLINK);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to copy bytes from '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
-
-                        (void) copy_xattr(source_fd, target_fd);
-                        (void) copy_access(source_fd, target_fd);
-                        (void) copy_times(source_fd, target_fd, 0);
-
-                        /* When this is a regular file we don't copy ownership! */
-                }
-
+        case ACTION_COPY_TO:
+                r = action_copy(m, d);
                 break;
-        }
 
         default:
                 assert_not_reached("Unknown action.");
         }
 
-        return 0;
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
