@@ -11,6 +11,7 @@
 #include "copy.h"
 #include "dissect-image.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
@@ -364,52 +365,25 @@ static int run(int argc, char *argv[]) {
         switch (arg_action) {
 
         case ACTION_DISSECT: {
+                _cleanup_(table_unrefp) Table *t = NULL;
                 uint64_t size;
-                unsigned i;
 
-                for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
-                        DissectedPartition *p = m->partitions + i;
-
-                        if (!p->found)
-                                continue;
-
-                        printf("Found %s '%s' partition",
-                               p->rw ? "writable" : "read-only",
-                               partition_designator_to_string(i));
-
-                        if (!sd_id128_is_null(p->uuid))
-                                printf(" (UUID " SD_ID128_FORMAT_STR ")", SD_ID128_FORMAT_VAL(p->uuid));
-
-                        if (p->fstype)
-                                printf(" of type %s", p->fstype);
-
-                        if (p->architecture != _ARCHITECTURE_INVALID)
-                                printf(" for %s", architecture_to_string(p->architecture));
-
-                        if (dissected_image_can_do_verity(m, i))
-                                printf(" %s verity", dissected_image_has_verity(m, i) ? "with" : "without");
-
-                        if (p->partno >= 0)
-                                printf(" on partition #%i", p->partno);
-
-                        if (p->node)
-                                printf(" (%s)", p->node);
-
-                        putchar('\n');
-                }
+                r = dissected_image_acquire_metadata(m);
+                if (r == -EMEDIUMTYPE)
+                        return log_error_errno(r, "Not a valid OS image, no os-release file included.");
+                if (r == -ENXIO)
+                        return log_error_errno(r, "No root partition discovered.");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire image metadata: %m");
 
                 printf("      Name: %s\n", basename(arg_image));
 
                 if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
                         log_debug_errno(errno, "Failed to query size of loopback device: %m");
                 else {
-                        char t[FORMAT_BYTES_MAX];
-                        printf("      Size: %s\n", format_bytes(t, sizeof(t), size));
+                        char s[FORMAT_BYTES_MAX];
+                        printf("      Size: %s\n", format_bytes(s, sizeof(s), size));
                 }
-
-                r = dissected_image_acquire_metadata(m);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to acquire image metadata: %m");
 
                 if (m->hostname)
                         printf("  Hostname: %s\n", m->hostname);
@@ -434,6 +408,73 @@ static int run(int argc, char *argv[]) {
                                        p == m->os_release ? "OS Release:" : "           ",
                                        *p, *q);
                 }
+
+                putc('\n', stdout);
+
+                t = table_new("rw", "designator", "partition uuid", "fstype", "architecture", "verity", "node", "partno");
+                if (!t)
+                        return log_oom();
+
+                (void) table_set_empty_string(t, "-");
+                (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
+
+                for (unsigned i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                        DissectedPartition *p = m->partitions + i;
+
+                        if (!p->found)
+                                continue;
+
+                        r = table_add_many(
+                                        t,
+                                        TABLE_STRING, p->rw ? "rw" : "ro",
+                                        TABLE_STRING, partition_designator_to_string(i));
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        if (sd_id128_is_null(p->uuid))
+                                r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        else
+                                r = table_add_cell(t, NULL, TABLE_UUID, &p->uuid);
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        r = table_add_many(
+                                        t,
+                                        TABLE_STRING, p->fstype,
+                                        TABLE_STRING, architecture_to_string(p->architecture));
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+                        if (arg_verity_data)
+                                r = table_add_cell(t, NULL, TABLE_STRING, "external");
+                        else if (dissected_image_can_do_verity(m, i))
+                                r = table_add_cell(t, NULL, TABLE_STRING, yes_no(dissected_image_has_verity(m, i)));
+                        else
+                                r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        if (r < 0)
+                                return table_log_add_error(r);
+
+
+                        if (p->partno < 0) /* no partition table, naked file system */ {
+                                r = table_add_cell(t, NULL, TABLE_STRING, arg_image);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+
+                                r = table_add_cell(t, NULL, TABLE_EMPTY, NULL);
+                        } else {
+                                r = table_add_cell(t, NULL, TABLE_STRING, p->node);
+                                if (r < 0)
+                                        return table_log_add_error(r);
+
+                                r = table_add_cell(t, NULL, TABLE_INT, &p->partno);
+                        }
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+                r = table_print(t, stdout);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump table: %m");
 
                 break;
         }
