@@ -9,6 +9,7 @@
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
+#include <sysexits.h>
 
 #include "sd-device.h"
 #include "sd-id128.h"
@@ -1596,7 +1597,14 @@ int decrypted_image_relinquish(DecryptedImage *d) {
         return 0;
 }
 
-int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data, char **ret_roothashsig) {
+int verity_metadata_load(
+                const char *image,
+                const char *root_hash_path,
+                void **ret_roothash,
+                size_t *ret_roothash_size,
+                char **ret_verity_data,
+                char **ret_roothashsig) {
+
         _cleanup_free_ char *verity_filename = NULL, *roothashsig_filename = NULL;
         _cleanup_free_ void *roothash_decoded = NULL;
         size_t roothash_decoded_size = 0;
@@ -1758,6 +1766,10 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 goto finish;
         if (r == 0) {
                 r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_VALIDATE_OS);
+                if (r == -EMEDIUMTYPE) /* No /etc/os-release */
+                        _exit(EX_OSFILE);
+                if (r == -ENXIO) /* No root partition */
+                        _exit(EX_DATAERR);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount dissected image: %m");
                         _exit(EXIT_FAILURE);
@@ -1847,6 +1859,10 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         child = 0;
         if (r < 0)
                 goto finish;
+        if (r == EX_OSFILE)
+                return -EMEDIUMTYPE; /* No os-release file */
+        if (r == EX_DATAERR)
+                return -ENXIO; /* No root partition */
         if (r != EXIT_SUCCESS)
                 return -EPROTO;
 
