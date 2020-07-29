@@ -8,21 +8,27 @@
 #include "errno-util.h"
 #include "macro.h"
 
-/* 4MB for contents of regular files, 64k inodes for directories, symbolic links and device specials,
-   using large storage array systems as a baseline */
+/* 4MB for contents of regular files, 64k inodes for directories, symbolic links and device specials, using
+ * large storage array systems as a baseline */
 #define TMPFS_LIMITS_DEV             ",size=4m,nr_inodes=64k"
+
 /* Very little, if any use expected */
 #define TMPFS_LIMITS_EMPTY_OR_ALMOST ",size=4m,nr_inodes=1k"
 #define TMPFS_LIMITS_SYS             TMPFS_LIMITS_EMPTY_OR_ALMOST
 #define TMPFS_LIMITS_SYS_FS_CGROUP   TMPFS_LIMITS_EMPTY_OR_ALMOST
-/* On an extremely small device with only 256MB of RAM, 20% of RAM for /run should be enough for re-exec of
-   PID1 because 16MB of free space is required. */
+
+/* On an extremely small device with only 256MB of RAM, 20% of RAM should be enough for the re-execution of
+ * PID1 because 16MB of free space is required. */
 #define TMPFS_LIMITS_RUN             ",size=20%,nr_inodes=800k"
-/* 10% of RAM (using 16GB of RAM as a baseline) translates to 400k inodes (assuming 4k each) and 25%
-   translates to 1M inodes */
+
+/* The limit used for various tmpfs mounts, but not /tmp itself.
+ * 10% of RAM (using 16GB of RAM as a baseline) translates to 400k inodes (assuming 4k each) and 25%
+ * translates to 1M inodes.
+ * /tmp is configured through a .mount unit file. */
 #define TMPFS_LIMITS_TMP             ",size=10%,nr_inodes=400k"
 #define TMPFS_LIMITS_DEV_SHM         TMPFS_LIMITS_TMP
 #define TMPFS_LIMITS_TEMPORARY_FS    TMPFS_LIMITS_TMP
+
 /* More space for volatile root and /var */
 #define TMPFS_LIMITS_VAR             ",size=25%,nr_inodes=1m"
 #define TMPFS_LIMITS_ROOTFS          TMPFS_LIMITS_VAR
