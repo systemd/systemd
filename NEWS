@@ -185,9 +185,15 @@ CHANGES WITH 246:
           new boolean setting Assign=. If enabled an address from the prefix is
           automatically assigned to the interface.
 
-        * systemd-networkd's [Network] section gained a new setting
-          IPv6PDSubnetId= that allows explicit configuration of the preferred
-          subnet that networkd's Prefix Delegation logic assigns to interfaces.
+        * systemd-networkd gained a new section [DHCPv6PrefixDelegation] which
+          controls delegated prefixes assigned by DHCPv6 client. The section
+          has three settings: SubnetID=, Assign=, and Token=. The setting
+          SubnetID= allows explicit configuration of the preferred subnet that
+          systemd-networkd's Prefix Delegation logic assigns to interfaces. If
+          Assign= is enabled (which is the default) an address from any acquired
+          delegated prefix is automatically chosen and assigned to the
+          interface. The setting Token= specifies an optional address generation
+          mode for Assign=.
 
         * systemd-networkd's [Network] section gained a new setting
           IPv4AcceptLocal=. If enabled the interface accepts packets with local
@@ -259,11 +265,6 @@ CHANGES WITH 246:
           supposed to be used by VM managers to trivially acquire a network
           interface which is fully set up for host communication, simply by
           carefully picking an interface name to use.
-
-        * A new boolean option AssignAcquiredDelegatedPrefixAddress= has been
-          added to the [DHCPv6] section of .network files. If enabled (which is
-          the default) an address from any acquired delegated prefix is
-          automatically chosen and assigned to the interface.
 
         * systemd-networkd's [DHCPv6] section gained a new setting RouteMetric=
           which sets the route priority for routes specified by the DHCP server.
