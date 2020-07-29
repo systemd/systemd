@@ -22,8 +22,9 @@ preprocess() {
     # see meson.build how to extract this. gcc -E was used before to
     # get this value from config.h, however the autopkgtest fails with
     # it
-    SYSTEM_UID_MAX=$(awk 'BEGIN { uid=999 } /^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }' /etc/login.defs)
-    SYSTEM_GID_MAX=$(awk 'BEGIN { gid=999 } /^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }' /etc/login.defs)
+    [[ -e /etc/login.defs ]] && login_defs_file="/etc/login.defs" || login_defs_file="/usr/etc/login.defs"
+    SYSTEM_UID_MAX=$(awk 'BEGIN { uid=999 } /^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }' $login_defs_file)
+    SYSTEM_GID_MAX=$(awk 'BEGIN { gid=999 } /^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }' $login_defs_file)
 
     # we can't rely on config.h to get the nologin path, as autopkgtest
     # uses pre-compiled binaries, so extract it from the systemd-sysusers
