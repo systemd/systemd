@@ -11,7 +11,7 @@
 Description=Switch Root
 AssertPathExists=/etc/initrd-release
 DefaultDependencies=no
-Requires=initrd-switch-root.service
+Wants=initrd-switch-root.service
 Before=initrd-switch-root.service
 AllowIsolate=yes
 Wants=initrd-udevadm-cleanup-db.service initrd-root-fs.target initrd-fs.target systemd-journald.service initrd-cleanup.service
