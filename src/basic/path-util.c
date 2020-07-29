@@ -726,18 +726,6 @@ int fsck_exists(const char *fstype) {
         return binary_is_good(checker);
 }
 
-int mkfs_exists(const char *fstype) {
-        const char *mkfs;
-
-        assert(fstype);
-
-        if (streq(fstype, "auto"))
-                return -EINVAL;
-
-        mkfs = strjoina("mkfs.", fstype);
-        return binary_is_good(mkfs);
-}
-
 int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg) {
         char *p;
         int r;
