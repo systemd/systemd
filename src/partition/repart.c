@@ -952,7 +952,7 @@ static int config_parse_weight(
         }
 
         if (v > 1000U*1000U) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Weight needs to be in range 0…10000000, ignoring: %" PRIu32, v);
                 return 0;
         }
@@ -981,7 +981,7 @@ static int config_parse_size4096(
 
         r = parse_size(rvalue, 1024, &parsed);
         if (r < 0)
-                return log_syntax(unit, LOG_WARNING, filename, line, r,
+                return log_syntax(unit, LOG_ERR, filename, line, r,
                                   "Failed to parse size value: %s", rvalue);
 
         if (ltype > 0)
