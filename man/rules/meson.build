@@ -818,6 +818,7 @@ manpages = [
  ['systemd-debug-generator', '8', [], ''],
  ['systemd-delta', '1', [], ''],
  ['systemd-detect-virt', '1', [], ''],
+ ['systemd-dissect', '1', [], ''],
  ['systemd-environment-d-generator',
   '8',
   ['30-systemd-environment-d-generator'],
