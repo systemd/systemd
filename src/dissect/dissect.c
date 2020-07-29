@@ -327,18 +327,37 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = loop_device_make_by_path(arg_image, (arg_flags & DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR, LO_FLAGS_PARTSCAN, &d);
+        r = verity_metadata_load(
+                        arg_image, NULL,
+                        arg_root_hash ? NULL : &arg_root_hash,
+                        &arg_root_hash_size,
+                        arg_verity_data ? NULL : &arg_verity_data,
+                        arg_root_hash_sig_path || arg_root_hash_sig ? NULL : &arg_root_hash_sig_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read verity artifacts for %s: %m", arg_image);
+
+        r = loop_device_make_by_path(
+                        arg_image,
+                        (arg_flags & DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : O_RDWR,
+                        arg_verity_data ? 0 : LO_FLAGS_PARTSCAN,
+                        &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device: %m");
 
-        r = verity_metadata_load(arg_image, NULL, arg_root_hash ? NULL : &arg_root_hash, &arg_root_hash_size,
-                           arg_verity_data ? NULL : &arg_verity_data,
-                           arg_root_hash_sig_path || arg_root_hash_sig ? NULL : &arg_root_hash_sig_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);
-        arg_flags |= arg_verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
-
-        r = dissect_image_and_warn(d->fd, arg_image, arg_root_hash, arg_root_hash_size, arg_verity_data, NULL, arg_flags, &m);
+        if (arg_verity_data)
+                arg_flags |= DISSECT_IMAGE_NO_PARTITION_TABLE; /* We only support Verity per file system,
+                                                                * hence if there's external Verity data
+                                                                * available we turn off partition table
+                                                                * support */
+        r = dissect_image_and_warn(
+                        d->fd,
+                        arg_image,
+                        arg_root_hash,
+                        arg_root_hash_size,
+                        arg_verity_data,
+                        NULL,
+                        arg_flags,
+                        &m);
         if (r < 0)
                 return r;
 
