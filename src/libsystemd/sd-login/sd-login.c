@@ -12,6 +12,7 @@
 #include "dirent-util.h"
 #include "env-file.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -22,6 +23,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -331,35 +333,29 @@ static int file_of_seat(const char *seat, char **_p) {
 }
 
 _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) {
-        _cleanup_free_ char *t = NULL, *s = NULL, *p = NULL;
-        size_t l;
+        _cleanup_free_ char *filename = NULL, *content = NULL;
         int r;
-        const char *word, *variable, *state;
 
         assert_return(uid_is_valid(uid), -EINVAL);
 
-        r = file_of_seat(seat, &p);
+        r = file_of_seat(seat, &filename);
         if (r < 0)
                 return r;
 
-        variable = require_active ? "ACTIVE_UID" : "UIDS";
-
-        r = parse_env_file(NULL, p, variable, &s);
+        r = parse_env_file(NULL, filename,
+                           require_active ? "ACTIVE_UID" : "UIDS",
+                           &content);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return r;
-        if (isempty(s))
+        if (isempty(content))
                 return 0;
 
-        if (asprintf(&t, UID_FMT, uid) < 0)
-                return -ENOMEM;
+        char t[DECIMAL_STR_MAX(uid_t)];
+        xsprintf(t, UID_FMT, uid);
 
-        FOREACH_WORD(word, l, s, state)
-                if (strneq(t, word, l))
-                        return 1;
-
-        return 0;
+        return string_contains_word(content, ",", t);
 }
 
 static int uid_get_array(uid_t uid, const char *variable, char ***array) {
