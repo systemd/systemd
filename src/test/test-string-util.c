@@ -796,6 +796,59 @@ static void test_string_extract_line(void) {
         test_string_extract_lines_one("\n\n\nx\n", 3, "x", false);
 }
 
+static void test_string_contains_word(void) {
+        log_info("/* %s */", __func__);
+
+        assert_se( string_contains_word("a b cc", NULL, "a"));
+        assert_se( string_contains_word("a b cc", NULL, "b"));
+        assert_se(!string_contains_word("a b cc", NULL, "c"));
+        assert_se( string_contains_word("a b cc", NULL, "cc"));
+        assert_se(!string_contains_word("a b cc", NULL, "d"));
+        assert_se(!string_contains_word("a b cc", NULL, "a b"));
+        assert_se(!string_contains_word("a b cc", NULL, "a b c"));
+        assert_se(!string_contains_word("a b cc", NULL, "b c"));
+        assert_se(!string_contains_word("a b cc", NULL, "b cc"));
+        assert_se(!string_contains_word("a b cc", NULL, "a "));
+        assert_se(!string_contains_word("a b cc", NULL, " b "));
+        assert_se(!string_contains_word("a b cc", NULL, " cc"));
+
+        assert_se( string_contains_word("  a  b\t\tcc", NULL, "a"));
+        assert_se( string_contains_word("  a  b\t\tcc", NULL, "b"));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, "c"));
+        assert_se( string_contains_word("  a  b\t\tcc", NULL, "cc"));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, "d"));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, "a b"));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, "a b\t\tc"));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, "b\t\tc"));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, "b\t\tcc"));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, "a "));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, " b "));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, " cc"));
+
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, ""));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, " "));
+        assert_se(!string_contains_word("  a  b\t\tcc", NULL, "  "));
+        assert_se( string_contains_word("  a  b\t\tcc", " ", ""));
+        assert_se( string_contains_word("  a  b\t\tcc", "\t", ""));
+        assert_se( string_contains_word("  a  b\t\tcc", WHITESPACE, ""));
+
+        assert_se( string_contains_word("a:b:cc", ":#", "a"));
+        assert_se( string_contains_word("a:b:cc", ":#", "b"));
+        assert_se(!string_contains_word("a:b:cc", ":#", "c"));
+        assert_se( string_contains_word("a:b:cc", ":#", "cc"));
+        assert_se(!string_contains_word("a:b:cc", ":#", "d"));
+        assert_se(!string_contains_word("a:b:cc", ":#", "a:b"));
+        assert_se(!string_contains_word("a:b:cc", ":#", "a:b:c"));
+        assert_se(!string_contains_word("a:b:cc", ":#", "b:c"));
+        assert_se(!string_contains_word("a#b#cc", ":#", "b:cc"));
+        assert_se( string_contains_word("a#b#cc", ":#", "b"));
+        assert_se( string_contains_word("a#b#cc", ":#", "cc"));
+        assert_se(!string_contains_word("a:b:cc", ":#", "a:"));
+        assert_se(!string_contains_word("a:b cc", ":#", "b"));
+        assert_se( string_contains_word("a:b cc", ":#", "b cc"));
+        assert_se(!string_contains_word("a:b:cc", ":#", ":cc"));
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -831,6 +884,7 @@ int main(int argc, char *argv[]) {
         test_memory_startswith_no_case();
         test_string_truncate_lines();
         test_string_extract_line();
+        test_string_contains_word();
 
         return 0;
 }

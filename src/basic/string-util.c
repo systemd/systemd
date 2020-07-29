@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "gunicode.h"
 #include "locale-util.h"
@@ -1205,5 +1206,24 @@ int string_extract_line(const char *s, size_t i, char **ret) {
 
                 p = q + 1;
                 c++;
+        }
+}
+
+int string_contains_word(const char *string, const char *separators, const char *word) {
+        /* In the default mode with no separators specified, we split on whitespace and
+         * don't coalesce separators. */
+        const ExtractFlags flags = separators ? EXTRACT_DONT_COALESCE_SEPARATORS : 0;
+
+        for (const char *p = string;;) {
+                _cleanup_free_ char *w = NULL;
+                int r;
+
+                r = extract_first_word(&p, &w, separators, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return false;
+                if (streq(w, word))
+                        return true;
         }
 }
