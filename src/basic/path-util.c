@@ -640,10 +640,8 @@ int find_binary(const char *name, char **ret) {
                 if (access(j, X_OK) >= 0) {
                         /* Found it! */
 
-                        if (ret) {
-                                *ret = path_simplify(j, false);
-                                j = NULL;
-                        }
+                        if (ret)
+                                *ret = path_simplify(TAKE_PTR(j), false);
 
                         return 0;
                 }
