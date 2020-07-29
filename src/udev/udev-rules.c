@@ -986,8 +986,8 @@ static UdevRuleOperatorType parse_operator(const char *op) {
         return _OP_TYPE_INVALID;
 }
 
-static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOperatorType *ret_op, char **ret_value) {
-        char *key_begin, *key_end, *attr, *tmp, *value, *i, *j;
+static int parse_line(const char *line_begin, char **line, char **ret_key, char **ret_attr, UdevRuleOperatorType *ret_op, char **ret_value) {
+        char *key_begin, *key_end, *comma, *attr, *tmp, *value, *i, *j;
         UdevRuleOperatorType op;
 
         assert(line);
@@ -997,6 +997,14 @@ static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOper
         assert(ret_value);
 
         key_begin = skip_leading_chars(*line, WHITESPACE ",");
+        if (*line != line_begin) {
+           comma = strchr(*line, ',');
+           if ((key_begin < comma) || ((*key_begin != '\0') && (comma == NULL))) {
+               return -EINVAL;
+           } else {
+               **line = '\0';
+           }
+        }
 
         if (isempty(key_begin))
                 return 0;
@@ -1118,7 +1126,7 @@ static int rule_add_line(UdevRules *rules, const char *line_str, unsigned line_n
                 char *key, *attr, *value;
                 UdevRuleOperatorType op;
 
-                r = parse_line(&p, &key, &attr, &op, &value);
+                r = parse_line(rule_line->line, &p, &key, &attr, &op, &value);
                 if (r < 0)
                         return log_token_error_errno(rules, r, "Invalid key/value pair, ignoring.");
                 if (r == 0)
