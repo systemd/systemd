@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Switch Root
-ConditionPathExists=/etc/initrd-release
+AssertPathExists=/etc/initrd-release
 DefaultDependencies=no
 Requires=initrd-switch-root.service
 Before=initrd-switch-root.service
