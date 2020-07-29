@@ -1898,8 +1898,7 @@ if conf.get('HAVE_BLKID') == 1
                 include_directories : includes,
                 link_with : [libshared],
                 install_rpath : rootlibexecdir,
-                install : true,
-                install_dir : rootlibexecdir)
+                install : true)
 endif
 
 if conf.get('ENABLE_RESOLVE') == 1
