@@ -1339,10 +1339,6 @@ static int context_load_partition_table(
         }
 
         if (from_scratch) {
-                r = fdisk_enable_wipe(c, true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to enable wiping of disk signature: %m");
-
                 r = fdisk_create_disklabel(c, "gpt");
                 if (r < 0)
                         return log_error_errno(r, "Failed to create GPT disk label: %m");
@@ -1979,32 +1975,29 @@ static bool context_changed(const Context *context) {
         return false;
 }
 
-static int context_wipe_partition(Context *context, Partition *p) {
+static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) {
         _cleanup_(blkid_free_probep) blkid_probe probe = NULL;
         int r;
 
         assert(context);
-        assert(p);
-        assert(!PARTITION_EXISTS(p)); /* Safety check: never wipe existing partitions */
+        assert(offset != UINT64_MAX);
+        assert(size != UINT64_MAX);
 
         probe = blkid_new_probe();
         if (!probe)
                 return log_oom();
 
-        assert(p->offset != UINT64_MAX);
-        assert(p->new_size != UINT64_MAX);
-
         errno = 0;
-        r = blkid_probe_set_device(probe, fdisk_get_devfd(context->fdisk_context), p->offset, p->new_size);
+        r = blkid_probe_set_device(probe, fdisk_get_devfd(context->fdisk_context), offset, size);
         if (r < 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to allocate device probe for partition %" PRIu64 ".", p->partno);
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to allocate device probe for wiping.");
 
         errno = 0;
         if (blkid_probe_enable_superblocks(probe, true) < 0 ||
             blkid_probe_set_superblocks_flags(probe, BLKID_SUBLKS_MAGIC|BLKID_SUBLKS_BADCSUM) < 0 ||
             blkid_probe_enable_partitions(probe, true) < 0 ||
             blkid_probe_set_partitions_flags(probe, BLKID_PARTS_MAGIC) < 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to enable superblock and partition probing for partition %" PRIu64 ".", p->partno);
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to enable superblock and partition probing.");
 
         for (;;) {
                 errno = 0;
@@ -2019,11 +2012,32 @@ static int context_wipe_partition(Context *context, Partition *p) {
                         return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to wipe file system signature.");
         }
 
-        log_info("Successfully wiped file system signatures from partition %" PRIu64 ".", p->partno);
         return 0;
 }
 
-static int context_discard_range(Context *context, uint64_t offset, uint64_t size) {
+static int context_wipe_partition(Context *context, Partition *p) {
+        int r;
+
+        assert(context);
+        assert(p);
+        assert(!PARTITION_EXISTS(p)); /* Safety check: never wipe existing partitions */
+
+        assert(p->offset != UINT64_MAX);
+        assert(p->new_size != UINT64_MAX);
+
+        r = context_wipe_range(context, p->offset, p->new_size);
+        if (r < 0)
+                return r;
+
+        log_info("Successfully wiped file system signatures from future partition %" PRIu64 ".", p->partno);
+        return 0;
+}
+
+static int context_discard_range(
+                Context *context,
+                uint64_t offset,
+                uint64_t size) {
+
         struct stat st;
         int fd;
 
@@ -2679,6 +2693,12 @@ static int context_write_partition_table(
         log_info("Applying changes.");
 
         if (from_scratch) {
+                r = context_wipe_range(context, 0, context->total);
+                if (r < 0)
+                        return r;
+
+                log_info("Wiped block device.");
+
                 r = context_discard_range(context, 0, context->total);
                 if (r == -EOPNOTSUPP)
                         log_info("Storage does not support discarding, not discarding entire block device data.");
