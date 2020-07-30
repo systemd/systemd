@@ -900,7 +900,6 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) 
         int r;
 
         assert_return(machine_name_is_valid(machine), -EINVAL);
-        assert_return(ret_ifindices, -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(NULL, p, "NETIF", &netif_line);
@@ -918,9 +917,12 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) 
                 return -ENOMEM;
 
         size_t n = 0;
-        int *ifindices = new(int, strv_length(tt));
-        if (!ifindices)
-                return -ENOMEM;
+        int *ifindices;
+        if (ret_ifindices) {
+                ifindices = new(int, strv_length(tt));
+                if (!ifindices)
+                        return -ENOMEM;
+        }
 
         for (size_t i = 0; tt[i]; i++) {
                 int ind;
@@ -930,10 +932,13 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) 
                         /* Return -EUCLEAN to distinguish from -EINVAL for invalid args */
                         return ind == -EINVAL ? -EUCLEAN : ind;
 
-                ifindices[n++] = ind;
+                if (ret_ifindices)
+                        ifindices[n] = ind;
+                n++;
         }
 
-        *ret_ifindices = ifindices;
+        if (ret_ifindices)
+                *ret_ifindices = ifindices;
         return n;
 }
 

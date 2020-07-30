@@ -53,21 +53,22 @@
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     call after use.</para>
 
-    <para><function>sd_machine_get_ifindices()</function> may be used
-    to determine the numeric indices of the network interfaces on the
-    host that are pointing towards the specified locally running
-    virtual machine or container that is registered with
+    <para><function>sd_machine_get_ifindices()</function> may be used to determine the numeric indices of the
+    network interfaces on the host that are pointing towards the specified locally running virtual machine or
+    container. The vm or container must be registered with
     <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    The returned array needs to be freed with the libc <citerefentry
-    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    call after use.</para>
+    The output parameter <parameter>ret_ifindices</parameter> may be passed as <constant>NULL</constant> when
+    the output value is not needed. The returned array needs to be freed with the libc <citerefentry
+    project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry> call after
+    use.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these calls return 0 or a positive integer. On failure, these calls return a negative
-    errno-style error code.</para>
+    <para>On success, these functions return a non-negative integer.
+    <function>sd_machine_get_ifindices()</function> returns the number of the relevant network interfaces.
+    On failure, these calls return a negative errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>
