@@ -74,7 +74,7 @@ static void print_all_attributes(sd_device *device, const char *key) {
 
                 /* skip nonprintable attributes */
                 len = strlen(value);
-                while (len > 0 && isprint(value[len-1]))
+                while (len > 0 && isprint((unsigned char) value[len-1]))
                         len--;
                 if (len > 0)
                         continue;
