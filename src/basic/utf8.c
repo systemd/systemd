@@ -123,7 +123,7 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         return 0;
 }
 
-bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
+bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) {
         const char *p;
 
         assert(str);
@@ -140,7 +140,7 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
                 r = utf8_encoded_to_unichar(p, &val);
                 if (r < 0 ||
                     unichar_is_control(val) ||
-                    (!newline && val == '\n'))
+                    (!allow_newline && val == '\n'))
                         return false;
 
                 length -= encoded_len;
