@@ -31,6 +31,7 @@
         "reset-failed:Reset failed state for all, one, or more units"
         "list-dependencies:Show unit dependency tree"
         "clean:Remove configuration, state, cache, logs or runtime data of units"
+        "bind:Bind mount a path from the host into a unit's namespace"
     )
 
     local -a machine_commands=(
@@ -375,6 +376,10 @@ done
     }
 
 (( $+functions[_systemctl_switch-root] )) || _systemctl_switch-root() {
+        _files
+    }
+
+(( $+functions[_systemctl_bind] )) || _systemctl_bind() {
         _files
     }
 

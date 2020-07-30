@@ -323,38 +323,6 @@ static int property_get_load_error(
         return sd_bus_message_append(reply, "(ss)", NULL, NULL);
 }
 
-static int bus_verify_manage_units_async_full(
-                Unit *u,
-                const char *verb,
-                int capability,
-                const char *polkit_message,
-                bool interactive,
-                sd_bus_message *call,
-                sd_bus_error *error) {
-
-        const char *details[9] = {
-                "unit", u->id,
-                "verb", verb,
-        };
-
-        if (polkit_message) {
-                details[4] = "polkit.message";
-                details[5] = polkit_message;
-                details[6] = "polkit.gettext_domain";
-                details[7] = GETTEXT_PACKAGE;
-        }
-
-        return bus_verify_polkit_async(
-                        call,
-                        capability,
-                        "org.freedesktop.systemd1.manage-units",
-                        details,
-                        interactive,
-                        UID_INVALID,
-                        &u->manager->polkit_registry,
-                        error);
-}
-
 static const char *const polkit_message_for_job[_JOB_TYPE_MAX] = {
         [JOB_START]       = N_("Authentication is required to start '$(unit)'."),
         [JOB_STOP]        = N_("Authentication is required to stop '$(unit)'."),
