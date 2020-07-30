@@ -326,23 +326,21 @@ static int append_bind_mounts(MountEntry **p, const BindMount *binds, size_t n) 
 }
 
 static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs, size_t n) {
-        size_t i;
-        int r;
-
         assert(p);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 const TemporaryFileSystem *t = tmpfs + i;
                 _cleanup_free_ char *o = NULL, *str = NULL;
                 unsigned long flags;
                 bool ro = false;
+                int r;
 
                 if (!path_is_absolute(t->path))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Path is not absolute: %s",
                                                t->path);
 
-                str = strjoin("mode=0755" TMPFS_LIMITS_TEMPORARY_FS ",", t->options);
+                str = strjoin("mode=0755" NESTED_TMPFS_LIMITS ",", t->options);
                 if (!str)
                         return -ENOMEM;
 
