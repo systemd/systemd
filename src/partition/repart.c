@@ -2817,7 +2817,7 @@ static int help(void) {
                "     --empty=MODE         One of refuse, allow, require, force, create; controls\n"
                "                          how to handle empty disks lacking partition tables\n"
                "     --discard=BOOL       Whether to discard backing blocks for new partitions\n"
-               "     --pretty=BOOL        Whether to show pretty summary before executing operation\n"
+               "     --pretty=BOOL        Whether to show pretty summary before doing changes\n"
                "     --factory-reset=BOOL Whether to remove data partitions before recreating\n"
                "                          them\n"
                "     --can-factory-reset  Test whether factory reset is defined\n"
@@ -2825,7 +2825,7 @@ static int help(void) {
                "     --definitions=DIR    Find partitions in specified directory\n"
                "     --seed=UUID          128bit seed UUID to derive all UUIDs from\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
-               "     --json=(pretty|short|off)\n"
+               "     --json=pretty|short|off\n"
                "                          Generate json output\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
