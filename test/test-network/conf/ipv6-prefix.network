@@ -12,3 +12,8 @@ DNSLifetimeSec=1min
 Prefix=2002:da8:1:0::/64
 PreferredLifetimeSec=1000s
 ValidLifetimeSec=2100s
+
+[IPv6Prefix]
+Prefix=2002:da8:2:0::/64
+PreferredLifetimeSec=1000s
+ValidLifetimeSec=2100s
