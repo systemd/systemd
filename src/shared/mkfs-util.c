@@ -4,6 +4,7 @@
 #include "mkfs-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 int mkfs_exists(const char *fstype) {
@@ -93,6 +94,26 @@ int make_filesystem(
                                 (void) execlp(mkfs, mkfs, "-L", label, "-m", j, "-m", "reflink=1", node, NULL);
                         else
                                 (void) execlp(mkfs, mkfs, "-L", label, "-m", j, "-m", "reflink=1", "-K", node, NULL);
+
+                } else if (streq(fstype, "vfat")) {
+                        char mangled_label[8 + 3 + 1], vol_id[8 + 1];
+
+                        /* Classic FAT only allows 11 character uppercase labels */
+                        strncpy(mangled_label, label, sizeof(mangled_label)-1);
+                        mangled_label[sizeof(mangled_label)-1] = 0;
+                        ascii_strupper(mangled_label);
+
+                        xsprintf(vol_id, "%08" PRIx32,
+                                 ((uint32_t) uuid.bytes[0] << 24) |
+                                 ((uint32_t) uuid.bytes[1] << 16) |
+                                 ((uint32_t) uuid.bytes[2] << 8) |
+                                 ((uint32_t) uuid.bytes[3])); /* Take first 32 byte of UUID */
+
+                        (void) execlp(mkfs, mkfs,
+                                      "-i", vol_id,
+                                      "-n", mangled_label,
+                                      "-F", "32",  /* yes, we force FAT32 here */
+                                      node, NULL);
 
                 } else if (streq(fstype, "swap")) {
 
