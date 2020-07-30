@@ -38,6 +38,7 @@
 #include "systemctl-list-units.h"
 #include "systemctl-log-setting.h"
 #include "systemctl-logind.h"
+#include "systemctl-mount.h"
 #include "systemctl-preset-all.h"
 #include "systemctl-reset-failed.h"
 #include "systemctl-service-watchdogs.h"
@@ -105,6 +106,8 @@ bool arg_jobs_before = false;
 bool arg_jobs_after = false;
 char **arg_clean_what = NULL;
 TimestampStyle arg_timestamp_style = TIMESTAMP_PRETTY;
+bool arg_read_only = false;
+bool arg_mkdir = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_wall, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -157,6 +160,8 @@ static int systemctl_help(void) {
                "  freeze PATTERN...                   Freeze execution of unit processes\n"
                "  thaw PATTERN...                     Resume execution of a frozen unit\n"
                "  set-property UNIT PROPERTY=VALUE... Sets one or more properties of a unit\n"
+               "  bind UNIT PATH [PATH]               Bind-mount a path from the host into a\n"
+               "                                      unit's namespace\n"
                "  service-log-level SERVICE [LEVEL]   Get/set logging threshold for service\n"
                "  service-log-target SERVICE [TARGET] Get/set logging target for service\n"
                "  reset-failed [PATTERN...]           Reset failed state for all, one, or more\n"
@@ -286,6 +291,8 @@ static int systemctl_help(void) {
                "                         'us': 'Day YYYY-MM-DD HH:MM:SS.UUUUUU TZ\n"
                "                         'utc': 'Day YYYY-MM-DD HH:MM:SS UTC\n"
                "                         'us+utc': 'Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC\n"
+               "     --read-only         Create read-only bind mount\n"
+               "     --mkdir             Create directory before bind-mounting, if missing\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -401,6 +408,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_WHAT,
                 ARG_REBOOT_ARG,
                 ARG_TIMESTAMP_STYLE,
+                ARG_READ_ONLY,
+                ARG_MKDIR,
         };
 
         static const struct option options[] = {
@@ -457,6 +466,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "what",                required_argument, NULL, ARG_WHAT                },
                 { "reboot-argument",     required_argument, NULL, ARG_REBOOT_ARG          },
                 { "timestamp",           required_argument, NULL, ARG_TIMESTAMP_STYLE     },
+                { "read-only",           no_argument,       NULL, ARG_READ_ONLY           },
+                { "mkdir",               no_argument,       NULL, ARG_MKDIR               },
                 {}
         };
 
@@ -878,6 +889,14 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_READ_ONLY:
+                        arg_read_only = true;
+                        break;
+
+                case ARG_MKDIR:
+                        arg_mkdir = true;
+                        break;
+
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
@@ -1045,6 +1064,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "add-wants",             3,        VERB_ANY, 0,                add_dependency          },
                 { "add-requires",          3,        VERB_ANY, 0,                add_dependency          },
                 { "edit",                  2,        VERB_ANY, VERB_ONLINE_ONLY, edit                    },
+                { "bind",                  3,        4,        VERB_ONLINE_ONLY, mount_bind              },
                 {}
         };
 
