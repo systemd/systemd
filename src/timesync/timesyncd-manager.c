@@ -137,11 +137,10 @@ static int manager_send_request(Manager *m) {
         }
 
         /* re-arm timer with increasing timeout, in case the packets never arrive back */
-        if (m->retry_interval > 0) {
-                if (m->retry_interval < m->poll_interval_max_usec)
-                        m->retry_interval *= 2;
-        } else
-                m->retry_interval = m->poll_interval_min_usec;
+        if (m->retry_interval == 0)
+                m->retry_interval = NTP_RETRY_INTERVAL_MIN_USEC;
+        else
+                m->retry_interval = MIN(m->retry_interval * 4/3, NTP_RETRY_INTERVAL_MAX_USEC);
 
         r = manager_arm_timer(m, m->retry_interval);
         if (r < 0)
