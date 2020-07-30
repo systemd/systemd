@@ -123,10 +123,6 @@ bool strv_overlap(char * const *a, char * const *b) _pure_;
 char **strv_sort(char **l);
 void strv_print(char * const *l);
 
-#define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
-
-#define STRV_MAKE_EMPTY ((char*[1]) { NULL })
-
 #define strv_from_stdarg_alloca(first)                          \
         ({                                                      \
                 char **_l;                                      \

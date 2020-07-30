@@ -796,6 +796,35 @@ static void test_string_extract_line(void) {
         test_string_extract_lines_one("\n\n\nx\n", 3, "x", false);
 }
 
+static void test_string_contains_word_strv(void) {
+        log_info("/* %s */", __func__);
+
+        const char *w;
+
+        assert_se(string_contains_word_strv("a b cc", NULL, STRV_MAKE("a", "b"), NULL));
+
+        assert_se(string_contains_word_strv("a b cc", NULL, STRV_MAKE("a", "b"), &w));
+        assert_se(streq(w, "a"));
+
+        assert_se(!string_contains_word_strv("a b cc", NULL, STRV_MAKE("d"), &w));
+        assert_se(w == NULL);
+
+        assert_se(string_contains_word_strv("a b cc", NULL, STRV_MAKE("b", "a"), &w));
+        assert_se(streq(w, "a"));
+
+        assert_se(string_contains_word_strv("b a b cc", NULL, STRV_MAKE("b", "a", "b"), &w));
+        assert_se(streq(w, "b"));
+
+        assert_se(string_contains_word_strv("a b cc", NULL, STRV_MAKE("b", ""), &w));
+        assert_se(streq(w, "b"));
+
+        assert_se(!string_contains_word_strv("a b cc", NULL, STRV_MAKE(""), &w));
+        assert_se(w == NULL);
+
+        assert_se(string_contains_word_strv("a b  cc", " ", STRV_MAKE(""), &w));
+        assert_se(streq(w, ""));
+}
+
 static void test_string_contains_word(void) {
         log_info("/* %s */", __func__);
 
@@ -884,6 +913,7 @@ int main(int argc, char *argv[]) {
         test_memory_startswith_no_case();
         test_string_truncate_lines();
         test_string_extract_line();
+        test_string_contains_word_strv();
         test_string_contains_word();
 
         return 0;

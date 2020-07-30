@@ -15,6 +15,7 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
 #include "util.h"
@@ -1209,10 +1210,12 @@ int string_extract_line(const char *s, size_t i, char **ret) {
         }
 }
 
-int string_contains_word(const char *string, const char *separators, const char *word) {
+int string_contains_word_strv(const char *string, const char *separators, char **words, const char **ret_word) {
         /* In the default mode with no separators specified, we split on whitespace and
          * don't coalesce separators. */
         const ExtractFlags flags = separators ? EXTRACT_DONT_COALESCE_SEPARATORS : 0;
+
+        const char *found = NULL;
 
         for (const char *p = string;;) {
                 _cleanup_free_ char *w = NULL;
@@ -1222,8 +1225,14 @@ int string_contains_word(const char *string, const char *separators, const char 
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return false;
-                if (streq(w, word))
-                        return true;
+                        break;
+
+                found = strv_find(words, w);
+                if (found)
+                        break;
         }
+
+        if (ret_word)
+                *ret_word = found;
+        return !!found;
 }
