@@ -35,7 +35,7 @@
       <funcprototype>
         <funcdef>int <function>sd_machine_get_ifindices</function></funcdef>
         <paramdef>const char* <parameter>machine</parameter></paramdef>
-        <paramdef>int **<parameter>ifindices</parameter></paramdef>
+        <paramdef>int **<parameter>ret_ifindices</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>

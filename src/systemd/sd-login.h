@@ -199,7 +199,7 @@ int sd_seat_can_graphical(const char *seat);
 int sd_machine_get_class(const char *machine, char **clazz);
 
 /* Return the list if host-side network interface indices of a machine */
-int sd_machine_get_ifindices(const char *machine, int **ifindices);
+int sd_machine_get_ifindices(const char *machine, int **ret_ifindices);
 
 /* Get all seats, store in *seats. Returns the number of seats. If
  * seats is NULL, this only returns the number of seats. */

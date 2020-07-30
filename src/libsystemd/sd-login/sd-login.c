@@ -894,47 +894,47 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         return 0;
 }
 
-_public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
-        _cleanup_free_ char *netif = NULL;
-        size_t l, allocated = 0, nr = 0;
-        int *ni = NULL;
-        const char *p, *word, *state;
+_public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) {
+        _cleanup_free_ char *netif_line = NULL;
+        const char *p;
         int r;
 
         assert_return(machine_name_is_valid(machine), -EINVAL);
-        assert_return(ifindices, -EINVAL);
+        assert_return(ret_ifindices, -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p, "NETIF", &netif);
+        r = parse_env_file(NULL, p, "NETIF", &netif_line);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
                 return r;
-        if (!netif) {
-                *ifindices = NULL;
+        if (!netif_line) {
+                *ret_ifindices = NULL;
                 return 0;
         }
 
-        FOREACH_WORD(word, l, netif, state) {
-                char buf[l+1];
-                int ifi;
+        _cleanup_strv_free_ char **tt = strv_split(netif_line, NULL);
+        if (!tt)
+                return -ENOMEM;
 
-                *(char*) (mempcpy(buf, word, l)) = 0;
+        size_t n = 0;
+        int *ifindices = new(int, strv_length(tt));
+        if (!ifindices)
+                return -ENOMEM;
 
-                ifi = parse_ifindex(buf);
-                if (ifi < 0)
-                        continue;
+        for (size_t i = 0; tt[i]; i++) {
+                int ind;
 
-                if (!GREEDY_REALLOC(ni, allocated, nr+1)) {
-                        free(ni);
-                        return -ENOMEM;
-                }
+                ind = parse_ifindex(tt[i]);
+                if (ind < 0)
+                        /* Return -EUCLEAN to distinguish from -EINVAL for invalid args */
+                        return ind == -EINVAL ? -EUCLEAN : ind;
 
-                ni[nr++] = ifi;
+                ifindices[n++] = ind;
         }
 
-        *ifindices = ni;
-        return nr;
+        *ret_ifindices = ifindices;
+        return n;
 }
 
 static int MONITOR_TO_FD(sd_login_monitor *m) {
