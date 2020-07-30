@@ -472,3 +472,18 @@ int loop_device_flock(LoopDevice *d, int operation) {
 
         return 0;
 }
+
+int loop_device_sync(LoopDevice *d) {
+        assert(d);
+
+        /* We also do this implicitly in loop_device_unref(). Doing this explicitly here has the benefit that
+         * we can check the return value though. */
+
+        if (d->fd < 0)
+                return -EBADF;
+
+        if (fsync(d->fd) < 0)
+                return -errno;
+
+        return 0;
+}
