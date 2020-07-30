@@ -378,7 +378,7 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         if (r < 0)
                 return r;
 
-        a = strv_split(s, " ");
+        a = strv_split(s, NULL);
         if (!a)
                 return -ENOMEM;
 
@@ -650,73 +650,70 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         return 0;
 }
 
-_public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uids, unsigned *n_uids) {
-        _cleanup_free_ char *p = NULL, *s = NULL, *t = NULL;
-        _cleanup_strv_free_ char **a = NULL;
-        _cleanup_free_ uid_t *b = NULL;
-        unsigned n = 0;
+_public_ int sd_seat_get_sessions(
+                const char *seat,
+                char ***ret_sessions,
+                uid_t **ret_uids,
+                unsigned *ret_n_uids) {
+
+        _cleanup_free_ char *fname = NULL, *session_line = NULL, *uid_line = NULL;
+        _cleanup_strv_free_ char **sessions = NULL;
+        _cleanup_free_ uid_t *uids = NULL;
+        unsigned n_sessions = 0;
         int r;
 
-        r = file_of_seat(seat, &p);
+        r = file_of_seat(seat, &fname);
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p,
-                           "SESSIONS", &s,
-                           "UIDS", &t);
+        r = parse_env_file(NULL, fname,
+                           "SESSIONS", &session_line,
+                           "UIDS", &uid_line);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
                 return r;
 
-        if (s) {
-                a = strv_split(s, " ");
-                if (!a)
+        if (session_line) {
+                sessions = strv_split(session_line, NULL);
+                if (!sessions)
                         return -ENOMEM;
-        }
 
-        if (uids && t) {
-                const char *word, *state;
-                size_t l;
+                n_sessions = strv_length(sessions);
+        };
 
-                FOREACH_WORD(word, l, t, state)
-                        n++;
+        if (ret_uids && uid_line) {
+                uids = new(uid_t, n_sessions);
+                if (!uids)
+                        return -ENOMEM;
 
-                if (n > 0) {
-                        unsigned i = 0;
+                size_t n = 0;
+                for (const char *p = uid_line;;) {
+                        _cleanup_free_ char *word = NULL;
 
-                        b = new(uid_t, n);
-                        if (!b)
-                                return -ENOMEM;
+                        r = extract_first_word(&p, &word, NULL, 0);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
 
-                        FOREACH_WORD(word, l, t, state) {
-                                _cleanup_free_ char *k = NULL;
-
-                                k = strndup(word, l);
-                                if (!k)
-                                        return -ENOMEM;
-
-                                r = parse_uid(k, b + i);
-                                if (r < 0)
-                                        return r;
-
-                                i++;
-                        }
+                        r = parse_uid(word, &uids[n++]);
+                        if (r < 0)
+                                return r;
                 }
+
+                if (n != n_sessions)
+                        return -EUCLEAN;
         }
 
-        r = (int) strv_length(a);
+        if (ret_sessions)
+                *ret_sessions = TAKE_PTR(sessions);
+        if (ret_uids)
+                *ret_uids = TAKE_PTR(uids);
+        if (ret_n_uids)
+                *ret_n_uids = n_sessions;
 
-        if (sessions)
-                *sessions = TAKE_PTR(a);
-
-        if (uids)
-                *uids = TAKE_PTR(b);
-
-        if (n_uids)
-                *n_uids = n;
-
-        return r;
+        return n_sessions;
 }
 
 static int seat_get_can(const char *seat, const char *variable) {
