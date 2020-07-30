@@ -548,7 +548,7 @@ static int dhcp4_remove_all(Link *link) {
 }
 
 static int dhcp_lease_lost(Link *link) {
-        int k, r;
+        int k, r = 0;
 
         assert(link);
         assert(link->dhcp_lease);
