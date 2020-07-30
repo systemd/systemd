@@ -36,7 +36,9 @@
 #include "json.h"
 #include "list.h"
 #include "locale-util.h"
+#include "loop-util.h"
 #include "main-func.h"
+#include "mkfs-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -121,6 +123,8 @@ struct Partition {
         int copy_blocks_fd;
         uint64_t copy_blocks_size;
 
+        char *format;
+
         LIST_FIELDS(Partition, partitions);
 };
 
@@ -203,6 +207,8 @@ static Partition* partition_free(Partition *p) {
 
         free(p->copy_blocks_path);
         safe_close(p->copy_blocks_fd);
+
+        free(p->format);
 
         return mfree(p);
 }
@@ -1000,6 +1006,30 @@ static int config_parse_size4096(
         return 0;
 }
 
+static int config_parse_fstype(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **fstype = data;
+
+        assert(rvalue);
+        assert(data);
+
+        if (!filename_is_valid(rvalue))
+                return log_syntax(unit, LOG_ERR, filename, line, 0,
+                                  "File system type is not valid, refusing: %s", rvalue);
+
+        return free_and_strdup_warn(fstype, rvalue);
+}
+
 static int partition_read_definition(Partition *p, const char *path) {
 
         ConfigTableItem table[] = {
@@ -1015,6 +1045,7 @@ static int partition_read_definition(Partition *p, const char *path) {
                 { "Partition", "PaddingMaxBytes", config_parse_size4096, -1, &p->padding_max      },
                 { "Partition", "FactoryReset",    config_parse_bool,     0,  &p->factory_reset    },
                 { "Partition", "CopyBlocks",      config_parse_path,     0,  &p->copy_blocks_path },
+                { "Partition", "Format",          config_parse_fstype,   0,  &p->format           },
                 {}
         };
         int r;
@@ -1039,6 +1070,10 @@ static int partition_read_definition(Partition *p, const char *path) {
         if (sd_id128_is_null(p->type_uuid))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Type= not defined, refusing.");
+
+        if (p->copy_blocks_path && p->format)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Format= and CopyBlocks= cannot be combined, refusing.");
 
         return 0;
 }
@@ -1191,23 +1226,23 @@ static int fdisk_set_disklabel_id_by_uuid(struct fdisk_context *c, sd_id128_t id
         return fdisk_set_ask(c, NULL, NULL);
 }
 
-#define DISK_UUID_TOKEN "disk-uuid"
-
-static int disk_acquire_uuid(Context *context, sd_id128_t *ret) {
+static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
         union {
                 unsigned char md[SHA256_DIGEST_LENGTH];
                 sd_id128_t id;
         } result;
 
-        assert(context);
+        assert(token);
         assert(ret);
 
-        /* Calculate the HMAC-SHA256 of the string "disk-uuid", keyed off the machine ID. We use the machine
-         * ID as key (and not as cleartext!) since it's the machine ID we don't want to leak. */
+        /* Derive a new UUID from the specified UUID in a stable and reasonably safe way. Specifically, we
+         * calculate the HMAC-SHA256 of the specified token string, keyed by the supplied base (typically the
+         * machine ID). We use the machine ID as key (and not as cleartext!) of the HMAC operation since it's
+         * the machine ID we don't want to leak. */
 
         if (!HMAC(EVP_sha256(),
-                  &context->seed, sizeof(context->seed),
-                  (const unsigned char*) DISK_UUID_TOKEN, strlen(DISK_UUID_TOKEN),
+                  &base, sizeof(base),
+                  (const unsigned char*) token, strlen(token),
                   result.md, NULL))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "HMAC-SHA256 calculation failed.");
 
@@ -1312,7 +1347,7 @@ static int context_load_partition_table(
                 if (r < 0)
                         return log_error_errno(r, "Failed to create GPT disk label: %m");
 
-                r = disk_acquire_uuid(context, &disk_uuid);
+                r = derive_uuid(context->seed, "disk-uuid", &disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
 
@@ -1332,7 +1367,7 @@ static int context_load_partition_table(
                 return log_error_errno(r, "Failed to parse current GPT disk label UUID: %m");
 
         if (sd_id128_is_null(disk_uuid)) {
-                r = disk_acquire_uuid(context, &disk_uuid);
+                r = derive_uuid(context->seed, "disk-uuid", &disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
 
@@ -2212,6 +2247,66 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
+static int context_mkfs(Context *context) {
+        Partition *p;
+        int fd = -1, r;
+
+        assert(context);
+
+        /* Make a file system */
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                sd_id128_t fs_uuid;
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (!p->format)
+                        continue;
+
+                assert(p->offset != UINT64_MAX);
+                assert(p->new_size != UINT64_MAX);
+
+                if (fd < 0)
+                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+                /* Loopback block devices are not only useful to turn regular files into block devices, but
+                 * also to cut out sections of block devices into new block devices. */
+
+                r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, &d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make loopback device of partition %" PRIu64 ": %m", p->partno);
+
+                r = loop_device_flock(d, LOCK_EX);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to lock loopback device: %m");
+
+                log_info("Formatting future partition %" PRIu64 ".", p->partno);
+
+                /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
+                 * keyed off the partition UUID. */
+                r = derive_uuid(p->new_uuid, "file-system-uuid", &fs_uuid);
+                if (r < 0)
+                        return r;
+
+                r = make_filesystem(d->node, p->format, p->new_label, fs_uuid, arg_discard);
+                if (r < 0)
+                        return r;
+
+                log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
+
+                r = loop_device_sync(d);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to sync loopback device: %m");
+        }
+
+        return 0;
+}
+
 static int partition_acquire_uuid(Context *context, Partition *p, sd_id128_t *ret) {
         struct {
                 sd_id128_t type_uuid;
@@ -2473,6 +2568,10 @@ static int context_write_partition_table(
                 return r;
 
         r = context_copy_blocks(context);
+        if (r < 0)
+                return r;
+
+        r = context_mkfs(context);
         if (r < 0)
                 return r;
 
