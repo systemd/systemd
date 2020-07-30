@@ -127,6 +127,9 @@ int setup_namespace(
                 size_t root_hash_sig_size,
                 const char *root_hash_sig_path,
                 const char *root_verity,
+                const char *unit_id,
+                const char *propagate_dir,
+                const char *incoming_dir,
                 DissectImageFlags dissected_image_flags,
                 char **error_path);
 
@@ -174,3 +177,5 @@ const char* namespace_type_to_string(NamespaceType t) _const_;
 NamespaceType namespace_type_from_string(const char *s) _pure_;
 
 bool ns_type_supported(NamespaceType type);
+
+int activate_bind_mounts_in_namespace(pid_t target_pid, const char *fork_name, const BindMount *bind_mounts, size_t n_bind_mounts);

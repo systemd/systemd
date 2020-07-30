@@ -11,9 +11,11 @@
 #include "missing_magic.h"
 #include "mkdir.h"
 #include "namespace-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 
@@ -197,11 +199,12 @@ int bind_mount_in_namespace(
                 const char *dest,
                 int read_only,
                 int make_file_or_directory,
+                char **inaccessible_paths,
                 char **error_path) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1;
-        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
+        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p, **inaccessible;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
@@ -215,6 +218,14 @@ int bind_mount_in_namespace(
         assert(incoming_path);
         assert(src);
         assert(dest);
+
+        /* If it would be dropped at startup time, skip it */
+        STRV_FOREACH(inaccessible, inaccessible_paths)
+                if (path_startswith(dest, *inaccessible)) {
+                        if (error_path)
+                                *error_path = strjoin(dest, " is not accessible");
+                        return -EINVAL;
+                }
 
         r = namespace_open(target, NULL, &mntns_fd, NULL, NULL, &root_fd);
         if (r < 0)

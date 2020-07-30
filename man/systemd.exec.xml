@@ -349,6 +349,16 @@
         specified. <varname>TemporaryFileSystem=</varname> with <literal>:ro</literal> or
         <varname>ProtectHome=tmpfs</varname> should be used instead.</para>
 
+        <para>If a unit is in the active state, and it is running in a mount namespace (ie: <varname>MountAPIVFS=</varname>
+        is enabled either directly or indirectly), <varname>BindPaths=</varname>/<varname>BindReadOnlyPaths=</varname>
+        can be added (but not removed) at runtime, without restarting, using <command>systemctl set-property</command>.
+        Note that the usual caveats with namespaces apply: the source must be visible from the unit's mount
+        namespace (the chroot is irrelevant), so for example if the unit has a private <literal>/tmp</literal>
+        via <varname>PrivateTmp=</varname> and the source is in the host's <literal>/tmp</literal>, it will
+        not be possible to activate it, as it will not be visible. Another caveat is that, given this is a
+        runtime append, it will be added on top of all existing mounts, so the order of mount operations will
+        be different versus the service setup operations, and care must be employed to take this into account.</para>
+
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 

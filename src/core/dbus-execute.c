@@ -27,6 +27,7 @@
 #include "journal-util.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -1091,8 +1092,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RestrictRealtime", "b", bus_property_get_bool, offsetof(ExecContext, restrict_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictSUIDSGID", "b", bus_property_get_bool, offsetof(ExecContext, restrict_suid_sgid), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictNamespaces", "t", bus_property_get_ulong, offsetof(ExecContext, restrict_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("BindPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("BindReadOnlyPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BindPaths", "a(ssbt)", property_get_bind_paths, 0, 0),
+        SD_BUS_PROPERTY("BindReadOnlyPaths", "a(ssbt)", property_get_bind_paths, 0, 0),
         SD_BUS_PROPERTY("TemporaryFileSystem", "a(ss)", property_get_temporary_filesystems, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountAPIVFS", "b", bus_property_get_bool, offsetof(ExecContext, mount_apivfs), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeyringMode", "s", property_get_exec_keyring_mode, offsetof(ExecContext, keyring_mode), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -3046,66 +3047,6 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
-                char *source, *destination;
-                int ignore_enoent;
-                uint64_t mount_flags;
-                bool empty = true;
-
-                r = sd_bus_message_enter_container(message, 'a', "(ssbt)");
-                if (r < 0)
-                        return r;
-
-                while ((r = sd_bus_message_read(message, "(ssbt)", &source, &destination, &ignore_enoent, &mount_flags)) > 0) {
-
-                        if (!path_is_absolute(source))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
-                        if (!path_is_absolute(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", destination);
-                        if (!IN_SET(mount_flags, 0, MS_REC))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mount flags.");
-
-                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
-                                                   &(BindMount) {
-                                                           .source = source,
-                                                           .destination = destination,
-                                                           .read_only = !!strstr(name, "ReadOnly"),
-                                                           .recursive = !!(mount_flags & MS_REC),
-                                                           .ignore_enoent = ignore_enoent,
-                                                   });
-                                if (r < 0)
-                                        return r;
-
-                                unit_write_settingf(
-                                                u, flags|UNIT_ESCAPE_SPECIFIERS, name,
-                                                "%s=%s%s:%s:%s",
-                                                name,
-                                                ignore_enoent ? "-" : "",
-                                                source,
-                                                destination,
-                                                (mount_flags & MS_REC) ? "rbind" : "norbind");
-                        }
-
-                        empty = false;
-                }
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_exit_container(message);
-                if (r < 0)
-                        return r;
-
-                if (empty) {
-                        bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
-                        c->bind_mounts = NULL;
-                        c->n_bind_mounts = 0;
-
-                        unit_write_settingf(u, flags, name, "%s=", name);
-                }
-
-                return 1;
-
         } else if (streq(name, "TemporaryFileSystem")) {
                 const char *path, *options;
                 bool empty = true;
@@ -3318,6 +3259,112 @@ int bus_exec_context_set_transient_property(
                 }
 
                 mount_images = mount_image_free_many(mount_images, &n_mount_images);
+
+                return 1;
+        }
+
+        return 0;
+}
+
+int bus_exec_context_set_property(
+                Unit *u,
+                ExecContext *c,
+                const char *name,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        assert(u);
+        assert(c);
+        assert(name);
+        assert(message);
+
+        flags |= UNIT_PRIVATE;
+
+        if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
+                char *source, *destination;
+                int ignore_enoent;
+                uint64_t mount_flags;
+                bool empty = true;
+                size_t n_prev_bind_mounts = c->n_bind_mounts;
+                int r;
+
+                r = sd_bus_message_enter_container(message, 'a', "(ssbt)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(ssbt)", &source, &destination, &ignore_enoent, &mount_flags)) > 0) {
+
+                        if (!path_is_absolute(source))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
+                        if (!path_is_absolute(destination))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", destination);
+                        if (!IN_SET(mount_flags, 0, MS_REC))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mount flags.");
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
+                                                   &(BindMount) {
+                                                           .source = source,
+                                                           .destination = destination,
+                                                           .read_only = !!strstr(name, "ReadOnly"),
+                                                           .recursive = !!(mount_flags & MS_REC),
+                                                           .ignore_enoent = ignore_enoent,
+                                                   });
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_settingf(
+                                                u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                                "%s=%s%s:%s:%s",
+                                                name,
+                                                ignore_enoent ? "-" : "",
+                                                source,
+                                                destination,
+                                                (mount_flags & MS_REC) ? "rbind" : "norbind");
+                        }
+
+                        empty = false;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if(UNIT_WRITE_FLAGS_NOOP(flags))
+                        return 1;
+
+                if (empty) {
+                        bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
+                        c->bind_mounts = NULL;
+                        c->n_bind_mounts = 0;
+
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                } else if (c->n_bind_mounts > n_prev_bind_mounts && unit_active_state(u) == UNIT_ACTIVE && unit_main_pid(u) > 0)
+                        for (size_t i = 0; i < c->n_bind_mounts - n_prev_bind_mounts; i++) {
+                                const BindMount *b = c->bind_mounts + n_prev_bind_mounts + i;
+                                _cleanup_free_ char *error_path = NULL, *propagate_dir = NULL;
+
+                                propagate_dir = strjoin("/run/systemd/propagate/", u->id);
+                                if (!propagate_dir)
+                                        return -ENOMEM;
+
+                                r = bind_mount_in_namespace(unit_main_pid(u),
+                                                            propagate_dir,
+                                                            "/run/host/incoming/",
+                                                            b->source,
+                                                            b->destination,
+                                                            b->read_only,
+                                                            true,
+                                                            c->inaccessible_paths,
+                                                            &error_path);
+                                if (r == -ENOENT && b->ignore_enoent)
+                                        continue;
+                                if (r < 0)
+                                        return log_debug_errno(r, "Failed to activate bind mounts in unit %s: %s", u->id, error_path);
+                        }
 
                 return 1;
         }

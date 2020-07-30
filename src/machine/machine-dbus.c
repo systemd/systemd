@@ -856,7 +856,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         r = bind_mount_in_namespace(m->leader,
                                     strjoina("/run/systemd/nspawn/propagate/", m->name),
                                     "/run/host/incoming/",
-                                    src, dest, read_only, make_file_or_directory,
+                                    src, dest, read_only, make_file_or_directory, NULL,
                                     &error_path);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "%s", error_path);

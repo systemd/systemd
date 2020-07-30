@@ -10,4 +10,4 @@ int fd_is_network_ns(int fd);
 
 int detach_mount_namespace(void);
 
-int bind_mount_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, int read_only, int make_file_or_directory, char **error_path);
+int bind_mount_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, int read_only, int make_file_or_directory, char **inaccessible_paths, char **error_path);

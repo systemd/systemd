@@ -435,6 +435,10 @@ int bus_service_set_property(
         if (r != 0)
                 return r;
 
+        r = bus_exec_context_set_property(u, &s->exec_context, name, message, flags, error);
+        if (r != 0)
+                return r;
+
         if (u->transient && u->load_state == UNIT_STUB) {
                 /* This is a transient unit, let's load a little more */
 
