@@ -2511,69 +2511,11 @@ static int device_kernel_partitions_supported(int fd) {
         return FLAGS_SET(info.lo_flags, LO_FLAGS_PARTSCAN);
 }
 
-static int context_write_partition_table(
-                Context *context,
-                const char *node,
-                bool from_scratch) {
-
-        _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
-        int capable, r;
+static int context_mangle_partitions(Context *context) {
         Partition *p;
+        int r;
 
         assert(context);
-
-        if (arg_pretty > 0 ||
-            (arg_pretty < 0 && isatty(STDOUT_FILENO) > 0) || arg_json) {
-
-                (void) context_dump_partitions(context, node);
-
-                putc('\n', stdout);
-
-                if (!arg_json)
-                        (void) context_dump_partition_bar(context, node);
-                putc('\n', stdout);
-                fflush(stdout);
-        }
-
-        if (!from_scratch && !context_changed(context)) {
-                log_info("No changes.");
-                return 0;
-        }
-
-        if (arg_dry_run) {
-                log_notice("Refusing to repartition, please re-run with --dry-run=no.");
-                return 0;
-        }
-
-        log_info("Applying changes.");
-
-        if (from_scratch) {
-                r = context_discard_range(context, 0, context->total);
-                if (r == -EOPNOTSUPP)
-                        log_info("Storage does not support discarding, not discarding entire block device data.");
-                else if (r < 0)
-                        return log_error_errno(r, "Failed to discard entire block device: %m");
-                else if (r > 0)
-                        log_info("Discarded entire block device.");
-        }
-
-        r = fdisk_get_partitions(context->fdisk_context, &original_table);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire partition table: %m");
-
-        /* Wipe fs signatures and discard sectors where the new partitions are going to be placed and in the
-         * gaps between partitions, just to be sure. */
-        r = context_wipe_and_discard(context, from_scratch);
-        if (r < 0)
-                return r;
-
-        r = context_copy_blocks(context);
-        if (r < 0)
-                return r;
-
-        r = context_mkfs(context);
-        if (r < 0)
-                return r;
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 if (p->dropped)
@@ -2686,7 +2628,7 @@ static int context_write_partition_table(
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition label: %m");
 
-                        log_info("Creating new partition %" PRIu64 ".", p->partno);
+                        log_info("Registering new partition %" PRIu64 " in partition table.", p->partno);
 
                         r = fdisk_add_partition(context->fdisk_context, q, NULL);
                         if (r < 0)
@@ -2696,6 +2638,77 @@ static int context_write_partition_table(
                         p->new_partition = TAKE_PTR(q);
                 }
         }
+
+        return 0;
+}
+
+static int context_write_partition_table(
+                Context *context,
+                const char *node,
+                bool from_scratch) {
+
+        _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
+        int capable, r;
+
+        assert(context);
+
+        if (arg_pretty > 0 ||
+            (arg_pretty < 0 && isatty(STDOUT_FILENO) > 0) ||
+            arg_json) {
+
+                (void) context_dump_partitions(context, node);
+
+                putc('\n', stdout);
+
+                if (!arg_json)
+                        (void) context_dump_partition_bar(context, node);
+                putc('\n', stdout);
+                fflush(stdout);
+        }
+
+        if (!from_scratch && !context_changed(context)) {
+                log_info("No changes.");
+                return 0;
+        }
+
+        if (arg_dry_run) {
+                log_notice("Refusing to repartition, please re-run with --dry-run=no.");
+                return 0;
+        }
+
+        log_info("Applying changes.");
+
+        if (from_scratch) {
+                r = context_discard_range(context, 0, context->total);
+                if (r == -EOPNOTSUPP)
+                        log_info("Storage does not support discarding, not discarding entire block device data.");
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to discard entire block device: %m");
+                else if (r > 0)
+                        log_info("Discarded entire block device.");
+        }
+
+        r = fdisk_get_partitions(context->fdisk_context, &original_table);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire partition table: %m");
+
+        /* Wipe fs signatures and discard sectors where the new partitions are going to be placed and in the
+         * gaps between partitions, just to be sure. */
+        r = context_wipe_and_discard(context, from_scratch);
+        if (r < 0)
+                return r;
+
+        r = context_copy_blocks(context);
+        if (r < 0)
+                return r;
+
+        r = context_mkfs(context);
+        if (r < 0)
+                return r;
+
+        r = context_mangle_partitions(context);
+        if (r < 0)
+                return r;
 
         log_info("Writing new partition table.");
 
