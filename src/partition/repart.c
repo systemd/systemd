@@ -2193,17 +2193,15 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
                 if (!p->allocated_to_area)
                         continue;
 
-                if (!from_scratch) {
-                        r = context_discard_partition(context, p);
-                        if (r < 0)
-                                return r;
-                }
-
                 r = context_wipe_partition(context, p);
                 if (r < 0)
                         return r;
 
                 if (!from_scratch) {
+                        r = context_discard_partition(context, p);
+                        if (r < 0)
+                                return r;
+
                         r = context_discard_gap_after(context, p);
                         if (r < 0)
                                 return r;
