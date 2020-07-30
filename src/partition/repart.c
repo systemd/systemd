@@ -2105,7 +2105,7 @@ static int context_discard_partition(Context *context, Partition *p) {
 
         r = context_discard_range(context, p->offset, p->new_size);
         if (r == -EOPNOTSUPP) {
-                log_info("Storage does not support discarding, not discarding data in new partition %" PRIu64 ".", p->partno);
+                log_info("Storage does not support discard, not discarding data in future partition %" PRIu64 ".", p->partno);
                 return 0;
         }
         if (r == 0) {
@@ -2113,9 +2113,9 @@ static int context_discard_partition(Context *context, Partition *p) {
                 return 0;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to discard data for new partition %" PRIu64 ".", p->partno);
+                return log_error_errno(r, "Failed to discard data for future partition %" PRIu64 ".", p->partno);
 
-        log_info("Successfully discarded data from partition %" PRIu64 ".", p->partno);
+        log_info("Successfully discarded data from future partition %" PRIu64 ".", p->partno);
         return 1;
 }
 
@@ -2156,9 +2156,9 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         r = context_discard_range(context, gap, next - gap);
         if (r == -EOPNOTSUPP) {
                 if (p)
-                        log_info("Storage does not support discarding, not discarding gap after partition %" PRIu64 ".", p->partno);
+                        log_info("Storage does not support discard, not discarding gap after partition %" PRIu64 ".", p->partno);
                 else
-                        log_info("Storage does not support discarding, not discarding gap at beginning of disk.");
+                        log_info("Storage does not support discard, not discarding gap at beginning of disk.");
                 return 0;
         }
         if (r == 0)  /* Too short */
@@ -2249,7 +2249,7 @@ static int context_copy_blocks(Context *context) {
                 if (lseek(fd, p->offset, SEEK_SET) == (off_t) -1)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-                log_info("Copying in '%s' (%s) on block level into partition %" PRIu64 ".", p->copy_blocks_path, format_bytes(buf, sizeof(buf), p->copy_blocks_size), p->partno);
+                log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".", p->copy_blocks_path, format_bytes(buf, sizeof(buf), p->copy_blocks_size), p->partno);
 
                 r = copy_bytes_full(p->copy_blocks_fd, fd, p->copy_blocks_size, 0, NULL, NULL, NULL, NULL);
                 if (r < 0)
@@ -2293,7 +2293,7 @@ static int context_mkfs(Context *context) {
 
                 r = loop_device_make(fd, O_RDWR, p->offset, p->new_size, 0, &d);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make loopback device of partition %" PRIu64 ": %m", p->partno);
+                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
 
                 r = loop_device_flock(d, LOCK_EX);
                 if (r < 0)
@@ -2642,7 +2642,7 @@ static int context_mangle_partitions(Context *context) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set partition label: %m");
 
-                        log_info("Registering new partition %" PRIu64 " in partition table.", p->partno);
+                        log_info("Adding new partition %" PRIu64 " to partition table.", p->partno);
 
                         r = fdisk_add_partition(context->fdisk_context, q, NULL);
                         if (r < 0)
@@ -2701,7 +2701,7 @@ static int context_write_partition_table(
 
                 r = context_discard_range(context, 0, context->total);
                 if (r == -EOPNOTSUPP)
-                        log_info("Storage does not support discarding, not discarding entire block device data.");
+                        log_info("Storage does not support discard, not discarding entire block device data.");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to discard entire block device: %m");
                 else if (r > 0)
