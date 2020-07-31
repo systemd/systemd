@@ -94,12 +94,11 @@ int fstab_filter_options(const char *opts, const char *names,
         /* If !ret_value and !ret_filtered, this function is not allowed to fail. */
 
         if (!ret_filtered) {
-                const char *word, *state;
-                size_t l;
+                for (const char *word = opts;;) {
+                        const char *end = word + strcspn(word, ",");
 
-                FOREACH_WORD_SEPARATOR(word, l, opts, ",", state)
                         NULSTR_FOREACH(name, names) {
-                                if (l < strlen(name))
+                                if (end < word + strlen(name))
                                         continue;
                                 if (!strneq(word, name, strlen(name)))
                                         continue;
@@ -114,12 +113,20 @@ int fstab_filter_options(const char *opts, const char *names,
 
                                                 r = free_and_strndup(&v,
                                                                      eq ? x + 1 : NULL,
-                                                                     eq ? l - strlen(name) - 1 : 0);
+                                                                     eq ? end - x - 1 : 0);
                                                 if (r < 0)
                                                         return r;
                                         }
+
+                                        break;
                                 }
                         }
+
+                        if (*end)
+                                word = end + 1;
+                        else
+                                break;
+                }
         } else {
                 stor = strv_split(opts, ",");
                 if (!stor)
