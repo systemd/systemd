@@ -108,24 +108,6 @@ char *endswith_no_case(const char *s, const char *postfix) _pure_;
 
 char *first_word(const char *s, const char *word) _pure_;
 
-typedef enum SplitFlags {
-        SPLIT_QUOTES                     = 0x01 << 0,
-        SPLIT_RELAX                      = 0x01 << 1,
-} SplitFlags;
-
-/* Smelly. Do not use this anymore. Use extract_first_word() instead! */
-const char* split(const char **state, size_t *l, const char *separator, SplitFlags flags);
-
-/* Similar, don't use this anymore */
-#define FOREACH_WORD(word, length, s, state)                            \
-        _FOREACH_WORD(word, length, s, WHITESPACE, 0, state)
-
-#define FOREACH_WORD_SEPARATOR(word, length, s, separator, state)       \
-        _FOREACH_WORD(word, length, s, separator, 0, state)
-
-#define _FOREACH_WORD(word, length, s, separator, flags, state)         \
-        for ((state) = (s), (word) = split(&(state), &(length), (separator), (flags)); (word); (word) = split(&(state), &(length), (separator), (flags)))
-
 char *strnappend(const char *s, const char *suffix, size_t length);
 
 char *strjoin_real(const char *x, ...) _sentinel_;
