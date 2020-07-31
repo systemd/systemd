@@ -396,26 +396,34 @@ static void test_strcmp_ptr(void) {
 static void test_foreach_word(void) {
         log_info("/* %s */", __func__);
 
-        const char *word, *state;
-        size_t l;
-        int i = 0;
-        const char test[] = "test abc d\te   f   ";
+        const char *test = "test abc d\te   f   ";
         const char * const expected[] = {
                 "test",
                 "abc",
                 "d",
                 "e",
                 "f",
-                "",
-                NULL
         };
 
-        FOREACH_WORD(word, l, test, state)
-                assert_se(strneq(expected[i++], word, l));
+        size_t i = 0;
+        int r;
+        for (const char *p = test;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0) {
+                        assert_se(i == ELEMENTSOF(expected));
+                        break;
+                }
+                assert_se(r > 0);
+
+                assert_se(streq(expected[i++], word));
+        }
 }
 
 static void check(const char *test, char** expected, bool trailing) {
-        int i = 0, r;
+        size_t i = 0;
+        int r;
 
         printf("<<<%s>>>\n", test);
         for (;;) {
