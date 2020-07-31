@@ -87,7 +87,7 @@ struct ExecStatus {
         dual_timestamp exit_timestamp;
         pid_t pid;
         int code;     /* as in siginfo_t::si_code */
-        int status;   /* as in sigingo_t::si_status */
+        int status;   /* as in siginfo_t::si_status */
 };
 
 /* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
