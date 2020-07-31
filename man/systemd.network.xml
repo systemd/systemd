@@ -3533,10 +3533,7 @@ DHCP=ipv6</programlisting>
 Name=enp2s0
 
 [Network]
-IPv6PrefixDelegation=dhcpv6
-
-[DHCPv6]
-AssignAcquiredDelegatedPrefixAddress=yes</programlisting>
+IPv6PrefixDelegation=dhcpv6</programlisting>
 
       <para>This will enable IPv6 PD on the interface enp1s0 as an upstream interface where the
       DHCPv6 client is running and enp2s0 as a downstream interface where the prefix is delegated to.</para>
