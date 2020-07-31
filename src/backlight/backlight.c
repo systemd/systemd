@@ -300,18 +300,31 @@ static bool shall_clamp(sd_device *d) {
 static int read_brightness(sd_device *device, const char **ret) {
         const char *subsystem;
         int r;
+        const char *curr_read_str;
+        unsigned curr_read;
+        unsigned max_read;
 
         assert(device);
         assert(ret);
+        get_max_brightness(device,&max_read);
 
         r = sd_device_get_subsystem(device, &subsystem);
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to get subsystem: %m");
 
         if (streq(subsystem, "backlight")) {
-                r = sd_device_get_sysattr_value(device, "actual_brightness", ret);
-                if (r >= 0)
+                char *buf;
+                r = sd_device_get_sysattr_value(device, "actual_brightness", &curr_read_str);
+                safe_atou(curr_read_str, &curr_read);
+                if (r >= 0){
+                        if(curr_read < max_read*0x101) {
+                                int r_1 = asprintf(&buf,"%u",curr_read/0x101);
+                                if(r_1 < 0)
+                                        return log_oom();
+                                *ret = buf;
+                        } else *ret = curr_read_str;
                         return 0;
+                }
                 if (r != -ENOENT)
                         return log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute: %m");
 
