@@ -317,13 +317,18 @@ static int read_brightness(sd_device *device, const char **ret) {
                 r = sd_device_get_sysattr_value(device, "actual_brightness", &curr_read_str);
                 safe_atou(curr_read_str, &curr_read);
                 if (r >= 0){
-                        if(curr_read < max_read*0x101) {
-                                int r_1 = asprintf(&buf,"%u",curr_read/0x101);
-                                if(r_1 < 0)
-                                        return log_oom();
-                                *ret = buf;
-                        } else *ret = curr_read_str;
-                        return 0;
+                        if(curr_read > max_read){
+                                if(curr_read < max_read*0x101) {
+                                        int r_1 = asprintf(&buf,"%u",curr_read/0x101);
+                                        if(r_1 < 0)
+                                                return log_oom();
+                                        *ret = buf;
+                                        return 0;
+                                }
+                        } else {
+                                *ret = curr_read_str;
+                                return 0;
+                        }
                 }
                 if (r != -ENOENT)
                         return log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute: %m");
