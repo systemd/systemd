@@ -99,89 +99,85 @@ static int verify_tty(const char *name) {
         return 0;
 }
 
+static int run_container(void) {
+        _cleanup_free_ char *container_ttys = NULL;
+        int r;
+
+        log_debug("Automatically adding console shell.");
+
+        r = add_symlink("console-getty.service", "console-getty.service");
+        if (r < 0)
+                return r;
+
+        /* When $container_ttys is set for PID 1, spawn gettys on all ptys named therein.
+         * Note that despite the variable name we only support ptys here. */
+
+        (void) getenv_for_pid(1, "container_ttys", &container_ttys);
+
+        for (const char *p = container_ttys;;) {
+               _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse $container_ttys: %m");
+                if (r == 0)
+                        return 0;
+
+                const char *tty = word;
+
+                /* First strip off /dev/ if it is specified */
+                tty = path_startswith(tty, "/dev/") ?: tty;
+
+                /* Then, make sure it's actually a pty */
+                tty = path_startswith(tty, "pts/");
+                if (!tty)
+                        continue;
+
+                r = add_container_getty(tty);
+                if (r < 0)
+                        return r;
+        }
+}
+
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        _cleanup_free_ char *active = NULL;
-        const char *j;
         int r;
 
         assert_se(arg_dest = dest);
 
-        if (detect_container() > 0) {
-                _cleanup_free_ char *container_ttys = NULL;
+        if (detect_container() > 0)
+                /* Add console shell and look at $container_ttys, but don't do add any
+                 * further magic if we are in a container. */
+                return run_container();
 
-                log_debug("Automatically adding console shell.");
+        /* Automatically add in a serial getty on all active kernel consoles */
+        _cleanup_free_ char *active = NULL;
+        (void) read_one_line_file("/sys/class/tty/console/active", &active);
+        for (const char *p = active;;) {
+               _cleanup_free_ char *tty = NULL;
 
-                r = add_symlink("console-getty.service", "console-getty.service");
+                r = extract_first_word(&p, &tty, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse /sys/class/tty/console/active: %m");
+                if (r == 0)
+                        break;
+
+                /* We assume that gettys on virtual terminals are started via manual configuration and do
+                 * this magic only for non-VC terminals. */
+
+                if (isempty(tty) || tty_is_vc(tty))
+                        continue;
+
+                if (verify_tty(tty) < 0)
+                        continue;
+
+                r = add_serial_getty(tty);
                 if (r < 0)
                         return r;
-
-                /* When $container_ttys is set for PID 1, spawn
-                 * gettys on all ptys named therein. Note that despite
-                 * the variable name we only support ptys here. */
-
-                r = getenv_for_pid(1, "container_ttys", &container_ttys);
-                if (r > 0) {
-                        const char *word, *state;
-                        size_t l;
-
-                        FOREACH_WORD(word, l, container_ttys, state) {
-                                const char *t;
-                                char tty[l + 1];
-
-                                memcpy(tty, word, l);
-                                tty[l] = 0;
-
-                                /* First strip off /dev/ if it is specified */
-                                t = path_startswith(tty, "/dev/");
-                                if (!t)
-                                        t = tty;
-
-                                /* Then, make sure it's actually a pty */
-                                t = path_startswith(t, "pts/");
-                                if (!t)
-                                        continue;
-
-                                r = add_container_getty(t);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-
-                /* Don't add any further magic if we are in a container */
-                return 0;
-        }
-
-        if (read_one_line_file("/sys/class/tty/console/active", &active) >= 0) {
-                const char *word, *state;
-                size_t l;
-
-                /* Automatically add in a serial getty on all active
-                 * kernel consoles */
-                FOREACH_WORD(word, l, active, state) {
-                        _cleanup_free_ char *tty = NULL;
-
-                        tty = strndup(word, l);
-                        if (!tty)
-                                return log_oom();
-
-                        /* We assume that gettys on virtual terminals are
-                         * started via manual configuration and do this magic
-                         * only for non-VC terminals. */
-
-                        if (isempty(tty) || tty_is_vc(tty))
-                                continue;
-
-                        if (verify_tty(tty) < 0)
-                                continue;
-
-                        r = add_serial_getty(tty);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         /* Automatically add in a serial getty on the first
          * virtualizer console */
+        const char *j;
         FOREACH_STRING(j,
                        "hvc0",
                        "xvc0",
