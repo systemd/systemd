@@ -100,6 +100,12 @@ static const char* const input_table_quoted[] = {
         NULL,
 };
 
+static const char* const input_table_quoted_joined[] = {
+        "one",
+        "  two\t three " " four  five",
+        NULL,
+};
+
 static const char* const input_table_one[] = {
         "one",
         NULL,
@@ -281,47 +287,39 @@ static void test_strv_split(void) {
 
         strv_free_erase(l);
 
-        l = strv_split_full("    one    two\t three", NULL, 0);
-        assert_se(l);
+        assert_se(strv_split_extract(&l, "    one    two\t three", NULL, 0) == 3);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
         strv_free_erase(l);
 
-        l = strv_split_full("    'one'  \"  two\t three \" ' four  five'", NULL, SPLIT_QUOTES);
-        assert_se(l);
+        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \" ' four  five'", NULL, EXTRACT_UNQUOTE) == 3);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
-        strv_free_erase(l);
+        l = strv_free_erase(l);
 
-        /* missing last quote ignores the last element. */
-        l = strv_split_full("    'one'  \"  two\t three \" ' four  five'  ' ignored element ", NULL, SPLIT_QUOTES);
-        assert_se(l);
+        /* missing last quote causes extraction to fail. */
+        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE) == -EINVAL);
+        assert_se(!l);
+
+        /* missing last quote, but the last element is _not_ ignored with EXTRACT_RELAX. */
+        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 3);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
-        strv_free_erase(l);
+        l = strv_free_erase(l);
 
-        /* missing last quote, but the last element is _not_ ignored with SPLIT_RELAX. */
-        l = strv_split_full("    'one'  \"  two\t three \" ' four  five", NULL, SPLIT_QUOTES | SPLIT_RELAX);
-        assert_se(l);
-        assert_se(strv_equal(l, (char**) input_table_quoted));
+        /* missing separator between items */
+        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \"' four  five'", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 2);
+        assert_se(strv_equal(l, (char**) input_table_quoted_joined));
 
-        strv_free_erase(l);
+        l = strv_free_erase(l);
 
-        /* missing separator between */
-        l = strv_split_full("    'one'  \"  two\t three \"' four  five'", NULL, SPLIT_QUOTES | SPLIT_RELAX);
-        assert_se(l);
-        assert_se(strv_equal(l, (char**) input_table_quoted));
+        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \"' four  five", NULL,
+                                     EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_CUNESCAPE_RELAX) == 2);
+        assert_se(strv_equal(l, (char**) input_table_quoted_joined));
 
-        strv_free_erase(l);
+        l = strv_free_erase(l);
 
-        l = strv_split_full("    'one'  \"  two\t three \"' four  five", NULL, SPLIT_QUOTES | SPLIT_RELAX);
-        assert_se(l);
-        assert_se(strv_equal(l, (char**) input_table_quoted));
-
-        strv_free_erase(l);
-
-        l = strv_split_full("\\", NULL, SPLIT_QUOTES | SPLIT_RELAX);
-        assert_se(l);
+        assert_se(strv_split_extract(&l, "\\", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_CUNESCAPE_RELAX) == 1);
         assert_se(strv_equal(l, STRV_MAKE("\\")));
 }
 
@@ -333,59 +331,58 @@ static void test_strv_split_empty(void) {
         l = strv_split("", WHITESPACE);
         assert_se(l);
         assert_se(strv_isempty(l));
+        l = strv_free(l);
 
-        strv_free(l);
-        l = strv_split("", NULL);
+        assert_se(l = strv_split("", NULL));
+        assert_se(strv_isempty(l));
+        l = strv_free(l);
+
+        assert_se(strv_split_extract(&l, "", NULL, 0) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
+        l = strv_free(l);
 
-        strv_free(l);
-        l = strv_split_full("", NULL, 0);
+        assert_se(strv_split_extract(&l, "", NULL, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
+        l = strv_free(l);
 
-        strv_free(l);
-        l = strv_split_full("", NULL, SPLIT_QUOTES);
+        assert_se(strv_split_extract(&l, "", WHITESPACE, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
+        l = strv_free(l);
 
-        strv_free(l);
-        l = strv_split_full("", WHITESPACE, SPLIT_QUOTES);
+        assert_se(strv_split_extract(&l, "", WHITESPACE, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
-
         strv_free(l);
-        l = strv_split_full("", WHITESPACE, SPLIT_QUOTES | SPLIT_RELAX);
-        assert_se(l);
-        assert_se(strv_isempty(l));
 
-        strv_free(l);
         l = strv_split("    ", WHITESPACE);
         assert_se(l);
         assert_se(strv_isempty(l));
-
         strv_free(l);
+
         l = strv_split("    ", NULL);
         assert_se(l);
         assert_se(strv_isempty(l));
+        l = strv_free(l);
 
-        strv_free(l);
-        l = strv_split_full("    ", NULL, 0);
+        assert_se(strv_split_extract(&l, "    ", NULL, 0) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
+        l = strv_free(l);
 
-        strv_free(l);
-        l = strv_split_full("    ", WHITESPACE, SPLIT_QUOTES);
+        assert_se(strv_split_extract(&l, "    ", WHITESPACE, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
+        l = strv_free(l);
 
-        strv_free(l);
-        l = strv_split_full("    ", NULL, SPLIT_QUOTES);
+        assert_se(strv_split_extract(&l, "    ", NULL, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
+        l = strv_free(l);
 
-        strv_free(l);
-        l = strv_split_full("    ", NULL, SPLIT_QUOTES | SPLIT_RELAX);
+        assert_se(strv_split_extract(&l, "    ", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
 }

@@ -109,6 +109,7 @@ UdevBuiltinCommand udev_builtin_lookup(const char *command) {
 
 int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command, bool test) {
         _cleanup_strv_free_ char **argv = NULL;
+        int r;
 
         assert(dev);
         assert(cmd >= 0 && cmd < _UDEV_BUILTIN_MAX);
@@ -117,9 +118,10 @@ int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command
         if (!builtins[cmd])
                 return -EOPNOTSUPP;
 
-        argv = strv_split_full(command, NULL, SPLIT_QUOTES | SPLIT_RELAX);
-        if (!argv)
-                return -ENOMEM;
+        r = strv_split_extract(&argv, command, NULL,
+                               EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return r;
 
         /* we need '0' here to reset the internal state */
         optind = 0;

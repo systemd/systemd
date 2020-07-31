@@ -385,9 +385,9 @@ int xdg_autostart_format_exec_start(
          * NOTE: Technically, XDG only specifies " as quotes, while this also
          *       accepts '.
          */
-        exec_split = strv_split_full(exec, WHITESPACE, SPLIT_QUOTES | SPLIT_RELAX);
-        if (!exec_split)
-                return -ENOMEM;
+        r = strv_split_extract(&exec_split, exec, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX);
+        if (r < 0)
+                return r;
 
         if (strv_isempty(exec_split))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Exec line is empty");

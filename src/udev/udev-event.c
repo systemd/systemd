@@ -747,9 +747,9 @@ int udev_event_spawn(UdevEvent *event,
                         return log_device_error_errno(event->dev, errno,
                                                       "Failed to create pipe for command '%s': %m", cmd);
 
-        argv = strv_split_full(cmd, NULL, SPLIT_QUOTES|SPLIT_RELAX);
-        if (!argv)
-                return log_oom();
+        r = strv_split_extract(&argv, cmd, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
+        if (r < 0)
+                return log_device_error_errno(event->dev, r, "Failed to split command: %m");
 
         if (isempty(argv[0]))
                 return log_device_error_errno(event->dev, SYNTHETIC_ERRNO(EINVAL),

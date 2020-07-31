@@ -72,13 +72,19 @@ static inline bool strv_isempty(char * const *l) {
         return !l || !*l;
 }
 
-char **strv_split_full(const char *s, const char *separator, SplitFlags flags);
-static inline char **strv_split(const char *s, const char *separator) {
-        return strv_split_full(s, separator, 0);
-}
 char **strv_split_newlines(const char *s);
 
 int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags);
+static inline char **strv_split(const char *s, const char *separators) {
+        char **ret;
+        int r;
+
+        r = strv_split_extract(&ret, s, separators, 0);
+        if (r < 0)
+                return NULL;
+
+        return ret;
+}
 
 /* Given a string containing white-space separated tuples of words themselves separated by ':',
  * returns a vector of strings. If the second element in a tuple is missing, the corresponding
