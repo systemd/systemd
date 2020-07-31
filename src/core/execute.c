@@ -4255,8 +4255,16 @@ static int exec_child(
                         }
                 }
 
-                /* This is done before enforce_user, but ambient set
-                 * does not survive over setresuid() if keep_caps is not set. */
+                /* Ambient capabilities are cleared during setresuid() (in enforce_user()) even with
+                 * keep-caps set.
+                 * To be able to raise the ambient capabilities after setresuid() they have to be
+                 * added to the inherited set and keep caps has to be set (done in enforce_user()).
+                 * After setresuid() the ambient capabilities can be raised as they are present in
+                 * the permitted and inhertiable set. However it is possible that someone wants to
+                 * set ambient capabilities without changing the user, so we also set the ambient
+                 * capabilities here.
+                 * The requested ambient capabilities are raised in the inheritable set if the
+                 * second argument is true. */
                 if (!needs_ambient_hack) {
                         r = capability_ambient_set_apply(context->capability_ambient_set, true);
                         if (r < 0) {
@@ -4282,7 +4290,7 @@ static int exec_child(
                         if (!needs_ambient_hack &&
                             context->capability_ambient_set != 0) {
 
-                                /* Fix the ambient capabilities after user change. */
+                                /* Raise the ambient capabilities after user change. */
                                 r = capability_ambient_set_apply(context->capability_ambient_set, false);
                                 if (r < 0) {
                                         *exit_status = EXIT_CAPABILITIES;
