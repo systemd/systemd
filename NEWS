@@ -114,7 +114,9 @@ CHANGES WITH 246:
 
         * tmpfs mounts automatically created by systemd (/tmp, /run, /dev/shm,
           and others) now have a size and inode limits applied (50% of RAM for
-          /tmp and /dev/shm, 10% of RAM for other mounts, etc.)
+          /tmp and /dev/shm, 10% of RAM for other mounts, etc.). Please note
+          that the implicit kernel default is 50% too, so there is no change
+          in the size limit for /tmp and /dev/shm.
 
         * nss-mymachines lost support for resolution of users and groups, and
           now only does resolution of hostnames. This functionality is now
@@ -156,12 +158,17 @@ CHANGES WITH 246:
           now automatically set to "Y" at boot, in order to enable pstore
           generation for collection with systemd-pstore.
 
-        * A new 'hwdb' file has been added that collects information about PCI
-          and USB devices that correctly support auto-suspend, on top of the
-          databases for this we import from the ChromiumOS project. If you have
-          a device that supports auto-suspend correctly and where it should be
-          enabled by default, please submit a patch that adds it to the
-          database (see /usr/lib/udev/hwdb.d/60-autosuspend.hwdb).
+        * We provide a set of udev rules to enable auto-suspend on PCI and USB
+          devices that were tested to currectly support it. Previously, this
+          was distributed as a set of udev rules, but has now been replaced by
+          by a set of hwdb entries (and a much shorter udev rule to take action
+          if the device modalias matches one of the new hwdb entries).
+
+          As before, entries are periodically imported from the database
+          maintained by the ChromiumOS project. If you have a device that
+          supports auto-suspend correctly and where it should be enabled by
+          default, please submit a patch that adds it to the database (see
+          /usr/lib/udev/hwdb.d/60-autosuspend.hwdb).
 
         * systemd-udevd gained the new configuration option timeout_signal= as well
           as a corresponding kernel command line option udev.timeout_signal=.
