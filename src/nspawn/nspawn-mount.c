@@ -549,7 +549,7 @@ int mount_all(const char *dest,
                   MOUNT_IN_USERNS|MOUNT_MKDIR },
 
                 /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
-                { "tmpfs",                  "/tmp",                         "tmpfs", "mode=1777" TMPFS_LIMITS_TMP,     MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                { "tmpfs",                  "/tmp",                         "tmpfs", "mode=1777" NESTED_TMPFS_LIMITS,  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_APPLY_TMPFS_TMP|MOUNT_MKDIR },
                 { "tmpfs",                  "/sys",                         "tmpfs", "mode=555" TMPFS_LIMITS_SYS,      MS_NOSUID|MS_NOEXEC|MS_NODEV,
                   MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS|MOUNT_MKDIR },
@@ -559,7 +559,7 @@ int mount_all(const char *dest,
                   MOUNT_FATAL|MOUNT_MKDIR },                          /* skipped if above was mounted */
                 { "tmpfs",                  "/dev",                         "tmpfs", "mode=755" TMPFS_LIMITS_DEV,      MS_NOSUID|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
-                { "tmpfs",                  "/dev/shm",                     "tmpfs", "mode=1777" TMPFS_LIMITS_DEV_SHM, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                { "tmpfs",                  "/dev/shm",                     "tmpfs", "mode=1777" NESTED_TMPFS_LIMITS,  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },
                 { "tmpfs",                  "/run",                         "tmpfs", "mode=755" TMPFS_LIMITS_RUN,      MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL|MOUNT_MKDIR },

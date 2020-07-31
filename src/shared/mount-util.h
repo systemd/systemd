@@ -21,13 +21,11 @@
  * PID1 because 16MB of free space is required. */
 #define TMPFS_LIMITS_RUN             ",size=20%,nr_inodes=800k"
 
-/* The limit used for various tmpfs mounts, but not /tmp itself.
+/* The limit used for various nested tmpfs mounts, in paricular for guests started by systemd-nspawn.
  * 10% of RAM (using 16GB of RAM as a baseline) translates to 400k inodes (assuming 4k each) and 25%
  * translates to 1M inodes.
- * /tmp is configured through a .mount unit file. */
-#define TMPFS_LIMITS_TMP             ",size=10%,nr_inodes=400k"
-#define TMPFS_LIMITS_DEV_SHM         TMPFS_LIMITS_TMP
-#define TMPFS_LIMITS_TEMPORARY_FS    TMPFS_LIMITS_TMP
+ * (On the host, /tmp is configured through a .mount unit file.) */
+#define NESTED_TMPFS_LIMITS          ",size=10%,nr_inodes=400k"
 
 /* More space for volatile root and /var */
 #define TMPFS_LIMITS_VAR             ",size=25%,nr_inodes=1m"
