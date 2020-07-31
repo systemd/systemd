@@ -76,6 +76,7 @@ struct TemporaryFileSystem {
 struct MountImage {
         char *source;
         char *destination;
+        LIST_HEAD(MountOptions, mount_options);
         bool ignore_enoent;
 };
 

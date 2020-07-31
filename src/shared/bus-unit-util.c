@@ -1509,8 +1509,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         }
 
         if (streq(field, "MountImages")) {
-                _cleanup_strv_free_ char **l = NULL;
-                char **source = NULL, **destination = NULL;
                 const char *p = eq;
 
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
@@ -1521,33 +1519,85 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'v', "a(ssb)");
+                r = sd_bus_message_open_container(m, 'v', "a(ssba(ss))");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'a', "(ssb)");
+                r = sd_bus_message_open_container(m, 'a', "(ssba(ss))");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = strv_split_colon_pairs(&l, p);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse argument: %m");
-
-                STRV_FOREACH_PAIR(source, destination, l) {
-                        char *s = *source;
+                for (;;) {
+                        _cleanup_free_ char *first = NULL, *second = NULL, *tuple = NULL;
+                        const char *q = NULL, *source = NULL;
                         bool permissive = false;
 
-                        if (s[0] == '-') {
+                        r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        q = tuple;
+                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        source = first;
+                        if (source[0] == '-') {
                                 permissive = true;
-                                s++;
+                                source++;
                         }
 
-                        if (isempty(*destination))
+                        if (isempty(second))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                         "Missing argument after ':': %s",
                                                         eq);
 
-                        r = sd_bus_message_append(m, "(ssb)", s, *destination, permissive);
+                        r = sd_bus_message_open_container(m, 'r', "ssba(ss)");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "ssb", source, second, permissive);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_open_container(m, 'a', "(ss)");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        for (;;) {
+                                _cleanup_free_ char *partition = NULL, *mount_options = NULL;
+
+                                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+                                /* Single set of options, applying to the root partition/single filesystem */
+                                if (r == 1) {
+                                        r = sd_bus_message_append(m, "(ss)", "root", partition);
+                                        if (r < 0)
+                                                return bus_log_create_error(r);
+
+                                        break;
+                                }
+
+                                if (partition_designator_from_string(partition) < 0)
+                                        return bus_log_create_error(-EINVAL);
+
+                                r = sd_bus_message_append(m, "(ss)", partition, mount_options);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        }
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_close_container(m);
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }

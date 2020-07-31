@@ -4676,10 +4676,9 @@ int config_parse_mount_images(
                 void *data,
                 void *userdata) {
 
-        _cleanup_strv_free_ char **l = NULL;
         ExecContext *c = data;
         const Unit *u = userdata;
-        char **source = NULL, **destination = NULL;
+        const char *p = rvalue;
         int r;
 
         assert(filename);
@@ -4693,23 +4692,31 @@ int config_parse_mount_images(
                 return 0;
         }
 
-        r = strv_split_colon_pairs(&l, rvalue);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        STRV_FOREACH_PAIR(source, destination, l) {
+        for (;;) {
+                _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                _cleanup_free_ char *first = NULL, *second = NULL, *tuple = NULL;
                 _cleanup_free_ char *sresolved = NULL, *dresolved = NULL;
+                const char *q = NULL;
                 char *s = NULL;
                 bool permissive = false;
 
-                r = unit_full_printf(u, *source, &sresolved);
+                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                q = tuple;
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &first, &second, NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                r = unit_full_printf(u, first, &sresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", *source);
+                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", first);
                         continue;
                 }
 
@@ -4723,15 +4730,15 @@ int config_parse_mount_images(
                 if (r < 0)
                         continue;
 
-                if (isempty(*destination)) {
+                if (isempty(second)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Missing destination in %s, ignoring: %s", lvalue, rvalue);
                         continue;
                 }
 
-                r = unit_full_printf(u, *destination, &dresolved);
+                r = unit_full_printf(u, second, &dresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                        "Failed to resolve specifiers in \"%s\", ignoring: %m", *destination);
+                                        "Failed to resolve specifiers in \"%s\", ignoring: %m", second);
                         continue;
                 }
 
@@ -4739,10 +4746,62 @@ int config_parse_mount_images(
                 if (r < 0)
                         continue;
 
+                for (;;) {
+                        _cleanup_free_ char *partition = NULL, *mount_options = NULL, *mount_options_resolved = NULL;
+                        MountOptions *o = NULL;
+                        int partition_designator;
+
+                        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+                        /* Single set of options, applying to the root partition/single filesystem */
+                        if (r == 1) {
+                                r = unit_full_printf(u, partition, &mount_options_resolved);
+                                if (r < 0) {
+                                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", first);
+                                        continue;
+                                }
+
+                                o = new(MountOptions, 1);
+                                if (!o)
+                                        return log_oom();
+                                *o = (MountOptions) {
+                                        .partition_designator = PARTITION_ROOT,
+                                        .options = TAKE_PTR(mount_options_resolved),
+                                };
+                                LIST_APPEND(mount_options, options, o);
+
+                                break;
+                        }
+
+                        partition_designator = partition_designator_from_string(partition);
+                        if (partition_designator < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Invalid partition name %s, ignoring", partition);
+                                continue;
+                        }
+                        r = unit_full_printf(u, mount_options, &mount_options_resolved);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", mount_options);
+                                continue;
+                        }
+
+                        o = new(MountOptions, 1);
+                        if (!o)
+                                return log_oom();
+                        *o = (MountOptions) {
+                                .partition_designator = partition_designator,
+                                .options = TAKE_PTR(mount_options_resolved),
+                        };
+                        LIST_APPEND(mount_options, options, o);
+                }
+
                 r = mount_image_add(&c->mount_images, &c->n_mount_images,
                                     &(MountImage) {
                                             .source = s,
                                             .destination = dresolved,
+                                            .mount_options = options,
                                             .ignore_enoent = permissive,
                                     });
                 if (r < 0)

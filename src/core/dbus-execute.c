@@ -834,16 +834,37 @@ static int property_get_mount_images(
         assert(property);
         assert(reply);
 
-        r = sd_bus_message_open_container(reply, 'a', "(ssb)");
+        r = sd_bus_message_open_container(reply, 'a', "(ssba(ss))");
         if (r < 0)
                 return r;
 
         for (size_t i = 0; i < c->n_mount_images; i++) {
+                MountOptions *m;
+
+                r = sd_bus_message_open_container(reply, SD_BUS_TYPE_STRUCT, "ssba(ss)");
+                if (r < 0)
+                        return r;
                 r = sd_bus_message_append(
-                                reply, "(ssb)",
+                                reply, "ssb",
                                 c->mount_images[i].source,
                                 c->mount_images[i].destination,
                                 c->mount_images[i].ignore_enoent);
+                if (r < 0)
+                        return r;
+                r = sd_bus_message_open_container(reply, 'a', "(ss)");
+                if (r < 0)
+                        return r;
+                LIST_FOREACH(mount_options, m, c->mount_images[i].mount_options) {
+                        r = sd_bus_message_append(reply, "(ss)",
+                                                  partition_designator_to_string(m->partition_designator),
+                                                  m->options);
+                        if (r < 0)
+                                return r;
+                }
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
+                r = sd_bus_message_close_container(reply);
                 if (r < 0)
                         return r;
         }
@@ -899,7 +920,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootHashSignature", "ay", property_get_root_hash_sig, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashSignaturePath", "s", NULL, offsetof(ExecContext, root_hash_sig_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootVerity", "s", NULL, offsetof(ExecContext, root_verity), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MountImages", "a(ssb)", property_get_mount_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MountImages", "a(ssba(ss))", property_get_mount_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CoredumpFilter", "t", property_get_coredump_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Nice", "i", property_get_nice, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1340,6 +1361,74 @@ static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(capability, "t", uint64_t, uint6
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(namespace_flag, "t", uint64_t, unsigned long, "%" PRIu64, namespace_flags_to_string);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(mount_flags, "t", uint64_t, unsigned long, "%" PRIu64, mount_propagation_flags_to_string_with_check);
 
+/* ret_format_str is an accumulator, so if it has any pre-existing content, new options will be appended to it */
+static int read_mount_options(sd_bus_message *message, sd_bus_error *error, MountOptions **ret_options, char **ret_format_str, const char *separator) {
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        _cleanup_free_ char *format_str = NULL;
+        const char *mount_options, *partition;
+        int r;
+
+        assert(message);
+        assert(ret_options);
+        assert(ret_format_str);
+        assert(separator);
+
+        r = sd_bus_message_enter_container(message, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
+                _cleanup_free_ char *previous = NULL, *escaped = NULL;
+                _cleanup_free_ MountOptions *o = NULL;
+                int partition_designator;
+
+                if (chars_intersect(mount_options, WHITESPACE))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                "Invalid mount options string, contains whitespace character(s): %s", mount_options);
+
+                partition_designator = partition_designator_from_string(partition);
+                if (partition_designator < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid partition name %s", partition);
+
+                /* Need to store them in the unit with the escapes, so that they can be parsed again */
+                escaped = shell_escape(mount_options, ":");
+                if (!escaped)
+                        return -ENOMEM;
+
+                previous = TAKE_PTR(format_str);
+                format_str = strjoin(previous, previous ? separator : "", partition, ":", escaped);
+                if (!format_str)
+                        return -ENOMEM;
+
+                o = new(MountOptions, 1);
+                if (!o)
+                        return -ENOMEM;
+                *o = (MountOptions) {
+                        .partition_designator = partition_designator,
+                        .options = strdup(mount_options),
+                };
+                if (!o->options)
+                        return -ENOMEM;
+                LIST_APPEND(mount_options, options, TAKE_PTR(o));
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        if (!LIST_IS_EMPTY(options)) {
+                char *final = strjoin(*ret_format_str, !isempty(*ret_format_str) ? separator : "", format_str);
+                if (!final)
+                        return -ENOMEM;
+                free_and_replace(*ret_format_str, final);
+                LIST_JOIN(mount_options, *ret_options, options);
+        }
+
+        return 0;
+}
+
 int bus_exec_context_set_transient_property(
                 Unit *u,
                 ExecContext *c,
@@ -1373,45 +1462,8 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "RootImageOptions")) {
                 _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
                 _cleanup_free_ char *format_str = NULL;
-                const char *mount_options, *partition;
 
-                r = sd_bus_message_enter_container(message, 'a', "(ss)");
-                if (r < 0)
-                        return r;
-
-                while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
-                        _cleanup_free_ char *previous = TAKE_PTR(format_str);
-                        _cleanup_free_ MountOptions *o = NULL;
-                        int partition_designator;
-
-                        if (chars_intersect(mount_options, WHITESPACE))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                        "Invalid mount options string, contains whitespace character(s): %s", mount_options);
-
-                        partition_designator = partition_designator_from_string(partition);
-                        if (partition_designator < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                        "Invalid partition name: %s", partition);
-
-                        format_str = strjoin(previous, previous ? " " : "", partition, ":", mount_options);
-                        if (!format_str)
-                                return -ENOMEM;
-
-                        o = new(MountOptions, 1);
-                        if (!o)
-                                return -ENOMEM;
-                        *o = (MountOptions) {
-                                .partition_designator = partition_designator,
-                                .options = strdup(mount_options),
-                        };
-                        if (!o->options)
-                                return -ENOMEM;
-                        LIST_APPEND(mount_options, options, TAKE_PTR(o));
-                }
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_exit_container(message);
+                r = read_mount_options(message, error, &options, &format_str, " ");
                 if (r < 0)
                         return r;
 
@@ -2946,12 +2998,22 @@ int bus_exec_context_set_transient_property(
                 char *source, *destination;
                 int permissive;
 
-                r = sd_bus_message_enter_container(message, 'a', "(ssb)");
+                r = sd_bus_message_enter_container(message, 'a', "(ssba(ss))");
                 if (r < 0)
                         return r;
 
-                while ((r = sd_bus_message_read(message, "(ssb)", &source, &destination, &permissive)) > 0) {
+                for (;;) {
+                        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                        _cleanup_free_ char *source_escaped = NULL, *destination_escaped = NULL;
                         char *tuple;
+
+                        r = sd_bus_message_enter_container(message, 'r', "ssba(ss)");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_read(message, "ssb", &source, &destination, &permissive);
+                        if (r <= 0)
+                                break;
 
                         if (!path_is_absolute(source))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
@@ -2962,15 +3024,37 @@ int bus_exec_context_set_transient_property(
                         if (!path_is_normalized(destination))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
 
-                        tuple = strjoin(format_str, format_str ? " " : "", permissive ? "-" : "", source, ":", destination);
+                        /* Need to store them in the unit with the escapes, so that they can be parsed again */
+                        source_escaped = shell_escape(source, ":");
+                        if (!source_escaped)
+                                return -ENOMEM;
+                        destination_escaped = shell_escape(destination, ":");
+                        if (!destination_escaped)
+                                return -ENOMEM;
+
+                        tuple = strjoin(format_str,
+                                        format_str ? " " : "",
+                                        permissive ? "-" : "",
+                                        source_escaped,
+                                        ":",
+                                        destination_escaped);
                         if (!tuple)
                                 return -ENOMEM;
                         free_and_replace(format_str, tuple);
+
+                        r = read_mount_options(message, error, &options, &format_str, ":");
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
 
                         r = mount_image_add(&mount_images, &n_mount_images,
                                             &(MountImage) {
                                                     .source = source,
                                                     .destination = destination,
+                                                    .mount_options = options,
                                                     .ignore_enoent = permissive,
                                             });
                         if (r < 0)

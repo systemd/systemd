@@ -310,13 +310,19 @@
         system hierarchy from a block device node or loopback file, but the destination directory can be
         specified as well as mount options. This option expects a whitespace separated list of mount
         definitions. Each definition consists of a colon-separated tuple of source path and destination
-        directory. Each mount definition may be prefixed with <literal>-</literal>, in which case it will be
+        definitions, optionally followed by another colon and a list of mount options.</para>
+
+        <para>Mount options may be defined as a single comma-separated list of options, in which case they
+        will be implicitly applied to the root partition on the image, or a series of colon-separated tuples
+        of partition name and mount options. Valid partition names and mount options are the same as for
+        <varname>RootImageOptions=</varname> setting described above.</para>
+
+        <para>Each mount definition may be prefixed with <literal>-</literal>, in which case it will be
         ignored when its source path does not exist. The source argument is a path to a block device node or
         regular file. If source or destination contain a <literal>:</literal>, it needs to be escaped as
-        <literal>\:</literal>.
-        The device node or file system image file needs to follow the same rules as specified
-        for <varname>RootImage=</varname>. Any mounts created with this option are specific to the unit, and
-        are not visible in the host's mount table.</para>
+        <literal>\:</literal>. The device node or file system image file needs to follow the same rules as
+        specified for <varname>RootImage=</varname>. Any mounts created with this option are specific to the
+        unit, and are not visible in the host's mount table.</para>
 
         <para>These settings may be used more than once, each usage appends to the unit's list of mount
         paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
