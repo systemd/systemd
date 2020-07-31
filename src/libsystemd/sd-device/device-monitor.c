@@ -320,11 +320,6 @@ int device_monitor_enable_receiving(sd_device_monitor *m) {
                 return log_debug_errno(r, "sd-device-monitor: Failed to update filter: %m");
 
         if (!m->bound) {
-                /* enable receiving of sender credentials */
-                r = setsockopt_int(m->sock, SOL_SOCKET, SO_PASSCRED, true);
-                if (r < 0)
-                        return log_debug_errno(r, "sd-device-monitor: Failed to set socket option SO_PASSCRED: %m");
-
                 if (bind(m->sock, &m->snl.sa, sizeof(struct sockaddr_nl)) < 0)
                         return log_debug_errno(errno, "sd-device-monitor: Failed to bind monitoring socket: %m");
 
@@ -407,17 +402,13 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                 .iov_base = &buf,
                 .iov_len = sizeof(buf)
         };
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control;
         union sockaddr_union snl;
         struct msghdr smsg = {
                 .msg_iov = &iov,
                 .msg_iovlen = 1,
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
                 .msg_name = &snl,
                 .msg_namelen = sizeof(snl),
         };
-        struct cmsghdr *cmsg;
         ssize_t buflen, bufpos;
         bool is_initialized = false;
         int r;
@@ -447,11 +438,6 @@ int device_monitor_receive_device(sd_device_monitor *m, sd_device **ret) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                "sd-device-monitor: Multicast kernel netlink message from PID %"PRIu32" ignored.", snl.nl.nl_pid);
         }
-
-        cmsg = CMSG_FIRSTHDR(&smsg);
-        if (!cmsg || cmsg->cmsg_type != SCM_CREDENTIALS)
-                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                       "sd-device-monitor: No sender credentials received, message ignored.");
 
         if (streq(buf.raw, "libudev")) {
                 /* udev message needs proper version magic */
