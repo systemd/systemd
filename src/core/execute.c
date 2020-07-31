@@ -4296,15 +4296,6 @@ static int exec_child(
                                         *exit_status = EXIT_CAPABILITIES;
                                         return log_unit_error_errno(unit, r, "Failed to apply ambient capabilities (after UID change): %m");
                                 }
-
-                                /* If we were asked to change user and ambient capabilities
-                                 * were requested, we had to add keep-caps to the securebits
-                                 * so that we would maintain the inherited capability set
-                                 * through the setresuid(). Make sure that the bit is added
-                                 * also to the context secure_bits so that we don't try to
-                                 * drop the bit away next. */
-
-                                secure_bits |= 1<<SECURE_KEEP_CAPS;
                         }
                 }
         }
