@@ -234,6 +234,12 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
         if (!n)
                 return log_oom();
 
+        /* All systemd-style config files should support the /usr-/etc-/run split and
+         * dropins. Let's add a blanket rule that allows us to support them without keeping
+         * an explicit list. */
+        if (path_startswith(n, "systemd") && endswith(n, ".conf"))
+                usr = true;
+
         delete_trailing_chars(n, "/");
 
         if (endswith(n, ".d"))
