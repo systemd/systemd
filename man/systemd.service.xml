@@ -901,7 +901,7 @@
           <programlisting>SuccessExitStatus=TEMPFAIL 250 SIGUSR1</programlisting>
 
           <para>Exit status 75 (<constant>TEMPFAIL</constant>), 250, and the termination signal
-          <constant>SIGKILL</constant> are considered clean service terminations.</para>
+          <constant>SIGUSR1</constant> are considered clean service terminations.</para>
         </example>
 
         <para>Note: <command>systemd-analyze exit-status</command> may be used to list exit statuses and
