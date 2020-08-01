@@ -566,7 +566,7 @@ static int assess_system_call_filter(
                                 b = 10;
                         } else {
                                 (void) asprintf(&d, "System call deny list defined for service, and %s is included", f->name);
-                                b = 5;
+                                b = 0;
                         }
                 }
         }
