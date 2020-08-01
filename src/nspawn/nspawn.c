@@ -3259,7 +3259,7 @@ static int inner_child(
                  * binary. */
                 dollar_path = strv_env_get(env_use, "PATH");
                 if (dollar_path) {
-                        if (putenv((char*) dollar_path) != 0)
+                        if (setenv("PATH", dollar_path, 1) < 0)
                                 return log_error_errno(errno, "Failed to update $PATH: %m");
                 }
 
