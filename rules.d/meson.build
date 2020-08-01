@@ -21,9 +21,12 @@ rules = files('''
         75-net-description.rules
         75-probe_mtd.rules
         78-sound-card.rules
-        80-drivers.rules
         80-net-setup-link.rules
 '''.split())
+
+if conf.get('HAVE_KMOD') == 1
+        rules += files('80-drivers.rules')
+endif
 
 install_data(rules,
              install_dir : udevrulesdir)
