@@ -1017,6 +1017,13 @@ static int mount_partition(
         }
 
         if (directory) {
+                if (!FLAGS_SET(flags, DISSECT_IMAGE_READ_ONLY)) {
+                        /* Automatically create missing mount points, if necessary. */
+                        r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = chase_symlinks(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
                 if (r < 0)
                         return r;
@@ -1062,7 +1069,7 @@ static int mount_partition(
 }
 
 int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags) {
-        int r, boot_mounted;
+        int r, xbootldr_mounted;
 
         assert(m);
         assert(where);
@@ -1116,29 +1123,47 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
         if (r < 0)
                 return r;
 
-        boot_mounted = mount_partition(m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, flags);
-        if (boot_mounted < 0)
-                return boot_mounted;
+        xbootldr_mounted = mount_partition(m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, flags);
+        if (xbootldr_mounted < 0)
+                return xbootldr_mounted;
 
         if (m->partitions[PARTITION_ESP].found) {
+                int esp_done = false;
+
                 /* Mount the ESP to /efi if it exists. If it doesn't exist, use /boot instead, but only if it
                  * exists and is empty, and we didn't already mount the XBOOTLDR partition into it. */
 
                 r = chase_symlinks("/efi", where, CHASE_PREFIX_ROOT, NULL, NULL);
-                if (r >= 0) {
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return r;
+
+                        /* /efi doesn't exist. Let's see if /boot is suitable then */
+
+                        if (!xbootldr_mounted) {
+                                _cleanup_free_ char *p = NULL;
+
+                                r = chase_symlinks("/boot", where, CHASE_PREFIX_ROOT, &p, NULL);
+                                if (r < 0) {
+                                        if (r != -ENOENT)
+                                                return r;
+                                } else if (dir_is_empty(p) > 0) {
+                                        /* It exists and is an empty directory. Let's mount the ESP there. */
+                                        r = mount_partition(m->partitions + PARTITION_ESP, where, "/boot", uid_shift, flags);
+                                        if (r < 0)
+                                                return r;
+
+                                        esp_done = true;
+                                }
+                        }
+                }
+
+                if (!esp_done) {
+                        /* OK, let's mount the ESP now to /efi (possibly creating the dir if missing) */
+
                         r = mount_partition(m->partitions + PARTITION_ESP, where, "/efi", uid_shift, flags);
                         if (r < 0)
                                 return r;
-
-                } else if (boot_mounted <= 0) {
-                        _cleanup_free_ char *p = NULL;
-
-                        r = chase_symlinks("/boot", where, CHASE_PREFIX_ROOT, &p, NULL);
-                        if (r >= 0 && dir_is_empty(p) > 0) {
-                                r = mount_partition(m->partitions + PARTITION_ESP, where, "/boot", uid_shift, flags);
-                                if (r < 0)
-                                        return r;
-                        }
                 }
         }
 
