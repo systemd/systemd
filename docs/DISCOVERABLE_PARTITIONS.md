@@ -9,21 +9,21 @@ _TL;DR: Let's automatically discover, mount and enable the root partition,
 `/home/`, `/srv/`, `/var/` and `/var/tmp/` and the swap partitions based on
 GUID Partition Tables (GPT)!_
 
-The GUID Partition Table (GPT) is mandatory on EFI systems. It allows
-identification of partition types with UUIDs. So far Linux has made little use
-of this, and mostly just defined one UUID for file system/data partitions and
-another one for swap partitions.  With this specification, we introduce
-additional partition types to enable automatic discovery of partitions and
-their intended mountpoint.  This has many benefits:
+This specification describes the use of GUID Partition Table (GPT) UUIDs to
+enable automatic discovery of partitions and their intended mountpoints.
+Traditionally Linux has made little use of partition types, mostly just
+defining one UUID for file system/data partitions and another one for swap
+partitions. With this specification, we introduce additional partition types
+for specific uses. This has many benefits:
 
 * OS installers can automatically discover and make sense of partitions of
   existing Linux installations.
-* The OS can discover and mount the necessary file systems with a non-existing
+* The OS can discover and mount the necessary file systems with a non-existent
   or incomplete `/etc/fstab` file and without the `root=` kernel command line
   option.
-* Container managers (such as nspawn and libvirt-lxc) can decode and set up
+* Container managers (such as nspawn and libvirt-lxc) can introspect and set up
   file systems contained in GPT disk images automatically and mount them to the
-  right places, thus allowing booting the same, identical images on bare-metal
+  right places, thus allowing booting the same, identical images on bare metal
   and in Linux containers. This enables true, natural portability of disk
   images between physical machines and Linux containers.
 * As a help to administrators and users partition manager tools can show more
