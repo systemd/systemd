@@ -67,12 +67,18 @@
         <literal>persistent</literal>, data will be stored preferably on disk, i.e. below the
         <filename>/var/log/journal</filename> hierarchy (which is created if needed), with a fallback to
         <filename>/run/log/journal</filename> (which is created if needed), during early boot and if the disk
-        is not writable.  <literal>auto</literal> is similar to <literal>persistent</literal> but the
-        directory <filename>/var/log/journal</filename> is not created if needed, so that its existence
-        controls where log data goes.  <literal>none</literal> turns off all storage, all log data received
-        will be dropped. Forwarding to other targets, such as the console, the kernel log buffer, or a syslog
-        socket will still work however. Defaults to <literal>auto</literal> in the default journal namespace,
-        and <literal>persistent</literal> in all others.</para></listitem>
+        is not writable. <literal>auto</literal> behaves like <literal>persistent</literal> if the
+        <filename>/var/log/journal</filename> directory exists, and <literal>volatile</literal> otherwise
+        (the existence of the directory controls the storage mode). <literal>none</literal> turns off all
+        storage, all log data received will be dropped (but forwarding to other targets, such as the console,
+        the kernel log buffer, or a syslog socket will still work). Defaults to <literal>auto</literal> in
+        the default journal namespace, and <literal>persistent</literal> in all others.</para>
+
+        <para>Note that when this option is changed to <literal>volatile</literal>, existing persistent data
+        is not removed. In the other direction,
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> with
+        the <option>--flush</option> option may be used to move volatile data to persistent storage.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
