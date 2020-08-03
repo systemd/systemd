@@ -45,3 +45,31 @@ static inline int libmount_parse(
         *ret_iter = TAKE_PTR(iter);
         return 0;
 }
+
+static inline int libmount_parse_fsinfo(
+                struct libmnt_table **ret_table,
+                struct libmnt_iter **ret_iter) {
+
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
+
+        if (!mnt_has_fsinfo())
+                return -ENOSYS;
+
+        table = mnt_new_table();
+        iter = mnt_new_iter(MNT_ITER_FORWARD);
+        if (!table || !iter)
+                return -ENOMEM;
+
+        /* If source or path are specified, we use on the functions which ignore utab.
+         * Only if both are empty, we use mnt_table_parse_mtab(). */
+
+        r = mnt_table_parse_fsinfo(table);
+        if (r < 0)
+                return r;
+
+        *ret_table = TAKE_PTR(table);
+        *ret_iter = TAKE_PTR(iter);
+        return 0;
+}

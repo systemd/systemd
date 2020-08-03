@@ -60,13 +60,17 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 
         assert(head);
 
-        r = libmount_parse(mountinfo, NULL, &table, &iter);
+        r = -1;
+        if (!mountinfo || streq(mountinfo, "/proc/self/mountinfo"))
+                r = libmount_parse_fsinfo(&table, &iter);
+        if (r < 0)
+                r = libmount_parse(mountinfo, NULL, &table, &iter);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse %s: %m", mountinfo ?: "/proc/self/mountinfo");
 
         for (;;) {
                 struct libmnt_fs *fs;
-                const char *path, *fstype;
+                const char *path, *fstype, *vfs_options, *fs_options;
                 _cleanup_free_ char *options = NULL;
                 unsigned long remount_flags = 0u;
                 _cleanup_free_ char *remount_options = NULL;
@@ -84,6 +88,10 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                         continue;
 
                 fstype = mnt_fs_get_fstype(fs);
+                vfs_options = mnt_fs_get_vfs_options(fs);
+                fs_options = mnt_fs_get_fs_options(fs);
+                if (!fstype || !vfs_options || !fs_options)
+                        continue;
 
                 /* Combine the generic VFS options with the FS-specific
                  * options. Duplicates are not a problem here, because the only
@@ -93,13 +101,9 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * Even if there are duplicates later in mount_option_mangle()
                  * they shouldn't hurt anyways as they override each other.
                  */
-                if (!strextend_with_separator(&options, ",",
-                                              mnt_fs_get_vfs_options(fs),
-                                              NULL))
+                if (!strextend_with_separator(&options, ",", vfs_options, NULL))
                         return log_oom();
-                if (!strextend_with_separator(&options, ",",
-                                              mnt_fs_get_fs_options(fs),
-                                              NULL))
+                if (!strextend_with_separator(&options, ",", fs_options, NULL))
                         return log_oom();
 
                 /* Ignore mount points we can't unmount because they
