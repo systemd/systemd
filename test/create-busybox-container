@@ -9,6 +9,16 @@ mkdir -p "$root"
 mkdir "$root/bin"
 cp $(type -P busybox) "$root/bin"
 
+ID_LIKE=$(awk -F= '$1=="ID_LIKE" { print $2 ;}' /etc/os-release)
+if [[ "$ID_LIKE" = *"suse"* ]]; then
+    mkdir -p "$root/lib"
+    mkdir -p "$root/lib64"
+    for lib in $(find /lib*/ld*); do
+        [[ -d $root/$(dirname $lib) ]] || mkdir -p $root/$(dirname $lib)
+        cp $lib $root/$lib
+    done
+fi
+
 mkdir -p "$root/usr/lib"
 touch "$root/usr/lib/os-release"
 
