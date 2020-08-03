@@ -2668,6 +2668,7 @@ if conf.get('ENABLE_REPART') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
+        public_programs += exe
 
         if want_tests != 'false'
                 test('test-repart',
