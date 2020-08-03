@@ -19,3 +19,4 @@ Type=oneshot
 ExecStart=systemd-tmpfiles --user --clean
 SuccessExitStatus=DATAERR
 IOSchedulingClass=idle
+Slice=background.slice
