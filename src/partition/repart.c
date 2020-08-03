@@ -38,11 +38,14 @@
 #include "locale-util.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "mkdir.h"
 #include "mkfs-util.h"
+#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "stat-util.h"
@@ -50,6 +53,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "user-util.h"
 #include "utf8.h"
 
 /* If not configured otherwise use a minimal partition size of 10M */
@@ -124,6 +128,7 @@ struct Partition {
         uint64_t copy_blocks_size;
 
         char *format;
+        char **copy_files;
 
         LIST_FIELDS(Partition, partitions);
 };
@@ -209,6 +214,7 @@ static Partition* partition_free(Partition *p) {
         safe_close(p->copy_blocks_fd);
 
         free(p->format);
+        strv_free(p->copy_files);
 
         return mfree(p);
 }
@@ -873,6 +879,20 @@ static int config_parse_type(
         return 0;
 }
 
+static const Specifier specifier_table[] = {
+        { 'm', specifier_machine_id,      NULL },
+        { 'b', specifier_boot_id,         NULL },
+        { 'H', specifier_host_name,       NULL },
+        { 'l', specifier_short_host_name, NULL },
+        { 'v', specifier_kernel_release,  NULL },
+        { 'a', specifier_architecture,    NULL },
+        { 'o', specifier_os_id,           NULL },
+        { 'w', specifier_os_version_id,   NULL },
+        { 'B', specifier_os_build_id,     NULL },
+        { 'W', specifier_os_variant_id,   NULL },
+        {}
+};
+
 static int config_parse_label(
                 const char *unit,
                 const char *filename,
@@ -884,20 +904,6 @@ static int config_parse_label(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-
-        static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id,      NULL },
-                { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_host_name,       NULL },
-                { 'l', specifier_short_host_name, NULL },
-                { 'v', specifier_kernel_release,  NULL },
-                { 'a', specifier_architecture,    NULL },
-                { 'o', specifier_os_id,           NULL },
-                { 'w', specifier_os_version_id,   NULL },
-                { 'B', specifier_os_build_id,     NULL },
-                { 'W', specifier_os_variant_id,   NULL },
-                {}
-        };
 
         _cleanup_free_ char16_t *recoded = NULL;
         _cleanup_free_ char *resolved = NULL;
@@ -1030,22 +1036,95 @@ static int config_parse_fstype(
         return free_and_strdup_warn(fstype, rvalue);
 }
 
+static int config_parse_copy_files(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *source = NULL, *buffer = NULL, *resolved_source = NULL, *resolved_target = NULL;
+        const char *p = rvalue, *target;
+        Partition *partition = data;
+        int r;
+
+        assert(rvalue);
+        assert(partition);
+
+        r = extract_first_word(&p, &source, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract source path: %s", rvalue);
+        if (r == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "No argument specified: %s", rvalue);
+                return 0;
+        }
+
+        r = extract_first_word(&p, &buffer, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r < 0)
+                return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract target path: %s", rvalue);
+        if (r == 0)
+                target = source; /* No target, then it's the same as the source */
+        else
+                target = buffer;
+
+        if (!isempty(p))
+                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Too many arguments: %s", rvalue);
+
+        r = specifier_printf(source, specifier_table, NULL, &resolved_source);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in CopyFiles= source, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (!path_is_absolute(resolved_source) || !path_is_normalized(resolved_source)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid path name in CopyFiles= source, ignoring: %s", resolved_source);
+                return 0;
+        }
+
+        r = specifier_printf(target, specifier_table, NULL, &resolved_target);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to expand specifiers in CopyFiles= target, ignoring: %s", resolved_target);
+                return 0;
+        }
+
+        if (!path_is_absolute(resolved_target) || !path_is_normalized(resolved_target)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid path name in CopyFiles= source, ignoring: %s", resolved_target);
+                return 0;
+        }
+
+        r = strv_consume_pair(&partition->copy_files, TAKE_PTR(resolved_source), TAKE_PTR(resolved_target));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
 static int partition_read_definition(Partition *p, const char *path) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",            config_parse_type,     0,  &p->type_uuid        },
-                { "Partition", "Label",           config_parse_label,    0,  &p->new_label        },
-                { "Partition", "UUID",            config_parse_id128,    0,  &p->new_uuid         },
-                { "Partition", "Priority",        config_parse_int32,    0,  &p->priority         },
-                { "Partition", "Weight",          config_parse_weight,   0,  &p->weight           },
-                { "Partition", "PaddingWeight",   config_parse_weight,   0,  &p->padding_weight   },
-                { "Partition", "SizeMinBytes",    config_parse_size4096, 1,  &p->size_min         },
-                { "Partition", "SizeMaxBytes",    config_parse_size4096, -1, &p->size_max         },
-                { "Partition", "PaddingMinBytes", config_parse_size4096, 1,  &p->padding_min      },
-                { "Partition", "PaddingMaxBytes", config_parse_size4096, -1, &p->padding_max      },
-                { "Partition", "FactoryReset",    config_parse_bool,     0,  &p->factory_reset    },
-                { "Partition", "CopyBlocks",      config_parse_path,     0,  &p->copy_blocks_path },
-                { "Partition", "Format",          config_parse_fstype,   0,  &p->format           },
+                { "Partition", "Type",            config_parse_type,       0, &p->type_uuid        },
+                { "Partition", "Label",           config_parse_label,      0, &p->new_label        },
+                { "Partition", "UUID",            config_parse_id128,      0, &p->new_uuid         },
+                { "Partition", "Priority",        config_parse_int32,      0, &p->priority         },
+                { "Partition", "Weight",          config_parse_weight,     0, &p->weight           },
+                { "Partition", "PaddingWeight",   config_parse_weight,     0, &p->padding_weight   },
+                { "Partition", "SizeMinBytes",    config_parse_size4096,   1, &p->size_min         },
+                { "Partition", "SizeMaxBytes",    config_parse_size4096,  -1, &p->size_max         },
+                { "Partition", "PaddingMinBytes", config_parse_size4096,   1, &p->padding_min      },
+                { "Partition", "PaddingMaxBytes", config_parse_size4096,  -1, &p->padding_max      },
+                { "Partition", "FactoryReset",    config_parse_bool,       0, &p->factory_reset    },
+                { "Partition", "CopyBlocks",      config_parse_path,       0, &p->copy_blocks_path },
+                { "Partition", "Format",          config_parse_fstype,     0, &p->format           },
+                { "Partition", "CopyFiles",       config_parse_copy_files, 0, p                    },
                 {}
         };
         int r;
@@ -1071,9 +1150,20 @@ static int partition_read_definition(Partition *p, const char *path) {
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Type= not defined, refusing.");
 
-        if (p->copy_blocks_path && p->format)
+        if (p->copy_blocks_path && (p->format || !strv_isempty(p->copy_files)))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format= and CopyBlocks= cannot be combined, refusing.");
+
+        if (!strv_isempty(p->copy_files) && streq_ptr(p->format, "swap"))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Format=swap and CopyFiles= cannot be combined, refusing.");
+
+        if (!p->format && !strv_isempty(p->copy_files)) {
+                /* Pick "ext4" as file system if we are configured to copy files  */
+                p->format = strdup("ext4");
+                if (!p->format)
+                        return log_oom();
+        }
 
         return 0;
 }
@@ -2259,6 +2349,124 @@ static int context_copy_blocks(Context *context) {
         return 0;
 }
 
+static int do_copy_files(Partition *p, const char *fs) {
+        char **source, **target;
+        int r;
+
+        assert(p);
+        assert(fs);
+
+        STRV_FOREACH_PAIR(source, target, p->copy_files) {
+                _cleanup_close_ int sfd = -1, pfd = -1, tfd = -1;
+                _cleanup_free_ char *dn = NULL;
+
+                dn = dirname_malloc(*target);
+                if (!dn)
+                        return log_oom();
+
+                sfd = chase_symlinks_and_open(*source, arg_root, CHASE_PREFIX_ROOT|CHASE_WARN, O_CLOEXEC|O_NOCTTY, NULL);
+                if (sfd < 0)
+                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_root), *source);
+
+                r = fd_verify_regular(sfd);
+                if (r < 0) {
+                        if (r != -EISDIR)
+                                return log_error_errno(r, "Failed to check type of source file '%s': %m", *source);
+
+                        /* We are looking at a directory */
+                        tfd = chase_symlinks_and_open(*target, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        if (tfd < 0) {
+                                if (tfd != -ENOENT)
+                                        return log_error_errno(tfd, "Failed to open target directory '%s': %m", *target);
+
+                                r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create parent directory '%s': %m", dn);
+
+                                pfd = chase_symlinks_and_open(dn, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                                if (pfd < 0)
+                                        return log_error_errno(pfd, "Failed to open parent directory of target: %m");
+
+                                r = copy_tree_at(sfd, ".", pfd, basename(*target), UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT);
+                        } else
+                                r = copy_tree_at(sfd, ".", tfd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy %s%s to %s: %m", strempty(arg_root), *source, *target);
+                } else {
+                        /* We are looking at a regular file */
+
+                        r = mkdir_p_root(fs, dn, UID_INVALID, GID_INVALID, 0755);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create parent directory: %m");
+
+                        pfd = chase_symlinks_and_open(dn, fs, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
+                        if (pfd < 0)
+                                return log_error_errno(tfd, "Failed to open parent directory of target: %m");
+
+                        tfd = openat(pfd, basename(*target), O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC, 0700);
+                        if (tfd < 0)
+                                return log_error_errno(errno, "Failed to create target file '%s': %m", *target);
+
+                        r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_SIGINT);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy '%s%s' to '%s': %m", strempty(arg_root), *source, *target);
+
+                        (void) copy_xattr(sfd, tfd);
+                        (void) copy_access(sfd, tfd);
+                        (void) copy_times(sfd, tfd, 0);
+                }
+        }
+
+        return 0;
+}
+
+static int partition_copy_files(Partition *p, const char *node) {
+        int r;
+
+        assert(p);
+        assert(node);
+
+        if (strv_isempty(p->copy_files))
+                return 0;
+
+        log_info("Populating partition %" PRIu64 " with files.", p->partno);
+
+        /* We copy in a child process, since we have to mount the fs for that, and we don't want that fs to
+         * appear in the host namespace. Hence we fork a child that has its own file system namespace and
+         * detached mount propagation. */
+
+        r = safe_fork("(sd-copy)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                static const char fs[] = "/run/systemd/mount-root";
+                /* This is a child process with its own mount namespace and propagation to host turned off */
+
+                r = mkdir_p(fs, 0700);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to create mount point: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (mount_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
+                        _exit(EXIT_FAILURE);
+
+                if (do_copy_files(p, fs) < 0)
+                        _exit(EXIT_FAILURE);
+
+                r = syncfs_path(AT_FDCWD, fs);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to synchronize written files: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        log_info("Successfully populated partition %" PRIu64 " with files.", p->partno);
+        return 0;
+}
+
 static int context_mkfs(Context *context) {
         Partition *p;
         int fd = -1, r;
@@ -2310,6 +2518,10 @@ static int context_mkfs(Context *context) {
                         return r;
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
+
+                r = partition_copy_files(p, d->node);
+                if (r < 0)
+                        return r;
 
                 r = loop_device_sync(d);
                 if (r < 0)
