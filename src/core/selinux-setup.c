@@ -50,7 +50,10 @@ int mac_selinux_setup(bool *loaded_policy) {
 
         /* Already initialized by somebody else? */
         r = getcon_raw(&con);
-        /* getcon_raw can return 0, and still give us a NULL pointer. */
+        /* getcon_raw can return 0, and still give us a NULL pointer if
+         * /proc/self/attr/current is empty. SELinux guarantees this won't
+         * happen, but that file isn't specific to SELinux, and may be provided
+         * by some other arbitrary LSM with different semantics. */
         if (r == 0 && con) {
                 initialized = !streq(con, "kernel");
                 freecon(con);
