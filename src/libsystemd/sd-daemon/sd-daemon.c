@@ -101,7 +101,7 @@ _public_ int sd_listen_fds_with_names(int unset_environment, char ***names) {
 
         e = getenv("LISTEN_FDNAMES");
         if (e) {
-                n_names = strv_split_extract(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                n_names = strv_split_full(&l, e, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (n_names < 0) {
                         unsetenv_all(unset_environment);
                         return n_names;

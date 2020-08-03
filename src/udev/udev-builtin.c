@@ -118,7 +118,7 @@ int udev_builtin_run(sd_device *dev, UdevBuiltinCommand cmd, const char *command
         if (!builtins[cmd])
                 return -EOPNOTSUPP;
 
-        r = strv_split_extract(&argv, command, NULL,
+        r = strv_split_full(&argv, command, NULL,
                                EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return r;

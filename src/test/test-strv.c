@@ -238,7 +238,7 @@ static void test_strv_unquote(const char *quoted, char **list) {
 
         log_info("/* %s */", __func__);
 
-        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_UNQUOTE);
+        r = strv_split_full(&s, quoted, WHITESPACE, EXTRACT_UNQUOTE);
         assert_se(r == (int) strv_length(list));
         assert_se(s);
         j = strv_join(s, " | ");
@@ -257,7 +257,7 @@ static void test_invalid_unquote(const char *quoted) {
 
         log_info("/* %s */", __func__);
 
-        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_UNQUOTE);
+        r = strv_split_full(&s, quoted, WHITESPACE, EXTRACT_UNQUOTE);
         assert_se(s == NULL);
         assert_se(r == -EINVAL);
 }
@@ -287,39 +287,39 @@ static void test_strv_split(void) {
 
         strv_free_erase(l);
 
-        assert_se(strv_split_extract(&l, "    one    two\t three", NULL, 0) == 3);
+        assert_se(strv_split_full(&l, "    one    two\t three", NULL, 0) == 3);
         assert_se(strv_equal(l, (char**) input_table_multiple));
 
         strv_free_erase(l);
 
-        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \" ' four  five'", NULL, EXTRACT_UNQUOTE) == 3);
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five'", NULL, EXTRACT_UNQUOTE) == 3);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
         l = strv_free_erase(l);
 
         /* missing last quote causes extraction to fail. */
-        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE) == -EINVAL);
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE) == -EINVAL);
         assert_se(!l);
 
         /* missing last quote, but the last element is _not_ ignored with EXTRACT_RELAX. */
-        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 3);
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \" ' four  five", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 3);
         assert_se(strv_equal(l, (char**) input_table_quoted));
 
         l = strv_free_erase(l);
 
         /* missing separator between items */
-        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \"' four  five'", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 2);
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \"' four  five'", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 2);
         assert_se(strv_equal(l, (char**) input_table_quoted_joined));
 
         l = strv_free_erase(l);
 
-        assert_se(strv_split_extract(&l, "    'one'  \"  two\t three \"' four  five", NULL,
+        assert_se(strv_split_full(&l, "    'one'  \"  two\t three \"' four  five", NULL,
                                      EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_CUNESCAPE_RELAX) == 2);
         assert_se(strv_equal(l, (char**) input_table_quoted_joined));
 
         l = strv_free_erase(l);
 
-        assert_se(strv_split_extract(&l, "\\", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_CUNESCAPE_RELAX) == 1);
+        assert_se(strv_split_full(&l, "\\", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_CUNESCAPE_RELAX) == 1);
         assert_se(strv_equal(l, STRV_MAKE("\\")));
 }
 
@@ -337,22 +337,22 @@ static void test_strv_split_empty(void) {
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_extract(&l, "", NULL, 0) == 0);
+        assert_se(strv_split_full(&l, "", NULL, 0) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_extract(&l, "", NULL, EXTRACT_UNQUOTE) == 0);
+        assert_se(strv_split_full(&l, "", NULL, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_extract(&l, "", WHITESPACE, EXTRACT_UNQUOTE) == 0);
+        assert_se(strv_split_full(&l, "", WHITESPACE, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_extract(&l, "", WHITESPACE, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
+        assert_se(strv_split_full(&l, "", WHITESPACE, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         strv_free(l);
@@ -367,34 +367,34 @@ static void test_strv_split_empty(void) {
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_extract(&l, "    ", NULL, 0) == 0);
+        assert_se(strv_split_full(&l, "    ", NULL, 0) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_extract(&l, "    ", WHITESPACE, EXTRACT_UNQUOTE) == 0);
+        assert_se(strv_split_full(&l, "    ", WHITESPACE, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_extract(&l, "    ", NULL, EXTRACT_UNQUOTE) == 0);
+        assert_se(strv_split_full(&l, "    ", NULL, EXTRACT_UNQUOTE) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
         l = strv_free(l);
 
-        assert_se(strv_split_extract(&l, "    ", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
+        assert_se(strv_split_full(&l, "    ", NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX) == 0);
         assert_se(l);
         assert_se(strv_isempty(l));
 }
 
-static void test_strv_split_extract(void) {
+static void test_strv_split_full(void) {
         _cleanup_strv_free_ char **l = NULL;
         const char *str = ":foo\\:bar::waldo:";
         int r;
 
         log_info("/* %s */", __func__);
 
-        r = strv_split_extract(&l, str, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        r = strv_split_full(&l, str, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         assert_se(r == (int) strv_length(l));
         assert_se(streq_ptr(l[0], ""));
         assert_se(streq_ptr(l[1], "foo:bar"));
@@ -1023,7 +1023,7 @@ int main(int argc, char *argv[]) {
 
         test_strv_split();
         test_strv_split_empty();
-        test_strv_split_extract();
+        test_strv_split_full();
         test_strv_split_colon_pairs();
         test_strv_split_newlines();
         test_strv_split_nulstr();

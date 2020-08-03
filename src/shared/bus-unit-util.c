@@ -340,7 +340,7 @@ static int bus_append_exec_command(sd_bus_message *m, const char *field, const c
                         return log_error_errno(r, "Failed to parse path: %m");
         }
 
-        r = strv_split_extract(&l, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
+        r = strv_split_full(&l, eq, NULL, EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse command line: %m");
 

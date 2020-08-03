@@ -301,7 +301,7 @@ int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_onl
         CustomMount *m;
         int k;
 
-        k = strv_split_extract(&lower, s, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        k = strv_split_full(&lower, s, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (k < 0)
                 return k;
         if (k < 2)

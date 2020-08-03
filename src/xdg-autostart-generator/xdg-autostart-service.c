@@ -385,7 +385,7 @@ int xdg_autostart_format_exec_start(
          * NOTE: Technically, XDG only specifies " as quotes, while this also
          *       accepts '.
          */
-        r = strv_split_extract(&exec_split, exec, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX);
+        r = strv_split_full(&exec_split, exec, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX);
         if (r < 0)
                 return r;
 

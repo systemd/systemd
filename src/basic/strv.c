@@ -279,7 +279,7 @@ char **strv_split_newlines(const char *s) {
         return l;
 }
 
-int strv_split_extract(char ***t, const char *s, const char *separators, ExtractFlags flags) {
+int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {
         _cleanup_strv_free_ char **l = NULL;
         size_t n = 0, allocated = 0;
         int r;
