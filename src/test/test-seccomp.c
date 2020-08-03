@@ -98,9 +98,6 @@ static void test_syscall_filter_set_find(void) {
 }
 
 static void test_filter_sets(void) {
-        unsigned i;
-        int r;
-
         log_info("/* %s */", __func__);
 
         if (!is_seccomp_available()) {
@@ -112,7 +109,7 @@ static void test_filter_sets(void) {
                 return;
         }
 
-        for (i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
+        for (unsigned i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
                 pid_t pid;
 
                 log_info("Testing %s", syscall_filter_sets[i].name);
@@ -121,7 +118,7 @@ static void test_filter_sets(void) {
                 assert_se(pid >= 0);
 
                 if (pid == 0) { /* Child? */
-                        int fd;
+                        int fd, r;
 
                         /* If we look at the default set (or one that includes it), allow-list instead of deny-list */
                         if (IN_SET(i, SYSCALL_FILTER_SET_DEFAULT, SYSCALL_FILTER_SET_SYSTEM_SERVICE))
