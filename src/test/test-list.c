@@ -12,11 +12,14 @@ int main(int argc, const char *argv[]) {
                 LIST_FIELDS(struct list_item, item);
         } list_item;
         LIST_HEAD(list_item, head);
+        LIST_HEAD(list_item, head2);
         list_item items[4];
         list_item *cursor;
 
         LIST_HEAD_INIT(head);
+        LIST_HEAD_INIT(head2);
         assert_se(head == NULL);
+        assert_se(head2 == NULL);
 
         for (i = 0; i < ELEMENTSOF(items); i++) {
                 LIST_INIT(item, &items[i]);
@@ -197,6 +200,50 @@ int main(int argc, const char *argv[]) {
         assert_se(items[1].item_prev == &items[0]);
         assert_se(items[2].item_prev == &items[1]);
         assert_se(items[3].item_prev == &items[2]);
+
+        for (i = 0; i < ELEMENTSOF(items); i++)
+                LIST_REMOVE(item, head, &items[i]);
+
+        assert_se(head == NULL);
+
+        for (i = 0; i < ELEMENTSOF(items) / 2; i++) {
+                LIST_INIT(item, &items[i]);
+                assert_se(LIST_JUST_US(item, &items[i]));
+                LIST_PREPEND(item, head, &items[i]);
+        }
+
+        for (i = ELEMENTSOF(items) / 2; i < ELEMENTSOF(items); i++) {
+                LIST_INIT(item, &items[i]);
+                assert_se(LIST_JUST_US(item, &items[i]));
+                LIST_PREPEND(item, head2, &items[i]);
+        }
+
+        assert_se(items[0].item_next == NULL);
+        assert_se(items[1].item_next == &items[0]);
+        assert_se(items[2].item_next == NULL);
+        assert_se(items[3].item_next == &items[2]);
+
+        assert_se(items[0].item_prev == &items[1]);
+        assert_se(items[1].item_prev == NULL);
+        assert_se(items[2].item_prev == &items[3]);
+        assert_se(items[3].item_prev == NULL);
+
+        LIST_JOIN(item, head2, head);
+        assert_se(head == NULL);
+
+        assert_se(items[0].item_next == NULL);
+        assert_se(items[1].item_next == &items[0]);
+        assert_se(items[2].item_next == &items[1]);
+        assert_se(items[3].item_next == &items[2]);
+
+        assert_se(items[0].item_prev == &items[1]);
+        assert_se(items[1].item_prev == &items[2]);
+        assert_se(items[2].item_prev == &items[3]);
+        assert_se(items[3].item_prev == NULL);
+
+        LIST_JOIN(item, head, head2);
+        assert_se(head2 == NULL);
+        assert_se(!LIST_IS_EMPTY(head));
 
         for (i = 0; i < ELEMENTSOF(items); i++)
                 LIST_REMOVE(item, head, &items[i]);

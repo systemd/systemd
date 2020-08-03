@@ -2660,7 +2660,7 @@ static int apply_mount_namespace(
         if (context->mount_flags == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
-        r = setup_namespace(root_dir, root_image,
+        r = setup_namespace(root_dir, root_image, context->root_image_options,
                             &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
@@ -4207,6 +4207,7 @@ void exec_context_done(ExecContext *c) {
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
         c->root_image = mfree(c->root_image);
+        c->root_image_options = mount_options_free_all(c->root_image_options);
         c->root_hash = mfree(c->root_hash);
         c->root_hash_size = 0;
         c->root_hash_path = mfree(c->root_hash_path);
@@ -4617,6 +4618,16 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->root_image)
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
+
+        if (c->root_image_options) {
+                MountOptions *o;
+
+                fprintf(f, "%sRootImageOptions:", prefix);
+                LIST_FOREACH(mount_options, o, c->root_image_options)
+                        if (!isempty(o->options))
+                                fprintf(f, " %u:%s", o->partition_number, o->options);
+                fprintf(f, "\n");
+        }
 
         if (c->root_hash) {
                 _cleanup_free_ char *encoded = NULL;

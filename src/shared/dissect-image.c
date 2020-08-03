@@ -308,6 +308,7 @@ int dissect_image(
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *verity_data,
+                const MountOptions *mount_options,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -400,8 +401,8 @@ int dissect_image(
 
                 (void) blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
-                        _cleanup_free_ char *t = NULL, *n = NULL;
-                        const char *fstype = NULL;
+                        _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
+                        const char *fstype = NULL, *options = NULL;
 
                         /* OK, we have found a file system, that's our root partition then. */
                         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
@@ -420,6 +421,13 @@ int dissect_image(
                         m->verity = root_hash && verity_data;
                         m->can_verity = !!verity_data;
 
+                        options = mount_options_from_part(mount_options, 0);
+                        if (options) {
+                                o = strdup(options);
+                                if (!o)
+                                        return -ENOMEM;
+                        }
+
                         m->partitions[PARTITION_ROOT] = (DissectedPartition) {
                                 .found = true,
                                 .rw = !m->verity,
@@ -427,6 +435,7 @@ int dissect_image(
                                 .architecture = _ARCHITECTURE_INVALID,
                                 .fstype = TAKE_PTR(t),
                                 .node = TAKE_PTR(n),
+                                .mount_options = TAKE_PTR(o),
                         };
 
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
@@ -691,7 +700,8 @@ int dissect_image(
                         }
 
                         if (designator != _PARTITION_DESIGNATOR_INVALID) {
-                                _cleanup_free_ char *t = NULL, *n = NULL;
+                                _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
+                                const char *options = NULL;
 
                                 /* First one wins */
                                 if (m->partitions[designator].found)
@@ -707,6 +717,13 @@ int dissect_image(
                                 if (!n)
                                         return -ENOMEM;
 
+                                options = mount_options_from_part(mount_options, nr);
+                                if (options) {
+                                        o = strdup(options);
+                                        if (!o)
+                                                return -ENOMEM;
+                                }
+
                                 m->partitions[designator] = (DissectedPartition) {
                                         .found = true,
                                         .partno = nr,
@@ -715,6 +732,7 @@ int dissect_image(
                                         .node = TAKE_PTR(n),
                                         .fstype = TAKE_PTR(t),
                                         .uuid = id,
+                                        .mount_options = TAKE_PTR(o),
                                 };
                         }
 
@@ -740,9 +758,9 @@ int dissect_image(
                                 break;
 
                         case 0xEA: { /* Boot Loader Spec extended $BOOT partition */
-                                _cleanup_free_ char *n = NULL;
+                                _cleanup_free_ char *n = NULL, *o = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
-                                const char *sid;
+                                const char *sid, *options = NULL;
 
                                 /* First one wins */
                                 if (m->partitions[PARTITION_XBOOTLDR].found)
@@ -756,6 +774,13 @@ int dissect_image(
                                 if (!n)
                                         return -ENOMEM;
 
+                                options = mount_options_from_part(mount_options, nr);
+                                if (options) {
+                                        o = strdup(options);
+                                        if (!o)
+                                                return -ENOMEM;
+                                }
+
                                 m->partitions[PARTITION_XBOOTLDR] = (DissectedPartition) {
                                         .found = true,
                                         .partno = nr,
@@ -763,6 +788,7 @@ int dissect_image(
                                         .architecture = _ARCHITECTURE_INVALID,
                                         .node = TAKE_PTR(n),
                                         .uuid = id,
+                                        .mount_options = TAKE_PTR(o),
                                 };
 
                                 break;
@@ -785,6 +811,8 @@ int dissect_image(
                         zero(m->partitions[PARTITION_ROOT_SECONDARY_VERITY]);
 
                 } else if (flags & DISSECT_IMAGE_REQUIRE_ROOT) {
+                        _cleanup_free_ char *o = NULL;
+                        const char *options = NULL;
 
                         /* If the root has was set, then we won't fallback to a generic node, because the root hash
                          * decides */
@@ -800,6 +828,13 @@ int dissect_image(
                         if (multiple_generic)
                                 return -ENOTUNIQ;
 
+                        options = mount_options_from_part(mount_options, generic_nr);
+                        if (options) {
+                                o = strdup(options);
+                                if (!o)
+                                        return -ENOMEM;
+                        }
+
                         m->partitions[PARTITION_ROOT] = (DissectedPartition) {
                                 .found = true,
                                 .rw = generic_rw,
@@ -807,6 +842,7 @@ int dissect_image(
                                 .architecture = _ARCHITECTURE_INVALID,
                                 .node = TAKE_PTR(generic_node),
                                 .uuid = generic_uuid,
+                                .mount_options = TAKE_PTR(o),
                         };
                 }
         }
@@ -869,6 +905,7 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
                 free(m->partitions[i].node);
                 free(m->partitions[i].decrypted_fstype);
                 free(m->partitions[i].decrypted_node);
+                free(m->partitions[i].mount_options);
         }
 
         free(m->hostname);
@@ -1007,6 +1044,10 @@ static int mount_partition(
                 if (!strextend_with_separator(&options, ",", uid_option, NULL))
                         return -ENOMEM;
         }
+
+        if (!isempty(m->mount_options))
+                if (!strextend_with_separator(&options, ",", m->mount_options, NULL))
+                        return -ENOMEM;
 
         r = mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
         if (r < 0)
@@ -1819,6 +1860,7 @@ int dissect_image_and_warn(
                 const void *root_hash,
                 size_t root_hash_size,
                 const char *verity_data,
+                const MountOptions *mount_options,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -1833,7 +1875,7 @@ int dissect_image_and_warn(
                 name = buffer;
         }
 
-        r = dissect_image(fd, root_hash, root_hash_size, verity_data, flags, ret);
+        r = dissect_image(fd, root_hash, root_hash_size, verity_data, mount_options, flags, ret);
 
         switch (r) {
 
@@ -1878,6 +1920,27 @@ bool dissected_image_has_verity(const DissectedImage *image, unsigned partition_
 
         k = PARTITION_VERITY_OF(partition_designator);
         return k >= 0 && image->partitions[k].found;
+}
+
+MountOptions* mount_options_free_all(MountOptions *options) {
+        MountOptions *m;
+
+        while ((m = options)) {
+                LIST_REMOVE(mount_options, options, m);
+                free(m->options);
+                free(m);
+        }
+
+        return NULL;
+}
+
+const char* mount_options_from_part(const MountOptions *options, unsigned int partition_number) {
+        MountOptions *m;
+
+        LIST_FOREACH(mount_options, m, (MountOptions *)options)
+                if (partition_number == m->partition_number && !isempty(m->options))
+                        return m->options;
+        return NULL;
 }
 
 static const char *const partition_designator_table[] = {

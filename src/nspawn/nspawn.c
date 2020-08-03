@@ -5223,6 +5223,7 @@ static int run(int argc, char *argv[]) {
                                 arg_image,
                                 arg_root_hash, arg_root_hash_size,
                                 arg_verity_data,
+                                NULL,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r == -ENOPKG) {
