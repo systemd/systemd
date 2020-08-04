@@ -472,10 +472,10 @@ static const sd_bus_vtable seat_vtable[] = {
                                  SD_BUS_PARAM(vtnr),
                                  NULL,,
                                  method_switch_to,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+                                 SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
 
-        SD_BUS_METHOD("SwitchToNext", NULL, NULL, method_switch_to_next, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("SwitchToPrevious", NULL, NULL, method_switch_to_previous, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SwitchToNext", NULL, NULL, method_switch_to_next, SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
+        SD_BUS_METHOD("SwitchToPrevious", NULL, NULL, method_switch_to_previous, SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT)),
 
         SD_BUS_VTABLE_END
 };
