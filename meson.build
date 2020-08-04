@@ -914,6 +914,10 @@ if want_seccomp != 'false' and not skip_deps
                                 version : '>= 2.3.1',
                                 required : want_seccomp == 'true')
         have = libseccomp.found()
+        if have and libseccomp.version().version_compare('>= 2.5.0')
+                warning('libseccomp version >= 2.5.0 detected, which requires slow work-arounds to be applied ' +
+                        'when loading seccomp filters. Consider downgrading to a version < 2.5.0.')
+        endif
 else
         have = false
         libseccomp = []

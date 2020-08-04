@@ -183,7 +183,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                 if (r < 0)
                         return r;
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return log_error_errno(r, "Failed to install seccomp filter: %m");
                 if (r < 0)
@@ -219,7 +219,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                         continue;
                 }
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return log_error_errno(r, "Failed to install seccomp audit filter: %m");
                 if (r < 0)

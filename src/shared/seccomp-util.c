@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/filter.h>
 #include <linux/seccomp.h>
 #include <seccomp.h>
 #include <stddef.h>
@@ -13,7 +14,10 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "errno-list.h"
+#include "fd-util.h"
 #include "macro.h"
+#include "missing_mman.h"
+#include "missing_syscall.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "process-util.h"
@@ -995,7 +999,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add filter set: %m");
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -1050,7 +1054,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                         }
                 }
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -1236,7 +1240,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                 if (r < 0)
                         continue;
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -1273,7 +1277,7 @@ int seccomp_protect_sysctl(void) {
                         continue;
                 }
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -1305,7 +1309,7 @@ int seccomp_protect_syslog(void) {
                         continue;
                 }
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -1468,7 +1472,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                         }
                 }
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -1545,7 +1549,7 @@ int seccomp_restrict_realtime(void) {
                         continue;
                 }
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -1674,7 +1678,7 @@ int seccomp_memory_deny_write_execute(void) {
                                 continue;
                 }
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -1732,7 +1736,7 @@ int seccomp_restrict_archs(Set *archs) {
         if (r < 0)
                 return r;
 
-        r = seccomp_load(seccomp);
+        r = safe_seccomp_load(seccomp);
         if (ERRNO_IS_SECCOMP_FATAL(r))
                 return r;
         if (r < 0)
@@ -1829,7 +1833,7 @@ int seccomp_lock_personality(unsigned long personality) {
                         continue;
                 }
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -1870,7 +1874,7 @@ int seccomp_protect_hostname(void) {
                         continue;
                 }
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -2048,7 +2052,7 @@ int seccomp_restrict_suid_sgid(void) {
                 if (r < 0 && k < 0)
                         continue;
 
-                r = seccomp_load(seccomp);
+                r = safe_seccomp_load(seccomp);
                 if (ERRNO_IS_SECCOMP_FATAL(r))
                         return r;
                 if (r < 0)
@@ -2071,4 +2075,84 @@ uint32_t scmp_act_kill_process(void) {
 #endif
 
         return SCMP_ACT_KILL; /* same as SCMP_ACT_KILL_THREAD */
+}
+
+int safe_seccomp_load(scmp_filter_ctx c) {
+        _cleanup_free_ struct sock_filter *filter = NULL;
+        _cleanup_close_ int fd = -1;
+        size_t n_filter_blocks;
+        struct stat st;
+        uint32_t u;
+        ssize_t n;
+        int r;
+
+        /* So here's the problem: starting with libseccomp 2.5.0 seccomp_load() will always allocate a
+         * seccomp notifier fd for its filters, and store as global state (even if otherwise not used). We
+         * really don't like that for two reasons:
+         *
+         * 1. We install seccomp filters very late in our process startup logic, at a time where we don't
+         *    want global fds to stick around that could interfere with our fd closing spree and fd
+         *    reordering.
+         *
+         * 2. We want to install many seccomp filters, but since the notifier fd is a process-global concept
+         *    libseccomp currently only allows installation of a single filter, breaking compatibility with
+         *    previous library versions.
+         *
+         * Hence, let's sidestep the whole issue: on affected libseccomp versions, let's ask libseccomp for
+         * the raw BPF code, and let's then install it ourselves, without any notifier logic. It's not as
+         * pretty as we'd like, since libseccomp only allows exporting BPF records into files, but we can use
+         * memfds to work around that. */
+
+        assert(seccomp_version()->major >= 2); /* as per meson build dependency reqs */
+
+        if (seccomp_version()->major == 2 && seccomp_version()->minor < 5) /* 2.x versions before 2.5.0 work
+                                                                            * fine, let's shortcut things. */
+                return seccomp_load(c);
+
+        fd = memfd_create("seccomp-hack", MFD_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        r = seccomp_export_bpf(c, fd);
+        if (r < 0)
+                return r;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (st.st_size % sizeof(struct sock_filter) != 0)
+                return -EINVAL;
+        if (st.st_size > SSIZE_MAX) /* pread() can't return more than SSIZE_MAX */
+                return -EINVAL;
+
+        n_filter_blocks = st.st_size / sizeof(struct sock_filter);
+        if (n_filter_blocks > USHRT_MAX) /* struct sock_fprog's .len field is unsigned short */
+                return -EINVAL;
+
+        filter = new(struct sock_filter, n_filter_blocks);
+        if (!filter)
+                return -ENOMEM;
+
+        n = pread(fd, filter, st.st_size, 0);
+        if (n < 0)
+                return -errno;
+        if (n != st.st_size)
+                return -EINVAL;
+
+        /* seccomp_load() sets NNP internally, hence for compat do that too, even if we usually turn this off anyway */
+        r = seccomp_attr_get(c, SCMP_FLTATR_CTL_NNP, &u);
+        if (r < 0)
+                return r;
+        if (u != 0)
+                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
+                        return -errno;
+
+        if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER,
+                  &(struct sock_fprog) {
+                          .filter = filter,
+                          .len = n_filter_blocks,
+                  }) < 0)
+                return -errno;
+
+        return 0;
 }
