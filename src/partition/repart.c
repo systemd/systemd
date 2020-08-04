@@ -24,10 +24,12 @@
 #include "btrfs-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
+#include "crypt-util.h"
 #include "def.h"
 #include "efivars.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -46,6 +48,7 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "stat-util.h"
@@ -88,9 +91,12 @@ static int arg_pretty = -1;
 static uint64_t arg_size = UINT64_MAX;
 static bool arg_json = false;
 static JsonFormatFlags arg_json_format_flags = 0;
+static void *arg_key = NULL;
+static size_t arg_key_size = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 
 typedef struct Partition Partition;
 typedef struct FreeArea FreeArea;
@@ -129,6 +135,7 @@ struct Partition {
 
         char *format;
         char **copy_files;
+        bool encrypt;
 
         LIST_FIELDS(Partition, partitions);
 };
@@ -1125,6 +1132,7 @@ static int partition_read_definition(Partition *p, const char *path) {
                 { "Partition", "CopyBlocks",      config_parse_path,       0, &p->copy_blocks_path },
                 { "Partition", "Format",          config_parse_fstype,     0, &p->format           },
                 { "Partition", "CopyFiles",       config_parse_copy_files, 0, p                    },
+                { "Partition", "Encrypt",         config_parse_bool,       0, &p->encrypt          },
                 {}
         };
         int r;
@@ -1158,8 +1166,8 @@ static int partition_read_definition(Partition *p, const char *path) {
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format=swap and CopyFiles= cannot be combined, refusing.");
 
-        if (!p->format && !strv_isempty(p->copy_files)) {
-                /* Pick "ext4" as file system if we are configured to copy files  */
+        if (!p->format && (!strv_isempty(p->copy_files) || (p->encrypt && !p->copy_blocks_path))) {
+                /* Pick "ext4" as file system if we are configured to copy files or encrypt the device */
                 p->format = strdup("ext4");
                 if (!p->format)
                         return log_oom();
@@ -2307,16 +2315,139 @@ static int context_wipe_and_discard(Context *context, bool from_scratch) {
         return 0;
 }
 
+static int partition_encrypt(
+                Partition *p,
+                const char *node,
+                struct crypt_device **ret_cd,
+                char **ret_volume,
+                int *ret_fd) {
+
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(erase_and_freep) void *volume_key = NULL;
+        _cleanup_free_ char *dm_name = NULL, *vol = NULL;
+        char suuid[ID128_UUID_STRING_MAX];
+        size_t volume_key_size = 256 / 8;
+        sd_id128_t uuid;
+        int r;
+
+        assert(p);
+        assert(p->encrypt);
+
+        if (asprintf(&dm_name, "luks-repart-%08" PRIx64, random_u64()) < 0)
+                return log_oom();
+
+        if (ret_volume) {
+                vol = path_join("/dev/mapper/", dm_name);
+                if (!vol)
+                        return log_oom();
+        }
+
+        r = derive_uuid(p->new_uuid, "luks-uuid", &uuid);
+        if (r < 0)
+                return r;
+
+        log_info("Encrypting future partition %" PRIu64 "...", p->partno);
+
+        volume_key = malloc(volume_key_size);
+        if (!volume_key)
+                return log_oom();
+
+        r = genuine_random_bytes(volume_key, volume_key_size, RANDOM_BLOCK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate volume key: %m");
+
+        r = crypt_init(&cd, node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
+
+        cryptsetup_enable_logging(cd);
+
+        r = crypt_format(cd,
+                         CRYPT_LUKS2,
+                         "aes",
+                         "xts-plain64",
+                         id128_to_uuid_string(uuid, suuid),
+                         volume_key,
+                         volume_key_size,
+                         &(struct crypt_params_luks2) {
+                                 .label = p->new_label,
+                                 .sector_size = 512U,
+                         });
+        if (r < 0)
+                return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
+
+        r = crypt_keyslot_add_by_volume_key(
+                        cd,
+                        CRYPT_ANY_SLOT,
+                        volume_key,
+                        volume_key_size,
+                        strempty(arg_key),
+                        arg_key_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add LUKS2 key: %m");
+
+        r = crypt_activate_by_volume_key(
+                        cd,
+                        dm_name,
+                        volume_key,
+                        volume_key_size,
+                        arg_discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate LUKS superblock: %m");
+
+        log_info("Successfully encrypted future partition %" PRIu64 ".", p->partno);
+
+        if (ret_fd) {
+                _cleanup_close_ int dev_fd = -1;
+
+                dev_fd = open(vol, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                if (dev_fd < 0)
+                        return log_error_errno(errno, "Failed to open LUKS volume '%s': %m", vol);
+
+                *ret_fd = TAKE_FD(dev_fd);
+        }
+
+        if (ret_cd)
+                *ret_cd = TAKE_PTR(cd);
+        if (ret_volume)
+                *ret_volume = TAKE_PTR(vol);
+
+        return 0;
+}
+
+static int deactivate_luks(struct crypt_device *cd, const char *node) {
+        int r;
+
+        if (!cd)
+                return 0;
+
+        assert(node);
+
+        /* udev or so might access out block device in the background while we are done. Let's hence force
+         * detach the volume. We sync'ed before, hence this should be safe. */
+
+        r = crypt_deactivate_by_name(cd, basename(node), CRYPT_DEACTIVATE_FORCE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to deactivate LUKS device: %m");
+
+        return 1;
+}
+
 static int context_copy_blocks(Context *context) {
         Partition *p;
-        int fd = -1, r;
+        int whole_fd = -1, r;
 
         assert(context);
 
         /* Copy in file systems on the block level */
 
         LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+                _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                _cleanup_free_ char *encrypted = NULL;
+                _cleanup_close_ int encrypted_dev_fd = -1;
                 char buf[FORMAT_BYTES_MAX];
+                int target_fd;
 
                 if (p->copy_blocks_fd < 0)
                         continue;
@@ -2331,17 +2462,56 @@ static int context_copy_blocks(Context *context) {
                 assert(p->copy_blocks_size != UINT64_MAX);
                 assert(p->new_size >= p->copy_blocks_size);
 
-                if (fd < 0)
-                        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+                if (whole_fd < 0)
+                        assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
-                if (lseek(fd, p->offset, SEEK_SET) == (off_t) -1)
-                        return log_error_errno(errno, "Failed to seek to partition offset: %m");
+                if (p->encrypt) {
+                        r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, &d);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+
+                        r = loop_device_flock(d, LOCK_EX);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to lock loopback device: %m");
+
+                        r = partition_encrypt(p, d->node, &cd, &encrypted, &encrypted_dev_fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to encrypt device: %m");
+
+                        if (flock(encrypted_dev_fd, LOCK_EX) < 0)
+                                return log_error_errno(errno, "Failed to lock LUKS device: %m");
+
+                        target_fd = encrypted_dev_fd;
+                }  else {
+                        if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
+                                return log_error_errno(errno, "Failed to seek to partition offset: %m");
+
+                        target_fd = whole_fd;
+                }
 
                 log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".", p->copy_blocks_path, format_bytes(buf, sizeof(buf), p->copy_blocks_size), p->partno);
 
-                r = copy_bytes_full(p->copy_blocks_fd, fd, p->copy_blocks_size, 0, NULL, NULL, NULL, NULL);
+                r = copy_bytes_full(p->copy_blocks_fd, target_fd, p->copy_blocks_size, 0, NULL, NULL, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy in data from '%s': %m", p->copy_blocks_path);
+
+                if (fsync(target_fd) < 0)
+                        return log_error_errno(r, "Failed to synchronize copied data blocks: %m");
+
+                if (p->encrypt) {
+                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
+
+                        r = deactivate_luks(cd, encrypted);
+                        if (r < 0)
+                                return r;
+
+                        crypt_free(cd);
+                        cd = NULL;
+
+                        r = loop_device_sync(d);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to sync loopback device: %m");
+                }
 
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
         }
@@ -2476,7 +2646,11 @@ static int context_mkfs(Context *context) {
         /* Make a file system */
 
         LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
+                _cleanup_free_ char *encrypted = NULL;
+                _cleanup_close_ int encrypted_dev_fd = -1;
+                const char *fsdev;
                 sd_id128_t fs_uuid;
 
                 if (p->dropped)
@@ -2505,6 +2679,18 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to lock loopback device: %m");
 
+                if (p->encrypt) {
+                        r = partition_encrypt(p, d->node, &cd, &encrypted, &encrypted_dev_fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to encrypt device: %m");
+
+                        if (flock(encrypted_dev_fd, LOCK_EX) < 0)
+                                return log_error_errno(errno, "Failed to lock LUKS device: %m");
+
+                        fsdev = encrypted;
+                } else
+                        fsdev = d->node;
+
                 log_info("Formatting future partition %" PRIu64 ".", p->partno);
 
                 /* Calculate the UUID for the file system as HMAC-SHA256 of the string "file-system-uuid",
@@ -2513,15 +2699,43 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                r = make_filesystem(d->node, p->format, p->new_label, fs_uuid, arg_discard);
-                if (r < 0)
+                r = make_filesystem(fsdev, p->format, p->new_label, fs_uuid, arg_discard);
+                if (r < 0) {
+                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
+                        (void) deactivate_luks(cd, encrypted);
                         return r;
+                }
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
 
-                r = partition_copy_files(p, d->node);
-                if (r < 0)
+                /* The file system is now created, no need to delay udev further */
+                if (p->encrypt)
+                        if (flock(encrypted_dev_fd, LOCK_UN) < 0)
+                                return log_error_errno(errno, "Failed to unlock LUKS device: %m");
+
+                r = partition_copy_files(p, fsdev);
+                if (r < 0) {
+                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
+                        (void) deactivate_luks(cd, encrypted);
                         return r;
+                }
+
+                /* Note that we always sync explicitly here, since mkfs.fat doesn't do that on its own, and
+                 * if we don't sync before detaching a block device the in-flight sectors possibly won't hit
+                 * the disk. */
+
+                if (p->encrypt) {
+                        if (fsync(encrypted_dev_fd) < 0)
+                                return log_error_errno(r, "Failed to synchronize LUKS volume: %m");
+                        encrypted_dev_fd = safe_close(encrypted_dev_fd);
+
+                        r = deactivate_luks(cd, encrypted);
+                        if (r < 0)
+                                return r;
+
+                        crypt_free(cd);
+                        cd = NULL;
+                }
 
                 r = loop_device_sync(d);
                 if (r < 0)
@@ -3166,6 +3380,7 @@ static int help(void) {
                "     --can-factory-reset  Test whether factory reset is defined\n"
                "     --root=PATH          Operate relative to root path\n"
                "     --definitions=DIR    Find partitions in specified directory\n"
+               "     --key-file=PATH      Key to use when encrypting partitions\n"
                "     --seed=UUID          128bit seed UUID to derive all UUIDs from\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --json=pretty|short|off\n"
@@ -3194,6 +3409,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEFINITIONS,
                 ARG_SIZE,
                 ARG_JSON,
+                ARG_KEY_FILE,
         };
 
         static const struct option options[] = {
@@ -3210,6 +3426,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
                 { "size",              required_argument, NULL, ARG_SIZE              },
                 { "json",              required_argument, NULL, ARG_JSON              },
+                { "key-file",          required_argument, NULL, ARG_KEY_FILE          },
                 {}
         };
 
@@ -3333,6 +3550,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_size = rounded;
                         break;
                 }
+
                 case ARG_JSON:
                         if (streq(optarg, "pretty")) {
                                 arg_json = true;
@@ -3353,6 +3571,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_KEY_FILE: {
+                        _cleanup_(erase_and_freep) char *k = NULL;
+                        size_t n = 0;
+
+                        r = read_full_file_full(AT_FDCWD, optarg, READ_FULL_FILE_SECURE|READ_FULL_FILE_CONNECT_SOCKET, &k, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read key file '%s': %m", optarg);
+
+                        erase_and_free(arg_key);
+                        arg_key = TAKE_PTR(k);
+                        arg_key_size = n;
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
