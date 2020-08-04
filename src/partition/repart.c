@@ -3202,7 +3202,7 @@ static int find_root(char **ret, int *ret_fd) {
 
                 r = acquire_root_devno(arg_node, O_RDONLY|O_CLOEXEC, ret, ret_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine backing device of %s: %m", arg_node);
+                        return log_error_errno(r, "Failed to open file or determine backing device of %s: %m", arg_node);
 
                 return 0;
         }
