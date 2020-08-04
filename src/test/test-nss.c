@@ -147,7 +147,10 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
         fname = strjoina("_nss_", module, "_gethostbyname4_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        assert_se(f);
+        if (!f) {
+                log_info("%s not defined", fname);
+                return;
+        }
 
         status = f(name, &pat, buffer, sizeof buffer, &errno1, &errno2, &ttl);
         if (status == NSS_STATUS_SUCCESS) {
@@ -197,7 +200,10 @@ static void test_gethostbyname3_r(void *handle, const char *module, const char *
         fname = strjoina("_nss_", module, "_gethostbyname3_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        assert_se(f);
+        if (!f) {
+                log_info("%s not defined", fname);
+                return;
+        }
 
         status = f(name, af, &host, buffer, sizeof buffer, &errno1, &errno2, &ttl, &canon);
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
@@ -223,7 +229,10 @@ static void test_gethostbyname2_r(void *handle, const char *module, const char *
         fname = strjoina("_nss_", module, "_gethostbyname2_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        assert_se(f);
+        if (!f) {
+                log_info("%s not defined", fname);
+                return;
+        }
 
         status = f(name, af, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s",
@@ -247,7 +256,10 @@ static void test_gethostbyname_r(void *handle, const char *module, const char *n
         fname = strjoina("_nss_", module, "_gethostbyname_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        assert_se(f);
+        if (!f) {
+                log_info("%s not defined", fname);
+                return;
+        }
 
         status = f(name, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
@@ -279,8 +291,10 @@ static void test_gethostbyaddr2_r(void *handle,
 
         log_full_errno(f ? LOG_DEBUG : LOG_INFO,  errno,
                        "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
-        if (!f)
+        if (!f) {
+                log_info("%s not defined", fname);
                 return;
+        }
 
         assert_se(in_addr_to_string(af, addr, &addr_pretty) >= 0);
 
@@ -314,8 +328,10 @@ static void test_gethostbyaddr_r(void *handle,
 
         log_full_errno(f ? LOG_DEBUG : LOG_INFO,  errno,
                        "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
-        if (!f)
+        if (!f) {
+                log_info("%s not defined", fname);
                 return;
+        }
 
         assert_se(in_addr_to_string(af, addr, &addr_pretty) >= 0);
 
