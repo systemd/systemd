@@ -56,6 +56,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcre2-dlopen.h"
 #include "pretty-print.h"
 #include "random-util.h"
 #include "rlimit-util.h"
@@ -161,20 +162,20 @@ typedef struct BootId {
 } BootId;
 
 #if HAVE_PCRE2
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, sym_pcre2_match_data_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, sym_pcre2_code_free);
 
 static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
         int errorcode, r;
         PCRE2_SIZE erroroffset;
         pcre2_code *p;
 
-        p = pcre2_compile((PCRE2_SPTR8) pattern,
-                          PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
+        p = sym_pcre2_compile((PCRE2_SPTR8) pattern,
+                              PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
         if (!p) {
                 unsigned char buf[LINE_MAX];
 
-                r = pcre2_get_error_message(errorcode, buf, sizeof buf);
+                r = sym_pcre2_get_error_message(errorcode, buf, sizeof buf);
 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Bad pattern \"%s\": %s", pattern,
@@ -184,7 +185,6 @@ static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out
         *out = p;
         return 0;
 }
-
 #endif
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
@@ -1088,14 +1088,18 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_pattern) {
                 unsigned flags;
 
+                r = dlopen_pcre2();
+                if (r < 0)
+                        return r;
+
                 if (arg_case_sensitive >= 0)
                         flags = !arg_case_sensitive * PCRE2_CASELESS;
                 else {
-                        _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
+                        _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
                         bool has_case;
-                        _cleanup_(pcre2_code_freep) pcre2_code *cs = NULL;
+                        _cleanup_(sym_pcre2_code_freep) pcre2_code *cs = NULL;
 
-                        md = pcre2_match_data_create(1, NULL);
+                        md = sym_pcre2_match_data_create(1, NULL);
                         if (!md)
                                 return log_oom();
 
@@ -1103,7 +1107,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        r = pcre2_match(cs, (PCRE2_SPTR8) arg_pattern, PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
+                        r = sym_pcre2_match(cs, (PCRE2_SPTR8) arg_pattern, PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
                         has_case = r >= 0;
 
                         flags = !has_case * PCRE2_CASELESS;
@@ -2607,12 +2611,12 @@ int main(int argc, char *argv[]) {
 
 #if HAVE_PCRE2
                         if (arg_compiled_pattern) {
-                                _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
+                                _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
                                 const void *message;
                                 size_t len;
                                 PCRE2_SIZE *ovec;
 
-                                md = pcre2_match_data_create(1, NULL);
+                                md = sym_pcre2_match_data_create(1, NULL);
                                 if (!md)
                                         return log_oom();
 
@@ -2629,13 +2633,13 @@ int main(int argc, char *argv[]) {
 
                                 assert_se(message = startswith(message, "MESSAGE="));
 
-                                r = pcre2_match(arg_compiled_pattern,
-                                                message,
-                                                len - strlen("MESSAGE="),
-                                                0,      /* start at offset 0 in the subject */
-                                                0,      /* default options */
-                                                md,
-                                                NULL);
+                                r = sym_pcre2_match(arg_compiled_pattern,
+                                                    message,
+                                                    len - strlen("MESSAGE="),
+                                                    0,      /* start at offset 0 in the subject */
+                                                    0,      /* default options */
+                                                    md,
+                                                    NULL);
                                 if (r == PCRE2_ERROR_NOMATCH) {
                                         need_seek = true;
                                         continue;
@@ -2644,14 +2648,14 @@ int main(int argc, char *argv[]) {
                                         unsigned char buf[LINE_MAX];
                                         int r2;
 
-                                        r2 = pcre2_get_error_message(r, buf, sizeof buf);
+                                        r2 = sym_pcre2_get_error_message(r, buf, sizeof buf);
                                         log_error("Pattern matching failed: %s",
                                                   r2 < 0 ? "unknown error" : (char*) buf);
                                         r = -EINVAL;
                                         goto finish;
                                 }
 
-                                ovec = pcre2_get_ovector_pointer(md);
+                                ovec = sym_pcre2_get_ovector_pointer(md);
                                 highlight[0] = ovec[0];
                                 highlight[1] = ovec[1];
                         }
@@ -2743,7 +2747,7 @@ finish:
 
 #if HAVE_PCRE2
         if (arg_compiled_pattern) {
-                pcre2_code_free(arg_compiled_pattern);
+                sym_pcre2_code_free(arg_compiled_pattern);
 
                 /* --grep was used, no error was thrown, but the pattern didn't
                  * match anything. Let's mimic grep's behavior here and return

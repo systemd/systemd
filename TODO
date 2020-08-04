@@ -83,8 +83,6 @@ Features:
 
 * make us use dynamically fewer deps for containers in general purpose distros:
   o turn into dlopen() deps:
-    - pcre2 (always)               — irrelevant on Fedora, since dep by
-                                     libselinux, but should benefit Debian
     - libpwquality (always)        - only relevant for homed, and maybe soon
                                      firstboot
     - elfutils (always)
