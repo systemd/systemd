@@ -54,7 +54,7 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
         return buf;
 }
 
-static void* open_handle(const char* dir, const char* module, int flags) {
+static void* open_handle(const char *dir, const char *module, int flags) {
         const char *path = NULL;
         void *handle;
 
@@ -63,6 +63,7 @@ static void* open_handle(const char* dir, const char* module, int flags) {
         if (!path || access(path, F_OK) < 0)
                 path = strjoina("libnss_", module, ".so.2");
 
+        log_debug("Using %s", path);
         handle = dlopen(path, flags);
         if (!handle)
                 log_error("Failed to load module %s: %s", module, dlerror());
@@ -70,10 +71,9 @@ static void* open_handle(const char* dir, const char* module, int flags) {
 }
 
 static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
-        const struct gaih_addrtuple *it;
         int n = 0;
 
-        for (it = tuples; it; it = it->next) {
+        for (const struct gaih_addrtuple *it = tuples; it; it = it->next) {
                 _cleanup_free_ char *a = NULL;
                 union in_addr_union u;
                 int r;
@@ -388,14 +388,13 @@ static int make_addresses(struct local_address **addresses) {
         return 0;
 }
 
-static int test_one_module(const char* dir,
+static int test_one_module(const char *dir,
                            const char *module,
                            char **names,
                            struct local_address *addresses,
                            int n_addresses) {
         void *handle;
         char **name;
-        int i;
 
         log_info("======== %s ========", module);
 
@@ -406,7 +405,7 @@ static int test_one_module(const char* dir,
         STRV_FOREACH(name, names)
                 test_byname(handle, module, *name);
 
-        for (i = 0; i < n_addresses; i++)
+        for (int i = 0; i < n_addresses; i++)
                 test_byaddr(handle, module,
                             &addresses[i].address,
                             FAMILY_ADDRESS_SIZE(addresses[i].family),
