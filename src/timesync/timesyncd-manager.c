@@ -180,18 +180,18 @@ static int manager_arm_timer(Manager *m, usec_t next) {
         }
 
         if (m->event_timer) {
-                r = sd_event_source_set_time(m->event_timer, now(clock_boottime_or_monotonic()) + next);
+                r = sd_event_source_set_time_relative(m->event_timer, next);
                 if (r < 0)
                         return r;
 
                 return sd_event_source_set_enabled(m->event_timer, SD_EVENT_ONESHOT);
         }
 
-        return sd_event_add_time(
+        return sd_event_add_time_relative(
                         m->event,
                         &m->event_timer,
                         clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + next, 0,
+                        next, 0,
                         manager_timer, m);
 }
 
@@ -786,7 +786,7 @@ int manager_connect(Manager *m) {
         if (!ratelimit_below(&m->ratelimit)) {
                 log_debug("Delaying attempts to contact servers.");
 
-                r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry_connect, m);
+                r = sd_event_add_time_relative(m->event, &m->event_retry, clock_boottime_or_monotonic(), RETRY_USEC, 0, manager_retry_connect, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create retry timer: %m");
 
@@ -840,7 +840,7 @@ int manager_connect(Manager *m) {
 
                         if (restart && !m->exhausted_servers && m->poll_interval_usec) {
                                 log_debug("Waiting after exhausting servers.");
-                                r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + m->poll_interval_usec, 0, manager_retry_connect, m);
+                                r = sd_event_add_time_relative(m->event, &m->event_retry, clock_boottime_or_monotonic(), m->poll_interval_usec, 0, manager_retry_connect, m);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create retry timer: %m");
 

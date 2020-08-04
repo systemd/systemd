@@ -445,7 +445,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
         /* If we did something, let's restart the timeout event source */
         if (progressed && s->timeout_event_source) {
-                r = sd_event_source_set_time(s->timeout_event_source, now(clock_boottime_or_monotonic()) + DNS_STREAM_TIMEOUT_USEC);
+                r = sd_event_source_set_time_relative(s->timeout_event_source, DNS_STREAM_TIMEOUT_USEC);
                 if (r < 0)
                         log_warning_errno(errno, "Couldn't restart TCP connection timeout, ignoring: %m");
         }
@@ -528,11 +528,11 @@ int dns_stream_new(
 
         (void) sd_event_source_set_description(s->io_event_source, "dns-stream-io");
 
-        r = sd_event_add_time(
+        r = sd_event_add_time_relative(
                         m->event,
                         &s->timeout_event_source,
                         clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + DNS_STREAM_TIMEOUT_USEC, 0,
+                        DNS_STREAM_TIMEOUT_USEC, 0,
                         on_stream_timeout, s);
         if (r < 0)
                 return r;

@@ -942,7 +942,6 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *local_address) {
 
 static int test_client_solicit(sd_event *e) {
         sd_dhcp6_client *client;
-        usec_t time_now = now(clock_boottime_or_monotonic());
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         int val;
 
@@ -968,9 +967,9 @@ static int test_client_solicit(sd_event *e) {
         assert_se(sd_dhcp6_client_set_callback(client,
                                                test_client_information_cb, e) >= 0);
 
-        assert_se(sd_event_add_time(e, &hangcheck, clock_boottime_or_monotonic(),
-                                    time_now + 2 * USEC_PER_SEC, 0,
-                                    test_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time_relative(e, &hangcheck, clock_boottime_or_monotonic(),
+                                             2 * USEC_PER_SEC, 0,
+                                             test_hangcheck, NULL) >= 0);
 
         assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
 

@@ -272,7 +272,6 @@ static void test_callback(sd_ndisc *nd, sd_ndisc_event event, sd_ndisc_router *r
 static void test_rs(void) {
         sd_event *e;
         sd_ndisc *nd;
-        usec_t time_now = now(clock_boottime_or_monotonic());
 
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
@@ -290,9 +289,10 @@ static void test_rs(void) {
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
         assert_se(sd_ndisc_set_callback(nd, test_callback, e) >= 0);
 
-        assert_se(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
-                                    time_now + 30 * USEC_PER_SEC, 0,
-                                    test_rs_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time_relative(
+                                  e, &test_hangcheck, clock_boottime_or_monotonic(),
+                                  30 * USEC_PER_SEC, 0,
+                                  test_rs_hangcheck, NULL) >= 0);
 
         assert_se(sd_ndisc_stop(nd) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
@@ -373,7 +373,6 @@ static int test_timeout_value(uint8_t flags) {
 static void test_timeout(void) {
         sd_event *e;
         sd_ndisc *nd;
-        usec_t time_now = now(clock_boottime_or_monotonic());
 
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
@@ -392,9 +391,10 @@ static void test_timeout(void) {
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
 
-        assert_se(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
-                                    time_now + 30 * USEC_PER_SEC, 0,
-                                    test_rs_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time_relative(
+                                  e, &test_hangcheck, clock_boottime_or_monotonic(),
+                                  30 * USEC_PER_SEC, 0,
+                                  test_rs_hangcheck, NULL) >= 0);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 

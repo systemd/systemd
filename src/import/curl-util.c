@@ -139,16 +139,16 @@ static int curl_glue_timer_callback(CURLM *curl, long timeout_ms, void *userdata
                 return 0;
         }
 
-        usec = now(clock_boottime_or_monotonic()) + (usec_t) timeout_ms * USEC_PER_MSEC + USEC_PER_MSEC - 1;
+        usec = (usec_t) timeout_ms * USEC_PER_MSEC + USEC_PER_MSEC - 1;
 
         if (g->timer) {
-                if (sd_event_source_set_time(g->timer, usec) < 0)
+                if (sd_event_source_set_time_relative(g->timer, usec) < 0)
                         return -1;
 
                 if (sd_event_source_set_enabled(g->timer, SD_EVENT_ONESHOT) < 0)
                         return -1;
         } else {
-                if (sd_event_add_time(g->event, &g->timer, clock_boottime_or_monotonic(), usec, 0, curl_glue_on_timer, g) < 0)
+                if (sd_event_add_time_relative(g->event, &g->timer, clock_boottime_or_monotonic(), usec, 0, curl_glue_on_timer, g) < 0)
                         return -1;
 
                 (void) sd_event_source_set_description(g->timer, "curl-timer");

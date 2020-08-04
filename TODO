@@ -934,6 +934,10 @@ Features:
   - allow multiple signal handlers per signal?
   - document chaining of signal handler for SIGCHLD and child handlers
   - define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
+  - maybe support iouring as backend, so that we allow hooking read and write
+    operations instead of IO ready events into event loops. See considerations
+    here:
+    http://blog.vmsplice.net/2020/07/rethinking-event-loop-integration-for.html
 
 * investigate endianness issues of UUID vs. GUID
 

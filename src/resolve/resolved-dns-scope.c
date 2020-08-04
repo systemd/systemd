@@ -1059,12 +1059,13 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         random_bytes(&jitter, sizeof(jitter));
         jitter %= LLMNR_JITTER_INTERVAL_USEC;
 
-        r = sd_event_add_time(scope->manager->event,
-                              &scope->conflict_event_source,
-                              clock_boottime_or_monotonic(),
-                              now(clock_boottime_or_monotonic()) + jitter,
-                              LLMNR_JITTER_INTERVAL_USEC,
-                              on_conflict_dispatch, scope);
+        r = sd_event_add_time_relative(
+                        scope->manager->event,
+                        &scope->conflict_event_source,
+                        clock_boottime_or_monotonic(),
+                        jitter,
+                        LLMNR_JITTER_INTERVAL_USEC,
+                        on_conflict_dispatch, scope);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add conflict dispatch event: %m");
 
@@ -1318,18 +1319,13 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         /* In section 8.3 of RFC6762: "The Multicast DNS responder MUST send at least two unsolicited
          * responses, one second apart." */
         if (!scope->announced) {
-                usec_t ts;
-
                 scope->announced = true;
 
-                assert_se(sd_event_now(scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
-                ts += MDNS_ANNOUNCE_DELAY;
-
-                r = sd_event_add_time(
+                r = sd_event_add_time_relative(
                                 scope->manager->event,
                                 &scope->announce_event_source,
                                 clock_boottime_or_monotonic(),
-                                ts,
+                                MDNS_ANNOUNCE_DELAY,
                                 MDNS_JITTER_RANGE_USEC,
                                 on_announcement_timeout, scope);
                 if (r < 0)
