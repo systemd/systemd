@@ -1799,7 +1799,7 @@ public_programs += executable(
         include_directories : includes,
         link_with : [libshared],
         dependencies : [threads,
-                        libqrencode,
+                        libdl,
                         libxz,
                         liblz4,
                         libpcre2,
