@@ -372,7 +372,7 @@ layout: default
   broken on Linux).
 
 - When applying C-style unescaping as well as specifier expansion on the same
-  string, always apply the C-style unescaping fist, followed by the specifier
+  string, always apply the C-style unescaping first, followed by the specifier
   expansion. When doing the reverse, make sure to escape `%` in specifier-style
   first (i.e. `%` → `%%`), and then do C-style escaping where necessary.
 
@@ -529,7 +529,7 @@ layout: default
 
 - Don't use `fgets()`, it's too hard to properly handle errors such as overly
   long lines. Use `read_line()` instead, which is our own function that handles
-  this much nicer.
+  this much more nicely.
 
 - Don't invoke `exit()`, ever. It is not replacement for proper error
   handling. Please escalate errors up your call chain, and use normal `return`
