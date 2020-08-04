@@ -234,9 +234,6 @@ Features:
 * systemd-repart: allow sizing partitions as factor of available RAM, so that
   we can reasonably size swap partitions for hibernation.
 
-* systemd-repart: allow running mkfs before making partitions pop up +
-  encryption via LUKS to allow booting into an empty root with only /usr mounted in
-
 * systemd-repart: allow managing the gpt read-only partition flag + auto-mount flag
 
 * systemd-repart: allow boolean option that ensures that if existing partition
@@ -251,10 +248,6 @@ Features:
 
 * systemd-repart: add per-partition option to fail if partition already exist,
   i.e. is not added new. Similar, add option to fail if partition does not exist yet.
-
-* systemd-repart: add --size=auto for generating/resizing images of minimal
-  size, i.e. where the image file is sized exactly as large as necessary taking
-  SizeMin= into account, but not a single byte larger.
 
 * systemd-repart: allow disabling growing of specific partitions, or making
   them (think ESP: we don't ever want to grow it, since we cannot resize vfat)
