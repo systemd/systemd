@@ -2125,20 +2125,38 @@ static int handle_libmount_kernelwatch_event(Manager *m, void *watch) {
         return 0;
 }
 
+#define WANT_MORE_PAUSE_MSECS  20
+
 static int mount_process_libmount_kernelwatch_events(Manager *m) {
         struct libmnt_monitor *mn = m->mount_monitor;
         void *watch;
         ssize_t sz;
+        int want_more;
         int r;
 
         r = 0;
+        want_more = 1;
 
         do {
                 int type = 0;
 
                 r = mnt_monitor_next_change(m->mount_monitor, NULL, &type);
-                if (r == 1)
-                        break;
+                if (r == 1) {
+                        struct timespec to = { 0, WANT_MORE_PAUSE_MSECS * 1000000};
+                        struct timespec rm;
+
+                        /* In case a lot of mount changes are happening sleep just
+                         * a little, just once, and check if another notification
+                         * buffer is available to reduce overhead on the event
+                         * handling sub-system.
+                         */
+                        if (!want_more--)
+                                break;
+                        while (nanosleep(&to, &rm) == -1 && errno == EINTR)
+                                memcpy(&to, &rm, sizeof(struct timespec));
+                        r = 0;
+                        continue;
+                }
                 if (r < 0) {
                         log_error("Failed to get next kenrelwatch event");
                         break;
