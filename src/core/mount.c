@@ -4,6 +4,8 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/epoll.h>
+#include <sys/mount.h>
+#include <libmount.h>
 
 #include "sd-messages.h"
 
@@ -52,6 +54,7 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static void mount_update_unit_state(Manager *m, Mount *mount);
+static int mount_setup_unit(Manager *m, int mnt_id, const char *what, const char *where, const char *options, const char *fstype, bool set_flags);
 static int mount_process_proc_self_mountinfo(Manager *m);
 
 struct mount_unit_hash {
@@ -1484,7 +1487,48 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * race, let's explicitly scan /proc/self/mountinfo before we start processing /usr/bin/(u)mount
          * dying. It's ugly, but it makes our ordering systematic again, and makes sure we always see
          * /proc/self/mountinfo changes before our mount/umount exits. */
-        (void) mount_process_proc_self_mountinfo(u->manager);
+        if (!mnt_has_fsinfo())
+                (void) mount_process_proc_self_mountinfo(u->manager);
+        else {
+                struct libmnt_fs *fs;
+                const char *where;
+                int mnt_id;
+
+                fs = mnt_new_fs();
+                if (!fs) {
+                        log_error_errno(-ENOMEM, "failed to allocate libmount fs struct");
+                        return;
+                }
+
+                /* If the mount at m->where is no longer present the id of the mount
+                 * containing path m->where will be returned. So after getting the
+                 * mount id clear target and get it again to check if there is actually
+                 * a mount at m->where.
+                 */
+                mnt_fs_enable_fsinfo(fs, 1);
+                mnt_fs_set_target(fs, m->where);
+                mnt_id = mnt_fs_get_id(fs);
+                mnt_fs_set_target(fs, NULL);
+                where = mnt_fs_get_target(fs);
+                if (streq(m->where, where)) {
+                        const char *device, *options, *fstype;
+
+                        device = mnt_fs_get_source(fs);
+                        options = mnt_fs_get_options(fs);
+                        fstype = mnt_fs_get_fstype(fs);
+
+                        if (device && fstype && options) {
+                                device_found_node(u->manager, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+                                (void) mount_setup_unit(u->manager, mnt_id, device, where, options, fstype, true);
+                        }
+                }
+                mnt_unref_fs(fs);
+
+                if (m->parameters_proc_self_mountinfo.mnt_id != -1) {
+                        manager_dispatch_load_queue(u->manager);
+                        mount_update_unit_state(u->manager, m);
+                }
+        }
 
         m->control_pid = 0;
 
