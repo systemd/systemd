@@ -32,6 +32,8 @@ int name_to_handle_at_loop(
         _cleanup_free_ struct file_handle *h = NULL;
         size_t n = ORIGINAL_MAX_HANDLE_SZ;
 
+        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
+
         /* We need to invoke name_to_handle_at() in a loop, given that it might return EOVERFLOW when the specified
          * buffer is too small. Note that in contrast to what the docs might suggest, MAX_HANDLE_SZ is only good as a
          * start value, it is not an upper bound on the buffer size required.
@@ -86,12 +88,15 @@ int name_to_handle_at_loop(
         }
 }
 
-static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id) {
+static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mnt_id) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;
         _cleanup_close_ int subfd = -1;
         char *p;
         int r;
+
+        assert(ret_mnt_id);
+        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
 
         if ((flags & AT_EMPTY_PATH) && isempty(filename))
                 xsprintf(path, "/proc/self/fdinfo/%i", fd);
@@ -121,7 +126,7 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id
         p += strspn(p, WHITESPACE);
         p[strcspn(p, WHITESPACE)] = 0;
 
-        return safe_atoi(p, mnt_id);
+        return safe_atoi(p, ret_mnt_id);
 }
 
 int fd_is_mount_point(int fd, const char *filename, int flags) {
