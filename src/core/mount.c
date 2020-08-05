@@ -51,6 +51,7 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+static void mount_update_unit_state(Mount *m, Set *gone, Set *around);
 static int mount_process_proc_self_mountinfo(Manager *m);
 
 static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
@@ -1902,6 +1903,84 @@ static int drain_libmount(Manager *m) {
         return rescan;
 }
 
+static void mount_update_unit_state(Mount *mount, Set *gone, Set *around) {
+
+        if (!mount_is_mounted(mount)) {
+
+                /* A mount point is not around right now. It
+                 * might be gone, or might never have
+                 * existed. */
+
+                if (mount->from_proc_self_mountinfo &&
+                    mount->parameters_proc_self_mountinfo.what) {
+
+                        /* Remember that this device might just have disappeared */
+                        if (set_ensure_allocated(&gone, &path_hash_ops) < 0 ||
+                            set_put_strdup(&gone, mount->parameters_proc_self_mountinfo.what) < 0)
+                                log_oom(); /* we don't care too much about OOM here... */
+                }
+
+                mount->from_proc_self_mountinfo = false;
+                assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
+
+                switch (mount->state) {
+
+                case MOUNT_MOUNTED:
+                        /* This has just been unmounted by somebody else, follow the state change. */
+                        mount_enter_dead(mount, MOUNT_SUCCESS);
+                        break;
+
+                default:
+                        break;
+                }
+
+        } else if (mount->proc_flags & (MOUNT_PROC_JUST_MOUNTED|MOUNT_PROC_JUST_CHANGED)) {
+
+                /* A mount point was added or changed */
+
+                switch (mount->state) {
+
+                case MOUNT_DEAD:
+                case MOUNT_FAILED:
+
+                        /* This has just been mounted by somebody else, follow the state change, but let's
+                         * generate a new invocation ID for this implicitly and automatically. */
+                        (void) unit_acquire_invocation_id(UNIT(mount));
+                        mount_cycle_clear(mount);
+                        mount_enter_mounted(mount, MOUNT_SUCCESS);
+                        break;
+
+                case MOUNT_MOUNTING:
+                        mount_set_state(mount, MOUNT_MOUNTING_DONE);
+                        break;
+
+                default:
+                        /* Nothing really changed, but let's
+                         * issue an notification call
+                         * nonetheless, in case somebody is
+                         * waiting for this. (e.g. file system
+                         * ro/rw remounts.) */
+                        mount_set_state(mount, mount->state);
+                        break;
+                }
+        }
+
+        if (mount_is_mounted(mount) &&
+            mount->from_proc_self_mountinfo &&
+            mount->parameters_proc_self_mountinfo.what) {
+                /* Track devices currently used */
+
+                if (set_ensure_allocated(&around, &path_hash_ops) < 0 ||
+                    set_put_strdup(&around, mount->parameters_proc_self_mountinfo.what) < 0)
+                        log_oom();
+        }
+
+        /* Reset the flags for later calls */
+        mount->proc_flags = 0;
+
+        return;
+}
+
 static int mount_process_proc_self_mountinfo(Manager *m) {
         _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
         const char *what;
@@ -1931,82 +2010,8 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 
         manager_dispatch_load_queue(m);
 
-        LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
-                Mount *mount = MOUNT(u);
-
-                if (!mount_is_mounted(mount)) {
-
-                        /* A mount point is not around right now. It
-                         * might be gone, or might never have
-                         * existed. */
-
-                        if (mount->from_proc_self_mountinfo &&
-                            mount->parameters_proc_self_mountinfo.what) {
-
-                                /* Remember that this device might just have disappeared */
-                                if (set_ensure_allocated(&gone, &path_hash_ops) < 0 ||
-                                    set_put_strdup(&gone, mount->parameters_proc_self_mountinfo.what) < 0)
-                                        log_oom(); /* we don't care too much about OOM here... */
-                        }
-
-                        mount->from_proc_self_mountinfo = false;
-                        assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
-
-                        switch (mount->state) {
-
-                        case MOUNT_MOUNTED:
-                                /* This has just been unmounted by somebody else, follow the state change. */
-                                mount_enter_dead(mount, MOUNT_SUCCESS);
-                                break;
-
-                        default:
-                                break;
-                        }
-
-                } else if (mount->proc_flags & (MOUNT_PROC_JUST_MOUNTED|MOUNT_PROC_JUST_CHANGED)) {
-
-                        /* A mount point was added or changed */
-
-                        switch (mount->state) {
-
-                        case MOUNT_DEAD:
-                        case MOUNT_FAILED:
-
-                                /* This has just been mounted by somebody else, follow the state change, but let's
-                                 * generate a new invocation ID for this implicitly and automatically. */
-                                (void) unit_acquire_invocation_id(u);
-                                mount_cycle_clear(mount);
-                                mount_enter_mounted(mount, MOUNT_SUCCESS);
-                                break;
-
-                        case MOUNT_MOUNTING:
-                                mount_set_state(mount, MOUNT_MOUNTING_DONE);
-                                break;
-
-                        default:
-                                /* Nothing really changed, but let's
-                                 * issue an notification call
-                                 * nonetheless, in case somebody is
-                                 * waiting for this. (e.g. file system
-                                 * ro/rw remounts.) */
-                                mount_set_state(mount, mount->state);
-                                break;
-                        }
-                }
-
-                if (mount_is_mounted(mount) &&
-                    mount->from_proc_self_mountinfo &&
-                    mount->parameters_proc_self_mountinfo.what) {
-                        /* Track devices currently used */
-
-                        if (set_ensure_allocated(&around, &path_hash_ops) < 0 ||
-                            set_put_strdup(&around, mount->parameters_proc_self_mountinfo.what) < 0)
-                                log_oom();
-                }
-
-                /* Reset the flags for later calls */
-                mount->proc_flags = 0;
-        }
+        LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
+                mount_update_unit_state(MOUNT(u), gone, around);
 
         SET_FOREACH(what, gone, i) {
                 if (set_contains(around, what))
