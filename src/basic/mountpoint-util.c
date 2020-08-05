@@ -8,6 +8,8 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "missing_stat.h"
+#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -283,7 +285,28 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
 }
 
 int path_get_mnt_id(const char *path, int *ret) {
+        union {
+                struct statx sx;
+                struct new_statx nsx;
+        } buf
+#if HAS_FEATURE_MEMORY_SANITIZER
+                = {}
+#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
+#endif
+                ;
         int r;
+
+        if (statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_MNT_ID, &buf.sx) < 0) {
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                        return -errno;
+
+                /* Fall back to name_to_handle_at() and then fdinfo if statx is not supported or we lack
+                 * privileges */
+
+        } else if (FLAGS_SET(buf.nsx.stx_mask, STATX_MNT_ID)) {
+                *ret = buf.nsx.stx_mnt_id;
+                return 0;
+        }
 
         r = name_to_handle_at_loop(AT_FDCWD, path, NULL, ret, 0);
         if (IN_SET(r, -EOPNOTSUPP, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL)) /* kernel/fs don't support this, or seccomp blocks access, or untriggered mount, or name_to_handle_at() is flaky */
