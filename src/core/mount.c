@@ -1737,7 +1737,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 
         for (;;) {
                 struct libmnt_fs *fs;
-                const char *device, *path, *options, *fstype;
+                const char *device, *where, *options, *fstype;
 
                 r = mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
@@ -1746,16 +1746,16 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                         return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
                 device = mnt_fs_get_source(fs);
-                path = mnt_fs_get_target(fs);
+                where = mnt_fs_get_target(fs);
                 options = mnt_fs_get_options(fs);
                 fstype = mnt_fs_get_fstype(fs);
 
-                if (!device || !path || !options || !fstype)
+                if (!device || !where || !options || !fstype)
                         continue;
 
                 device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
-                (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
+                (void) mount_setup_unit(m, device, where, options, fstype, set_flags);
         }
 
         return 0;
