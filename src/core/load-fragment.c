@@ -3264,9 +3264,9 @@ int config_parse_syscall_errno(
         assert(lvalue);
         assert(rvalue);
 
-        if (isempty(rvalue)) {
+        if (isempty(rvalue) || streq(rvalue, "kill")) {
                 /* Empty assignment resets to KILL */
-                c->syscall_errno = 0;
+                c->syscall_errno = SECCOMP_ERROR_NUMBER_KILL;
                 return 0;
         }
 

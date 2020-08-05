@@ -1071,7 +1071,9 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                         int id = PTR_TO_INT(syscall_id) - 1;
                         int error = PTR_TO_INT(val);
 
-                        if (action != SCMP_ACT_ALLOW && error >= 0)
+                        if (error == SECCOMP_ERROR_NUMBER_KILL)
+                                a = scmp_act_kill_process();
+                        else if (action != SCMP_ACT_ALLOW && error >= 0)
                                 a = SCMP_ACT_ERRNO(error);
 
                         r = seccomp_rule_add_exact(seccomp, a, id, 0);

@@ -1888,7 +1888,8 @@ RestrictNamespaces=~cgroup net</programlisting>
         <constant>EACCES</constant> or <constant>EUCLEAN</constant> (see <citerefentry
         project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
         full list). This value will be returned when a deny-listed system call is triggered, instead of
-        terminating the processes immediately.  This value takes precedence over the one given in
+        terminating the processes immediately. Special setting <literal>kill</literal> can be used to
+        explicitly specify killing. This value takes precedence over the one given in
         <varname>SystemCallErrorNumber=</varname>, see below.  If running in user mode, or in system mode,
         but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
         <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. This feature
@@ -2098,8 +2099,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         return when the system call filter configured with <varname>SystemCallFilter=</varname> is triggered,
         instead of terminating the process immediately. See <citerefentry
         project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
-        full list of error codes. When this setting is not used, or when the empty string is assigned, the
-        process will be terminated immediately when the filter is triggered.</para></listitem>
+        full list of error codes. When this setting is not used, or when the empty string or the special
+        setting <literal>kill</literal> is assigned, the process will be terminated immediately when the
+        filter is triggered.</para></listitem>
       </varlistentry>
 
       <varlistentry>
