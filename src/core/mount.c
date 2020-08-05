@@ -264,6 +264,12 @@ static bool mount_hash_device_still_in_use(const char *what) {
         return false;
 }
 
+static Mount *mount_hash_get_mount_unit(int mnt_id) {
+        assert(mount_hash.by_mnt_id);
+
+        return hashmap_get(mount_hash.by_mnt_id, INT_TO_PTR(mnt_id));
+}
+
 static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
@@ -2015,7 +2021,10 @@ static void mount_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                r = mnt_monitor_enable_kernel(m->mount_monitor, 1);
+                if (mnt_has_fsinfo())
+                        r = mnt_monitor_enable_kernelwatch(m->mount_monitor, 1);
+                else
+                        r = mnt_monitor_enable_kernel(m->mount_monitor, 1);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
                         goto fail;
@@ -2057,6 +2066,112 @@ static void mount_enumerate(Manager *m) {
 
 fail:
         mount_shutdown(m);
+}
+
+static int handle_libmount_kernelwatch_event(Manager *m, void *watch) {
+        struct libmnt_fs *fs;
+        const char *device, *where, *options, *fstype;
+        Mount *mount;
+        int mnt_id;
+        int op;
+
+        op = mnt_kernelwatch_get_operation(watch);
+        if (op == MNT_NOTIFY_MOUNT_EXPIRY ||
+            op == MNT_NOTIFY_MOUNT_READONLY ||
+            op == MNT_NOTIFY_MOUNT_SETATTR)
+                mnt_id = mnt_kernelwatch_get_mount_id(watch);
+        else
+                mnt_id = mnt_kernelwatch_get_aux_id(watch);
+
+        if (op == MNT_NOTIFY_MOUNT_UNMOUNT ||
+            op == MNT_NOTIFY_MOUNT_EXPIRY ||
+            op == MNT_NOTIFY_MOUNT_MOVE_FROM) {
+                /* Mount unit may already be gone */
+                mount = mount_hash_get_mount_unit(mnt_id);
+                if (mount)
+                        mount_update_unit_state(m, mount);
+                return 0;
+        }
+
+        fs = mnt_new_fs();
+        if (!fs)
+                return log_error_errno(-ENOMEM, "op %d: failed to allocate libmount fs struct", op);
+
+        mnt_fs_set_id(fs, mnt_id);
+        mnt_fs_enable_fsinfo(fs, 1);
+
+        device = mnt_fs_get_source(fs);
+        where = mnt_fs_get_target(fs);
+        options = mnt_fs_get_options(fs);
+        fstype = mnt_fs_get_fstype(fs);
+
+        if (!device || !where || !fstype) {
+                mnt_unref_fs(fs);
+                /* the mount with this id has gone away */
+                mount = mount_hash_get_mount_unit(mnt_id);
+                if (mount)
+                        mount_update_unit_state(m, mount);
+                return 0;
+        }
+
+        device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+        (void) mount_setup_unit(m, mnt_id, device, where, options, fstype, true);
+
+        mnt_unref_fs(fs);
+
+        mount = mount_hash_get_mount_unit(mnt_id);
+        if (mount)
+                mount_update_unit_state(m, mount);
+        return 0;
+}
+
+static int mount_process_libmount_kernelwatch_events(Manager *m) {
+        struct libmnt_monitor *mn = m->mount_monitor;
+        void *watch;
+        ssize_t sz;
+        int r;
+
+        r = 0;
+
+        do {
+                int type = 0;
+
+                r = mnt_monitor_next_change(m->mount_monitor, NULL, &type);
+                if (r == 1)
+                        break;
+                if (r < 0) {
+                        log_error("Failed to get next kenrelwatch event");
+                        break;
+                }
+                if (type != MNT_MONITOR_TYPE_KERNELWATCH)
+                        continue;
+                watch = mnt_monitor_event_data(mn, MNT_MONITOR_TYPE_KERNELWATCH, &sz);
+                do {
+                        if (!mnt_kernelwatch_is_valid(watch, sz) ||
+                            !mnt_kernelwatch_is_mount(watch)) {
+                                watch = NULL;
+                                r = -EINVAL;
+                                log_error("Invalid kernelwatch event data");
+                                break;
+                        }
+
+                        r = handle_libmount_kernelwatch_event(m, watch);
+                        if (r < 0) {
+                                watch = NULL;
+                                log_error_errno(r, "Failed to handle kernelwatchevent event: %m");
+                                break;
+                        }
+
+                        watch = mnt_kernelwatch_next_data(watch, &sz);
+                } while (watch);
+        } while (r == 0);
+
+        manager_dispatch_load_queue(m);
+
+        if (sz != 0)
+                log_warning("Events reamining at exit");
+
+        return r == 1 ? 0 : r;
 }
 
 static int drain_libmount(Manager *m) {
@@ -2183,6 +2298,9 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
         assert(m);
         assert(revents & EPOLLIN);
+
+        if (mnt_has_fsinfo())
+                return mount_process_libmount_kernelwatch_events(m);
 
         return mount_process_proc_self_mountinfo(m);
 }
