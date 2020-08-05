@@ -54,6 +54,16 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 static void mount_update_unit_state(Mount *m, Set *gone, Set *around);
 static int mount_process_proc_self_mountinfo(Manager *m);
 
+struct mount_unit_hash {
+        Hashmap *by_mnt_id;
+        Hashmap *by_device;
+};
+
+static struct mount_unit_hash mount_hash = {
+        .by_mnt_id = NULL,
+        .by_device = NULL,
+};
+
 static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
         return IN_SET(state,
                       MOUNT_MOUNTING,
@@ -142,6 +152,104 @@ static bool mount_needs_quota(const MountParameters *p) {
                                  "usrquota\0" "grpquota\0" "quota\0" "usrjquota\0" "grpjquota\0");
 }
 
+static int alloc_mount_hash(void) {
+        Hashmap *by_mnt_id;
+        Hashmap *by_device;
+
+        by_mnt_id = hashmap_new(NULL);
+        if (!by_mnt_id)
+                return -ENOMEM;
+        by_device = hashmap_new(NULL);
+        if (!by_device) {
+                hashmap_free(by_mnt_id);
+                return -ENOMEM;
+        }
+        mount_hash.by_mnt_id = by_mnt_id;
+        mount_hash.by_device = by_device;
+
+        return 0;
+}
+
+static int mount_hash_put(Mount *m, int mnt_id, const char *what) {
+        Mount *mnt;
+        int dev_ref;
+        int r;
+
+        assert(m);
+
+        if (!mount_hash.by_mnt_id) {
+                if (alloc_mount_hash() != 0)
+                        return -ENOMEM;
+        }
+
+        if (mnt_id == -1)
+                return 0;
+
+        mnt = hashmap_get(mount_hash.by_mnt_id, INT_TO_PTR(mnt_id));
+        if (!mnt) {
+                r = hashmap_put(mount_hash.by_mnt_id, INT_TO_PTR(mnt_id), m);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        dev_ref = PTR_TO_INT(hashmap_get(mount_hash.by_device, what));
+        if (dev_ref == 0)
+                dev_ref = 1;
+        else
+                dev_ref++;
+        r = hashmap_replace(mount_hash.by_device, what, INT_TO_PTR(dev_ref));
+        if (r < 0)
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int mount_hash_remove(Mount *m) {
+        MountParameters *p;
+        Mount *mnt;
+        int dev_ref;
+        int r;
+
+        assert(m);
+
+        if (!mount_hash.by_mnt_id)
+                return 0;
+
+        p = &m->parameters_proc_self_mountinfo;
+
+        mnt = hashmap_get(mount_hash.by_mnt_id, INT_TO_PTR(p->mnt_id));
+        if (mnt)
+                (void) hashmap_remove(mount_hash.by_mnt_id, INT_TO_PTR(p->mnt_id));
+
+        r = 0;
+        dev_ref = PTR_TO_INT(hashmap_get(mount_hash.by_device, p->what));
+        if (dev_ref <= 1)
+                (void) hashmap_remove(mount_hash.by_device, p->what);
+        else {
+                dev_ref--;
+                r = hashmap_replace(mount_hash.by_device, p->what, INT_TO_PTR(dev_ref));
+        }
+
+        return r;
+}
+
+static int mount_hash_replace(Mount *m, int mnt_id, const char *what) {
+        int r;
+
+        assert(m);
+
+        if (!mount_hash.by_mnt_id) {
+                if (alloc_mount_hash() != 0)
+                        return -ENOMEM;
+        }
+
+        r = mount_hash_remove(m);
+        if (r < 0)
+                return -ENOMEM;
+
+        return mount_hash_put(m, mnt_id, what);
+}
+
 static void mount_init(Unit *u) {
         Mount *m = MOUNT(u);
 
@@ -222,6 +330,8 @@ static void mount_done(Unit *u) {
 
         m->where = mfree(m->where);
 
+        if (mount_hash_remove(m) < 0)
+                log_error("Failed to remove mount hash entry");
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
 
@@ -265,6 +375,9 @@ static int update_parameters_proc_self_mountinfo(
         int r, q, w;
 
         p = &m->parameters_proc_self_mountinfo;
+
+        if (mount_hash_replace(m, mnt_id, what) < 0)
+                log_error("Failed to update mount hash entry");
 
         p->mnt_id = mnt_id;
 
