@@ -49,6 +49,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "resize-fs.h"
 #include "sort-util.h"
 #include "specifier.h"
 #include "stat-util.h"
@@ -64,6 +65,12 @@
 
 /* Hard lower limit for new partition sizes */
 #define HARD_MIN_SIZE 4096
+
+/* libfdisk takes off sightly more than 1M of the disk size when creating a GPT disk label */
+#define GPT_METADATA_SIZE (1044*1024)
+
+/* LUKS2 takes off 16M of the partition size with its metadata by default */
+#define LUKS2_METADATA_SIZE (16*1024*1024)
 
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
  * are designed, and if everything is aligned to that performance is best. And for older hard disks with 512B
@@ -89,6 +96,7 @@ static sd_id128_t arg_seed = SD_ID128_NULL;
 static bool arg_randomize = false;
 static int arg_pretty = -1;
 static uint64_t arg_size = UINT64_MAX;
+static bool arg_size_auto = false;
 static bool arg_json = false;
 static JsonFormatFlags arg_json_format_flags = 0;
 static void *arg_key = NULL;
@@ -371,8 +379,25 @@ static uint64_t partition_min_size(const Partition *p) {
 
         sz = p->current_size != UINT64_MAX ? p->current_size : HARD_MIN_SIZE;
 
-        if (p->copy_blocks_size != UINT64_MAX)
-                sz = MAX(p->copy_blocks_size, sz);
+        if (!PARTITION_EXISTS(p)) {
+                uint64_t d = 0;
+
+                if (p->encrypt)
+                        d += round_up_size(LUKS2_METADATA_SIZE, 4096);
+
+                if (p->copy_blocks_size != UINT64_MAX)
+                        d += round_up_size(p->copy_blocks_size, 4096);
+                else if (p->format || p->encrypt) {
+                        uint64_t f;
+
+                        /* If we shall synthesize a file system, take minimal fs size into account (assumed to be 4K if not known) */
+                        f = p->format ? minimal_size_by_fs_name(p->format) : UINT64_MAX;
+                        d += f == UINT64_MAX ? 4096 : f;
+                }
+
+                if (d > sz)
+                        sz = d;
+        }
 
         return MAX(p->size_min != UINT64_MAX ? p->size_min : DEFAULT_MIN_SIZE, sz);
 }
@@ -1367,6 +1392,11 @@ static int context_load_partition_table(
         assert(context);
         assert(node);
         assert(backing_fd);
+        assert(!context->fdisk_context);
+        assert(!context->free_areas);
+        assert(context->start == UINT64_MAX);
+        assert(context->end == UINT64_MAX);
+        assert(context->total == UINT64_MAX);
 
         c = fdisk_new_context();
         if (!c)
@@ -1381,6 +1411,24 @@ static int context_load_partition_table(
                 xsprintf(procfs_path, "/proc/self/fd/%i", *backing_fd);
 
                 r = fdisk_assign_device(c, procfs_path, arg_dry_run);
+        }
+        if (r == -EINVAL && arg_size_auto) {
+                struct stat st;
+
+                /* libfdisk returns EINVAL if opening a file of size zero. Let's check for that, and accept
+                 * it if automatic sizing is requested. */
+
+                if (*backing_fd < 0)
+                        r = stat(node, &st);
+                else
+                        r = fstat(*backing_fd, &st);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to stat block device '%s': %m", node);
+
+                if (S_ISREG(st.st_mode) && st.st_size == 0)
+                        return /* from_scratch = */ true;
+
+                r = -EINVAL;
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", node);
@@ -3533,6 +3581,12 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SIZE: {
                         uint64_t parsed, rounded;
 
+                        if (streq(optarg, "auto")) {
+                                arg_size = UINT64_MAX;
+                                arg_size_auto = true;
+                                break;
+                        }
+
                         r = parse_size(optarg, 1024, &parsed);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --size= parameter: %s", optarg);
@@ -3548,6 +3602,7 @@ static int parse_argv(int argc, char *argv[]) {
                                             parsed, rounded);
 
                         arg_size = rounded;
+                        arg_size_auto = false;
                         break;
                 }
 
@@ -3607,7 +3662,7 @@ static int parse_argv(int argc, char *argv[]) {
         else if (dry_run >= 0)
                 arg_dry_run = dry_run;
 
-        if (arg_empty == EMPTY_CREATE && arg_size == UINT64_MAX)
+        if (arg_empty == EMPTY_CREATE && (arg_size == UINT64_MAX && !arg_size_auto))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "If --empty=create is specified, --size= must be specified, too.");
 
@@ -3883,6 +3938,35 @@ static int resize_backing_fd(const char *node, int *fd) {
         return 1;
 }
 
+static int determine_auto_size(Context *c) {
+        uint64_t sum = round_up_size(GPT_METADATA_SIZE, 4096);
+        char buf[FORMAT_BYTES_MAX];
+        Partition *p;
+
+        assert_se(c);
+        assert_se(arg_size == UINT64_MAX);
+        assert_se(arg_size_auto);
+
+        LIST_FOREACH(partitions, p, c->partitions) {
+                uint64_t m;
+
+                if (p->dropped)
+                        continue;
+
+                m = partition_min_size_with_padding(p);
+                if (m > UINT64_MAX - sum)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Image would grow too large, refusing.");
+
+                sum += m;
+        }
+
+        assert_se(format_bytes(buf, sizeof(buf), sum));
+        log_info("Automatically determined minimal disk image size as %s.", buf);
+
+        arg_size = sum;
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_free_ char *node = NULL;
@@ -3983,6 +4067,24 @@ static int run(int argc, char *argv[]) {
         r = context_open_copy_block_paths(context);
         if (r < 0)
                 return r;
+
+        if (arg_size_auto) {
+                r = determine_auto_size(context);
+                if (r < 0)
+                        return r;
+
+                /* Flush out everything again, and let's grow the file first, then start fresh */
+                context_unload_partition_table(context);
+
+                assert_se(arg_size != UINT64_MAX);
+                r = resize_backing_fd(node, &backing_fd);
+                if (r < 0)
+                        return r;
+
+                r = context_load_partition_table(context, node, &backing_fd);
+                if (r < 0)
+                        return r;
+        }
 
         /* First try to fit new partitions in, dropping by priority until it fits */
         for (;;) {
