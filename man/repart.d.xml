@@ -55,11 +55,11 @@
     partition slot greater than the highest slot number currently in use. Any existing partitions that have
     no matching partition file are left as they are.</para>
 
-    <para>Note that these partition definition files do not describe the contents of the partitions, such as
-    the file system used. Separate mechanisms, such as
-    <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
-    <command>systemd-makefs</command> maybe be used to initialize or grow the file systems inside of these
-    partitions.</para>
+    <para>Note that these definitions may only be used to created and initialize new partitions or grow
+    existing ones. In the latter case it will not grow the contained files systems however; separate
+    mechanisms, such as
+    <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> may be
+    used to grow the file systems inside of these partitions.</para>
   </refsect1>
 
   <refsect1>
@@ -327,7 +327,72 @@
         data is never overwritten. Note that the data is copied in before the partition table is updated,
         i.e. before the partition actually is persistently created. This provides robustness: it is
         guaranteed that the partition either doesn't exist or exists fully populated; it is not possible that
-        the partition exists but is not or only partially populated.</para></listitem>
+        the partition exists but is not or only partially populated.</para>
+
+        <para>This option cannot be combined with <varname>Format=</varname> or
+        <varname>CopyFiles=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Format=</varname></term>
+
+        <listitem><para>Takes a file system name, such as <literal>ext4</literal>, <literal>btrfs</literal>,
+        <literal>xfs</literal> or <literal>vfat</literal>, or the special value <literal>swap</literal>. If
+        specified and the partition is newly created it is formatted with the specified file system (or as
+        swap device). The file system UUID and label are automatically derived from the partition UUID and
+        label. If this option is used, the size allocation algorithm is slightly altered: the partition is
+        created as least as big as required for the minimal file system of the specified type (or 4KiB if the
+        minimal size is not known).</para>
+
+        <para>This option has no effect if the partition already exists.</para>
+
+        <para>Similar to the behaviour of <varname>CopyBlocks=</varname> the file system is formatted before
+        the partition is created, ensuring that the partition only ever exists with a fully initialized
+        file system.</para>
+
+        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CopyFiles=</varname></term>
+
+        <listitem><para>Takes a pair of colon separated absolute file system paths. The first path refers to
+        a source file or directory on the host, the second path refers to a target in the file system of the
+        newly created partition and formatted file system. This setting may be used to copy files or
+        directories from the host into the file system that is created due to the <varname>Format=</varname>
+        option. If <varname>CopyFiles=</varname> is used without <varname>Format=</varname> specified
+        explicitly, <literal>Format=</literal> with a suitable default is implied (currently
+        <literal>ext4</literal>, but this may change in the future). This option may be used multiple times
+        to copy multiple files or directories from host into the newly formatted file system. The colon and
+        second path may be omitted in which case the source path is also used as the target path (relative to
+        the root of the newly created file system). If the source path refers to a directory it is copied
+        recursively.</para>
+
+        <para>This option has no effect if the partition already exists: it cannot be used to copy additional
+        files into an existing partition, it may only be used to populate a file system created anew.</para>
+
+        <para>The copy operation is executed before the file system is registered in the partition table,
+        thus ensuring that a file system populated this way only ever exists fully initialized.</para>
+
+        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Encrypt=</varname></term>
+
+        <listitem><para>Takes a boolean parameter, defaulting to false. If true the partition will be
+        formatted with a LUKS2 superblock, before the blocks configured with <varname>CopyBlocks=</varname>
+        are copied in or the file system configured with <varname>Format=</varname> is created.</para>
+
+        <para>The LUKS2 UUID is automatically derived from the partition UUID in a stable fashion. A single
+        key is added to the LUKS2 superblock, configurable with the <option>--key-file=</option> switch to
+        <command>systemd-repart</command>.</para>
+
+        <para>When used this slightly alters the size allocation logic as the implicit, minimal size limits
+        of <varname>Format=</varname> and <varname>CopyBlocks=</varname> are increased by the space necessary
+        for the LUKS2 superblock (see above).</para>
+
+        <para>This option has no effect if the partition already exists.</para></listitem>
       </varlistentry>
 
       <varlistentry>
