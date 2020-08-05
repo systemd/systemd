@@ -51,7 +51,7 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
-static void mount_update_unit_state(Mount *m, Set *gone, Set *around);
+static void mount_update_unit_state(Manager *m, Mount *mount);
 static int mount_process_proc_self_mountinfo(Manager *m);
 
 struct mount_unit_hash {
@@ -248,6 +248,17 @@ static int mount_hash_replace(Mount *m, int mnt_id, const char *what) {
                 return -ENOMEM;
 
         return mount_hash_put(m, mnt_id, what);
+}
+
+static bool mount_hash_device_still_in_use(const char *what) {
+        int dev_ref;
+
+        assert(mount_hash.by_device);
+
+        dev_ref = PTR_TO_INT(hashmap_get(mount_hash.by_device, what));
+        if (dev_ref > 1)
+                return true;
+        return false;
 }
 
 static void mount_init(Unit *u) {
@@ -2027,7 +2038,8 @@ static int drain_libmount(Manager *m) {
         return rescan;
 }
 
-static void mount_update_unit_state(Mount *mount, Set *gone, Set *around) {
+static void mount_update_unit_state(Manager *m, Mount *mount) {
+        const MountParameters *p;
 
         if (!mount_is_mounted(mount)) {
 
@@ -2035,13 +2047,13 @@ static void mount_update_unit_state(Mount *mount, Set *gone, Set *around) {
                  * might be gone, or might never have
                  * existed. */
 
-                if (mount->from_proc_self_mountinfo &&
-                    mount->parameters_proc_self_mountinfo.what) {
-
-                        /* Remember that this device might just have disappeared */
-                        if (set_ensure_allocated(&gone, &path_hash_ops) < 0 ||
-                            set_put_strdup(&gone, mount->parameters_proc_self_mountinfo.what) < 0)
-                                log_oom(); /* we don't care too much about OOM here... */
+                p = &mount->parameters_proc_self_mountinfo;
+                if (mount->from_proc_self_mountinfo && p && p->what) {
+                        if (!mount_hash_device_still_in_use(p->what)) {
+                                /* Let the device units know that the device is
+                                 * no longer in use */
+                                device_found_node(m, p->what, 0, DEVICE_FOUND_MOUNT);
+                        }
                 }
 
                 mount->from_proc_self_mountinfo = false;
@@ -2089,16 +2101,6 @@ static void mount_update_unit_state(Mount *mount, Set *gone, Set *around) {
                 }
         }
 
-        if (mount_is_mounted(mount) &&
-            mount->from_proc_self_mountinfo &&
-            mount->parameters_proc_self_mountinfo.what) {
-                /* Track devices currently used */
-
-                if (set_ensure_allocated(&around, &path_hash_ops) < 0 ||
-                    set_put_strdup(&around, mount->parameters_proc_self_mountinfo.what) < 0)
-                        log_oom();
-        }
-
         /* Reset the flags for later calls */
         mount->proc_flags = 0;
 
@@ -2106,18 +2108,10 @@ static void mount_update_unit_state(Mount *mount, Set *gone, Set *around) {
 }
 
 static int mount_process_proc_self_mountinfo(Manager *m) {
-        _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
-        const char *what;
-        Iterator i;
         Unit *u;
         int r;
 
         assert(m);
-
-        around = set_new(NULL);
-        gone = set_new(NULL);
-        if (!around || !gone)
-                return log_error_errno(-ENOMEM, "failed to allocate set");
 
         r = drain_libmount(m);
         if (r <= 0)
@@ -2135,15 +2129,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         manager_dispatch_load_queue(m);
 
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT])
-                mount_update_unit_state(MOUNT(u), gone, around);
-
-        SET_FOREACH(what, gone, i) {
-                if (set_contains(around, what))
-                        continue;
-
-                /* Let the device units know that the device is no longer mounted */
-                device_found_node(m, what, 0, DEVICE_FOUND_MOUNT);
-        }
+                mount_update_unit_state(m, MOUNT(u));
 
         return 0;
 }
