@@ -2068,7 +2068,7 @@ fail:
         mount_shutdown(m);
 }
 
-static int handle_libmount_kernelwatch_event(Manager *m, void *watch) {
+static int handle_libmount_kernelwatch_event(Manager *m, void *watch, Set *changed) {
         struct libmnt_fs *fs;
         const char *device, *where, *options, *fstype;
         Mount *mount;
@@ -2088,8 +2088,10 @@ static int handle_libmount_kernelwatch_event(Manager *m, void *watch) {
             op == MNT_NOTIFY_MOUNT_MOVE_FROM) {
                 /* Mount unit may already be gone */
                 mount = mount_hash_get_mount_unit(mnt_id);
-                if (mount)
-                        mount_update_unit_state(m, mount);
+                if (mount) {
+                        if (set_put(changed, mount) < 0)
+                                return -ENOMEM;
+                }
                 return 0;
         }
 
@@ -2109,8 +2111,10 @@ static int handle_libmount_kernelwatch_event(Manager *m, void *watch) {
                 mnt_unref_fs(fs);
                 /* the mount with this id has gone away */
                 mount = mount_hash_get_mount_unit(mnt_id);
-                if (mount)
-                        mount_update_unit_state(m, mount);
+                if (mount) {
+                        if (set_put(changed, mount) < 0)
+                                return -ENOMEM;
+                }
                 return 0;
         }
 
@@ -2120,14 +2124,16 @@ static int handle_libmount_kernelwatch_event(Manager *m, void *watch) {
         mnt_unref_fs(fs);
 
         mount = mount_hash_get_mount_unit(mnt_id);
-        if (mount)
-                mount_update_unit_state(m, mount);
+        if (mount) {
+                if (set_put(changed, mount) < 0)
+                        return -ENOMEM;
+        }
         return 0;
 }
 
 #define WANT_MORE_PAUSE_MSECS  20
 
-static int mount_process_libmount_kernelwatch_events(Manager *m) {
+static int mount_process_kernelwatch_events(Manager *m, Set *changed) {
         struct libmnt_monitor *mn = m->mount_monitor;
         void *watch;
         ssize_t sz;
@@ -2173,7 +2179,7 @@ static int mount_process_libmount_kernelwatch_events(Manager *m) {
                                 break;
                         }
 
-                        r = handle_libmount_kernelwatch_event(m, watch);
+                        r = handle_libmount_kernelwatch_event(m, watch, changed);
                         if (r < 0) {
                                 watch = NULL;
                                 log_error_errno(r, "Failed to handle kernelwatchevent event: %m");
@@ -2183,8 +2189,6 @@ static int mount_process_libmount_kernelwatch_events(Manager *m) {
                         watch = mnt_kernelwatch_next_data(watch, &sz);
                 } while (watch);
         } while (r == 0);
-
-        manager_dispatch_load_queue(m);
 
         if (sz != 0)
                 log_warning("Events reamining at exit");
@@ -2284,6 +2288,28 @@ static void mount_update_unit_state(Manager *m, Mount *mount) {
         return;
 }
 
+static int mount_process_libmount_kernelwatch_events(Manager *m) {
+        _cleanup_set_free_ Set *changed;
+        Mount *mount;
+        Iterator i;
+        int r;
+
+        changed = set_new(NULL);
+        if (!changed)
+                return -ENOMEM;
+
+        r = mount_process_kernelwatch_events(m, changed);
+        if (r < 0)
+                return r;
+
+        manager_dispatch_load_queue(m);
+
+        SET_FOREACH(mount, changed, i)
+                mount_update_unit_state(m, mount);
+
+        return 0;
+}
+
 static int mount_process_proc_self_mountinfo(Manager *m) {
         Unit *u;
         int r;
@@ -2317,8 +2343,14 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
         assert(m);
         assert(revents & EPOLLIN);
 
-        if (mnt_has_fsinfo())
-                return mount_process_libmount_kernelwatch_events(m);
+        if (mnt_has_fsinfo()) {
+                int r;
+
+                r = mount_process_libmount_kernelwatch_events(m);
+                if (r == 0)
+                        return 0;
+                /* Fallback to load all and process */
+        }
 
         return mount_process_proc_self_mountinfo(m);
 }
