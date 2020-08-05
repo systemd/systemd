@@ -10,12 +10,11 @@ systemd provides support for automatically reverting back to the previous
 version of the OS or kernel in case the system consistently fails to boot. This
 support is built into various of its components. When used together these
 components provide a complete solution on UEFI systems, built as add-on to the
-[Boot Loader
-Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION). However, the
-different components may also be used independently, and in combination with
-other software, to implement similar schemes, for example with other boot
-loaders or for non-UEFI systems. Here's a brief overview of the complete set of
-components:
+[Boot Loader Specification](https://systemd.io/BOOT_LOADER_SPECIFICATION).
+However, the different components may also be used independently, and in
+combination with other software, to implement similar schemes, for example with
+other boot loaders or for non-UEFI systems. Here's a brief overview of the
+complete set of components:
 
 * The
   [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)
@@ -45,11 +44,10 @@ components:
 
 * The `boot-complete.target` target unit (see
   [`systemd.special(7)`](https://www.freedesktop.org/software/systemd/man/systemd.special.html))
-  serves as a generic extension point both for units that shall be considered
-  necessary to consider a boot successful on one side (example:
-  `systemd-boot-check-no-failures.service` as described above), and units that
-  want to act only if the boot is successful on the other (example:
-  `systemd-bless-boot.service` as described above).
+  serves as a generic extension point both for units that are necessary to
+  consider a boot successful (example: `systemd-boot-check-no-failures.service`
+  as described above), and units that want to act only if the boot is
+  successful (example: `systemd-bless-boot.service` as described above).
 
 * The
   [`kernel-install(8)`](https://www.freedesktop.org/software/systemd/man/kernel-install.html)
