@@ -209,6 +209,7 @@ static void mount_unwatch_control_pid(Mount *m) {
 static void mount_parameters_done(MountParameters *p) {
         assert(p);
 
+        p->mnt_id = -1;
         p->what = mfree(p->what);
         p->options = mfree(p->options);
         p->fstype = mfree(p->fstype);
@@ -255,6 +256,7 @@ static MountParameters* get_mount_parameters(Mount *m) {
 
 static int update_parameters_proc_self_mountinfo(
                 Mount *m,
+                int mnt_id,
                 const char *what,
                 const char *options,
                 const char *fstype) {
@@ -263,6 +265,8 @@ static int update_parameters_proc_self_mountinfo(
         int r, q, w;
 
         p = &m->parameters_proc_self_mountinfo;
+
+        p->mnt_id = mnt_id;
 
         r = free_and_strdup(&p->what, what);
         if (r < 0)
@@ -771,6 +775,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sResult: %s\n"
                 "%sClean Result: %s\n"
                 "%sWhere: %s\n"
+                "%sMount id: %d\n"
                 "%sWhat: %s\n"
                 "%sFile System Type: %s\n"
                 "%sOptions: %s\n"
@@ -787,6 +792,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, mount_result_to_string(m->result),
                 prefix, mount_result_to_string(m->clean_result),
                 prefix, m->where,
+                prefix, p->mnt_id,
                 prefix, p ? strna(p->what) : "n/a",
                 prefix, p ? strna(p->fstype) : "n/a",
                 prefix, p ? strna(p->options) : "n/a",
@@ -1534,6 +1540,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 static int mount_setup_new_unit(
                 Manager *m,
                 const char *name,
+                int mnt_id,
                 const char *what,
                 const char *where,
                 const char *options,
@@ -1561,7 +1568,7 @@ static int mount_setup_new_unit(
         if (r < 0)
                 return r;
 
-        r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
+        r = update_parameters_proc_self_mountinfo(MOUNT(u), mnt_id, what, options, fstype);
         if (r < 0)
                 return r;
 
@@ -1581,6 +1588,7 @@ static int mount_setup_new_unit(
 
 static int mount_setup_existing_unit(
                 Unit *u,
+                int mnt_id,
                 const char *what,
                 const char *where,
                 const char *options,
@@ -1605,7 +1613,7 @@ static int mount_setup_existing_unit(
         MountProcFlags flags =
                 MOUNT(u)->proc_flags | MOUNT_PROC_IS_MOUNTED;
 
-        r = update_parameters_proc_self_mountinfo(MOUNT(u), what, options, fstype);
+        r = update_parameters_proc_self_mountinfo(MOUNT(u), mnt_id, what, options, fstype);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -1649,6 +1657,7 @@ static int mount_setup_existing_unit(
 
 static int mount_setup_unit(
                 Manager *m,
+                int mnt_id,
                 const char *what,
                 const char *where,
                 const char *options,
@@ -1705,11 +1714,11 @@ static int mount_setup_unit(
 
         u = manager_get_unit(m, e);
         if (u)
-                r = mount_setup_existing_unit(u, what, where, options, fstype, &flags);
+                r = mount_setup_existing_unit(u, mnt_id, what, where, options, fstype, &flags);
         else
                 /* First time we see this mount point meaning that it's not been initiated by a mount unit but rather
                  * by the sysadmin having called mount(8) directly. */
-                r = mount_setup_new_unit(m, e, what, where, options, fstype, &flags, &u);
+                r = mount_setup_new_unit(m, e, mnt_id, what, where, options, fstype, &flags, &u);
         if (r < 0)
                 return log_warning_errno(r, "Failed to set up mount unit for '%s': %m", where);
 
@@ -1739,6 +1748,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         for (;;) {
                 struct libmnt_fs *fs;
                 const char *device, *where, *options, *fstype;
+                int mnt_id;
 
                 r = mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
@@ -1746,6 +1756,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
+                mnt_id = mnt_fs_get_id(fs);
                 device = mnt_fs_get_source(fs);
                 where = mnt_fs_get_target(fs);
                 options = mnt_fs_get_options(fs);
@@ -1756,7 +1767,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 
                 device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
-                (void) mount_setup_unit(m, device, where, options, fstype, set_flags);
+                (void) mount_setup_unit(m, mnt_id, device, where, options, fstype, set_flags);
         }
 
         return 0;
@@ -1921,7 +1932,7 @@ static void mount_update_unit_state(Mount *mount, Set *gone, Set *around) {
                 }
 
                 mount->from_proc_self_mountinfo = false;
-                assert_se(update_parameters_proc_self_mountinfo(mount, NULL, NULL, NULL) >= 0);
+                assert_se(update_parameters_proc_self_mountinfo(mount, -1, NULL, NULL, NULL) >= 0);
 
                 switch (mount->state) {
 

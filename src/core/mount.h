@@ -29,6 +29,7 @@ typedef enum MountResult {
 } MountResult;
 
 typedef struct MountParameters {
+        int mnt_id;
         char *what;
         char *options;
         char *fstype;
