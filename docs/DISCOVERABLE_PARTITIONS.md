@@ -64,7 +64,7 @@ Other GPT type IDs might be used on Linux, for example to mark software RAID or
 LVM partitions. The definitions of those GPT types is outside of the scope of
 this specification.
 
-[systemd-id128(1)](http://www.freedesktop.org/software/systemd/man/systemd-i128.html)
+[systemd-id128(1)](http://www.freedesktop.org/software/systemd/man/systemd-id128.html)
 may be used to list those UUIDs.
 
 ## Partition Names
