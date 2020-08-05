@@ -1911,6 +1911,11 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 
         assert(m);
 
+        around = set_new(NULL);
+        gone = set_new(NULL);
+        if (!around || !gone)
+                return log_error_errno(-ENOMEM, "failed to allocate set");
+
         r = drain_libmount(m);
         if (r <= 0)
                 return r;
