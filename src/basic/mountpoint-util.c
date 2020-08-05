@@ -136,33 +136,46 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         int mount_id = -1, mount_id_parent = -1;
         bool nosupp = false, check_st_dev = true;
         struct stat a, b;
+        struct statx sx
+#if HAS_FEATURE_MEMORY_SANITIZER
+                = {}
+#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
+#endif
+                ;
         int r;
 
         assert(fd >= 0);
         assert(filename);
+        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
 
-        /* First we will try the name_to_handle_at() syscall, which
-         * tells us the mount id and an opaque file "handle". It is
-         * not supported everywhere though (kernel compile-time
-         * option, not all file systems are hooked up). If it works
-         * the mount id is usually good enough to tell us whether
-         * something is a mount point.
+        /* First we will try statx()' STATX_ATTR_MOUNT_ROOT attribute, which is our ideal API, available
+         * since kernel 5.8.
          *
-         * If that didn't work we will try to read the mount id from
-         * /proc/self/fdinfo/<fd>. This is almost as good as
-         * name_to_handle_at(), however, does not return the
-         * opaque file handle. The opaque file handle is pretty useful
-         * to detect the root directory, which we should always
-         * consider a mount point. Hence we use this only as
-         * fallback. Exporting the mnt_id in fdinfo is a pretty recent
+         * If that fails, our second try is the name_to_handle_at() syscall, which tells us the mount id and
+         * an opaque file "handle". It is not supported everywhere though (kernel compile-time option, not
+         * all file systems are hooked up). If it works the mount id is usually good enough to tell us
+         * whether something is a mount point.
+         *
+         * If that didn't work we will try to read the mount id from /proc/self/fdinfo/<fd>. This is almost
+         * as good as name_to_handle_at(), however, does not return the opaque file handle. The opaque file
+         * handle is pretty useful to detect the root directory, which we should always consider a mount
+         * point. Hence we use this only as fallback. Exporting the mnt_id in fdinfo is a pretty recent
          * kernel addition.
          *
-         * As last fallback we do traditional fstat() based st_dev
-         * comparisons. This is how things were traditionally done,
-         * but unionfs breaks this since it exposes file
-         * systems with a variety of st_dev reported. Also, btrfs
-         * subvolumes have different st_dev, even though they aren't
-         * real mounts of their own. */
+         * As last fallback we do traditional fstat() based st_dev comparisons. This is how things were
+         * traditionally done, but unionfs breaks this since it exposes file systems with a variety of st_dev
+         * reported. Also, btrfs subvolumes have different st_dev, even though they aren't real mounts of
+         * their own. */
+
+        if (statx(fd, filename, (FLAGS_SET(flags, AT_SYMLINK_FOLLOW) ? 0 : AT_SYMLINK_NOFOLLOW) |
+                                (flags & AT_EMPTY_PATH) |
+                                AT_NO_AUTOMOUNT, 0, &sx) < 0) {
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                        return -errno;
+
+                /* If statx() is not available or forbidden, fallback to name_to_handle_at() below */
+        } else if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) /* yay! */
+                return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
 
         r = name_to_handle_at_loop(fd, filename, &h, &mount_id, flags);
         if (IN_SET(r, -ENOSYS, -EACCES, -EPERM, -EOVERFLOW, -EINVAL))

@@ -63,3 +63,8 @@ struct new_statx STATX_DEFINITION;
 #ifndef STATX_MNT_ID
 #define STATX_MNT_ID 0x00001000U
 #endif
+
+/* 80340fe3605c0e78cfe496c3b3878be828cfdbfe (5.8) */
+#ifndef STATX_ATTR_MOUNT_ROOT
+#define STATX_ATTR_MOUNT_ROOT 0x00002000 /* Root of a mount */
+#endif
