@@ -1456,6 +1456,8 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         }
 
         if (streq(field, "RootImageOptions")) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **first = NULL, **second = NULL;
                 const char *p = eq;
 
                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
@@ -1474,34 +1476,24 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                for (;;) {
-                        _cleanup_free_ char *first = NULL, *tuple = NULL;
-                        const char *mount_options = NULL, *second = NULL;
+                r = strv_split_colon_pairs(&l, p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse argument: %m");
+
+                STRV_FOREACH_PAIR(first, second, l) {
+                        const char *mount_options;
                         unsigned partition_number = 0;
 
-                        r = extract_first_word(&p, &tuple, WHITESPACE, EXTRACT_UNQUOTE);
-                        if (r == 0)
-                                break;
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse argument: %m");
-
-                        second = tuple;
-                        r = extract_first_word(&second, &first, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
-                        if (r == 0)
-                                continue;
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse argument: %m");
-
                         /* Format is either '0:foo' or 'foo' (0 is implied) */
-                        if (!isempty(second) && second[-1] == ':') {
-                                mount_options = second;
-                                r = safe_atou(first, &partition_number);
+                        if (!isempty(*second)) {
+                                mount_options = *second;
+                                r = safe_atou(*first, &partition_number);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse partition number from %s: %m", first);
+                                        log_error_errno(r, "Failed to parse partition number from %s: %m", *first);
                                         continue;
                                 }
                         } else
-                                mount_options = first;
+                                mount_options = *first;
 
                         r = sd_bus_message_append(m, "(us)", partition_number, mount_options);
                         if (r < 0)

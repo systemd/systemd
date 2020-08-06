@@ -1429,9 +1429,10 @@ int config_parse_root_image_options(
                 void *userdata) {
 
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        char **first = NULL, **second = NULL;
         ExecContext *c = data;
         const Unit *u = userdata;
-        const char *p = rvalue;
         int r;
 
         assert(filename);
@@ -1444,43 +1445,30 @@ int config_parse_root_image_options(
                 return 0;
         }
 
-        for (;;) {
-                _cleanup_free_ char *mount_options_resolved = NULL, *first = NULL, *tuple = NULL;
-                const char *mount_options = NULL, *second = NULL;
+        r = strv_split_colon_pairs(&l, rvalue);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        STRV_FOREACH_PAIR(first, second, l) {
+                _cleanup_free_ char *mount_options_resolved = NULL;
+                const char *mount_options = NULL;
                 MountOptions *o = NULL;
                 unsigned int partition_number = 0;
 
-                r = extract_first_word(&p, &tuple, WHITESPACE, EXTRACT_UNQUOTE);
-                if (r == 0)
-                        break;
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
-                        return 0;
-                }
-
-                second = tuple;
-                r = extract_first_word(&second, &first, ":", EXTRACT_UNQUOTE|EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r == 0)
-                        continue;
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
-                        continue;
-                }
-
                 /* Format is either '0:foo' or 'foo' (0 is implied) */
-                if (!isempty(second) && second[-1] == ':') {
-                        mount_options = second;
-                        r = safe_atou(first, &partition_number);
+                if (!isempty(*second)) {
+                        mount_options = *second;
+                        r = safe_atou(*first, &partition_number);
                         if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition number from \"%s\", ignoring: %m", first);
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition number from \"%s\", ignoring: %m", *first);
                                 continue;
                         }
                 } else
-                        mount_options = first;
+                        mount_options = *first;
 
                 r = unit_full_printf(u, mount_options, &mount_options_resolved);
                 if (r < 0) {
