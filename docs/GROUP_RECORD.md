@@ -22,6 +22,10 @@ UNIX/glibc NSS `struct group`, or the shadow structure `struct sgrp`'s
 `realm` → The "realm" the group belongs to, conceptually identical to the same
 field of user records. A string in DNS domain name syntax.
 
+`description` → A descriptive string for the group. This is similar to the
+`realName` field of user records, and accepts arbitrary strings, as long as
+they follow the same GECOS syntax requirements as `realName`.
+
 `disposition` → The disposition of the group, conceptually identical to the
 same field of user records. A string.
 
