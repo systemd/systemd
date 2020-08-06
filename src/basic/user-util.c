@@ -863,6 +863,37 @@ bool valid_gecos(const char *d) {
         return true;
 }
 
+char *mangle_gecos(const char *d) {
+        char *mangled;
+
+        /* Makes sure the provided string becomes valid as a GEGOS field, by dropping bad chars. glibc's
+         * putwent() only changes \n and : to spaces. We do more: replace all CC too, and remove invalid
+         * UTF-8 */
+
+        mangled = strdup(d);
+        if (!mangled)
+                return NULL;
+
+        for (char *i = mangled; *i; i++) {
+                int len;
+
+                if ((uint8_t) *i < (uint8_t) ' ' || *i == ':') {
+                        *i = ' ';
+                        continue;
+                }
+
+                len = utf8_encoded_valid_unichar(i, (size_t) -1);
+                if (len < 0) {
+                        *i = ' ';
+                        continue;
+                }
+
+                i += len - 1;
+        }
+
+        return mangled;
+}
+
 bool valid_home(const char *p) {
         /* Note that this function is also called by valid_shell(), any
          * changes must account for that. */
