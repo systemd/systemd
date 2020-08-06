@@ -14,20 +14,68 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "loop-util.h"
+#include "missing_loop.h"
 #include "parse-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
-        if (*fd >= 0) {
-                (void) ioctl(*fd, LOOP_CLR_FD);
-                (void) safe_close(*fd);
+        if (*fd < 0)
+                return;
+
+        (void) ioctl(*fd, LOOP_CLR_FD);
+        (void) safe_close(*fd);
+}
+
+static int loop_configure(int fd, const struct loop_config *c) {
+        int r;
+
+        assert(fd >= 0);
+        assert(c);
+
+        if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
+                /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other errors. Note that
+                 * the kernel is weird: non-existing ioctls currently return EINVAL rather than ENOTTY on
+                 * loopback block devices. They should fix that in the kernel, but in the meantime we accept
+                 * both here. */
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                        return -errno;
+        } else {
+                if (!FLAGS_SET(c->info.lo_flags, LO_FLAGS_PARTSCAN))
+                        return 0;
+
+                /* Kernel 5.8 vanilla doesn't properly propagate the partition scanning flag into the
+                 * block device. Let's hence verify if things work correctly here before returning. */
+
+                r = blockdev_partscan_enabled(fd);
+                if (r < 0)
+                        goto fail;
+                if (r > 0)
+                        return 0; /* All is good. */
+
+                /* Otherwise, undo the attachment and use the old APIs */
+                (void) ioctl(fd, LOOP_CLR_FD);
         }
+
+        if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
+                return -errno;
+
+        if (ioctl(fd, LOOP_SET_STATUS64, &c->info) < 0) {
+                r = -errno;
+                goto fail;
+        }
+
+        return 0;
+
+fail:
+        (void) ioctl(fd, LOOP_CLR_FD);
+        return r;
 }
 
 int loop_device_make(
@@ -39,7 +87,7 @@ int loop_device_make(
                 LoopDevice **ret) {
 
         _cleanup_free_ char *loopdev = NULL;
-        struct loop_info64 info;
+        struct loop_config config;
         LoopDevice *d = NULL;
         struct stat st;
         int nr = -1, r;
@@ -52,14 +100,14 @@ int loop_device_make(
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
-                if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
+                if (ioctl(fd, LOOP_GET_STATUS64, &config.info) >= 0) {
                         /* Oh! This is a loopback device? That's interesting! */
 
 #if HAVE_VALGRIND_MEMCHECK_H
                         /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
-                        VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
+                        VALGRIND_MAKE_MEM_DEFINED(&config.info, sizeof(config.info));
 #endif
-                        nr = info.lo_number;
+                        nr = config.info.lo_number;
 
                         if (asprintf(&loopdev, "/dev/loop%i", nr) < 0)
                                 return -ENOMEM;
@@ -100,6 +148,16 @@ int loop_device_make(
         if (control < 0)
                 return -errno;
 
+        config = (struct loop_config) {
+                .fd = fd,
+                .info = {
+                        /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
+                        .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((loop_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
+                        .lo_offset = offset,
+                        .lo_sizelimit = size == UINT64_MAX ? 0 : size,
+                },
+        };
+
         /* Loop around LOOP_CTL_GET_FREE, since at the moment we attempt to open the returned device it might
          * be gone already, taken by somebody else racing against us. */
         for (unsigned n_attempts = 0;;) {
@@ -119,12 +177,13 @@ int loop_device_make(
                         if (errno != ENOENT)
                                 return -errno;
                 } else {
-                        if (ioctl(loop, LOOP_SET_FD, fd) >= 0) {
+                        r = loop_configure(loop, &config);
+                        if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
                         }
-                        if (errno != EBUSY)
-                                return -errno;
+                        if (r != -EBUSY)
+                                return r;
                 }
 
                 if (++n_attempts >= 64) /* Give up eventually */
@@ -132,16 +191,6 @@ int loop_device_make(
 
                 loopdev = mfree(loopdev);
         }
-
-        info = (struct loop_info64) {
-                /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
-                .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((loop_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
-                .lo_offset = offset,
-                .lo_sizelimit = size == UINT64_MAX ? 0 : size,
-        };
-
-        if (ioctl(loop_with_fd, LOOP_SET_STATUS64, &info) < 0)
-                return -errno;
 
         d = new(LoopDevice, 1);
         if (!d)
