@@ -375,7 +375,6 @@ Features:
   - in systemd's PAMName= logic: query passwords with ssh-askpassword, so that we can make "loginctl set-linger" mode work
   - fingerprint authentication, pattern authentication, …
   - make sure "classic" user records can also be managed by homed
-  - description field for groups
   - make size of $XDG_RUNTIME_DIR configurable in user record
   - reuse pwquality magic in firstboot
   - query password from kernel keyring first
