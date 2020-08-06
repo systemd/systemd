@@ -105,6 +105,7 @@ typedef enum ValidUserFlags {
 
 bool valid_user_group_name(const char *u, ValidUserFlags flags);
 bool valid_gecos(const char *d);
+char *mangle_gecos(const char *d);
 bool valid_home(const char *p);
 
 static inline bool valid_shell(const char *p) {
