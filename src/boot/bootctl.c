@@ -888,14 +888,6 @@ static int remove_subdirs(const char *root, const char *const *subdirs) {
         return r < 0 ? r : q;
 }
 
-static int remove_machine_id_directory(const char *root, sd_id128_t machine_id) {
-        char buf[SD_ID128_STRING_MAX];
-
-        assert(root);
-
-        return rmdir_one(root, sd_id128_to_string(machine_id, buf));
-}
-
 static int remove_binaries(const char *esp_path) {
         const char *p;
         int r, q;
@@ -978,8 +970,7 @@ static int remove_loader_variables(void) {
         return r;
 }
 
-static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
-        char machine_string[SD_ID128_STRING_MAX];
+static int install_loader_config(const char *esp_path) {
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
@@ -999,8 +990,7 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
                 return log_oom();
 
         fprintf(f, "#timeout 3\n"
-                   "#console-mode keep\n"
-                   "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
+                   "#console-mode keep\n");
 
         r = fflush_sync_and_check(f);
         if (r < 0)
@@ -1014,14 +1004,6 @@ static int install_loader_config(const char *esp_path, sd_id128_t machine_id) {
 
         t = mfree(t);
         return 1;
-}
-
-static int install_machine_id_directory(const char *root, sd_id128_t machine_id) {
-        char buf[SD_ID128_STRING_MAX];
-
-        assert(root);
-
-        return mkdir_one(root, sd_id128_to_string(machine_id, buf));
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -1531,7 +1513,6 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         uint64_t pstart = 0, psize = 0;
         uint32_t part = 0;
-        sd_id128_t machine_id;
         bool install;
         int r;
 
@@ -1542,10 +1523,6 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         r = acquire_xbootldr(false, NULL);
         if (r < 0)
                 return r;
-
-        r = sd_id128_get_machine(&machine_id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get machine id: %m");
 
         install = streq(argv[0], "install");
 
@@ -1568,11 +1545,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                         return r;
 
                 if (install) {
-                        r = install_loader_config(arg_esp_path, machine_id);
-                        if (r < 0)
-                                return r;
-
-                        r = install_machine_id_directory(arg_dollar_boot_path(), machine_id);
+                        r = install_loader_config(arg_esp_path);
                         if (r < 0)
                                 return r;
 
@@ -1594,7 +1567,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_remove(int argc, char *argv[], void *userdata) {
-        sd_id128_t uuid = SD_ID128_NULL, machine_id;
+        sd_id128_t uuid = SD_ID128_NULL;
         int r, q;
 
         r = acquire_esp(false, NULL, NULL, NULL, &uuid);
@@ -1604,10 +1577,6 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         r = acquire_xbootldr(false, NULL);
         if (r < 0)
                 return r;
-
-        r = sd_id128_get_machine(&machine_id);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get machine id: %m");
 
         r = remove_binaries(arg_esp_path);
 
@@ -1627,17 +1596,9 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (q < 0 && r >= 0)
                 r = q;
 
-        q = remove_machine_id_directory(arg_esp_path, machine_id);
-        if (q < 0 && r >= 0)
-                r = 1;
-
         if (arg_xbootldr_path) {
                 /* Remove the latter two also in the XBOOTLDR partition if it exists */
                 q = remove_subdirs(arg_xbootldr_path, dollar_boot_subdirs);
-                if (q < 0 && r >= 0)
-                        r = q;
-
-                q = remove_machine_id_directory(arg_xbootldr_path, machine_id);
                 if (q < 0 && r >= 0)
                         r = q;
         }
