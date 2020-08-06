@@ -168,8 +168,12 @@ typedef struct ParseFieldVec {
         size_t *target_len;
 } ParseFieldVec;
 
-#define PARSE_FIELD_VEC_ENTRY(_field, _target, _target_len) \
-        { .field = _field, .field_len = strlen(_field), .target = _target, .target_len = _target_len }
+#define PARSE_FIELD_VEC_ENTRY(_field, _target, _target_len) {           \
+                .field = _field,                                        \
+                .field_len = strlen(_field),                            \
+                .target = _target,                                      \
+                .target_len = _target_len                               \
+        }
 
 static int parse_fieldv(const void *data, size_t length, const ParseFieldVec *fields, unsigned n_fields) {
         unsigned i;
@@ -1122,19 +1126,17 @@ static int output_cat_field(
                 FILE *f,
                 sd_journal *j,
                 OutputFlags flags,
+                int prio,
                 const char *field,
                 const size_t highlight[2]) {
 
-        const char *highlight_on, *highlight_off;
+        const char *color_on = "", *color_off = "", *highlight_on = "";
         const void *data;
         size_t l, fl;
         int r;
 
-        if (FLAGS_SET(flags, OUTPUT_COLOR)) {
-                highlight_on = ANSI_HIGHLIGHT_RED;
-                highlight_off = ANSI_NORMAL;
-        } else
-                highlight_on = highlight_off = "";
+        if (FLAGS_SET(flags, OUTPUT_COLOR))
+                get_log_colors(prio, &color_on, &color_off, &highlight_on);
 
         r = sd_journal_get_data(j, field, &data, &l);
         if (r == -EBADMSG) {
@@ -1153,15 +1155,23 @@ static int output_cat_field(
         data = (const uint8_t*) data + fl + 1;
         l -= fl + 1;
 
-        if (highlight && FLAGS_SET(flags, OUTPUT_COLOR)) {
-                assert(highlight[0] <= highlight[1]);
-                assert(highlight[1] <= l);
+        if (FLAGS_SET(flags, OUTPUT_COLOR)) {
+                if (highlight) {
+                        assert(highlight[0] <= highlight[1]);
+                        assert(highlight[1] <= l);
 
-                fwrite((const char*) data, 1, highlight[0], f);
-                fwrite(highlight_on, 1, strlen(highlight_on), f);
-                fwrite((const char*) data + highlight[0], 1, highlight[1] - highlight[0], f);
-                fwrite(highlight_off, 1, strlen(highlight_off), f);
-                fwrite((const char*) data + highlight[1], 1, l - highlight[1], f);
+                        fputs(color_on, f);
+                        fwrite((const char*) data, 1, highlight[0], f);
+                        fputs(highlight_on, f);
+                        fwrite((const char*) data + highlight[0], 1, highlight[1] - highlight[0], f);
+                        fputs(color_on, f);
+                        fwrite((const char*) data + highlight[1], 1, l - highlight[1], f);
+                        fputs(color_off, f);
+                } else {
+                        fputs(color_on, f);
+                        fwrite((const char*) data, 1, l, f);
+                        fputs(color_off, f);
+                }
         } else
                 fwrite((const char*) data, 1, l, f);
 
@@ -1178,20 +1188,44 @@ static int output_cat(
                 const Set *output_fields,
                 const size_t highlight[2]) {
 
+        int r, prio = LOG_INFO;
         const char *field;
         Iterator iterator;
-        int r;
 
         assert(j);
         assert(f);
 
         (void) sd_journal_set_data_threshold(j, 0);
 
+        if (FLAGS_SET(flags, OUTPUT_COLOR)) {
+                const void *data;
+                size_t l;
+
+                /* Determine priority of this entry, so that we can color it nicely */
+
+                r = sd_journal_get_data(j, "PRIORITY", &data, &l);
+                if (r == -EBADMSG) {
+                        log_debug_errno(r, "Skipping message we can't read: %m");
+                        return 0;
+                }
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return log_error_errno(r, "Failed to get data: %m");
+
+                        /* An entry without PRIORITY */
+                } else if (l == 10 && memcmp(data, "PRIORITY=", 9) == 0) {
+                        char c = ((char*) data)[9];
+
+                        if (c >= '0' && c <= '7')
+                                prio = c - '0';
+                }
+        }
+
         if (set_isempty(output_fields))
-                return output_cat_field(f, j, flags, "MESSAGE", highlight);
+                return output_cat_field(f, j, flags, prio, "MESSAGE", highlight);
 
         SET_FOREACH(field, output_fields, iterator) {
-                r = output_cat_field(f, j, flags, field, streq(field, "MESSAGE") ? highlight : NULL);
+                r = output_cat_field(f, j, flags, prio, field, streq(field, "MESSAGE") ? highlight : NULL);
                 if (r < 0)
                         return r;
         }
