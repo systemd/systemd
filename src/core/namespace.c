@@ -1233,25 +1233,23 @@ static size_t namespace_calculate_mounts(
                 size_t n_mount_images,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
-                const char* log_namespace,
-                ProtectHome protect_home,
-                ProtectSystem protect_system) {
+                const char* log_namespace) {
 
         size_t protect_home_cnt;
         size_t protect_system_cnt =
-                (protect_system == PROTECT_SYSTEM_STRICT ?
+                (ns_info->protect_system == PROTECT_SYSTEM_STRICT ?
                  ELEMENTSOF(protect_system_strict_table) :
-                 ((protect_system == PROTECT_SYSTEM_FULL) ?
+                 ((ns_info->protect_system == PROTECT_SYSTEM_FULL) ?
                   ELEMENTSOF(protect_system_full_table) :
-                  ((protect_system == PROTECT_SYSTEM_YES) ?
+                  ((ns_info->protect_system == PROTECT_SYSTEM_YES) ?
                    ELEMENTSOF(protect_system_yes_table) : 0)));
 
         protect_home_cnt =
-                (protect_home == PROTECT_HOME_YES ?
+                (ns_info->protect_home == PROTECT_HOME_YES ?
                  ELEMENTSOF(protect_home_yes_table) :
-                 ((protect_home == PROTECT_HOME_READ_ONLY) ?
+                 ((ns_info->protect_home == PROTECT_HOME_READ_ONLY) ?
                   ELEMENTSOF(protect_home_read_only_table) :
-                  ((protect_home == PROTECT_HOME_TMPFS) ?
+                  ((ns_info->protect_home == PROTECT_HOME_TMPFS) ?
                    ELEMENTSOF(protect_home_tmpfs_table) : 0)));
 
         return !!tmp_dir + !!var_tmp_dir +
@@ -1355,8 +1353,6 @@ int setup_namespace(
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 const char *log_namespace,
-                ProtectHome protect_home,
-                ProtectSystem protect_system,
                 unsigned long mount_flags,
                 const void *root_hash,
                 size_t root_hash_size,
@@ -1389,10 +1385,10 @@ int setup_namespace(
 
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
                 if (root_read_only(read_only_paths,
-                                   protect_system) &&
+                                   ns_info->protect_system) &&
                     home_read_only(read_only_paths, inaccessible_paths, empty_directories,
                                    bind_mounts, n_bind_mounts, temporary_filesystems, n_temporary_filesystems,
-                                   protect_home) &&
+                                   ns_info->protect_home) &&
                     strv_isempty(read_write_paths))
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
@@ -1461,8 +1457,7 @@ int setup_namespace(
                         n_temporary_filesystems,
                         n_mount_images,
                         tmp_dir, var_tmp_dir,
-                        log_namespace,
-                        protect_home, protect_system);
+                        log_namespace);
 
         if (n_mounts > 0) {
                 m = mounts = new0(MountEntry, n_mounts);
@@ -1559,11 +1554,11 @@ int setup_namespace(
                         };
                 }
 
-                r = append_protect_home(&m, protect_home, ns_info->ignore_protect_paths);
+                r = append_protect_home(&m, ns_info->protect_home, ns_info->ignore_protect_paths);
                 if (r < 0)
                         goto finish;
 
-                r = append_protect_system(&m, protect_system, false);
+                r = append_protect_system(&m, ns_info->protect_system, false);
                 if (r < 0)
                         goto finish;
 

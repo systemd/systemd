@@ -2650,6 +2650,8 @@ static int apply_mount_namespace(
                         .protect_hostname = context->protect_hostname,
                         .mount_apivfs = context->mount_apivfs,
                         .private_mounts = context->private_mounts,
+                        .protect_home = context->protect_home,
+                        .protect_system = context->protect_system,
                 };
         } else if (!context->dynamic_user && root_dir)
                 /*
@@ -2680,8 +2682,6 @@ static int apply_mount_namespace(
                             tmp_dir,
                             var_tmp_dir,
                             context->log_namespace,
-                            needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
-                            needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
                             context->root_hash, context->root_hash_size, context->root_hash_path,
                             context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,

@@ -76,8 +76,6 @@ int main(int argc, char *argv[]) {
                             tmp_dir,
                             var_tmp_dir,
                             NULL,
-                            PROTECT_HOME_NO,
-                            PROTECT_SYSTEM_NO,
                             0,
                             NULL,
                             0,

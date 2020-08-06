@@ -57,6 +57,8 @@ struct NamespaceInfo {
         bool protect_kernel_logs:1;
         bool mount_apivfs:1;
         bool protect_hostname:1;
+        ProtectHome protect_home;
+        ProtectSystem protect_system;
 };
 
 struct BindMount {
@@ -98,8 +100,6 @@ int setup_namespace(
                 const char *tmp_dir,
                 const char *var_tmp_dir,
                 const char *log_namespace,
-                ProtectHome protect_home,
-                ProtectSystem protect_system,
                 unsigned long mount_flags,
                 const void *root_hash,
                 size_t root_hash_size,
