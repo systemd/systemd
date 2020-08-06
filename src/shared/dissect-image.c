@@ -215,22 +215,18 @@ static int wait_for_partitions_to_appear(
                         break;
                 r = -errno;
                 if (r == -EINVAL) {
-                        struct loop_info64 info;
+                        /* If we are running on a block device that has partition scanning off, return an
+                         * explicit recognizable error about this, so that callers can generate a proper
+                         * message explaining the situation. */
 
-                        /* If we are running on a loop device that has partition scanning off, return
-                         * an explicit recognizable error about this, so that callers can generate a
-                         * proper message explaining the situation. */
+                        r = blockdev_partscan_enabled(fd);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return log_debug_errno(EPROTONOSUPPORT,
+                                                       "Device is a loop device and partition scanning is off!");
 
-                        if (ioctl(fd, LOOP_GET_STATUS64, &info) >= 0) {
-#if HAVE_VALGRIND_MEMCHECK_H
-                                /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
-                                VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
-#endif
-
-                                if ((info.lo_flags & LO_FLAGS_PARTSCAN) == 0)
-                                        return log_debug_errno(EPROTONOSUPPORT,
-                                                               "Device is a loop device and partition scanning is off!");
-                        }
+                        return -EINVAL; /* original error */
                 }
                 if (r != -EBUSY)
                         return r;
