@@ -203,7 +203,7 @@ int json_dispatch_realm(const char *name, JsonVariant *variant, JsonDispatchFlag
         return 0;
 }
 
-static int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         char **s = userdata;
         const char *n;
         int r;
