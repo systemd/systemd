@@ -32,6 +32,9 @@ Features:
 * cryptsetup: if keyfile specified in crypttab is AF_UNIX socket, connect to it
   and read from it (like we do elsewhere with READ_FULL_FILE_CONNECT_SOCKET)
 
+* when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU or
+  so, freeze the payload too.
+
 * repart: support setting up dm-integrity with HMAC
 
 * add /etc/integritytab, to support dm-integrity setups. In particular those
