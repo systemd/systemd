@@ -5,6 +5,7 @@
 #include "libcrypt-util.h"
 #include "strv.h"
 #include "user-record-nss.h"
+#include "user-util.h"
 
 #define SET_IF(field, condition, value, fallback)  \
         field = (condition) ? (value) : (fallback)
@@ -34,10 +35,25 @@ int nss_passwd_to_user_record(
         if (r < 0)
                 return r;
 
-        r = free_and_strdup(&hr->real_name,
-                            streq_ptr(pwd->pw_gecos, hr->user_name) ? NULL : empty_to_null(pwd->pw_gecos));
-        if (r < 0)
-                return r;
+        /* Some bad NSS modules synthesize GECOS fields with embedded ":" or "\n" characters, which are not
+         * something we can output in /etc/passwd compatible format, since these are record separators
+         * there. We normally refuse that, but we need to maintain compatibility with arbitrary NSS modules,
+         * hence let's do what glibc does: mangle the data to fit the format. */
+        if (isempty(pwd->pw_gecos) || streq_ptr(pwd->pw_gecos, hr->user_name))
+                hr->real_name = mfree(hr->real_name);
+        else if (valid_gecos(pwd->pw_gecos)) {
+                r = free_and_strdup(&hr->real_name, pwd->pw_gecos);
+                if (r < 0)
+                        return r;
+        } else {
+                _cleanup_free_ char *mangled = NULL;
+
+                mangled = mangle_gecos(pwd->pw_gecos);
+                if (!mangled)
+                        return -ENOMEM;
+
+                free_and_replace(hr->real_name, mangled);
+        }
 
         r = free_and_strdup(&hr->home_directory, empty_to_null(pwd->pw_dir));
         if (r < 0)

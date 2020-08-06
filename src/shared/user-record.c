@@ -183,7 +183,6 @@ int json_dispatch_realm(const char *name, JsonVariant *variant, JsonDispatchFlag
 static int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         char **s = userdata;
         const char *n;
-        int r;
 
         if (json_variant_is_null(variant)) {
                 *s = mfree(*s);
@@ -194,12 +193,20 @@ static int json_dispatch_gecos(const char *name, JsonVariant *variant, JsonDispa
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
         n = json_variant_string(variant);
-        if (!valid_gecos(n))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid GECOS compatible real name.", strna(name));
+        if (valid_gecos(n)) {
+                if (free_and_strdup(s, n) < 0)
+                        return json_log_oom(variant, flags);
+        } else {
+                _cleanup_free_ char *m = NULL;
 
-        r = free_and_strdup(s, n);
-        if (r < 0)
-                return json_log(variant, flags, r, "Failed to allocate string: %m");
+                json_log(variant, flags|JSON_DEBUG, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid GECOS compatible string, mangling.", strna(name));
+
+                m = mangle_gecos(n);
+                if (!m)
+                        return json_log_oom(variant, flags);
+
+                free_and_replace(*s, m);
+        }
 
         return 0;
 }
