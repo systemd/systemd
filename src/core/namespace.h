@@ -9,7 +9,6 @@ typedef struct NamespaceInfo NamespaceInfo;
 typedef struct BindMount BindMount;
 typedef struct TemporaryFileSystem TemporaryFileSystem;
 typedef struct MountImage MountImage;
-typedef struct MountEntry MountEntry;
 
 #include <stdbool.h>
 
