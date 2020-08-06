@@ -884,11 +884,13 @@ static int mount_procfs(const MountEntry *m) {
 }
 
 static int mount_tmpfs(const MountEntry *m) {
+        const char *entry_path, *inner_path;
         int r;
-        const char *entry_path = mount_entry_path(m);
-        const char *source_path = m->path_const;
 
         assert(m);
+
+        entry_path = mount_entry_path(m);
+        inner_path = m->path_const;
 
         /* First, get rid of everything that is below if there is anything. Then, overmount with our new tmpfs */
 
@@ -898,9 +900,9 @@ static int mount_tmpfs(const MountEntry *m) {
         if (mount("tmpfs", entry_path, "tmpfs", m->flags, mount_entry_options(m)) < 0)
                 return log_debug_errno(errno, "Failed to mount %s: %m", entry_path);
 
-        r = label_fix_container(entry_path, source_path, 0);
+        r = label_fix_container(entry_path, inner_path, 0);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, source_path);
+                return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
 
         return 1;
 }
