@@ -159,6 +159,7 @@ static void test_protect_kernel_logs(void) {
                                     NULL,
                                     NULL, 0,
                                     NULL, 0,
+                                    NULL, 0,
                                     NULL,
                                     NULL,
                                     NULL,

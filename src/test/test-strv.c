@@ -407,6 +407,35 @@ static void test_strv_split_extract(void) {
         assert_se(streq_ptr(l[5], NULL));
 }
 
+static void test_strv_split_colon_pairs(void) {
+        _cleanup_strv_free_ char **l = NULL;
+        const char *str = "one:two three four:five six seven:eight\\:nine ten\\:eleven\\\\",
+                   *str_inval="one:two three:four:five";
+        int r;
+
+        log_info("/* %s */", __func__);
+
+        r = strv_split_colon_pairs(&l, str);
+        assert_se(r == (int) strv_length(l));
+        assert_se(r == 12);
+        assert_se(streq_ptr(l[0], "one"));
+        assert_se(streq_ptr(l[1], "two"));
+        assert_se(streq_ptr(l[2], "three"));
+        assert_se(streq_ptr(l[3], ""));
+        assert_se(streq_ptr(l[4], "four"));
+        assert_se(streq_ptr(l[5], "five"));
+        assert_se(streq_ptr(l[6], "six"));
+        assert_se(streq_ptr(l[7], ""));
+        assert_se(streq_ptr(l[8], "seven"));
+        assert_se(streq_ptr(l[9], "eight:nine"));
+        assert_se(streq_ptr(l[10], "ten:eleven\\"));
+        assert_se(streq_ptr(l[11], ""));
+        assert_se(streq_ptr(l[12], NULL));
+
+        r = strv_split_colon_pairs(&l, str_inval);
+        assert_se(r == -EINVAL);
+}
+
 static void test_strv_split_newlines(void) {
         unsigned i = 0;
         char **s;
@@ -998,6 +1027,7 @@ int main(int argc, char *argv[]) {
         test_strv_split();
         test_strv_split_empty();
         test_strv_split_extract();
+        test_strv_split_colon_pairs();
         test_strv_split_newlines();
         test_strv_split_nulstr();
         test_strv_parse_nulstr();
