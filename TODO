@@ -20,9 +20,6 @@ Features:
 * make use of the new statx mountid and rootmount fields in path_get_mnt_id()
   and fd_is_mount_point()
 
-* make use of new loopback setup ioctl to setup loopback devices in one atomic
-  ioctl
-
 * nspawn: move "incoming mount" directory to /run/host, move "inaccessible"
   nodes to /run/host, move notify socket (for sd_notify() between payload and
   container manager)
