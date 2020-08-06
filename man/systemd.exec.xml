@@ -2378,7 +2378,9 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         so that they are automatically established prior to the unit starting up. Note that when this option
         is used log output of this service does not appear in the regular
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        output, unless the <option>--namespace=</option> option is used.</para></listitem>
+        output, unless the <option>--namespace=</option> option is used.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
       <varlistentry>
