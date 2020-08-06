@@ -260,6 +260,9 @@ struct ExecContext {
 
         char *log_namespace;
 
+        ProtectProc protect_proc;  /* hidepid= */
+        ProcSubset proc_subset;    /* subset= */
+
         bool private_tmp;
         bool private_network;
         bool private_devices;

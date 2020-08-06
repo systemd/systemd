@@ -47,6 +47,22 @@ typedef enum ProtectSystem {
         _PROTECT_SYSTEM_INVALID = -1
 } ProtectSystem;
 
+typedef enum ProtectProc {
+        PROTECT_PROC_DEFAULT,
+        PROTECT_PROC_NOACCESS,   /* hidepid=noaccess */
+        PROTECT_PROC_INVISIBLE,  /* hidepid=invisible */
+        PROTECT_PROC_PTRACEABLE, /* hidepid=ptraceable */
+        _PROTECT_PROC_MAX,
+        _PROTECT_PROC_INVALID = -1,
+} ProtectProc;
+
+typedef enum ProcSubset {
+        PROC_SUBSET_ALL,
+        PROC_SUBSET_PID, /* subset=pid */
+        _PROC_SUBSET_MAX,
+        _PROC_SUBSET_INVALID = -1,
+} ProcSubset;
+
 struct NamespaceInfo {
         bool ignore_protect_paths:1;
         bool private_dev:1;
@@ -59,6 +75,8 @@ struct NamespaceInfo {
         bool protect_hostname:1;
         ProtectHome protect_home;
         ProtectSystem protect_system;
+        ProtectProc protect_proc;
+        ProcSubset proc_subset;
 };
 
 struct BindMount {
@@ -134,6 +152,12 @@ ProtectHome protect_home_from_string(const char *s) _pure_;
 
 const char* protect_system_to_string(ProtectSystem p) _const_;
 ProtectSystem protect_system_from_string(const char *s) _pure_;
+
+const char* protect_proc_to_string(ProtectProc i) _const_;
+ProtectProc protect_proc_from_string(const char *s) _pure_;
+
+const char* proc_subset_to_string(ProcSubset i) _const_;
+ProcSubset proc_subset_from_string(const char *s) _pure_;
 
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);

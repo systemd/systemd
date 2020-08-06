@@ -36,6 +36,8 @@ int main(int argc, char *argv[]) {
                 .protect_control_groups = true,
                 .protect_kernel_tunables = true,
                 .protect_kernel_modules = true,
+                .protect_proc = PROTECT_PROC_NOACCESS,
+                .proc_subset = PROC_SUBSET_PID,
         };
 
         char *root_directory;
