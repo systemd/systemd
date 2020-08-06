@@ -24,6 +24,7 @@ LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
 PrivateDevices=yes
+ProtectProc=invisible
 ProtectControlGroups=yes
 ProtectHome=yes
 ProtectHostname=yes
