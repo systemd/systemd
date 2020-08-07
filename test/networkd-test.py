@@ -917,40 +917,7 @@ Domains= one two three four five six seven eight nine ten''')
             if ' one' in contents:
                 break
             time.sleep(0.1)
-        self.assertRegex(contents, 'search .*one two three four')
-        self.assertNotIn('seven\n', contents)
-        self.assertIn('# Too many search domains configured, remaining ones ignored.\n', contents)
-
-    def test_search_domains_too_long(self):
-
-        # we don't use this interface for this test
-        self.if_router = None
-
-        name_prefix = 'a' * 60
-
-        self.write_network('test.netdev', '''\
-[NetDev]
-Name=dummy0
-Kind=dummy
-MACAddress=12:34:56:78:9a:bc''')
-        self.write_network('test.network', '''\
-[Match]
-Name=dummy0
-[Network]
-Address=192.168.42.100/24
-DNS=192.168.42.1
-Domains={p}0 {p}1 {p}2 {p}3 {p}4'''.format(p=name_prefix))
-
-        self.start_unit('systemd-networkd')
-
-        for timeout in range(50):
-            with open(RESOLV_CONF) as f:
-                contents = f.read()
-            if ' one' in contents:
-                break
-            time.sleep(0.1)
-        self.assertRegex(contents, 'search .*{p}0 {p}1 {p}2'.format(p=name_prefix))
-        self.assertIn('# Total length of all search domains is too long, remaining ones ignored.', contents)
+        self.assertRegex(contents, 'search .*one two three four five six seven eight nine ten')
 
     def test_dropin(self):
         # we don't use this interface for this test
