@@ -4071,15 +4071,10 @@ int exec_spawn(Unit *unit,
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (params->n_socket_fds > 1) {
-                        log_unit_error(unit, "Got more than one socket.");
-                        return -EINVAL;
-                }
-
-                if (params->n_socket_fds == 0) {
-                        log_unit_error(unit, "Got no socket.");
-                        return -EINVAL;
-                }
+                if (params->n_socket_fds > 1)
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EINVAL), "Got more than one socket.");
+                if (params->n_socket_fds == 0)
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
 
                 socket_fd = params->fds[0];
         } else {
