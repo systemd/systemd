@@ -452,6 +452,25 @@ static void test_parse_uid_range(void) {
         assert_se(parse_uid_range(" 01", &a, &b) == -EINVAL && a == 4 && b == 5);
 }
 
+static void test_mangle_gecos_one(const char *input, const char *expected) {
+        _cleanup_free_ char *p = NULL;
+
+        assert_se(p = mangle_gecos(input));
+        assert_se(streq(p, expected));
+        assert_se(valid_gecos(p));
+}
+
+static void test_mangle_gecos(void) {
+        test_mangle_gecos_one("", "");
+        test_mangle_gecos_one("root", "root");
+        test_mangle_gecos_one("wuff\nwuff", "wuff wuff");
+        test_mangle_gecos_one("wuff:wuff", "wuff wuff");
+        test_mangle_gecos_one("wuff\r\n:wuff", "wuff   wuff");
+        test_mangle_gecos_one("\n--wüff-wäff-wöff::", " --wüff-wäff-wöff  ");
+        test_mangle_gecos_one("\xc3\x28", " (");
+        test_mangle_gecos_one("\xe2\x28\xa1", " ( ");
+}
+
 int main(int argc, char *argv[]) {
         test_uid_to_name_one(0, "root");
         test_uid_to_name_one(UID_NOBODY, NOBODY_USER_NAME);
@@ -482,6 +501,7 @@ int main(int argc, char *argv[]) {
         test_valid_user_group_name_or_numeric_relaxed();
         test_valid_user_group_name_or_numeric();
         test_valid_gecos();
+        test_mangle_gecos();
         test_valid_home();
 
         test_make_salt();
