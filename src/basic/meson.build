@@ -30,6 +30,8 @@ basic_sources = files('''
         cgroup-util.h
         chattr-util.c
         chattr-util.h
+        clone3.c
+        clone3.h
         conf-files.c
         conf-files.h
         copy.c
