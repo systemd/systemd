@@ -7904,7 +7904,7 @@ static int systemctl_help(void) {
                "  -M --machine=CONTAINER Operate on a local container\n"
                "  -t --type=TYPE         List units of a particular type\n"
                "     --state=STATE       List units with particular LOAD or SUB or ACTIVE state\n"
-               "     --failed            Shorcut for --state=failed\n"
+               "     --failed            Shortcut for --state=failed\n"
                "  -p --property=NAME     Show only properties by this name\n"
                "  -a --all               Show all properties/all units currently in memory,\n"
                "                         including dead/empty ones. To list all units installed\n"
