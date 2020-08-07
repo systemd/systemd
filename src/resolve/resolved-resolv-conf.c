@@ -231,7 +231,6 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
 static void write_resolv_conf_search(
                 OrderedSet *domains,
                 FILE *f) {
-        unsigned length = 0, count = 0;
         Iterator i;
         char *domain;
 
@@ -241,15 +240,6 @@ static void write_resolv_conf_search(
         fputs("search", f);
 
         ORDERED_SET_FOREACH(domain, domains, i) {
-                if (++count > MAXDNSRCH) {
-                        fputs("\n# Too many search domains configured, remaining ones ignored.", f);
-                        break;
-                }
-                length += strlen(domain) + 1;
-                if (length > 256) {
-                        fputs("\n# Total length of all search domains is too long, remaining ones ignored.", f);
-                        break;
-                }
                 fputc(' ', f);
                 fputs(domain, f);
         }
