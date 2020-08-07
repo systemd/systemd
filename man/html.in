@@ -11,5 +11,14 @@ ninja -C "@BUILD_ROOT@" version.h
 
 target="man/$1.html"
 ninja -C "@BUILD_ROOT@" "$target"
+
+fullname="@BUILD_ROOT@/$target"
+redirect="$(readlink "$fullname" 2>/dev/null)"
+if [ -n "$redirect" ]; then
+    ninja -C "@BUILD_ROOT@" "man/$redirect"
+
+    fullname="@BUILD_ROOT@/man/$redirect"
+fi
+
 set -x
-exec xdg-open "@BUILD_ROOT@/$target"
+exec xdg-open "$fullname"

@@ -16,4 +16,13 @@ if [ -z "$target" ]; then
     exit 1
 fi
 ninja -C "@BUILD_ROOT@" "$target"
-exec man "@BUILD_ROOT@/$target"
+
+fullname="@BUILD_ROOT@/$target"
+redirect="$(sed -n -r '1 s|^\.so man[0-9]/(.*)|\1|p' "$fullname")"
+if [ -n "$redirect" ]; then
+    ninja -C "@BUILD_ROOT@" "man/$redirect"
+
+    fullname="@BUILD_ROOT@/man/$redirect"
+fi
+
+exec man "$fullname"
