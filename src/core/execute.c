@@ -41,8 +41,9 @@
 #include "barrier.h"
 #include "cap-list.h"
 #include "capability-util.h"
-#include "chown-recursive.h"
 #include "cgroup-setup.h"
+#include "chown-recursive.h"
+#include "clone3.h"
 #include "cpu-set-util.h"
 #include "def.h"
 #include "env-file.h"
@@ -3314,24 +3315,6 @@ static int exec_child(
         if (socket_fd >= 0)
                 (void) fd_nonblock(socket_fd, false);
 
-        /* Journald will try to look-up our cgroup in order to populate _SYSTEMD_CGROUP and _SYSTEMD_UNIT fields.
-         * Hence we need to migrate to the target cgroup from init.scope before connecting to journald */
-        if (params->cgroup_path) {
-                _cleanup_free_ char *p = NULL;
-
-                r = exec_parameters_get_cgroup_path(params, &p);
-                if (r < 0) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
-                }
-
-                r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
-                if (r < 0) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", p);
-                }
-        }
-
         if (context->network_namespace_path && runtime && runtime->netns_storage_socket[0] >= 0) {
                 r = open_netns_path(runtime->netns_storage_socket, context->network_namespace_path);
                 if (r < 0) {
@@ -4054,10 +4037,11 @@ int exec_spawn(Unit *unit,
                pid_t *ret) {
 
         int socket_fd, r, named_iofds[3] = { -1, -1, -1 }, *fds = NULL;
-        _cleanup_free_ char *subcgroup_path = NULL;
+        _cleanup_free_ char *cgroup_path = NULL;
         _cleanup_strv_free_ char **files_env = NULL;
         size_t n_storage_fds = 0, n_socket_fds = 0;
         _cleanup_free_ char *line = NULL;
+        bool forked = false, cgroup_attached = false;
         pid_t pid;
 
         assert(unit);
@@ -4103,22 +4087,48 @@ int exec_spawn(Unit *unit,
                    LOG_UNIT_INVOCATION_ID(unit));
 
         if (params->cgroup_path) {
-                r = exec_parameters_get_cgroup_path(params, &subcgroup_path);
+                r = exec_parameters_get_cgroup_path(params, &cgroup_path);
                 if (r < 0)
-                        return log_unit_error_errno(unit, r, "Failed to acquire subcgroup path: %m");
-                if (r > 0) { /* We are using a child cgroup */
-                        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path);
+                        return log_unit_error_errno(unit, r, "Failed to acquire cgroup path: %m");
+                if (r > 0) { /* We are using a child of the main unit cgroup */
+                        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, cgroup_path);
                         if (r < 0)
-                                return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", subcgroup_path);
+                                return log_unit_error_errno(unit, r, "Failed to create control group '%s': %m", cgroup_path);
+                }
+
+                /* Try clone3()'s CLONE_INTO_CGROUP feature if available. Fallback to classic fork() if not */
+                pid = fork_into_cgroup_path(cgroup_path);
+                if (pid < 0) {
+                        if (!ERRNO_IS_NOT_SUPPORTED(pid))
+                                return log_unit_error_errno(unit, pid, "Failed to fork into cgroup %s: %m", cgroup_path);
+
+                        /* OK, clone3() isn't supported. Let's use classic fork() then, below. */
+                } else {
+                        forked = true;
+                        cgroup_attached = true;
                 }
         }
 
-        pid = fork();
-        if (pid < 0)
-                return log_unit_error_errno(unit, errno, "Failed to fork: %m");
+        if (!forked) {
+                pid = fork();
+                if (pid < 0)
+                        return log_unit_error_errno(unit, errno, "Failed to fork: %m");
+
+                cgroup_attached = false;
+        }
 
         if (pid == 0) {
                 int exit_status = EXIT_SUCCESS;
+                const char *status;
+
+                if (cgroup_path && !cgroup_attached) {
+                        r = cg_attach_everywhere(params->cgroup_supported, cgroup_path, 0, NULL, NULL);
+                        if (r < 0) {
+                                exit_status = EXIT_CGROUP;
+                                log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", cgroup_path);
+                                goto child_fail;
+                        }
+                }
 
                 r = exec_child(unit,
                                command,
@@ -4134,31 +4144,38 @@ int exec_spawn(Unit *unit,
                                files_env,
                                unit->manager->user_lookup_fds[1],
                                &exit_status);
+                if (r < 0)
+                        goto child_fail;
 
-                if (r < 0) {
-                        const char *status =
-                                exit_status_to_string(exit_status,
-                                                      EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
+                /* Note that exec_child() doesn't always end up in execve()! If the confirm-spawn logic is
+                 * used the user might choose to skip an entry, in which case we'll just exit without error
+                 * here, and do not end up in execve()! */
 
-                        log_struct_errno(LOG_ERR, r,
-                                         "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                         LOG_UNIT_ID(unit),
-                                         LOG_UNIT_INVOCATION_ID(unit),
-                                         LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
-                                                          status, command->path),
-                                         "EXECUTABLE=%s", command->path);
-                }
+                _exit(exit_status);
 
+        child_fail:
+                status = exit_status_to_string(exit_status, EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
+
+                log_struct_errno(LOG_ERR, r,
+                                 "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                 LOG_UNIT_ID(unit),
+                                 LOG_UNIT_INVOCATION_ID(unit),
+                                 LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
+                                                  status, command->path),
+                                 "EXECUTABLE=%s", command->path);
                 _exit(exit_status);
         }
 
         log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
 
-        /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
-         * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
-         * process will be killed too). */
-        if (subcgroup_path)
-                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pid);
+        /* We add the new process to the cgroup both in the child (so that we can be sure that no user code
+         * is ever executed outside of the cgroup) and in the parent (so that we can be sure that when we
+         * kill the cgroup the process will be killed too).
+         *
+         * If clone3() with CLONE_INTO_CGROUP is supported we can skip this step, everything is already
+         * completed then. */
+        if (cgroup_path && !cgroup_attached)
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, pid);
 
         exec_status_start(&command->exec_status, pid);
 
