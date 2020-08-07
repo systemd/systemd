@@ -1969,8 +1969,10 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, req, 0, error, NULL);
-        if (r < 0 && extended && sd_bus_error_has_name(error, SD_BUS_ERROR_UNKNOWN_METHOD))
+        if (r < 0 && extended && sd_bus_error_has_name(error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                sd_bus_error_free(error);
                 return call_dns(bus, dns, locator, error, false);
+        }
         return r;
 }
 

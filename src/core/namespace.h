@@ -8,6 +8,8 @@
 typedef struct NamespaceInfo NamespaceInfo;
 typedef struct BindMount BindMount;
 typedef struct TemporaryFileSystem TemporaryFileSystem;
+typedef struct MountImage MountImage;
+typedef struct MountEntry MountEntry;
 
 #include <stdbool.h>
 
@@ -72,9 +74,16 @@ struct TemporaryFileSystem {
         char *options;
 };
 
+struct MountImage {
+        char *source;
+        char *destination;
+        bool ignore_enoent;
+};
+
 int setup_namespace(
                 const char *root_directory,
                 const char *root_image,
+                const MountOptions *root_image_options,
                 const NamespaceInfo *ns_info,
                 char **read_write_paths,
                 char **read_only_paths,
@@ -84,6 +93,8 @@ int setup_namespace(
                 size_t n_bind_mounts,
                 const TemporaryFileSystem *temporary_filesystems,
                 size_t n_temporary_filesystems,
+                const MountImage *mount_images,
+                size_t n_mount_images,
                 const char *tmp_dir,
                 const char *var_tmp_dir,
                 const char *log_namespace,
@@ -130,6 +141,9 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
 void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n);
 int temporary_filesystem_add(TemporaryFileSystem **t, size_t *n,
                              const char *path, const char *options);
+
+MountImage* mount_image_free_many(MountImage *m, size_t *n);
+int mount_image_add(MountImage **m, size_t *n, const MountImage *item);
 
 const char* namespace_type_to_string(NamespaceType t) _const_;
 NamespaceType namespace_type_from_string(const char *s) _pure_;

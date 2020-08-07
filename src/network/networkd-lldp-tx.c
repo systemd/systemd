@@ -332,7 +332,7 @@ static int link_send_lldp(Link *link) {
 
 static int on_lldp_timer(sd_event_source *s, usec_t t, void *userdata) {
         Link *link = userdata;
-        usec_t current, delay, next;
+        usec_t delay;
         int r;
 
         assert(s);
@@ -347,12 +347,10 @@ static int on_lldp_timer(sd_event_source *s, usec_t t, void *userdata) {
         if (link->lldp_tx_fast > 0)
                 link->lldp_tx_fast--;
 
-        assert_se(sd_event_now(sd_event_source_get_event(s), clock_boottime_or_monotonic(), &current) >= 0);
-
         delay = link->lldp_tx_fast > 0 ? LLDP_FAST_TX_USEC : LLDP_TX_INTERVAL_USEC;
-        next = usec_add(usec_add(current, delay), (usec_t) random_u64() % LLDP_JITTER_USEC);
+        delay = usec_add(delay, (usec_t) random_u64() % LLDP_JITTER_USEC);
 
-        r = sd_event_source_set_time(s, next);
+        r = sd_event_source_set_time_relative(s, delay);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to restart LLDP timer: %m");
 

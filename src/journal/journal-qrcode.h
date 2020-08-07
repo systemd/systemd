@@ -6,4 +6,4 @@
 
 #include "sd-id128.h"
 
-int print_qr_code(FILE *f, const void *seed, size_t seed_size, uint64_t start, uint64_t interval, const char *hn, sd_id128_t machine);
+int print_qr_code(FILE *f, const char *prefix_text, const void *seed, size_t seed_size, uint64_t start, uint64_t interval, const char *hn, sd_id128_t machine);

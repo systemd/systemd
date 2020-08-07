@@ -5,11 +5,13 @@
 
 #include "sd-id128.h"
 
+#include "list.h"
 #include "macro.h"
 
 typedef struct DissectedImage DissectedImage;
 typedef struct DissectedPartition DissectedPartition;
 typedef struct DecryptedImage DecryptedImage;
+typedef struct MountOptions MountOptions;
 
 struct DissectedPartition {
         bool found:1;
@@ -21,6 +23,7 @@ struct DissectedPartition {
         char *node;
         char *decrypted_node;
         char *decrypted_fstype;
+        char *mount_options;
 };
 
 enum  {
@@ -81,9 +84,19 @@ struct DissectedImage {
         char **os_release;
 };
 
+struct MountOptions {
+        unsigned partition_number;
+        char *options;
+        LIST_FIELDS(MountOptions, mount_options);
+};
+
+MountOptions* mount_options_free_all(MountOptions *options);
+DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
+const char* mount_options_from_part(const MountOptions *options, unsigned int partition_number);
+
 int probe_filesystem(const char *node, char **ret_fstype);
-int dissect_image(int fd, const void *root_hash, size_t root_hash_size, const char *verity_data, DissectImageFlags flags, DissectedImage **ret);
-int dissect_image_and_warn(int fd, const char *name, const void *root_hash, size_t root_hash_size, const char *verity_data, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image(int fd, const void *root_hash, size_t root_hash_size, const char *verity_data, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
+int dissect_image_and_warn(int fd, const char *name, const void *root_hash, size_t root_hash_size, const char *verity_data, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
 
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);

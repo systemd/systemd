@@ -676,17 +676,17 @@ conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme)
 
 time_epoch = get_option('time-epoch')
 if time_epoch == -1
-        source_date_epoch = run_command('sh', ['-c', 'echo "$SOURCE_DATE_EPOCH"']).stdout().strip()
-        if source_date_epoch != ''
-                time_epoch = source_date_epoch.to_int()
-        elif git.found() and run_command('test', '-e', '.git').returncode() == 0
+        time_epoch = run_command('sh', ['-c', 'echo "$SOURCE_DATE_EPOCH"']).stdout().strip()
+        if time_epoch == '' and git.found() and run_command('test', '-e', '.git').returncode() == 0
                 # If we're in a git repository, use the creation time of the latest git tag.
                 latest_tag = run_command('git', 'describe', '--abbrev=0', '--tags').stdout().strip()
-                time_epoch = run_command('git', 'log', '-1', '--format=%at', latest_tag).stdout().to_int()
-        else
-                NEWS = files('NEWS')
-                time_epoch = run_command(stat, '-c', '%Y', NEWS).stdout().to_int()
+                time_epoch = run_command('git', 'log', '-1', '--format=%at', latest_tag).stdout()
         endif
+        if time_epoch == ''
+                NEWS = files('NEWS')
+                time_epoch = run_command(stat, '-c', '%Y', NEWS).stdout()
+        endif
+        time_epoch = time_epoch.to_int()
 endif
 conf.set('TIME_EPOCH', time_epoch)
 
@@ -1799,11 +1799,11 @@ public_programs += executable(
         include_directories : includes,
         link_with : [libshared],
         dependencies : [threads,
-                        libqrencode,
+                        libdl,
                         libxz,
                         liblz4,
-                        libpcre2,
-                        libzstd],
+                        libzstd,
+                        libdl],
         install_rpath : rootlibexecdir,
         install : true,
         install_dir : rootbindir)
@@ -2668,6 +2668,7 @@ if conf.get('ENABLE_REPART') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
+        public_programs += exe
 
         if want_tests != 'false'
                 test('test-repart',

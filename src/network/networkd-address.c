@@ -125,6 +125,17 @@ void address_free(Address *address) {
         if (address->link && !address->acd) {
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
+                set_remove(address->link->static_addresses, address);
+                if (address->link->dhcp_address == address)
+                        address->link->dhcp_address = NULL;
+                if (address->link->dhcp_address_old == address)
+                        address->link->dhcp_address_old = NULL;
+                set_remove(address->link->dhcp6_addresses, address);
+                set_remove(address->link->dhcp6_addresses_old, address);
+                set_remove(address->link->dhcp6_pd_addresses, address);
+                set_remove(address->link->dhcp6_pd_addresses_old, address);
+                set_remove(address->link->ndisc_addresses, address);
+                set_remove(address->link->ndisc_addresses_old, address);
 
                 if (in_addr_equal(AF_INET6, &address->in_addr, (const union in_addr_union *) &address->link->ipv6ll_address))
                         memzero(&address->link->ipv6ll_address, sizeof(struct in6_addr));
@@ -205,7 +216,7 @@ static int address_compare_func(const Address *a1, const Address *a2) {
         }
 }
 
-DEFINE_HASH_OPS(address_hash_ops, Address, address_hash_func, address_compare_func);
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(address_hash_ops, Address, address_hash_func, address_compare_func, address_free);
 
 bool address_equal(Address *a1, Address *a2) {
         if (a1 == a2)
@@ -344,11 +355,8 @@ int address_update(
         int r;
 
         assert(address);
+        assert(address->link);
         assert(cinfo);
-        assert_return(address->link, 1);
-
-        if (IN_SET(address->link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         ready = address_is_ready(address);
 
@@ -356,18 +364,27 @@ int address_update(
         address->scope = scope;
         address->cinfo = *cinfo;
 
+        if (IN_SET(address->link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 0;
+
         link_update_operstate(address->link, true);
         link_check_ready(address->link);
 
-        if (!ready &&
-            address_is_ready(address) &&
-            address->family == AF_INET6 &&
-            in_addr_is_link_local(AF_INET6, &address->in_addr) > 0 &&
-            in_addr_is_null(AF_INET6, (const union in_addr_union*) &address->link->ipv6ll_address) > 0) {
+        if (!ready && address_is_ready(address)) {
+                if (address->callback) {
+                        r = address->callback(address);
+                        if (r < 0)
+                                return r;
+                }
 
-                r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
-                if (r < 0)
-                        return r;
+                if (address->family == AF_INET6 &&
+                    in_addr_is_link_local(AF_INET6, &address->in_addr) > 0 &&
+                    IN6_IS_ADDR_UNSPECIFIED(&address->link->ipv6ll_address) > 0) {
+
+                        r = link_ipv6ll_gained(address->link, &address->in_addr.in6);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
@@ -586,9 +603,11 @@ int address_configure(
                 Address *address,
                 Link *link,
                 link_netlink_message_handler_t callback,
-                bool update) {
+                bool update,
+                Address **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        Address *a;
         int r;
 
         assert(address);
@@ -608,6 +627,13 @@ int address_configure(
         r = address_acquire(link, address, &address);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to acquire an address from pool: %m");
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *str = NULL;
+
+                (void) in_addr_to_string(address->family, &address->in_addr, &str);
+                log_link_debug(link, "%s address: %s", update ? "Updating" : "Configuring", strna(str));
+        }
 
         if (update)
                 r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
@@ -690,9 +716,9 @@ int address_configure(
         link_ref(link);
 
         if (address->family == AF_INET6 && !in_addr_is_null(address->family, &address->in_addr_peer))
-                r = address_add(link, address->family, &address->in_addr_peer, address->prefixlen, NULL);
+                r = address_add(link, address->family, &address->in_addr_peer, address->prefixlen, &a);
         else
-                r = address_add(link, address->family, &address->in_addr, address->prefixlen, NULL);
+                r = address_add(link, address->family, &address->in_addr, address->prefixlen, &a);
         if (r < 0) {
                 address_release(address);
                 return log_link_error_errno(link, r, "Could not add address: %m");
@@ -711,6 +737,9 @@ int address_configure(
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to start IPv4ACD client, ignoring: %m");
         }
+
+        if (ret)
+                *ret = a;
 
         return 1;
 }

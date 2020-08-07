@@ -57923,6 +57923,15 @@ usb:v1A7Cp0191*
 usb:v1A7Cp0195*
  ID_MODEL_FROM_DATABASE=VerticalMouse C Wireless
 
+usb:v1A7E*
+ ID_VENDOR_FROM_DATABASE=Meltec Systementwicklung
+
+usb:v1A7Ep1001*
+ ID_MODEL_FROM_DATABASE=UFT75, UT150, UT60
+
+usb:v1A7Ep1003*
+ ID_MODEL_FROM_DATABASE=Thermostick
+
 usb:v1A81*
  ID_VENDOR_FROM_DATABASE=Holtek Semiconductor, Inc.
 

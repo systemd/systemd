@@ -293,7 +293,6 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 static void test_ra(void) {
         sd_event *e;
         sd_radv *ra;
-        usec_t time_now = now(clock_boottime_or_monotonic());
         unsigned i;
 
         printf("* %s\n", __FUNCTION__);
@@ -339,9 +338,10 @@ static void test_ra(void) {
         assert_se(sd_event_add_io(e, &recv_router_advertisement, test_fd[0],
                                   EPOLLIN, radv_recv, ra) >= 0);
 
-        assert_se(sd_event_add_time(e, &test_hangcheck, clock_boottime_or_monotonic(),
-                                 time_now + 2 *USEC_PER_SEC, 0,
-                                 test_rs_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time_relative(
+                                  e, &test_hangcheck, clock_boottime_or_monotonic(),
+                                  2 *USEC_PER_SEC, 0,
+                                  test_rs_hangcheck, NULL) >= 0);
 
         assert_se(sd_radv_start(ra) >= 0);
 

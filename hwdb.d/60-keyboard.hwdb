@@ -598,8 +598,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHDX9494NR:pvr*
 
 # HP EliteBook 725 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPLicrice:pvr*
-# HP EliteBook 840 G1
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBook840G1:pvr*
+# HP EliteBook
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBook*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPEliteBook*:pvr*
 # HP ProBook 440 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP440G2:pvr*
 # several HP ProBooks 4xx
@@ -608,8 +609,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHP*ProBook*4*:pvr*
 # HP ZBook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:pvr*
-# Elitebook x360 1040 G6
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pn*EliteBook*x3601040G6:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
 
 # HP ZBook 15 G2
@@ -628,7 +627,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP:pnHPZBookStudioG4:pvr*
 
 # HP Folio 1040g2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPEliteBookFolio1040G2:pvr*
- KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
  KEYBOARD_KEY_d8=!f23                                   # touchpad off
  KEYBOARD_KEY_d9=!f22                                   # touchpad on
 

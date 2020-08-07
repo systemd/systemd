@@ -34,6 +34,7 @@ test_create_image() {
         BASICTOOLS=(
             bash
             cat
+            mount
         )
         oldinitdir=$initdir
         export initdir=$TESTDIR/minimal

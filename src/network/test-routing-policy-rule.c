@@ -53,7 +53,7 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
         log_info("$ %s", cmd);
         assert_se(system(cmd) == 0);
 
-        set_free_with_destructor(rules, routing_policy_rule_free);
+        set_free(rules);
 }
 
 int main(int argc, char **argv) {

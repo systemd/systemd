@@ -857,8 +857,10 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                                                valid_str ? "for " : "forever", strempty(valid_str));
                 }
 
-                /* address_update() logs internally, so we don't need to. */
-                (void) address_update(address, flags, scope, &cinfo);
+                /* address_update() logs internally, so we don't need to here. */
+                r = address_update(address, flags, scope, &cinfo);
+                if (r < 0)
+                        link_enter_failed(link);
 
                 break;
 
@@ -1727,8 +1729,7 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
                 manager_save(m);
 
         SET_FOREACH(link, m->dirty_links, i)
-                if (link_save(link) >= 0)
-                        link_clean(link);
+                (void) link_save_and_clean(link);
 
         return 1;
 }
@@ -1822,27 +1823,20 @@ int manager_new(Manager **ret) {
 }
 
 void manager_free(Manager *m) {
-        struct in6_addr *a;
         AddressPool *pool;
         Link *link;
+        Iterator i;
 
         if (!m)
                 return;
 
         free(m->state_file);
 
-        while ((a = hashmap_first_key(m->dhcp6_prefixes)))
-                (void) dhcp6_prefix_remove(m, a);
-        m->dhcp6_prefixes = hashmap_free(m->dhcp6_prefixes);
-
-        while ((link = hashmap_steal_first(m->links))) {
-                if (link->dhcp6_client)
-                        (void) dhcp6_lease_pd_prefix_lost(link->dhcp6_client, link);
-
+        HASHMAP_FOREACH(link, m->links, i)
                 (void) link_stop_clients(link, true);
 
-                link_unref(link);
-        }
+        m->dhcp6_prefixes = hashmap_free_with_destructor(m->dhcp6_prefixes, dhcp6_pd_free);
+        m->dhcp6_pd_prefixes = set_free_with_destructor(m->dhcp6_pd_prefixes, dhcp6_pd_free);
 
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
         m->links_requesting_uuid = set_free_with_destructor(m->links_requesting_uuid, link_unref);
@@ -1858,9 +1852,9 @@ void manager_free(Manager *m) {
 
         /* routing_policy_rule_free() access m->rules and m->rules_foreign.
          * So, it is necessary to set NULL after the sets are freed. */
-        m->rules = set_free_with_destructor(m->rules, routing_policy_rule_free);
-        m->rules_foreign = set_free_with_destructor(m->rules_foreign, routing_policy_rule_free);
-        set_free_with_destructor(m->rules_saved, routing_policy_rule_free);
+        m->rules = set_free(m->rules);
+        m->rules_foreign = set_free(m->rules_foreign);
+        set_free(m->rules_saved);
 
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
@@ -1899,7 +1893,7 @@ int manager_start(Manager *m) {
         manager_save(m);
 
         HASHMAP_FOREACH(link, m->links, i)
-                link_save(link);
+                (void) link_save(link);
 
         return 0;
 }

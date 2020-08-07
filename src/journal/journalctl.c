@@ -56,13 +56,15 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcre2-dlopen.h"
 #include "pretty-print.h"
+#include "random-util.h"
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "strv.h"
-#include "stdio-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -160,20 +162,20 @@ typedef struct BootId {
 } BootId;
 
 #if HAVE_PCRE2
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
-DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, sym_pcre2_match_data_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, sym_pcre2_code_free);
 
 static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
         int errorcode, r;
         PCRE2_SIZE erroroffset;
         pcre2_code *p;
 
-        p = pcre2_compile((PCRE2_SPTR8) pattern,
-                          PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
+        p = sym_pcre2_compile((PCRE2_SPTR8) pattern,
+                              PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
         if (!p) {
                 unsigned char buf[LINE_MAX];
 
-                r = pcre2_get_error_message(errorcode, buf, sizeof buf);
+                r = sym_pcre2_get_error_message(errorcode, buf, sizeof buf);
 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Bad pattern \"%s\": %s", pattern,
@@ -183,7 +185,6 @@ static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out
         *out = p;
         return 0;
 }
-
 #endif
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
@@ -1087,14 +1088,18 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_pattern) {
                 unsigned flags;
 
+                r = dlopen_pcre2();
+                if (r < 0)
+                        return r;
+
                 if (arg_case_sensitive >= 0)
                         flags = !arg_case_sensitive * PCRE2_CASELESS;
                 else {
-                        _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
+                        _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
                         bool has_case;
-                        _cleanup_(pcre2_code_freep) pcre2_code *cs = NULL;
+                        _cleanup_(sym_pcre2_code_freep) pcre2_code *cs = NULL;
 
-                        md = pcre2_match_data_create(1, NULL);
+                        md = sym_pcre2_match_data_create(1, NULL);
                         if (!md)
                                 return log_oom();
 
@@ -1102,7 +1107,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        r = pcre2_match(cs, (PCRE2_SPTR8) arg_pattern, PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
+                        r = sym_pcre2_match(cs, (PCRE2_SPTR8) arg_pattern, PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
                         has_case = r >= 0;
 
                         flags = !has_case * PCRE2_CASELESS;
@@ -1774,12 +1779,14 @@ static int add_syslog_identifier(sd_journal *j) {
 static int setup_keys(void) {
 #if HAVE_GCRYPT
         size_t mpk_size, seed_size, state_size, i;
+        _cleanup_(unlink_and_freep) char *k = NULL;
+        _cleanup_free_ char *p = NULL;
         uint8_t *mpk, *seed, *state;
-        int fd = -1, r;
+        _cleanup_close_ int fd = -1;
         sd_id128_t machine, boot;
-        char *p = NULL, *k = NULL;
-        uint64_t n;
         struct stat st;
+        uint64_t n;
+        int r;
 
         r = stat("/var/log/journal", &st);
         if (r < 0 && !IN_SET(errno, ENOENT, ENOTDIR))
@@ -1805,21 +1812,15 @@ static int setup_keys(void) {
 
         if (arg_force) {
                 r = unlink(p);
-                if (r < 0 && errno != ENOENT) {
-                        r = log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
-                        goto finish;
-                }
-        } else if (access(p, F_OK) >= 0) {
-                log_error("Sealing key file %s exists already. Use --force to recreate.", p);
-                r = -EEXIST;
-                goto finish;
-        }
+                if (r < 0 && errno != ENOENT)
+                        return log_error_errno(errno, "unlink(\"%s\") failed: %m", p);
+        } else if (access(p, F_OK) >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Sealing key file %s exists already. Use --force to recreate.", p);
 
         if (asprintf(&k, "/var/log/journal/" SD_ID128_FORMAT_STR "/fss.tmp.XXXXXX",
-                     SD_ID128_FORMAT_VAL(machine)) < 0) {
-                r = log_oom();
-                goto finish;
-        }
+                     SD_ID128_FORMAT_VAL(machine)) < 0)
+                return log_oom();
 
         mpk_size = FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR);
         mpk = alloca(mpk_size);
@@ -1830,18 +1831,10 @@ static int setup_keys(void) {
         state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
         state = alloca(state_size);
 
-        fd = open("/dev/random", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0) {
-                r = log_error_errno(errno, "Failed to open /dev/random: %m");
-                goto finish;
-        }
-
         log_info("Generating seed...");
-        r = loop_read_exact(fd, seed, seed_size, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to read random seed: %m");
-                goto finish;
-        }
+        r = genuine_random_bytes(seed, seed_size, RANDOM_BLOCK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire random seed: %m");
 
         log_info("Generating key pair...");
         FSPRG_GenMK(NULL, mpk, seed, seed_size, FSPRG_RECOMMENDED_SECPAR);
@@ -1856,18 +1849,25 @@ static int setup_keys(void) {
 
         safe_close(fd);
         fd = mkostemp_safe(k);
-        if (fd < 0) {
-                r = log_error_errno(fd, "Failed to open %s: %m", k);
-                goto finish;
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open %s: %m", k);
+
+        /* Enable secure remove, exclusion from dump, synchronous writing and in-place updating */
+        static const unsigned chattr_flags[] = {
+                FS_SECRM_FL,
+                FS_NODUMP_FL,
+                FS_SYNC_FL,
+                FS_NOCOW_FL,
+        };
+        for (size_t j = 0; j < ELEMENTSOF(chattr_flags); j++) {
+                r = chattr_fd(fd, chattr_flags[j], chattr_flags[j], NULL);
+                if (r < 0)
+                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to set file attribute 0x%x: %m", chattr_flags[j]);
         }
 
-        /* Enable secure remove, exclusion from dump, synchronous
-         * writing and in-place updating */
-        r = chattr_fd(fd, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, FS_SECRM_FL|FS_NODUMP_FL|FS_SYNC_FL|FS_NOCOW_FL, NULL);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set file attributes: %m");
-
         struct FSSHeader h = {
+                .signature = { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' },
                 .machine_id = machine,
                 .boot_id = boot,
                 .header_size = htole64(sizeof(h)),
@@ -1877,24 +1877,18 @@ static int setup_keys(void) {
                 .fsprg_state_size = htole64(state_size),
         };
 
-        memcpy(h.signature, "KSHHRHLP", 8);
-
         r = loop_write(fd, &h, sizeof(h), false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write header: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write header: %m");
 
         r = loop_write(fd, state, state_size, false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write state: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write state: %m");
 
-        if (link(k, p) < 0) {
-                r = log_error_errno(errno, "Failed to link file: %m");
-                goto finish;
-        }
+        if (rename(k, p) < 0)
+                return log_error_errno(errno, "Failed to link file: %m");
+
+        k = mfree(k);
 
         if (on_tty()) {
                 fprintf(stderr,
@@ -1923,7 +1917,8 @@ static int setup_keys(void) {
         printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_interval);
 
         if (on_tty()) {
-                char tsb[FORMAT_TIMESPAN_MAX], *hn;
+                _cleanup_free_ char *hn = NULL;
+                char tsb[FORMAT_TIMESPAN_MAX];
 
                 fprintf(stderr,
                         "%s\n"
@@ -1932,7 +1927,6 @@ static int setup_keys(void) {
                         format_timespan(tsb, sizeof(tsb), arg_interval, 0));
 
                 hn = gethostname_malloc();
-
                 if (hn) {
                         hostname_cleanup(hn);
                         fprintf(stderr, "\nThe keys have been generated for host %s/" SD_ID128_FORMAT_STR ".\n", hn, SD_ID128_FORMAT_VAL(machine));
@@ -1940,28 +1934,15 @@ static int setup_keys(void) {
                         fprintf(stderr, "\nThe keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
 
 #if HAVE_QRENCODE
-                /* If this is not an UTF-8 system don't print any QR codes */
-                if (is_locale_utf8()) {
-                        fputs("\nTo transfer the verification key to your phone please scan the QR code below:\n\n", stderr);
-                        print_qr_code(stderr, seed, seed_size, n, arg_interval, hn, machine);
-                }
+                (void) print_qr_code(stderr,
+                                     "\nTo transfer the verification key to your phone please scan the QR code below:\n\n",
+                                     seed, seed_size,
+                                     n, arg_interval,
+                                     hn, machine);
 #endif
-                free(hn);
         }
 
-        r = 0;
-
-finish:
-        safe_close(fd);
-
-        if (k) {
-                (void) unlink(k);
-                free(k);
-        }
-
-        free(p);
-
-        return r;
+        return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "Forward-secure sealing not available.");
@@ -2630,12 +2611,12 @@ int main(int argc, char *argv[]) {
 
 #if HAVE_PCRE2
                         if (arg_compiled_pattern) {
-                                _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
+                                _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
                                 const void *message;
                                 size_t len;
                                 PCRE2_SIZE *ovec;
 
-                                md = pcre2_match_data_create(1, NULL);
+                                md = sym_pcre2_match_data_create(1, NULL);
                                 if (!md)
                                         return log_oom();
 
@@ -2652,13 +2633,13 @@ int main(int argc, char *argv[]) {
 
                                 assert_se(message = startswith(message, "MESSAGE="));
 
-                                r = pcre2_match(arg_compiled_pattern,
-                                                message,
-                                                len - strlen("MESSAGE="),
-                                                0,      /* start at offset 0 in the subject */
-                                                0,      /* default options */
-                                                md,
-                                                NULL);
+                                r = sym_pcre2_match(arg_compiled_pattern,
+                                                    message,
+                                                    len - strlen("MESSAGE="),
+                                                    0,      /* start at offset 0 in the subject */
+                                                    0,      /* default options */
+                                                    md,
+                                                    NULL);
                                 if (r == PCRE2_ERROR_NOMATCH) {
                                         need_seek = true;
                                         continue;
@@ -2667,14 +2648,14 @@ int main(int argc, char *argv[]) {
                                         unsigned char buf[LINE_MAX];
                                         int r2;
 
-                                        r2 = pcre2_get_error_message(r, buf, sizeof buf);
+                                        r2 = sym_pcre2_get_error_message(r, buf, sizeof buf);
                                         log_error("Pattern matching failed: %s",
                                                   r2 < 0 ? "unknown error" : (char*) buf);
                                         r = -EINVAL;
                                         goto finish;
                                 }
 
-                                ovec = pcre2_get_ovector_pointer(md);
+                                ovec = sym_pcre2_get_ovector_pointer(md);
                                 highlight[0] = ovec[0];
                                 highlight[1] = ovec[1];
                         }
@@ -2766,7 +2747,7 @@ finish:
 
 #if HAVE_PCRE2
         if (arg_compiled_pattern) {
-                pcre2_code_free(arg_compiled_pattern);
+                sym_pcre2_code_free(arg_compiled_pattern);
 
                 /* --grep was used, no error was thrown, but the pattern didn't
                  * match anything. Let's mimic grep's behavior here and return

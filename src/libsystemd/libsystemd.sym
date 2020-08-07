@@ -721,3 +721,9 @@ global:
         sd_journal_enumerate_available_data;
         sd_journal_enumerate_available_unique;
 } LIBSYSTEMD_245;
+
+LIBSYSTEMD_247 {
+global:
+        sd_event_add_time_relative;
+        sd_event_source_set_time_relative;
+} LIBSYSTEMD_246;

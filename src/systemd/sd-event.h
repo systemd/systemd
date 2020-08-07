@@ -88,6 +88,7 @@ sd_event* sd_event_unref(sd_event *e);
 
 int sd_event_add_io(sd_event *e, sd_event_source **s, int fd, uint32_t events, sd_event_io_handler_t callback, void *userdata);
 int sd_event_add_time(sd_event *e, sd_event_source **s, clockid_t clock, uint64_t usec, uint64_t accuracy, sd_event_time_handler_t callback, void *userdata);
+int sd_event_add_time_relative(sd_event *e, sd_event_source **s, clockid_t clock, uint64_t usec, uint64_t accuracy, sd_event_time_handler_t callback, void *userdata);
 int sd_event_add_signal(sd_event *e, sd_event_source **s, int sig, sd_event_signal_handler_t callback, void *userdata);
 int sd_event_add_child(sd_event *e, sd_event_source **s, pid_t pid, int options, sd_event_child_handler_t callback, void *userdata);
 int sd_event_add_child_pidfd(sd_event *e, sd_event_source **s, int pidfd, int options, sd_event_child_handler_t callback, void *userdata);
@@ -138,6 +139,7 @@ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events);
 int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents);
 int sd_event_source_get_time(sd_event_source *s, uint64_t *usec);
 int sd_event_source_set_time(sd_event_source *s, uint64_t usec);
+int sd_event_source_set_time_relative(sd_event_source *s, uint64_t usec);
 int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *usec);
 int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec);
 int sd_event_source_get_time_clock(sd_event_source *s, clockid_t *clock);

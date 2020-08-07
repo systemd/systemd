@@ -1677,27 +1677,20 @@ int server_schedule_sync(Server *s, int priority) {
                 return 0;
 
         if (s->sync_interval_usec > 0) {
-                usec_t when;
-
-                r = sd_event_now(s->event, CLOCK_MONOTONIC, &when);
-                if (r < 0)
-                        return r;
-
-                when += s->sync_interval_usec;
 
                 if (!s->sync_event_source) {
-                        r = sd_event_add_time(
+                        r = sd_event_add_time_relative(
                                         s->event,
                                         &s->sync_event_source,
                                         CLOCK_MONOTONIC,
-                                        when, 0,
+                                        s->sync_interval_usec, 0,
                                         server_dispatch_sync, s);
                         if (r < 0)
                                 return r;
 
                         r = sd_event_source_set_priority(s->sync_event_source, SD_EVENT_PRIORITY_IMPORTANT);
                 } else {
-                        r = sd_event_source_set_time(s->sync_event_source, when);
+                        r = sd_event_source_set_time_relative(s->sync_event_source, s->sync_interval_usec);
                         if (r < 0)
                                 return r;
 
@@ -1888,7 +1881,7 @@ static int server_connect_notify(Server *s) {
         if (sd_watchdog_enabled(false, &s->watchdog_usec) > 0) {
                 s->send_watchdog = true;
 
-                r = sd_event_add_time(s->event, &s->watchdog_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + s->watchdog_usec/2, s->watchdog_usec/4, dispatch_watchdog, s);
+                r = sd_event_add_time_relative(s->event, &s->watchdog_event_source, CLOCK_MONOTONIC, s->watchdog_usec/2, s->watchdog_usec/4, dispatch_watchdog, s);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add watchdog time event: %m");
         }
@@ -2116,7 +2109,6 @@ static int server_idle_handler(sd_event_source *source, uint64_t usec, void *use
 
 int server_start_or_stop_idle_timer(Server *s) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
-        usec_t when;
         int r;
 
         assert(s);
@@ -2129,11 +2121,7 @@ int server_start_or_stop_idle_timer(Server *s) {
         if (s->idle_event_source)
                 return 1;
 
-        r = sd_event_now(s->event, CLOCK_MONOTONIC, &when);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine current time: %m");
-
-        r = sd_event_add_time(s->event, &source, CLOCK_MONOTONIC, usec_add(when, IDLE_TIMEOUT_USEC), 0, server_idle_handler, s);
+        r = sd_event_add_time_relative(s->event, &source, CLOCK_MONOTONIC, IDLE_TIMEOUT_USEC, 0, server_idle_handler, s);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate idle timer: %m");
 
@@ -2148,7 +2136,6 @@ int server_start_or_stop_idle_timer(Server *s) {
 }
 
 int server_refresh_idle_timer(Server *s) {
-        usec_t when;
         int r;
 
         assert(s);
@@ -2156,11 +2143,7 @@ int server_refresh_idle_timer(Server *s) {
         if (!s->idle_event_source)
                 return 0;
 
-        r = sd_event_now(s->event, CLOCK_MONOTONIC, &when);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine current time: %m");
-
-        r = sd_event_source_set_time(s->idle_event_source, usec_add(when, IDLE_TIMEOUT_USEC));
+        r = sd_event_source_set_time_relative(s->idle_event_source, IDLE_TIMEOUT_USEC);
         if (r < 0)
                 return log_error_errno(r, "Failed to refresh idle timer: %m");
 

@@ -1480,9 +1480,9 @@ static int luks_format(
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
+        char suuid[ID128_UUID_STRING_MAX], **pp;
         _cleanup_free_ char *text = NULL;
         size_t volume_key_size;
-        char suuid[37], **pp;
         int slot = 0, r;
 
         assert(node);
@@ -1614,7 +1614,7 @@ static int make_partition_table(
         _cleanup_free_ char *path = NULL, *disk_uuid_as_string = NULL;
         uint64_t offset, size;
         sd_id128_t disk_uuid;
-        char uuids[37];
+        char uuids[ID128_UUID_STRING_MAX];
         int r;
 
         assert(fd >= 0);

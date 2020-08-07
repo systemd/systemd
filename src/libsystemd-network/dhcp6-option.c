@@ -642,59 +642,103 @@ int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
         return count;
 }
 
-int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char ***str_arr) {
-        size_t pos = 0, idx = 0;
+static int parse_domain(const uint8_t **data, uint16_t *len, char **out_domain) {
+        _cleanup_free_ char *ret = NULL;
+        size_t n = 0, allocated = 0;
+        const uint8_t *optval = *data;
+        uint16_t optlen = *len;
+        bool first = true;
+        int r;
+
+        if (optlen <= 1)
+                return -ENODATA;
+
+        for (;;) {
+                const char *label;
+                uint8_t c;
+
+                if (optlen == 0)
+                        break;
+
+                c = *optval;
+                optval++;
+                optlen--;
+
+                if (c == 0)
+                        /* End label */
+                        break;
+                if (c > 63)
+                        return -EBADMSG;
+                if (c > optlen)
+                        return -EMSGSIZE;
+
+                /* Literal label */
+                label = (const char *)optval;
+                optval += c;
+                optlen -= c;
+
+                if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                        return -ENOMEM;
+
+                if (first)
+                        first = false;
+                else
+                        ret[n++] = '.';
+
+                r = dns_label_escape(label, c, ret + n, DNS_LABEL_ESCAPED_MAX);
+                if (r < 0)
+                        return r;
+
+                n += r;
+        }
+
+        if (n) {
+                if (!GREEDY_REALLOC(ret, allocated, n + 1))
+                        return -ENOMEM;
+                ret[n] = 0;
+        }
+
+        *out_domain = TAKE_PTR(ret);
+        *data = optval;
+        *len = optlen;
+
+        return n;
+}
+
+int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char **str) {
+        _cleanup_free_ char *domain = NULL;
+        int r;
+
+        r = parse_domain(&optval, &optlen, &domain);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENODATA;
+        if (optlen != 0)
+                return -EINVAL;
+
+        *str = TAKE_PTR(domain);
+        return 0;
+}
+
+int dhcp6_option_parse_domainname_list(const uint8_t *optval, uint16_t optlen, char ***str_arr) {
+        size_t idx = 0;
         _cleanup_strv_free_ char **names = NULL;
         int r;
 
-        assert_return(optlen > 1, -ENODATA);
-        assert_return(optval[optlen - 1] == '\0', -EINVAL);
+        if (optlen <= 1)
+                return -ENODATA;
+        if (optval[optlen - 1] != '\0')
+                return -EINVAL;
 
-        while (pos < optlen) {
+        while (optlen > 0) {
                 _cleanup_free_ char *ret = NULL;
-                size_t n = 0, allocated = 0;
-                bool first = true;
 
-                for (;;) {
-                        const char *label;
-                        uint8_t c;
-
-                        c = optval[pos++];
-
-                        if (c == 0)
-                                /* End of name */
-                                break;
-                        if (c > 63)
-                                return -EBADMSG;
-
-                        /* Literal label */
-                        label = (const char *)&optval[pos];
-                        pos += c;
-                        if (pos >= optlen)
-                                return -EMSGSIZE;
-
-                        if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
-                                return -ENOMEM;
-
-                        if (first)
-                                first = false;
-                        else
-                                ret[n++] = '.';
-
-                        r = dns_label_escape(label, c, ret + n, DNS_LABEL_ESCAPED_MAX);
-                        if (r < 0)
-                                return r;
-
-                        n += r;
-                }
-
-                if (n == 0)
+                r = parse_domain(&optval, &optlen, &ret);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
-
-                if (!GREEDY_REALLOC(ret, allocated, n + 1))
-                        return -ENOMEM;
-
-                ret[n] = 0;
 
                 r = strv_extend(&names, ret);
                 if (r < 0)

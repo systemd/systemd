@@ -158,6 +158,7 @@ struct ExecContext {
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
         void *root_hash, *root_hash_sig;
         size_t root_hash_size, root_hash_sig_size;
+        LIST_HEAD(MountOptions, root_image_options);
         bool working_directory_missing_ok:1;
         bool working_directory_home:1;
 
@@ -238,6 +239,8 @@ struct ExecContext {
         size_t n_bind_mounts;
         TemporaryFileSystem *temporary_filesystems;
         size_t n_temporary_filesystems;
+        MountImage *mount_images;
+        size_t n_mount_images;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;

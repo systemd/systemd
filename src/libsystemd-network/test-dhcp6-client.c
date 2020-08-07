@@ -20,6 +20,8 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "socket-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "time-util.h"
 #include "virt.h"
@@ -102,6 +104,52 @@ static int test_client_basic(sd_event *e) {
 
         assert_se(sd_dhcp6_client_detach_event(client) >= 0);
         assert_se(!sd_dhcp6_client_unref(client));
+
+        return 0;
+}
+
+static int test_parse_domain(sd_event *e) {
+        uint8_t *data;
+        char *domain;
+        char **list;
+        int r;
+
+        log_debug("/* %s */", __func__);
+
+        data = (uint8_t []) { 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0 };
+        r = dhcp6_option_parse_domainname(data, 13, &domain);
+        assert_se(r == 0);
+        assert_se(domain);
+        assert_se(streq(domain, "example.com"));
+        free(domain);
+
+        data = (uint8_t []) { 4, 't', 'e', 's', 't' };
+        r = dhcp6_option_parse_domainname(data, 5, &domain);
+        assert_se(r == 0);
+        assert_se(domain);
+        assert_se(streq(domain, "test"));
+        free(domain);
+
+        data = (uint8_t []) { 0 };
+        r = dhcp6_option_parse_domainname(data, 1, &domain);
+        assert_se(r < 0);
+
+        data = (uint8_t []) { 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0,
+                              6, 'f', 'o', 'o', 'b', 'a', 'r', 0 };
+        r = dhcp6_option_parse_domainname_list(data, 21, &list);
+        assert_se(r == 2);
+        assert_se(list);
+        assert_se(streq(list[0], "example.com"));
+        assert_se(streq(list[1], "foobar"));
+        strv_free(list);
+
+        data = (uint8_t []) { 1, 'a', 0, 20, 'b', 'c' };
+        r = dhcp6_option_parse_domainname_list(data, 6, &list);
+        assert_se(r < 0);
+
+        data = (uint8_t []) { 0 , 0 };
+        r = dhcp6_option_parse_domainname_list(data, 2, &list);
+        assert_se(r < 0);
 
         return 0;
 }
@@ -330,7 +378,7 @@ static uint8_t msg_advertise[198] = {
         0x53, 0x00, 0x07, 0x00, 0x01, 0x00
 };
 
-static uint8_t msg_reply[173] = {
+static uint8_t msg_reply[191] = {
         0x07, 0xf7, 0x4e, 0x57, 0x00, 0x02, 0x00, 0x0e,
         0x00, 0x01, 0x00, 0x01, 0x19, 0x40, 0x5c, 0x53,
         0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53, 0x00, 0x01,
@@ -352,7 +400,9 @@ static uint8_t msg_reply[173] = {
         0x61, 0x62, 0x05, 0x69, 0x6e, 0x74, 0x72, 0x61,
         0x00, 0x00, 0x1f, 0x00, 0x10, 0x20, 0x01, 0x0d,
         0xb8, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x01
+        0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x27, 0x00,
+        0x0e, 0x01, 0x06, 0x63, 0x6c, 0x69, 0x65, 0x6e,
+        0x74, 0x05, 0x69, 0x6e, 0x74, 0x72, 0x61
 };
 
 static uint8_t fqdn_wire[16] = {
@@ -747,6 +797,7 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
         const struct in6_addr *addrs;
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         char **domains;
+        const char *fqdn;
 
         log_debug("/* %s */", __func__);
 
@@ -758,6 +809,9 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
         assert_se(sd_dhcp6_lease_get_domains(lease, &domains) == 1);
         assert_se(!strcmp("lab.intra", domains[0]));
         assert_se(domains[1] == NULL);
+
+        assert_se(sd_dhcp6_lease_get_fqdn(lease, &fqdn) >= 0);
+        assert_se(streq(fqdn, "client.intra"));
 
         assert_se(sd_dhcp6_lease_get_dns(lease, &addrs) == 1);
         assert_se(!memcmp(addrs, &msg_advertise[124], 16));
@@ -888,7 +942,6 @@ int dhcp6_network_bind_udp_socket(int ifindex, struct in6_addr *local_address) {
 
 static int test_client_solicit(sd_event *e) {
         sd_dhcp6_client *client;
-        usec_t time_now = now(clock_boottime_or_monotonic());
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         int val;
 
@@ -914,9 +967,9 @@ static int test_client_solicit(sd_event *e) {
         assert_se(sd_dhcp6_client_set_callback(client,
                                                test_client_information_cb, e) >= 0);
 
-        assert_se(sd_event_add_time(e, &hangcheck, clock_boottime_or_monotonic(),
-                                    time_now + 2 * USEC_PER_SEC, 0,
-                                    test_hangcheck, NULL) >= 0);
+        assert_se(sd_event_add_time_relative(e, &hangcheck, clock_boottime_or_monotonic(),
+                                             2 * USEC_PER_SEC, 0,
+                                             test_hangcheck, NULL) >= 0);
 
         assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
 
@@ -945,6 +998,7 @@ int main(int argc, char *argv[]) {
         test_option_status(e);
         test_advertise_option(e);
         test_client_solicit(e);
+        test_parse_domain(e);
 
         return 0;
 }

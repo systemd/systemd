@@ -709,25 +709,25 @@ static int automount_dispatch_expire(sd_event_source *source, usec_t usec, void 
 }
 
 static int automount_start_expire(Automount *a) {
-        int r;
         usec_t timeout;
+        int r;
 
         assert(a);
 
         if (a->timeout_idle_usec == 0)
                 return 0;
 
-        timeout = now(CLOCK_MONOTONIC) + MAX(a->timeout_idle_usec/3, USEC_PER_SEC);
+        timeout = MAX(a->timeout_idle_usec/3, USEC_PER_SEC);
 
         if (a->expire_event_source) {
-                r = sd_event_source_set_time(a->expire_event_source, timeout);
+                r = sd_event_source_set_time_relative(a->expire_event_source, timeout);
                 if (r < 0)
                         return r;
 
                 return sd_event_source_set_enabled(a->expire_event_source, SD_EVENT_ONESHOT);
         }
 
-        r = sd_event_add_time(
+        r = sd_event_add_time_relative(
                         UNIT(a)->manager->event,
                         &a->expire_event_source,
                         CLOCK_MONOTONIC, timeout, 0,

@@ -420,7 +420,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_dns = true,
 
-                .dhcp6_pd_assign_prefix = true,
+                .dhcp6_pd_subnet_id = -1,
+                .dhcp6_pd_assign = true,
 
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
@@ -429,7 +430,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
 
-                .router_prefix_subnet_id = -1,
                 .router_emit_dns = true,
                 .router_emit_domains = true,
 
@@ -501,6 +501,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "DHCP\0" /* compat */
                         "DHCPv4\0"
                         "DHCPv6\0"
+                        "DHCPv6PrefixDelegation\0"
                         "DHCPServer\0"
                         "IPv6AcceptRA\0"
                         "IPv6NDPProxyAddress\0"
@@ -763,7 +764,7 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp_client_send_vendor_options);
         ordered_hashmap_free(network->dhcp_server_send_options);
         ordered_hashmap_free(network->dhcp_server_send_vendor_options);
-        ordered_hashmap_free(network->ipv6_tokens);
+        ordered_set_free(network->ipv6_tokens);
         ordered_hashmap_free(network->dhcp6_client_send_options);
         ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
 

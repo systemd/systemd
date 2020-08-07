@@ -1978,7 +1978,6 @@ static int post_change_thunk(sd_event_source *timer, uint64_t usec, void *userda
 }
 
 static void schedule_post_change(JournalFile *f) {
-        uint64_t now;
         int r;
 
         assert(f);
@@ -1992,13 +1991,7 @@ static void schedule_post_change(JournalFile *f) {
         if (r > 0)
                 return;
 
-        r = sd_event_now(sd_event_source_get_event(f->post_change_timer), CLOCK_MONOTONIC, &now);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to get clock's now for scheduling ftruncate: %m");
-                goto fail;
-        }
-
-        r = sd_event_source_set_time(f->post_change_timer, now + f->post_change_timer_period);
+        r = sd_event_source_set_time_relative(f->post_change_timer, f->post_change_timer_period);
         if (r < 0) {
                 log_debug_errno(r, "Failed to set time for scheduling ftruncate: %m");
                 goto fail;

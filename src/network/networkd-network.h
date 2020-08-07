@@ -184,7 +184,6 @@ struct Network {
 
         /* IPv6 prefix delegation support */
         RADVPrefixDelegation router_prefix_delegation;
-        int64_t router_prefix_subnet_id;
         usec_t router_lifetime_usec;
         uint8_t router_preference;
         bool router_managed;
@@ -198,8 +197,11 @@ struct Network {
         bool dhcp6_force_pd_other_information; /* Start DHCPv6 PD also when 'O'
                                                   RA flag is set, see RFC 7084,
                                                   WPD-4 */
-        bool dhcp6_pd_assign_prefix;
-        union in_addr_union dhcp6_delegation_prefix_token;
+
+        /* DHCPv6 Prefix Delegation support */
+        int64_t dhcp6_pd_subnet_id;
+        bool dhcp6_pd_assign;
+        union in_addr_union dhcp6_pd_token;
 
         /* Bridge Support */
         int use_bpdu;
@@ -255,7 +257,7 @@ struct Network {
         IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client;
         uint32_t ipv6_accept_ra_route_table;
         Set *ndisc_deny_listed_prefix;
-        OrderedHashmap *ipv6_tokens;
+        OrderedSet *ipv6_tokens;
 
         IPv6PrivacyExtensions ipv6_privacy_extensions;
 

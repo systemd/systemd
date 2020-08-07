@@ -33,6 +33,7 @@
 #include "fs-util.h"
 #include "gpt.h"
 #include "id128-util.h"
+#include "json.h"
 #include "list.h"
 #include "locale-util.h"
 #include "main-func.h"
@@ -79,6 +80,8 @@ static sd_id128_t arg_seed = SD_ID128_NULL;
 static bool arg_randomize = false;
 static int arg_pretty = -1;
 static uint64_t arg_size = UINT64_MAX;
+static bool arg_json = false;
+static JsonFormatFlags arg_json_format_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
@@ -952,7 +955,7 @@ static int config_parse_weight(
         }
 
         if (v > 1000U*1000U) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Weight needs to be in range 0…10000000, ignoring: %" PRIu32, v);
                 return 0;
         }
@@ -981,7 +984,7 @@ static int config_parse_size4096(
 
         r = parse_size(rvalue, 1024, &parsed);
         if (r < 0)
-                return log_syntax(unit, LOG_WARNING, filename, line, r,
+                return log_syntax(unit, LOG_ERR, filename, line, r,
                                   "Failed to parse size value: %s", rvalue);
 
         if (ltype > 0)
@@ -1620,12 +1623,23 @@ static int context_dump_partitions(Context *context, const char *node) {
         Partition *p;
         int r;
 
-        t = table_new("type", "label", "uuid", "file", "node", "offset", "raw size", "size", "raw padding", "padding");
+        if (!arg_json && context->n_partitions == 0) {
+                log_info("Empty partition table.");
+                return 0;
+        }
+
+        t = table_new("type", "label", "uuid", "file", "node", "offset", "old size", "raw size", "size", "old padding", "raw padding", "padding", "activity");
         if (!t)
                 return log_oom();
 
-        if (!DEBUG_LOGGING)
-                (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4, (size_t) 7, (size_t) 9, (size_t) -1);
+        if (!DEBUG_LOGGING) {
+                if (arg_json)
+                        (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
+                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12, (size_t) -1);
+                else
+                        (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
+                                                    (size_t) 8, (size_t) 11, (size_t) -1);
+        }
 
         (void) table_set_align_percent(t, table_get_cell(t, 0, 4), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
@@ -1633,10 +1647,15 @@ static int context_dump_partitions(Context *context, const char *node) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL;
                 char uuid_buffer[ID128_UUID_STRING_MAX];
-                const char *label;
+                const char *label, *activity = NULL;
 
                 if (p->dropped)
                         continue;
+
+                if (p->current_size == UINT64_MAX)
+                        activity = "create";
+                else if (p->current_size != p->new_size)
+                        activity = "resize";
 
                 label = partition_label(p);
                 partname = p->partno != UINT64_MAX ? fdisk_partname(node, p->partno+1) : NULL;
@@ -1660,17 +1679,20 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_STRING, label ?: "-", TABLE_SET_COLOR, label ? NULL : ansi_grey(),
                                 TABLE_UUID, sd_id128_is_null(p->new_uuid) ? p->current_uuid : p->new_uuid,
                                 TABLE_STRING, p->definition_path ? basename(p->definition_path) : "-", TABLE_SET_COLOR, p->definition_path ? NULL : ansi_grey(),
-                                TABLE_STRING, partname ?: "no", TABLE_SET_COLOR, partname ? NULL : ansi_highlight(),
+                                TABLE_STRING, partname ?: "-", TABLE_SET_COLOR, partname ? NULL : ansi_highlight(),
                                 TABLE_UINT64, p->offset,
+                                TABLE_UINT64, p->current_size == UINT64_MAX ? 0 : p->current_size,
                                 TABLE_UINT64, p->new_size,
                                 TABLE_STRING, size_change, TABLE_SET_COLOR, !p->partitions_next && sum_size > 0 ? ansi_underline() : NULL,
+                                TABLE_UINT64, p->current_padding == UINT64_MAX ? 0 : p->current_padding,
                                 TABLE_UINT64, p->new_padding,
-                                TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL);
+                                TABLE_STRING, padding_change, TABLE_SET_COLOR, !p->partitions_next && sum_padding > 0 ? ansi_underline() : NULL,
+                                TABLE_STRING, activity ?: "unknown");
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
-        if (sum_padding > 0 || sum_size > 0) {
+        if (!arg_json && (sum_padding > 0 || sum_size > 0)) {
                 char s[FORMAT_BYTES_MAX];
                 const char *a, *b;
 
@@ -1686,14 +1708,20 @@ static int context_dump_partitions(Context *context, const char *node) {
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
+                                TABLE_EMPTY,
                                 TABLE_STRING, a,
                                 TABLE_EMPTY,
-                                TABLE_STRING, b);
+                                TABLE_EMPTY,
+                                TABLE_STRING, b,
+                                TABLE_EMPTY);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
-        r = table_print(t, stdout);
+        if (arg_json)
+                r = table_print_json(t, stdout, arg_json_format_flags);
+        else
+                r = table_print(t, stdout);
         if (r < 0)
                 return log_error_errno(r, "Failed to dump table: %m");
 
@@ -2399,16 +2427,14 @@ static int context_write_partition_table(
         assert(context);
 
         if (arg_pretty > 0 ||
-            (arg_pretty < 0 && isatty(STDOUT_FILENO) > 0)) {
+            (arg_pretty < 0 && isatty(STDOUT_FILENO) > 0) || arg_json) {
 
-                if (context->n_partitions == 0)
-                        puts("Empty partition table.");
-                else
-                        (void) context_dump_partitions(context, node);
+                (void) context_dump_partitions(context, node);
 
                 putc('\n', stdout);
 
-                (void) context_dump_partition_bar(context, node);
+                if (!arg_json)
+                        (void) context_dump_partition_bar(context, node);
                 putc('\n', stdout);
                 fflush(stdout);
         }
@@ -2791,7 +2817,7 @@ static int help(void) {
                "     --empty=MODE         One of refuse, allow, require, force, create; controls\n"
                "                          how to handle empty disks lacking partition tables\n"
                "     --discard=BOOL       Whether to discard backing blocks for new partitions\n"
-               "     --pretty=BOOL        Whether to show pretty summary before executing operation\n"
+               "     --pretty=BOOL        Whether to show pretty summary before doing changes\n"
                "     --factory-reset=BOOL Whether to remove data partitions before recreating\n"
                "                          them\n"
                "     --can-factory-reset  Test whether factory reset is defined\n"
@@ -2799,6 +2825,8 @@ static int help(void) {
                "     --definitions=DIR    Find partitions in specified directory\n"
                "     --seed=UUID          128bit seed UUID to derive all UUIDs from\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
+               "     --json=pretty|short|off\n"
+               "                          Generate json output\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight(), ansi_normal()
@@ -2822,6 +2850,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRETTY,
                 ARG_DEFINITIONS,
                 ARG_SIZE,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -2837,6 +2866,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pretty",            required_argument, NULL, ARG_PRETTY            },
                 { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
                 { "size",              required_argument, NULL, ARG_SIZE              },
+                { "json",              required_argument, NULL, ARG_JSON              },
                 {}
         };
 
@@ -2960,6 +2990,26 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_size = rounded;
                         break;
                 }
+                case ARG_JSON:
+                        if (streq(optarg, "pretty")) {
+                                arg_json = true;
+                                arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
+                        } else if (streq(optarg, "short")) {
+                                arg_json = true;
+                                arg_json_format_flags = JSON_FORMAT_NEWLINE;
+                        } else if (streq(optarg, "off")) {
+                                arg_json = false;
+                                arg_json_format_flags = 0;
+                        } else if (streq(optarg, "help")) {
+                                puts("pretty\n"
+                                     "short\n"
+                                     "off");
+                                return 0;
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json=: %s", optarg);
+
+                        break;
+
 
                 case '?':
                         return -EINVAL;

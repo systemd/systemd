@@ -24,11 +24,15 @@ typedef enum IPv6AcceptRAStartDHCP6Client {
 } IPv6AcceptRAStartDHCP6Client;
 
 typedef struct NDiscRDNSS {
+        /* Used when GC'ing old DNS servers when configuration changes. */
+        bool marked;
         usec_t valid_until;
         struct in6_addr address;
 } NDiscRDNSS;
 
 typedef struct NDiscDNSSL {
+        /* Used when GC'ing old domains when configuration changes. */
+        bool marked;
         usec_t valid_until;
         /* The domain name follows immediately. */
 } NDiscDNSSL;

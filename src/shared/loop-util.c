@@ -191,6 +191,10 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                 return NULL;
 
         if (d->fd >= 0) {
+                /* Implicitly sync the device, since otherwise in-flight blocks might not get written */
+                if (fsync(d->fd) < 0)
+                        log_debug_errno(errno, "Failed to sync loop block device, ignoring: %m");
+
                 if (d->nr >= 0 && !d->relinquished) {
                         if (ioctl(d->fd, LOOP_CLR_FD) < 0)
                                 log_debug_errno(errno, "Failed to clear loop device: %m");
@@ -216,7 +220,7 @@ LoopDevice* loop_device_unref(LoopDevice *d) {
                                         log_warning_errno(errno, "Failed to remove device %s: %m", strna(d->node));
                                         break;
                                 }
-                                usleep(50 * USEC_PER_MSEC);
+                                (void) usleep(50 * USEC_PER_MSEC);
                         }
         }
 

@@ -44,6 +44,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_sched_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_sched_prio);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_secure_bits);
+CONFIG_PARSER_PROTOTYPE(config_parse_root_image_options);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_root_hash);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_root_hash_sig);
 CONFIG_PARSER_PROTOTYPE(config_parse_capability_set);
@@ -127,6 +128,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_output_restricted);
 CONFIG_PARSER_PROTOTYPE(config_parse_crash_chvt);
 CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
 CONFIG_PARSER_PROTOTYPE(config_parse_swap_priority);
+CONFIG_PARSER_PROTOTYPE(config_parse_mount_images);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

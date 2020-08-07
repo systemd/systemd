@@ -108,11 +108,7 @@ int in_addr_equal(int family, const union in_addr_union *a, const union in_addr_
                 return in4_addr_equal(&a->in, &b->in);
 
         if (family == AF_INET6)
-                return
-                        a->in6.s6_addr32[0] == b->in6.s6_addr32[0] &&
-                        a->in6.s6_addr32[1] == b->in6.s6_addr32[1] &&
-                        a->in6.s6_addr32[2] == b->in6.s6_addr32[2] &&
-                        a->in6.s6_addr32[3] == b->in6.s6_addr32[3];
+                return IN6_ARE_ADDR_EQUAL(&a->in6, &b->in6);
 
         return -EAFNOSUPPORT;
 }

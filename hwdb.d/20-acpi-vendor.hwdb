@@ -132,6 +132,9 @@ acpi:HWPE*:
 acpi:HXTS*:
  ID_VENDOR_FROM_DATABASE=Guizhou Huaxintong Semiconductor Technology Co., Ltd
 
+acpi:HYGO*:
+ ID_VENDOR_FROM_DATABASE=CHENGDU HAIGUANG IC DESIGN CO., LTD
+
 acpi:IBMX*:
  ID_VENDOR_FROM_DATABASE=IBM
 

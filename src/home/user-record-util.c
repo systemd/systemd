@@ -275,7 +275,7 @@ int user_record_add_binding(
                 gid_t gid) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *new_binding_entry = NULL, *binding = NULL;
-        char smid[SD_ID128_STRING_MAX], partition_uuids[37], luks_uuids[37], fs_uuids[37];
+        char smid[SD_ID128_STRING_MAX], partition_uuids[ID128_UUID_STRING_MAX], luks_uuids[ID128_UUID_STRING_MAX], fs_uuids[ID128_UUID_STRING_MAX];
         _cleanup_free_ char *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
         sd_id128_t mid;
         int r;

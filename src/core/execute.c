@@ -1932,6 +1932,9 @@ static bool exec_needs_mount_namespace(
         if (context->n_temporary_filesystems > 0)
                 return true;
 
+        if (context->n_mount_images > 0)
+                return true;
+
         if (!IN_SET(context->mount_flags, 0, MS_SHARED))
                 return true;
 
@@ -2570,6 +2573,9 @@ static bool insist_on_sandboxing(
         if (root_dir || root_image)
                 return true;
 
+        if (context->n_mount_images > 0)
+                return true;
+
         if (context->dynamic_user)
                 return true;
 
@@ -2660,7 +2666,7 @@ static int apply_mount_namespace(
         if (context->mount_flags == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
-        r = setup_namespace(root_dir, root_image,
+        r = setup_namespace(root_dir, root_image, context->root_image_options,
                             &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
                             needs_sandboxing ? context->inaccessible_paths : NULL,
@@ -2669,6 +2675,8 @@ static int apply_mount_namespace(
                             n_bind_mounts,
                             context->temporary_filesystems,
                             context->n_temporary_filesystems,
+                            context->mount_images,
+                            context->n_mount_images,
                             tmp_dir,
                             var_tmp_dir,
                             context->log_namespace,
@@ -4207,6 +4215,7 @@ void exec_context_done(ExecContext *c) {
         c->working_directory = mfree(c->working_directory);
         c->root_directory = mfree(c->root_directory);
         c->root_image = mfree(c->root_image);
+        c->root_image_options = mount_options_free_all(c->root_image_options);
         c->root_hash = mfree(c->root_hash);
         c->root_hash_size = 0;
         c->root_hash_path = mfree(c->root_hash_path);
@@ -4233,6 +4242,7 @@ void exec_context_done(ExecContext *c) {
         temporary_filesystem_free_many(c->temporary_filesystems, c->n_temporary_filesystems);
         c->temporary_filesystems = NULL;
         c->n_temporary_filesystems = 0;
+        c->mount_images = mount_image_free_many(c->mount_images, &c->n_mount_images);
 
         cpu_set_reset(&c->cpu_set);
         numa_policy_reset(&c->numa_policy);
@@ -4617,6 +4627,16 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->root_image)
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
+
+        if (c->root_image_options) {
+                MountOptions *o;
+
+                fprintf(f, "%sRootImageOptions:", prefix);
+                LIST_FOREACH(mount_options, o, c->root_image_options)
+                        if (!isempty(o->options))
+                                fprintf(f, " %u:%s", o->partition_number, o->options);
+                fprintf(f, "\n");
+        }
 
         if (c->root_hash) {
                 _cleanup_free_ char *encoded = NULL;
@@ -5014,6 +5034,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 else
                         fprintf(f, "%d\n", c->syscall_errno);
         }
+
+        for (i = 0; i < c->n_mount_images; i++)
+                fprintf(f, "%sMountImages: %s%s:%s\n", prefix,
+                        c->mount_images[i].ignore_enoent ? "-": "",
+                        c->mount_images[i].source,
+                        c->mount_images[i].destination);
 }
 
 bool exec_context_maintains_privileges(const ExecContext *c) {

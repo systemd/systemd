@@ -380,7 +380,7 @@ static int portable_extract_by_path(
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create temporary directory: %m");
 
-                r = dissect_image(d->fd, NULL, 0, NULL, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK, &m);
+                r = dissect_image(d->fd, NULL, 0, NULL, NULL, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK, &m);
                 if (r == -ENOPKG)
                         sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Couldn't identify a suitable partition table or file system in '%s'.", path);
                 else if (r == -EADDRNOTAVAIL)
@@ -695,17 +695,28 @@ static int install_chroot_dropin(
         if (!text)
                 return -ENOMEM;
 
-        if (endswith(m->name, ".service"))
+        if (endswith(m->name, ".service")) {
+                const char *os_release_source;
+
+                if (access("/etc/os-release", F_OK) < 0) {
+                        if (errno != ENOENT)
+                                return log_debug_errno(errno, "Failed to check if /etc/os-release exists: %m");
+
+                        os_release_source = "/usr/lib/os-release";
+                } else
+                        os_release_source = "/etc/os-release";
+
                 if (!strextend(&text,
                                "\n"
                                "[Service]\n",
                                IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "RootDirectory=" : "RootImage=", image_path, "\n"
                                "Environment=PORTABLE=", basename(image_path), "\n"
-                               "BindReadOnlyPaths=-/etc/os-release:/run/host/etc/os-release /usr/lib/os-release:/run/host/usr/lib/os-release\n"
+                               "BindReadOnlyPaths=", os_release_source, ":/run/host/os-release\n"
                                "LogExtraFields=PORTABLE=", basename(image_path), "\n",
                                NULL))
 
                         return -ENOMEM;
+        }
 
         r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)

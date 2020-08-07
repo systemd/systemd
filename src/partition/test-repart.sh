@@ -10,6 +10,8 @@ mkdir -p $D/definitions
 
 SEED=e2a40bf9-73f1-4278-9160-49c031e7aef8
 
+echo "### Testing systemd-repart --empty=create ###"
+
 $repart $D/zzz --empty=create --size=1G --seed=$SEED
 
 sfdisk -d $D/zzz | grep -v -e 'sector-size' -e '^$' >$D/empty
@@ -22,6 +24,8 @@ unit: sectors
 first-lba: 2048
 last-lba: 2097118
 EOF
+
+echo "### Testing with root, root2, home, & swap ###"
 
 cat >$D/definitions/root.conf <<EOF
 [Partition]
@@ -61,6 +65,8 @@ $D/zzz3 : start=     1185760, size=      591864, type=4F68BCE3-E8CD-4DB1-96E7-FB
 $D/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=2AA78CDB-59C7-4173-AF11-C7453737A5D1, name="swap"
 EOF
 
+echo "### Testing with root, root2, home, swap, & another partition ###"
+
 cat >$D/definitions/swap.conf <<EOF
 [Partition]
 Type=swap
@@ -95,6 +101,8 @@ $D/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-09
 $D/zzz5 : start=     1908696, size=      188416, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name="custom_label"
 EOF
 
+echo "### Resizing to 2G ###"
+
 $repart $D/zzz --size=2G --dry-run=no --seed=$SEED --definitions=$D/definitions
 
 sfdisk -d $D/zzz | grep -v -e 'sector-size' -e '^$' >$D/populated3
@@ -114,6 +122,8 @@ $D/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79-3D
 EOF
 
 dd if=/dev/urandom of=$D/block-copy bs=4096 count=10240
+
+echo "### Testing with root, root2, home, swap, another partition, & partition copy ###"
 
 cat >$D/definitions/extra2.conf <<EOF
 [Partition]
@@ -143,3 +153,8 @@ $D/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D
 EOF
 
 cmp --bytes=41943040 --ignore-initial=0:$((512*4194264)) $D/block-copy $D/zzz
+
+echo "### Testing json output ###"
+$repart $D/zzz --size=3G --dry-run=no --seed=$SEED --definitions=$D/definitions --json=help
+$repart $D/zzz --size=3G --dry-run=no --seed=$SEED --definitions=$D/definitions --json=pretty
+$repart $D/zzz --size=3G --dry-run=no --seed=$SEED --definitions=$D/definitions --json=short

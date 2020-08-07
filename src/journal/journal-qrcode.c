@@ -6,29 +6,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "alloc-util.h"
+#include "dlfcn-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "journal-qrcode.h"
+#include "locale-util.h"
 #include "macro.h"
+#include "terminal-util.h"
 
-#define WHITE_ON_BLACK "\033[40;37;1m"
-#define NORMAL "\033[0m"
+#define ANSI_WHITE_ON_BLACK "\033[40;37;1m"
 
 static void print_border(FILE *output, unsigned width) {
         unsigned x, y;
 
         /* Four rows of border */
         for (y = 0; y < 4; y += 2) {
-                fputs(WHITE_ON_BLACK, output);
+                fputs(ANSI_WHITE_ON_BLACK, output);
 
                 for (x = 0; x < 4 + width + 4; x++)
                         fputs("\342\226\210", output);
 
-                fputs(NORMAL "\n", output);
+                fputs(ANSI_NORMAL "\n", output);
         }
 }
 
 int print_qr_code(
                 FILE *output,
+                const char *prefix_text,
                 const void *seed,
                 size_t seed_size,
                 uint64_t start,
@@ -36,14 +41,37 @@ int print_qr_code(
                 const char *hn,
                 sd_id128_t machine) {
 
-        FILE *f;
-        char *url = NULL;
+        QRcode* (*sym_QRcode_encodeString)(const char *string, int version, QRecLevel level, QRencodeMode hint, int casesensitive);
+        void (*sym_QRcode_free)(QRcode *qrcode);
+        _cleanup_(dlclosep) void *dl = NULL;
+        _cleanup_free_ char *url = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         size_t url_size = 0, i;
-        QRcode* qr;
         unsigned x, y;
+        QRcode* qr;
+        int r;
 
         assert(seed);
         assert(seed_size > 0);
+
+        /* If this is not an UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
+         * codes */
+        if (!is_locale_utf8() || !colors_enabled())
+                return -EOPNOTSUPP;
+
+        dl = dlopen("libqrencode.so.4", RTLD_LAZY);
+        if (!dl)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "QRCODE support is not installed: %s", dlerror());
+
+        r = dlsym_many_and_warn(
+                        dl,
+                        LOG_DEBUG,
+                        &sym_QRcode_encodeString, "QRcode_encodeString",
+                        &sym_QRcode_free, "QRcode_free",
+                        NULL);
+        if (r < 0)
+                return r;
 
         f = open_memstream_unlocked(&url, &url_size);
         if (!f)
@@ -65,19 +93,18 @@ int print_qr_code(
         if (hn)
                 fprintf(f, ";hostname=%s", hn);
 
-        if (ferror(f)) {
-                fclose(f);
-                free(url);
-                return -ENOMEM;
-        }
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
 
-        fclose(f);
+        f = safe_fclose(f);
 
-        qr = QRcode_encodeString(url, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
-        free(url);
-
+        qr = sym_QRcode_encodeString(url, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
         if (!qr)
                 return -ENOMEM;
+
+        if (prefix_text)
+                fputs(prefix_text, output);
 
         print_border(output, qr->width);
 
@@ -87,7 +114,7 @@ int print_qr_code(
                 row1 = qr->data + qr->width * y;
                 row2 = row1 + qr->width;
 
-                fputs(WHITE_ON_BLACK, output);
+                fputs(ANSI_WHITE_ON_BLACK, output);
                 for (x = 0; x < 4; x++)
                         fputs("\342\226\210", output);
 
@@ -109,11 +136,11 @@ int print_qr_code(
 
                 for (x = 0; x < 4; x++)
                         fputs("\342\226\210", output);
-                fputs(NORMAL "\n", output);
+                fputs(ANSI_NORMAL "\n", output);
         }
 
         print_border(output, qr->width);
 
-        QRcode_free(qr);
+        sym_QRcode_free(qr);
         return 0;
 }

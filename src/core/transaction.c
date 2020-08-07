@@ -966,6 +966,7 @@ int transaction_add_job_and_dependencies(
                  * Given building up the transaction is a synchronous operation, attempt
                  * to load the unit immediately. */
                 if (r < 0 && manager_unit_file_maybe_loadable_from_cache(unit)) {
+                        sd_bus_error_free(e);
                         unit->load_state = UNIT_STUB;
                         r = unit_load(unit);
                         if (r < 0 || unit->load_state == UNIT_STUB)

@@ -604,6 +604,24 @@ static int prompt_root_password(void) {
         return 0;
 }
 
+static int find_shell(const char *path, const char *root) {
+        int r;
+
+        assert(path);
+
+        if (!valid_shell(path))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid shell", path);
+
+        r = chase_symlinks(path, root, CHASE_PREFIX_ROOT, NULL, NULL);
+        if (r < 0) {
+                const char *p;
+                p = prefix_roota(root, path);
+                return log_error_errno(r, "Failed to resolve shell %s: %m", p);
+        }
+
+        return 0;
+}
+
 static int prompt_root_shell(void) {
         int r;
 
@@ -625,10 +643,9 @@ static int prompt_root_shell(void) {
                         break;
                 }
 
-                if (!valid_shell(s)) {
-                        log_error("Specified shell invalid.");
+                r = find_shell(s, arg_root);
+                if (r < 0)
                         continue;
-                }
 
                 arg_root_shell = TAKE_PTR(s);
                 break;
@@ -685,7 +702,7 @@ static int write_root_passwd(const char *passwd_path, const char *password, cons
                 if (errno != ENOENT)
                         return -errno;
 
-                r = fchmod(fileno(passwd), 0000);
+                r = fchmod(fileno(passwd), 0644);
                 if (r < 0)
                         return -errno;
 
@@ -916,7 +933,7 @@ static int setup_image(char **ret_mount_dir, LoopDevice **ret_loop_device, Decry
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device: %m");
 
-        r = dissect_image_and_warn(d->fd, arg_image, NULL, 0, NULL, f, &dissected_image);
+        r = dissect_image_and_warn(d->fd, arg_image, NULL, 0, NULL, NULL, f, &dissected_image);
         if (r < 0)
                 return r;
 
@@ -982,16 +999,19 @@ static int help(void) {
                "     --root-password=PASSWORD               Set root password from plaintext password\n"
                "     --root-password-file=FILE              Set root password from file\n"
                "     --root-password-hashed=HASHED_PASSWORD Set root password from hashed password\n"
+               "     --root-shell=SHELL                     Set root shell\n"
                "     --prompt-locale                        Prompt the user for locale settings\n"
                "     --prompt-keymap                        Prompt the user for keymap settings\n"
                "     --prompt-timezone                      Prompt the user for timezone\n"
                "     --prompt-hostname                      Prompt the user for hostname\n"
                "     --prompt-root-password                 Prompt the user for root password\n"
+               "     --prompt-root-shell                    Prompt the user for root shell\n"
                "     --prompt                               Prompt for all of the above\n"
                "     --copy-locale                          Copy locale from host\n"
                "     --copy-keymap                          Copy keymap from host\n"
                "     --copy-timezone                        Copy timezone from host\n"
                "     --copy-root-password                   Copy root password from host\n"
+               "     --copy-root-shell                      Copy root shell from host\n"
                "     --copy                                 Copy locale, keymap, timezone, root password\n"
                "     --setup-machine-id                     Generate a new random machine ID\n"
                "     --force                                Overwrite existing files\n"
@@ -1167,9 +1187,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_SHELL:
-                        if (!valid_shell(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "%s is not a valid shell path", optarg);
+                        r = find_shell(optarg, arg_root);
+                        if (r < 0)
+                                return r;
 
                         r = free_and_strdup(&arg_root_shell, optarg);
                         if (r < 0)

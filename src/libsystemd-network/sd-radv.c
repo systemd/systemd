@@ -578,6 +578,15 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
 
         cur = p;
 
+        /* If RAs have already been sent, send an RA immediately to announce the newly-added prefix */
+        if (ra->ra_sent > 0) {
+            r = radv_send(ra, NULL, ra->lifetime);
+            if (r < 0)
+                    log_radv_errno(r, "Unable to send Router Advertisement for added prefix: %m");
+            else
+                    log_radv("Sent Router Advertisement for added prefix");
+        }
+
  update:
         r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
         if (r < 0)
@@ -684,6 +693,15 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         if (!dynamic) {
                 log_radv("Added prefix %s/%u", strempty(pretty), p->opt.prefixlen);
                 return 0;
+        }
+
+        /* If RAs have already been sent, send an RA immediately to announce the newly-added route prefix */
+        if (ra->ra_sent > 0) {
+            r = radv_send(ra, NULL, ra->lifetime);
+            if (r < 0)
+                    log_radv_errno(r, "Unable to send Router Advertisement for added route prefix: %m");
+            else
+                    log_radv("Sent Router Advertisement for added route prefix");
         }
 
  update:

@@ -17,8 +17,23 @@ Janitorial Clean-ups:
 
 Features:
 
+* make use of the new statx mountid and rootmount fields in path_get_mnt_id()
+  and fd_is_mount_point()
+
+* make use of new loopback setup ioctl to setup loopback devices in one atomic
+  ioctl
+
+* nspawn: move "incoming mount" directory to /run/host, move "inaccessible"
+  nodes to /run/host, move notify socket (for sd_notify() between payload and
+  container manager)
+
+* make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
+
 * cryptsetup: if keyfile specified in crypttab is AF_UNIX socket, connect to it
   and read from it (like we do elsewhere with READ_FULL_FILE_CONNECT_SOCKET)
+
+* when main nspawn supervisor process gets suspended due to SIGSTOP/SIGTTOU or
+  so, freeze the payload too.
 
 * repart: support setting up dm-integrity with HMAC
 
@@ -76,8 +91,6 @@ Features:
 
 * make us use dynamically fewer deps for containers in general purpose distros:
   o turn into dlopen() deps:
-    - pcre2 (always)               — irrelevant on Fedora, since dep by
-                                     libselinux, but should benefit Debian
     - libpwquality (always)        - only relevant for homed, and maybe soon
                                      firstboot
     - elfutils (always)
@@ -929,6 +942,10 @@ Features:
   - allow multiple signal handlers per signal?
   - document chaining of signal handler for SIGCHLD and child handlers
   - define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
+  - maybe support iouring as backend, so that we allow hooking read and write
+    operations instead of IO ready events into event loops. See considerations
+    here:
+    http://blog.vmsplice.net/2020/07/rethinking-event-loop-integration-for.html
 
 * investigate endianness issues of UUID vs. GUID
 
@@ -1087,7 +1104,8 @@ Features:
   - document systemd-journal-flush.service properly
   - documentation: recommend to connect the timer units of a service to the service via Also= in [Install]
   - man: document the very specific env the shutdown drop-in tools live in
-  - man: add more examples to man pages
+  - man: add more examples to man pages,
+  -      in particular an example how to do the equivalent of switching runlevels
   - man: maybe sort directives in man pages, and take sections from --help and apply them to man too
   - document root=gpt-auto properly
 

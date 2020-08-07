@@ -251,7 +251,6 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 
 static void worker_attach_event(struct worker *worker, struct event *event) {
         sd_event *e;
-        uint64_t usec;
 
         assert(worker);
         assert(worker->manager);
@@ -266,13 +265,13 @@ static void worker_attach_event(struct worker *worker, struct event *event) {
 
         e = worker->manager->event;
 
-        assert_se(sd_event_now(e, CLOCK_MONOTONIC, &usec) >= 0);
+        (void) sd_event_add_time_relative(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
+                                          udev_warn_timeout(arg_event_timeout_usec), USEC_PER_SEC,
+                                          on_event_timeout_warning, event);
 
-        (void) sd_event_add_time(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
-                                 usec + udev_warn_timeout(arg_event_timeout_usec), USEC_PER_SEC, on_event_timeout_warning, event);
-
-        (void) sd_event_add_time(e, &event->timeout_event, CLOCK_MONOTONIC,
-                                 usec + arg_event_timeout_usec, USEC_PER_SEC, on_event_timeout, event);
+        (void) sd_event_add_time_relative(e, &event->timeout_event, CLOCK_MONOTONIC,
+                                          arg_event_timeout_usec, USEC_PER_SEC,
+                                          on_event_timeout, event);
 }
 
 static void manager_clear_for_worker(Manager *manager) {
