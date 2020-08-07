@@ -149,11 +149,22 @@
         the specified prefix. This option can be specified multiple
         times.</para></listitem>
       </varlistentry>
+
       <varlistentry>
         <term><option>--exclude-prefix=<replaceable>path</replaceable></option></term>
         <listitem><para>Ignore rules with paths that start with the
         specified prefix. This option can be specified multiple
         times.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-E</option></term>
+        <listitem><para>A shortcut for <literal>--exclude-prefix=/dev --exclude-prefix=/proc
+        --exclude-prefix=/run --exclude-prefix=/sys</literal>, i.e. exclude the hierarchies typically backed
+        by virtual or memory file systems. This is useful in combination with <option>--root=</option>, if
+        the specified directory tree contains an OS tree without these virtual/memory file systems mounted
+        in, as it is typically not desirable to create any files and directories below these subdirectories
+        if they are supposed to be overmounted during runtime.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -164,7 +175,26 @@
         <para>When this option is used, the libc Name Service Switch (NSS) is bypassed for resolving users
         and groups. Instead the files <filename>/etc/passwd</filename> and <filename>/etc/group</filename>
         inside the alternate root are read directly. This means that users/groups not listed in these files
-        will not be resolved, i.e. LDAP NIS and other complex databases are not considered.</para></listitem>
+        will not be resolved, i.e. LDAP NIS and other complex databases are not considered.</para>
+
+        <para>Consider combining this with <option>-E</option> to ensure the invocation does not create files
+        or directories below mount points in the OS image operated on that are typically overmounted during
+        runtime.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--image=<replaceable>image</replaceable></option></term>
+
+        <listitem><para>Takes a path to a disk image file or block device node. If specified all operations
+        are applied to file system in the indicated disk image. This is similar to <option>--root=</option>
+        but operates on file systems stored in disk images or block devices. The disk image should either
+        contain just a file system or a set of file systems within a GPT partition table, following the
+        <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions
+        Specification</ulink>. For further information on supported disk images, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        switch of the same name.</para>
+
+        <para>Implies <option>-E</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

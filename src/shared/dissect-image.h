@@ -6,6 +6,7 @@
 #include "sd-id128.h"
 
 #include "list.h"
+#include "loop-util.h"
 #include "macro.h"
 
 typedef struct DissectedImage DissectedImage;
@@ -117,3 +118,5 @@ int partition_designator_from_string(const char *name) _pure_;
 int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data, char **ret_roothashsig);
 bool dissected_image_can_do_verity(const DissectedImage *image, unsigned partition_designator);
 bool dissected_image_has_verity(const DissectedImage *image, unsigned partition_designator);
+
+int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image);

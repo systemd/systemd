@@ -19,7 +19,6 @@
 #include "kbd-util.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
-#include "loop-util.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "mkdir.h"
@@ -907,75 +906,6 @@ static int process_kernel_cmdline(void) {
         return 0;
 }
 
-static int setup_image(char **ret_mount_dir, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image) {
-        DissectImageFlags f = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK;
-        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
-        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_(rmdir_and_freep) char *mount_dir = NULL;
-        _cleanup_free_ char *temp = NULL;
-        int r;
-
-        if (!arg_image) {
-                *ret_mount_dir = NULL;
-                *ret_decrypted_image = NULL;
-                *ret_loop_device = NULL;
-                return 0;
-        }
-
-        assert(!arg_root);
-
-        r = tempfn_random_child(NULL, "firstboot", &temp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate temporary mount directory: %m");
-
-        r = loop_device_make_by_path(arg_image, O_RDWR, LO_FLAGS_PARTSCAN, &d);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up loopback device: %m");
-
-        r = dissect_image_and_warn(d->fd, arg_image, NULL, 0, NULL, NULL, f, &dissected_image);
-        if (r < 0)
-                return r;
-
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, NULL, 0, NULL, NULL, NULL, 0, f, &decrypted_image);
-        if (r < 0)
-                return r;
-
-        r = detach_mount_namespace();
-        if (r < 0)
-                return log_error_errno(r, "Failed to detach mount namespace: %m");
-
-        mount_dir = strdup(temp);
-        if (!mount_dir)
-                return log_oom();
-
-        r = mkdir_p(mount_dir, 0700);
-        if (r < 0) {
-                mount_dir = mfree(mount_dir);
-                return log_error_errno(r, "Failed to create mount point: %m");
-        }
-
-        r = dissected_image_mount(dissected_image, mount_dir, UID_INVALID, f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to mount image: %m");
-
-        if (decrypted_image) {
-                r = decrypted_image_relinquish(decrypted_image);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to relinquish DM devices: %m");
-        }
-
-        loop_device_relinquish(d);
-
-        arg_root = TAKE_PTR(temp);
-
-        *ret_mount_dir = TAKE_PTR(mount_dir);
-        *ret_decrypted_image = TAKE_PTR(decrypted_image);
-        *ret_loop_device = TAKE_PTR(d);
-
-        return 1;
-}
-
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1353,9 +1283,22 @@ static int run(int argc, char *argv[]) {
                         return 0; /* disabled */
         }
 
-        r = setup_image(&unlink_dir, &loop_device, &decrypted_image);
-        if (r < 0)
-                return r;
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK,
+                                &unlink_dir,
+                                &loop_device,
+                                &decrypted_image);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(unlink_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         r = process_locale();
         if (r < 0)
