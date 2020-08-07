@@ -7,6 +7,7 @@
 
 #include "acl-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
@@ -17,6 +18,8 @@ static void test_add_acls_for_user(void) {
         char *cmd;
         uid_t uid;
         int r;
+
+        log_info("/* %s */", __func__);
 
         fd = mkostemp_safe(fn);
         assert_se(fd >= 0);
@@ -39,6 +42,7 @@ static void test_add_acls_for_user(void) {
                 uid = getuid();
 
         r = add_acls_for_user(fd, uid);
+        log_info_errno(r, "add_acls_for_user(%d, "UID_FMT"): %m", fd, uid);
         assert_se(r >= 0);
 
         cmd = strjoina("ls -l ", fn);
