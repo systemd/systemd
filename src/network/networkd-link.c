@@ -2901,13 +2901,12 @@ static int link_drop_config(Link *link) {
                         return r;
 
                 /* If this address came from an address pool, clean up the pool */
-                LIST_FOREACH(addresses, pool_address, link->pool_addresses) {
+                LIST_FOREACH(addresses, pool_address, link->pool_addresses)
                         if (address_equal(address, pool_address)) {
                                 LIST_REMOVE(addresses, link->pool_addresses, pool_address);
                                 address_free(pool_address);
                                 break;
                         }
-                }
         }
 
         SET_FOREACH(neighbor, link->neighbors, i) {
