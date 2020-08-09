@@ -111,6 +111,7 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100CHI*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT300CHI*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
+sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnM80TA*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TA*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
