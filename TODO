@@ -84,7 +84,8 @@ Features:
 
 * pid1: Move to tracking of main pid/control pid of units per pidfd
 
-* pid1: support new clone3() fork-into-cgroup feature
+* pid1: also use clone3()/CLONE_INTO_CGROUP in unit_fork_helper_process() and
+  in nspawn's fork logic
 
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits
