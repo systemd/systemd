@@ -75,6 +75,7 @@ typedef struct Link {
         LinkAddressState address_state;
 
         unsigned address_messages;
+        unsigned address_remove_messages;
         unsigned address_label_messages;
         unsigned neighbor_messages;
         unsigned route_messages;
@@ -111,6 +112,7 @@ typedef struct Link {
         sd_ipv4ll *ipv4ll;
         bool ipv4ll_address_configured:1;
 
+        bool request_static_addresses:1;
         bool addresses_configured:1;
         bool addresses_ready:1;
         bool neighbors_configured:1;
