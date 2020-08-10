@@ -818,7 +818,7 @@ static int worker_spawn(Manager *manager, Event *event) {
                 return log_error_errno(r, "Failed to fork() worker: %m");
         }
         if (r == 0) {
-                DEVICE_TRACE_POINT(worker_spawned, event->dev, getpid());
+                DEVICE_TRACE_POINT(worker_spawned, event->dev, getpid_cached());
 
                 /* Worker process */
                 r = worker_main(manager, worker_monitor, sd_device_ref(event->dev));

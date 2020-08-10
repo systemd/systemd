@@ -5257,7 +5257,7 @@ static int run_container(
                 if (r == 0) {
                         _cleanup_close_ int parent_netns_fd = -EBADF;
 
-                        r = namespace_open(getpid(), NULL, NULL, &parent_netns_fd, NULL, NULL);
+                        r = namespace_open(getpid_cached(), NULL, NULL, &parent_netns_fd, NULL, NULL);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to open parent network namespace: %m");
                                 _exit(EXIT_FAILURE);

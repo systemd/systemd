@@ -18,6 +18,7 @@
 #include "main-func.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -170,11 +171,11 @@ static int parse_argv(int argc, char *argv[]) {
                                                                * manager's PID (which might be distinct from
                                                                * 1, if we are a --user instance), that'd just
                                                                * be confusing for the service manager */
-                                        arg_pid = getpid();
+                                        arg_pid = getpid_cached();
                         } else if (streq(optarg, "parent"))
                                 arg_pid = getppid();
                         else if (streq(optarg, "self"))
-                                arg_pid = getpid();
+                                arg_pid = getpid_cached();
                         else {
                                 r = parse_pid(optarg, &arg_pid);
                                 if (r < 0)
