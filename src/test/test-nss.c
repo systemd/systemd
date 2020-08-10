@@ -54,7 +54,7 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
         return buf;
 }
 
-static void* open_handle(const char* dir, const char* module, int flags) {
+static void* open_handle(const char *dir, const char *module, int flags) {
         const char *path = NULL;
         void *handle;
 
@@ -63,6 +63,7 @@ static void* open_handle(const char* dir, const char* module, int flags) {
         if (!path || access(path, F_OK) < 0)
                 path = strjoina("libnss_", module, ".so.2");
 
+        log_debug("Using %s", path);
         handle = dlopen(path, flags);
         if (!handle)
                 log_error("Failed to load module %s: %s", module, dlerror());
@@ -70,10 +71,9 @@ static void* open_handle(const char* dir, const char* module, int flags) {
 }
 
 static int print_gaih_addrtuples(const struct gaih_addrtuple *tuples) {
-        const struct gaih_addrtuple *it;
         int n = 0;
 
-        for (it = tuples; it; it = it->next) {
+        for (const struct gaih_addrtuple *it = tuples; it; it = it->next) {
                 _cleanup_free_ char *a = NULL;
                 union in_addr_union u;
                 int r;
@@ -147,7 +147,10 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
         fname = strjoina("_nss_", module, "_gethostbyname4_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        assert_se(f);
+        if (!f) {
+                log_info("%s not defined", fname);
+                return;
+        }
 
         status = f(name, &pat, buffer, sizeof buffer, &errno1, &errno2, &ttl);
         if (status == NSS_STATUS_SUCCESS) {
@@ -197,7 +200,10 @@ static void test_gethostbyname3_r(void *handle, const char *module, const char *
         fname = strjoina("_nss_", module, "_gethostbyname3_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        assert_se(f);
+        if (!f) {
+                log_info("%s not defined", fname);
+                return;
+        }
 
         status = f(name, af, &host, buffer, sizeof buffer, &errno1, &errno2, &ttl, &canon);
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
@@ -223,7 +229,10 @@ static void test_gethostbyname2_r(void *handle, const char *module, const char *
         fname = strjoina("_nss_", module, "_gethostbyname2_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        assert_se(f);
+        if (!f) {
+                log_info("%s not defined", fname);
+                return;
+        }
 
         status = f(name, af, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s",
@@ -247,7 +256,10 @@ static void test_gethostbyname_r(void *handle, const char *module, const char *n
         fname = strjoina("_nss_", module, "_gethostbyname_r");
         f = dlsym(handle, fname);
         log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
-        assert_se(f);
+        if (!f) {
+                log_info("%s not defined", fname);
+                return;
+        }
 
         status = f(name, &host, buffer, sizeof buffer, &errno1, &errno2);
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
@@ -279,8 +291,10 @@ static void test_gethostbyaddr2_r(void *handle,
 
         log_full_errno(f ? LOG_DEBUG : LOG_INFO,  errno,
                        "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
-        if (!f)
+        if (!f) {
+                log_info("%s not defined", fname);
                 return;
+        }
 
         assert_se(in_addr_to_string(af, addr, &addr_pretty) >= 0);
 
@@ -314,8 +328,10 @@ static void test_gethostbyaddr_r(void *handle,
 
         log_full_errno(f ? LOG_DEBUG : LOG_INFO,  errno,
                        "dlsym(0x%p, %s) → 0x%p: %m", handle, fname, f);
-        if (!f)
+        if (!f) {
+                log_info("%s not defined", fname);
                 return;
+        }
 
         assert_se(in_addr_to_string(af, addr, &addr_pretty) >= 0);
 
@@ -388,14 +404,13 @@ static int make_addresses(struct local_address **addresses) {
         return 0;
 }
 
-static int test_one_module(const char* dir,
+static int test_one_module(const char *dir,
                            const char *module,
                            char **names,
                            struct local_address *addresses,
                            int n_addresses) {
         void *handle;
         char **name;
-        int i;
 
         log_info("======== %s ========", module);
 
@@ -406,7 +421,7 @@ static int test_one_module(const char* dir,
         STRV_FOREACH(name, names)
                 test_byname(handle, module, *name);
 
-        for (i = 0; i < n_addresses; i++)
+        for (int i = 0; i < n_addresses; i++)
                 test_byaddr(handle, module,
                             &addresses[i].address,
                             FAMILY_ADDRESS_SIZE(addresses[i].family),

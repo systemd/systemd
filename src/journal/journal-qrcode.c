@@ -46,7 +46,7 @@ int print_qr_code(
         _cleanup_(dlclosep) void *dl = NULL;
         _cleanup_free_ char *url = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        size_t url_size = 0, i;
+        size_t url_size = 0;
         unsigned x, y;
         QRcode* qr;
         int r;
@@ -79,7 +79,7 @@ int print_qr_code(
 
         fputs("fss://", f);
 
-        for (i = 0; i < seed_size; i++) {
+        for (size_t i = 0; i < seed_size; i++) {
                 if (i > 0 && i % 3 == 0)
                         fputc('-', f);
                 fprintf(f, "%02x", ((uint8_t*) seed)[i]);

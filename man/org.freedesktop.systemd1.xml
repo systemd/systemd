@@ -8778,7 +8778,7 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
   <refsect1>
     <title>Scope Unit Objects</title>
 
-    <para>All slice unit objects implement the <interfacename>org.freedesktop.systemd1.Scope</interfacename>
+    <para>All scope unit objects implement the <interfacename>org.freedesktop.systemd1.Scope</interfacename>
     interface (described here) in addition to the generic
     <interfacename>org.freedesktop.systemd1.Unit</interfacename> interface (see above).</para>
 

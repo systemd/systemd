@@ -1790,7 +1790,7 @@ static int add_syslog_identifier(sd_journal *j) {
 
 static int setup_keys(void) {
 #if HAVE_GCRYPT
-        size_t mpk_size, seed_size, state_size, i;
+        size_t mpk_size, seed_size, state_size;
         _cleanup_(unlink_and_freep) char *k = NULL;
         _cleanup_free_ char *p = NULL;
         uint8_t *mpk, *seed, *state;
@@ -1902,52 +1902,49 @@ static int setup_keys(void) {
 
         k = mfree(k);
 
+        _cleanup_free_ char *hn = NULL;
+
         if (on_tty()) {
+                hn = gethostname_malloc();
+                if (hn)
+                        hostname_cleanup(hn);
+
+                char tsb[FORMAT_TIMESPAN_MAX];
                 fprintf(stderr,
+                        "\nNew keys have been generated for host %s%s" SD_ID128_FORMAT_STR ".\n"
                         "\n"
-                        "The new key pair has been generated. The %ssecret sealing key%s has been written to\n"
-                        "the following local file. This key file is automatically updated when the\n"
-                        "sealing key is advanced. It should not be used on multiple hosts.\n"
+                        "The %ssecret sealing key%s has been written to the following local file.\n"
+                        "This key file is automatically updated when the sealing key is advanced.\n"
+                        "It should not be used on multiple hosts.\n"
                         "\n"
                         "\t%s\n"
                         "\n"
+                        "The sealing key is automatically changed every %s.\n"
+                        "\n"
                         "Please write down the following %ssecret verification key%s. It should be stored\n"
-                        "at a safe location and should not be saved locally on disk.\n"
+                        "in a safe location and should not be saved locally on disk.\n"
                         "\n\t%s",
+                        hn ?: "", hn ? "/" : "", SD_ID128_FORMAT_VAL(machine),
                         ansi_highlight(), ansi_normal(),
                         p,
+                        format_timespan(tsb, sizeof(tsb), arg_interval, 0),
                         ansi_highlight(), ansi_normal(),
                         ansi_highlight_red());
                 fflush(stderr);
         }
-        for (i = 0; i < seed_size; i++) {
+
+        for (size_t i = 0; i < seed_size; i++) {
                 if (i > 0 && i % 3 == 0)
                         putchar('-');
                 printf("%02x", ((uint8_t*) seed)[i]);
         }
-
         printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_interval);
 
         if (on_tty()) {
-                _cleanup_free_ char *hn = NULL;
-                char tsb[FORMAT_TIMESPAN_MAX];
-
-                fprintf(stderr,
-                        "%s\n"
-                        "The sealing key is automatically changed every %s.\n",
-                        ansi_normal(),
-                        format_timespan(tsb, sizeof(tsb), arg_interval, 0));
-
-                hn = gethostname_malloc();
-                if (hn) {
-                        hostname_cleanup(hn);
-                        fprintf(stderr, "\nThe keys have been generated for host %s/" SD_ID128_FORMAT_STR ".\n", hn, SD_ID128_FORMAT_VAL(machine));
-                } else
-                        fprintf(stderr, "\nThe keys have been generated for host " SD_ID128_FORMAT_STR ".\n", SD_ID128_FORMAT_VAL(machine));
-
+                fprintf(stderr, "%s", ansi_normal());
 #if HAVE_QRENCODE
                 (void) print_qr_code(stderr,
-                                     "\nTo transfer the verification key to your phone please scan the QR code below:\n\n",
+                                     "\nTo transfer the verification key to your phone scan the QR code below:\n",
                                      seed, seed_size,
                                      n, arg_interval,
                                      hn, machine);
