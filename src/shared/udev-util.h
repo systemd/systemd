@@ -29,5 +29,6 @@ static inline int udev_parse_config(void) {
 }
 
 int device_wait_for_initialization(sd_device *device, const char *subsystem, usec_t timeout, sd_device **ret);
+int device_wait_for_devlink(const char *path, const char *subsystem, usec_t timeout, sd_device **ret);
 int device_is_renaming(sd_device *dev);
 bool device_for_action(sd_device *dev, DeviceAction action);
