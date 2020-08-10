@@ -22,6 +22,7 @@
 #include "journal-send.h"
 #include "memfd-util.h"
 #include "missing_syscall.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -85,7 +86,7 @@ void close_journal_fd(void) {
         if (!RUNNING_ON_VALGRIND)
                 return;
 
-        if (getpid() != gettid())
+        if (getpid_cached() != gettid())
                 return;
 
         if (fd_plus_one <= 0)

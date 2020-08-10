@@ -122,7 +122,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
         zero(plain_si);
         plain_si.si_signo = SIGUSR2;
         plain_si.si_code = SI_QUEUE;
-        plain_si.si_pid = getpid();
+        plain_si.si_pid = getpid_cached();
         plain_si.si_uid = getuid();
         plain_si.si_value.sival_int = 4711;
 
