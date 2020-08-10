@@ -1452,6 +1452,15 @@ static int verity_partition(
                         if (!IN_SET(r, 0, -ENODEV, -ENOENT))
                                 return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
                         if (r == 0) {
+                                /* devmapper might say that the device exists, but the devlink might not yet have been
+                                 * created. Check and wait for the udev event in that case. */
+                                r = device_wait_for_devlink(node, "block", 100 * USEC_PER_MSEC, NULL);
+                                /* Fallback to activation with a unique device if it's taking too long */
+                                if (r == -ETIMEDOUT)
+                                        break;
+                                if (r < 0)
+                                        return r;
+
                                 if (cd)
                                         crypt_free(cd);
                                 cd = existing_cd;
@@ -1461,10 +1470,6 @@ static int verity_partition(
                         break;
         }
 
-        /* Sanity check: libdevmapper is known to report that the device already exists and is active,
-        * but it's actually not there, so the later filesystem probe or mount would fail. */
-        if (r == 0)
-                r = access(node, F_OK);
         /* An existing verity device was reported by libcryptsetup/libdevmapper, but we can't use it at this time.
          * Fall back to activating it with a unique device name. */
         if (r != 0 && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
