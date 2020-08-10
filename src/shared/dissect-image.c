@@ -1475,6 +1475,9 @@ static int verity_partition(
                 }
                 if (r == 0)
                         break;
+
+                /* Device is being opened by another process, but it has not finished yet, yield for 2ms */
+                (void) usleep(2 * USEC_PER_MSEC);
         }
 
         /* An existing verity device was reported by libcryptsetup/libdevmapper, but we can't use it at this time.
