@@ -73,7 +73,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to open verity device %s: %m", argv[4]);
 
-                crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+                cryptsetup_enable_logging(cd);
 
                 status = crypt_status(cd, argv[2]);
                 if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
@@ -124,7 +124,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "crypt_init_by_name() failed: %m");
 
-                crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+                cryptsetup_enable_logging(cd);
 
                 r = crypt_deactivate(cd, argv[2]);
                 if (r < 0)

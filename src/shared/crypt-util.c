@@ -4,7 +4,7 @@
 #include "crypt-util.h"
 #include "log.h"
 
-void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
+static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
         switch (level) {
         case CRYPT_LOG_NORMAL:
                 level = LOG_NOTICE;
@@ -25,4 +25,10 @@ void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 
         log_full(level, "%s", msg);
 }
+
+void cryptsetup_enable_logging(struct crypt_device *cd) {
+        crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+        crypt_set_debug_level(DEBUG_LOGGING ? CRYPT_DEBUG_ALL : CRYPT_DEBUG_NONE);
+}
+
 #endif

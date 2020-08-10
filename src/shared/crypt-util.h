@@ -8,5 +8,5 @@
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct crypt_device *, crypt_free);
 
-void cryptsetup_log_glue(int level, const char *msg, void *usrptr);
+void cryptsetup_enable_logging(struct crypt_device *cd);
 #endif
