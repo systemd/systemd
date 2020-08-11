@@ -106,6 +106,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, const char *verity_data, const char *root_hash_sig_path, const void *root_hash_sig, size_t root_hash_sig_size, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, const char *verity_data, const char *root_hash_sig_path, const void *root_hash_sig, size_t root_hash_sig_size, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, DissectImageFlags flags);
+int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m);
 

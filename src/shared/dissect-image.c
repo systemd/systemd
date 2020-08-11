@@ -1145,6 +1145,29 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
         return 0;
 }
 
+int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags) {
+        int r;
+
+        assert(m);
+        assert(where);
+
+        r = dissected_image_mount(m, where, uid_shift, flags);
+        if (r == -ENXIO)
+                return log_error_errno(r, "Not root file system found in image.");
+        if (r == -EMEDIUMTYPE)
+                return log_error_errno(r, "No suitable os-release file in image found.");
+        if (r == -EUNATCH)
+                return log_error_errno(r, "Encrypted file system discovered, but decryption not requested.");
+        if (r == -EUCLEAN)
+                return log_error_errno(r, "File system check on image failed.");
+        if (r == -EBUSY)
+                return log_error_errno(r, "File system already mounted elsewhere.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount image: %m");
+
+        return r;
+}
+
 #if HAVE_LIBCRYPTSETUP
 typedef struct DecryptedPartition {
         struct crypt_device *device;
@@ -2031,11 +2054,9 @@ int mount_image_privately_interactively(
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount(dissected_image, created_dir, UID_INVALID, flags);
-        if (r == -EUCLEAN)
-                return log_error_errno(r, "File system check on image failed: %m");
+        r = dissected_image_mount_and_warn(dissected_image, created_dir, UID_INVALID, flags);
         if (r < 0)
-                return log_error_errno(r, "Failed to mount image: %m");
+                return r;
 
         if (decrypted_image) {
                 r = decrypted_image_relinquish(decrypted_image);
