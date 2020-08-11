@@ -2826,7 +2826,7 @@ static int help(void) {
                "     --seed=UUID          128bit seed UUID to derive all UUIDs from\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --json=pretty|short|off\n"
-               "                          Generate json output\n"
+               "                          Generate JSON output\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight(), ansi_normal()

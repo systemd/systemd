@@ -49,6 +49,8 @@ static size_t arg_root_hash_size = 0;
 static char *arg_root_hash_sig_path = NULL;
 static void *arg_root_hash_sig = NULL;
 static size_t arg_root_hash_sig_size = 0;
+static bool arg_json = false;
+static JsonFormatFlags arg_json_format_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verity_data, freep);
@@ -80,6 +82,8 @@ static int help(void) {
                "                          'base64:'\n"
                "     --verity-data=PATH   Specify data file with hash tree for verity if it is\n"
                "                          not embedded in IMAGE\n"
+               "     --json=pretty|short|off\n"
+               "                          Generate JSON output\n"
                "\n%3$sCommands:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -106,6 +110,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERITY_DATA,
                 ARG_ROOT_HASH_SIG,
                 ARG_MKDIR,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -121,6 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
                 { "copy-from",     no_argument,       NULL, 'x'               },
                 { "copy-to",       no_argument,       NULL, 'a'               },
+                { "json",          required_argument, NULL, ARG_JSON          },
                 {}
         };
 
@@ -250,6 +256,26 @@ static int parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, DISSECT_IMAGE_FSCK, r);
                         break;
 
+                case ARG_JSON:
+                        if (streq(optarg, "pretty")) {
+                                arg_json = true;
+                                arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
+                        } else if (streq(optarg, "short")) {
+                                arg_json = true;
+                                arg_json_format_flags = JSON_FORMAT_NEWLINE;
+                        } else if (streq(optarg, "off")) {
+                                arg_json = false;
+                                arg_json_format_flags = 0;
+                        } else if (streq(optarg, "help")) {
+                                puts("pretty\n"
+                                     "short\n"
+                                     "off");
+                                return 0;
+                        } else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json=: %s", optarg);
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -315,24 +341,45 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int strv_pair_to_json(char **l, JsonVariant **ret) {
+        _cleanup_strv_free_ char **jl = NULL;
+        char **a, **b;
+
+        STRV_FOREACH_PAIR(a, b, l) {
+                char *j;
+
+                j = strjoin(*a, "=", *b);
+                if (!j)
+                        return log_oom();
+
+                if (strv_consume(&jl, j) < 0)
+                        return log_oom();
+        }
+
+        return json_variant_new_array_strv(ret, jl);
+}
+
 static int action_dissect(DissectedImage *m, LoopDevice *d) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
-        uint64_t size;
+        uint64_t size = UINT64_MAX;
         int r;
 
         assert(m);
         assert(d);
 
-        printf("      Name: %s\n", basename(arg_image));
+        if (!arg_json)
+                printf("      Name: %s\n", basename(arg_image));
 
         if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
                 log_debug_errno(errno, "Failed to query size of loopback device: %m");
-        else {
+        else if (!arg_json) {
                 char s[FORMAT_BYTES_MAX];
                 printf("      Size: %s\n", format_bytes(s, sizeof(s), size));
         }
 
-        putc('\n', stdout);
+        if (!arg_json)
+                putc('\n', stdout);
 
         r = dissected_image_acquire_metadata(m);
         if (r == -ENXIO)
@@ -347,7 +394,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 log_warning_errno(r, "OS image is currently in use, proceeding without showing OS image metadata.");
         else if (r < 0)
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
-        else {
+        else if (!arg_json) {
                 if (m->hostname)
                         printf("  Hostname: %s\n", m->hostname);
 
@@ -373,7 +420,34 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 }
         }
 
-        putc('\n', stdout);
+        if (arg_json) {
+                _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL;
+
+                if (!strv_isempty(m->machine_info)) {
+                        r = strv_pair_to_json(m->machine_info, &mi);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                if (!strv_isempty(m->os_release)) {
+                        r = strv_pair_to_json(m->os_release, &osr);
+                        if (r < 0)
+                                return log_oom();
+                }
+
+                r = json_build(&v, JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR("name", JSON_BUILD_STRING(basename(arg_image))),
+                                               JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(size)),
+                                               JSON_BUILD_PAIR_CONDITION(m->hostname, "hostname", JSON_BUILD_STRING(m->hostname)),
+                                               JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
+                                               JSON_BUILD_PAIR_CONDITION(mi, "machineInfo", JSON_BUILD_VARIANT(mi)),
+                                               JSON_BUILD_PAIR_CONDITION(osr, "osRelease", JSON_BUILD_VARIANT(osr))));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (!arg_json)
+                putc('\n', stdout);
 
         t = table_new("rw", "designator", "partition uuid", "fstype", "architecture", "verity", "node", "partno");
         if (!t)
@@ -435,9 +509,23 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return table_log_add_error(r);
         }
 
-        r = table_print(t, stdout);
-        if (r < 0)
-                return log_error_errno(r, "Failed to dump table: %m");
+        if (arg_json) {
+                _cleanup_(json_variant_unrefp) JsonVariant *jt = NULL;
+
+                r = table_to_json(t, &jt);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert table to JSON: %m");
+
+                r = json_variant_set_field(&v, "mounts", jt);
+                if (r < 0)
+                        return log_oom();
+
+                json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        } else {
+                r = table_print(t, stdout);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dump table: %m");
+        }
 
         return 0;
 }
