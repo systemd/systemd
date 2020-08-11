@@ -13,6 +13,8 @@ typedef struct GroupRecord {
         char *realm;
         char *group_name_and_realm_auto;
 
+        char *description;
+
         UserDisposition disposition;
         uint64_t last_change_usec;
 

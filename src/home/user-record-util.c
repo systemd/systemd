@@ -104,7 +104,7 @@ int user_record_synthesize(
 }
 
 int group_record_synthesize(GroupRecord *g, UserRecord *h) {
-        _cleanup_free_ char *un = NULL, *rr = NULL, *group_name_and_realm = NULL;
+        _cleanup_free_ char *un = NULL, *rr = NULL, *group_name_and_realm = NULL, *description = NULL;
         char smid[SD_ID128_STRING_MAX];
         sd_id128_t mid;
         int r;
@@ -133,10 +133,15 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
                         return -ENOMEM;
         }
 
+        description = strjoin("Primary Group of User ", un);
+        if (!description)
+                return -ENOMEM;
+
         r = json_build(&g->json,
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(un)),
                                        JSON_BUILD_PAIR_CONDITION(!!rr, "realm", JSON_BUILD_STRING(rr)),
+                                       JSON_BUILD_PAIR("description", JSON_BUILD_STRING(description)),
                                        JSON_BUILD_PAIR("binding", JSON_BUILD_OBJECT(
                                                                        JSON_BUILD_PAIR(sd_id128_to_string(mid, smid), JSON_BUILD_OBJECT(
                                                                                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(user_record_gid(h))))))),

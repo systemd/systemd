@@ -68,6 +68,9 @@ void group_record_show(GroupRecord *gr, bool show_full_user_info) {
                 }
         }
 
+        if (gr->description && !streq(gr->description, gr->group_name))
+                printf(" Description: %s\n", gr->description);
+
         if (!strv_isempty(gr->hashed_password))
                 printf("   Passwords: %zu\n", strv_length(gr->hashed_password));
 

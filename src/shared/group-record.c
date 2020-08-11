@@ -28,6 +28,7 @@ static GroupRecord *group_record_free(GroupRecord *g) {
         free(g->group_name);
         free(g->realm);
         free(g->group_name_and_realm_auto);
+        free(g->description);
 
         strv_free(g->members);
         free(g->service);
@@ -192,6 +193,7 @@ int group_record_load(
         static const JsonDispatch group_dispatch_table[] = {
                 { "groupName",      JSON_VARIANT_STRING,   json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       JSON_RELAX},
                 { "realm",          JSON_VARIANT_STRING,   json_dispatch_realm,            offsetof(GroupRecord, realm),            0         },
+                { "description",    JSON_VARIANT_STRING,   json_dispatch_gecos,            offsetof(GroupRecord, description),      0         },
                 { "disposition",    JSON_VARIANT_STRING,   json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0         },
                 { "service",        JSON_VARIANT_STRING,   json_dispatch_string,           offsetof(GroupRecord, service),          JSON_SAFE },
                 { "lastChangeUSec", JSON_VARIANT_UNSIGNED, json_dispatch_uint64,           offsetof(GroupRecord, last_change_usec), 0         },

@@ -93,6 +93,8 @@ static int user_lookup_name(Manager *m, const char *name, uid_t *ret_uid, char *
         int r;
 
         assert(m);
+        assert(ret_uid);
+        assert(ret_real_name);
 
         if (!valid_user_group_name(name, 0))
                 return -ESRCH;
@@ -186,7 +188,7 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         return varlink_reply(link, v);
 }
 
-static int build_group_json(const char *group_name, gid_t gid, JsonVariant **ret) {
+static int build_group_json(const char *group_name, gid_t gid, const char *description, JsonVariant **ret) {
         assert(group_name);
         assert(gid_is_valid(gid));
         assert(ret);
@@ -195,6 +197,7 @@ static int build_group_json(const char *group_name, gid_t gid, JsonVariant **ret
                                    JSON_BUILD_PAIR("record", JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(group_name)),
                                        JSON_BUILD_PAIR("gid", JSON_BUILD_UNSIGNED(gid)),
+                                       JSON_BUILD_PAIR_CONDITION(!isempty(description), "description", JSON_BUILD_STRING(description)),
                                        JSON_BUILD_PAIR("service", JSON_BUILD_STRING("io.systemd.Machine")),
                                        JSON_BUILD_PAIR("disposition", JSON_BUILD_STRING("container"))))));
     }
@@ -211,8 +214,8 @@ static bool group_match_lookup_parameters(LookupParameters *p, const char *name,
         return true;
 }
 
-static int group_lookup_gid(Manager *m, gid_t gid, char **ret_name) {
-        _cleanup_free_ char *n = NULL;
+static int group_lookup_gid(Manager *m, gid_t gid, char **ret_name, char **ret_description) {
+        _cleanup_free_ char *n = NULL, *d = NULL;
         gid_t converted_gid;
         Machine *machine;
         int r;
@@ -220,6 +223,7 @@ static int group_lookup_gid(Manager *m, gid_t gid, char **ret_name) {
         assert(m);
         assert(gid_is_valid(gid));
         assert(ret_name);
+        assert(ret_description);
 
         if (gid < 0x10000) /* Host GID range */
                 return -ESRCH;
@@ -236,18 +240,27 @@ static int group_lookup_gid(Manager *m, gid_t gid, char **ret_name) {
         if (!valid_user_group_name(n, 0))
                 return -ESRCH;
 
+        if (asprintf(&d, "GID " GID_FMT " of Container %s", converted_gid, machine->name) < 0)
+                return -ENOMEM;
+        if (!valid_gecos(d))
+                d = mfree(d);
+
         *ret_name = TAKE_PTR(n);
+        *ret_description = TAKE_PTR(d);
+
         return 0;
 }
 
-static int group_lookup_name(Manager *m, const char *name, gid_t *ret_gid) {
-        _cleanup_free_ char *mn = NULL;
+static int group_lookup_name(Manager *m, const char *name, gid_t *ret_gid, char **ret_description) {
+        _cleanup_free_ char *mn = NULL, *desc = NULL;
         gid_t gid, converted_gid;
         Machine *machine;
         const char *e, *d;
         int r;
 
         assert(m);
+        assert(ret_gid);
+        assert(ret_description);
 
         if (!valid_user_group_name(name, 0))
                 return -ESRCH;
@@ -278,7 +291,13 @@ static int group_lookup_name(Manager *m, const char *name, gid_t *ret_gid) {
         if (r < 0)
                 return r;
 
+        if (asprintf(&desc, "GID " GID_FMT " of Container %s", gid, machine->name) < 0)
+                return -ENOMEM;
+        if (!valid_gecos(desc))
+                desc = mfree(desc);
+
         *ret_gid = converted_gid;
+        *ret_description = desc;
         return 0;
 }
 
@@ -295,7 +314,7 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         LookupParameters p = {
                 .gid = GID_INVALID,
         };
-        _cleanup_free_ char *found_name = NULL;
+        _cleanup_free_ char *found_name = NULL, *found_description = NULL;
         uid_t found_gid = GID_INVALID, gid;
         Manager *m = userdata;
         const char *gn;
@@ -312,9 +331,9 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
                 return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (gid_is_valid(p.gid))
-                r = group_lookup_gid(m, p.gid, &found_name);
+                r = group_lookup_gid(m, p.gid, &found_name, &found_description);
         else if (p.group_name)
-                r = group_lookup_name(m, p.group_name, (uid_t*) &found_gid);
+                r = group_lookup_name(m, p.group_name, (uid_t*) &found_gid, &found_description);
         else
                 return varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", NULL);
         if (r == -ESRCH)
@@ -328,7 +347,7 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
         if (!group_match_lookup_parameters(&p, gn, gid))
                 return varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
-        r = build_group_json(gn, gid, &v);
+        r = build_group_json(gn, gid, found_description, &v);
         if (r < 0)
                 return r;
 
