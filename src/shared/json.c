@@ -430,6 +430,12 @@ int json_variant_new_base64(JsonVariant **ret, const void *p, size_t n) {
         return json_variant_new_stringn(ret, s, k);
 }
 
+int json_variant_new_id128(JsonVariant **ret, sd_id128_t id) {
+        char s[SD_ID128_STRING_MAX];
+
+        return json_variant_new_string(ret, sd_id128_to_string(id, s));
+}
+
 static void json_variant_set(JsonVariant *a, JsonVariant *b) {
         assert(a);
 
@@ -1958,6 +1964,17 @@ int json_variant_set_field_boolean(JsonVariant **v, const char *field, bool b) {
         int r;
 
         r = json_variant_new_boolean(&m, b);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field(v, field, m);
+}
+
+int json_variant_set_field_strv(JsonVariant **v, const char *field, char **l) {
+        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+        int r;
+
+        r = json_variant_new_array_strv(&m, l);
         if (r < 0)
                 return r;
 
@@ -3563,6 +3580,34 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         if (current->n_suppress == 0) {
                                 r = json_variant_new_base64(&add, p, n);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
+                case _JSON_BUILD_ID128: {
+                        sd_id128_t id;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        id = va_arg(ap, sd_id128_t);
+
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_id128(&add, id);
                                 if (r < 0)
                                         goto finish;
                         }
