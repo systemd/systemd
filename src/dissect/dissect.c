@@ -323,14 +323,6 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         assert(m);
         assert(d);
 
-        r = dissected_image_acquire_metadata(m);
-        if (r == -EMEDIUMTYPE)
-                return log_error_errno(r, "Not a valid OS image, no os-release file included.");
-        if (r == -ENXIO)
-                return log_error_errno(r, "No root partition discovered.");
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire image metadata: %m");
-
         printf("      Name: %s\n", basename(arg_image));
 
         if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
@@ -340,28 +332,45 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 printf("      Size: %s\n", format_bytes(s, sizeof(s), size));
         }
 
-        if (m->hostname)
-                printf("  Hostname: %s\n", m->hostname);
+        putc('\n', stdout);
 
-        if (!sd_id128_is_null(m->machine_id))
-                printf("Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->machine_id));
+        r = dissected_image_acquire_metadata(m);
+        if (r == -ENXIO)
+                return log_error_errno(r, "No root partition discovered.");
+        if (r == -EMEDIUMTYPE)
+                return log_error_errno(r, "Not a valid OS image, no os-release file included.");
+        if (r == -EUCLEAN)
+                return log_error_errno(r, "File system check of image failed.");
+        if (r == -EUNATCH)
+                log_warning_errno(r, "OS image is encrypted, proceeding without showing OS image metadata.");
+        else if (r == -EBUSY)
+                log_warning_errno(r, "OS image is currently in use, proceeding without showing OS image metadata.");
+        else if (r < 0)
+                return log_error_errno(r, "Failed to acquire image metadata: %m");
+        else {
+                if (m->hostname)
+                        printf("  Hostname: %s\n", m->hostname);
 
-        if (!strv_isempty(m->machine_info)) {
-                char **p, **q;
+                if (!sd_id128_is_null(m->machine_id))
+                        printf("Machine ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->machine_id));
 
-                STRV_FOREACH_PAIR(p, q, m->machine_info)
-                        printf("%s %s=%s\n",
-                               p == m->machine_info ? "Mach. Info:" : "           ",
-                               *p, *q);
-        }
+                if (!strv_isempty(m->machine_info)) {
+                        char **p, **q;
 
-        if (!strv_isempty(m->os_release)) {
-                char **p, **q;
+                        STRV_FOREACH_PAIR(p, q, m->machine_info)
+                                printf("%s %s=%s\n",
+                                       p == m->machine_info ? "Mach. Info:" : "           ",
+                                       *p, *q);
+                }
 
-                STRV_FOREACH_PAIR(p, q, m->os_release)
-                        printf("%s %s=%s\n",
-                               p == m->os_release ? "OS Release:" : "           ",
-                               *p, *q);
+                if (!strv_isempty(m->os_release)) {
+                        char **p, **q;
+
+                        STRV_FOREACH_PAIR(p, q, m->os_release)
+                                printf("%s %s=%s\n",
+                                       p == m->os_release ? "OS Release:" : "           ",
+                                       *p, *q);
+                }
         }
 
         putc('\n', stdout);

@@ -1772,12 +1772,14 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         };
 
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL;
+        _cleanup_close_pair_ int error_pipe[2] = { -1, -1 };
         _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
         sd_id128_t machine_id = SD_ID128_NULL;
         _cleanup_free_ char *hostname = NULL;
         unsigned n_meta_initialized = 0, k;
-        int fds[2 * _META_MAX], r;
+        int fds[2 * _META_MAX], r, v;
+        ssize_t n;
 
         BLOCK_SIGNALS(SIGCHLD);
 
@@ -1793,16 +1795,22 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
 
+        if (pipe2(error_pipe, O_CLOEXEC) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
         r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, &child);
         if (r < 0)
                 goto finish;
         if (r == 0) {
+                error_pipe[0] = safe_close(error_pipe[0]);
+
                 r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_VALIDATE_OS);
-                if (r == -EMEDIUMTYPE) /* No /etc/os-release */
-                        _exit(EX_OSFILE);
-                if (r == -ENXIO) /* No root partition */
-                        _exit(EX_DATAERR);
                 if (r < 0) {
+                        /* Let parent know the error */
+                        (void) write(error_pipe[1], &r, sizeof(r));
+
                         log_debug_errno(r, "Failed to mount dissected image: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -1825,14 +1833,18 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         }
 
                         r = copy_bytes(fd, fds[2*k+1], (uint64_t) -1, 0);
-                        if (r < 0)
+                        if (r < 0) {
+                                (void) write(error_pipe[1], &r, sizeof(r));
                                 _exit(EXIT_FAILURE);
+                        }
 
                         fds[2*k+1] = safe_close(fds[2*k+1]);
                 }
 
                 _exit(EXIT_SUCCESS);
         }
+
+        error_pipe[1] = safe_close(error_pipe[1]);
 
         for (k = 0; k < _META_MAX; k++) {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -1891,11 +1903,16 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
         child = 0;
         if (r < 0)
-                goto finish;
-        if (r == EX_OSFILE)
-                return -EMEDIUMTYPE; /* No os-release file */
-        if (r == EX_DATAERR)
-                return -ENXIO; /* No root partition */
+                return r;
+
+        n = read(error_pipe[0], &v, sizeof(v));
+        if (n < 0)
+                return -errno;
+        if (n == sizeof(v))
+                return v; /* propagate error sent to us from child */
+        if (n != 0)
+                return -EIO;
+
         if (r != EXIT_SUCCESS)
                 return -EPROTO;
 
