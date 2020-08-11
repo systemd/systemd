@@ -1004,9 +1004,9 @@ static int mount_partition(
         if (!m->found || !node || !fstype)
                 return 0;
 
-        /* Stacked encryption? Yuck */
+        /* We are looking at an encrypted partition? This either means stacked encryption, or the caller didn't call dissected_image_decrypt() beforehand. Let's return a recognizable error for this case. */
         if (streq_ptr(fstype, "crypto_LUKS"))
-                return -ELOOP;
+                return -EUNATCH;
 
         rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
 
@@ -1066,6 +1066,15 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
 
         assert(m);
         assert(where);
+
+        /* Returns:
+         *
+         *  -ENXIO        → No root partition found
+         *  -EMEDIUMTYPE  → DISSECT_IMAGE_VALIDATE_OS set but no os-release file found
+         *  -EUNATCH      → Encrypted partition found for which no dm-crypt was set up yet
+         *  -EUCLEAN      → fsck for file system failed
+         *  -EBUSY        → File system already mounted/used elsewhere (kernel)
+         */
 
         if (!m->partitions[PARTITION_ROOT].found)
                 return -ENXIO;
