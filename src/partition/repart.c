@@ -1563,7 +1563,8 @@ static void context_unload_partition_table(Context *context) {
                 p->padding_area = NULL;
                 p->allocated_to_area = NULL;
 
-                p->current_uuid = p->new_uuid = SD_ID128_NULL;
+                p->current_uuid = SD_ID128_NULL;
+                p->current_label = mfree(p->current_label);
         }
 
         context->start = UINT64_MAX;
