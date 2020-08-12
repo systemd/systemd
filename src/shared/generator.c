@@ -363,7 +363,7 @@ int generator_hook_up_mkswap(
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "ExecStart="SYSTEMD_MAKEFS_PATH " swap %s\n"
+                "ExecStart="ROOTLIBEXECDIR "/systemd-makefs" " swap %s\n"
                 "TimeoutSec=0\n",
                 program_invocation_short_name,
                 where_unit,
@@ -440,7 +440,7 @@ int generator_hook_up_mkfs(
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "ExecStart="SYSTEMD_MAKEFS_PATH " %s %s\n"
+                "ExecStart="ROOTLIBEXECDIR "/systemd-makefs" " %s %s\n"
                 "TimeoutSec=0\n",
                 program_invocation_short_name,
                 where_unit,
