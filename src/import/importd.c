@@ -425,7 +425,7 @@ static int transfer_start(Transfer *t) {
 
                 case TRANSFER_PULL_TAR:
                 case TRANSFER_PULL_RAW:
-                        cmd[k++] = SYSTEMD_PULL_PATH;
+                        cmd[k++] = ROOTLIBEXECDIR "/systemd-pull";
                         break;
 
                 default:
