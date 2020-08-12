@@ -411,16 +411,16 @@ static int transfer_start(Transfer *t) {
 
                 case TRANSFER_IMPORT_TAR:
                 case TRANSFER_IMPORT_RAW:
-                        cmd[k++] = SYSTEMD_IMPORT_PATH;
+                        cmd[k++] = ROOTLIBEXECDIR "/systemd-import";
                         break;
 
                 case TRANSFER_IMPORT_FS:
-                        cmd[k++] = SYSTEMD_IMPORT_FS_PATH;
+                        cmd[k++] = ROOTLIBEXECDIR "/systemd-import-fs";
                         break;
 
                 case TRANSFER_EXPORT_TAR:
                 case TRANSFER_EXPORT_RAW:
-                        cmd[k++] = SYSTEMD_EXPORT_PATH;
+                        cmd[k++] = ROOTLIBEXECDIR "/systemd-export";
                         break;
 
                 case TRANSFER_PULL_TAR:
