@@ -1039,10 +1039,10 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
 
                 /* Allow overriding the homework path via an environment variable, to make debugging
                  * easier. */
-                homework = getenv("SYSTEMD_HOMEWORK_PATH") ?: SYSTEMD_HOMEWORK_PATH;
+                homework = getenv("SYSTEMD_HOMEWORK_PATH") ?: ROOTLIBEXECDIR "/systemd-homework";
 
                 execl(homework, homework, verb, NULL);
-                log_error_errno(errno, "Failed to invoke " SYSTEMD_HOMEWORK_PATH ": %m");
+                log_error_errno(errno, "Failed to invoke %s: %m", homework);
                 _exit(EXIT_FAILURE);
         }
 

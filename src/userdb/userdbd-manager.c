@@ -206,7 +206,7 @@ static int start_one_worker(Manager *m) {
                 /* execl("/home/lennart/projects/systemd/build/systemd-userwork", "systemd-userwork", "xxxxxxxxxxxxxxxx", NULL); /\* With some extra space rename_process() can make use of *\/ */
                 /* execl("/usr/bin/valgrind", "valgrind", "/home/lennart/projects/systemd/build/systemd-userwork", "systemd-userwork", "xxxxxxxxxxxxxxxx", NULL); /\* With some extra space rename_process() can make use of *\/ */
 
-                execl(SYSTEMD_USERWORK_PATH, "systemd-userwork", "xxxxxxxxxxxxxxxx", NULL); /* With some extra space rename_process() can make use of */
+                execl(ROOTLIBEXECDIR "/systemd-homework", "systemd-userwork", "xxxxxxxxxxxxxxxx", NULL); /* With some extra space rename_process() can make use of */
                 log_error_errno(errno, "Failed start worker process: %m");
                 _exit(EXIT_FAILURE);
         }
