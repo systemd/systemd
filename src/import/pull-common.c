@@ -481,7 +481,7 @@ int pull_verify(PullJob *main_job,
                 if (access(USER_KEYRING_PATH, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH;
                 else
-                        cmd[k++] = "--keyring=" VENDOR_KEYRING_PATH;
+                        cmd[k++] = "--keyring=" ROOTLIBEXECDIR "/import-pubring.gpg";
 
                 cmd[k++] = "--verify";
                 if (checksum_job->style == VERIFICATION_PER_DIRECTORY) {
