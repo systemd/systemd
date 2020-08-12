@@ -91,8 +91,6 @@ int manager_handle_action(
 
         /* Locking is handled differently from the rest. */
         if (handle == HANDLE_LOCK) {
-                if (!is_edge)
-                        return 0;
 
                 log_info("Locking sessions...");
                 session_send_lock_all(m, true);
