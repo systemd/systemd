@@ -73,7 +73,7 @@ int mac_selinux_setup(bool *loaded_policy) {
                 mac_selinux_retest();
 
                 /* Transition to the new context */
-                r = mac_selinux_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);
+                r = mac_selinux_get_create_label_from_exe(ROOTLIBEXECDIR "/systemd", &label);
                 if (r < 0 || !label) {
                         log_open();
                         log_error("Failed to compute init label, ignoring.");

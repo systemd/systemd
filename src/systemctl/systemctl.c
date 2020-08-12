@@ -6225,7 +6225,7 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         if (init) {
                 const char *root_systemd_path = NULL, *root_init_path = NULL;
 
-                root_systemd_path = prefix_roota(root, "/" SYSTEMD_BINARY_PATH);
+                root_systemd_path = prefix_roota(root, "/" ROOTLIBEXECDIR "/systemd");
                 root_init_path = prefix_roota(root, init);
 
                 /* If the passed init is actually the same as the

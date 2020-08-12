@@ -1764,7 +1764,7 @@ static void do_reexecute(
                 xsprintf(sfd, "%i", fileno(arg_serialization));
 
                 i = 0;
-                args[i++] = SYSTEMD_BINARY_PATH;
+                args[i++] = ROOTLIBEXECDIR "/systemd";
                 if (switch_root_dir)
                         args[i++] = "--switched-root";
                 args[i++] = arg_system ? "--system" : "--user";

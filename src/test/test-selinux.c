@@ -89,7 +89,7 @@ static void test_create_file_prepare(const char* fname) {
 }
 
 int main(int argc, char **argv) {
-        const char *path = SYSTEMD_BINARY_PATH;
+        const char *path = ROOTLIBEXECDIR "/systemd";
         if (argc >= 2)
                 path = argv[1];
 
