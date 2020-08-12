@@ -109,7 +109,7 @@ static int write_fsck_sysroot_service(const char *dir, const char *what) {
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "ExecStart=" SYSTEMD_FSCK_PATH " %4$s\n"
+                "ExecStart=" ROOTLIBEXECDIR "/systemd-fsck" " %4$s\n"
                 "TimeoutSec=0\n",
                 program_invocation_short_name,
                 escaped,
