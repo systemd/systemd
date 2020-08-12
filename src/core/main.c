@@ -1451,7 +1451,7 @@ static int become_shutdown(
                 timeout[DECIMAL_STR_MAX(usec_t) + 1];
 
         const char* command_line[13] = {
-                SYSTEMD_SHUTDOWN_BINARY_PATH,
+                ROOTLIBEXECDIR "/systemd-shutdown",
                 shutdown_verb,
                 "--timeout", timeout,
                 "--log-level", log_level,
@@ -1536,7 +1536,7 @@ static int become_shutdown(
         if (detect_container() <= 0)
                 (void) cg_uninstall_release_agent(SYSTEMD_CGROUP_CONTROLLER);
 
-        execve(SYSTEMD_SHUTDOWN_BINARY_PATH, (char **) command_line, env_block);
+        execve(ROOTLIBEXECDIR "/systemd-shutdown", (char **) command_line, env_block);
         return -errno;
 }
 
