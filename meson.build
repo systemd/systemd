@@ -223,7 +223,6 @@ conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           join_paths(bindir,
 conf.set_quoted('ROOTPREFIX',                                 rootprefixdir)
 conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
 conf.set_quoted('RANDOM_SEED',                                join_paths(randomseeddir, 'random-seed'))
-conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    join_paths(rootlibexecdir, 'systemd-cryptsetup'))
 conf.set_quoted('SYSTEM_GENERATOR_DIR',                       systemgeneratordir)
 conf.set_quoted('USER_GENERATOR_DIR',                         usergeneratordir)
 conf.set_quoted('SYSTEM_ENV_GENERATOR_DIR',                   systemenvgeneratordir)
