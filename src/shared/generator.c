@@ -509,7 +509,7 @@ int generator_hook_up_growfs(
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "ExecStart="SYSTEMD_GROWFS_PATH " %s\n"
+                "ExecStart="ROOTLIBEXECDIR "/systemd-growfs" " %s\n"
                 "TimeoutSec=0\n",
                 escaped);
 
