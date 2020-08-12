@@ -2979,7 +2979,7 @@ int manager_setup_cgroup(Manager *m) {
                 /* On the legacy hierarchy we only get notifications via cgroup agents. (Which isn't really reliable,
                  * since it does not generate events when control groups with children run empty. */
 
-                r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, SYSTEMD_CGROUP_AGENT_PATH);
+                r = cg_install_release_agent(SYSTEMD_CGROUP_CONTROLLER, ROOTLIBEXECDIR "/systemd-cgroups-agent");
                 if (r < 0)
                         log_warning_errno(r, "Failed to install release agent, ignoring: %m");
                 else if (r > 0)
