@@ -2201,6 +2201,11 @@ static int route_section_verify(Route *route, Network *network) {
                         route->scope = RT_SCOPE_LINK;
         }
 
+        if (route->scope != RT_SCOPE_UNIVERSE && route->family == AF_INET6) {
+                log_warning("%s: Scope= is specified for IPv6 route. It will be ignored.", route->section->filename);
+                route->scope = RT_SCOPE_UNIVERSE;
+        }
+
         if (route->family == AF_INET6 && route->priority == 0)
                 route->priority = IP6_RT_PRIO_USER;
 
