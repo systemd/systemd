@@ -3011,6 +3011,9 @@ int link_save(Link *link) {
                         st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? ":" : "",
                         st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? strempty(link_operstate_to_string(st.max)) : "");
 
+                fprintf(f, "ACTIVATION_POLICY=%s\n",
+                        activation_policy_to_string(link->network->activation_policy));
+
                 fprintf(f, "NETWORK_FILE=%s\n", link->network->filename);
 
                 /************************************************************/
