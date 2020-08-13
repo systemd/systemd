@@ -28,25 +28,25 @@ cp /usr/share/minimal.* "${image_dir}/"
 image="${image_dir}/minimal"
 roothash="$(cat ${image}.roothash)"
 
-/usr/lib/systemd/systemd-dissect ${image}.raw | grep -q -F "Found read-only 'root' partition of type squashfs with verity"
-/usr/lib/systemd/systemd-dissect ${image}.raw | grep -q -F "MARKER=1"
-/usr/lib/systemd/systemd-dissect ${image}.raw | grep -q -F -f /usr/lib/os-release
+systemd-dissect --json=short ${image}.raw | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"fstype":"squashfs","architecture":null,"verity":"external"'
+systemd-dissect ${image}.raw | grep -q -F "MARKER=1"
+systemd-dissect ${image}.raw | grep -q -F -f /usr/lib/os-release
 
 mv ${image}.verity ${image}.fooverity
 mv ${image}.roothash ${image}.foohash
-/usr/lib/systemd/systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F "Found read-only 'root' partition of type squashfs with verity"
-/usr/lib/systemd/systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F "MARKER=1"
-/usr/lib/systemd/systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F -f /usr/lib/os-release
+systemd-dissect --json=short ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"fstype":"squashfs","architecture":null,"verity":"external"'
+systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F "MARKER=1"
+systemd-dissect ${image}.raw --root-hash=${roothash} --verity-data=${image}.fooverity | grep -q -F -f /usr/lib/os-release
 mv ${image}.fooverity ${image}.verity
 mv ${image}.foohash ${image}.roothash
 
 mkdir -p ${image_dir}/mount ${image_dir}/mount2
-/usr/lib/systemd/systemd-dissect --mount ${image}.raw ${image_dir}/mount
+systemd-dissect --mount ${image}.raw ${image_dir}/mount
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F -f /usr/lib/os-release
 cat ${image_dir}/mount/etc/os-release | grep -q -F -f /usr/lib/os-release
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"
 # Verity volume should be shared (opened only once)
-/usr/lib/systemd/systemd-dissect --mount ${image}.raw ${image_dir}/mount2
+systemd-dissect --mount ${image}.raw ${image_dir}/mount2
 verity_count=$(ls -1 /dev/mapper/ | grep -c verity)
 # In theory we should check that count is exactly one. In practice, libdevmapper
 # randomly and unpredictably fails with an unhelpful EINVAL when a device is open
@@ -111,12 +111,16 @@ dd if=${image}.raw of=${loop}p1
 dd if=${image}.verity of=${loop}p2
 losetup -d ${loop}
 
-/usr/lib/systemd/systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q "Found read-only 'root' partition (UUID $(head -c 32 ${image}.roothash)) of type squashfs for .* with verity on partition #1"
-/usr/lib/systemd/systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q "Found read-only 'root-verity' partition (UUID $(tail -c 32 ${image}.roothash)) of type DM_verity_hash for .* on partition #2"
-/usr/lib/systemd/systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F "MARKER=1"
-/usr/lib/systemd/systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F -f /usr/lib/os-release
+# Derive partition UUIDs from root hash, in UUID syntax
+ROOT_UUID=$(systemd-id128 -u show $(head -c 32 ${image}.roothash) -u | tail -n 1 | cut -b 6-)
+VERITY_UUID=$(systemd-id128 -u show $(tail -c 32 ${image}.roothash) -u | tail -n 1 | cut -b 6-)
 
-/usr/lib/systemd/systemd-dissect --root-hash ${roothash} --mount ${image}.gpt ${image_dir}/mount
+systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'$ROOT_UUID'","fstype":"squashfs","architecture":"x86-64","verity":"yes","node":'
+systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'$VERITY_UUID'","fstype":"DM_verity_hash","architecture":"x86-64","verity":null,"node":'
+systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F "MARKER=1"
+systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F -f /usr/lib/os-release
+
+systemd-dissect --root-hash ${roothash} --mount ${image}.gpt ${image_dir}/mount
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F -f /usr/lib/os-release
 cat ${image_dir}/mount/etc/os-release | grep -q -F -f /usr/lib/os-release
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"

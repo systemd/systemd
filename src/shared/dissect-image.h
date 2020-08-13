@@ -69,6 +69,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_FSCK                = 1 << 11, /* File system check the partition before mounting (no effect when combined with DISSECT_IMAGE_READ_ONLY) */
         DISSECT_IMAGE_NO_PARTITION_TABLE  = 1 << 12, /* Only recognize single file system images */
         DISSECT_IMAGE_VERITY_SHARE        = 1 << 13, /* When activating a verity device, reuse existing one if already open */
+        DISSECT_IMAGE_MKDIR               = 1 << 14, /* Make directory to mount right before mounting, if missing */
 } DissectImageFlags;
 
 struct DissectedImage {
@@ -105,6 +106,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, const char *verity_data, const char *root_hash_sig_path, const void *root_hash_sig, size_t root_hash_sig_size, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const void *root_hash, size_t root_hash_size, const char *verity_data, const char *root_hash_sig_path, const void *root_hash_sig, size_t root_hash_sig_size, DissectImageFlags flags, DecryptedImage **ret);
 int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, DissectImageFlags flags);
+int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m);
 

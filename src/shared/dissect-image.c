@@ -9,6 +9,7 @@
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
+#include <sysexits.h>
 
 #include "sd-device.h"
 #include "sd-id128.h"
@@ -1003,9 +1004,9 @@ static int mount_partition(
         if (!m->found || !node || !fstype)
                 return 0;
 
-        /* Stacked encryption? Yuck */
+        /* We are looking at an encrypted partition? This either means stacked encryption, or the caller didn't call dissected_image_decrypt() beforehand. Let's return a recognizable error for this case. */
         if (streq_ptr(fstype, "crypto_LUKS"))
-                return -ELOOP;
+                return -EUNATCH;
 
         rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
 
@@ -1047,6 +1048,12 @@ static int mount_partition(
                 if (!strextend_with_separator(&options, ",", m->mount_options, NULL))
                         return -ENOMEM;
 
+        if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR)) {
+                r = mkdir_p(p, 0755);
+                if (r < 0)
+                        return r;
+        }
+
         r = mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
         if (r < 0)
                 return r;
@@ -1059,6 +1066,15 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
 
         assert(m);
         assert(where);
+
+        /* Returns:
+         *
+         *  -ENXIO        → No root partition found
+         *  -EMEDIUMTYPE  → DISSECT_IMAGE_VALIDATE_OS set but no os-release file found
+         *  -EUNATCH      → Encrypted partition found for which no dm-crypt was set up yet
+         *  -EUCLEAN      → fsck for file system failed
+         *  -EBUSY        → File system already mounted/used elsewhere (kernel)
+         */
 
         if (!m->partitions[PARTITION_ROOT].found)
                 return -ENXIO;
@@ -1079,6 +1095,10 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
 
         if (flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY)
                 return 0;
+
+        /* Mask DISSECT_IMAGE_MKDIR for all subdirs: the idea is that only the top-level mount point is
+         * created if needed, but the image itself not modified. */
+        flags &= ~DISSECT_IMAGE_MKDIR;
 
         r = mount_partition(m->partitions + PARTITION_HOME, where, "/home", uid_shift, flags);
         if (r < 0)
@@ -1123,6 +1143,29 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
         }
 
         return 0;
+}
+
+int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, DissectImageFlags flags) {
+        int r;
+
+        assert(m);
+        assert(where);
+
+        r = dissected_image_mount(m, where, uid_shift, flags);
+        if (r == -ENXIO)
+                return log_error_errno(r, "Not root file system found in image.");
+        if (r == -EMEDIUMTYPE)
+                return log_error_errno(r, "No suitable os-release file in image found.");
+        if (r == -EUNATCH)
+                return log_error_errno(r, "Encrypted file system discovered, but decryption not requested.");
+        if (r == -EUCLEAN)
+                return log_error_errno(r, "File system check on image failed.");
+        if (r == -EBUSY)
+                return log_error_errno(r, "File system already mounted elsewhere.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount image: %m");
+
+        return r;
 }
 
 #if HAVE_LIBCRYPTSETUP
@@ -1586,7 +1629,14 @@ int decrypted_image_relinquish(DecryptedImage *d) {
         return 0;
 }
 
-int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data, char **ret_roothashsig) {
+int verity_metadata_load(
+                const char *image,
+                const char *root_hash_path,
+                void **ret_roothash,
+                size_t *ret_roothash_size,
+                char **ret_verity_data,
+                char **ret_roothashsig) {
+
         _cleanup_free_ char *verity_filename = NULL, *roothashsig_filename = NULL;
         _cleanup_free_ void *roothash_decoded = NULL;
         size_t roothash_decoded_size = 0;
@@ -1722,12 +1772,14 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         };
 
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL;
+        _cleanup_close_pair_ int error_pipe[2] = { -1, -1 };
         _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
         sd_id128_t machine_id = SD_ID128_NULL;
         _cleanup_free_ char *hostname = NULL;
         unsigned n_meta_initialized = 0, k;
-        int fds[2 * _META_MAX], r;
+        int fds[2 * _META_MAX], r, v;
+        ssize_t n;
 
         BLOCK_SIGNALS(SIGCHLD);
 
@@ -1743,18 +1795,28 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
 
+        if (pipe2(error_pipe, O_CLOEXEC) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
         r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, &child);
         if (r < 0)
                 goto finish;
         if (r == 0) {
+                error_pipe[0] = safe_close(error_pipe[0]);
+
                 r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_VALIDATE_OS);
                 if (r < 0) {
+                        /* Let parent know the error */
+                        (void) write(error_pipe[1], &r, sizeof(r));
+
                         log_debug_errno(r, "Failed to mount dissected image: %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 for (k = 0; k < _META_MAX; k++) {
-                        _cleanup_close_ int fd = -1;
+                        _cleanup_close_ int fd = -ENOENT;
                         const char *p;
 
                         fds[2*k] = safe_close(fds[2*k]);
@@ -1766,18 +1828,23 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         }
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
+                                fds[2*k+1] = safe_close(fds[2*k+1]);
                                 continue;
                         }
 
                         r = copy_bytes(fd, fds[2*k+1], (uint64_t) -1, 0);
-                        if (r < 0)
+                        if (r < 0) {
+                                (void) write(error_pipe[1], &r, sizeof(r));
                                 _exit(EXIT_FAILURE);
+                        }
 
                         fds[2*k+1] = safe_close(fds[2*k+1]);
                 }
 
                 _exit(EXIT_SUCCESS);
         }
+
+        error_pipe[1] = safe_close(error_pipe[1]);
 
         for (k = 0; k < _META_MAX; k++) {
                 _cleanup_fclose_ FILE *f = NULL;
@@ -1836,7 +1903,16 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
         child = 0;
         if (r < 0)
-                goto finish;
+                return r;
+
+        n = read(error_pipe[0], &v, sizeof(v));
+        if (n < 0)
+                return -errno;
+        if (n == sizeof(v))
+                return v; /* propagate error sent to us from child */
+        if (n != 0)
+                return -EIO;
+
         if (r != EXIT_SUCCESS)
                 return -EPROTO;
 
@@ -1995,11 +2071,9 @@ int mount_image_privately_interactively(
 
         created_dir = TAKE_PTR(temp);
 
-        r = dissected_image_mount(dissected_image, created_dir, UID_INVALID, flags);
-        if (r == -EUCLEAN)
-                return log_error_errno(r, "File system check on image failed: %m");
+        r = dissected_image_mount_and_warn(dissected_image, created_dir, UID_INVALID, flags);
         if (r < 0)
-                return log_error_errno(r, "Failed to mount image: %m");
+                return r;
 
         if (decrypted_image) {
                 r = decrypted_image_relinquish(decrypted_image);
