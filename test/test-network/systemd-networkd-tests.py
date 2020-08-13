@@ -146,6 +146,20 @@ def expectedFailureIfNexthopIsNotAvailable():
 
     return f
 
+def expectedFailureIfRTA_VIAIsNotSupported():
+    def f(func):
+        call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
+        call('ip link set up dev dummy98', stderr=subprocess.DEVNULL)
+        call('ip route add 2001:1234:5:8fff:ff:ff:ff:fe/128 dev dummy98', stderr=subprocess.DEVNULL)
+        rc = call('ip route add 10.10.10.10 via inet6 2001:1234:5:8fff:ff:ff:ff:fe dev dummy98', stderr=subprocess.DEVNULL)
+        call('ip link del dummy98', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def expectedFailureIfAlternativeNameIsNotAvailable():
     def f(func):
         call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
@@ -1760,6 +1774,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-prefix-route-without-vrf.network',
         '25-route-ipv6-src.network',
         '25-route-static.network',
+        '25-route-via-ipv6.network',
         '25-route-vrf.network',
         '25-gateway-static.network',
         '25-gateway-next-static.network',
@@ -2197,6 +2212,27 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2001:1234:5:7fff:ff:ff:ff:ff')
         self.assertRegex(output, 'via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98')
         self.assertRegex(output, 'via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98')
+
+    @expectedFailureIfRTA_VIAIsNotSupported()
+    def test_route_via_ipv6(self):
+        copy_unit_to_networkd_unit_path('25-route-via-ipv6.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'dummy98', env=env)
+        print(output)
+
+        print('### ip -6 route show dev dummy98')
+        output = check_output('ip -6 route show dev dummy98')
+        print(output)
+        self.assertRegex(output, '2001:1234:5:8fff:ff:ff:ff:ff proto static')
+        self.assertRegex(output, '2001:1234:5:8f63::1 proto kernel')
+
+        print('### ip -4 route show dev dummy98')
+        output = check_output('ip -4 route show dev dummy98')
+        print(output)
+        self.assertRegex(output, '149.10.124.48/28 proto kernel scope link src 149.10.124.58')
+        self.assertRegex(output, '149.10.124.66 via inet6 2001:1234:5:8fff:ff:ff:ff:ff proto static')
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_route_vrf(self):
