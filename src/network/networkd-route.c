@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <linux/icmpv6.h>
+#include <linux/ipv6_route.h>
 
 #include "alloc-util.h"
 #include "netlink-util.h"
@@ -2199,6 +2200,9 @@ static int route_section_verify(Route *route, Network *network) {
                 else if (IN_SET(route->type, RTN_BROADCAST, RTN_ANYCAST, RTN_MULTICAST))
                         route->scope = RT_SCOPE_LINK;
         }
+
+        if (route->family == AF_INET6 && route->priority == 0)
+                route->priority = IP6_RT_PRIO_USER;
 
         if (ordered_hashmap_isempty(network->addresses_by_section) &&
             in_addr_is_null(route->family, &route->gw) == 0 &&
