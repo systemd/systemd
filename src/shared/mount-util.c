@@ -17,6 +17,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -756,12 +757,13 @@ int bind_mount_in_namespace(
                 bool make_file_or_directory) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
+        _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1;
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
         _cleanup_free_ char *chased_src = NULL;
-        struct stat st;
+        struct stat st, self_mntns_st;
         pid_t child;
         int r;
 
@@ -770,6 +772,24 @@ int bind_mount_in_namespace(
         assert(incoming_path);
         assert(src);
         assert(dest);
+
+        r = namespace_open(target, NULL, &mntns_fd, NULL, NULL, &root_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
+
+        if (fstat(mntns_fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to fstat mount namespace FD of target process: %m");
+
+        r = namespace_open(0, NULL, &self_mntns_fd, NULL, NULL, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve FDs of systemd's namespace: %m");
+
+        if (fstat(self_mntns_fd, &self_mntns_st) < 0)
+                return log_debug_errno(errno, "Failed to fstat mount namespace FD of systemd: %m");
+
+        /* We can't add new mounts at runtime if the process wasn't started in a namespace */
+        if (st.st_ino == self_mntns_st.st_ino && st.st_dev == self_mntns_st.st_dev)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
 
         /* One day, when bind mounting /proc/self/fd/n works across
          * namespace boundaries we should rework this logic to make
@@ -877,28 +897,16 @@ int bind_mount_in_namespace(
                 goto finish;
         }
 
-        r = safe_fork("(sd-bindmnt)", FORK_RESET_SIGNALS, &child);
+        r = namespace_fork("(sd-bindmnt)", "(sd-bindmnt-inner)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           -1, mntns_fd, -1, -1, root_fd, &child);
         if (r < 0) {
                 log_debug_errno(r, "Failed to fork(): %m");
                 goto finish;
         }
         if (r == 0) {
-                const char *mount_inside, *q;
-                int mntfd;
+                const char *mount_inside;
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
-
-                q = procfs_file_alloca(target, "ns/mnt");
-                mntfd = open(q, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (mntfd < 0) {
-                        r = log_error_errno(errno, "Failed to open mount namespace of leader: %m");
-                        goto child_fail;
-                }
-
-                if (setns(mntfd, CLONE_NEWNS) < 0) {
-                        r = log_error_errno(errno, "Failed to join namespace of leader: %m");
-                        goto child_fail;
-                }
 
                 if (make_file_or_directory) {
                         (void) mkdir_parents(dest, 0755);
