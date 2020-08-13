@@ -808,17 +808,10 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
-        char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
-        bool mount_slave_created = false, mount_slave_mounted = false,
-                mount_tmp_created = false, mount_tmp_mounted = false,
-                mount_outside_created = false, mount_outside_mounted = false;
-        _cleanup_free_ char *chased_src = NULL;
+        _cleanup_free_ char *error_path = NULL;
         int read_only, make_file_or_directory;
         const char *dest, *src;
         Machine *m = userdata;
-        struct stat st;
-        pid_t child;
         uid_t uid;
         int r;
 
@@ -860,207 +853,15 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (uid != 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Can't bind mount on container with user namespacing applied.");
 
-        /* One day, when bind mounting /proc/self/fd/n works across
-         * namespace boundaries we should rework this logic to make
-         * use of it... */
-
-        p = strjoina("/run/systemd/nspawn/propagate/", m->name, "/");
-        if (laccess(p, F_OK) < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Container does not allow propagation of mount points.");
-
-        r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, &chased_src, NULL);
+        r = bind_mount_in_namespace(m->leader,
+                                    strjoina("/run/systemd/nspawn/propagate/", m->name),
+                                    "/run/host/incoming/",
+                                    src, dest, read_only, make_file_or_directory,
+                                    &error_path);
         if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to resolve source path: %m");
+                return sd_bus_error_set_errnof(error, r, "%s", error_path);
 
-        if (lstat(chased_src, &st) < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to stat() source path: %m");
-        if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Source directory can't be a symbolic link");
-
-        /* Our goal is to install a new bind mount into the container,
-           possibly read-only. This is irritatingly complex
-           unfortunately, currently.
-
-           First, we start by creating a private playground in /tmp,
-           that we can mount MS_SLAVE. (Which is necessary, since
-           MS_MOVE cannot be applied to mounts with MS_SHARED parent
-           mounts.) */
-
-        if (!mkdtemp(mount_slave))
-                return sd_bus_error_set_errnof(error, errno, "Failed to create playground %s: %m", mount_slave);
-
-        mount_slave_created = true;
-
-        if (mount(mount_slave, mount_slave, NULL, MS_BIND, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to make bind mount %s: %m", mount_slave);
-                goto finish;
-        }
-
-        mount_slave_mounted = true;
-
-        if (mount(NULL, mount_slave, NULL, MS_SLAVE, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to remount slave %s: %m", mount_slave);
-                goto finish;
-        }
-
-        /* Second, we mount the source file or directory to a directory inside of our MS_SLAVE playground. */
-        mount_tmp = strjoina(mount_slave, "/mount");
-        if (S_ISDIR(st.st_mode))
-                r = mkdir_errno_wrapper(mount_tmp, 0700);
-        else
-                r = touch(mount_tmp);
-        if (r < 0) {
-                sd_bus_error_set_errnof(error, errno, "Failed to create temporary mount point %s: %m", mount_tmp);
-                goto finish;
-        }
-
-        mount_tmp_created = true;
-
-        if (mount(chased_src, mount_tmp, NULL, MS_BIND, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to mount %s: %m", chased_src);
-                goto finish;
-        }
-
-        mount_tmp_mounted = true;
-
-        /* Third, we remount the new bind mount read-only if requested. */
-        if (read_only)
-                if (mount(NULL, mount_tmp, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0) {
-                        r = sd_bus_error_set_errnof(error, errno, "Failed to remount read-only %s: %m", mount_tmp);
-                        goto finish;
-                }
-
-        /* Fourth, we move the new bind mount into the propagation directory. This way it will appear there read-only
-         * right-away. */
-
-        mount_outside = strjoina("/run/systemd/nspawn/propagate/", m->name, "/XXXXXX");
-        if (S_ISDIR(st.st_mode))
-                r = mkdtemp(mount_outside) ? 0 : -errno;
-        else {
-                r = mkostemp_safe(mount_outside);
-                safe_close(r);
-        }
-        if (r < 0) {
-                sd_bus_error_set_errnof(error, errno, "Cannot create propagation file or directory %s: %m", mount_outside);
-                goto finish;
-        }
-
-        mount_outside_created = true;
-
-        if (mount(mount_tmp, mount_outside, NULL, MS_MOVE, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to move %s to %s: %m", mount_tmp, mount_outside);
-                goto finish;
-        }
-
-        mount_outside_mounted = true;
-        mount_tmp_mounted = false;
-
-        if (S_ISDIR(st.st_mode))
-                (void) rmdir(mount_tmp);
-        else
-                (void) unlink(mount_tmp);
-        mount_tmp_created = false;
-
-        (void) umount(mount_slave);
-        mount_slave_mounted = false;
-
-        (void) rmdir(mount_slave);
-        mount_slave_created = false;
-
-        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
-                goto finish;
-        }
-
-        r = safe_fork("(sd-bindmnt)", FORK_RESET_SIGNALS, &child);
-        if (r < 0) {
-                sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
-                goto finish;
-        }
-        if (r == 0) {
-                const char *mount_inside, *q;
-                int mntfd;
-
-                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
-
-                q = procfs_file_alloca(m->leader, "ns/mnt");
-                mntfd = open(q, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (mntfd < 0) {
-                        r = log_error_errno(errno, "Failed to open mount namespace of leader: %m");
-                        goto child_fail;
-                }
-
-                if (setns(mntfd, CLONE_NEWNS) < 0) {
-                        r = log_error_errno(errno, "Failed to join namespace of leader: %m");
-                        goto child_fail;
-                }
-
-                if (make_file_or_directory) {
-                        if (S_ISDIR(st.st_mode))
-                                (void) mkdir_p(dest, 0755);
-                        else {
-                                (void) mkdir_parents(dest, 0755);
-                                (void) mknod(dest, S_IFREG|0600, 0);
-                        }
-                }
-
-                mount_inside = strjoina("/run/host/incoming/", basename(mount_outside));
-                if (mount(mount_inside, dest, NULL, MS_MOVE, NULL) < 0) {
-                        r = log_error_errno(errno, "Failed to mount: %m");
-                        goto child_fail;
-                }
-
-                _exit(EXIT_SUCCESS);
-
-        child_fail:
-                (void) write(errno_pipe_fd[1], &r, sizeof(r));
-                errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
-
-                _exit(EXIT_FAILURE);
-        }
-
-        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
-
-        r = wait_for_terminate_and_check("(sd-bindmnt)", child, 0);
-        if (r < 0) {
-                r = sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                goto finish;
-        }
-        if (r != EXIT_SUCCESS) {
-                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
-                        r = sd_bus_error_set_errnof(error, r, "Failed to mount: %m");
-                else
-                        r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child failed.");
-                goto finish;
-        }
-
-        r = sd_bus_reply_method_return(message, NULL);
-
-finish:
-        if (mount_outside_mounted)
-                (void) umount(mount_outside);
-        if (mount_outside_created) {
-                if (S_ISDIR(st.st_mode))
-                        (void) rmdir(mount_outside);
-                else
-                        (void) unlink(mount_outside);
-        }
-
-        if (mount_tmp_mounted)
-                (void) umount(mount_tmp);
-        if (mount_tmp_created) {
-                if (S_ISDIR(st.st_mode))
-                        (void) rmdir(mount_tmp);
-                else
-                        (void) unlink(mount_tmp);
-        }
-
-        if (mount_slave_mounted)
-                (void) umount(mount_slave);
-        if (mount_slave_created)
-                (void) rmdir(mount_slave);
-
-        return r;
+        return sd_bus_reply_method_return(message, NULL);
 }
 
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
