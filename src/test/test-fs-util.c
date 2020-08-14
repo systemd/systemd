@@ -615,8 +615,8 @@ static void test_touch_file(void) {
         assert_se(timespec_load(&st.st_mtim) == test_mtime);
 
         if (geteuid() == 0) {
-                a = strjoina(p, "/cdev");
-                r = mknod(a, 0775 | S_IFCHR, makedev(0, 0));
+                a = strjoina(p, "/bdev");
+                r = mknod(a, 0775 | S_IFBLK, makedev(0, 0));
                 if (r < 0 && errno == EPERM && detect_container() > 0) {
                         log_notice("Running in unprivileged container? Skipping remaining tests in %s", __func__);
                         return;
@@ -626,17 +626,17 @@ static void test_touch_file(void) {
                 assert_se(lstat(a, &st) >= 0);
                 assert_se(st.st_uid == test_uid);
                 assert_se(st.st_gid == test_gid);
-                assert_se(S_ISCHR(st.st_mode));
+                assert_se(S_ISBLK(st.st_mode));
                 assert_se((st.st_mode & 0777) == 0640);
                 assert_se(timespec_load(&st.st_mtim) == test_mtime);
 
-                a = strjoina(p, "/bdev");
-                assert_se(mknod(a, 0775 | S_IFBLK, makedev(0, 0)) >= 0);
+                a = strjoina(p, "/cdev");
+                assert_se(mknod(a, 0775 | S_IFCHR, makedev(0, 0)) >= 0);
                 assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
                 assert_se(lstat(a, &st) >= 0);
                 assert_se(st.st_uid == test_uid);
                 assert_se(st.st_gid == test_gid);
-                assert_se(S_ISBLK(st.st_mode));
+                assert_se(S_ISCHR(st.st_mode));
                 assert_se((st.st_mode & 0777) == 0640);
                 assert_se(timespec_load(&st.st_mtim) == test_mtime);
         }
