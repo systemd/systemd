@@ -802,12 +802,14 @@ static int property_get_root_image_options(
         assert(property);
         assert(reply);
 
-        r = sd_bus_message_open_container(reply, 'a', "(us)");
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
         if (r < 0)
                 return r;
 
         LIST_FOREACH(mount_options, m, c->root_image_options) {
-                r = sd_bus_message_append(reply, "(us)", m->partition_number, m->options);
+                r = sd_bus_message_append(reply, "(ss)",
+                                          partition_designator_to_string(m->partition_designator),
+                                          m->options);
                 if (r < 0)
                         return r;
         }
@@ -891,7 +893,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("WorkingDirectory", "s", property_get_working_directory, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootDirectory", "s", NULL, offsetof(ExecContext, root_directory), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootImage", "s", NULL, offsetof(ExecContext, root_image), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RootImageOptions", "a(us)", property_get_root_image_options, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootImageOptions", "a(ss)", property_get_root_image_options, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHash", "ay", property_get_root_hash, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashPath", "s", NULL, offsetof(ExecContext, root_hash_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootHashSignature", "ay", property_get_root_hash_sig, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1371,29 +1373,35 @@ int bus_exec_context_set_transient_property(
         if (streq(name, "RootImageOptions")) {
                 _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
                 _cleanup_free_ char *format_str = NULL;
-                const char *mount_options;
-                unsigned partition_number;
+                const char *mount_options, *partition;
 
-                r = sd_bus_message_enter_container(message, 'a', "(us)");
+                r = sd_bus_message_enter_container(message, 'a', "(ss)");
                 if (r < 0)
                         return r;
 
-                while ((r = sd_bus_message_read(message, "(us)", &partition_number, &mount_options)) > 0) {
+                while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
                         _cleanup_free_ char *previous = TAKE_PTR(format_str);
                         _cleanup_free_ MountOptions *o = NULL;
+                        int partition_designator;
 
                         if (chars_intersect(mount_options, WHITESPACE))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                         "Invalid mount options string, contains whitespace character(s): %s", mount_options);
 
-                        if (asprintf(&format_str, "%s%s%u:%s", strempty(previous), previous ? " " : "", partition_number, mount_options) < 0)
+                        partition_designator = partition_designator_from_string(partition);
+                        if (partition_designator < 0)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                        "Invalid partition name: %s", partition);
+
+                        format_str = strjoin(previous, previous ? " " : "", partition, ":", mount_options);
+                        if (!format_str)
                                 return -ENOMEM;
 
                         o = new(MountOptions, 1);
                         if (!o)
                                 return -ENOMEM;
                         *o = (MountOptions) {
-                                .partition_number = partition_number,
+                                .partition_designator = partition_designator,
                                 .options = strdup(mount_options),
                         };
                         if (!o->options)

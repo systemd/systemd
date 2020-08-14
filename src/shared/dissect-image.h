@@ -87,14 +87,14 @@ struct DissectedImage {
 };
 
 struct MountOptions {
-        unsigned partition_number;
+        int partition_designator;
         char *options;
         LIST_FIELDS(MountOptions, mount_options);
 };
 
 MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
-const char* mount_options_from_part(const MountOptions *options, unsigned int partition_number);
+const char* mount_options_from_part(const MountOptions *options, int designator);
 
 int probe_filesystem(const char *node, char **ret_fstype);
 int dissect_image(int fd, const void *root_hash, size_t root_hash_size, const char *verity_data, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);

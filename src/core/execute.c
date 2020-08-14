@@ -4634,7 +4634,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sRootImageOptions:", prefix);
                 LIST_FOREACH(mount_options, o, c->root_image_options)
                         if (!isempty(o->options))
-                                fprintf(f, " %u:%s", o->partition_number, o->options);
+                                fprintf(f, " %s:%s",
+                                        partition_designator_to_string(o->partition_designator),
+                                        o->options);
                 fprintf(f, "\n");
         }
 

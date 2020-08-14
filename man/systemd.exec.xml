@@ -149,11 +149,53 @@
         <term><varname>RootImageOptions=</varname></term>
 
         <listitem><para>Takes a comma-separated list of mount options that will be used on disk images specified by
-        <varname>RootImage=</varname>. Optionally a partition number can be prefixed, followed by colon, in
-        case the image has multiple partitions, otherwise partition number 0 is implied.
+        <varname>RootImage=</varname>. Optionally a partition name can be prefixed, followed by colon, in
+        case the image has multiple partitions, otherwise partition name <literal>root</literal> is implied.
         Options for multiple partitions can be specified in a single line with space separators. Assigning an empty
-        string removes previous assignments. For a list of valid mount options, please refer to
-        <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+        string removes previous assignments. Duplicated options are ignored. For a list of valid mount options, please
+        refer to <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>Valid partition names follow the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable
+        Partitions Specification</ulink>.</para>
+
+        <table>
+          <title>Accepted partition names</title>
+
+          <tgroup cols='1'>
+            <colspec colname='partition' />
+            <thead>
+              <row>
+                <entry>Partition Name</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>root</entry>
+              </row>
+              <row>
+                <entry>root-secondary</entry>
+              </row>
+              <row>
+                <entry>home</entry>
+              </row>
+              <row>
+                <entry>srv</entry>
+              </row>
+              <row>
+                <entry>esp</entry>
+              </row>
+              <row>
+                <entry>xbootldr</entry>
+              </row>
+              <row>
+                <entry>tmp</entry>
+              </row>
+              <row>
+                <entry>var</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>

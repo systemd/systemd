@@ -1454,22 +1454,23 @@ int config_parse_root_image_options(
         }
 
         STRV_FOREACH_PAIR(first, second, l) {
-                _cleanup_free_ char *mount_options_resolved = NULL;
-                const char *mount_options = NULL;
                 MountOptions *o = NULL;
-                unsigned int partition_number = 0;
+                _cleanup_free_ char *mount_options_resolved = NULL;
+                const char *mount_options = NULL, *partition = "root";
+                int partition_designator;
 
-                /* Format is either '0:foo' or 'foo' (0 is implied) */
+                /* Format is either 'root:foo' or 'foo' (root is implied) */
                 if (!isempty(*second)) {
+                        partition = *first;
                         mount_options = *second;
-                        r = safe_atou(*first, &partition_number);
-                        if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse partition number from \"%s\", ignoring: %m", *first);
-                                continue;
-                        }
                 } else
                         mount_options = *first;
 
+                partition_designator = partition_designator_from_string(partition);
+                if (partition_designator < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL), "Invalid partition name %s, ignoring", partition);
+                        continue;
+                }
                 r = unit_full_printf(u, mount_options, &mount_options_resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", mount_options);
@@ -1480,10 +1481,10 @@ int config_parse_root_image_options(
                 if (!o)
                         return log_oom();
                 *o = (MountOptions) {
-                        .partition_number = partition_number,
+                        .partition_designator = partition_designator,
                         .options = TAKE_PTR(mount_options_resolved),
                 };
-                LIST_APPEND(mount_options, options, o);
+                LIST_APPEND(mount_options, options, TAKE_PTR(o));
         }
 
         /* empty spaces/separators only */

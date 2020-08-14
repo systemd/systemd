@@ -128,33 +128,38 @@ umount ${image_dir}/mount
 
 systemd-run -t --property RootImage=${image}.gpt --property RootHash=${roothash} /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
 
-systemd-run -t --property RootImage=${image}.raw --property RootImageOptions="1:ro,noatime 2:ro,dev nosuid,dev" --property MountAPIVFS=yes mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -t --property RootImage=${image}.gpt --property RootImageOptions="1:ro,noatime 1:ro,dev" --property MountAPIVFS=yes mount | grep -F "squashfs" | grep -q -F "noatime"
+systemd-run -t --property RootImage=${image}.raw --property RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" --property MountAPIVFS=yes mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -t --property RootImage=${image}.gpt --property RootImageOptions="root:ro,noatime root:ro,dev" --property MountAPIVFS=yes mount | grep -F "squashfs" | grep -q -F "noatime"
 
+mkdir -p mkdir -p ${image_dir}/result
 cat > /run/systemd/system/testservice-50a.service <<EOF
 [Service]
 Type=oneshot
-ExecStart=mount
+ExecStart=bash -c "mount > /run/result/a"
+BindPaths=${image_dir}/result:/run/result
+TemporaryFileSystem=/run
 MountAPIVFS=yes
 RootImage=${image}.raw
-RootImageOptions=1:ro,noatime,nosuid 2:ro,dev noatime,dev
+RootImageOptions=root:ro,noatime home:ro,dev relatime,dev
 RootImageOptions=nosuid,dev
 EOF
 systemctl start testservice-50a.service
-journalctl -b -u testservice-50a.service | grep -F "squashfs" | grep -q -F "noatime"
-journalctl -b -u testservice-50a.service | grep -F "squashfs" | grep -q -F -v "nosuid"
+grep -F "squashfs" ${image_dir}/result/a | grep -q -F "noatime"
+grep -F "squashfs" ${image_dir}/result/a | grep -q -F -v "nosuid"
 
 cat > /run/systemd/system/testservice-50b.service <<EOF
 [Service]
 Type=oneshot
-ExecStart=mount
+ExecStart=bash -c "mount > /run/result/b"
+BindPaths=${image_dir}/result:/run/result
+TemporaryFileSystem=/run
 MountAPIVFS=yes
 RootImage=${image}.gpt
-RootImageOptions=1:ro,noatime,nosuid 2:ro,dev nosuid,dev
-RootImageOptions=2:ro,dev nosuid,dev,%%foo
+RootImageOptions=root:ro,noatime,nosuid home:ro,dev nosuid,dev
+RootImageOptions=home:ro,dev nosuid,dev,%%foo
 EOF
 systemctl start testservice-50b.service
-journalctl -b -u testservice-50b.service | grep -F "squashfs" | grep -q -F "noatime"
+grep -F "squashfs" ${image_dir}/result/b | grep -q -F "noatime"
 
 # Check that specifier escape is applied %%foo -> %foo
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/testservice_2d50b_2eservice org.freedesktop.systemd1.Service RootImageOptions | grep -F "nosuid,dev,%foo"

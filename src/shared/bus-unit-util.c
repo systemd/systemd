@@ -10,6 +10,7 @@
 #include "condition.h"
 #include "coredump-util.h"
 #include "cpu-set-util.h"
+#include "dissect-image.h"
 #include "escape.h"
 #include "exec-util.h"
 #include "exit-status.h"
@@ -1468,11 +1469,11 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'v', "a(us)");
+                r = sd_bus_message_open_container(m, 'v', "a(ss)");
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_open_container(m, 'a', "(us)");
+                r = sd_bus_message_open_container(m, 'a', "(ss)");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1481,21 +1482,13 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return log_error_errno(r, "Failed to parse argument: %m");
 
                 STRV_FOREACH_PAIR(first, second, l) {
-                        const char *mount_options;
-                        unsigned partition_number = 0;
+                        /* Format is either 'root:foo' or 'foo' (root is implied) */
+                        if (!isempty(*second) && partition_designator_from_string(*first) < 0)
+                                return bus_log_create_error(-EINVAL);
 
-                        /* Format is either '0:foo' or 'foo' (0 is implied) */
-                        if (!isempty(*second)) {
-                                mount_options = *second;
-                                r = safe_atou(*first, &partition_number);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to parse partition number from %s: %m", *first);
-                                        continue;
-                                }
-                        } else
-                                mount_options = *first;
-
-                        r = sd_bus_message_append(m, "(us)", partition_number, mount_options);
+                        r = sd_bus_message_append(m, "(ss)",
+                                                  !isempty(*second) ? *first : "root",
+                                                  !isempty(*second) ? *second : *first);
                         if (r < 0)
                                 return bus_log_create_error(r);
                 }
