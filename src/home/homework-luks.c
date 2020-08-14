@@ -238,7 +238,7 @@ static int luks_setup(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
-        crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+        cryptsetup_enable_logging(cd);
 
         r = crypt_load(cd, CRYPT_LUKS2, NULL);
         if (r < 0)
@@ -338,7 +338,7 @@ static int luks_open(
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
 
-        crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+        cryptsetup_enable_logging(cd);
 
         r = crypt_load(cd, CRYPT_LUKS2, NULL);
         if (r < 0)
@@ -1335,7 +1335,7 @@ int home_deactivate_luks(UserRecord *h) {
         else {
                 log_info("Discovered used LUKS device %s.", dm_node);
 
-                crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+                cryptsetup_enable_logging(cd);
 
                 r = crypt_deactivate(cd, dm_name);
                 if (IN_SET(r, -ENODEV, -EINVAL, -ENOENT)) {
@@ -1494,7 +1494,7 @@ static int luks_format(
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
-        crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+        cryptsetup_enable_logging(cd);
 
         /* Normally we'd, just leave volume key generation to libcryptsetup. However, we can't, since we
          * can't extract the volume key from the library again, but we need it in order to encrypt the JSON
@@ -2971,7 +2971,7 @@ int home_lock_luks(UserRecord *h) {
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
 
         log_info("Discovered used LUKS device %s.", dm_node);
-        crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+        cryptsetup_enable_logging(cd);
 
         if (syncfs(root_fd) < 0) /* Snake oil, but let's better be safe than sorry */
                 return log_error_errno(errno, "Failed to synchronize file system %s: %m", p);
@@ -3036,7 +3036,7 @@ int home_unlock_luks(UserRecord *h, PasswordCache *cache) {
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", dm_name);
 
         log_info("Discovered used LUKS device %s.", dm_node);
-        crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
+        cryptsetup_enable_logging(cd);
 
         r = -ENOKEY;
         FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, h->password) {
