@@ -138,6 +138,12 @@ struct DeviceMonitorData {
         sd_device *device;
 };
 
+static void device_monitor_data_free(struct DeviceMonitorData *d) {
+        assert(d);
+
+        sd_device_unref(d->device);
+}
+
 static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         struct DeviceMonitorData *data = userdata;
         const char *sysname;
@@ -183,7 +189,7 @@ static int device_wait_for_initialization_internal(
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         /* Ensure that if !_device && devlink, device gets unrefd on errors since it will be new */
         _cleanup_(sd_device_unrefp) sd_device *device = sd_device_ref(_device);
-        struct DeviceMonitorData data = {
+        _cleanup_(device_monitor_data_free) struct DeviceMonitorData data = {
                 .devlink = devlink,
         };
         int r;
