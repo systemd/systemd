@@ -1830,11 +1830,11 @@ static int make_tmp_prefix(const char *prefix) {
 static int make_tmp_subdir(const char *parent, char **ret) {
         _cleanup_free_ char *y = NULL;
 
-        RUN_WITH_UMASK(0000) {
-                y = strjoin(parent, "/tmp");
-                if (!y)
-                        return -ENOMEM;
+        y = path_join(parent, "/tmp");
+        if (!y)
+                return -ENOMEM;
 
+        RUN_WITH_UMASK(0000) {
                 if (mkdir(y, 0777 | S_ISVTX) < 0)
                         return -errno;
         }
@@ -1890,9 +1890,9 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 if (r < 0)
                         return r;
 
-                x = strdup(RUN_SYSTEMD_EMPTY);
-                if (!x)
-                        return -ENOMEM;
+                r = free_and_strdup(&x, RUN_SYSTEMD_EMPTY);
+                if (r < 0)
+                        return r;
         }
 
         *path = TAKE_PTR(x);
