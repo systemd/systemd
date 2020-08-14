@@ -536,8 +536,17 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
         (void) mkdir_label("/run/systemd/system", 0755);
 
         /* Also create /run/systemd/inaccessible nodes, so that we always have something to mount
-         * inaccessible nodes from. */
-        (void) make_inaccessible_nodes(NULL, UID_INVALID, GID_INVALID);
+         * inaccessible nodes from. If we run in a container the host might have created these for us already
+         * in /run/host/inaccessible/. Use those if we can, since tht way we likely get access to block/char
+         * device nodes that are inaccessible, and if userns is used to nodes that are on mounts owned by a
+         * userns outside the container and thus nicely read-only and not remountable. */
+        if (access("/run/host/inaccessible/", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check if /run/host/inaccessible exists, ignoring: %m");
+
+                (void) make_inaccessible_nodes("/run/systemd", UID_INVALID, GID_INVALID);
+        } else
+                (void) symlink("../host/inaccessible", "/run/systemd/inaccessible");
 
         return 0;
 }
