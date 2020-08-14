@@ -199,10 +199,11 @@
         <term><varname>HandleLidSwitch=</varname></term>
         <term><varname>HandleLidSwitchExternalPower=</varname></term>
         <term><varname>HandleLidSwitchDocked=</varname></term>
+        <term><varname>HandleRebootKey=</varname></term>
 
         <listitem><para>Controls how logind shall handle the
-        system power and sleep keys and the lid switch to trigger
-        actions such as system power-off or suspend. Can be one of
+        system power, reboot and sleep keys and the lid switch to trigger
+        actions such as system power-off, reboot or suspend. Can be one of
         <literal>ignore</literal>,
         <literal>poweroff</literal>,
         <literal>reboot</literal>,
@@ -219,7 +220,8 @@
         in the respective event. Only input devices with the
         <literal>power-switch</literal> udev tag will be watched for
         key/lid switch events. <varname>HandlePowerKey=</varname>
-        defaults to <literal>poweroff</literal>.
+        defaults to <literal>poweroff</literal>, <varname>HandleRebootKey=</varname>
+        defaults to <literal>reboot</literal>.
         <varname>HandleSuspendKey=</varname> and
         <varname>HandleLidSwitch=</varname> default to
         <literal>suspend</literal>.
@@ -240,7 +242,8 @@
         <para>A different application may disable logind's handling of system power and
         sleep keys and the lid switch by taking a low-level inhibitor lock
         (<literal>handle-power-key</literal>, <literal>handle-suspend-key</literal>,
-        <literal>handle-hibernate-key</literal>, <literal>handle-lid-switch</literal>).
+        <literal>handle-hibernate-key</literal>, <literal>handle-lid-switch</literal>,
+        <literal>handle-reboot-switch</literal>).
         This is most commonly used by graphical desktop environments
         to take over suspend and hibernation handling, and to use their own configuration
         mechanisms. If a low-level inhibitor lock is taken, logind will not take any
@@ -253,20 +256,23 @@
         <term><varname>SuspendKeyIgnoreInhibited=</varname></term>
         <term><varname>HibernateKeyIgnoreInhibited=</varname></term>
         <term><varname>LidSwitchIgnoreInhibited=</varname></term>
+        <term><varname>RebootKeyIgnoreInhibited=</varname></term>
 
         <listitem><para>Controls whether actions that <command>systemd-logind</command>
-        takes when the power and sleep keys and the lid switch are triggered are subject
-        to high-level inhibitor locks ("shutdown", "sleep", "idle"). Low level inhibitor
+        takes when the power, reboot and sleep keys and the lid switch are triggered are subject
+        to high-level inhibitor locks ("shutdown", "reboot", "sleep", "idle"). Low level inhibitor
         locks (<literal>handle-power-key</literal>, <literal>handle-suspend-key</literal>,
-        <literal>handle-hibernate-key</literal>, <literal>handle-lid-switch</literal>),
+        <literal>handle-hibernate-key</literal>, <literal>handle-lid-switch</literal>,
+        <literal>handle-reboot-key</literal>),
         are always honored, irrespective of this setting.</para>
 
         <para>These settings take boolean arguments. If <literal>no</literal>, the
         inhibitor locks taken by applications are respected. If <literal>yes</literal>,
-        "shutdown", "sleep", and "idle" inhibitor locks are ignored.
+        "shutdown", "reboot" "sleep", and "idle" inhibitor locks are ignored.
         <varname>PowerKeyIgnoreInhibited=</varname>,
-        <varname>SuspendKeyIgnoreInhibited=</varname>, and
-        <varname>HibernateKeyIgnoreInhibited=</varname> default to <literal>no</literal>.
+        <varname>SuspendKeyIgnoreInhibited=</varname>,
+        <varname>HibernateKeyIgnoreInhibited=</varname> and
+        <varname>RebootKeyIgnoreInhibited=</varname> default to <literal>no</literal>.
         <varname>LidSwitchIgnoreInhibited=</varname> defaults to <literal>yes</literal>.
         This means that when <command>systemd-logind</command> is handling events by
         itself (no low level inhibitor locks are taken by another application), the lid

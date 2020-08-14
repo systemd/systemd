@@ -3240,6 +3240,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                         w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
                         w == INHIBIT_HANDLE_POWER_KEY     ? "org.freedesktop.login1.inhibit-handle-power-key" :
                         w == INHIBIT_HANDLE_SUSPEND_KEY   ? "org.freedesktop.login1.inhibit-handle-suspend-key" :
+                        w == INHIBIT_HANDLE_REBOOT_KEY    ? "org.freedesktop.login1.inhibit-handle-reboot-key" :
                         w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
                                                             "org.freedesktop.login1.inhibit-handle-lid-switch",
                         NULL,

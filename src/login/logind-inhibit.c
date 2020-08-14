@@ -452,7 +452,15 @@ bool manager_is_inhibited(
 }
 
 const char *inhibit_what_to_string(InhibitWhat w) {
-        static thread_local char buffer[97];
+        static thread_local char buffer[STRLEN(
+            "shutdown:"
+            "sleep:"
+            "idle:"
+            "handle-power-key:"
+            "handle-suspend-key:"
+            "handle-hibernate-key:"
+            "handle-lid-switch:"
+            "handle-reboot-key")+1];
         char *p;
 
         if (w < 0 || w >= _INHIBIT_WHAT_MAX)
@@ -473,6 +481,8 @@ const char *inhibit_what_to_string(InhibitWhat w) {
                 p = stpcpy(p, "handle-hibernate-key:");
         if (w & INHIBIT_HANDLE_LID_SWITCH)
                 p = stpcpy(p, "handle-lid-switch:");
+        if (w & INHIBIT_HANDLE_REBOOT_KEY)
+                p = stpcpy(p, "handle-reboot-key:");
 
         if (p > buffer)
                 *(p-1) = 0;
@@ -512,6 +522,8 @@ int inhibit_what_from_string(const char *s) {
                         what |= INHIBIT_HANDLE_HIBERNATE_KEY;
                 else if (streq(word, "handle-lid-switch"))
                         what |= INHIBIT_HANDLE_LID_SWITCH;
+                else if (l == 17 && strneq(word, "handle-reboot-key", l))
+                        what |= INHIBIT_HANDLE_REBOOT_KEY;
                 else
                         return _INHIBIT_WHAT_INVALID;
         }

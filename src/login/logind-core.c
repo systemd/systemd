@@ -43,10 +43,12 @@ void manager_reset_config(Manager *m) {
         m->handle_lid_switch = HANDLE_SUSPEND;
         m->handle_lid_switch_ep = _HANDLE_ACTION_INVALID;
         m->handle_lid_switch_docked = HANDLE_IGNORE;
+        m->handle_reboot_key = HANDLE_REBOOT;
         m->power_key_ignore_inhibited = false;
         m->suspend_key_ignore_inhibited = false;
         m->hibernate_key_ignore_inhibited = false;
         m->lid_switch_ignore_inhibited = true;
+        m->reboot_key_ignore_inhibited = false;
 
         m->holdoff_timeout_usec = 30 * USEC_PER_SEC;
 
@@ -674,6 +676,8 @@ bool manager_all_buttons_ignored(Manager *m) {
         if (!IN_SET(m->handle_lid_switch_ep, _HANDLE_ACTION_INVALID, HANDLE_IGNORE))
                 return false;
         if (m->handle_lid_switch_docked != HANDLE_IGNORE)
+                return false;
+        if (m->handle_reboot_key != HANDLE_IGNORE)
                 return false;
 
         return true;
