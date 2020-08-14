@@ -65,6 +65,7 @@ BASICTOOLS=(
     echo
     env
     false
+    getconf
     getent
     getfacl
     grep
