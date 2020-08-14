@@ -3056,6 +3056,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         const char *root_dir = NULL, *root_image = NULL;
+        _cleanup_free_ char *creds_path = NULL;
         NamespaceInfo ns_info;
         bool needs_sandboxing;
         BindMount *bind_mounts = NULL;
@@ -3124,6 +3125,12 @@ static int apply_mount_namespace(
         if (context->mount_flags == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
+        if (exec_context_has_credentials(context) && params->prefix[EXEC_DIRECTORY_RUNTIME]) {
+                creds_path = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
+                if (!creds_path)
+                        return -ENOMEM;
+        }
+
         r = setup_namespace(root_dir, root_image, context->root_image_options,
                             &ns_info, context->read_write_paths,
                             needs_sandboxing ? context->read_only_paths : NULL,
@@ -3137,6 +3144,7 @@ static int apply_mount_namespace(
                             context->n_mount_images,
                             tmp_dir,
                             var_tmp_dir,
+                            creds_path,
                             context->log_namespace,
                             context->mount_flags,
                             context->root_hash, context->root_hash_size, context->root_hash_path,

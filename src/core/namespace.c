@@ -1270,6 +1270,7 @@ static size_t namespace_calculate_mounts(
                 size_t n_mount_images,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
+                const char *creds_path,
                 const char* log_namespace) {
 
         size_t protect_home_cnt;
@@ -1305,6 +1306,7 @@ static size_t namespace_calculate_mounts(
                 protect_home_cnt + protect_system_cnt +
                 (ns_info->protect_hostname ? 2 : 0) +
                 (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0) +
+                (creds_path ? 2 : 1) +
                 !!log_namespace;
 }
 
@@ -1389,6 +1391,7 @@ int setup_namespace(
                 size_t n_mount_images,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
+                const char *creds_path,
                 const char *log_namespace,
                 unsigned long mount_flags,
                 const void *root_hash,
@@ -1494,6 +1497,7 @@ int setup_namespace(
                         n_temporary_filesystems,
                         n_mount_images,
                         tmp_dir, var_tmp_dir,
+                        creds_path,
                         log_namespace);
 
         if (n_mounts > 0) {
@@ -1616,6 +1620,35 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/domainname",
                                 .mode = READONLY,
+                        };
+                }
+
+                if (creds_path) {
+                        /* If our service has a credentials store configured, then bind that one in, but hide
+                         * everything else. */
+
+                        *(m++) = (MountEntry) {
+                                .path_const = "/run/credentials",
+                                .mode = TMPFS,
+                                .read_only = true,
+                                .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
+                                .flags = MS_NODEV|MS_STRICTATIME|MS_NOSUID|MS_NOEXEC,
+                        };
+
+                        *(m++) = (MountEntry) {
+                                .path_const = creds_path,
+                                .mode = BIND_MOUNT,
+                                .read_only = true,
+                                .source_const = creds_path,
+                        };
+                } else {
+                        /* If our service has no credentials store configured, then make the whole
+                         * credentials tree inaccessible wholesale. */
+
+                        *(m++) = (MountEntry) {
+                                .path_const = "/run/credentials",
+                                .mode = INACCESSIBLE,
+                                .ignore = true,
                         };
                 }
 
