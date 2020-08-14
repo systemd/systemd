@@ -720,7 +720,6 @@ static Link *link_free(Link *link) {
         link->dhcp6_pd_routes = set_free(link->dhcp6_pd_routes);
         link->dhcp6_pd_routes_old = set_free(link->dhcp6_pd_routes_old);
         link->ndisc_routes = set_free(link->ndisc_routes);
-        link->ndisc_routes_old = set_free(link->ndisc_routes_old);
 
         link->nexthops = set_free(link->nexthops);
         link->nexthops_foreign = set_free(link->nexthops_foreign);
@@ -736,7 +735,6 @@ static Link *link_free(Link *link) {
         link->dhcp6_pd_addresses = set_free(link->dhcp6_pd_addresses);
         link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
         link->ndisc_addresses = set_free(link->ndisc_addresses);
-        link->ndisc_addresses_old = set_free(link->ndisc_addresses_old);
 
         while ((address = link->pool_addresses)) {
                 LIST_REMOVE(addresses, link->pool_addresses, address);
@@ -1163,6 +1161,8 @@ void link_check_ready(Link *link) {
         }
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
+                bool has_ndisc_address = false;
+                NDiscAddress *n;
 
                 if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4) && !link->ipv4ll_address_configured) {
                         log_link_debug(link, "%s(): IPv4LL is not configured.", __func__);
@@ -1175,8 +1175,14 @@ void link_check_ready(Link *link) {
                         return;
                 }
 
+                SET_FOREACH(n, link->ndisc_addresses, i)
+                        if (!n->marked) {
+                                has_ndisc_address = true;
+                                break;
+                        }
+
                 if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
-                    !link->dhcp_address && set_isempty(link->dhcp6_addresses) && set_isempty(link->ndisc_addresses) &&
+                    !link->dhcp_address && set_isempty(link->dhcp6_addresses) && !has_ndisc_address &&
                     !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address_configured)) {
                         log_link_debug(link, "%s(): DHCP4 or DHCP6 is enabled but no dynamic address is assigned yet.", __func__);
                         return;

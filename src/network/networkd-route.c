@@ -9,6 +9,7 @@
 #include "netlink-util.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-manager.h"
+#include "networkd-ndisc.h"
 #include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
@@ -142,6 +143,9 @@ void route_free(Route *route) {
         network_config_section_free(route->section);
 
         if (route->link) {
+                NDiscRoute *n;
+                Iterator i;
+
                 set_remove(route->link->routes, route);
                 set_remove(route->link->routes_foreign, route);
                 set_remove(route->link->dhcp_routes, route);
@@ -150,8 +154,9 @@ void route_free(Route *route) {
                 set_remove(route->link->dhcp6_routes_old, route);
                 set_remove(route->link->dhcp6_pd_routes, route);
                 set_remove(route->link->dhcp6_pd_routes_old, route);
-                set_remove(route->link->ndisc_routes, route);
-                set_remove(route->link->ndisc_routes_old, route);
+                SET_FOREACH(n, route->link->ndisc_routes, i)
+                        if (n->route == route)
+                                free(set_remove(route->link->ndisc_routes, n));
         }
 
         ordered_set_free_free(route->multipath_routes);
