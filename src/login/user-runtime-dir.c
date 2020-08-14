@@ -54,6 +54,7 @@ static int user_mkdir_runtime_path(
                 uint64_t runtime_dir_size,
                 uint64_t runtime_dir_inodes) {
 
+        const char *p;
         int r;
 
         assert(runtime_path);
@@ -104,7 +105,9 @@ static int user_mkdir_runtime_path(
         }
 
         /* Set up inaccessible nodes now so they're available if we decide to use them with user namespaces. */
-        (void) make_inaccessible_nodes(runtime_path, uid, gid);
+        p = strjoina(runtime_path, "/systemd");
+        (void) mkdir(p, 0755);
+        (void) make_inaccessible_nodes(p, uid, gid);
         return 0;
 
 fail:

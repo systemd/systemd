@@ -3531,7 +3531,7 @@ static int outer_child(
 
         (void) dev_setup(directory, arg_uid_shift, arg_uid_shift);
 
-        p = prefix_roota(directory, "/run");
+        p = prefix_roota(directory, "/run/host");
         (void) make_inaccessible_nodes(p, arg_uid_shift, arg_uid_shift);
 
         r = setup_pts(directory);
