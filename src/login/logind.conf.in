@@ -24,10 +24,12 @@
 #HandleLidSwitch=suspend
 #HandleLidSwitchExternalPower=suspend
 #HandleLidSwitchDocked=ignore
+#HandleRebootKey=reboot
 #PowerKeyIgnoreInhibited=no
 #SuspendKeyIgnoreInhibited=no
 #HibernateKeyIgnoreInhibited=no
 #LidSwitchIgnoreInhibited=yes
+#RebootKeyIgnoreInhibited=no
 #HoldoffTimeoutSec=30s
 #IdleAction=ignore
 #IdleActionSec=30min

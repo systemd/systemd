@@ -113,6 +113,17 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.login1.inhibit-handle-reboot-key">
+                <description gettext-domain="systemd">Allow applications to inhibit system handling of the reboot key</description>
+                <message gettext-domain="systemd">Authentication is required for an application to inhibit system handling of the reboot key.</message>
+                <defaults>
+                        <allow_any>no</allow_any>
+                        <allow_inactive>yes</allow_inactive>
+                        <allow_active>yes</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.inhibit-handle-suspend-key org.freedesktop.login1.inhibit-handle-hibernate-key org.freedesktop.login1.inhibit-handle-lid-switch</annotate>
+        </action>
+
         <action id="org.freedesktop.login1.set-self-linger">
                 <description gettext-domain="systemd">Allow non-logged-in user to run programs</description>
                 <message gettext-domain="systemd">Explicit request is required to run programs as a non-logged-in user.</message>
