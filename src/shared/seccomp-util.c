@@ -402,6 +402,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "close\0"
                 "creat\0"
                 "faccessat\0"
+                "faccessat2\0"
                 "fallocate\0"
                 "fchdir\0"
                 "fchmod\0"
