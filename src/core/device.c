@@ -441,10 +441,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                 }
         }
 
-        strv_free(d->wants_property);
-        d->wants_property = TAKE_PTR(added);
-
-        return 0;
+        return strv_free_and_replace(d->wants_property, added);
 }
 
 static bool device_is_bound_by_mounts(Device *d, sd_device *dev) {
