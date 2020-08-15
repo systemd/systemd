@@ -515,7 +515,7 @@ static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
                            unsigned long maxnode, void *addr,
                            unsigned long flags) {
         long i;
-#  ifdef __NR_get_mempolicy
+#  if defined __NR_get_mempolicy && __NR_get_mempolicy >= 0
         i = syscall(__NR_get_mempolicy, mode, nodemask, maxnode, addr, flags);
 #  else
         errno = ENOSYS;
