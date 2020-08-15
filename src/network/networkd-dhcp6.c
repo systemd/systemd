@@ -992,7 +992,8 @@ static int dhcp6_update_address(
         addr->cinfo.ifa_valid = lifetime_valid;
 
         (void) in_addr_to_string(addr->family, &addr->in_addr, &buffer);
-        log_link_info(link, "DHCPv6 address %s/%u timeout preferred %d valid %d",
+        log_link_full(link, set_contains(link->dhcp6_addresses, addr) ? LOG_DEBUG : LOG_INFO, 0,
+                      "DHCPv6 address %s/%u timeout preferred %d valid %d",
                       strna(buffer), addr->prefixlen, lifetime_preferred, lifetime_valid);
 
         r = address_configure(addr, link, dhcp6_address_handler, true, &ret);
