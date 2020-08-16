@@ -90,6 +90,10 @@ systemctl:
 
 * `$SYSTEMCTL_SKIP_SYSV=1` — if set, do not call out to SysV compatibility hooks.
 
+* `$SYSTEMD_LOG_SECCOMP=1` — if set, system calls blocked by seccomp filtering,
+  for example in systemd-nspawn, will be logged to the audit log, if the current
+  kernel version supports this.
+
 systemd-nspawn:
 
 * `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force nspawn into unified
