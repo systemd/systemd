@@ -338,7 +338,7 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         dns_query_reset_answer(q);
 
-        sd_bus_message_unref(q->request);
+        sd_bus_message_unref(q->bus_request);
         sd_bus_track_unref(q->bus_track);
 
         dns_packet_unref(q->request_dns_packet);

@@ -69,7 +69,7 @@ struct DnsQuery {
         bool previous_redirect_unauthenticated;
 
         /* Bus client information */
-        sd_bus_message *request;
+        sd_bus_message *bus_request;
         int request_family;
         bool request_address_valid;
         union in_addr_union request_address;
