@@ -12,6 +12,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-list.h"
 #include "macro.h"
 #include "nsflags.h"
@@ -223,6 +224,14 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0)
                 return r;
+
+#if SCMP_VER_MAJOR >= 3 || (SCMP_VER_MAJOR == 2 && SCMP_VER_MINOR >= 4)
+        if (getenv_bool("SYSTEMD_LOG_SECCOMP") > 0) {
+                r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_LOG, 1);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enable seccomp event logging: %m");
+        }
+#endif
 
         *ret = TAKE_PTR(seccomp);
         return 0;
