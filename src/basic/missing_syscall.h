@@ -524,7 +524,7 @@ static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
         return i;
 }
 
-#define get_mempolicy missing_get_mempolicy
+#  define get_mempolicy missing_get_mempolicy
 #endif
 
 #if !HAVE_PIDFD_SEND_SIGNAL
@@ -540,7 +540,7 @@ static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
 #      define __NR_pidfd_send_signal 424
 #    endif
 #  endif
-static inline int pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
+static inline int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
 #  ifdef __NR_pidfd_open
         return syscall(__NR_pidfd_send_signal, fd, sig, info, flags);
 #  else
@@ -548,6 +548,8 @@ static inline int pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned f
         return -1;
 #  endif
 }
+
+#  define pidfd_send_signal missing_pidfd_send_signal
 #endif
 
 #if !HAVE_PIDFD_OPEN
@@ -563,7 +565,7 @@ static inline int pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned f
 #      define __NR_pidfd_open 434
 #    endif
 #  endif
-static inline int pidfd_open(pid_t pid, unsigned flags) {
+static inline int missing_pidfd_open(pid_t pid, unsigned flags) {
 #  ifdef __NR_pidfd_open
         return syscall(__NR_pidfd_open, pid, flags);
 #  else
@@ -571,10 +573,14 @@ static inline int pidfd_open(pid_t pid, unsigned flags) {
         return -1;
 #  endif
 }
+
+#  define pidfd_open missing_pidfd_open
 #endif
 
 #if !HAVE_RT_SIGQUEUEINFO
-static inline int rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) {
+static inline int missing_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) {
         return syscall(__NR_rt_sigqueueinfo, tgid, sig, info);
 }
+
+#  define rt_sigqueueinfo missing_rt_sigqueueinfo
 #endif
