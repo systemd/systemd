@@ -48,10 +48,6 @@ struct DnsQuery {
         uint64_t flags;
         int ifindex;
 
-        /* If true, A or AAAA RR lookups will be suppressed on links with no routable address of the matching address
-         * family */
-        bool suppress_unroutable_family;
-
         /* If true, the RR TTLs of the answer will be clamped by their current left validity in the cache */
         bool clamp_ttl;
 
