@@ -862,7 +862,7 @@ static int varlink_dispatch_method(Varlink *v) {
 
                         /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
                         if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
-                                r = varlink_errorb(v, VARLINK_ERROR_SYSTEM, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("errno", JSON_BUILD_INTEGER(-r))));
+                                r = varlink_error_errno(v, r);
                                 if (r < 0)
                                         return r;
                         }
@@ -1657,6 +1657,13 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
                                      json_variant_by_index(parameters, 0));
 
         return -EINVAL;
+}
+
+int varlink_error_errno(Varlink *v, int error) {
+        return varlink_errorb(
+                        v,
+                        VARLINK_ERROR_SYSTEM,
+                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("errno", JSON_BUILD_INTEGER(abs(error)))));
 }
 
 int varlink_notify(Varlink *v, JsonVariant *parameters) {
