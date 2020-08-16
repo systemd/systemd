@@ -24,6 +24,39 @@
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_resolve_support, resolve_support, ResolveSupport);
 
+static int query_on_bus_track(sd_bus_track *t, void *userdata) {
+        DnsQuery *q = userdata;
+
+        assert(t);
+        assert(q);
+
+        if (!DNS_TRANSACTION_IS_LIVE(q->state))
+                return 0;
+
+        log_debug("Client of active query vanished, aborting query.");
+        dns_query_complete(q, DNS_TRANSACTION_ABORTED);
+        return 0;
+}
+
+static int dns_query_bus_track(DnsQuery *q, sd_bus_message *m) {
+        int r;
+
+        assert(q);
+        assert(m);
+
+        if (!q->bus_track) {
+                r = sd_bus_track_new(sd_bus_message_get_bus(m), &q->bus_track, query_on_bus_track, q);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_track_add_sender(q->bus_track, m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int reply_query_state(DnsQuery *q) {
 
         switch (q->state) {
@@ -1689,7 +1722,7 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int on_bus_track(sd_bus_track *t, void *userdata) {
+static int dnssd_service_on_bus_track(sd_bus_track *t, void *userdata) {
         DnssdService *s = userdata;
 
         assert(t);
@@ -1862,7 +1895,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        r = sd_bus_track_new(sd_bus_message_get_bus(message), &bus_track, on_bus_track, service);
+        r = sd_bus_track_new(sd_bus_message_get_bus(message), &bus_track, dnssd_service_on_bus_track, service);
         if (r < 0)
                 return r;
 

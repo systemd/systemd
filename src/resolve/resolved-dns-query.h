@@ -112,7 +112,7 @@ void dns_query_ready(DnsQuery *q);
 
 int dns_query_process_cname(DnsQuery *q);
 
-int dns_query_bus_track(DnsQuery *q, sd_bus_message *m);
+void dns_query_complete(DnsQuery *q, DnsTransactionState state);
 
 DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol);
 
