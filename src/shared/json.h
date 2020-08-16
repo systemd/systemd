@@ -228,6 +228,7 @@ enum {
         _JSON_BUILD_STRV,
         _JSON_BUILD_BASE64,
         _JSON_BUILD_ID128,
+        _JSON_BUILD_BYTE_ARRAY,
         _JSON_BUILD_MAX,
 };
 
@@ -249,6 +250,7 @@ enum {
 #define JSON_BUILD_STRV(l) _JSON_BUILD_STRV, ({ char **_x = l; _x; })
 #define JSON_BUILD_BASE64(p, n) _JSON_BUILD_BASE64, ({ const void *_x = p; _x; }), ({ size_t _y = n; _y; })
 #define JSON_BUILD_ID128(id) _JSON_BUILD_ID128, ({ sd_id128_t _x = id; _x; })
+#define JSON_BUILD_BYTE_ARRAY(v, n) _JSON_BUILD_BYTE_ARRAY, ({ const void *_x = v; _x; }), ({ size_t _y = n; _y; })
 
 int json_build(JsonVariant **ret, ...);
 int json_buildv(JsonVariant **ret, va_list ap);
