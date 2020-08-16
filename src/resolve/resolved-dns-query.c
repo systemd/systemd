@@ -341,6 +341,11 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         sd_bus_message_unref(q->bus_request);
         sd_bus_track_unref(q->bus_track);
 
+        if (q->varlink_request) {
+                varlink_set_userdata(q->varlink_request, NULL);
+                varlink_unref(q->varlink_request);
+        }
+
         dns_packet_unref(q->request_dns_packet);
         dns_packet_unref(q->reply_dns_packet);
 

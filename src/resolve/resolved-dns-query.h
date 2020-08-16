@@ -4,6 +4,7 @@
 #include "sd-bus.h"
 
 #include "set.h"
+#include "varlink.h"
 
 typedef struct DnsQueryCandidate DnsQueryCandidate;
 typedef struct DnsQuery DnsQuery;
@@ -68,8 +69,9 @@ struct DnsQuery {
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
         bool previous_redirect_unauthenticated;
 
-        /* Bus client information */
+        /* Bus + Varlink client information */
         sd_bus_message *bus_request;
+        Varlink *varlink_request;
         int request_family;
         bool request_address_valid;
         union in_addr_union request_address;

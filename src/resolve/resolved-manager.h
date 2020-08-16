@@ -11,6 +11,7 @@
 #include "list.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
+#include "varlink.h"
 
 typedef struct Manager Manager;
 
@@ -140,6 +141,8 @@ struct Manager {
         sd_event_source *dns_stub_tcp_event_source;
 
         Hashmap *polkit_registry;
+
+        VarlinkServer *varlink_server;
 };
 
 /* Manager */

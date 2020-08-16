@@ -17,53 +17,55 @@ basic_dns_sources = files('''
 dns_type_h = files('dns-type.h')[0]
 
 systemd_resolved_sources = files('''
-        resolved.c
-        resolved-manager.c
-        resolved-manager.h
-        resolved-dnssd.c
-        resolved-dnssd.h
-        resolved-dnssd-bus.c
-        resolved-dnssd-bus.h
-        resolved-conf.c
-        resolved-conf.h
-        resolved-resolv-conf.c
-        resolved-resolv-conf.h
         resolved-bus.c
         resolved-bus.h
-        resolved-link.h
-        resolved-link.c
+        resolved-conf.c
+        resolved-conf.h
+        resolved-def.h
+        resolved-dns-cache.c
+        resolved-dns-cache.h
+        resolved-dns-query.c
+        resolved-dns-query.h
+        resolved-dns-scope.c
+        resolved-dns-scope.h
+        resolved-dns-search-domain.c
+        resolved-dns-search-domain.h
+        resolved-dns-server.c
+        resolved-dns-server.h
+        resolved-dns-stream.c
+        resolved-dns-stream.h
+        resolved-dns-stub.c
+        resolved-dns-stub.h
+        resolved-dns-synthesize.c
+        resolved-dns-synthesize.h
+        resolved-dns-transaction.c
+        resolved-dns-transaction.h
+        resolved-dns-trust-anchor.c
+        resolved-dns-trust-anchor.h
+        resolved-dns-zone.c
+        resolved-dns-zone.h
+        resolved-dnssd-bus.c
+        resolved-dnssd-bus.h
+        resolved-dnssd.c
+        resolved-dnssd.h
+        resolved-dnstls.h
+        resolved-etc-hosts.c
+        resolved-etc-hosts.h
         resolved-link-bus.c
         resolved-link-bus.h
-        resolved-llmnr.h
+        resolved-link.c
+        resolved-link.h
         resolved-llmnr.c
-        resolved-mdns.h
+        resolved-llmnr.h
+        resolved-manager.c
+        resolved-manager.h
         resolved-mdns.c
-        resolved-def.h
-        resolved-dns-query.h
-        resolved-dns-query.c
-        resolved-dns-synthesize.h
-        resolved-dns-synthesize.c
-        resolved-dns-transaction.h
-        resolved-dns-transaction.c
-        resolved-dns-scope.h
-        resolved-dns-scope.c
-        resolved-dns-server.h
-        resolved-dns-server.c
-        resolved-dns-search-domain.h
-        resolved-dns-search-domain.c
-        resolved-dns-cache.h
-        resolved-dns-cache.c
-        resolved-dns-zone.h
-        resolved-dns-zone.c
-        resolved-dns-stream.h
-        resolved-dns-stream.c
-        resolved-dns-trust-anchor.h
-        resolved-dns-trust-anchor.c
-        resolved-dns-stub.h
-        resolved-dns-stub.c
-        resolved-etc-hosts.h
-        resolved-etc-hosts.c
-        resolved-dnstls.h
+        resolved-mdns.h
+        resolved-resolv-conf.c
+        resolved-resolv-conf.h
+        resolved-varlink.c
+        resolved-varlink.h
+        resolved.c
 '''.split())
 
 resolvectl_sources = files('''
