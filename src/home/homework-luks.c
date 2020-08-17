@@ -2017,7 +2017,8 @@ int home_create_luks(
 
                 r = chattr_fd(image_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set file attributes on %s, ignoring: %m", temporary_image_path);
+                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to set file attributes on %s, ignoring: %m", temporary_image_path);
 
                 r = home_truncate(h, image_fd, temporary_image_path, host_size);
                 if (r < 0)
