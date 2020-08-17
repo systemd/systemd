@@ -15,6 +15,6 @@ includedir=@includedir@
 Name: systemd
 Description: systemd Library
 URL: @PACKAGE_URL@
-Version: @PACKAGE_VERSION@
+Version: @PROJECT_VERSION@
 Libs: -L${libdir} -lsystemd
 Cflags: -I${includedir}
