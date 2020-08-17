@@ -2174,8 +2174,22 @@ int home_create_luks(
                         goto fail;
         }
 
+        /* Sync everything to disk before we move things into place under the final name. */
+        if (fsync(image_fd) < 0) {
+                r = log_error_errno(r, "Failed to synchronize image to disk: %m");
+                goto fail;
+        }
+
         if (disk_uuid_path)
                 (void) ioctl(image_fd, BLKRRPART, 0);
+        else {
+                /* If we operate on a file, sync the contaning directory too. */
+                r = fsync_directory_of_file(image_fd);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to synchronize directory of image file to disk: %m");
+                        goto fail;
+                }
+        }
 
         /* Let's close the image fd now. If we are operating on a real block device this will release the BSD
          * lock that ensures udev doesn't interfere with what we are doing */
