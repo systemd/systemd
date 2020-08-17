@@ -16,7 +16,7 @@ const char *user_record_state_color(const char *state) {
                 return ansi_grey();
         else if (streq(state, "active"))
                 return ansi_highlight_green();
-        else if (streq(state, "locked"))
+        else if (STR_IN_SET(state, "locked", "dirty"))
                  return ansi_highlight_yellow();
 
         return NULL;

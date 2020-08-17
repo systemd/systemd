@@ -31,6 +31,7 @@ enum {
         USER_TEST_UNDEFINED, /* Returned by user_record_test_image_path() if the storage type knows no image paths */
         USER_TEST_ABSENT,
         USER_TEST_EXISTS,
+        USER_TEST_DIRTY,     /* Only applies to user_record_test_image_path(), when the image exists but is marked dirty */
         USER_TEST_MOUNTED,   /* Only applies to user_record_test_home_directory(), when the home directory exists. */
         USER_TEST_MAYBE,     /* Only applies to LUKS devices: block device exists, but we don't know if it's the right one */
 };
