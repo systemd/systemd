@@ -41,6 +41,7 @@ int user_record_test_image_path(UserRecord *h);
 int user_record_test_image_path_and_warn(UserRecord *h);
 
 int user_record_test_secret(UserRecord *h, UserRecord *secret);
+int user_record_test_recovery_key(UserRecord *h, UserRecord *secret);
 
 int user_record_update_last_changed(UserRecord *h, bool with_password);
 int user_record_set_disk_size(UserRecord *h, uint64_t disk_size);
