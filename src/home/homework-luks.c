@@ -1110,7 +1110,9 @@ int home_prepare_luks(
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to fstat() image file: %m");
                 if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
-                        return log_error_errno(errno, "Image file %s is not a regular file or block device: %m", ip);
+                        return log_error_errno(
+                                        S_ISDIR(st.st_mode) ? SYNTHETIC_ERRNO(EISDIR) : SYNTHETIC_ERRNO(EBADFD),
+                                        "Image file %s is not a regular file or block device: %m", ip);
 
                 r = luks_validate(fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
                 if (r < 0)
