@@ -2196,7 +2196,8 @@ if conf.get('ENABLE_HOMED') == 1
                                 libcrypt,
                                 libopenssl,
                                 libp11kit,
-                                libfido2],
+                                libfido2,
+                                libdl],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)

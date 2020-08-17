@@ -304,6 +304,13 @@ if conf.get('HAVE_PAM') == 1
 '''.split())
 endif
 
+if conf.get('HAVE_QRENCODE') == 1
+        shared_sources += files('''
+        qrcode-util.c
+        qrcode-util.h
+'''.split())
+endif
+
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         'ip-protocol-list.txt',
