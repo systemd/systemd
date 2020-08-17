@@ -17,6 +17,7 @@
 #include "home-util.h"
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
+#include "homectl-recovery-key.h"
 #include "locale-util.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -53,6 +54,7 @@ static uint64_t arg_disk_size = UINT64_MAX;
 static uint64_t arg_disk_size_relative = UINT64_MAX;
 static char **arg_pkcs11_token_uri = NULL;
 static char **arg_fido2_device = NULL;
+static bool arg_recovery_key = false;
 static bool arg_json = false;
 static JsonFormatFlags arg_json_format_flags = 0;
 static bool arg_and_resize = false;
@@ -938,6 +940,12 @@ static int acquire_new_home_record(UserRecord **ret) {
                         return r;
         }
 
+        if (arg_recovery_key) {
+                r = identity_add_recovery_key(&v);
+                if (r < 0)
+                        return r;
+        }
+
         r = update_last_change(&v, true, false);
         if (r < 0)
                 return r;
@@ -960,7 +968,8 @@ static int acquire_new_home_record(UserRecord **ret) {
 static int acquire_new_password(
                 const char *user_name,
                 UserRecord *hr,
-                bool suggest) {
+                bool suggest,
+                char **ret) {
 
         unsigned i = 5;
         char *e;
@@ -971,9 +980,17 @@ static int acquire_new_password(
 
         e = getenv("NEWPASSWORD");
         if (e) {
+                _cleanup_(erase_and_freep) char *copy = NULL;
+
                 /* As above, this is not for use, just for testing */
 
-                r = user_record_set_password(hr, STRV_MAKE(e), /* prepend = */ false);
+                if (ret) {
+                        copy = strdup(e);
+                        if (!copy)
+                                return log_oom();
+                }
+
+                r = user_record_set_password(hr, STRV_MAKE(e), /* prepend = */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to store password: %m");
 
@@ -981,6 +998,9 @@ static int acquire_new_password(
 
                 if (unsetenv("NEWPASSWORD") < 0)
                         return log_error_errno(errno, "Failed to unset $NEWPASSWORD: %m");
+
+                if (ret)
+                        *ret = TAKE_PTR(copy);
 
                 return 0;
         }
@@ -1011,9 +1031,20 @@ static int acquire_new_password(
                         return log_error_errno(r, "Failed to acquire password: %m");
 
                 if (strv_equal(first, second)) {
-                        r = user_record_set_password(hr, first, /* prepend = */ false);
+                        _cleanup_(erase_and_freep) char *copy = NULL;
+
+                        if (ret) {
+                                copy = strdup(first[0]);
+                                if (!copy)
+                                        return log_oom();
+                        }
+
+                        r = user_record_set_password(hr, first, /* prepend = */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to store password: %m");
+
+                        if (ret)
+                                *ret = TAKE_PTR(copy);
 
                         return 0;
                 }
@@ -1025,7 +1056,6 @@ static int acquire_new_password(
 static int create_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_strv_free_ char **original_hashed_passwords = NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -1067,27 +1097,24 @@ static int create_home(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        /* Remember the original hashed passwords before we add our own, so that we can return to them later,
-         * should the entered password turn out not to be acceptable. */
-        original_hashed_passwords = strv_copy(hr->hashed_password);
-        if (!original_hashed_passwords)
-                return log_oom();
-
-        /* If the JSON record carries no plain text password, then let's query it manually. */
-        if (!hr->password) {
+        /* If the JSON record carries no plain text password (besides the recovery key), then let's query it
+         * manually. */
+        if (strv_length(hr->password) <= arg_recovery_key) {
 
                 if (strv_isempty(hr->hashed_password)) {
+                        _cleanup_(erase_and_freep) char *new_password = NULL;
+
                         /* No regular (i.e. non-PKCS#11) hashed passwords set in the record, let's fix that. */
-                        r = acquire_new_password(hr->user_name, hr, /* suggest = */ true);
+                        r = acquire_new_password(hr->user_name, hr, /* suggest = */ true, &new_password);
                         if (r < 0)
                                 return r;
 
-                        r = user_record_make_hashed_password(hr, hr->password, /* extend = */ true);
+                        r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend = */ false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to hash password: %m");
                 } else {
                         /* There's a hash password set in the record, acquire the unhashed version of it. */
-                        r = acquire_existing_password(hr->user_name, hr, false);
+                        r = acquire_existing_password(hr->user_name, hr, /* emphasize_current= */ false);
                         if (r < 0)
                                 return r;
                 }
@@ -1125,18 +1152,16 @@ static int create_home(int argc, char *argv[], void *userdata) {
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_LOW_PASSWORD_QUALITY)) {
+                                _cleanup_(erase_and_freep) char *new_password = NULL;
+
                                 log_error_errno(r, "%s", bus_error_message(&error, r));
                                 log_info("(Use --enforce-password-policy=no to turn off password quality checks for this account.)");
 
-                                r = user_record_set_hashed_password(hr, original_hashed_passwords);
+                                r = acquire_new_password(hr->user_name, hr, /* suggest = */ false, &new_password);
                                 if (r < 0)
                                         return r;
 
-                                r = acquire_new_password(hr->user_name, hr, /* suggest = */ false);
-                                if (r < 0)
-                                        return r;
-
-                                r = user_record_make_hashed_password(hr, hr->password, /* extend = */ true);
+                                r = user_record_make_hashed_password(hr, STRV_MAKE(new_password), /* extend = */ false);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to hash passwords: %m");
                         } else {
@@ -1489,7 +1514,7 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
         if (!new_secret)
                 return log_oom();
 
-        r = acquire_new_password(username, new_secret, /* suggest = */ true);
+        r = acquire_new_password(username, new_secret, /* suggest = */ true, NULL);
         if (r < 0)
                 return r;
 
@@ -1519,7 +1544,7 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
 
                                 log_error_errno(r, "%s", bus_error_message(&error, r));
 
-                                r = acquire_new_password(username, new_secret, /* suggest = */ false);
+                                r = acquire_new_password(username, new_secret, /* suggest = */ false, NULL);
 
                         } else if (sd_bus_error_has_name(&error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN))
 
@@ -1914,6 +1939,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              private key and matching X.509 certificate\n"
                "     --fido2-device=PATH      Path to FIDO2 hidraw device with hmac-secret\n"
                "                              extension\n"
+               "     --recovery-key=BOOL      Add a recovery key\n"
                "\n%4$sAccount Management User Record Properties:%5$s\n"
                "     --locked=BOOL            Set locked account state\n"
                "     --not-before=TIMESTAMP   Do not allow logins before\n"
@@ -2061,6 +2087,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_AUTO_LOGIN,
                 ARG_PKCS11_TOKEN_URI,
                 ARG_FIDO2_DEVICE,
+                ARG_RECOVERY_KEY,
                 ARG_AND_RESIZE,
                 ARG_AND_CHANGE_PASSWORD,
         };
@@ -2139,6 +2166,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "export-format",               required_argument, NULL, ARG_EXPORT_FORMAT               },
                 { "pkcs11-token-uri",            required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
                 { "fido2-device",                required_argument, NULL, ARG_FIDO2_DEVICE                },
+                { "recovery-key",                required_argument, NULL, ARG_RECOVERY_KEY                },
                 { "and-resize",                  required_argument, NULL, ARG_AND_RESIZE                  },
                 { "and-change-password",         required_argument, NULL, ARG_AND_CHANGE_PASSWORD         },
                 {}
@@ -3166,6 +3194,24 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         strv_uniq(arg_fido2_device);
+                        break;
+                }
+
+                case ARG_RECOVERY_KEY: {
+                        const char *p;
+
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --recovery-key= argument: %s", optarg);
+
+                        arg_recovery_key = r;
+
+                        FOREACH_STRING(p, "recoveryKey", "recoveryKeyType") {
+                                r = drop_from_identity(p);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         break;
                 }
 

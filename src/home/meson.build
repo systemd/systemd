@@ -77,6 +77,8 @@ homectl_sources = files('''
         homectl-fido2.h
         homectl-pkcs11.c
         homectl-pkcs11.h
+        homectl-recovery-key.c
+        homectl-recovery-key.h
         homectl.c
         modhex.c
         modhex.h
