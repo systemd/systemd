@@ -44,14 +44,12 @@
     <literal>dns</literal> somewhere after <literal>resolve</literal>, to fall back to
     <command>nss-dns</command> if <filename>systemd-resolved.service</filename> is not available.</para>
 
-    <para>Note that <command>systemd-resolved</command> will synthesize DNS resource
-    records in a few cases, for example for <literal>localhost</literal> and the
-    current hostname, see
-    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    for the full list. This duplicates the functionality of
-    <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-    but it is still recommended (see examples below) to keep
-    <command>nss-myhostname</command> configured in
+    <para>Note that <command>systemd-resolved</command> will synthesize DNS resource records in a few cases,
+    for example for <literal>localhost</literal> and the current local hostname, see
+    <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+    the full list. This duplicates the functionality of
+    <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>8</manvolnum></citerefentry>, but
+    it is still recommended (see examples below) to keep <command>nss-myhostname</command> configured in
     <filename>/etc/nsswitch.conf</filename>, to keep those names resolveable if
     <command>systemd-resolved</command> is not running.</para>
   </refsect1>
@@ -64,10 +62,10 @@
 
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
 <programlisting>passwd:         compat systemd
-group:          compat systemd
+group:          compat [SUCCESS=merge] systemd
 shadow:         compat
 
-hosts:          mymachines <command>resolve [!UNAVAIL=return]</command> myhostname files dns
+hosts:          mymachines <command>resolve [!UNAVAIL=return]</command> files myhostname dns
 networks:       files
 
 protocols:      db files
