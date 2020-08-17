@@ -55,7 +55,7 @@ int mac_selinux_setup(bool *loaded_policy) {
          * happen, but that file isn't specific to SELinux, and may be provided
          * by some other arbitrary LSM with different semantics. */
         if (r == 0 && con) {
-                initialized = !streq(con, "kernel");
+                initialized = security_check_context(con) == 0;
                 freecon(con);
         }
 
