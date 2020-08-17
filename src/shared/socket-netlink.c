@@ -464,7 +464,14 @@ struct in_addr_full *in_addr_full_free(struct in_addr_full *a) {
         return mfree(a);
 }
 
-int in_addr_full_new(int family, union in_addr_union *a, uint16_t port, int ifindex, const char *server_name, struct in_addr_full **ret) {
+int in_addr_full_new(
+                int family,
+                const union in_addr_union *a,
+                uint16_t port,
+                int ifindex,
+                const char *server_name,
+                struct in_addr_full **ret) {
+
         _cleanup_free_ char *name = NULL;
         struct in_addr_full *x;
 
