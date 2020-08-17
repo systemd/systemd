@@ -454,6 +454,8 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_BAD_PASSWORD, "Password for home %s is incorrect or not sufficient for authentication.", h->user_name);
         case -EBADSLT:
                 return sd_bus_error_setf(error, BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN, "Password for home %s is incorrect or not sufficient, and configured security token not found either.", h->user_name);
+        case -EREMOTEIO:
+                return sd_bus_error_setf(error, BUS_ERROR_BAD_RECOVERY_KEY, "Recovery key for home %s is incorrect or not sufficient for authentication.", h->user_name);
         case -ENOANO:
                 return sd_bus_error_setf(error, BUS_ERROR_TOKEN_PIN_NEEDED, "PIN for security token required.");
         case -ERFKILL:

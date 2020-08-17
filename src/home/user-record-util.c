@@ -551,7 +551,7 @@ int user_record_test_image_path_and_warn(UserRecord *h) {
         return r;
 }
 
-int user_record_test_secret(UserRecord *h, UserRecord *secret) {
+int user_record_test_password(UserRecord *h, UserRecord *secret) {
         char **i;
         int r;
 
