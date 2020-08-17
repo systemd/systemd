@@ -128,12 +128,6 @@ Features:
   defining subdir of /run/credentials/ where to place it. Set $CREDENTIAL_PATH
   env var for services to the result. Also pass via fd passing (optionally).
 
-* homed: add native recovery key support. use 48 lowercase modhex characters
-  (192bit), show qr code of it, include pattern expression in user record.
-
-* homed: introduce "degraded" state for home directories that weren't cleanly
-  unmounted (use xattr we add and remove on the loop back file)
-
 * homed: during login resize fs automatically towards size goal. Specifically,
   resize to diskSize if possible, but leave a certain amount (configured by a
   new value diskLeaveFreeSize) of space free on the backing fs.
@@ -170,11 +164,6 @@ Features:
 
 * systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
   creates
-
-* homed/userdb: distinguish passwords and recovery keys in the records, since
-  we probably want to use different PBKDF algorithms/settings for them:
-  passwords have low entropy but recovery keys should have good entropy key
-  hence we can make them quicker to work.
 
 * bootctl:
   - teach it to prepare an ESP wholesale, i.e. with mkfs.vfat invocation
