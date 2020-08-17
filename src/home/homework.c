@@ -308,6 +308,12 @@ int home_setup_undo(HomeSetup *setup) {
                                 r = q;
                 }
 
+                if (setup->do_mark_clean) {
+                        q = run_mark_dirty(setup->image_fd, false);
+                        if (q < 0)
+                                r = q;
+                }
+
                 setup->image_fd = safe_close(setup->image_fd);
         }
 
@@ -315,6 +321,7 @@ int home_setup_undo(HomeSetup *setup) {
         setup->undo_dm = false;
         setup->do_offline_fitrim = false;
         setup->do_offline_fallocate = false;
+        setup->do_mark_clean = false;
 
         setup->dm_name = mfree(setup->dm_name);
         setup->dm_node = mfree(setup->dm_node);

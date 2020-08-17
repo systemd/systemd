@@ -42,3 +42,5 @@ int run_fitrim(int root_fd);
 int run_fitrim_by_path(const char *root_path);
 int run_fallocate(int backing_fd, const struct stat *st);
 int run_fallocate_by_path(const char *backing_path);
+int run_mark_dirty(int fd, bool b);
+int run_mark_dirty_by_path(const char *path, bool b);
