@@ -6,8 +6,8 @@
 typedef int (*SpecifierCallback)(char specifier, const void *data, const void *userdata, char **ret);
 
 typedef struct Specifier {
-        const char specifier;
-        const SpecifierCallback lookup;
+        char specifier;
+        SpecifierCallback lookup;
         const void *data;
 } Specifier;
 
