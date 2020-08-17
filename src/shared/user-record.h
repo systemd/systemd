@@ -206,6 +206,14 @@ typedef struct Fido2HmacSalt {
         char *hashed_password;
 } Fido2HmacSalt;
 
+typedef struct RecoveryKey {
+        /* The type of recovery key, must be "modhex64" right now */
+        char *type;
+
+        /* A UNIX pasword hash of the normalized form of modhex64 */
+        char *hashed_password;
+} RecoveryKey;
+
 typedef struct UserRecord {
         /* The following three fields are not part of the JSON record */
         unsigned n_ref;
@@ -331,6 +339,10 @@ typedef struct UserRecord {
         Fido2HmacSalt *fido2_hmac_salt;
         size_t n_fido2_hmac_salt;
         int fido2_user_presence_permitted;
+
+        char **recovery_key_type;
+        RecoveryKey *recovery_key;
+        size_t n_recovery_key;
 
         JsonVariant *json;
 } UserRecord;

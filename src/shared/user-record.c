@@ -112,6 +112,14 @@ static void fido2_hmac_salt_done(Fido2HmacSalt *s) {
         erase_and_free(s->hashed_password);
 }
 
+static void recovery_key_done(RecoveryKey *k) {
+        if (!k)
+                return;
+
+        free(k->type);
+        erase_and_free(k->hashed_password);
+}
+
 static UserRecord* user_record_free(UserRecord *h) {
         if (!h)
                 return NULL;
@@ -168,6 +176,10 @@ static UserRecord* user_record_free(UserRecord *h) {
                 fido2_hmac_credential_done(h->fido2_hmac_credential + i);
         for (size_t i = 0; i < h->n_fido2_hmac_salt; i++)
                 fido2_hmac_salt_done(h->fido2_hmac_salt + i);
+
+        strv_free(h->recovery_key_type);
+        for (size_t i = 0; i < h->n_recovery_key; i++)
+                recovery_key_done(h->recovery_key + i);
 
         json_variant_unref(h->json);
 
@@ -924,6 +936,46 @@ static int dispatch_fido2_hmac_salt(const char *name, JsonVariant *variant, Json
         return 0;
 }
 
+static int dispatch_recovery_key(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        UserRecord *h = userdata;
+        JsonVariant *e;
+        int r;
+
+        if (!json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
+
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                RecoveryKey *array, *k;
+
+                static const JsonDispatch recovery_key_dispatch_table[] = {
+                        { "type",           JSON_VARIANT_STRING, json_dispatch_string, 0,                                      JSON_MANDATORY },
+                        { "hashedPassword", JSON_VARIANT_STRING, json_dispatch_string, offsetof(RecoveryKey, hashed_password), JSON_MANDATORY },
+                        {},
+                };
+
+                if (!json_variant_is_object(e))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object.");
+
+                array = reallocarray(h->recovery_key, h->n_recovery_key + 1, sizeof(RecoveryKey));
+                if (!array)
+                        return log_oom();
+
+                h->recovery_key = array;
+                k = h->recovery_key + h->n_recovery_key;
+                *k = (RecoveryKey) {};
+
+                r = json_dispatch(e, recovery_key_dispatch_table, NULL, flags, k);
+                if (r < 0) {
+                        recovery_key_done(k);
+                        return r;
+                }
+
+                h->n_recovery_key++;
+        }
+
+        return 0;
+}
+
 static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch privileged_dispatch_table[] = {
@@ -932,6 +984,7 @@ static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispa
                 { "sshAuthorizedKeys",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_strv,       offsetof(UserRecord, ssh_authorized_keys),  0         },
                 { "pkcs11EncryptedKey", JSON_VARIANT_ARRAY,         dispatch_pkcs11_key,      0,                                          0         },
                 { "fido2HmacSalt",      JSON_VARIANT_ARRAY,         dispatch_fido2_hmac_salt, 0,                                          0         },
+                { "recoveryKey",        JSON_VARIANT_ARRAY,         dispatch_recovery_key,    0,                                          0         },
                 {},
         };
 
@@ -1475,6 +1528,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "passwordChangeNow",          JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, password_change_now),           0         },
                 { "pkcs11TokenUri",             JSON_VARIANT_ARRAY,         dispatch_pkcs11_uri_array,            offsetof(UserRecord, pkcs11_token_uri),              0         },
                 { "fido2HmacCredential",        JSON_VARIANT_ARRAY,         dispatch_fido2_hmac_credential_array, 0,                                                   0         },
+                { "recoveryKeyType",            JSON_VARIANT_ARRAY,         json_dispatch_strv,                   offsetof(UserRecord, recovery_key_type),             0         },
 
                 { "secret",                     JSON_VARIANT_OBJECT,        dispatch_secret,                      0,                                                   0         },
                 { "privileged",                 JSON_VARIANT_OBJECT,        dispatch_privileged,                  0,                                                   0         },

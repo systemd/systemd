@@ -479,6 +479,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->n_fido2_hmac_credential > 0)
                 printf(" FIDO2 Token: %zu\n", hr->n_fido2_hmac_credential);
 
+        if (!strv_isempty(hr->recovery_key_type))
+                printf("Recovery Key: %zu\n", strv_length(hr->recovery_key_type));
+
         k = strv_length(hr->hashed_password);
         if (k == 0)
                 printf("   Passwords: %snone%s\n",
