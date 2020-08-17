@@ -2166,6 +2166,9 @@ int home_create_luks(
                 goto fail;
         }
 
+        crypt_free(cd);
+        cd = NULL;
+
         dm_activated = false;
 
         loop = loop_device_unref(loop);
