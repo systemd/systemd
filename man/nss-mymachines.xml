@@ -42,10 +42,10 @@
     <para>To activate the NSS module, add <literal>mymachines</literal> to the line starting with
     <literal>hosts:</literal> in <filename>/etc/nsswitch.conf</filename>.</para>
 
-    <para>It is recommended to place <literal>mymachines</literal> after the <literal>files</literal> or
-    <literal>compat</literal> entry of the <filename>/etc/nsswitch.conf</filename> line to make sure that its
-    mappings are preferred over other resolvers such as DNS, but so that <filename>/etc/hosts</filename>
-    based mappings take precedence.</para>
+    <para>It is recommended to place <literal>mymachines</literal> before the <literal>resolve</literal> or
+    <literal>dns</literal> entry of the <literal>hosts:</literal> line of
+    <filename>/etc/nsswitch.conf</filename> in order to make sure that its mappings are preferred over other
+    resolvers such as DNS.</para>
   </refsect1>
 
   <refsect1>
@@ -56,10 +56,10 @@
 
     <!-- synchronize with other nss-* man pages and factory/etc/nsswitch.conf -->
     <programlisting>passwd:         compat systemd
-group:          compat systemd
+group:          compat [SUCCESS=merge] systemd
 shadow:         compat
 
-hosts:          <command>mymachines</command> resolve [!UNAVAIL=return] myhostname files dns
+hosts:          <command>mymachines</command> resolve [!UNAVAIL=return] files myhostname dns
 networks:       files
 
 protocols:      db files
