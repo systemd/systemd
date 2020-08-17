@@ -17,6 +17,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* nss-systemd: also synthesize shadow records for users/groups
+
 * make use of the new statx mountid and rootmount fields in path_get_mnt_id()
   and fd_is_mount_point()
 
