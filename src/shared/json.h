@@ -304,6 +304,12 @@ assert_cc(sizeof(uintmax_t) == sizeof(uint64_t));
 assert_cc(sizeof(intmax_t) == sizeof(int64_t));
 #define json_dispatch_int64 json_dispatch_integer
 
+assert_cc(sizeof(uint32_t) == sizeof(unsigned));
+#define json_dispatch_uint json_dispatch_uint32
+
+assert_cc(sizeof(int32_t) == sizeof(int));
+#define json_dispatch_int json_dispatch_int32
+
 static inline int json_dispatch_level(JsonDispatchFlags flags) {
 
         /* Did the user request no logging? If so, then never log higher than LOG_DEBUG. Also, if this is marked as
