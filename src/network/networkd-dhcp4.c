@@ -429,18 +429,17 @@ static int dhcp_reset_mtu(Link *link) {
                 return 0;
 
         r = sd_dhcp_lease_get_mtu(link->dhcp_lease, &mtu);
+        if (r == -ENODATA)
+                return 0;
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "DHCP error: failed to get MTU from lease: %m");
 
         if (link->original_mtu == mtu)
                 return 0;
 
         r = link_set_mtu(link, link->original_mtu);
-        if (r < 0) {
-                log_link_error_errno(link, r, "DHCP error: could not reset MTU: %m");
-                link_enter_failed(link);
-                return r;
-        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP error: could not reset MTU: %m");
 
         return 0;
 }
