@@ -211,7 +211,9 @@
           <filename>/etc/machine-id</filename>
         </term>
           <listitem>
-            <para>The content of the file specifies the machine identification <replaceable>MACHINE-ID</replaceable>.</para>
+            <para>The content of this file specifies the machine identification
+            <replaceable>MACHINE-ID</replaceable>. If it cannot read <filename>/etc/machine-id</filename>,
+            kernel-install will use "Linux" as the machine ID instead.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
