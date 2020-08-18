@@ -515,7 +515,7 @@ static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
                            unsigned long maxnode, void *addr,
                            unsigned long flags) {
         long i;
-#  ifdef __NR_get_mempolicy
+#  if defined __NR_get_mempolicy && __NR_get_mempolicy >= 0
         i = syscall(__NR_get_mempolicy, mode, nodemask, maxnode, addr, flags);
 #  else
         errno = ENOSYS;
@@ -524,25 +524,7 @@ static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
         return i;
 }
 
-#define get_mempolicy missing_get_mempolicy
-#endif
-
-#if !HAVE_PIDFD_OPEN
-/* may be (invalid) negative number due to libseccomp, see PR 13319 */
-#  if ! (defined __NR_pidfd_open && __NR_pidfd_open >= 0)
-#    if defined __NR_pidfd_open
-#      undef __NR_pidfd_open
-#    endif
-#    define __NR_pidfd_open 434
-#endif
-static inline int pidfd_open(pid_t pid, unsigned flags) {
-#ifdef __NR_pidfd_open
-        return syscall(__NR_pidfd_open, pid, flags);
-#else
-        errno = ENOSYS;
-        return -1;
-#endif
-}
+#  define get_mempolicy missing_get_mempolicy
 #endif
 
 #if !HAVE_PIDFD_SEND_SIGNAL
@@ -551,20 +533,54 @@ static inline int pidfd_open(pid_t pid, unsigned flags) {
 #    if defined __NR_pidfd_send_signal
 #      undef __NR_pidfd_send_signal
 #    endif
-#    define __NR_pidfd_send_signal 424
-#endif
-static inline int pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
-#ifdef __NR_pidfd_open
+/* should be always defined, see kernel 39036cd2727395c3369b1051005da74059a85317 */
+#    if defined(__alpha__)
+#      define __NR_pidfd_send_signal 534
+#    else
+#      define __NR_pidfd_send_signal 424
+#    endif
+#  endif
+static inline int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
+#  ifdef __NR_pidfd_open
         return syscall(__NR_pidfd_send_signal, fd, sig, info, flags);
-#else
+#  else
         errno = ENOSYS;
         return -1;
-#endif
+#  endif
 }
+
+#  define pidfd_send_signal missing_pidfd_send_signal
+#endif
+
+#if !HAVE_PIDFD_OPEN
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#  if ! (defined __NR_pidfd_open && __NR_pidfd_open >= 0)
+#    if defined __NR_pidfd_open
+#      undef __NR_pidfd_open
+#    endif
+/* should be always defined, see kernel 7615d9e1780e26e0178c93c55b73309a5dc093d7 */
+#    if defined(__alpha__)
+#      define __NR_pidfd_open 544
+#    else
+#      define __NR_pidfd_open 434
+#    endif
+#  endif
+static inline int missing_pidfd_open(pid_t pid, unsigned flags) {
+#  ifdef __NR_pidfd_open
+        return syscall(__NR_pidfd_open, pid, flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define pidfd_open missing_pidfd_open
 #endif
 
 #if !HAVE_RT_SIGQUEUEINFO
-static inline int rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) {
+static inline int missing_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) {
         return syscall(__NR_rt_sigqueueinfo, tgid, sig, info);
 }
+
+#  define rt_sigqueueinfo missing_rt_sigqueueinfo
 #endif
