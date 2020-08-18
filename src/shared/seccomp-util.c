@@ -187,7 +187,7 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret) {
 }
 
 int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_action) {
-        scmp_filter_ctx seccomp;
+        _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
         int r;
 
         /* Much like seccomp_init(), but initializes the filter for one specific architecture only, without affecting
@@ -202,11 +202,11 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
 
                 r = seccomp_arch_remove(seccomp, seccomp_arch_native());
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 r = seccomp_arch_add(seccomp, arch);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 assert(seccomp_arch_exist(seccomp, arch) >= 0);
                 assert(seccomp_arch_exist(seccomp, SCMP_ARCH_NATIVE) == -EEXIST);
@@ -218,18 +218,14 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_ACT_BADARCH, SCMP_ACT_ALLOW);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0)
-                goto finish;
+                return r;
 
-        *ret = seccomp;
+        *ret = TAKE_PTR(seccomp);
         return 0;
-
-finish:
-        seccomp_release(seccomp);
-        return r;
 }
 
 static bool is_basic_seccomp_available(void) {
