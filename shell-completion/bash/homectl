@@ -139,7 +139,7 @@ _homectl() {
                 comps=$(cat /etc/shells)
                 ;;
             --fs-type)
-                comps='ext4 xfs btrsf'
+                comps='btrfs ext4 xfs'
                 ;;
             --cifs-user-name)
                 comps=$(compgen -A user -- "$cur" )

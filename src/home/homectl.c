@@ -1955,7 +1955,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image-path=PATH        Path to image file/directory\n"
                "\n%4$sLUKS Storage User Record Properties:%5$s\n"
                "     --fs-type=TYPE           File system type to use in case of luks\n"
-               "                              storage (ext4, xfs, btrfs)\n"
+               "                              storage (btrfs, ext4, xfs)\n"
                "     --luks-discard=BOOL      Whether to use 'discard' feature of file system\n"
                "                              when activated (mounted)\n"
                "     --luks-offline-discard=BOOL\n"

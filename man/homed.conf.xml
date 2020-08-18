@@ -63,9 +63,9 @@
       <varlistentry>
         <term><varname>DefaultFileSystemType=</varname></term>
         <listitem><para>When using <literal>luks</literal> as storage (see above), selects the default file
-        system to use inside the user's LUKS volume. Takes one of <literal>ext4</literal>,
-        <literal>xfs</literal> or <literal>btrfs</literal>. If not specified defaults to
-        <literal>ext4</literal>. This setting has no effect if a different storage mechanism is used. The
+        system to use inside the user's LUKS volume. Takes one of <literal>btrfs</literal>,
+        <literal>ext4</literal> or <literal>xfs</literal>. If not specified defaults to
+        <literal>btrfs</literal>. This setting has no effect if a different storage mechanism is used. The
         file system type selected on the <command>homectl</command> command line always takes
         precedence.</para></listitem>
       </varlistentry>
