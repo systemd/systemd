@@ -191,6 +191,8 @@ shared_sources = files('''
         pretty-print.h
         ptyfwd.c
         ptyfwd.h
+        pwquality-util.c
+        pwquality-util.h
         reboot-util.c
         reboot-util.h
         resize-fs.c

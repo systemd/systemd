@@ -50,8 +50,8 @@ systemd_homed_sources = files('''
         homed-varlink.c
         homed-varlink.h
         homed.c
-        pwquality-util.c
-        pwquality-util.h
+        user-record-pwquality.c
+        user-record-pwquality.h
         user-record-sign.c
         user-record-sign.h
         user-record-util.c
@@ -74,8 +74,8 @@ homectl_sources = files('''
         homectl-pkcs11.c
         homectl-pkcs11.h
         homectl.c
-        pwquality-util.c
-        pwquality-util.h
+        user-record-pwquality.c
+        user-record-pwquality.h
         user-record-util.c
         user-record-util.h
 '''.split())
