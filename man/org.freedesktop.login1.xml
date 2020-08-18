@@ -1224,7 +1224,7 @@ node /org/freedesktop/login1/session/1 {
       signals (or after an internal timeout) are automatically completed by
       <filename>systemd-logind</filename> asynchronously.</para>
 
-      <para><function>SetLockedHint()</function> may be used to set the "idle hint" to
+      <para><function>SetLockedHint()</function> may be used to set the "locked hint" to
       <varname>locked</varname>, i.e. information whether the session is locked. This is intended to be used
       by the desktop environment to tell <command>systemd-logind</command> when the session is locked and
       unlocked.</para>
