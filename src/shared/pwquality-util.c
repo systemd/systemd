@@ -155,4 +155,37 @@ int suggest_passwords(void) {
         return 1;
 }
 
+int quality_check_password(const char *password, const char *username, char **ret_error) {
+        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
+        char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
+        void *auxerror;
+        int r;
+
+        assert(password);
+
+        r = pwq_allocate_context(&pwq);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to allocate libpwquality context: %m");
+
+        r = sym_pwquality_check(pwq, password, NULL, username, &auxerror);
+        if (r < 0) {
+
+                if (ret_error) {
+                        _cleanup_free_ char *e = NULL;
+
+                        e = strdup(sym_pwquality_strerror(buf, sizeof(buf), r, auxerror));
+                        if (!e)
+                                return -ENOMEM;
+
+                        *ret_error = TAKE_PTR(e);
+                }
+
+                return 0; /* all bad */
+        }
+
+        return 1; /* all good */
+}
+
 #endif

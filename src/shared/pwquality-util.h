@@ -24,11 +24,18 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(pwquality_settings_t*, sym_pwquality_free_settings);
 void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq);
 int pwq_allocate_context(pwquality_settings_t **ret);
 int suggest_passwords(void);
+int quality_check_password(const char *password, const char *username, char **ret_error);
 
 #else
 
 static inline int suggest_passwords(void) {
         return 0;
+}
+
+static inline int quality_check_password(const char *password, const char *username, char **ret_error) {
+        if (ret_error)
+                *ret_error = NULL;
+        return 1; /* all good */
 }
 
 #endif
