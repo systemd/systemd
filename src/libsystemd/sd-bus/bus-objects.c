@@ -1225,18 +1225,41 @@ static int object_manager_serialize_path_and_fallbacks(
         return 0;
 }
 
+static int object_manager_serialize(
+                sd_bus *bus,
+                sd_bus_message *reply,
+                const struct node *node,
+                sd_bus_error *error) {
+        const struct node *i;
+        int r;
+
+        if (!node)
+                return 1;
+
+        LIST_FOREACH(siblings, i, node) {
+                r = object_manager_serialize_path_and_fallbacks(bus, reply, i->path, error);
+                if (r < 0)
+                        return r;
+
+                if (bus->nodes_modified)
+                        return 0;
+
+                r = object_manager_serialize(bus, reply, i->child, error);
+                if (r <= 0)
+                        return r;
+        }
+
+        return 1;
+}
+
 static int process_get_managed_objects(
                 sd_bus *bus,
                 sd_bus_message *m,
                 struct node *n,
                 bool require_fallback,
                 bool *found_object) {
-
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_set_free_free_ Set *s = NULL;
-        Iterator i;
-        char *path;
         int r;
 
         assert(bus);
@@ -1251,12 +1274,6 @@ static int process_get_managed_objects(
         if (require_fallback || !n->object_managers)
                 return 0;
 
-        r = get_child_nodes(bus, m->path, n, CHILDREN_RECURSIVE, &s, &error);
-        if (r < 0)
-                return bus_maybe_reply_error(m, r, &error);
-        if (bus->nodes_modified)
-                return 0;
-
         r = sd_bus_message_new_method_return(m, &reply);
         if (r < 0)
                 return r;
@@ -1265,14 +1282,9 @@ static int process_get_managed_objects(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(path, s, i) {
-                r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
-                if (r < 0)
-                        return bus_maybe_reply_error(m, r, &error);
-
-                if (bus->nodes_modified)
-                        return 0;
-        }
+        r = object_manager_serialize(bus, reply, n->child, &error);
+        if (r <= 0)
+                return bus_maybe_reply_error(m, r, &error);
 
         r = sd_bus_message_close_container(reply);
         if (r < 0)
