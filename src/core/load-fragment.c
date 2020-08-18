@@ -4228,7 +4228,7 @@ int config_parse_bind_paths(
                 r = unit_full_printf(u, source, &sresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
-                                   "Failed to resolved unit specifiers in \"%s\", ignoring: %m", source);
+                                   "Failed to resolve unit specifiers in \"%s\", ignoring: %m", source);
                         continue;
                 }
 
@@ -4259,7 +4259,7 @@ int config_parse_bind_paths(
                         r = unit_full_printf(u, destination, &dresolved);
                         if (r < 0) {
                                 log_syntax(unit, LOG_ERR, filename, line, r,
-                                           "Failed to resolved specifiers in \"%s\", ignoring: %m", destination);
+                                           "Failed to resolve specifiers in \"%s\", ignoring: %m", destination);
                                 continue;
                         }
 
