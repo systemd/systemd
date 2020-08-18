@@ -566,8 +566,8 @@
         <term><option>--fs-type=</option><replaceable>TYPE</replaceable></term>
 
         <listitem><para>When LUKS2 storage is used configures the file system type to use inside the home
-        directory LUKS2 container. One of <literal>ext4</literal>, <literal>xfs</literal>,
-        <literal>btrfs</literal>. If not specified
+        directory LUKS2 container. One of <literal>btrfs</literal>, <literal>ext4</literal>,
+        <literal>xfs</literal>. If not specified
         <citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         defines which default file system type to use. Note that <literal>xfs</literal> is not recommended as
         its support for file system resizing is too limited.</para></listitem>

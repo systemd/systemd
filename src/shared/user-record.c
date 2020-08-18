@@ -1581,7 +1581,7 @@ UserStorage user_record_storage(UserRecord *h) {
 const char *user_record_file_system_type(UserRecord *h) {
         assert(h);
 
-        return h->file_system_type ?: "ext4";
+        return h->file_system_type ?: "btrfs";
 }
 
 const char *user_record_skeleton_directory(UserRecord *h) {
