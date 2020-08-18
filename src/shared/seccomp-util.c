@@ -386,7 +386,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "perf_event_open\0"
                 "ptrace\0"
                 "rtas\0"
-#ifdef __NR_s390_runtime_instr
+#if defined __s390__ || defined __s390x__
                 "s390_runtime_instr\0"
 #endif
                 "sys_debug_setcontext\0"
@@ -462,9 +462,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "stat64\0"
                 "statfs\0"
                 "statfs64\0"
-#ifdef __NR_statx
                 "statx\0"
-#endif
                 "symlink\0"
                 "symlinkat\0"
                 "truncate\0"
@@ -710,10 +708,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "pciconfig_iobase\0"
                 "pciconfig_read\0"
                 "pciconfig_write\0"
-#ifdef __NR_s390_pci_mmio_read
+#if defined __s390__ || defined __s390x__
                 "s390_pci_mmio_read\0"
-#endif
-#ifdef __NR_s390_pci_mmio_write
                 "s390_pci_mmio_write\0"
 #endif
         },
