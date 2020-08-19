@@ -44,7 +44,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                 fd = safe_close(fd);
         }
 
-        if (isempty(root)) {
+        if (isempty(root) && running_in_chroot() <= 0) {
                 /* If that didn't work, see if we are running in a container,
                  * and a machine ID was passed in via $container_uuid the way
                  * libvirt/LXC does it */
