@@ -6,9 +6,12 @@
 #include "sd-bus.h"
 
 #include "bus-error.h"
+#include "dev-setup.h"
 #include "fs-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "label.h"
+#include "limits-util.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "mountpoint-util.h"
@@ -31,8 +34,10 @@ static int acquire_runtime_dir_size(uint64_t *ret) {
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = sd_bus_get_property_trivial(bus, "org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager", "RuntimeDirectorySize", &error, 't', ret);
-        if (r < 0)
-                return log_error_errno(r, "Failed to acquire runtime directory size: %s", bus_error_message(&error, r));
+        if (r < 0) {
+                log_warning_errno(r, "Failed to acquire runtime directory size, ignoring: %s", bus_error_message(&error, r));
+                *ret = physical_memory_scale(10U, 100U); /* 10% */
+        }
 
         return 0;
 }
