@@ -1110,7 +1110,9 @@ int home_prepare_luks(
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to fstat() image file: %m");
                 if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
-                        return log_error_errno(errno, "Image file %s is not a regular file or block device: %m", ip);
+                        return log_error_errno(
+                                        S_ISDIR(st.st_mode) ? SYNTHETIC_ERRNO(EISDIR) : SYNTHETIC_ERRNO(EBADFD),
+                                        "Image file %s is not a regular file or block device: %m", ip);
 
                 r = luks_validate(fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
                 if (r < 0)
@@ -2015,7 +2017,8 @@ int home_create_luks(
 
                 r = chattr_fd(image_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set file attributes on %s, ignoring: %m", temporary_image_path);
+                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to set file attributes on %s, ignoring: %m", temporary_image_path);
 
                 r = home_truncate(h, image_fd, temporary_image_path, host_size);
                 if (r < 0)
@@ -2164,6 +2167,9 @@ int home_create_luks(
                 goto fail;
         }
 
+        crypt_free(cd);
+        cd = NULL;
+
         dm_activated = false;
 
         loop = loop_device_unref(loop);
@@ -2174,8 +2180,22 @@ int home_create_luks(
                         goto fail;
         }
 
+        /* Sync everything to disk before we move things into place under the final name. */
+        if (fsync(image_fd) < 0) {
+                r = log_error_errno(r, "Failed to synchronize image to disk: %m");
+                goto fail;
+        }
+
         if (disk_uuid_path)
                 (void) ioctl(image_fd, BLKRRPART, 0);
+        else {
+                /* If we operate on a file, sync the contaning directory too. */
+                r = fsync_directory_of_file(image_fd);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to synchronize directory of image file to disk: %m");
+                        goto fail;
+                }
+        }
 
         /* Let's close the image fd now. If we are operating on a real block device this will release the BSD
          * lock that ensures udev doesn't interfere with what we are doing */
