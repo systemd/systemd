@@ -73,6 +73,9 @@ static void test_architecture_table(void) {
                        "ppc\0"
                        "ppc64\0"
                        "ppc64-le\0"
+#ifdef SCMP_ARCH_RISCV64
+                       "riscv64\0"
+#endif
                        "s390\0"
                        "s390x\0") {
                 uint32_t c;
