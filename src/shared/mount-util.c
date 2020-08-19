@@ -414,7 +414,6 @@ int mode_to_inaccessible_node(
 
         _cleanup_free_ char *d = NULL;
         const char *node = NULL;
-        bool fallback = false;
 
         assert(ret);
 
@@ -432,12 +431,10 @@ int mode_to_inaccessible_node(
 
                 case S_IFCHR:
                         node = "/systemd/inaccessible/chr";
-                        fallback = true;
                         break;
 
                 case S_IFBLK:
                         node = "/systemd/inaccessible/blk";
-                        fallback = true;
                         break;
 
                 case S_IFIFO:
@@ -455,7 +452,24 @@ int mode_to_inaccessible_node(
         if (!d)
                 return -ENOMEM;
 
-        if (fallback && access(d, F_OK) < 0) {
+        /* On new kernels unprivileged users are permitted to create 0:0 char device nodes (because they also
+         * act as whiteout inode for overlayfs), but no other char or block device nodes. On old kernels no
+         * device node whatsoever may be created by unprivileged processes. Hence, if the caller asks for the
+         * inaccessible block device node let's see if the block device node actually exists, and if not,
+         * fall back to the character device node. From there fall back to the socket device node. This means
+         * in the best case we'll get the right device node type — but if not we'll hopefully at least get a
+         * device node at all. */
+
+        if (S_ISBLK(mode) &&
+            access(d, F_OK) < 0 && errno == ENOENT) {
+                free(d);
+                d = path_join(runtime_dir, "/systemd/inaccessible/chr");
+                if (!d)
+                        return -ENOMEM;
+        }
+
+        if (IN_SET(mode & S_IFMT, S_IFBLK, S_IFCHR) &&
+            access(d, F_OK) < 0 && errno == ENOENT) {
                 free(d);
                 d = path_join(runtime_dir, "/systemd/inaccessible/sock");
                 if (!d)
