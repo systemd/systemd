@@ -442,6 +442,7 @@ static const char *const container_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_RKT]            = "rkt",
         [VIRTUALIZATION_WSL]            = "wsl",
         [VIRTUALIZATION_PROOT]          = "proot",
+        [VIRTUALIZATION_POUCH]          = "pouch",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(container, int);
@@ -679,6 +680,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_RKT] = "rkt",
         [VIRTUALIZATION_WSL] = "wsl",
         [VIRTUALIZATION_PROOT] = "proot",
+        [VIRTUALIZATION_POUCH] = "pouch",
         [VIRTUALIZATION_CONTAINER_OTHER] = "container-other",
 };
 
