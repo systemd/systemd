@@ -32,6 +32,7 @@
 #include "dbus-manager.h"
 #include "dbus.h"
 #include "def.h"
+#include "dev-setup.h"
 #include "efi-random.h"
 #include "efivars.h"
 #include "emergency-action.h"
@@ -53,6 +54,7 @@
 #include "loopback-setup.h"
 #include "machine-id-setup.h"
 #include "manager.h"
+#include "mkdir.h"
 #include "mount-setup.h"
 #include "os-util.h"
 #include "pager.h"
@@ -2073,6 +2075,20 @@ static int initialize_runtime(
                         if (r < 0)
                                 log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
                 }
+        } else {
+                _cleanup_free_ char *p = NULL;
+
+                /* Create the runtime directory and place the inaccessible device nodes there, if we run in
+                 * user mode. In system mode mount_setup() already did that. */
+
+                r = xdg_user_runtime_dir(&p, "/systemd");
+                if (r < 0) {
+                        *ret_error_message = "$XDG_RUNTIME_DIR is not set";
+                        return log_emergency_errno(r, "Failed to determine $XDG_RUNTIME_DIR path: %m");
+                }
+
+                (void) mkdir_p(p, 0755);
+                (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
         }
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)

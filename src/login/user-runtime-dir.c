@@ -54,7 +54,6 @@ static int user_mkdir_runtime_path(
                 uint64_t runtime_dir_size,
                 uint64_t runtime_dir_inodes) {
 
-        const char *p;
         int r;
 
         assert(runtime_path);
@@ -89,7 +88,8 @@ static int user_mkdir_runtime_path(
                                 goto fail;
                         }
 
-                        log_debug_errno(errno, "Failed to mount per-user tmpfs directory %s.\n"
+                        log_debug_errno(errno,
+                                        "Failed to mount per-user tmpfs directory %s.\n"
                                         "Assuming containerized execution, ignoring: %m", runtime_path);
 
                         r = chmod_and_chown(runtime_path, 0700, uid, gid);
@@ -104,10 +104,6 @@ static int user_mkdir_runtime_path(
                         log_warning_errno(r, "Failed to fix label of \"%s\", ignoring: %m", runtime_path);
         }
 
-        /* Set up inaccessible nodes now so they're available if we decide to use them with user namespaces. */
-        p = strjoina(runtime_path, "/systemd");
-        (void) mkdir(p, 0755);
-        (void) make_inaccessible_nodes(p, uid, gid);
         return 0;
 
 fail:
