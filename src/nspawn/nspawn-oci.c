@@ -1695,6 +1695,9 @@ static int oci_seccomp_arch_from_string(const char *name, uint32_t *ret) {
                 { "SCMP_ARCH_PPC",         SCMP_ARCH_PPC         },
                 { "SCMP_ARCH_PPC64",       SCMP_ARCH_PPC64       },
                 { "SCMP_ARCH_PPC64LE",     SCMP_ARCH_PPC64LE     },
+#ifdef SCMP_ARCH_RISCV64
+                { "SCMP_ARCH_RISCV64",     SCMP_ARCH_RISCV64     },
+#endif
                 { "SCMP_ARCH_S390",        SCMP_ARCH_S390        },
                 { "SCMP_ARCH_S390X",       SCMP_ARCH_S390X       },
                 { "SCMP_ARCH_X32",         SCMP_ARCH_X32         },
