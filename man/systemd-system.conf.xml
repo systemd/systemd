@@ -327,6 +327,11 @@
         <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details about environment variables.</para>
 
+        <para>The following specifiers are interpreted: %g, %G, %U, %u, %h, %s, %t, %S, %C, %L, %E, %T, %V,
+        %m, %H, %b, %v. For their meaning see
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
         <para>Example:
 
         <programlisting>DefaultEnvironment="VAR1=word1 word2" VAR2=word3 "VAR3=word 5 6"</programlisting>

@@ -255,25 +255,10 @@ int unit_full_printf(const Unit *u, const char *format, char **ret) {
          * before or after the relevant configuration setting. Hence: don't add them.
          */
 
-        assert(u);
         assert(format);
         assert(ret);
 
         const Specifier table[] = {
-                { 'n', specifier_string,                   u->id },
-                { 'N', specifier_prefix_and_instance,      NULL },
-                { 'p', specifier_prefix,                   NULL },
-                { 'P', specifier_prefix_unescaped,         NULL },
-                { 'i', specifier_string,                   u->instance },
-                { 'I', specifier_instance_unescaped,       NULL },
-                { 'j', specifier_last_component,           NULL },
-                { 'J', specifier_last_component_unescaped, NULL },
-
-                { 'f', specifier_filename,                 NULL },
-                { 'c', specifier_cgroup,                   NULL },
-                { 'r', specifier_cgroup_slice,             NULL },
-                { 'R', specifier_cgroup_root,              NULL },
-
                 { 't', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
                 { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
                 { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
@@ -294,6 +279,22 @@ int unit_full_printf(const Unit *u, const char *format, char **ret) {
                 { 'l', specifier_short_host_name,          NULL },
                 { 'b', specifier_boot_id,                  NULL },
                 { 'v', specifier_kernel_release,           NULL },
+
+                /* All subsequent specifiers require a unit, so end the table here if we don't have one. */
+                { u ? 'n' : 0, specifier_string,           u ? u->id : NULL },
+                { 'N', specifier_prefix_and_instance,      NULL },
+                { 'p', specifier_prefix,                   NULL },
+                { 'P', specifier_prefix_unescaped,         NULL },
+                { 'i', specifier_string,                   u ? u->instance : NULL },
+                { 'I', specifier_instance_unescaped,       NULL },
+                { 'j', specifier_last_component,           NULL },
+                { 'J', specifier_last_component_unescaped, NULL },
+
+                { 'f', specifier_filename,                 NULL },
+                { 'c', specifier_cgroup,                   NULL },
+                { 'r', specifier_cgroup_slice,             NULL },
+                { 'R', specifier_cgroup_root,              NULL },
+
                 {}
         };
 

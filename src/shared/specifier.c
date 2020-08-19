@@ -56,7 +56,7 @@ int specifier_printf(const char *text, const Specifier table[], const void *user
                                         if (i->specifier == *f)
                                                 break;
 
-                                if (i->lookup) {
+                                if (i) {
                                         _cleanup_free_ char *w = NULL;
                                         size_t k, j;
 

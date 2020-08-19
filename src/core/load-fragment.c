@@ -2602,15 +2602,12 @@ int config_parse_environ(
                         return 0;
                 }
 
-                if (u) {
-                        r = unit_full_printf(u, word, &k);
-                        if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r,
-                                           "Failed to resolve unit specifiers in %s, ignoring: %m", word);
-                                continue;
-                        }
-                } else
-                        k = TAKE_PTR(word);
+                r = unit_full_printf(u, word, &k);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r,
+                                   "Failed to resolve unit specifiers in %s, ignoring: %m", word);
+                        continue;
+                }
 
                 if (!env_assignment_is_valid(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
