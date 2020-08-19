@@ -21,7 +21,7 @@ typedef struct SyscallFilterSet {
 } SyscallFilterSet;
 
 enum {
-        /* Please leave DEFAULT first, but sort the rest alphabetically */
+        /* Please leave DEFAULT first and KNOWN last, but sort the rest alphabetically */
         SYSCALL_FILTER_SET_DEFAULT,
         SYSCALL_FILTER_SET_AIO,
         SYSCALL_FILTER_SET_BASIC_IO,
@@ -50,6 +50,7 @@ enum {
         SYSCALL_FILTER_SET_SYNC,
         SYSCALL_FILTER_SET_SYSTEM_SERVICE,
         SYSCALL_FILTER_SET_TIMER,
+        SYSCALL_FILTER_SET_KNOWN,
         _SYSCALL_FILTER_SET_MAX
 };
 

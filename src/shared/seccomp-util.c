@@ -883,6 +883,12 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "timerfd_settime64\0"
                 "times\0"
         },
+        [SYSCALL_FILTER_SET_KNOWN] = {
+                .name = "@known",
+                .help = "All known syscalls declared in the kernel",
+                .value =
+#include "syscall-list.h"
+        },
 };
 
 const SyscallFilterSet *syscall_filter_set_find(const char *name) {

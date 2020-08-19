@@ -121,7 +121,9 @@ static void test_filter_sets(void) {
                         int fd, r;
 
                         /* If we look at the default set (or one that includes it), allow-list instead of deny-list */
-                        if (IN_SET(i, SYSCALL_FILTER_SET_DEFAULT, SYSCALL_FILTER_SET_SYSTEM_SERVICE))
+                        if (IN_SET(i, SYSCALL_FILTER_SET_DEFAULT,
+                                      SYSCALL_FILTER_SET_SYSTEM_SERVICE,
+                                      SYSCALL_FILTER_SET_KNOWN))
                                 r = seccomp_load_syscall_filter_set(SCMP_ACT_ERRNO(EUCLEAN), syscall_filter_sets + i, SCMP_ACT_ALLOW, true);
                         else
                                 r = seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + i, SCMP_ACT_ERRNO(EUCLEAN), true);
@@ -145,22 +147,25 @@ static void test_filter_sets(void) {
 }
 
 static void test_filter_sets_ordered(void) {
-        size_t i;
-
         log_info("/* %s */", __func__);
 
         /* Ensure "@default" always remains at the beginning of the list */
         assert_se(SYSCALL_FILTER_SET_DEFAULT == 0);
         assert_se(streq(syscall_filter_sets[0].name, "@default"));
 
-        for (i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
+        /* Ensure "@known" always remains at the end of the list */
+        assert_se(SYSCALL_FILTER_SET_KNOWN == _SYSCALL_FILTER_SET_MAX - 1);
+        assert_se(streq(syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].name, "@known"));
+
+        for (size_t i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
                 const char *k, *p = NULL;
 
                 /* Make sure each group has a description */
                 assert_se(!isempty(syscall_filter_sets[0].help));
 
-                /* Make sure the groups are ordered alphabetically, except for the first entry */
-                assert_se(i < 2 || strcmp(syscall_filter_sets[i-1].name, syscall_filter_sets[i].name) < 0);
+                /* Make sure the groups are ordered alphabetically, except for the first and last entries */
+                assert_se(i < 2 || i == _SYSCALL_FILTER_SET_MAX - 1 ||
+                          strcmp(syscall_filter_sets[i-1].name, syscall_filter_sets[i].name) < 0);
 
                 NULSTR_FOREACH(k, syscall_filter_sets[i].value) {
 
