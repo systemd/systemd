@@ -28,6 +28,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
+#include "pwquality-util.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -568,8 +569,11 @@ static int prompt_root_password(void) {
         msg1 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter a new root password (empty to skip):");
         msg2 = strjoina(special_glyph(SPECIAL_GLYPH_TRIANGULAR_BULLET), " Please enter new root password again:");
 
+        suggest_passwords();
+
         for (;;) {
                 _cleanup_strv_free_erase_ char **a = NULL, **b = NULL;
+                _cleanup_free_ char *error = NULL;
 
                 r = ask_password_tty(-1, msg1, NULL, 0, 0, NULL, &a);
                 if (r < 0)
@@ -582,6 +586,12 @@ static int prompt_root_password(void) {
                         log_warning("No password entered, skipping.");
                         break;
                 }
+
+                r = quality_check_password(*a, "root", &error);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check quality of password: %m");
+                if (r == 0)
+                        log_warning("Password is weak, accepting anyway: %s", error);
 
                 r = ask_password_tty(-1, msg2, NULL, 0, 0, NULL, &b);
                 if (r < 0)

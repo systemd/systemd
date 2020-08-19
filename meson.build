@@ -2174,8 +2174,7 @@ if conf.get('ENABLE_HOMED') == 1
                 link_with : [libshared],
                 dependencies : [threads,
                                 libcrypt,
-                                libopenssl,
-                                libpwquality],
+                                libopenssl],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2189,8 +2188,7 @@ if conf.get('ENABLE_HOMED') == 1
                                 libcrypt,
                                 libopenssl,
                                 libp11kit,
-                                libfido2,
-                                libpwquality],
+                                libfido2],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)

@@ -30,6 +30,7 @@
 #include "rlimit-util.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
+#include "user-record-pwquality.h"
 #include "user-record-show.h"
 #include "user-record-util.h"
 #include "user-record.h"
@@ -1097,7 +1098,7 @@ static int create_home(int argc, char *argv[], void *userdata) {
 
                 /* If password quality enforcement is disabled, let's at least warn client side */
 
-                r = quality_check_password(hr, hr, &error);
+                r = user_record_quality_check_password(hr, hr, &error);
                 if (r < 0)
                         log_warning_errno(r, "Specified password does not pass quality checks (%s), proceeding anyway.", bus_error_message(&error, r));
         }
