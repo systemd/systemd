@@ -372,7 +372,7 @@ fallback:
         if (r < 0)
                 return log_device_debug_errno(dev_usb, r, "Failed to get idProduct attribute: %m");
 
-        /* fallback to USB vendor & device */
+        /* fall back to USB vendor & device */
         if (vendor_str[0] == '\0') {
                 const char *usb_vendor;
 

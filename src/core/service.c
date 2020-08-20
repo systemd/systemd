@@ -1034,7 +1034,7 @@ static void service_search_main_pid(Service *s) {
 
         assert(s);
 
-        /* If we know it anyway, don't ever fallback to unreliable
+        /* If we know it anyway, don't ever fall back to unreliable
          * heuristics */
         if (s->main_pid_known)
                 return;

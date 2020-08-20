@@ -173,7 +173,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
                         return -errno;
 
-                /* If statx() is not available or forbidden, fallback to name_to_handle_at() below */
+                /* If statx() is not available or forbidden, fall back to name_to_handle_at() below */
         } else if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) /* yay! */
                 return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
 
@@ -186,7 +186,7 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
                 goto fallback_fdinfo;
         else if (r == -EOPNOTSUPP)
                 /* This kernel or file system does not support name_to_handle_at(), hence let's see if the upper fs
-                 * supports it (in which case it is a mount point), otherwise fallback to the traditional stat()
+                 * supports it (in which case it is a mount point), otherwise fall back to the traditional stat()
                  * logic */
                 nosupp = true;
         else if (r < 0)
