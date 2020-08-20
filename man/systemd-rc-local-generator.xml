@@ -3,8 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
-<refentry id="systemd-rc-local-generator">
-
+<refentry id="systemd-rc-local-generator" conditional='HAVE_SYSV_COMPAT'>
   <refentryinfo>
     <title>systemd-rc-local-generator</title>
     <productname>systemd</productname>
@@ -51,5 +50,4 @@
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
-
 </refentry>
