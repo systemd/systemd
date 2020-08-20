@@ -25,6 +25,17 @@ layout: default
   note that emacs loads `.dir-locals.el` automatically, but vim needs to be
   configured to load `.vimrc`, see that file for instructions.
 
+- If you break a function declaration over multiple lines, do it like this:
+
+  ```c
+  void some_function(
+                  int foo,
+                  bool bar,
+                  char baz) {
+
+          int a, b, c;
+  ```
+
 - Try to write this:
 
   ```c
