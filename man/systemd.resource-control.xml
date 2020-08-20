@@ -261,53 +261,42 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>MemoryMin=<replaceable>bytes</replaceable></varname></term>
+        <term><varname>MemoryMin=<replaceable>bytes</replaceable></varname>, <varname>MemoryLow=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
-          <para>Specify the memory usage protection of the executed processes in this unit. If the memory usages of
-          this unit and all its ancestors are below their minimum boundaries, this unit's memory won't be reclaimed.</para>
+          <para>Specify the memory usage protection of the executed processes in this unit.
+          When reclaiming memory, the unit is treated as if it was using less memory resulting in memory
+          to be preferentially reclaimed from unprotected units.
+          Using <varname>MemoryLow=</varname> results in a weaker protection where memory may still
+          be reclaimed to avoid invoking the OOM killer in case there is no other reclaimable memory.</para>
+          <para>
+          For a protection to be effective, it is generally required to set a corresponding
+          allocation on all ancestors, which is then distributed between children
+          (with the exception of the root slice).
+          Any <varname>MemoryMin=</varname> or <varname>MemoryLow=</varname> allocation that is not
+          explicitly distributed to specific children is used to create a shared protection for all children.
+          As this is a shared protection, the children will freely compete for the memory.</para>
 
           <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
           percentage value may be specified, which is taken relative to the installed physical memory on the
           system. If assigned the special value <literal>infinity</literal>, all available memory is protected, which may be
           useful in order to always inherit all of the protection afforded by ancestors.
-          This controls the <literal>memory.min</literal> control group attribute. For details about this
-          control group attribute, see <ulink
+          This controls the <literal>memory.min</literal> or <literal>memory.low</literal> control group attribute.
+          For details about this control group attribute, see <ulink
           url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
 
-          <para>Units may have their children use a default <literal>memory.min</literal> value by specifying
-          <varname>DefaultMemoryMin=</varname>, which has the same semantics as <varname>MemoryMin=</varname>. This setting
-          does not affect <literal>memory.min</literal> in the unit itself.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>MemoryLow=<replaceable>bytes</replaceable></varname></term>
-
-        <listitem>
-          <para>Specify the best-effort memory usage protection of the executed processes in this unit. If the memory
-          usages of this unit and all its ancestors are below their low boundaries, this unit's memory won't be
-          reclaimed as long as memory can be reclaimed from unprotected units.</para>
-
-          <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
-          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
-          percentage value may be specified, which is taken relative to the installed physical memory on the
-          system. If assigned the special value <literal>infinity</literal>, all available memory is protected, which may be
-          useful in order to always inherit all of the protection afforded by ancestors.
-          This controls the <literal>memory.low</literal> control group attribute. For details about this
-          control group attribute, see <ulink
-          url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
-
-          <para>This setting is supported only if the unified control group hierarchy is used and disables
-          <varname>MemoryLimit=</varname>.</para>
-
-          <para>Units may have their children use a default <literal>memory.low</literal> value by specifying
-          <varname>DefaultMemoryLow=</varname>, which has the same semantics as <varname>MemoryLow=</varname>. This setting
-          does not affect <literal>memory.low</literal> in the unit itself.</para>
+          <para>Units may have their children use a default <literal>memory.min</literal> or
+          <literal>memory.low</literal> value by specifying <varname>DefaultMemoryMin=</varname> or
+          <varname>DefaultMemoryLow=</varname>, which has the same semantics as
+          <varname>MemoryMin=<replaceable> and <varname>MemoryLow=<replaceable>.
+          This setting does not affect <literal>memory.min</literal> or <literal>memory.low</literal>
+          in the unit itself.
+          Using it to set a default child allocation is only useful on kernels older than 5.7,
+          which do not support the <literal>memory_recursiveprot</literal> cgroup2 mount option.</para>
         </listitem>
       </varlistentry>
 
