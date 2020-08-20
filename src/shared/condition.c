@@ -52,7 +52,7 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
 
         assert(type >= 0);
         assert(type < _CONDITION_TYPE_MAX);
-        assert((!parameter) == (type == CONDITION_NULL));
+        assert(parameter);
 
         c = new(Condition, 1);
         if (!c)
@@ -776,15 +776,6 @@ static int condition_test_file_is_executable(Condition *c, char **env) {
                 (st.st_mode & 0111));
 }
 
-static int condition_test_null(Condition *c, char **env) {
-        assert(c);
-        assert(c->type == CONDITION_NULL);
-
-        /* Note that during parsing we already evaluate the string and
-         * store it in c->negate */
-        return true;
-}
-
 int condition_test(Condition *c, char **env) {
 
         static int (*const condition_tests[_CONDITION_TYPE_MAX])(Condition *c, char **env) = {
@@ -811,7 +802,6 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_USER]                     = condition_test_user,
                 [CONDITION_GROUP]                    = condition_test_group,
                 [CONDITION_CONTROL_GROUP_CONTROLLER] = condition_test_control_group_controller,
-                [CONDITION_NULL]                     = condition_test_null,
                 [CONDITION_CPUS]                     = condition_test_cpus,
                 [CONDITION_MEMORY]                   = condition_test_memory,
                 [CONDITION_ENVIRONMENT]              = condition_test_environment,
@@ -859,23 +849,20 @@ bool condition_test_list(
                 r = condition_test(c, env);
 
                 if (logger) {
-                        const char *p = c->type == CONDITION_NULL ? "true" : c->parameter;
-                        assert(p);
-
                         if (r < 0)
                                 logger(userdata, LOG_WARNING, r, PROJECT_FILE, __LINE__, __func__,
                                        "Couldn't determine result for %s=%s%s%s, assuming failed: %m",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
-                                       p);
+                                       c->parameter);
                         else
                                 logger(userdata, LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__,
                                        "%s=%s%s%s %s.",
                                        to_string(c->type),
                                        c->trigger ? "|" : "",
                                        c->negate ? "!" : "",
-                                       p,
+                                       c->parameter,
                                        condition_result_to_string(c->result));
                 }
 
@@ -937,7 +924,6 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_USER] = "ConditionUser",
         [CONDITION_GROUP] = "ConditionGroup",
         [CONDITION_CONTROL_GROUP_CONTROLLER] = "ConditionControlGroupController",
-        [CONDITION_NULL] = "ConditionNull",
         [CONDITION_CPUS] = "ConditionCPUs",
         [CONDITION_MEMORY] = "ConditionMemory",
         [CONDITION_ENVIRONMENT] = "ConditionEnvironment",
@@ -969,7 +955,6 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_USER] = "AssertUser",
         [CONDITION_GROUP] = "AssertGroup",
         [CONDITION_CONTROL_GROUP_CONTROLLER] = "AssertControlGroupController",
-        [CONDITION_NULL] = "AssertNull",
         [CONDITION_CPUS] = "AssertCPUs",
         [CONDITION_MEMORY] = "AssertMemory",
         [CONDITION_ENVIRONMENT] = "AssertEnvironment",

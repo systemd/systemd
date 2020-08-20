@@ -38,9 +38,7 @@ static int parse_condition(Unit *u, const char *line) {
 
                 p += strspn(p, WHITESPACE);
 
-                if (t == CONDITION_NULL) /* deprecated, but we should still parse this for now */
-                        callback = config_parse_unit_condition_null;
-                else if (condition_takes_path(t))
+                if (condition_takes_path(t))
                         callback = config_parse_unit_condition_path;
                 else
                         callback = config_parse_unit_condition_string;

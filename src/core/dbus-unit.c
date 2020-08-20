@@ -1974,14 +1974,11 @@ static int bus_set_transient_conditions(
                 if (t < 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid condition type: %s", type_name);
 
-                if (t != CONDITION_NULL) {
-                        if (isempty(param))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Condition parameter in %s is empty", type_name);
+                if (isempty(param))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Condition parameter in %s is empty", type_name);
 
-                        if (condition_takes_path(t) && !path_is_absolute(param))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path in condition %s is not absolute: %s", type_name, param);
-                } else
-                        param = NULL;
+                if (condition_takes_path(t) && !path_is_absolute(param))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path in condition %s is not absolute: %s", type_name, param);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         Condition *c;
@@ -1992,14 +1989,9 @@ static int bus_set_transient_conditions(
 
                         LIST_PREPEND(conditions, *list, c);
 
-                        if (t != CONDITION_NULL)
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name,
-                                                    "%s=%s%s%s", type_name,
-                                                    trigger ? "|" : "", negate ? "!" : "", param);
-                        else
-                                unit_write_settingf(u, flags, name,
-                                                    "%s=%s%s", type_name,
-                                                    trigger ? "|" : "", yes_no(!negate));
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                            "%s=%s%s%s", type_name,
+                                            trigger ? "|" : "", negate ? "!" : "", param);
                 }
 
                 empty = false;

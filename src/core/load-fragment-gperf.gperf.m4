@@ -292,7 +292,6 @@ Unit.ConditionEnvironment,       config_parse_unit_condition_string, CONDITION_E
 Unit.ConditionUser,              config_parse_unit_condition_string, CONDITION_USER,                offsetof(Unit, conditions)
 Unit.ConditionGroup,             config_parse_unit_condition_string, CONDITION_GROUP,               offsetof(Unit, conditions)
 Unit.ConditionControlGroupController, config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER, offsetof(Unit, conditions)
-Unit.ConditionNull,              config_parse_unit_condition_null,   0,                             offsetof(Unit, conditions)
 Unit.AssertPathExists,           config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         offsetof(Unit, asserts)
 Unit.AssertPathExistsGlob,       config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    offsetof(Unit, asserts)
 Unit.AssertPathIsDirectory,      config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY,   offsetof(Unit, asserts)
@@ -319,7 +318,6 @@ Unit.AssertEnvironment,          config_parse_unit_condition_string, CONDITION_E
 Unit.AssertUser,                 config_parse_unit_condition_string, CONDITION_USER,                offsetof(Unit, asserts)
 Unit.AssertGroup,                config_parse_unit_condition_string, CONDITION_GROUP,               offsetof(Unit, asserts)
 Unit.AssertControlGroupController, config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER, offsetof(Unit, asserts)
-Unit.AssertNull,                 config_parse_unit_condition_null,   0,                             offsetof(Unit, asserts)
 Unit.CollectMode,                config_parse_collect_mode,          0,                             offsetof(Unit, collect_mode)
 m4_dnl
 Service.PIDFile,                 config_parse_pid_file,              0,                             offsetof(Service, pid_file)

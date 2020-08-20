@@ -1092,9 +1092,6 @@
       <para>Except for <varname>ConditionPathIsSymbolicLink=</varname>, all path checks follow symlinks.</para>
 
       <variablelist class='unit-directives'>
-        <!-- We do not document ConditionNull= here, as it is not particularly useful and probably just
-             confusing. -->
-
         <varlistentry>
           <term><varname>ConditionArchitecture=</varname></term>
 

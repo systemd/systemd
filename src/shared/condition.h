@@ -34,8 +34,6 @@ typedef enum ConditionType {
         CONDITION_FILE_NOT_EMPTY,
         CONDITION_FILE_IS_EXECUTABLE,
 
-        CONDITION_NULL,
-
         CONDITION_USER,
         CONDITION_GROUP,
 

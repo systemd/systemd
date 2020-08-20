@@ -2999,60 +2999,6 @@ int config_parse_unit_condition_string(
         return 0;
 }
 
-int config_parse_unit_condition_null(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Condition **list = data, *c;
-        bool trigger, negate;
-        int b;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is deprecated, please do not use.", lvalue);
-
-        if (isempty(rvalue)) {
-                /* Empty assignment resets the list */
-                *list = condition_free_list(*list);
-                return 0;
-        }
-
-        trigger = rvalue[0] == '|';
-        if (trigger)
-                rvalue++;
-
-        negate = rvalue[0] == '!';
-        if (negate)
-                rvalue++;
-
-        b = parse_boolean(rvalue);
-        if (b < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, b, "Failed to parse boolean value in condition, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (!b)
-                negate = !negate;
-
-        c = condition_new(CONDITION_NULL, NULL, trigger, negate);
-        if (!c)
-                return log_oom();
-
-        LIST_PREPEND(conditions, *list, c);
-        return 0;
-}
-
 int config_parse_unit_requires_mounts_for(
                 const char *unit,
                 const char *filename,
@@ -5266,7 +5212,6 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_ip_tos,                "TOS" },
                 { config_parse_unit_condition_path,   "CONDITION" },
                 { config_parse_unit_condition_string, "CONDITION" },
-                { config_parse_unit_condition_null,   "CONDITION" },
                 { config_parse_unit_slice,            "SLICE" },
                 { config_parse_documentation,         "URL" },
                 { config_parse_service_timeout,       "SECONDS" },
