@@ -2653,6 +2653,31 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
+                /* Try to figure out if we can use colors with the console. No need to do that for user instances since
+                 * they never log into the console. */
+                log_show_color(colors_enabled());
+
+                r = make_null_stdio();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to redirect standard streams to /dev/null, ignoring: %m");
+
+                /* Load the kernel modules early. */
+                if (!skip_setup)
+                        kmod_setup();
+
+                /* Mount /proc, /sys and friends, so that /proc/cmdline and /proc/$PID/fd is available. */
+                r = mount_setup(loaded_policy, skip_setup);
+                if (r < 0) {
+                        error_message = "Failed to mount API filesystems";
+                        goto finish;
+                }
+
+                /* The efivarfs is now mounted, let's read the random seed off it */
+                (void) efi_take_random_seed();
+
+                /* Cache command-line options passed from EFI variables */
+                if (!skip_setup)
+                        (void) cache_efi_options_variable();
         } else {
                 /* Running as user instance */
                 arg_system = false;
@@ -2666,37 +2691,6 @@ int main(int argc, char *argv[]) {
                         error_message = "Failed to initialize SELinux support";
                         goto finish;
                 }
-        }
-
-        if (arg_system) {
-                /* Try to figure out if we can use colors with the console. No need to do that for user instances since
-                 * they never log into the console. */
-                log_show_color(colors_enabled());
-
-                r = make_null_stdio();
-                if (r < 0)
-                        log_warning_errno(r, "Failed to redirect standard streams to /dev/null, ignoring: %m");
-        }
-
-        /* Mount /proc, /sys and friends, so that /proc/cmdline and /proc/$PID/fd is available. */
-        if (getpid_cached() == 1) {
-
-                /* Load the kernel modules early. */
-                if (!skip_setup)
-                        kmod_setup();
-
-                r = mount_setup(loaded_policy, skip_setup);
-                if (r < 0) {
-                        error_message = "Failed to mount API filesystems";
-                        goto finish;
-                }
-
-                /* The efivarfs is now mounted, let's read the random seed off it */
-                (void) efi_take_random_seed();
-
-                /* Cache command-line options passed from EFI variables */
-                if (!skip_setup)
-                        (void) cache_efi_options_variable();
         }
 
         /* Save the original RLIMIT_NOFILE/RLIMIT_MEMLOCK so that we can reset it later when

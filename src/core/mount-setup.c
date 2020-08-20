@@ -480,7 +480,7 @@ static int relabel_extra(void) {
 #endif
 
 int mount_setup(bool loaded_policy, bool leave_propagation) {
-        int r = 0;
+        int r;
 
         r = mount_points_setup(ELEMENTSOF(mount_table), loaded_policy);
         if (r < 0)
