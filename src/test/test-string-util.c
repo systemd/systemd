@@ -326,6 +326,38 @@ static void test_strjoina(void) {
         assert_se(streq(actual, "foo"));
 }
 
+static void test_strjoin(void) {
+        char *actual;
+
+        actual = strjoin("", "foo", "bar");
+        assert_se(streq(actual, "foobar"));
+        mfree(actual);
+
+        actual = strjoin("foo", "bar", "baz");
+        assert_se(streq(actual, "foobarbaz"));
+        mfree(actual);
+
+        actual = strjoin("foo", "", "bar", "baz");
+        assert_se(streq(actual, "foobarbaz"));
+        mfree(actual);
+
+        actual = strjoin("foo", NULL);
+        assert_se(streq(actual, "foo"));
+        mfree(actual);
+
+        actual = strjoin(NULL, NULL);
+        assert_se(streq(actual, ""));
+        mfree(actual);
+
+        actual = strjoin(NULL, "foo");
+        assert_se(streq(actual, ""));
+        mfree(actual);
+
+        actual = strjoin("foo", NULL, "bar");
+        assert_se(streq(actual, "foo"));
+        mfree(actual);
+}
+
 static void test_strcmp_ptr(void) {
         assert_se(strcmp_ptr(NULL, NULL) == 0);
         assert_se(strcmp_ptr("", NULL) > 0);
@@ -727,6 +759,7 @@ int main(int argc, char *argv[]) {
         test_ascii_strlower();
         test_strshorten();
         test_strjoina();
+        test_strjoin();
         test_strcmp_ptr();
         test_foreach_word();
         test_foreach_word_quoted();
