@@ -265,7 +265,7 @@ get_parent:
 static char *format_timestamp_maybe_utc(char *buf, size_t l, usec_t t) {
 
         if (arg_utc)
-                return format_timestamp_utc(buf, l, t);
+                return format_timestamp_style(buf, l, t, TIMESTAMP_UTC);
 
         return format_timestamp(buf, l, t);
 }

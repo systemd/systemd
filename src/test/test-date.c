@@ -11,7 +11,7 @@ static void test_should_pass(const char *p) {
 
         log_info("Test: %s", p);
         assert_se(parse_timestamp(p, &t) >= 0);
-        assert_se(format_timestamp_us(buf, sizeof(buf), t));
+        assert_se(format_timestamp_style(buf, sizeof(buf), t, TIMESTAMP_US));
         log_info("\"%s\" → \"%s\"", p, buf);
 
         assert_se(parse_timestamp(buf, &q) >= 0);
@@ -19,7 +19,7 @@ static void test_should_pass(const char *p) {
                 char tmp[FORMAT_TIMESTAMP_MAX];
 
                 log_error("round-trip failed: \"%s\" → \"%s\"",
-                          buf, format_timestamp_us(tmp, sizeof(tmp), q));
+                          buf, format_timestamp_style(tmp, sizeof(tmp), q, TIMESTAMP_US));
         }
         assert_se(q == t);
 

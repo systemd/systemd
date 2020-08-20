@@ -155,7 +155,7 @@ static int clock_state_update(
         if (tx.status & STA_NANO)
                 tx.time.tv_usec /= 1000;
         t = timeval_load(&tx.time);
-        ts = format_timestamp_us_utc(buf, sizeof(buf), t);
+        ts = format_timestamp_style(buf, sizeof(buf), t, TIMESTAMP_US_UTC);
         if (!ts)
                 strcpy(buf, "unrepresentable");
         log_info("adjtime state %d status %x time %s", sp->adjtime_state, tx.status, ts);

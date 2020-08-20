@@ -170,6 +170,7 @@ static bool arg_now = false;
 static bool arg_jobs_before = false;
 static bool arg_jobs_after = false;
 static char **arg_clean_what = NULL;
+static TimestampStyle arg_timestamp_style = TIMESTAMP_PRETTY;
 
 /* This is a global cache that will be constructed on first use. */
 static Hashmap *cached_id_map = NULL;
@@ -4195,7 +4196,7 @@ static void print_status_info(
                                                                             i->active_exit_timestamp;
 
         s1 = format_timestamp_relative(since1, sizeof(since1), timestamp);
-        s2 = format_timestamp(since2, sizeof(since2), timestamp);
+        s2 = format_timestamp_style(since2, sizeof(since2), timestamp, arg_timestamp_style);
 
         if (s1)
                 printf(" since %s; %s\n", s2, s1);
@@ -4229,7 +4230,7 @@ static void print_status_info(
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
                 next_rel_time = format_timestamp_relative(tstamp1, sizeof tstamp1, next_elapse);
-                next_time = format_timestamp(tstamp2, sizeof tstamp2, next_elapse);
+                next_time = format_timestamp_style(tstamp2, sizeof tstamp2, next_elapse, arg_timestamp_style);
 
                 if (next_time && next_rel_time)
                         printf("%s; %s\n", next_time, next_rel_time);
@@ -4254,7 +4255,7 @@ static void print_status_info(
                 int n = 0;
 
                 s1 = format_timestamp_relative(since1, sizeof(since1), i->condition_timestamp);
-                s2 = format_timestamp(since2, sizeof(since2), i->condition_timestamp);
+                s2 = format_timestamp_style(since2, sizeof(since2), i->condition_timestamp, arg_timestamp_style);
 
                 printf("  Condition: start %scondition failed%s at %s%s%s\n",
                        ansi_highlight_yellow(), ansi_normal(),
@@ -4276,7 +4277,7 @@ static void print_status_info(
 
         if (!i->assert_result && i->assert_timestamp > 0) {
                 s1 = format_timestamp_relative(since1, sizeof(since1), i->assert_timestamp);
-                s2 = format_timestamp(since2, sizeof(since2), i->assert_timestamp);
+                s2 = format_timestamp_style(since2, sizeof(since2), i->assert_timestamp, arg_timestamp_style);
 
                 printf("     Assert: start %sassertion failed%s at %s%s%s\n",
                        ansi_highlight_red(), ansi_normal(),
@@ -5037,7 +5038,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0) {
                                 char timestamp[FORMAT_TIMESTAMP_MAX] = "n/a";
 
-                                (void) format_timestamp(timestamp, sizeof(timestamp), next_elapse);
+                                (void) format_timestamp_style(timestamp, sizeof(timestamp), next_elapse, arg_timestamp_style);
                                 bus_print_property_valuef(name, expected_value, value,
                                                           "{ %s=%s ; next_elapse=%s }", base, spec, timestamp);
                         }
@@ -5077,8 +5078,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                                                   strna(info.path),
                                                                   strna(tt),
                                                                   strna(o),
-                                                                  strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
-                                                                  strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
+                                                                  strna(format_timestamp_style(timestamp1, sizeof(timestamp1), info.start_timestamp, arg_timestamp_style)),
+                                                                  strna(format_timestamp_style(timestamp2, sizeof(timestamp2), info.exit_timestamp, arg_timestamp_style)),
                                                                   info.pid,
                                                                   sigchld_code_to_string(info.code),
                                                                   info.status,
@@ -5090,8 +5091,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                                                   strna(info.path),
                                                                   strna(tt),
                                                                   yes_no(info.ignore),
-                                                                  strna(format_timestamp(timestamp1, sizeof(timestamp1), info.start_timestamp)),
-                                                                  strna(format_timestamp(timestamp2, sizeof(timestamp2), info.exit_timestamp)),
+                                                                  strna(format_timestamp_style(timestamp1, sizeof(timestamp1), info.start_timestamp, arg_timestamp_style)),
+                                                                  strna(format_timestamp_style(timestamp2, sizeof(timestamp2), info.exit_timestamp, arg_timestamp_style)),
                                                                   info.pid,
                                                                   sigchld_code_to_string(info.code),
                                                                   info.status,
@@ -5754,7 +5755,7 @@ static int show_system_status(sd_bus *bus) {
         printf("   Failed: %" PRIu32 " units\n", mi.n_failed_units);
 
         printf("    Since: %s; %s\n",
-               format_timestamp(since2, sizeof(since2), mi.timestamp),
+               format_timestamp_style(since2, sizeof(since2), mi.timestamp, arg_timestamp_style),
                format_timestamp_relative(since1, sizeof(since1), mi.timestamp));
 
         printf("   CGroup: %s\n", mi.control_group ?: "/");
@@ -7804,6 +7805,11 @@ static int systemctl_help(void) {
                "     --boot-loader-entry=NAME\n"
                "                         Boot into a specific boot loader entry on next boot\n"
                "     --plain             Print unit dependencies as a list instead of a tree\n"
+               "     --timestamp=FORMAT  Change format of printed timestamps.\n"
+               "                         'pretty' (default): 'Day YYYY-MM-DD HH:MM:SS TZ\n"
+               "                         'us': 'Day YYYY-MM-DD HH:MM:SS.UUUUUU TZ\n"
+               "                         'utc': 'Day YYYY-MM-DD HH:MM:SS UTC\n"
+               "                         'us+utc': 'Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -8052,6 +8058,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WHAT,
                 ARG_REBOOT_ARG,
+                ARG_TIMESTAMP_STYLE,
         };
 
         static const struct option options[] = {
@@ -8106,6 +8113,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "show-transaction",    no_argument,       NULL, 'T'                     },
                 { "what",                required_argument, NULL, ARG_WHAT                },
                 { "reboot-argument",     required_argument, NULL, ARG_REBOOT_ARG          },
+                { "timestamp",           required_argument, NULL, ARG_TIMESTAMP_STYLE     },
                 {}
         };
 
@@ -8503,6 +8511,19 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_REBOOT_ARG:
                         arg_reboot_argument = optarg;
+                        break;
+
+                case ARG_TIMESTAMP_STYLE:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(timestamp_style, TimestampStyle, _TIMESTAMP_STYLE_MAX);
+                                return 0;
+                        }
+
+                        arg_timestamp_style = timestamp_style_from_string(optarg);
+                        if (arg_timestamp_style < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid value: %s.", optarg);
+
                         break;
 
                 case '.':
@@ -9130,7 +9151,7 @@ static int logind_schedule_shutdown(void) {
                 return log_warning_errno(r, "Failed to call ScheduleShutdown in logind, proceeding with immediate shutdown: %s", bus_error_message(&error, r));
 
         if (!arg_quiet)
-                log_info("%s scheduled for %s, use 'shutdown -c' to cancel.", log_action, format_timestamp(date, sizeof(date), arg_when));
+                log_info("%s scheduled for %s, use 'shutdown -c' to cancel.", log_action, format_timestamp_style(date, sizeof(date), arg_when, arg_timestamp_style));
         return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),

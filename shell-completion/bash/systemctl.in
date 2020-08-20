@@ -127,7 +127,7 @@ _systemctl () {
                              --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
                              --show-types -i --ignore-inhibitors --plain --failed --value --fail --dry-run --wait'
         [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root
-                             --preset-mode -n --lines -o --output -M --machine --message'
+                             --preset-mode -n --lines -o --output -M --machine --message --timestamp'
     )
 
     if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -175,6 +175,9 @@ _systemctl () {
                 ;;
             --machine|-M)
                 comps=$( __get_machines )
+                ;;
+            --timestamp)
+                comps='pretty us µs utc us+utc µs+utc'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

@@ -29,6 +29,15 @@ typedef struct triple_timestamp {
         usec_t boottime;
 } triple_timestamp;
 
+typedef enum TimestampStyle {
+        TIMESTAMP_PRETTY,
+        TIMESTAMP_US,
+        TIMESTAMP_UTC,
+        TIMESTAMP_US_UTC,
+        _TIMESTAMP_STYLE_MAX,
+        _TIMESTAMP_STYLE_INVALID = -1,
+} TimestampStyle;
+
 #define USEC_INFINITY ((usec_t) UINT64_MAX)
 #define NSEC_INFINITY ((nsec_t) UINT64_MAX)
 
@@ -107,12 +116,13 @@ struct timespec *timespec_store(struct timespec *ts, usec_t u);
 usec_t timeval_load(const struct timeval *tv) _pure_;
 struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
-char *format_timestamp(char *buf, size_t l, usec_t t);
-char *format_timestamp_utc(char *buf, size_t l, usec_t t);
-char *format_timestamp_us(char *buf, size_t l, usec_t t);
-char *format_timestamp_us_utc(char *buf, size_t l, usec_t t);
+char *format_timestamp_style(char *buf, size_t l, usec_t t, TimestampStyle style);
 char *format_timestamp_relative(char *buf, size_t l, usec_t t);
 char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy);
+
+static inline char *format_timestamp(char *buf, size_t l, usec_t t) {
+        return format_timestamp_style(buf, l, t, TIMESTAMP_PRETTY);
+}
 
 int parse_timestamp(const char *t, usec_t *usec);
 
@@ -185,3 +195,6 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
 #endif
 
 int time_change_fd(void);
+
+const char* timestamp_style_to_string(TimestampStyle t) _const_;
+TimestampStyle timestamp_style_from_string(const char *s) _pure_;

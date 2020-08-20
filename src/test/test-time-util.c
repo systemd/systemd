@@ -333,17 +333,17 @@ static void test_format_timestamp(void) {
                 assert_se(parse_timestamp(buf, &y) >= 0);
                 assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
 
-                assert_se(format_timestamp_utc(buf, sizeof(buf), x));
+                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_UTC));
                 log_info("%s", buf);
                 assert_se(parse_timestamp(buf, &y) >= 0);
                 assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
 
-                assert_se(format_timestamp_us(buf, sizeof(buf), x));
+                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_US));
                 log_info("%s", buf);
                 assert_se(parse_timestamp(buf, &y) >= 0);
                 assert_se(x == y);
 
-                assert_se(format_timestamp_us_utc(buf, sizeof(buf), x));
+                assert_se(format_timestamp_style(buf, sizeof(buf), x, TIMESTAMP_US_UTC));
                 log_info("%s", buf);
                 assert_se(parse_timestamp(buf, &y) >= 0);
                 assert_se(x == y);
@@ -364,7 +364,7 @@ static void test_format_timestamp_utc_one(usec_t val, const char *result) {
         char buf[FORMAT_TIMESTAMP_MAX];
         const char *t;
 
-        t = format_timestamp_utc(buf, sizeof(buf), val);
+        t = format_timestamp_style(buf, sizeof(buf), val, TIMESTAMP_UTC);
         assert_se(streq_ptr(t, result));
 }
 
