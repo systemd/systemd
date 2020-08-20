@@ -1415,42 +1415,43 @@ else
 endif
 conf.set10('ENABLE_REMOTE', have)
 
-foreach term : ['utmp',
-                'hibernate',
-                'environment-d',
+foreach term : ['analyze',
+                'backlight',
                 'binfmt',
                 'coredump',
-                'pstore',
-                'resolve',
-                'logind',
+                'efi',
+                'environment-d',
+                'firstboot',
+                'gshadow',
+                'hibernate',
                 'hostnamed',
+                'hwdb',
+                'idn',
+                'ima',
+                'initrd',
+                'ldconfig',
                 'localed',
+                'logind',
                 'machined',
-                'portabled',
-                'userdb',
                 'networkd',
+                'nss-myhostname',
+                'nss-systemd',
+                'portabled',
+                'pstore',
+                'quotacheck',
+                'randomseed',
+                'resolve',
+                'rfkill',
+                'smack',
+                'sysusers',
                 'timedated',
                 'timesyncd',
-                'firstboot',
-                'randomseed',
-                'backlight',
-                'vconsole',
-                'quotacheck',
-                'sysusers',
                 'tmpfiles',
-                'hwdb',
-                'rfkill',
-                'xdg-autostart',
-                'ldconfig',
-                'efi',
                 'tpm',
-                'ima',
-                'smack',
-                'gshadow',
-                'idn',
-                'initrd',
-                'nss-myhostname',
-                'nss-systemd']
+                'userdb',
+                'utmp',
+                'vconsole',
+                'xdg-autostart']
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
         conf.set10(name, have)
@@ -1767,7 +1768,7 @@ public_programs += executable(
                         libmount,
                         libblkid],
         install_rpath : rootlibexecdir,
-        install : get_option('analyze'))
+        install : conf.get('ENABLE_ANALYZE'))
 
 executable(
         'systemd-journald',
@@ -3683,7 +3684,7 @@ foreach tuple : [
         ['link-networkd-shared',  get_option('link-networkd-shared')],
         ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
         ['kernel-install',        get_option('kernel-install')],
-        ['systemd-analyze',       get_option('analyze')],
+        ['systemd-analyze',  conf.get('ENABLE_ANALYZE') == 1],
 ]
 
         if tuple.length() >= 2
