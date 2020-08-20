@@ -3950,6 +3950,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u NRefused = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly u FlushPending = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s FileDescriptorName = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i SocketProtocol = ...;
@@ -5031,6 +5033,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="NRefused"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="FlushPending"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="FileDescriptorName"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SocketProtocol"/>
@@ -5508,6 +5512,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       meaning as they have for the corresponding field of service units (see above). In addition to that,
       the value <literal>service-failed-permanent</literal> indicates that the service of this socket failed
       continuously.</para>
+
+      <para><varname>FlushPending</varname> specifies whether to flush the socket
+      just before entering the listening state. This setting only applies to sockets with
+      <varname>Accept=</varname> set to <literal>no</literal>.</para>
     </refsect2>
   </refsect1>
 
