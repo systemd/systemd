@@ -482,7 +482,7 @@ static inline ssize_t missing_statx(int dfd, const char *filename, unsigned flag
 #  endif
 }
 
-#  define statx missing_statx
+#  define statx(dfd, filename, flags, mask, buffer) missing_statx(dfd, filename, flags, mask, buffer)
 #endif
 
 #if !HAVE_SET_MEMPOLICY
