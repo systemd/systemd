@@ -60,7 +60,7 @@ function check_norbind {
 
 function check_notification_socket {
     # https://github.com/systemd/systemd/issues/4944
-    local _cmd='echo a | $(busybox which nc) -U -u -w 1 /run/systemd/nspawn/notify'
+    local _cmd='echo a | $(busybox which nc) -U -u -w 1 /run/host/notify'
     # /testsuite-13.nc-container is prepared by test.sh
     systemd-nspawn $SUSE_OPTS--register=no -D /testsuite-13.nc-container /bin/sh -x -c "$_cmd"
     systemd-nspawn $SUSE_OPTS--register=no -D /testsuite-13.nc-container -U /bin/sh -x -c "$_cmd"

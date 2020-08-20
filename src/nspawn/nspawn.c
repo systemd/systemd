@@ -101,10 +101,8 @@
 #include "user-util.h"
 #include "util.h"
 
-/* nspawn is listening on the socket at the path in the constant nspawn_notify_socket_path
- * nspawn_notify_socket_path is relative to the container
- * the init process in the container pid can send messages to nspawn following the sd_notify(3) protocol */
-#define NSPAWN_NOTIFY_SOCKET_PATH "/run/systemd/nspawn/notify"
+/* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
+#define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"
 
 #define EXIT_FORCE_RESTART 133
 
@@ -2517,19 +2515,15 @@ static int setup_propagate(const char *root) {
         p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
         (void) mkdir_p(p, 0600);
 
-        r = userns_mkdir(root, "/run/systemd", 0755, 0, 0);
+        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/systemd: %m");
+                return log_error_errno(r, "Failed to create /run/host: %m");
 
-        r = userns_mkdir(root, "/run/systemd/nspawn", 0755, 0, 0);
+        r = userns_mkdir(root, "/run/host/incoming", 0600, 0, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/systemd/nspawn: %m");
+                return log_error_errno(r, "Failed to create /run/host/incoming: %m");
 
-        r = userns_mkdir(root, "/run/systemd/nspawn/incoming", 0600, 0, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create /run/systemd/nspawn/incoming: %m");
-
-        q = prefix_roota(root, "/run/systemd/nspawn/incoming");
+        q = prefix_roota(root, "/run/host/incoming");
         r = mount_verbose(LOG_ERR, p, q, NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
@@ -2538,8 +2532,7 @@ static int setup_propagate(const char *root) {
         if (r < 0)
                 return r;
 
-        /* machined will MS_MOVE into that directory, and that's only
-         * supported for non-shared mounts. */
+        /* machined will MS_MOVE into that directory, and that's only supported for non-shared mounts. */
         return mount_verbose(LOG_ERR, NULL, q, NULL, MS_SLAVE, NULL);
 }
 
@@ -3278,7 +3271,7 @@ static int inner_child(
         return log_error_errno(errno, "execv(%s) failed: %m", exec_target);
 }
 
-static int setup_sd_notify_child(void) {
+static int setup_notify_child(void) {
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
@@ -3530,7 +3523,7 @@ static int outer_child(
 
         (void) dev_setup(directory, arg_uid_shift, arg_uid_shift);
 
-        p = prefix_roota(directory, "/run");
+        p = prefix_roota(directory, "/run/host");
         (void) make_inaccessible_nodes(p, arg_uid_shift, arg_uid_shift);
 
         r = setup_pts(directory);
@@ -3571,6 +3564,14 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        /* The same stuff as the $container env var, but nicely readable for the entire payload */
+        p = prefix_roota(directory, "/run/host/container-manager");
+        (void) write_string_file(p, arg_container_service_name, WRITE_STRING_FILE_CREATE);
+
+        /* The same stuff as the $container_uuid env var */
+        p = prefix_roota(directory, "/run/host/container-uuid");
+        (void) write_string_filef(p, WRITE_STRING_FILE_CREATE, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
+
         if (!arg_use_cgns) {
                 r = mount_cgroups(
                                 directory,
@@ -3588,7 +3589,7 @@ static int outer_child(
         if (r < 0)
                 return log_error_errno(r, "Failed to move root directory: %m");
 
-        fd = setup_sd_notify_child();
+        fd = setup_notify_child();
         if (fd < 0)
                 return fd;
 
@@ -3801,7 +3802,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         return 0;
 }
 
-static int setup_sd_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid, sd_event_source **notify_event_source) {
+static int setup_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid, sd_event_source **notify_event_source) {
         int r;
 
         r = sd_event_add_io(event, notify_event_source, fd, EPOLLIN, nspawn_dispatch_notify_fd, inner_child_pid);
@@ -4632,7 +4633,7 @@ static int run_container(
                         return log_error_errno(r, "Failed to attach bus to event loop: %m");
         }
 
-        r = setup_sd_notify_parent(event, notify_socket, PID_TO_PTR(*pid), &notify_event_source);
+        r = setup_notify_parent(event, notify_socket, PID_TO_PTR(*pid), &notify_event_source);
         if (r < 0)
                 return r;
 

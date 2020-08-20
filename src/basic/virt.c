@@ -491,6 +491,16 @@ int detect_container(void) {
                 }
         }
 
+        /* The container manager might have placed this in the /run/host hierarchy for us, which is best
+         * because we can be consumed just like that, without special privileges. */
+        r = read_one_line_file("/run/host/container-manager", &m);
+        if (r > 0) {
+                e = m;
+                goto translate_name;
+        }
+        if (!IN_SET(r, -ENOENT, 0))
+                return log_debug_errno(r, "Failed to read /run/systemd/container: %m");
+
         if (getpid_cached() == 1) {
                 /* If we are PID 1 we can just check our own environment variable, and that's authoritative.
                  * We distinguish three cases:

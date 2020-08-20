@@ -172,6 +172,13 @@ manager, please consider supporting the following interfaces.
    unit they created for their container. That's private property of systemd,
    and no other code should modify it.
 
+6. systemd running inside the container can report when boot-up is complete
+   using the usual `sd_notify()` protocol that is also used when a service
+   wants to tell the service manager about readiness. A container manager can
+   set the `$NOTIFY_SOCKET` environment variable to a suitable socket path to
+   make use of this functionality. (Also see information about
+   `/run/host/notify` below.)
+
 ## Networking
 
 1. Inside of a container, if a `veth` link is named `host0`, `systemd-networkd`
@@ -188,6 +195,62 @@ manager, please consider supporting the following interfaces.
 3. It is recommended to configure stable MAC addresses for container `veth`
    devices, for example hashed out of the container names. That way it is more
    likely that DHCP and IPv4LL will acquire stable addresses.
+
+## The `/run/host/` Hierarchy
+
+Container managers may place certain resources the manager wants to provide to
+the container payload below the `/run/host/` hierarchy. This hierarchy should
+be mostly immutable (possibly some subdirs might be writable, but the top-level
+hierarchy — and probably most subdirs should be read-only to the
+container). Note that this hierarchy is used by various container managers, and
+care should be taken to avoid naming conflicts. `systemd` (and in particular
+`systemd-nspawn`) use the hierarchy for the following resources:
+
+1. The `/run/host/incoming/` directory mount point is configured for `MS_SLAVE`
+   mount propagation with the host, and is used as intermediary location for
+   mounts to establish in the container, for the implementation of `machinectl
+   bind`. Container payload should usually not directly interact with this
+   directory: it's used by code outside the container to insert mounts inside
+   it only, and is mostly an internal vehicle to achieve this. Other container
+   managers that want to implement similar functionality might consider using
+   the same directory.
+
+2. The `/run/host/inaccessible/` directory may be set up by the container
+   manager to include six file nodes: `reg`, `dir`, `fifo`, `sock`, `chr`,
+   `blk`. These nodes correspond with the six types of file nodes Linux knows
+   (with the exceptions of symlinks). Each node should be of the specific type
+   and have an all zero access mode, i.e. be inaccessible. The two device node
+   types should have major and minor of zero (which are unallocated devices on
+   Linux). These nodes are used as mount source for implementing the
+   `InaccessiblePath=` setting of unit files, i.e. file nodes to mask this way
+   are overmounted with these "inaccessible" inodes, guaranteeing that the file
+   node type does not change this way but the nodes still become
+   inaccessible. Note that systemd when run as PID 1 in the container payload
+   will create these nodes on its own if not passed in by the container
+   manager. However, in that case it likely lacks the privileges to create the
+   character and block devices nodes (there all fallbacks for this case).
+
+3. The `/run/host/notify` path is a good choice to place the `sd_notify()`
+   socket in, that may be used for the container's PID 1 to report to the
+   container manager when boot-up is complete. The path used for this doesn't
+   matter much as it is communicated via the `$NOTIFY_SOCKET` environment
+   variable, following the usual protocol for this, however it's suitable, and
+   recommended place for this socket in case ready notification is desired.
+
+4. The `/run/host/os-release` file contains the `/etc/os-release` file of the
+   host, i.e. may be used by the container payload to gather limited
+   information about the host environment, on top of what `uname -a` reports.
+
+5. The `/run/host/container-manager` file may be used to pass the same
+   information as the `$container` environment variable (see above), i.e. a
+   short string identifying the container manager implementation. This file
+   should be newline terminated. Passing this information via this file has the
+   benefit that payload code can easily access it, even when running
+   unprivileged without access to the container PID1's environment block.
+
+6. The `/run/host/container-uuid` file may be used to pass the same information
+   as the `$container_uuid` environment variable (see above). This file should
+   be newline terminated.
 
 ## What You Shouldn't Do
 

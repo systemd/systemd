@@ -978,9 +978,8 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 goto finish;
         }
         if (r == 0) {
-                const char *mount_inside;
+                const char *mount_inside, *q;
                 int mntfd;
-                const char *q;
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
@@ -1001,12 +1000,11 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                                 (void) mkdir_p(dest, 0755);
                         else {
                                 (void) mkdir_parents(dest, 0755);
-                                safe_close(open(dest, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC|O_NOCTTY, 0600));
+                                (void) mknod(dest, S_IFREG|0600, 0);
                         }
                 }
 
-                /* Fifth, move the mount to the right place inside */
-                mount_inside = strjoina("/run/systemd/nspawn/incoming/", basename(mount_outside));
+                mount_inside = strjoina("/run/host/incoming/", basename(mount_outside));
                 if (mount(mount_inside, dest, NULL, MS_MOVE, NULL) < 0) {
                         r = log_error_errno(errno, "Failed to mount: %m");
                         goto child_fail;
