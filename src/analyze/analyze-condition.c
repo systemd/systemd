@@ -8,83 +8,27 @@
 #include "load-fragment.h"
 #include "service.h"
 
-typedef struct condition_definition {
-        const char *name;
-        ConfigParserCallback parser;
-        ConditionType type;
-} condition_definition;
-
-static const condition_definition condition_definitions[] = {
-        { "ConditionPathExists",             config_parse_unit_condition_path,   CONDITION_PATH_EXISTS              },
-        { "ConditionPathExistsGlob",         config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB         },
-        { "ConditionPathIsDirectory",        config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY        },
-        { "ConditionPathIsSymbolicLink",     config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK    },
-        { "ConditionPathIsMountPoint",       config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT      },
-        { "ConditionPathIsReadWrite",        config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE       },
-        { "ConditionPathIsEncrypted",        config_parse_unit_condition_path,   CONDITION_PATH_IS_ENCRYPTED        },
-        { "ConditionDirectoryNotEmpty",      config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY      },
-        { "ConditionFileNotEmpty",           config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY           },
-        { "ConditionFileIsExecutable",       config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE       },
-        { "ConditionNeedsUpdate",            config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE             },
-        { "ConditionFirstBoot",              config_parse_unit_condition_string, CONDITION_FIRST_BOOT               },
-        { "ConditionKernelCommandLine",      config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE      },
-        { "ConditionKernelVersion",          config_parse_unit_condition_string, CONDITION_KERNEL_VERSION           },
-        { "ConditionArchitecture",           config_parse_unit_condition_string, CONDITION_ARCHITECTURE             },
-        { "ConditionVirtualization",         config_parse_unit_condition_string, CONDITION_VIRTUALIZATION           },
-        { "ConditionSecurity",               config_parse_unit_condition_string, CONDITION_SECURITY                 },
-        { "ConditionCapability",             config_parse_unit_condition_string, CONDITION_CAPABILITY               },
-        { "ConditionHost",                   config_parse_unit_condition_string, CONDITION_HOST                     },
-        { "ConditionACPower",                config_parse_unit_condition_string, CONDITION_AC_POWER                 },
-        { "ConditionUser",                   config_parse_unit_condition_string, CONDITION_USER                     },
-        { "ConditionGroup",                  config_parse_unit_condition_string, CONDITION_GROUP                    },
-        { "ConditionControlGroupController", config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER },
-
-        { "AssertPathExists",                config_parse_unit_condition_path,   CONDITION_PATH_EXISTS              },
-        { "AssertPathExistsGlob",            config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB         },
-        { "AssertPathIsDirectory",           config_parse_unit_condition_path,   CONDITION_PATH_IS_DIRECTORY        },
-        { "AssertPathIsSymbolicLink",        config_parse_unit_condition_path,   CONDITION_PATH_IS_SYMBOLIC_LINK    },
-        { "AssertPathIsMountPoint",          config_parse_unit_condition_path,   CONDITION_PATH_IS_MOUNT_POINT      },
-        { "AssertPathIsReadWrite",           config_parse_unit_condition_path,   CONDITION_PATH_IS_READ_WRITE       },
-        { "AssertPathIsEncrypted",           config_parse_unit_condition_path,   CONDITION_PATH_IS_ENCRYPTED        },
-        { "AssertDirectoryNotEmpty",         config_parse_unit_condition_path,   CONDITION_DIRECTORY_NOT_EMPTY      },
-        { "AssertFileNotEmpty",              config_parse_unit_condition_path,   CONDITION_FILE_NOT_EMPTY           },
-        { "AssertFileIsExecutable",          config_parse_unit_condition_path,   CONDITION_FILE_IS_EXECUTABLE       },
-        { "AssertNeedsUpdate",               config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE             },
-        { "AssertFirstBoot",                 config_parse_unit_condition_string, CONDITION_FIRST_BOOT               },
-        { "AssertKernelCommandLine",         config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE      },
-        { "AssertKernelVersion",             config_parse_unit_condition_string, CONDITION_KERNEL_VERSION           },
-        { "AssertArchitecture",              config_parse_unit_condition_string, CONDITION_ARCHITECTURE             },
-        { "AssertVirtualization",            config_parse_unit_condition_string, CONDITION_VIRTUALIZATION           },
-        { "AssertSecurity",                  config_parse_unit_condition_string, CONDITION_SECURITY                 },
-        { "AssertCapability",                config_parse_unit_condition_string, CONDITION_CAPABILITY               },
-        { "AssertHost",                      config_parse_unit_condition_string, CONDITION_HOST                     },
-        { "AssertACPower",                   config_parse_unit_condition_string, CONDITION_AC_POWER                 },
-        { "AssertUser",                      config_parse_unit_condition_string, CONDITION_USER                     },
-        { "AssertGroup",                     config_parse_unit_condition_string, CONDITION_GROUP                    },
-        { "AssertControlGroupController",    config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER },
-
-        /* deprecated, but we should still parse them */
-        { "ConditionNull",                   config_parse_unit_condition_null,   0                                  },
-        { "AssertNull",                      config_parse_unit_condition_null,   0                                  },
-};
-
 static int parse_condition(Unit *u, const char *line) {
-        const char *p;
-        Condition **target;
+        assert(u);
+        assert(line);
 
-        if ((p = startswith(line, "Condition")))
-                target = &u->conditions;
-        else if ((p = startswith(line, "Assert")))
-                target = &u->asserts;
-        else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot parse \"%s\".", line);
+        for (ConditionType t = 0; t < _CONDITION_TYPE_MAX; t++) {
+                ConfigParserCallback callback;
+                Condition **target;
+                const char *p, *name;
 
-        for (size_t i = 0; i < ELEMENTSOF(condition_definitions); i++) {
-                const condition_definition *c = &condition_definitions[i];
+                name = condition_type_to_string(t);
+                p = startswith(line, name);
+                if (p)
+                        target = &u->conditions;
+                else {
+                        name = assert_type_to_string(t);
+                        p = startswith(line, name);
+                        if (!p)
+                                continue;
 
-                p = startswith(line, c->name);
-                if (!p)
-                        continue;
+                        target = &u->asserts;
+                }
 
                 p += strspn(p, WHITESPACE);
 
@@ -94,7 +38,14 @@ static int parse_condition(Unit *u, const char *line) {
 
                 p += strspn(p, WHITESPACE);
 
-                return c->parser(NULL, "(stdin)", 0, NULL, 0, c->name, c->type, p, target, u);
+                if (t == CONDITION_NULL) /* deprecated, but we should still parse this for now */
+                        callback = config_parse_unit_condition_null;
+                else if (condition_takes_path(t))
+                        callback = config_parse_unit_condition_path;
+                else
+                        callback = config_parse_unit_condition_string;
+
+                return callback(NULL, "(cmdline)", 0, NULL, 0, name, t, p, target, u);
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot parse \"%s\".", line);
