@@ -58,7 +58,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_unit_env_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_tos);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_condition_path);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_condition_string);
-CONFIG_PARSER_PROTOTYPE(config_parse_unit_condition_null);
 CONFIG_PARSER_PROTOTYPE(config_parse_kill_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_notify_access);
 CONFIG_PARSER_PROTOTYPE(config_parse_emergency_action);

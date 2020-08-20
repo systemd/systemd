@@ -438,20 +438,6 @@ static void test_condition_test_kernel_version(void) {
         condition_free(condition);
 }
 
-static void test_condition_test_null(void) {
-        Condition *condition;
-
-        condition = condition_new(CONDITION_NULL, NULL, false, false);
-        assert_se(condition);
-        assert_se(condition_test(condition, environ) > 0);
-        condition_free(condition);
-
-        condition = condition_new(CONDITION_NULL, NULL, false, true);
-        assert_se(condition);
-        assert_se(condition_test(condition, environ) == 0);
-        condition_free(condition);
-}
-
 static void test_condition_test_security(void) {
         Condition *condition;
 
@@ -868,7 +854,6 @@ int main(int argc, char *argv[]) {
         test_condition_test_architecture();
         test_condition_test_kernel_command_line();
         test_condition_test_kernel_version();
-        test_condition_test_null();
         test_condition_test_security();
         print_securities();
         test_condition_test_virtualization();
