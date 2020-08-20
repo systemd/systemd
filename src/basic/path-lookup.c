@@ -27,7 +27,7 @@ int xdg_user_runtime_dir(char **ret, const char *suffix) {
         if (!e)
                 return -ENXIO;
 
-        j = strjoin(e, suffix);
+        j = path_join(e, suffix);
         if (!j)
                 return -ENOMEM;
 
@@ -44,7 +44,7 @@ int xdg_user_config_dir(char **ret, const char *suffix) {
 
         e = getenv("XDG_CONFIG_HOME");
         if (e)
-                j = strjoin(e, suffix);
+                j = path_join(e, suffix);
         else {
                 _cleanup_free_ char *home = NULL;
 
@@ -52,7 +52,7 @@ int xdg_user_config_dir(char **ret, const char *suffix) {
                 if (r < 0)
                         return r;
 
-                j = strjoin(home, "/.config", suffix);
+                j = path_join(home, "/.config", suffix);
         }
 
         if (!j)
@@ -76,7 +76,7 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
 
         e = getenv("XDG_DATA_HOME");
         if (e)
-                j = strjoin(e, suffix);
+                j = path_join(e, suffix);
         else {
                 _cleanup_free_ char *home = NULL;
 
@@ -84,7 +84,7 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
                 if (r < 0)
                         return r;
 
-                j = strjoin(home, "/.local/share", suffix);
+                j = path_join(home, "/.local/share", suffix);
         }
         if (!j)
                 return -ENOMEM;
