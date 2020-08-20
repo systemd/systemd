@@ -359,6 +359,7 @@ Socket.SocketGroup,              config_parse_user_group,            0,         
 Socket.SocketMode,               config_parse_mode,                  0,                             offsetof(Socket, socket_mode)
 Socket.DirectoryMode,            config_parse_mode,                  0,                             offsetof(Socket, directory_mode)
 Socket.Accept,                   config_parse_bool,                  0,                             offsetof(Socket, accept)
+Socket.FlushPending,             config_parse_bool,                  0,                             offsetof(Socket, flush_pending)
 Socket.Writable,                 config_parse_bool,                  0,                             offsetof(Socket, writable)
 Socket.MaxConnections,           config_parse_unsigned,              0,                             offsetof(Socket, max_connections)
 Socket.MaxConnectionsPerSource,  config_parse_unsigned,              0,                             offsetof(Socket, max_connections_per_source)

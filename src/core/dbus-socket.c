@@ -85,6 +85,7 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("SocketMode", "u", bus_property_get_mode, offsetof(Socket, socket_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DirectoryMode", "u", bus_property_get_mode, offsetof(Socket, directory_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Accept", "b", bus_property_get_bool, offsetof(Socket, accept), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("FlushPending", "b", bus_property_get_bool, offsetof(Socket, flush_pending), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Writable", "b", bus_property_get_bool, offsetof(Socket, writable), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeepAlive", "b", bus_property_get_bool, offsetof(Socket, keep_alive), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeepAliveTimeUSec", "t", bus_property_get_usec, offsetof(Socket, keep_alive_time), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -176,6 +177,9 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "Accept"))
                 return bus_set_transient_bool(u, name, &s->accept, message, flags, error);
+
+        if (streq(name, "FlushPending"))
+                return bus_set_transient_bool(u, name, &s->flush_pending, message, flags, error);
 
         if (streq(name, "Writable"))
                 return bus_set_transient_bool(u, name, &s->writable, message, flags, error);

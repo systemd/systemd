@@ -70,6 +70,7 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
 
 static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
+static void flush_ports(Socket *s);
 
 static void socket_init(Unit *u) {
         Socket *s = SOCKET(u);
@@ -703,6 +704,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, s->n_connections,
                         prefix, s->max_connections,
                         prefix, s->max_connections_per_source);
+        else
+                fprintf(f,
+                        "%sFlushPending: %s\n",
+                         prefix, yes_no(s->flush_pending));
+
 
         if (s->priority >= 0)
                 fprintf(f,
@@ -2110,6 +2116,11 @@ fail:
 static void socket_enter_listening(Socket *s) {
         int r;
         assert(s);
+
+        if (!s->accept && s->flush_pending) {
+                log_unit_debug(UNIT(s), "Flushing socket before listening.");
+                flush_ports(s);
+        }
 
         r = socket_watch_fds(s);
         if (r < 0) {

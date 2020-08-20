@@ -426,6 +426,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>FlushPending=</varname></term>
+        <listitem><para>Takes a boolean argument. May only be used when
+        <option>Accept=no</option>. If yes, the socket's buffers are cleared after the
+        triggered service exited. This causes any pending data to be
+        flushed and any pending incoming connections to be rejected. If no, the
+        socket's buffers won't be cleared, permitting the service to handle any
+        pending connections after restart, which is the usually expected behaviour.
+        Defaults to <option>no</option>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MaxConnections=</varname></term>
         <listitem><para>The maximum number of connections to
         simultaneously run services instances for, when

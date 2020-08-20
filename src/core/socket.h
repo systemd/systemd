@@ -109,6 +109,7 @@ struct Socket {
         bool accept;
         bool remove_on_stop;
         bool writable;
+        bool flush_pending;
 
         int socket_protocol;
 
