@@ -415,6 +415,7 @@ Most socket unit settings are available to transient units.
 ✓ SocketMode=
 ✓ DirectoryMode=
 ✓ Accept=
+✓ FlushPending=
 ✓ Writable=
 ✓ MaxConnections=
 ✓ MaxConnectionsPerSource=
