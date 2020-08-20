@@ -3,4 +3,4 @@
 
 #include <sys/types.h>
 
-int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_ist, char **syscall_deny_list);
+int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **syscall_deny_list);

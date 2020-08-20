@@ -187,7 +187,7 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret) {
 }
 
 int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_action) {
-        scmp_filter_ctx seccomp;
+        _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
         int r;
 
         /* Much like seccomp_init(), but initializes the filter for one specific architecture only, without affecting
@@ -202,11 +202,11 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
 
                 r = seccomp_arch_remove(seccomp, seccomp_arch_native());
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 r = seccomp_arch_add(seccomp, arch);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 assert(seccomp_arch_exist(seccomp, arch) >= 0);
                 assert(seccomp_arch_exist(seccomp, SCMP_ARCH_NATIVE) == -EEXIST);
@@ -218,18 +218,14 @@ int seccomp_init_for_arch(scmp_filter_ctx *ret, uint32_t arch, uint32_t default_
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_ACT_BADARCH, SCMP_ACT_ALLOW);
         if (r < 0)
-                goto finish;
+                return r;
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0)
-                goto finish;
+                return r;
 
-        *ret = seccomp;
+        *ret = TAKE_PTR(seccomp);
         return 0;
-
-finish:
-        seccomp_release(seccomp);
-        return r;
 }
 
 static bool is_basic_seccomp_available(void) {
@@ -387,7 +383,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "pidfd_getfd\0"
                 "ptrace\0"
                 "rtas\0"
-#ifdef __NR_s390_runtime_instr
+#if defined __s390__ || defined __s390x__
                 "s390_runtime_instr\0"
 #endif
                 "sys_debug_setcontext\0"
@@ -464,9 +460,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "stat64\0"
                 "statfs\0"
                 "statfs64\0"
-#ifdef __NR_statx
                 "statx\0"
-#endif
                 "symlink\0"
                 "symlinkat\0"
                 "truncate\0"
@@ -712,10 +706,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "pciconfig_iobase\0"
                 "pciconfig_read\0"
                 "pciconfig_write\0"
-#ifdef __NR_s390_pci_mmio_read
+#if defined __s390__ || defined __s390x__
                 "s390_pci_mmio_read\0"
-#endif
-#ifdef __NR_s390_pci_mmio_write
                 "s390_pci_mmio_write\0"
 #endif
         },
