@@ -149,11 +149,53 @@
         <term><varname>RootImageOptions=</varname></term>
 
         <listitem><para>Takes a comma-separated list of mount options that will be used on disk images specified by
-        <varname>RootImage=</varname>. Optionally a partition number can be prefixed, followed by colon, in
-        case the image has multiple partitions, otherwise partition number 0 is implied.
+        <varname>RootImage=</varname>. Optionally a partition name can be prefixed, followed by colon, in
+        case the image has multiple partitions, otherwise partition name <literal>root</literal> is implied.
         Options for multiple partitions can be specified in a single line with space separators. Assigning an empty
-        string removes previous assignments. For a list of valid mount options, please refer to
-        <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+        string removes previous assignments. Duplicated options are ignored. For a list of valid mount options, please
+        refer to <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>Valid partition names follow the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable
+        Partitions Specification</ulink>.</para>
+
+        <table>
+          <title>Accepted partition names</title>
+
+          <tgroup cols='1'>
+            <colspec colname='partition' />
+            <thead>
+              <row>
+                <entry>Partition Name</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>root</entry>
+              </row>
+              <row>
+                <entry>root-secondary</entry>
+              </row>
+              <row>
+                <entry>home</entry>
+              </row>
+              <row>
+                <entry>srv</entry>
+              </row>
+              <row>
+                <entry>esp</entry>
+              </row>
+              <row>
+                <entry>xbootldr</entry>
+              </row>
+              <row>
+                <entry>tmp</entry>
+              </row>
+              <row>
+                <entry>var</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
@@ -268,13 +310,19 @@
         system hierarchy from a block device node or loopback file, but the destination directory can be
         specified as well as mount options. This option expects a whitespace separated list of mount
         definitions. Each definition consists of a colon-separated tuple of source path and destination
-        directory. Each mount definition may be prefixed with <literal>-</literal>, in which case it will be
+        definitions, optionally followed by another colon and a list of mount options.</para>
+
+        <para>Mount options may be defined as a single comma-separated list of options, in which case they
+        will be implicitly applied to the root partition on the image, or a series of colon-separated tuples
+        of partition name and mount options. Valid partition names and mount options are the same as for
+        <varname>RootImageOptions=</varname> setting described above.</para>
+
+        <para>Each mount definition may be prefixed with <literal>-</literal>, in which case it will be
         ignored when its source path does not exist. The source argument is a path to a block device node or
         regular file. If source or destination contain a <literal>:</literal>, it needs to be escaped as
-        <literal>\:</literal>.
-        The device node or file system image file needs to follow the same rules as specified
-        for <varname>RootImage=</varname>. Any mounts created with this option are specific to the unit, and
-        are not visible in the host's mount table.</para>
+        <literal>\:</literal>. The device node or file system image file needs to follow the same rules as
+        specified for <varname>RootImage=</varname>. Any mounts created with this option are specific to the
+        unit, and are not visible in the host's mount table.</para>
 
         <para>These settings may be used more than once, each usage appends to the unit's list of mount
         paths. If the empty string is assigned, the entire list of mount paths defined prior to this is

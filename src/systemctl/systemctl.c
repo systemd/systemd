@@ -5411,24 +5411,56 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
                 } else if (streq(name, "MountImages")) {
                         _cleanup_free_ char *paths = NULL;
-                        const char *source, *dest;
-                        int ignore_enoent;
 
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ssb)");
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ssba(ss))");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(ssb)", &source, &dest, &ignore_enoent)) > 0) {
+                        for (;;) {
                                 _cleanup_free_ char *str = NULL;
+                                const char *source, *destination, *partition, *mount_options;
+                                int ignore_enoent;
 
-                                if (isempty(source))
-                                        continue;
+                                r = sd_bus_message_enter_container(m, 'r', "ssba(ss)");
+                                if (r < 0)
+                                        return r;
 
-                                if (asprintf(&str, "%s%s:%s", ignore_enoent ? "-" : "", source, dest) < 0)
+                                r = sd_bus_message_read(m, "ssb", &source, &destination, &ignore_enoent);
+                                if (r <= 0)
+                                        break;
+
+                                str = strjoin(ignore_enoent ? "-" : "",
+                                              source,
+                                              ":",
+                                              destination);
+                                if (!str)
                                         return log_oom();
+
+                                r = sd_bus_message_enter_container(m, 'a', "(ss)");
+                                if (r < 0)
+                                        return r;
+
+                                while ((r = sd_bus_message_read(m, "(ss)", &partition, &mount_options)) > 0) {
+                                        _cleanup_free_ char *previous = NULL;
+
+                                        previous = TAKE_PTR(str);
+                                        str = strjoin(strempty(previous), previous ? ":" : "", partition, ":", mount_options);
+                                        if (!str)
+                                                return log_oom();
+                                }
+                                if (r < 0)
+                                        return r;
 
                                 if (!strextend_with_separator(&paths, " ", str, NULL))
                                         return log_oom();
+
+                                r = sd_bus_message_exit_container(m);
+                                if (r < 0)
+                                        return r;
+
+                                r = sd_bus_message_exit_container(m);
+                                if (r < 0)
+                                        return r;
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);

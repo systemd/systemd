@@ -9,7 +9,6 @@ typedef struct NamespaceInfo NamespaceInfo;
 typedef struct BindMount BindMount;
 typedef struct TemporaryFileSystem TemporaryFileSystem;
 typedef struct MountImage MountImage;
-typedef struct MountEntry MountEntry;
 
 #include <stdbool.h>
 
@@ -77,6 +76,7 @@ struct TemporaryFileSystem {
 struct MountImage {
         char *source;
         char *destination;
+        LIST_HEAD(MountOptions, mount_options);
         bool ignore_enoent;
 };
 

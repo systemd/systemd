@@ -73,7 +73,7 @@ typedef struct MountEntry {
         char *options_malloc;
         unsigned long flags;      /* Mount flags used by EMPTY_DIR and TMPFS. Do not include MS_RDONLY here, but please use read_only. */
         unsigned n_followed;
-        LIST_FIELDS(MountEntry, mount_entry);
+        LIST_HEAD(MountOptions, image_options);
 } MountEntry;
 
 /* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
@@ -247,6 +247,7 @@ static void mount_entry_done(MountEntry *p) {
         p->path_malloc = mfree(p->path_malloc);
         p->source_malloc = mfree(p->source_malloc);
         p->options_malloc = mfree(p->options_malloc);
+        p->image_options = mount_options_free_all(p->image_options);
 }
 
 static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, bool forcibly_require_prefix) {
@@ -339,6 +340,7 @@ static int append_mount_images(MountEntry **p, const MountImage *mount_images, s
                         .path_const = m->destination,
                         .mode = MOUNT_IMAGES,
                         .source_const = m->source,
+                        .image_options = m->mount_options,
                         .ignore = m->ignore_enoent,
                 };
         }
@@ -925,10 +927,10 @@ static int mount_images(const MountEntry *m) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to create loop device for image: %m");
 
-        r = dissect_image(loop_device->fd, root_hash_decoded, root_hash_size, verity_data, NULL, dissect_image_flags, &dissected_image);
+        r = dissect_image(loop_device->fd, root_hash_decoded, root_hash_size, verity_data, m->image_options, dissect_image_flags, &dissected_image);
         /* No partition table? Might be a single-filesystem image, try again */
         if (!verity_data && r < 0 && r == -ENOPKG)
-                 r = dissect_image(loop_device->fd, root_hash_decoded, root_hash_size, verity_data, NULL, dissect_image_flags|DISSECT_IMAGE_NO_PARTITION_TABLE, &dissected_image);
+                 r = dissect_image(loop_device->fd, root_hash_decoded, root_hash_size, verity_data, m->image_options, dissect_image_flags|DISSECT_IMAGE_NO_PARTITION_TABLE, &dissected_image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to dissect image: %m");
 
@@ -1838,6 +1840,7 @@ MountImage* mount_image_free_many(MountImage *m, size_t *n) {
         for (i = 0; i < *n; i++) {
                 free(m[i].source);
                 free(m[i].destination);
+                mount_options_free_all(m[i].mount_options);
         }
 
         free(m);
@@ -1847,6 +1850,8 @@ MountImage* mount_image_free_many(MountImage *m, size_t *n) {
 
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        MountOptions *i;
         MountImage *c;
 
         assert(m);
@@ -1861,6 +1866,23 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         if (!d)
                 return -ENOMEM;
 
+        LIST_FOREACH(mount_options, i, item->mount_options) {
+                _cleanup_(mount_options_free_allp) MountOptions *o;
+
+                o = new(MountOptions, 1);
+                if (!o)
+                        return -ENOMEM;
+
+                *o = (MountOptions) {
+                        .partition_designator = i->partition_designator,
+                        .options = strdup(i->options),
+                };
+                if (!o->options)
+                        return -ENOMEM;
+
+                LIST_APPEND(mount_options, options, TAKE_PTR(o));
+        }
+
         c = reallocarray(*m, *n + 1, sizeof(MountImage));
         if (!c)
                 return -ENOMEM;
@@ -1870,6 +1892,7 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         c[(*n) ++] = (MountImage) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
+                .mount_options = TAKE_PTR(options),
                 .ignore_enoent = item->ignore_enoent,
         };
 

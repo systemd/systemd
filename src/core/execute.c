@@ -4634,7 +4634,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sRootImageOptions:", prefix);
                 LIST_FOREACH(mount_options, o, c->root_image_options)
                         if (!isempty(o->options))
-                                fprintf(f, " %u:%s", o->partition_number, o->options);
+                                fprintf(f, " %s:%s",
+                                        partition_designator_to_string(o->partition_designator),
+                                        o->options);
                 fprintf(f, "\n");
         }
 
@@ -5035,11 +5037,20 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fprintf(f, "%d\n", c->syscall_errno);
         }
 
-        for (i = 0; i < c->n_mount_images; i++)
-                fprintf(f, "%sMountImages: %s%s:%s\n", prefix,
+        for (i = 0; i < c->n_mount_images; i++) {
+                MountOptions *o;
+
+                fprintf(f, "%sMountImages: %s%s:%s%s", prefix,
                         c->mount_images[i].ignore_enoent ? "-": "",
                         c->mount_images[i].source,
-                        c->mount_images[i].destination);
+                        c->mount_images[i].destination,
+                        LIST_IS_EMPTY(c->mount_images[i].mount_options) ? "": ":");
+                LIST_FOREACH(mount_options, o, c->mount_images[i].mount_options)
+                        fprintf(f, "%s:%s",
+                                partition_designator_to_string(o->partition_designator),
+                                o->options);
+                fprintf(f, "\n");
+        }
 }
 
 bool exec_context_maintains_privileges(const ExecContext *c) {

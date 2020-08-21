@@ -420,7 +420,7 @@ int dissect_image(
                         m->verity = root_hash && verity_data;
                         m->can_verity = !!verity_data;
 
-                        options = mount_options_from_part(mount_options, 0);
+                        options = mount_options_from_part(mount_options, PARTITION_ROOT);
                         if (options) {
                                 o = strdup(options);
                                 if (!o)
@@ -716,7 +716,7 @@ int dissect_image(
                                 if (!n)
                                         return -ENOMEM;
 
-                                options = mount_options_from_part(mount_options, nr);
+                                options = mount_options_from_part(mount_options, designator);
                                 if (options) {
                                         o = strdup(options);
                                         if (!o)
@@ -773,7 +773,7 @@ int dissect_image(
                                 if (!n)
                                         return -ENOMEM;
 
-                                options = mount_options_from_part(mount_options, nr);
+                                options = mount_options_from_part(mount_options, PARTITION_XBOOTLDR);
                                 if (options) {
                                         o = strdup(options);
                                         if (!o)
@@ -827,7 +827,7 @@ int dissect_image(
                         if (multiple_generic)
                                 return -ENOTUNIQ;
 
-                        options = mount_options_from_part(mount_options, generic_nr);
+                        options = mount_options_from_part(mount_options, PARTITION_ROOT);
                         if (options) {
                                 o = strdup(options);
                                 if (!o)
@@ -2023,11 +2023,11 @@ MountOptions* mount_options_free_all(MountOptions *options) {
         return NULL;
 }
 
-const char* mount_options_from_part(const MountOptions *options, unsigned int partition_number) {
+const char* mount_options_from_part(const MountOptions *options, int designator) {
         MountOptions *m;
 
         LIST_FOREACH(mount_options, m, (MountOptions *)options)
-                if (partition_number == m->partition_number && !isempty(m->options))
+                if (designator == m->partition_designator && !isempty(m->options))
                         return m->options;
 
         return NULL;
