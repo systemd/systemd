@@ -520,6 +520,19 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                                strna(route_type_to_string(tmp->type)));
         }
 
+        /*
+         * Update the DBus Gateway property if a default route is added or removed. This might sometimes be
+         * redundant, but it's good enough for now. In the worst case we will send some spurious
+         * PropertiesChanged signals.
+         *
+         * NOTE: We check (route != NULL) here, rather than down below, because it may be freed in the case
+         * of RTM_DELROUTE, making the comparison indeterminate. This is undefined (behaviour), as stated in
+         * ISO C11 Annex J.2:
+         *
+         *   - The value of a pointer to an object whose lifetime has ended is used (6.2.4).
+         */
+        bool update_gateway = (route && in_addr_is_null(tmp->family, &tmp->dst)) ? true : false;
+
         switch (type) {
         case RTM_NEWROUTE:
                 if (!route && link->manager->manage_foreign_routes) {
@@ -540,6 +553,9 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         default:
                 assert_not_reached("Received route message with invalid RTNL message type");
         }
+
+        if (update_gateway)
+                link_send_changed(link, "Gateway", NULL);
 
         return 1;
 }
@@ -870,10 +886,24 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         case RTM_DELADDR:
                 if (address) {
-                        log_link_debug(link, "Forgetting address: %s/%u (valid %s%s)",
-                                       strnull(buf), prefixlen,
-                                       valid_str ? "for " : "forever", strempty(valid_str));
-                        (void) address_drop(address);
+                        /*
+                         * Do not remove addresses flagged IFA_F_TENTATIVE - these are addresses which have
+                         * been requested via DHCP but which may experience removal (RTM_DELADDR) before
+                         * being added back again (RTM_NEWADDR). Keep it in the networkd Address set so that
+                         * it does not get re-added as a "foreign" address.
+                         *
+                         * For more information, see dhcp4_update_address().
+                         */
+                        if (!address_is_ready(address)) {
+                                log_link_debug(link, "Keeping not-ready address, expecting update: %s/%u (valid %s%s)",
+                                               strnull(buf), prefixlen,
+                                               valid_str ? "for " : "forever", strempty(valid_str));
+                        } else {
+                                log_link_debug(link, "Forgetting address: %s/%u (valid %s%s)",
+                                               strnull(buf), prefixlen,
+                                               valid_str ? "for " : "forever", strempty(valid_str));
+                                (void) address_drop(address);
+                        }
                 } else
                         log_link_debug(link, "Kernel removed an address we don't remember: %s/%u (valid %s%s), ignoring.",
                                        strnull(buf), prefixlen,

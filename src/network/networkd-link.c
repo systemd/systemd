@@ -796,7 +796,7 @@ void link_set_state(Link *link, LinkState state) {
 
         link->state = state;
 
-        link_send_changed(link, "AdministrativeState", NULL);
+        link_send_changed(link, "AdministrativeState", "DHCP", "Name", "Type", "WlanType", NULL);
 }
 
 static void link_enter_unmanaged(Link *link) {
@@ -4551,6 +4551,7 @@ int link_save(Link *link) {
                 SET_FOREACH(a, link->addresses) {
                         _cleanup_free_ char *address_str = NULL;
 
+                        // TODO(alsi): Use in_addr_prefix_to_string to avoid the fprintf stuff below.
                         r = in_addr_to_string(a->family, &a->in_addr, &address_str);
                         if (r < 0)
                                 goto fail;
@@ -4667,6 +4668,14 @@ int link_save_and_clean(Link *link) {
         r = link_save(link);
         if (r < 0)
                 return r;
+
+        /*
+         * Somewhat coarse to notify on DNS here, but the reason we do so is that systemd actually uses the
+         * networkd serialized state to communicate DNS settings to other components such as resolved. This
+         * is also how the DBus "DNS" property we expose is getting the current DNS settings. Therefore we
+         * sync on every change to the serialized state.
+         */
+        link_send_changed(link, "DNS", NULL);
 
         link_clean(link);
         return 0;

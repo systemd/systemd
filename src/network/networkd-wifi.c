@@ -8,6 +8,7 @@
 #include "bus-util.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
+#include "network-internal.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-wifi.h"

@@ -165,7 +165,7 @@ static const char *const wifi_iftype_table[NL80211_IFTYPE_MAX+1] = {
         [NL80211_IFTYPE_NAN] = "nan",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wifi_iftype, enum nl80211_iftype);
+DEFINE_STRING_TABLE_LOOKUP(wifi_iftype, enum nl80211_iftype);
 
 char *link_get_type_string(unsigned short iftype, sd_device *device) {
         const char *t, *devtype;

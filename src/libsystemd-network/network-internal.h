@@ -71,3 +71,6 @@ int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t siz
 
 int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file);
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);
+
+const char* wifi_iftype_to_string(enum nl80211_iftype s) _const_;
+enum nl80211_iftype wifi_iftype_from_string(const char *s) _pure_;

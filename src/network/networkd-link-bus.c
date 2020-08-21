@@ -10,6 +10,7 @@
 #include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
+#include "network-internal.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -676,6 +677,192 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int property_get_name(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        Link *link = userdata;
+
+        assert(link);
+
+        return sd_bus_message_append(reply, "s", link->ifname);
+}
+
+static int property_get_type(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        Link *link = userdata;
+        _cleanup_free_ char *t = NULL;
+
+        assert(link);
+
+        t = link_get_type_string(link->iftype, link->sd_device);
+
+        return sd_bus_message_append(reply, "s", t);
+}
+
+static int property_get_wlan_iftype(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        Link *link = userdata;
+
+        assert(link);
+
+        return sd_bus_message_append(reply, "s", wifi_iftype_to_string(link->wlan_iftype));
+}
+
+static int property_get_dhcp(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        Link *link = userdata;
+        Network *network;
+
+        assert(link);
+
+        network = link->network;
+
+        if (network)
+                return sd_bus_message_append(reply, "s", address_family_to_string(network->dhcp));
+
+        return sd_bus_message_append(reply, "s", "");
+}
+
+static int property_get_addresses(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        Set *addresses;
+        Address *a;
+        int r;
+
+        assert(reply);
+        assert(userdata);
+
+        addresses = *(Set **) userdata;
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(a, addresses) {
+                _cleanup_free_ char *address_str = NULL;
+
+                r = in_addr_prefix_to_string(a->family, &a->in_addr, a->prefixlen, &address_str);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(reply, "s", address_str);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_gateway(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        Link *link = userdata;
+        Route *route;
+        uint32_t priority = UINT32_MAX;
+        int family;
+        union in_addr_union gw;
+        char *address_str = NULL;
+        int r;
+
+        assert(link);
+
+        if (!link->routes)
+                goto nogateway;
+
+        SET_FOREACH(route, link->routes) {
+                _cleanup_free_ char *dst_str = NULL;
+                _cleanup_free_ char *gw_str = NULL;
+                (void) in_addr_to_string(route->family, &route->dst, &dst_str);
+                (void) in_addr_to_string(route->family, &route->gw, &gw_str);
+
+                log_link_debug(link, "Considering route: gw=%s dst=%s prio=%"PRIu32" ...", gw_str, dst_str,
+                               route->priority);
+                /* We are only interested in default routes */
+                if (!in_addr_is_null(route->family, &route->dst)) {
+                        log_link_debug(link, "Skipping non-default route");
+                        continue;
+                }
+
+                log_link_debug(link, "Got a default route");
+
+                if (route->priority < priority) {
+                        log_link_debug(link, "Replacing with higher priority route");
+                        priority = route->priority;
+                        family = route->family;
+                        gw = route->gw;
+                }
+        }
+
+        if (priority == UINT32_MAX)
+                goto nogateway;
+
+        r = in_addr_to_string(family, &gw, &address_str);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", address_str);
+        free(address_str);
+        return r;
+
+ nogateway:
+        return sd_bus_message_append(reply, "s", "");
+}
+
+static int property_get_dns(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        Link *link = userdata;
+        _cleanup_strv_free_ char **dns;
+        int r;
+
+        assert(link);
+
+        r = sd_network_link_get_dns(link->ifindex, &dns);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_append_strv(reply, dns);
+}
+
 const sd_bus_vtable link_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -700,6 +887,15 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD("Renew", NULL, NULL, bus_link_method_renew, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ForceRenew", NULL, NULL, bus_link_method_force_renew, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Reconfigure", NULL, NULL, bus_link_method_reconfigure, SD_BUS_VTABLE_UNPRIVILEGED),
+
+        /* Custom B&O DBus properties */
+        SD_BUS_PROPERTY("Name", "s", property_get_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Type", "s", property_get_type, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("WlanType", "s", property_get_wlan_iftype, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("DHCP", "s", property_get_dhcp, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Addresses", "as", property_get_addresses, offsetof(Link, addresses), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Gateway", "s", property_get_gateway, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("DNS", "as", property_get_dns, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
 
         SD_BUS_VTABLE_END
 };

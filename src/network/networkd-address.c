@@ -9,6 +9,7 @@
 #include "missing_network.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
+#include "networkd-link-bus.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "parse-util.h"
@@ -126,7 +127,8 @@ void address_free(Address *address) {
         if (address->link && !address->acd) {
                 NDiscAddress *n;
 
-                set_remove(address->link->addresses, address);
+                if (set_remove(address->link->addresses, address))
+                        link_send_changed(address->link, "Addresses", NULL);
                 set_remove(address->link->addresses_foreign, address);
                 set_remove(address->link->static_addresses, address);
                 if (address->link->dhcp_address == address)
@@ -309,6 +311,8 @@ int address_add(Link *link, int family, const union in_addr_union *in_addr, unsi
                 r = address_add_internal(link, &link->addresses, family, in_addr, prefixlen, &address);
                 if (r < 0)
                         return r;
+
+                link_send_changed(address->link, "Addresses", NULL);
         } else if (r == 0) {
                 /* Take over a foreign address */
                 r = set_ensure_put(&link->addresses, &address_hash_ops, address);
@@ -316,6 +320,8 @@ int address_add(Link *link, int family, const union in_addr_union *in_addr, unsi
                         return r;
 
                 set_remove(link->addresses_foreign, address);
+
+                link_send_changed(address->link, "Addresses", NULL);
         } else if (r == 1) {
                 /* Already exists, do nothing */
                 ;

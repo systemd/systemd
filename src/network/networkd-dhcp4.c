@@ -826,6 +826,30 @@ static int dhcp4_update_address(Link *link, bool announce) {
                 link->dhcp_address_old = link->dhcp_address;
         link->dhcp_address = ret;
 
+        /*
+         * Consider the address tentative until we get confirmation from the kernel.
+         *  1. networkd starts, gets a DHCP lease, and stores the address
+         *  2. networkd is restarted
+         *  3. networkd removes the "foreign" IP addresses from last-run
+         *  4. networkd starts DHCP, gets a lease, and stores the address
+         *  5. networkd gets RTM_DELADDR from (3) - the address is removed
+         *  6. networkd gets RTM_NEWADDR from (5) - the address is added, but considered "foreign"
+         * By marking the address as tentative, we can avoid removing it in (5), and ensure that the address
+         * is not considered foreign by systemd-networkd. Hence the internal state remains coherent between
+         * restarts.
+         *
+         * NOTE: It doesn't work to set addr->flags above before calling address_configure(). These are the
+         * flags passed to the kernel as part of an RTM_NEWADDR message. But we want this flag set in
+         * networkd's internal Address set.
+         *
+         * TODO: Implement this for DHCPv6.
+         */
+        Address *a = NULL;
+        r = address_get(link, addr->family, &addr->in_addr, prefixlen, &a);
+        if (r < 0)
+                return r;
+        a->flags |= IFA_F_TENTATIVE;
+
         return 0;
 }
 

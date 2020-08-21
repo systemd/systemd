@@ -61,8 +61,11 @@ int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftyp
 
         if (ssid) {
                 r = sd_netlink_message_read_string_strdup(reply, NL80211_ATTR_SSID, ssid);
-                if (r == -ENODATA)
-                        goto nodata;
+                /* Make sure not to zero-out *iftype, since we would like to know it either way */
+                if (r == -ENODATA) {
+                        *ssid = NULL;
+                        return 0;
+                }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get NL80211_ATTR_SSID attribute: %m");
         }
