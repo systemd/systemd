@@ -146,13 +146,18 @@ static int seccomp_add_default_syscall_filter(
                 if (allow_list[i].capability != 0 && (cap_list_retain & (1ULL << allow_list[i].capability)) == 0)
                         continue;
 
-                r = seccomp_add_syscall_filter_item(ctx, allow_list[i].name, SCMP_ACT_ALLOW, syscall_deny_list, false);
+                r = seccomp_add_syscall_filter_item(ctx,
+                                                    allow_list[i].name,
+                                                    SCMP_ACT_ALLOW,
+                                                    syscall_deny_list,
+                                                    false,
+                                                    NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add syscall filter item %s: %m", allow_list[i].name);
         }
 
         STRV_FOREACH(p, syscall_allow_list) {
-                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_deny_list, true);
+                r = seccomp_add_syscall_filter_item(ctx, *p, SCMP_ACT_ALLOW, syscall_deny_list, true, NULL);
                 if (r < 0)
                         log_warning_errno(r, "Failed to add rule for system call %s on %s, ignoring: %m",
                                           *p, seccomp_arch_to_string(arch));
