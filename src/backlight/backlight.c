@@ -13,10 +13,35 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "pretty-print.h"
+#include "terminal-util.h"
 #include "reboot-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "util.h"
+
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-backlight", "8", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%s save [backlight|leds]:DEVICE\n"
+               "%s load [backlight|leds]:DEVICE\n"
+               "\n%sSave and restore backlight brightness at shutdown and boot.%s\n\n"
+               "  save            Save current brightness\n"
+               "  load            Set brightness to be the previously saved value\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
+               , link
+        );
+
+        return 0;
+}
 
 static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
         const char *subsystem, *sysname, *value;
@@ -333,6 +358,9 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup_service();
+
+        if (strv_contains(strv_skip(argv, 1), "--help"))
+                return help();
 
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires two arguments.");

@@ -23,7 +23,8 @@
 
   <refsynopsisdiv>
     <para><filename>systemd-backlight@.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-backlight</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-backlight</filename> save [backlight|leds]:DEVICE</para>
+    <para><filename>/usr/lib/systemd/systemd-backlight</filename> load [backlight|leds]:DEVICE</para>
   </refsynopsisdiv>
 
   <refsect1>
