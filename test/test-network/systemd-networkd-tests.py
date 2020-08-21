@@ -1976,6 +1976,25 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'lookup 9')
 
+        run('ip rule delete iif test1 priority 111')
+
+        output = check_output('ip rule list iif test1 priority 111')
+        print(output)
+        self.assertEqual(output, '')
+
+        run(*networkctl_cmd, 'reconfigure', 'test1', env=env)
+
+        self.wait_online(['test1:degraded'])
+
+        output = check_output('ip rule list iif test1 priority 111')
+        print(output)
+        self.assertRegex(output, '111:')
+        self.assertRegex(output, 'from 192.168.100.18')
+        self.assertRegex(output, r'tos (0x08|throughput)\s')
+        self.assertRegex(output, 'iif test1')
+        self.assertRegex(output, 'oif test1')
+        self.assertRegex(output, 'lookup 7')
+
     def test_routing_policy_rule_issue_11280(self):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',
                                         'routing-policy-rule-dummy98.network', '12-dummy.netdev')
