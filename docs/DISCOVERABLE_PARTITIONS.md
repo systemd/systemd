@@ -31,7 +31,7 @@ for specific uses. This has many benefits:
 
 Note that the OS side of this specification is currently implemented in
 [systemd](http://systemd.io/) 211 and newer in the
-[systemd-auto-gpt-generator(8)](http://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
+[systemd-gpt-auto-generator(8)](http://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
 generator tool. Note that automatic discovery of the root only works if the
 boot loader communicates this information to the OS, by implementing the [Boot
 Loader
