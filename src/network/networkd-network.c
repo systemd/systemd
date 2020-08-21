@@ -483,6 +483,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .can_triple_sampling = -1,
                 .can_termination = -1,
+                .can_listen_only = -1,
+                .can_fd_mode = -1,
+                .can_non_iso = -1,
                 .ip_service_type = -1,
         };
 
