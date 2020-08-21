@@ -52,8 +52,8 @@
         <term><varname>SpeedMeter=</varname></term>
         <listitem><para>Takes a boolean. If set to yes, then <command>systemd-networkd</command>
         measures the traffic of each interface, and
-        <command>networkctl status <replaceable>INTERFACE</replaceable> shows the measured speed.
-        </command>Defaults to no.</para></listitem>
+        <command>networkctl status <replaceable>INTERFACE</replaceable></command> shows the measured speed.
+        Defaults to no.</para></listitem>
       </varlistentry>
 
       <varlistentry>
