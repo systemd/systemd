@@ -4371,11 +4371,11 @@ const char *manager_get_confirm_spawn(Manager *m) {
          *
          * If the console suddenly disappear at the time our children will really it
          * then they will simply fail to acquire it and a positive answer will be
-         * assumed. New children will fallback to /dev/console though.
+         * assumed. New children will fall back to /dev/console though.
          *
          * Note: TTYs are devices that can come and go any time, and frequently aren't
          * available yet during early boot (consider a USB rs232 dongle...). If for any
-         * reason the configured console is not ready, we fallback to the default
+         * reason the configured console is not ready, we fall back to the default
          * console. */
 
         if (!m->confirm_spawn || path_equal(m->confirm_spawn, "/dev/console"))

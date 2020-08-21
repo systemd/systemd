@@ -976,6 +976,6 @@ int read_nr_open(void) {
                         return v;
         }
 
-        /* If we fail, fallback to the hard-coded kernel limit of 1024 * 1024. */
+        /* If we fail, fall back to the hard-coded kernel limit of 1024 * 1024. */
         return 1024 * 1024;
 }

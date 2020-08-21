@@ -650,7 +650,7 @@ static int clone_device_node(
                 *make_devnode = false;
         }
 
-        /* We're about to fallback to bind-mounting the device
+        /* We're about to fall back to bind-mounting the device
          * node. So create a dummy bind-mount target.
          * Do not prepare device-node SELinux label (see issue 13762) */
         r = mknod(dn, S_IFREG, 0);

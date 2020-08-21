@@ -95,7 +95,7 @@ for initrd in "${INITRD_OPTIONS[@]}"; do
     fi
 done
 
-# If no initrd option is supplied, fallback to "initrd" which is
+# If no initrd option is supplied, fall back to "initrd" which is
 # the name used by dracut when generating it in its kernel-install hook
 [[ ${#INITRD_OPTIONS[@]} == 0 ]] && INITRD_OPTIONS=( initrd )
 

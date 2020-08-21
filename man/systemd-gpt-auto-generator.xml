@@ -1,9 +1,9 @@
-<?xml version="1.0"?>
-<!--*-nxml-*-->
+<?xml version="1.0"?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
-<refentry id="systemd-gpt-auto-generator">
+
+<refentry id="systemd-gpt-auto-generator" conditional='HAVE_BLKID'>
 
   <refentryinfo>
     <title>systemd-gpt-auto-generator</title>

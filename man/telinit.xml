@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="telinit"
+<refentry id="telinit" conditional='HAVE_SYSV_COMPAT'
     xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
@@ -148,5 +148,4 @@
       <citerefentry project='man-pages'><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
-
 </refentry>

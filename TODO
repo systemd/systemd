@@ -541,7 +541,7 @@ Features:
   directory trees from the host to the services RootImage= and RootDirectory=
   environment. Which we can use for /etc/machine-id and in particular
   /etc/resolv.conf. Should be smart and do something useful on read-only
-  images, for example fallback to read-only bind mounting the file instead.
+  images, for example fall back to read-only bind mounting the file instead.
 
 * show invocation ID in systemd-run output
 
@@ -1018,7 +1018,7 @@ Features:
   - journald: also get thread ID from client, plus thread name
   - journal: when waiting for journal additions in the client always sleep at least 1s or so, in order to minimize wakeups
   - add API to close/reopen/get fd for journal client fd in libsystemd-journal.
-  - fallback to /dev/log based logging in libsystemd-journal, if we cannot log natively?
+  - fall back to /dev/log based logging in libsystemd-journal, if we cannot log natively?
   - declare the local journal protocol stable in the wiki interface chart
   - sd-journal: speed up sd_journal_get_data() with transparent hash table in bg
   - journald: when dropping msgs due to ratelimit make sure to write

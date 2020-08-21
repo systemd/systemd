@@ -53,7 +53,7 @@ enum DnsOverTlsMode {
         DNS_OVER_TLS_NO,
 
         /* Try to connect using DNS-over-TLS, but if connection fails,
-         * fallback to using an unencrypted connection */
+         * fall back to using an unencrypted connection */
         DNS_OVER_TLS_OPPORTUNISTIC,
 
         /* Enforce DNS-over-TLS and require valid server certificates */

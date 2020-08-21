@@ -813,8 +813,8 @@ int dissect_image(
                         _cleanup_free_ char *o = NULL;
                         const char *options = NULL;
 
-                        /* If the root has was set, then we won't fallback to a generic node, because the root hash
-                         * decides */
+                        /* If the root hash was set, then we won't fall back to a generic node, because the
+                         * root hash decides. */
                         if (root_hash)
                                 return -EADDRNOTAVAIL;
 
@@ -1426,7 +1426,7 @@ static int verity_partition(
                         r = crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
-                 * parameters, so immediately fallback to activating the device with a unique name.
+                 * parameters, so immediately fall back to activating the device with a unique name.
                  * Improvements in libcrypsetup can ensure this never happens: https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         return verity_partition(m, v, root_hash, root_hash_size, verity_data, NULL, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
