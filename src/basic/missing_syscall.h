@@ -420,7 +420,7 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #    elif defined __arm__
 #      define __NR_pkey_mprotect 394
 #    elif defined __aarch64__
-#      define __NR_pkey_mprotect 394
+#      define __NR_pkey_mprotect 288
 #    elif defined __powerpc__
 #      define __NR_pkey_mprotect 386
 #    elif defined __s390__
@@ -449,7 +449,9 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #    if defined __NR_statx
 #      undef __NR_statx
 #    endif
-#    if defined __aarch64__ || defined __arm__
+#    if defined __aarch64__
+#      define __NR_statx 291
+#    elif defined __arm__
 #      define __NR_statx 397
 #    elif defined __alpha__
 #      define __NR_statx 522
