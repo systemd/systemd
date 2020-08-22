@@ -27,7 +27,8 @@ static bool bus_error_shall_fallback(sd_bus_error *e) {
                sd_bus_error_has_name(e, SD_BUS_ERROR_NO_REPLY) ||
                sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED) ||
                sd_bus_error_has_name(e, SD_BUS_ERROR_DISCONNECTED) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_TIMEOUT);
+               sd_bus_error_has_name(e, SD_BUS_ERROR_TIMEOUT) ||
+               sd_bus_error_has_name(e, BUS_ERROR_NO_SUCH_UNIT);
 }
 
 static int count_addresses(sd_bus_message *m, int af, const char **canonical) {
