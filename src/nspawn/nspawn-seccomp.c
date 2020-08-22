@@ -171,6 +171,13 @@ static int add_syscall_filters(
                 log_warning_errno(r, "Failed to add rule for @known set on %s, ignoring: %m",
                                   seccomp_arch_to_string(arch));
 
+#if (SCMP_VER_MAJOR == 2 && SCMP_VER_MINOR >= 5) || SCMP_VER_MAJOR > 2
+        /* We have a large filter here, so let's turn on the binary tree mode if possible. */
+        r = seccomp_attr_set(ctx, SCMP_FLTATR_CTL_OPTIMIZE, 2);
+        if (r < 0)
+                return r;
+#endif
+
         return 0;
 }
 
