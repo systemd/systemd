@@ -39,6 +39,8 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 #  define systemd_NR_memfd_create 385
 #elif defined __aarch64__
 #  define systemd_NR_memfd_create 279
+#elif defined(__powerpc__)
+#  define systemd_NR_memfd_create 360
 #elif defined __s390__
 #  define systemd_NR_memfd_create 350
 #elif defined _MIPS_SIM
@@ -170,8 +172,12 @@ static inline pid_t missing_gettid(void) {
 #  define systemd_NR_name_to_handle_at 341
 #elif defined(__arm__)
 #  define systemd_NR_name_to_handle_at 370
+#elif defined __aarch64__
+#  define systemd_NR_name_to_handle_at 264
 #elif defined(__powerpc__)
 #  define systemd_NR_name_to_handle_at 345
+#elif defined __s390__ || defined __s390x__
+#  define systemd_NR_name_to_handle_at 335
 #elif defined(__arc__)
 #  define systemd_NR_name_to_handle_at 264
 #else
@@ -213,10 +219,18 @@ static inline int missing_name_to_handle_at(int fd, const char *name, struct fil
 
 /* ======================================================================= */
 
-#if defined(__x86_64__)
+#if defined __aarch64__
+#  define systemd_NR_setns 268
+#elif defined __arm__
+#  define systemd_NR_setns 375
+#elif defined(__x86_64__)
 #  define systemd_NR_setns 308
 #elif defined(__i386__)
 #  define systemd_NR_setns 346
+#elif defined(__powerpc__)
+#  define systemd_NR_setns 350
+#elif defined __s390__ || defined __s390x__
+#  define systemd_NR_setns 339
 #elif defined(__arc__)
 #  define systemd_NR_setns 268
 #else
@@ -429,6 +443,8 @@ static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in,
 #  define systemd_NR_bpf 280
 #elif defined __arm__
 #  define systemd_NR_bpf 386
+#elif defined(__powerpc__)
+#  define systemd_NR_bpf 361
 #elif defined __sparc__
 #  define systemd_NR_bpf 349
 #elif defined __s390__
@@ -520,6 +536,8 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #  define systemd_NR_statx 522
 #elif defined __i386__ || defined __powerpc64__
 #  define systemd_NR_statx 383
+#elif defined __s390__ || defined __s390x__
+#  define systemd_NR_statx 379
 #elif defined __sparc__
 #  define systemd_NR_statx 360
 #elif defined __x86_64__
