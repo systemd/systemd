@@ -491,9 +491,9 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #    define systemd_NR_pkey_mprotect 380
 #  elif defined __x86_64__
 #    define systemd_NR_pkey_mprotect 329
-#  elif defined __arm__
-#    define systemd_NR_pkey_mprotect 394
 #  elif defined __aarch64__
+#    define systemd_NR_pkey_mprotect 288
+#  elif defined __arm__
 #    define systemd_NR_pkey_mprotect 394
 #  elif defined __powerpc__
 #    define systemd_NR_pkey_mprotect 386
@@ -530,7 +530,9 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 
 /* ======================================================================= */
 
-#if defined __aarch64__ || defined __arm__
+#if defined __aarch64__
+#  define systemd_NR_statx 291
+#elif defined __arm__
 #  define systemd_NR_statx 397
 #elif defined __alpha__
 #  define systemd_NR_statx 522
