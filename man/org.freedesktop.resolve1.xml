@@ -86,6 +86,8 @@ node /org/freedesktop/resolve1 {
               out o path);
       SetLinkDNS(in  i ifindex,
                  in  a(iay) addresses);
+      SetLinkDNSEx(in  i ifindex,
+                   in  a(iayqs) addresses);
       SetLinkDomains(in  i ifindex,
                      in  a(sb) domains);
       SetLinkDefaultRoute(in  i ifindex,
@@ -122,9 +124,13 @@ node /org/freedesktop/resolve1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DNSOverTLS = '...';
       readonly a(iiay) DNS = [...];
+      readonly a(iiayqs) DNSEx = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(iiay) FallbackDNS = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(iiayqs) FallbackDNSEx = [...];
       readonly (iiay) CurrentDNSServer = ...;
+      readonly (iiayqs) CurrentDNSServerEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(isb) Domains = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -148,6 +154,8 @@ node /org/freedesktop/resolve1 {
 };
     </programlisting>
 
+    <!--method SetLinkDNSEx is not documented!-->
+
     <!--method SetLinkDefaultRoute is not documented!-->
 
     <!--method SetLinkDNSOverTLS is not documented!-->
@@ -166,9 +174,15 @@ node /org/freedesktop/resolve1 {
 
     <!--property DNSOverTLS is not documented!-->
 
+    <!--property DNSEx is not documented!-->
+
     <!--property FallbackDNS is not documented!-->
 
+    <!--property FallbackDNSEx is not documented!-->
+
     <!--property CurrentDNSServer is not documented!-->
+
+    <!--property CurrentDNSServerEx is not documented!-->
 
     <!--property DNSSEC is not documented!-->
 
@@ -193,6 +207,8 @@ node /org/freedesktop/resolve1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetLink()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNS()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDNSEx()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetLinkDomains()"/>
 
@@ -230,9 +246,15 @@ node /org/freedesktop/resolve1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DNS"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DNSEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="FallbackDNS"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="FallbackDNSEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServer"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServerEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Domains"/>
 
@@ -547,6 +569,7 @@ node /org/freedesktop/resolve1/link/_1 {
   interface org.freedesktop.resolve1.Link {
     methods:
       SetDNS(in  a(iay) addresses);
+      SetDNSEx(in  a(iayqs) addresses);
       SetDomains(in  a(sb) domains);
       SetDefaultRoute(in  b enable);
       SetLLMNR(in  s mode);
@@ -561,7 +584,11 @@ node /org/freedesktop/resolve1/link/_1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iay) DNS = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iayqs) DNSEx = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly (iay) CurrentDNSServer = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly (iayqs) CurrentDNSServerEx = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(sb) Domains = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -585,6 +612,8 @@ node /org/freedesktop/resolve1/link/_1 {
 };
     </programlisting>
 
+    <!--method SetDNSEx is not documented!-->
+
     <!--method SetDomains is not documented!-->
 
     <!--method SetDefaultRoute is not documented!-->
@@ -601,7 +630,11 @@ node /org/freedesktop/resolve1/link/_1 {
 
     <!--method Revert is not documented!-->
 
+    <!--property DNSEx is not documented!-->
+
     <!--property CurrentDNSServer is not documented!-->
+
+    <!--property CurrentDNSServerEx is not documented!-->
 
     <!--property DefaultRoute is not documented!-->
 
@@ -623,6 +656,8 @@ node /org/freedesktop/resolve1/link/_1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDNS()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="SetDNSEx()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="SetDomains()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDefaultRoute()"/>
@@ -643,7 +678,11 @@ node /org/freedesktop/resolve1/link/_1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="DNS"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="DNSEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServer"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CurrentDNSServerEx"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Domains"/>
 

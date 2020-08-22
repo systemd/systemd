@@ -138,6 +138,7 @@ node /org/freedesktop/systemd1 {
       CancelJob(in  u id);
       ClearJobs();
       ResetFailed();
+      SetShowStatus(in  s mode);
       ListUnits(out a(ssssssouso) units);
       ListUnitsFiltered(in  as states,
                         out a(ssssssouso) units);
@@ -505,6 +506,8 @@ node /org/freedesktop/systemd1 {
 
     <!--method GetJobBefore is not documented!-->
 
+    <!--method SetShowStatus is not documented!-->
+
     <!--method ListUnitsFiltered is not documented!-->
 
     <!--method ListUnitsByPatterns is not documented!-->
@@ -780,6 +783,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="ClearJobs()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResetFailed()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetShowStatus()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnits()"/>
 
@@ -2183,8 +2188,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TimeoutAbortUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly t RuntimeMaxUSec = ...;
+      readonly s TimeoutStartFailureMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s TimeoutStopFailureMode = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t RuntimeMaxUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t WatchdogUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t WatchdogTimestamp = ...;
@@ -2695,6 +2704,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property TimeoutAbortUSec is not documented!-->
 
+    <!--property TimeoutStartFailureMode is not documented!-->
+
+    <!--property TimeoutStopFailureMode is not documented!-->
+
     <!--property RuntimeMaxUSec is not documented!-->
 
     <!--property WatchdogUSec is not documented!-->
@@ -3178,6 +3191,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStopUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TimeoutAbortUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStartFailureMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStopFailureMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeMaxUSec"/>
 
@@ -3825,6 +3842,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassSecurity = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PassPacketInfo = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RemoveOnStop = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ss) Listen = [...];
@@ -4348,6 +4367,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property PassSecurity is not documented!-->
 
+    <!--property PassPacketInfo is not documented!-->
+
     <!--property RemoveOnStop is not documented!-->
 
     <!--property Listen is not documented!-->
@@ -4855,6 +4876,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="PassCredentials"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PassSecurity"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PassPacketInfo"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RemoveOnStop"/>
 
