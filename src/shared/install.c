@@ -3040,20 +3040,17 @@ static int pattern_match_multiple_instances(
 
         /* Compose a list of specified instances when unit name is a template  */
         if (unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_free_ char *prefix = NULL;
                 _cleanup_strv_free_ char **out_strv = NULL;
+
                 char **iter;
-
-                r = unit_name_to_prefix(unit_name, &prefix);
-                if (r < 0)
-                        return r;
-
                 STRV_FOREACH(iter, rule.instances) {
                         _cleanup_free_ char *name = NULL;
-                        r = unit_name_build(prefix, *iter, ".service", &name);
+
+                        r = unit_name_replace_instance(unit_name, *iter, &name);
                         if (r < 0)
                                 return r;
-                        r = strv_extend(&out_strv, name);
+
+                        r = strv_consume(&out_strv, TAKE_PTR(name));
                         if (r < 0)
                                 return r;
                 }
