@@ -17,6 +17,7 @@
 #include "sd-messages.h"
 
 #include "btrfs-util.h"
+#include "bus-common-errors.h"
 #include "bus-error.h"
 #include "def.h"
 #include "exec-util.h"
@@ -160,10 +161,9 @@ static int lock_all_homes(void) {
         r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC, &error, NULL);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
-                    sd_bus_error_has_name(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
-                        log_debug("systemd-homed is not running, skipping locking of home directories.");
-                        return 0;
-                }
+                    sd_bus_error_has_name(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
+                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT))
+                        return log_debug("systemd-homed is not running, skipping locking of home directories.");
 
                 return log_error_errno(r, "Failed to lock home directories: %s", bus_error_message(&error, r));
         }

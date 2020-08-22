@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "bus-common-errors.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-polkit.h"
@@ -123,7 +124,9 @@ int bus_test_polkit(
                 r = sd_bus_call(call->bus, request, 0, ret_error, &reply);
                 if (r < 0) {
                         /* Treat no PK available as access denied */
-                        if (sd_bus_error_has_name(ret_error, SD_BUS_ERROR_SERVICE_UNKNOWN)) {
+                        if (sd_bus_error_has_name(ret_error, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
+                            sd_bus_error_has_name(ret_error, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
+                            sd_bus_error_has_name(ret_error, BUS_ERROR_NO_SUCH_UNIT)) {
                                 sd_bus_error_free(ret_error);
                                 return -EACCES;
                         }
@@ -297,7 +300,8 @@ int bus_verify_polkit_async(
 
                         /* Treat no PK available as access denied */
                         if (sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
-                            sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER))
+                            sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
+                            sd_bus_error_has_name(e, BUS_ERROR_NO_SUCH_UNIT))
                                 return -EACCES;
 
                         /* Copy error from polkit reply */

@@ -136,7 +136,8 @@ static int acquire_user_record(
                                 username);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
-                            sd_bus_error_has_name(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
+                            sd_bus_error_has_name(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
+                            sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT)) {
                                 pam_syslog(handle, LOG_DEBUG, "systemd-homed is not available: %s", bus_error_message(&error, r));
                                 goto user_unknown;
                         }
