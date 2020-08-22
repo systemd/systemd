@@ -7,6 +7,7 @@
 
 #include "bus-common-errors.h"
 #include "bus-locator.h"
+#include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "home-util.h"
@@ -153,8 +154,7 @@ static int acquire_user_record(
 
                 r = bus_call_method(bus, bus_home_mgr, "GetUserRecordByName", &error, &reply, "s", username);
                 if (r < 0) {
-                        if (sd_bus_error_has_name(&error, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
-                            sd_bus_error_has_name(&error, SD_BUS_ERROR_NAME_HAS_NO_OWNER)) {
+                        if (bus_error_is_unknown_service(&error)) {
                                 pam_syslog(handle, LOG_DEBUG, "systemd-homed is not available: %s", bus_error_message(&error, r));
                                 goto user_unknown;
                         }

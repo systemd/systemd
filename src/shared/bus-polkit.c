@@ -3,6 +3,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "strv.h"
 #include "user-util.h"
 
@@ -123,7 +124,7 @@ int bus_test_polkit(
                 r = sd_bus_call(call->bus, request, 0, ret_error, &reply);
                 if (r < 0) {
                         /* Treat no PK available as access denied */
-                        if (sd_bus_error_has_name(ret_error, SD_BUS_ERROR_SERVICE_UNKNOWN)) {
+                        if (bus_error_is_unknown_service(ret_error)) {
                                 sd_bus_error_free(ret_error);
                                 return -EACCES;
                         }
@@ -296,8 +297,7 @@ int bus_verify_polkit_async(
                         e = sd_bus_message_get_error(q->reply);
 
                         /* Treat no PK available as access denied */
-                        if (sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
-                            sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER))
+                        if (bus_error_is_unknown_service(e))
                                 return -EACCES;
 
                         /* Copy error from polkit reply */

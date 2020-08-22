@@ -14,14 +14,13 @@
 #include "sd-event.h"
 #include "sd-id128.h"
 
-/* #include "alloc-util.h" */
+#include "bus-common-errors.h"
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-util.h"
 #include "path-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
-/* #include "string-util.h" */
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = userdata;
@@ -151,6 +150,13 @@ int bus_name_has_owner(sd_bus *c, const char *name, sd_bus_error *error) {
                 return sd_bus_error_set_errno(error, r);
 
         return has_owner;
+}
+
+bool bus_error_is_unknown_service(const sd_bus_error *error) {
+        return sd_bus_error_has_names(error,
+                                      SD_BUS_ERROR_SERVICE_UNKNOWN,
+                                      SD_BUS_ERROR_NAME_HAS_NO_OWNER,
+                                      BUS_ERROR_NO_SUCH_UNIT);
 }
 
 int bus_check_peercred(sd_bus *c) {
