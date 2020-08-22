@@ -22,6 +22,24 @@ const GptPartitionType gpt_partition_type_table[] = {
         { GPT_ROOT_SECONDARY,        "root-secondary"        },
         { GPT_ROOT_SECONDARY_VERITY, "root-secondary-verity" },
 #endif
+        { GPT_USR_X86,               "usr-x86"               },
+        { GPT_USR_X86_VERITY,        "usr-x86-verity"        },
+        { GPT_USR_X86_64,            "usr-x86-64"            },
+        { GPT_USR_X86_64_VERITY,     "usr-x86-64-verity"     },
+        { GPT_USR_ARM,               "usr-arm"               },
+        { GPT_USR_ARM_VERITY,        "usr-arm-verity"        },
+        { GPT_USR_ARM_64,            "usr-arm64"             },
+        { GPT_USR_ARM_64_VERITY,     "usr-arm64-verity"      },
+        { GPT_USR_IA64,              "usr-ia64"              },
+        { GPT_USR_IA64_VERITY,       "usr-ia64-verity"       },
+#ifdef GPT_USR_NATIVE
+        { GPT_USR_NATIVE,            "usr"                   },
+        { GPT_USR_NATIVE_VERITY,     "usr-verity"            },
+#endif
+#ifdef GPT_USR_SECONDARY
+        { GPT_USR_SECONDARY,         "usr-secondary"         },
+        { GPT_USR_SECONDARY_VERITY,  "usr-secondary-verity"  },
+#endif
         { GPT_ESP,                   "esp"                   },
         { GPT_XBOOTLDR,              "xbootldr"              },
         { GPT_SWAP,                  "swap"                  },
