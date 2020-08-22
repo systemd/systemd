@@ -8278,15 +8278,15 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
       <para>Most of the properties map directly to the corresponding settings in swap unit files. As mount
       units invoke the
-      <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> command,
+      <citerefentry project="man-pages"><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> command,
       their bus objects include implicit <varname>ExecActivate</varname> (and similar) fields which contain
       information about processes to execute. They also share most of the fields related to the execution
       context that Service objects expose (see above). In addition to these properties there are the
       following:</para>
 
       <para><varname>ControlPID</varname> contains the PID of the currently running
-      <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
-      <citerefentry project='man-pages'><refentrytitle>swapoff</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project="man-pages"><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+      <citerefentry project="man-pages"><refentrytitle>swapoff</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       command if there is one running, otherwise 0.</para>
 
       <para><varname>Result</varname> contains a value explaining why a mount unit failed if it failed. It
