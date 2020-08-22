@@ -201,7 +201,7 @@ static bool arg_notify_ready = false;
 static bool arg_use_cgns = true;
 static unsigned long arg_clone_ns_flags = CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS;
 static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_TMPFS_TMP;
-static VeritySettings arg_verity_settings = {};
+static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static char **arg_syscall_allow_list = NULL;
 static char **arg_syscall_deny_list = NULL;
 #if HAVE_SECCOMP
