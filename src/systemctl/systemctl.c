@@ -279,17 +279,17 @@ static int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) 
         if (!sd_bus_error_is_set(error))
                 return r;
 
-        if (sd_bus_error_has_name(error, SD_BUS_ERROR_ACCESS_DENIED) ||
-            sd_bus_error_has_name(error, BUS_ERROR_ONLY_BY_DEPENDENCY) ||
-            sd_bus_error_has_name(error, BUS_ERROR_NO_ISOLATION) ||
-            sd_bus_error_has_name(error, BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE))
+        if (sd_bus_error_has_names(error, SD_BUS_ERROR_ACCESS_DENIED,
+                                          BUS_ERROR_ONLY_BY_DEPENDENCY,
+                                          BUS_ERROR_NO_ISOLATION,
+                                          BUS_ERROR_TRANSACTION_IS_DESTRUCTIVE))
                 return EXIT_NOPERMISSION;
 
         if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT))
                 return EXIT_NOTINSTALLED;
 
-        if (sd_bus_error_has_name(error, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE) ||
-            sd_bus_error_has_name(error, SD_BUS_ERROR_NOT_SUPPORTED))
+        if (sd_bus_error_has_names(error, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE,
+                                          SD_BUS_ERROR_NOT_SUPPORTED))
                 return EXIT_NOTIMPLEMENTED;
 
         if (sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED))
@@ -552,8 +552,8 @@ static int get_unit_list(
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0 && (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD) ||
-                      sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED))) {
+        if (r < 0 && (sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_METHOD,
+                                                     SD_BUS_ERROR_ACCESS_DENIED))) {
                 /* Fallback to legacy ListUnitsFiltered method */
                 fallback = true;
                 log_debug_errno(r, "Failed to list units: %s Falling back to ListUnitsFiltered method.", bus_error_message(&error, r));
@@ -2945,9 +2945,9 @@ fail:
 
         log_error_errno(r, "Failed to %s %s: %s", job_type, name, bus_error_message(error, r));
 
-        if (!sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) &&
-            !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED) &&
-            !sd_bus_error_has_name(error, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE))
+        if (!sd_bus_error_has_names(error, BUS_ERROR_NO_SUCH_UNIT,
+                                           BUS_ERROR_UNIT_MASKED,
+                                           BUS_ERROR_JOB_TYPE_NOT_APPLICABLE))
                 log_error("See %s logs and 'systemctl%s status%s %s' for details.",
                           arg_scope == UNIT_FILE_SYSTEM ? "system" : "user",
                           arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
