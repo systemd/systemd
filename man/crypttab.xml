@@ -112,7 +112,12 @@
         relevant for LUKS devices. See
         <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for possible values and the default value of this
-        option.</para></listitem>
+        option.</para>
+
+        <para>Optionally, the path may be followed by <literal>:</literal> and an fstab device specification
+        (e.g. starting with <literal>UUID=</literal> or similar); in which case, the path is relative to the
+        device file system root. The device gets mounted automatically for LUKS device activation duration only.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

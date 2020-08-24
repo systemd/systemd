@@ -789,7 +789,8 @@ static int add_crypttab_devices(void) {
         }
 
         for (;;) {
-                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL, *keyfile = NULL, *keydev = NULL;
+                _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL,
+                                    *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL;
                 crypto_device *d = NULL;
                 char *l, *uuid;
                 int k;
@@ -829,7 +830,20 @@ static int add_crypttab_devices(void) {
                 if (r < 0)
                         return r;
 
-                r = create_disk(name, device, keyfile, keydev, d ? d->headerdev : NULL, (d && d->options) ? d->options : options, arg_crypttab);
+                if (options && (!d || !d->options)) {
+                        r = filter_header_device(options, &headerdev, &filtered_header);
+                        if (r < 0)
+                                return r;
+                        free_and_replace(options, filtered_header);
+                }
+
+                r = create_disk(name,
+                                device,
+                                keyfile,
+                                keydev,
+                                (d && d->options) ? d->headerdev : headerdev,
+                                (d && d->options) ? d->options : options,
+                                arg_crypttab);
                 if (r < 0)
                         return r;
 
