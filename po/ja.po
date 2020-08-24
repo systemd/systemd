@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-02-02 23:20+0900\n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2018-10-27 07:41+0900\n"
 "Last-Translator: Yu Watanabe <watanabe.yu+github@gmail.com>\n"
 "Language-Team: \n"
@@ -106,7 +106,8 @@ msgid "Change password of a home area"
 msgstr "ホーム領域のパスワード変更"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid "Authentication is required to change the password of a user's home area."
+msgid ""
+"Authentication is required to change the password of a user's home area."
 msgstr "ユーザのホーム領域のパスワードを変更するには認証が必要です。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
@@ -302,8 +303,7 @@ msgid "Flush device to seat attachments"
 msgstr "デバイスのシートへの接続のリセット"
 
 #: src/login/org.freedesktop.login1.policy:149
-msgid ""
-"Authentication is required to reset how devices are attached to seats."
+msgid "Authentication is required to reset how devices are attached to seats."
 msgstr "デバイスのシートへの接続をリセットするには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:158
@@ -331,8 +331,8 @@ msgstr "アプリケーションが使用されている状態でシステムの
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required to power off the system while an application "
-"is inhibiting this."
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
 msgstr ""
 "アプリケーションが使用されている状態でシステムの電源を切るには認証が必要で"
 "す。"
@@ -351,8 +351,8 @@ msgstr "他のユーザがログインしている状態でシステムを再起
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required to reboot the system while other users are "
-"logged in."
+"Authentication is required to reboot the system while other users are logged "
+"in."
 msgstr ""
 "他のユーザがログインしている状態でシステムを再起動するには認証が必要です。"
 
@@ -362,8 +362,8 @@ msgstr "アプリケーションが使用されている状態でシステムを
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required to reboot the system while an application "
-"is inhibiting this."
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
 msgstr ""
 "アプリケーションが使用されている状態でシステムを再起動するには認証が必要で"
 "す。"
@@ -382,8 +382,8 @@ msgstr "他のユーザがログインしている状態でシステムを停止
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required to halt the system while other users are "
-"logged in."
+"Authentication is required to halt the system while other users are logged "
+"in."
 msgstr ""
 "他のユーザがログインしている状態でシステムを停止するには認証が必要です。"
 
@@ -392,11 +392,16 @@ msgid "Halt the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムを停止する"
 
 #: src/login/org.freedesktop.login1.policy:247
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to hibernate the system while an application "
+#| "is inhibiting this."
 msgid ""
-"Authentication is required to halt the system while an application asked "
-"to inhibit it."
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
 msgstr ""
-"アプリケーションが使用されている状態でシステムを停止するには認証が必要です。"
+"アプリケーションが使用されている状態でシステムをハイバネートするには認証が必"
+"要です。"
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
@@ -424,8 +429,8 @@ msgstr "アプリケーションが使用されている状態でシステムを
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required to suspend the system while an application "
-"is inhibiting this."
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
 msgstr ""
 "アプリケーションが使用されている状態でシステムをサスペンドするには認証が必要"
 "です。"
@@ -456,8 +461,8 @@ msgstr "アプリケーションが使用されている状態でシステムを
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required to hibernate the system while an application "
-"is inhibiting this."
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
 msgstr ""
 "アプリケーションが使用されている状態でシステムをハイバネートするには認証が必"
 "要です。"
@@ -467,8 +472,7 @@ msgid "Manage active sessions, users and seats"
 msgstr "アクティブなセッションやユーザ，シートの管理"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required to manage active sessions, users and seats."
+msgid "Authentication is required to manage active sessions, users and seats."
 msgstr "アクティブなセッションやユーザ，シートを管理するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:331
@@ -711,26 +715,36 @@ msgid "Authentication is required to reset DNS settings."
 msgstr "DNSの設定を破棄するには認証が必要です。"
 
 #: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to send force renew message."
+msgstr "全ユーザへのメッセージを設定するには認証が必要です。"
+
+#: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
 msgstr "動的アドレスの更新"
 
-#: src/network/org.freedesktop.network1.policy:144
+#: src/network/org.freedesktop.network1.policy:155
 msgid "Authentication is required to renew dynamic addresses."
 msgstr "動的アドレスの更新には認証が必要です。"
 
-#: src/network/org.freedesktop.network1.policy:154
+#: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
 msgstr "ネットワークの設定の再読み込み"
 
-#: src/network/org.freedesktop.network1.policy:155
+#: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
 msgstr "ネットワークの設定を再読み込みするには認証が必要です。"
 
-#: src/network/org.freedesktop.network1.policy:165
+#: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
 msgstr "ネットワークインターフェイスの再設定"
 
-#: src/network/org.freedesktop.network1.policy:166
+#: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
 msgstr "ネットワークインターフェイスの再設定には認証が必要です。"
 
@@ -822,39 +836,55 @@ msgid ""
 "shall be enabled."
 msgstr "ネットワーク経由の時刻同期を有効もしくは無効にするには認証が必要です。"
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)'を開始するには認証が必要です。"
 
-#: src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)'を停止するには認証が必要です。"
 
-#: src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)'を再読込するには認証が必要です。"
 
-#: src/core/dbus-unit.c:358 src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)'を再起動するには認証が必要です。"
 
-#: src/core/dbus-unit.c:531
+#: src/core/dbus-unit.c:538
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
 
-#: src/core/dbus-unit.c:562
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)'の「失敗」状態をリセットするには認証が必要です。"
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)'のプロパティを設定するには認証が必要です。"
 
-#: src/core/dbus-unit.c:704
+#: src/core/dbus-unit.c:711
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 "'$(unit)'に関連付けられたファイルやディレクトリの削除には認証が必要です。"
+
+#: src/core/dbus-unit.c:760
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to send a UNIX signal to the processes of "
+#| "'$(unit)'."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
+
+#~ msgid ""
+#~ "Authentication is required to halt the system while an application asked "
+#~ "to inhibit it."
+#~ msgstr ""
+#~ "アプリケーションが使用されている状態でシステムを停止するには認証が必要で"
+#~ "す。"

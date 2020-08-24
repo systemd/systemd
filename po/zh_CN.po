@@ -8,8 +8,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
-"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2015-10-27 02:24+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2016-03-01 20:38-0700\n"
 "Last-Translator: Jeff Bai <jeffbai@aosc.xyz>\n"
 "Language-Team: Chinese <i18n-zh@googlegroups.com>\n"
@@ -20,505 +20,941 @@ msgstr ""
 "X-Generator: Poedit 1.8.7.1\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+#: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
 msgstr "将密码发回系统"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+#: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr "将输入的密码发回系统需要认证。"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+#: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
 msgstr "管理系统服务或其它单元"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+#: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr "管理系统服务或其它单元需要认证。"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+#: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
 msgstr "管理系统服务或单元文件"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+#: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr "管理系统服务或单元文件需要认证。"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+#: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr "设置或清除系统及服务管理器的环境变量"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+#: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr "设置或清除系统及服务管理器的环境变量需要认证。"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+#: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
 msgstr "重新载入 systemd 状态"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+#: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "重新载入 systemd 状态需要认证。"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:14
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to create a user's home area."
+msgstr "重新载入 systemd 状态需要认证。"
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:24
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to remove a user's home area."
+msgstr "重新载入 systemd 状态需要认证。"
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:34
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to manage active sessions, users and seats."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr "管理活动会话、用户与会话座位需要认证。"
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr ""
+
+# Pay attention to the concept of "seat".
+#
+# To fully understand the meaning, please refer to session management in old ConsoleKit and new systemd-logind.
+#: src/home/org.freedesktop.home1.policy:44
+#, fuzzy
+#| msgid "Authentication is required to attach a device to a seat."
+msgid "Authentication is required to update a user's home area."
+msgstr "允许将设备附加至某个会话座位需要认证。"
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to resize a user's home area."
+msgstr "设置 wall 消息需要认证。"
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:64
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to manage active sessions, users and seats."
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "管理活动会话、用户与会话座位需要认证。"
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
 msgstr "设置主机名"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
+#: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
 msgstr "设置本地主机名需要认证。"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
+#: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
 msgstr "设置静态主机名"
 
 # For pretty hostname, the zh_CN/zh_TW translation should be discussed again.
 #
 # There were some discussions, like https://lists.fedoraprojects.org/pipermail/trans-zh_cn/2012-December/001347.html
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
+#: src/hostname/org.freedesktop.hostname1.policy:31
 #, fuzzy
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr "设置静态本地主机名或美观主机名需要认证。"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
+#: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
 msgstr "设置机器信息"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
+#: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr "设置本地机器信息需要认证。"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:1
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+#, fuzzy
+#| msgid "Authentication is required to reload '$(unit)'."
+msgid "Authentication is required to get product UUID."
+msgstr "重新载入“$(unit)”需要认证。"
+
+#: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
 msgstr "导入虚拟机或容器镜像"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:2
+#: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import a VM or container image"
 msgstr "导入虚拟机或容器镜像需要认证"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:3
+#: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
 msgstr "导出虚拟机或容器镜像"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:4
+#: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export a VM or container image"
 msgstr "导出虚拟机或容器镜像需要认证"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:5
+#: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
 msgstr "下载虚拟机或容器镜像"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:6
+#: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
 msgstr "下载虚拟机或容器镜像需要认证。"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+#: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
 msgstr "设置系统区域和语言"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:2
+#: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
 msgstr "设置系统区域和语言需要认证。"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:3
+#: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
 msgstr "设置系统键盘"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:4
+#: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
 msgstr "设置系统键盘需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:1
+#: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
 msgstr "允许应用程序阻止系统关机"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:2
+#: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
 msgstr "允许应用程序阻止系统关机需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:3
+#: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
 msgstr "允许应用程序延迟系统关机"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:4
+#: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
 msgstr "允许应用程序延迟系统关机需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:5
+#: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
 msgstr "允许应用程序阻止系统睡眠"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:6
+#: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
 msgstr "允许应用程序阻止系统睡眠需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:7
+#: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
 msgstr "允许应用程序延迟系统睡眠"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:8
+#: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
 msgstr "允许应用程序延迟系统睡眠需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:9
+#: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
 msgstr "允许应用程序阻止系统自动挂起"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:10
+#: src/login/org.freedesktop.login1.policy:66
 msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
 msgstr "允许应用程序阻止系统自动挂起需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:11
+#: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
 msgstr "允许应用程序阻止系统响应电源键"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:12
+#: src/login/org.freedesktop.login1.policy:76
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
 msgstr "允许应用程序阻止系统响应电源键需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:13
+#: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
 msgstr "允许应用程序阻止系统响应挂起键"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:14
+#: src/login/org.freedesktop.login1.policy:87
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
 msgstr "允许应用程序阻止系统响应挂起键需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:15
+#: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr "允许应用程序阻止系统响应挂起键"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:16
+#: src/login/org.freedesktop.login1.policy:98
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
 msgstr "允许应用程序阻止系统响应挂起键需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:17
+#: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
 msgstr "允许应用程序阻止系统响应笔记本上盖开关事件"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:18
+#: src/login/org.freedesktop.login1.policy:108
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
 msgstr "允许应用程序阻止系统响应笔记本上盖开关事件需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:19
+#: src/login/org.freedesktop.login1.policy:117
+#, fuzzy
+#| msgid "Allow non-logged-in users to run programs"
+msgid "Allow non-logged-in user to run programs"
+msgstr "允许未登录用户运行程序"
+
+#: src/login/org.freedesktop.login1.policy:118
+#, fuzzy
+#| msgid "Authentication is required to run programs as a non-logged-in user."
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr "允许未登录用户运行程序需要认证。"
+
+#: src/login/org.freedesktop.login1.policy:127
 msgid "Allow non-logged-in users to run programs"
 msgstr "允许未登录用户运行程序"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:20
+#: src/login/org.freedesktop.login1.policy:128
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr "允许未登录用户运行程序需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:21
+#: src/login/org.freedesktop.login1.policy:137
 msgid "Allow attaching devices to seats"
 msgstr "允许将设备附加至会话座位"
 
 # Pay attention to the concept of "seat".
 #
 # To fully understand the meaning, please refer to session management in old ConsoleKit and new systemd-logind.
-#: ../src/login/org.freedesktop.login1.policy.in.h:22
+#: src/login/org.freedesktop.login1.policy:138
 msgid "Authentication is required to attach a device to a seat."
 msgstr "允许将设备附加至某个会话座位需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:23
+#: src/login/org.freedesktop.login1.policy:148
 msgid "Flush device to seat attachments"
 msgstr "刷新设备至会话座位间的连接"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:24
-msgid ""
-"Authentication is required to reset how devices are attached to seats."
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to reset how devices are attached to seats."
 msgstr "重新设定设备的会话座位接入方式时需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:25
+#: src/login/org.freedesktop.login1.policy:158
 msgid "Power off the system"
 msgstr "关闭系统"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:26
+#: src/login/org.freedesktop.login1.policy:159
 msgid "Authentication is required to power off the system."
 msgstr "关闭系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:27
+#: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system while other users are logged in"
 msgstr "存在其他已登录用户时仍然关机"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:28
+#: src/login/org.freedesktop.login1.policy:170
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
 msgstr "存在其他已登录用户时关闭系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:29
+#: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然关机"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:30
+#: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required to power off the system while an application "
-"is inhibiting this."
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
 msgstr "在其它应用程序阻止关机时关闭系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:31
+#: src/login/org.freedesktop.login1.policy:191
 msgid "Reboot the system"
 msgstr "重启系统"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:32
+#: src/login/org.freedesktop.login1.policy:192
 msgid "Authentication is required to reboot the system."
 msgstr "重启系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:33
+#: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system while other users are logged in"
 msgstr "存在其他已登录用户时仍然重启"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:34
+#: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required to reboot the system while other users are "
-"logged in."
+"Authentication is required to reboot the system while other users are logged "
+"in."
 msgstr "存在其他已登录用户时重启系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:35
+#: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然重启"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:36
+#: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required to reboot the system while an application "
-"is inhibiting this."
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
 msgstr "在其它应用程序阻止重启时重启系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:37
+#: src/login/org.freedesktop.login1.policy:224
+#, fuzzy
+#| msgid "Hibernate the system"
+msgid "Halt the system"
+msgstr "休眠系统"
+
+#: src/login/org.freedesktop.login1.policy:225
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to halt the system."
+msgstr "休眠系统需要认证。"
+
+#: src/login/org.freedesktop.login1.policy:235
+#, fuzzy
+#| msgid "Hibernate the system while other users are logged in"
+msgid "Halt the system while other users are logged in"
+msgstr "存在其他已登录用户时仍然休眠"
+
+#: src/login/org.freedesktop.login1.policy:236
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to hibernate the system while other users are "
+#| "logged in."
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr "存在其他已登录用户时进行休眠系统需要认证。"
+
+#: src/login/org.freedesktop.login1.policy:246
+#, fuzzy
+#| msgid "Hibernate the system while an application is inhibiting this"
+msgid "Halt the system while an application is inhibiting this"
+msgstr "有其它应用程序阻止时仍然休眠"
+
+#: src/login/org.freedesktop.login1.policy:247
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to hibernate the system while an application "
+#| "is inhibiting this."
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr "在其它应用程序阻止休眠时进行休眠需要认证。"
+
+#: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
 msgstr "挂起系统"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:38
+#: src/login/org.freedesktop.login1.policy:258
 msgid "Authentication is required to suspend the system."
 msgstr "挂起系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:39
+#: src/login/org.freedesktop.login1.policy:267
 msgid "Suspend the system while other users are logged in"
 msgstr "存在其他已登录用户时仍然挂起系统"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:40
+#: src/login/org.freedesktop.login1.policy:268
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr "存在其他已登录用户时挂起系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:41
+#: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然挂起系统"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:42
+#: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required to suspend the system while an application "
-"is inhibiting this."
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
 msgstr "在其它应用程序阻止挂起时挂起系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:43
+#: src/login/org.freedesktop.login1.policy:289
 msgid "Hibernate the system"
 msgstr "休眠系统"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:44
+#: src/login/org.freedesktop.login1.policy:290
 msgid "Authentication is required to hibernate the system."
 msgstr "休眠系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:45
+#: src/login/org.freedesktop.login1.policy:299
 msgid "Hibernate the system while other users are logged in"
 msgstr "存在其他已登录用户时仍然休眠"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:46
+#: src/login/org.freedesktop.login1.policy:300
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr "存在其他已登录用户时进行休眠系统需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:47
+#: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr "有其它应用程序阻止时仍然休眠"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:48
+#: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required to hibernate the system while an application "
-"is inhibiting this."
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
 msgstr "在其它应用程序阻止休眠时进行休眠需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:49
+#: src/login/org.freedesktop.login1.policy:321
 msgid "Manage active sessions, users and seats"
 msgstr "管理活动会话、用户与会话座位"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:50
-msgid ""
-"Authentication is required to manage active sessions, users and seats."
+#: src/login/org.freedesktop.login1.policy:322
+msgid "Authentication is required to manage active sessions, users and seats."
 msgstr "管理活动会话、用户与会话座位需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:51
+#: src/login/org.freedesktop.login1.policy:331
 msgid "Lock or unlock active sessions"
 msgstr "锁定或解锁活动会话"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:52
+#: src/login/org.freedesktop.login1.policy:332
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr "对活动会话进行锁定或解锁需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:53
-msgid "Allow indication to the firmware to boot to setup interface"
+#: src/login/org.freedesktop.login1.policy:341
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:342
+#, fuzzy
+#| msgid "Authentication is required to set the system timezone."
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr "设置系统时区需要认证。"
+
+#: src/login/org.freedesktop.login1.policy:352
+#, fuzzy
+#| msgid "Allow indication to the firmware to boot to setup interface"
+msgid "Indicate to the firmware to boot to setup interface"
 msgstr "允许向固件发出指示以启动至设置界面"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#: src/login/org.freedesktop.login1.policy:353
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr "向固件发出启动时进入设置界面的指令需要认证。"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:55
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:364
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to indicate to the firmware to boot to setup "
+#| "interface."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr "向固件发出启动时进入设置界面的指令需要认证。"
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:375
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to indicate to the firmware to boot to setup "
+#| "interface."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr "向固件发出启动时进入设置界面的指令需要认证。"
+
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
 msgstr "设置 wall 消息"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "设置 wall 消息需要认证。"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
+#: src/login/org.freedesktop.login1.policy:395
+msgid "Change Session"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:396
+#, fuzzy
+#| msgid "Authentication is required to set the local hostname."
+msgid "Authentication is required to change the virtual terminal."
+msgstr "设置本地主机名需要认证。"
+
+#: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
 msgstr "登入本地容器"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
+#: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
 msgstr "登录一个本地容器需要认证。"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+#: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
 msgstr "登入本地主机"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
 msgstr "登入本地主机需要认证。"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
 msgstr "在本地容器中获取一个 shell"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
 msgstr "在本地容器中获取 shell 需要认证。"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+#: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
 msgstr "在本地主机中获取一个 shell"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+#: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
 msgstr "在本地主机中获取 shell 需要认证。"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+#: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
 msgstr "在本地容器中获取一个假 TTY"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+#: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr "在本地容器中获取假 TTY 需要认证。"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+#: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
 msgstr "在本地主机中获取一个假 TTY"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+#: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
 msgstr "在本地主机中获取假 TTY 需要认证。"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
+#: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
 msgstr "管理本地虚拟机和容器"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
+#: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr "管理本地虚拟机和容器需要认证。"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
+#: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
 msgstr "管理本地虚拟机和容器的镜像"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
+#: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr "管理本地的虚拟机和容器镜像需要认证。"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:23
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to set NTP servers."
+msgstr "设置系统时间需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to set DNS servers."
+msgstr "设置系统时间需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+#, fuzzy
+#| msgid "Authentication is required to stop '$(unit)'."
+msgid "Authentication is required to set domains."
+msgstr "停止“$(unit)”需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+#, fuzzy
+#| msgid "Authentication is required to set the local hostname."
+msgid "Authentication is required to set default route."
+msgstr "设置本地主机名需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "休眠系统需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+#, fuzzy
+#| msgid "Authentication is required to log into the local host."
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "登入本地主机需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+#, fuzzy
+#| msgid "Authentication is required to set the local hostname."
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "设置本地主机名需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "休眠系统需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+#, fuzzy
+#| msgid "Authentication is required to set the system locale."
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "设置系统区域和语言需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:122
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to reset NTP settings."
+msgstr "设置系统时间需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:133
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to reset DNS settings."
+msgstr "设置系统时间需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to send force renew message."
+msgstr "设置 wall 消息需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:155
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "设置 wall 消息需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:166
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to reload network settings."
+msgstr "重新载入 systemd 状态需要认证。"
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:177
+#, fuzzy
+#| msgid "Authentication is required to reboot the system."
+msgid "Authentication is required to reconfigure network interface."
+msgstr "重启系统需要认证。"
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:14
+#, fuzzy
+#| msgid "Authentication is required to import a VM or container image"
+msgid "Authentication is required to inspect a portable service image."
+msgstr "导入虚拟机或容器镜像需要认证"
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr ""
+
+# Pay attention to the concept of "seat".
+#
+# To fully understand the meaning, please refer to session management in old ConsoleKit and new systemd-logind.
+#: src/portable/org.freedesktop.portable1.policy:24
+#, fuzzy
+#| msgid "Authentication is required to attach a device to a seat."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "允许将设备附加至某个会话座位需要认证。"
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:35
+#, fuzzy
+#| msgid "Authentication is required to download a VM or container image"
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "下载虚拟机或容器镜像需要认证。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to register a DNS-SD service"
+msgstr "设置 wall 消息需要认证。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to unregister a DNS-SD service"
+msgstr "设置 wall 消息需要认证。"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+#, fuzzy
+#| msgid "Authentication is required to set the system keyboard settings."
+msgid "Authentication is required to reset name resolution settings."
+msgstr "设置系统键盘需要认证。"
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "设置系统时间"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:2
+#: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."
 msgstr "设置系统时间需要认证。"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:3
+#: src/timedate/org.freedesktop.timedate1.policy:33
 msgid "Set system timezone"
 msgstr "设置系统时区"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:4
+#: src/timedate/org.freedesktop.timedate1.policy:34
 msgid "Authentication is required to set the system timezone."
 msgstr "设置系统时区需要认证。"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:5
+#: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
 msgstr "设置硬件时钟使用本地时间或 UTC"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:6
+#: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
 msgstr "设置硬件时钟使用本地时间或 UTC 需要认证。"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
+#: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "打开或关闭网络时间同步"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:8
+#: src/timedate/org.freedesktop.timedate1.policy:54
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr "打开或关闭网络时间同步需要认证。"
 
-#: ../src/core/dbus-unit.c:430
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "启动“$(unit)”需要认证。"
 
-#: ../src/core/dbus-unit.c:431
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "停止“$(unit)”需要认证。"
 
-#: ../src/core/dbus-unit.c:432
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "重新载入“$(unit)”需要认证。"
 
-#: ../src/core/dbus-unit.c:433 ../src/core/dbus-unit.c:434
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "重新启动“$(unit)”需要认证。"
 
-#: ../src/core/dbus-unit.c:537
-msgid "Authentication is required to kill '$(unit)'."
-msgstr "杀死“$(unit)”需要认证。"
+#: src/core/dbus-unit.c:538
+#, fuzzy
+#| msgid "Authentication is required to set properties on '$(unit)'."
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr "设置“$(unit)”的属性需要认证。"
 
-#: ../src/core/dbus-unit.c:567
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "重置“$(unit)”的失败（\"failed\"）状态需要认证。"
 
-#: ../src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "设置“$(unit)”的属性需要认证。"
+
+#: src/core/dbus-unit.c:711
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr "重置“$(unit)”的失败（\"failed\"）状态需要认证。"
+
+#: src/core/dbus-unit.c:760
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "重置“$(unit)”的失败（\"failed\"）状态需要认证。"
+
+#~ msgid "Authentication is required to kill '$(unit)'."
+#~ msgstr "杀死“$(unit)”需要认证。"

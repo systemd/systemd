@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-03-08 12:55+0100\n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2020-03-08 12:57+0100\n"
 "Last-Translator: gogo <linux.hr@protonmail.com>\n"
 "Language-Team: \n"
@@ -873,40 +873,49 @@ msgstr ""
 "Potrebna je ovjera za uključivanje ili isključivanje mrežnog usklađivanja "
 "vremena."
 
-#: src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Potrebna je ovjera za pokretanje '$(unit)'."
 
-#: src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Potrebna je ovjera za zaustavljanje '$(unit)'."
 
-#: src/core/dbus-unit.c:358
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Potrebna je ovjera za ponovno učitavnje '$(unit)'."
 
-#: src/core/dbus-unit.c:359 src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Potrebna je ovjera za ponovno pokretanje'$(unit)'."
 
-#: src/core/dbus-unit.c:532
+#: src/core/dbus-unit.c:538
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "Potrebna je ovjera za slanje UNIX signala u procese '$(unit)'."
 
-#: src/core/dbus-unit.c:563
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Potrebna je ovjera za vraćanje \"neuspjelog\" stanja '$(unit)'."
 
-#: src/core/dbus-unit.c:596
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Potrebna je ovjera za postavljanje svojstava na '$(unit)'."
 
-#: src/core/dbus-unit.c:705
+#: src/core/dbus-unit.c:711
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 "Potrebna je ovjera za za brisanje datoteka i direktorija pridruženih sa "
 "'$(unit)'."
+
+#: src/core/dbus-unit.c:760
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to send a UNIX signal to the processes of "
+#| "'$(unit)'."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "Potrebna je ovjera za slanje UNIX signala u procese '$(unit)'."

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2019-10-23 19:12+0800\n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2019-10-23 19:19+0800\n"
 "Last-Translator: pan93412 <pan93412@gmail.com>\n"
 "Language-Team: Chinese <chinese-l10n@googlegroups.com>\n"
@@ -60,6 +60,70 @@ msgstr "重新載入 systemd 狀態"
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "重新載入 systemd 狀態需要驗證。"
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:14
+#, fuzzy
+#| msgid "Authentication is required to set NTP servers."
+msgid "Authentication is required to create a user's home area."
+msgstr "設定 NTP 伺服器需要身份驗證。"
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:24
+#, fuzzy
+#| msgid "Authentication is required to set NTP servers."
+msgid "Authentication is required to remove a user's home area."
+msgstr "設定 NTP 伺服器需要身份驗證。"
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:34
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to attach or detach a portable service image."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr "連結或取消連結可攜式服務映像需要身份驗證。"
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:44
+#, fuzzy
+#| msgid "Authentication is required to attach a device to a seat."
+msgid "Authentication is required to update a user's home area."
+msgstr "將設備連接到座位需要驗證。"
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+#| msgid "Authentication is required to set NTP servers."
+msgid "Authentication is required to resize a user's home area."
+msgstr "設定 NTP 伺服器需要身份驗證。"
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:64
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to manage active sessions, users and seats."
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "管理活躍的工作階段、使用者與座位需要驗證。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -247,8 +311,7 @@ msgid "Flush device to seat attachments"
 msgstr "暴露裝置以安裝附件"
 
 #: src/login/org.freedesktop.login1.policy:149
-msgid ""
-"Authentication is required to reset how devices are attached to seats."
+msgid "Authentication is required to reset how devices are attached to seats."
 msgstr "要重置裝置如何連接到座位需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:158
@@ -275,8 +338,8 @@ msgstr "當應用程式阻止系統電源關閉時將其關閉"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required to power off the system while an application "
-"is inhibiting this."
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
 msgstr "當應用程式阻止系統電源關閉時將系統電源關閉需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:191
@@ -293,8 +356,8 @@ msgstr "在有其他使用者登入時重新啟動系統"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required to reboot the system while other users are "
-"logged in."
+"Authentication is required to reboot the system while other users are logged "
+"in."
 msgstr "在有其他使用者登入時重新啟動系統需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:213
@@ -303,8 +366,8 @@ msgstr "當應用程式阻止重新啟動系統時將系統重新啟動"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required to reboot the system while an application "
-"is inhibiting this."
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
 msgstr "當應用程式阻止系統重新啟動時將系統重新啟動需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:224
@@ -321,8 +384,8 @@ msgstr "在其他使用者登入時停止系統"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required to halt the system while other users are "
-"logged in."
+"Authentication is required to halt the system while other users are logged "
+"in."
 msgstr "在其他使用者登入時停止系統需要身份驗證。"
 
 #: src/login/org.freedesktop.login1.policy:246
@@ -330,10 +393,14 @@ msgid "Halt the system while an application is inhibiting this"
 msgstr "在應用程式阻止時停止系統"
 
 #: src/login/org.freedesktop.login1.policy:247
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to hibernate the system while an application "
+#| "is inhibiting this."
 msgid ""
-"Authentication is required to halt the system while an application asked "
-"to inhibit it."
-msgstr "在應用程式阻止時停止系統需要身份驗證。"
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr "當應用程式阻止系統冬眠時將系統冬眠需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
@@ -359,8 +426,8 @@ msgstr "當應用程式阻止暫停系統時將系統暫停"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required to suspend the system while an application "
-"is inhibiting this."
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
 msgstr "當應用程式阻止系統暫停時將系統暫停需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:289
@@ -387,8 +454,8 @@ msgstr "當應用程式阻止冬眠系統時將系統冬眠"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required to hibernate the system while an application "
-"is inhibiting this."
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
 msgstr "當應用程式阻止系統冬眠時將系統冬眠需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:321
@@ -396,8 +463,7 @@ msgid "Manage active sessions, users and seats"
 msgstr "管理活躍的工作階段、使用者與座位"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required to manage active sessions, users and seats."
+msgid "Authentication is required to manage active sessions, users and seats."
 msgstr "管理活躍的工作階段、使用者與座位需要驗證。"
 
 #: src/login/org.freedesktop.login1.policy:331
@@ -453,6 +519,16 @@ msgstr "設定 wall 訊息"
 #: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "設定 wall 訊息需要身份驗證"
+
+#: src/login/org.freedesktop.login1.policy:395
+msgid "Change Session"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:396
+#, fuzzy
+#| msgid "Authentication is required to halt the system."
+msgid "Authentication is required to change the virtual terminal."
+msgstr "停止系統需要身份驗證。"
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -627,12 +703,44 @@ msgid "Authentication is required to reset DNS settings."
 msgstr "重設 DNS 設定需要身份驗證。"
 
 #: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to send force renew message."
+msgstr "設定 wall 訊息需要身份驗證"
+
+#: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
 msgstr "重新產生動態位址"
 
-#: src/network/org.freedesktop.network1.policy:144
+#: src/network/org.freedesktop.network1.policy:155
 msgid "Authentication is required to renew dynamic addresses."
 msgstr "重新產生動態位址需要身份驗證。"
+
+#: src/network/org.freedesktop.network1.policy:165
+#, fuzzy
+#| msgid "Revert NTP settings"
+msgid "Reload network settings"
+msgstr "還原 NTP 設定"
+
+#: src/network/org.freedesktop.network1.policy:166
+#, fuzzy
+#| msgid "Authentication is required to reset NTP settings."
+msgid "Authentication is required to reload network settings."
+msgstr "重設 NTP 設定需要身份驗證。"
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:177
+#, fuzzy
+#| msgid "Authentication is required to reboot the system."
+msgid "Authentication is required to reconfigure network interface."
+msgstr "重新啟動系統需要驗證。"
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -720,41 +828,55 @@ msgid ""
 "shall be enabled."
 msgstr "控制網路時間同步是否啟用需要驗證。"
 
-#: src/core/dbus-unit.c:354
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "啟動 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:355
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "停止 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "重新載入 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:357 src/core/dbus-unit.c:358
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "重新啟動 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:530
+#: src/core/dbus-unit.c:538
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "傳送 UNIX 信號至「$(unit)」的程序需要身份驗證。"
 
-#: src/core/dbus-unit.c:561
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "重置 '$(unit)' 的「失敗」狀態需要驗證。"
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "在 '$(unit)' 上設定屬性需要驗證。"
 
-#: src/core/dbus-unit.c:703
+#: src/core/dbus-unit.c:711
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr "刪除與 '$(unit)' 相關的檔案及目錄需要身份驗證。"
+
+#: src/core/dbus-unit.c:760
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to send a UNIX signal to the processes of "
+#| "'$(unit)'."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "傳送 UNIX 信號至「$(unit)」的程序需要身份驗證。"
+
+#~ msgid ""
+#~ "Authentication is required to halt the system while an application asked "
+#~ "to inhibit it."
+#~ msgstr "在應用程式阻止時停止系統需要身份驗證。"
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "砍除 '$(unit)' 需要驗證。"

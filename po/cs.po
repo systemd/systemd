@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
-"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2020-05-30 13:27+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2020-07-01 16:40+0200\n"
 "Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech\n"
@@ -861,37 +861,37 @@ msgid ""
 "shall be enabled."
 msgstr "Pro kontrolu synchronizace času ze sítě je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:358
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Pro spuštění „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Pro vypnutí „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Pro opětovné načtení „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:361 src/core/dbus-unit.c:362
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Pro restart „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:534
+#: src/core/dbus-unit.c:538
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Pro resetování chybného stavu „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:598
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Pro nastavení vlastností na „$(unit)” je vyžadováno ověření."
 
-#: src/core/dbus-unit.c:707
+#: src/core/dbus-unit.c:711
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -899,7 +899,7 @@ msgstr ""
 "Pro odstranění souborů nebo adresářů souvisejících s „$(unit)” je vyžadováno "
 "ověření."
 
-#: src/core/dbus-unit.c:756
+#: src/core/dbus-unit.c:760
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

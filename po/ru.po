@@ -9,15 +9,15 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-03-03 00:56+1000\n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2020-03-03 16:05+1000\n"
 "Last-Translator: Vladimir Yerilov <openmindead@gmail.com>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<"
-"=4 && (n%100<10 || n%100>=20) ? 1 : 2)\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)\n"
 "X-Generator: Lokalize 19.12.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -78,8 +78,8 @@ msgstr "Создать домашнее пространство"
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
 msgstr ""
-"Чтобы создать домашнее пространство пользователя, необходимо пройти"
-" аутентификацию."
+"Чтобы создать домашнее пространство пользователя, необходимо пройти "
+"аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
@@ -88,8 +88,8 @@ msgstr "Удалить домашнее пространство"
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
 msgstr ""
-"Чтобы удалить домашнее пространство пользователя, необходимо пройти"
-" аутентификацию."
+"Чтобы удалить домашнее пространство пользователя, необходимо пройти "
+"аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
@@ -99,8 +99,8 @@ msgstr "Проверить учётные данные домашнего про
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
-"Чтобы проверить учётные данные для домашнего пространства пользователя,"
-" необходимо пройти аутентификацию."
+"Чтобы проверить учётные данные для домашнего пространства пользователя, "
+"необходимо пройти аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -109,8 +109,8 @@ msgstr "Обновить домашнее пространство"
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
 msgstr ""
-"Чтобы обновить домашнее пространство пользователя, необходимо пройти"
-" аутентификацию."
+"Чтобы обновить домашнее пространство пользователя, необходимо пройти "
+"аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
@@ -119,8 +119,8 @@ msgstr "Изменить размер домашнего пространств�
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
-"Чтобы изменить размер домашнего пространства пользователя, необходимо пройти"
-" аутентификацию."
+"Чтобы изменить размер домашнего пространства пользователя, необходимо пройти "
+"аутентификацию."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
@@ -130,8 +130,8 @@ msgstr "Изменить пароль для домашнего простран
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
-"Чтобы изменить пароль для домашнего пространства пользователя, необходимо"
-" пройти аутентификацию."
+"Чтобы изменить пароль для домашнего пространства пользователя, необходимо "
+"пройти аутентификацию."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -472,8 +472,8 @@ msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"Чтобы остановить систему несмотря на то, что приложение запросило блокировку"
-" выключения, необходимо пройти аутентификацию."
+"Чтобы остановить систему несмотря на то, что приложение запросило блокировку "
+"выключения, необходимо пройти аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
@@ -588,8 +588,8 @@ msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
-"Чтобы запустить режим настройки прошивки материнской платы, "
-"необходимо пройти аутентификацию."
+"Чтобы запустить режим настройки прошивки материнской платы, необходимо "
+"пройти аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the boot loader to boot to the boot loader menu"
@@ -600,8 +600,8 @@ msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
 msgstr ""
-"Чтобы отобразить меню загрузчика при следующей загрузке, "
-"необходимо пройти аутентификацию."
+"Чтобы отобразить меню загрузчика при следующей загрузке, необходимо пройти "
+"аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -612,8 +612,8 @@ msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"Чтобы установить определённую загрузочную запись для загрузки, "
-"необходимо пройти аутентификацию."
+"Чтобы установить определённую загрузочную запись для загрузки, необходимо "
+"пройти аутентификацию."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
@@ -780,7 +780,8 @@ msgstr "Включить/отключить DNS поверх TLS"
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
 msgstr ""
-"Чтобы включить или отключить DNS поверх TLS, необходимо пройти аутентификацию."
+"Чтобы включить или отключить DNS поверх TLS, необходимо пройти "
+"аутентификацию."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -822,32 +823,43 @@ msgstr ""
 "Чтобы сбросить локальные настройки DNS, необходимо пройти аутентификацию."
 
 #: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to send force renew message."
+msgstr ""
+"Чтобы отправить сообщение на все терминалы, необходимо пройти аутентификацию."
+
+#: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
 msgstr "Обновить динамические адреса"
 
-#: src/network/org.freedesktop.network1.policy:144
+#: src/network/org.freedesktop.network1.policy:155
 msgid "Authentication is required to renew dynamic addresses."
 msgstr "Чтобы обновить динамические адреса, необходимо пройти аутентификацию."
 
-#: src/network/org.freedesktop.network1.policy:154
+#: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
 msgstr "Перечитать настройки сети"
 
-#: src/network/org.freedesktop.network1.policy:155
+#: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
 msgstr ""
 "Чтобы заставить systemd перечитать настройки сети, необходимо пройти "
 "аутентификацию."
 
-#: src/network/org.freedesktop.network1.policy:165
+#: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
 msgstr "Изменить конфигурацию сетевого интерфейса"
 
-#: src/network/org.freedesktop.network1.policy:166
+#: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
 msgstr ""
-"Чтобы изменить конфигурацию сетевого интерфейса, необходимо пройти"
-" аутентификацию."
+"Чтобы изменить конфигурацию сетевого интерфейса, необходимо пройти "
+"аутентификацию."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -946,47 +958,58 @@ msgstr ""
 "Чтобы включить или выключить синхронизацию времени по сети, необходимо "
 "пройти аутентификацию."
 
-#: src/core/dbus-unit.c:356
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Чтобы запустить «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:357
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Чтобы остановить «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:358
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr ""
 "Чтобы заставить «$(unit)» перечитать конфигурацию, необходимо пройти "
 "аутентификацию."
 
-#: src/core/dbus-unit.c:359 src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Чтобы перезапустить «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:532
+#: src/core/dbus-unit.c:538
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
-"Чтобы отправить сигнал UNIX процессам юнита «$(unit)», необходимо пройти"
-" аутентификацию."
+"Чтобы отправить сигнал UNIX процессам юнита «$(unit)», необходимо пройти "
+"аутентификацию."
 
-#: src/core/dbus-unit.c:563
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Чтобы сбросить состояние «failed» у юнита «$(unit)», необходимо пройти "
 "аутентификацию."
 
-#: src/core/dbus-unit.c:596
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Чтобы изменить параметры юнита «$(unit)», необходимо пройти аутентификацию."
 
-#: src/core/dbus-unit.c:705
+#: src/core/dbus-unit.c:711
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
-"Чтобы удалить файлы и директории, относящиеся к юниту «$(unit)», необходимо"
-" пройти аутентификацию."
+"Чтобы удалить файлы и директории, относящиеся к юниту «$(unit)», необходимо "
+"пройти аутентификацию."
+
+#: src/core/dbus-unit.c:760
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to send a UNIX signal to the processes of "
+#| "'$(unit)'."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"Чтобы отправить сигнал UNIX процессам юнита «$(unit)», необходимо пройти "
+"аутентификацию."
