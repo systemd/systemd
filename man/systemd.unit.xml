@@ -840,11 +840,10 @@
       <varlistentry>
         <term><varname>IgnoreOnIsolate=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If <option>true</option>, this unit
-        will not be stopped when isolating another unit. Defaults to
-        <option>false</option> for service, target, socket, busname, timer, and path
-        units, and <option>true</option> for slice, scope, device, swap, mount, and
-        automount units.</para></listitem>
+        <listitem><para>Takes a boolean argument. If <option>true</option>, this unit will not be stopped
+        when isolating another unit. Defaults to <option>false</option> for service, target, socket, timer,
+        and path units, and <option>true</option> for slice, scope, device, swap, mount, and automount
+        units.</para></listitem>
       </varlistentry>
 
       <varlistentry>
