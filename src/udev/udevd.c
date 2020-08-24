@@ -62,6 +62,7 @@
 #include "udev-builtin.h"
 #include "udev-ctrl.h"
 #include "udev-event.h"
+#include "udev-probes.h"
 #include "udev-util.h"
 #include "udev-watch.h"
 #include "user-util.h"
@@ -613,6 +614,8 @@ static int worker_spawn(Manager *manager, struct event *event) {
                 return log_error_errno(r, "Failed to fork() worker: %m");
         }
         if (r == 0) {
+                DEVICE_TRACE_POINT(WORKER_SPAWNED, event->dev, getpid());
+
                 /* Worker process */
                 r = worker_main(manager, worker_monitor, sd_device_ref(event->dev));
                 log_close();
@@ -1033,6 +1036,8 @@ static int on_uevent(sd_device_monitor *monitor, sd_device *dev, void *userdata)
 
         assert(manager);
 
+        DEVICE_TRACE_POINT(KERNEL_UEVENT_RECEIVED, dev);
+
         device_ensure_usec_initialized(dev, NULL);
 
         r = event_queue_insert(manager, dev);
@@ -1167,6 +1172,8 @@ static int synthesize_change_one(sd_device *dev, sd_device *target) {
         r = sd_device_trigger(target, SD_DEVICE_CHANGE);
         if (r < 0)
                 return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
+
+        DEVICE_TRACE_POINT(SYNTHETIC_CHANGE_EVENT, dev);
 
         return 0;
 }
