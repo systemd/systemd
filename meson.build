@@ -1485,6 +1485,18 @@ else
 endif
 conf.set10('ENABLE_REMOTE', have)
 
+want_stap = get_option('stap')
+if want_stap != false
+        have = false
+        dtrace = find_program('dtrace', required: false)
+        if dtrace.found()
+                have = true
+        endif
+else
+        have = false
+endif
+conf.set10('HAVE_STAP', have)
+
 foreach term : ['analyze',
                 'backlight',
                 'binfmt',
