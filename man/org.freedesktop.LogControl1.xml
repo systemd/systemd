@@ -75,7 +75,7 @@ node /org/freedesktop/LogControl1 {
       <title>Properties</title>
 
       <para><varname>LogLevel</varname> describes the
-      <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>-style
+      <citerefentry project="man-pages"><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>-style
       log-level, and should be one of <literal>emerg</literal>, <literal>alert</literal>,
       <literal>crit</literal>, <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>,
       <literal>info</literal>, <literal>debug</literal>, in order of increasing verbosity.</para>
@@ -86,14 +86,14 @@ node /org/freedesktop/LogControl1 {
       <literal>journal</literal> (log to the journal natively, see
       <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
       <literal>syslog</literal> (log using the
-      <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> call).
+      <citerefentry project="man-pages"><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> call).
       </para>
 
       <para>Those two properties are writable, so they may be set by sufficiently privileged users.</para>
 
       <para><varname>SyslogIdentifier</varname> is a read-only property that shows the "syslog identifier".
       It is a short string that identifies the program that is the source of log messages that is passed to
-      the <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> call.
+      the <citerefentry project="man-pages"><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> call.
       </para>
 
       <para>Note: <command>journalctl</command> option <option>-p</option>/<option>--priority=</option> may

@@ -567,7 +567,7 @@ node /org/freedesktop/login1 {
 
       <para><function>SetWallMessage()</function> sets the wall message (the message that will be sent out to
       all terminals and stored in a
-      <citerefentry project='man-pages'><refentrytitle>utmp</refentrytitle><manvolnum>5</manvolnum></citerefentry> record) for a
+      <citerefentry project="man-pages"><refentrytitle>utmp</refentrytitle><manvolnum>5</manvolnum></citerefentry> record) for a
       subsequent scheduled shutdown operation. The parameter <varname>wall_message</varname> specifies the
       shutdown reason (and may be empty) which will be included in the shutdown message. The parameter
       <varname>enable</varname> specifies whether to print a wall message on shutdown.</para>

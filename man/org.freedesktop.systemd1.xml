@@ -138,6 +138,7 @@ node /org/freedesktop/systemd1 {
       CancelJob(in  u id);
       ClearJobs();
       ResetFailed();
+      SetShowStatus(in  s mode);
       ListUnits(out a(ssssssouso) units);
       ListUnitsFiltered(in  as states,
                         out a(ssssssouso) units);
@@ -505,6 +506,8 @@ node /org/freedesktop/systemd1 {
 
     <!--method GetJobBefore is not documented!-->
 
+    <!--method SetShowStatus is not documented!-->
+
     <!--method ListUnitsFiltered is not documented!-->
 
     <!--method ListUnitsByPatterns is not documented!-->
@@ -780,6 +783,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="ClearJobs()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResetFailed()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetShowStatus()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListUnits()"/>
 
@@ -2183,8 +2188,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TimeoutAbortUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly t RuntimeMaxUSec = ...;
+      readonly s TimeoutStartFailureMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s TimeoutStopFailureMode = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t RuntimeMaxUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t WatchdogUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t WatchdogTimestamp = ...;
@@ -2460,6 +2469,20 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootImage = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) RootImageOptions = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay RootHash = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootHashPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay RootHashSignature = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootHashSignaturePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootVerity = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ssba(ss)) MountImages = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i OOMScoreAdjust = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t CoredumpFilter = ...;
@@ -2694,6 +2717,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property TimeoutStopUSec is not documented!-->
 
     <!--property TimeoutAbortUSec is not documented!-->
+
+    <!--property TimeoutStartFailureMode is not documented!-->
+
+    <!--property TimeoutStopFailureMode is not documented!-->
 
     <!--property RuntimeMaxUSec is not documented!-->
 
@@ -2947,6 +2974,20 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RootImage is not documented!-->
 
+    <!--property RootImageOptions is not documented!-->
+
+    <!--property RootHash is not documented!-->
+
+    <!--property RootHashPath is not documented!-->
+
+    <!--property RootHashSignature is not documented!-->
+
+    <!--property RootHashSignaturePath is not documented!-->
+
+    <!--property RootVerity is not documented!-->
+
+    <!--property MountImages is not documented!-->
+
     <!--property OOMScoreAdjust is not documented!-->
 
     <!--property CoredumpFilter is not documented!-->
@@ -3178,6 +3219,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStopUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TimeoutAbortUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStartFailureMode"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TimeoutStopFailureMode"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeMaxUSec"/>
 
@@ -3472,6 +3517,20 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="RootDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootImage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootImageOptions"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHash"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashPath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignature"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignaturePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OOMScoreAdjust"/>
 
@@ -3825,6 +3884,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassSecurity = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b PassPacketInfo = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RemoveOnStop = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ss) Listen = [...];
@@ -4076,6 +4137,20 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s RootDirectory = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootImage = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) RootImageOptions = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay RootHash = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootHashPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay RootHashSignature = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootHashSignaturePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootVerity = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ssba(ss)) MountImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i OOMScoreAdjust = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -4348,6 +4423,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property PassSecurity is not documented!-->
 
+    <!--property PassPacketInfo is not documented!-->
+
     <!--property RemoveOnStop is not documented!-->
 
     <!--property Listen is not documented!-->
@@ -4585,6 +4662,20 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property RootDirectory is not documented!-->
 
     <!--property RootImage is not documented!-->
+
+    <!--property RootImageOptions is not documented!-->
+
+    <!--property RootHash is not documented!-->
+
+    <!--property RootHashPath is not documented!-->
+
+    <!--property RootHashSignature is not documented!-->
+
+    <!--property RootHashSignaturePath is not documented!-->
+
+    <!--property RootVerity is not documented!-->
+
+    <!--property MountImages is not documented!-->
 
     <!--property OOMScoreAdjust is not documented!-->
 
@@ -4856,6 +4947,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PassSecurity"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PassPacketInfo"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="RemoveOnStop"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Listen"/>
@@ -5111,6 +5204,20 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="RootDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootImage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootImageOptions"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHash"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashPath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignature"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignaturePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OOMScoreAdjust"/>
 
@@ -5442,6 +5549,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly b LazyUnmount = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b ForceUnmount = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b ReadWriteOnly = ...;
       readonly s Result = '...';
       readonly u UID = ...;
       readonly u GID = ...;
@@ -5651,6 +5760,20 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s RootDirectory = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootImage = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) RootImageOptions = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay RootHash = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootHashPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay RootHashSignature = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootHashSignaturePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootVerity = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ssba(ss)) MountImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i OOMScoreAdjust = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5889,6 +6012,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property ForceUnmount is not documented!-->
 
+    <!--property ReadWriteOnly is not documented!-->
+
     <!--property UID is not documented!-->
 
     <!--property GID is not documented!-->
@@ -6090,6 +6215,20 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property RootDirectory is not documented!-->
 
     <!--property RootImage is not documented!-->
+
+    <!--property RootImageOptions is not documented!-->
+
+    <!--property RootHash is not documented!-->
+
+    <!--property RootHashPath is not documented!-->
+
+    <!--property RootHashSignature is not documented!-->
+
+    <!--property RootHashSignaturePath is not documented!-->
+
+    <!--property RootVerity is not documented!-->
+
+    <!--property MountImages is not documented!-->
 
     <!--property OOMScoreAdjust is not documented!-->
 
@@ -6327,6 +6466,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ForceUnmount"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ReadWriteOnly"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Result"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
@@ -6538,6 +6679,20 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="RootDirectory"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootImage"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootImageOptions"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHash"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashPath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignature"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignaturePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OOMScoreAdjust"/>
 
@@ -7200,6 +7355,20 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootImage = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ss) RootImageOptions = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay RootHash = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootHashPath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay RootHashSignature = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootHashSignaturePath = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s RootVerity = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(ssba(ss)) MountImages = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i OOMScoreAdjust = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t CoredumpFilter = ...;
@@ -7626,6 +7795,20 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property RootDirectory is not documented!-->
 
     <!--property RootImage is not documented!-->
+
+    <!--property RootImageOptions is not documented!-->
+
+    <!--property RootHash is not documented!-->
+
+    <!--property RootHashPath is not documented!-->
+
+    <!--property RootHashSignature is not documented!-->
+
+    <!--property RootHashSignaturePath is not documented!-->
+
+    <!--property RootVerity is not documented!-->
+
+    <!--property MountImages is not documented!-->
 
     <!--property OOMScoreAdjust is not documented!-->
 
@@ -8063,6 +8246,20 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootImage"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="RootImageOptions"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHash"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashPath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignature"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignaturePath"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="OOMScoreAdjust"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="CoredumpFilter"/>
@@ -8278,15 +8475,15 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
       <para>Most of the properties map directly to the corresponding settings in swap unit files. As mount
       units invoke the
-      <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> command,
+      <citerefentry project="man-pages"><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> command,
       their bus objects include implicit <varname>ExecActivate</varname> (and similar) fields which contain
       information about processes to execute. They also share most of the fields related to the execution
       context that Service objects expose (see above). In addition to these properties there are the
       following:</para>
 
       <para><varname>ControlPID</varname> contains the PID of the currently running
-      <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
-      <citerefentry project='man-pages'><refentrytitle>swapoff</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project="man-pages"><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+      <citerefentry project="man-pages"><refentrytitle>swapoff</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       command if there is one running, otherwise 0.</para>
 
       <para><varname>Result</varname> contains a value explaining why a mount unit failed if it failed. It
