@@ -2,8 +2,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
-"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2019-04-08 15:29+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2019-04-08 22:01+0300\n"
 "Last-Translator: Moo\n"
 "Language-Team: Lithuanian\n"
@@ -66,6 +66,75 @@ msgstr "Iš naujo įkelti systemd būseną"
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę."
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:14
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to create a user's home area."
+msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:24
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to remove a user's home area."
+msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:34
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to attach or detach a portable service image."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Norint prijungti ar atskirti perkeliamos tarnybos atvaizdį, reikia nustatyti "
+"tapatybę."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:44
+#, fuzzy
+#| msgid "Authentication is required to attach a device to a seat."
+msgid "Authentication is required to update a user's home area."
+msgstr ""
+"Norint prijungti įrenginį prie darbo vietos, reikia nustatyti tapatybę."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to resize a user's home area."
+msgstr "Norint nustatyti sienos pranešimą, reikia nustatyti tapatybę"
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:64
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to manage active sessions, users and seats."
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"Norint tvarkyti aktyvius seansus, naudotojus ir darbo vietas, reikia "
+"nustatyti tapatybę."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -281,8 +350,7 @@ msgid "Flush device to seat attachments"
 msgstr "Išvalyti įrenginių prijungimus prie darbo vietų"
 
 #: src/login/org.freedesktop.login1.policy:149
-msgid ""
-"Authentication is required to reset how devices are attached to seats."
+msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Norint atstatyti tai, kaip įrenginiai yra prijungti prie darbo vietų, reikia "
 "nustatyti tapatybę."
@@ -313,8 +381,8 @@ msgstr "Išjungti sistemos maitinimą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required to power off the system while an application "
-"is inhibiting this."
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
 msgstr ""
 "Norint išjungti sistemos maitinimą, nepaisant to, kad programa paprašė tai "
 "sulaikyti, reikia nustatyti tapatybę."
@@ -333,8 +401,8 @@ msgstr "Paleisti sistemą iš naujo nepaisant kitų prisijungusių naudotojų"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required to reboot the system while other users are "
-"logged in."
+"Authentication is required to reboot the system while other users are logged "
+"in."
 msgstr ""
 "Norint paleisti sistemą iš naujo nepaisant kitų prisijungusių naudotojų, "
 "reikia nustatyti tapatybę."
@@ -345,8 +413,8 @@ msgstr "Paleisti sistemą iš naujo, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required to reboot the system while an application "
-"is inhibiting this."
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
 msgstr ""
 "Norint paleisti sistemą iš naujo, nepaisant to, kad programa paprašė tai "
 "sulaikyti, reikia nustatyti tapatybę."
@@ -365,8 +433,8 @@ msgstr "Stabdyti sistemą nepaisant kitų prisijungusių naudotojų"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required to halt the system while other users are "
-"logged in."
+"Authentication is required to halt the system while other users are logged "
+"in."
 msgstr ""
 "Norint stabdyti sistemą nepaisant kitų prisijungusių naudotojų, reikia "
 "nustatyti tapatybę."
@@ -376,11 +444,15 @@ msgid "Halt the system while an application is inhibiting this"
 msgstr "Stabdyti sistemą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:247
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to hibernate the system while an application "
+#| "is inhibiting this."
 msgid ""
-"Authentication is required to halt the system while an application asked "
-"to inhibit it."
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
 msgstr ""
-"Norint stabdyti sistemą, nepaisant to, kad programa paprašė tai sulaikyti, "
+"Norint užmigdyti sistemą, nepaisant to, kad programa paprašė tai sulaikyti, "
 "reikia nustatyti tapatybę."
 
 #: src/login/org.freedesktop.login1.policy:257
@@ -409,8 +481,8 @@ msgstr "Pristabdyti sistemą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required to suspend the system while an application "
-"is inhibiting this."
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
 msgstr ""
 "Norint pristabdyti sistemą, nepaisant to, kad programa paprašė tai "
 "sulaikyti, reikia nustatyti tapatybę."
@@ -441,8 +513,8 @@ msgstr "Užmigdyti sistemą, nors programa paprašė tai sulaikyti"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required to hibernate the system while an application "
-"is inhibiting this."
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
 msgstr ""
 "Norint užmigdyti sistemą, nepaisant to, kad programa paprašė tai sulaikyti, "
 "reikia nustatyti tapatybę."
@@ -452,8 +524,7 @@ msgid "Manage active sessions, users and seats"
 msgstr "Tvarkyti aktyvius seansus, naudotojus ir darbo vietas"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required to manage active sessions, users and seats."
+msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Norint tvarkyti aktyvius seansus, naudotojus ir darbo vietas, reikia "
 "nustatyti tapatybę."
@@ -520,6 +591,16 @@ msgstr "Nustatyti sienos pranešimą"
 #: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "Norint nustatyti sienos pranešimą, reikia nustatyti tapatybę"
+
+#: src/login/org.freedesktop.login1.policy:395
+msgid "Change Session"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:396
+#, fuzzy
+#| msgid "Authentication is required to halt the system."
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Norint stabdyti sistemą, reikia nustatyti tapatybę."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -598,6 +679,175 @@ msgstr ""
 "Norint tvarkyti vietinę virtualiąją mašiną ir konteinerio atvaizdžius, "
 "reikia nustatyti tapatybę."
 
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:23
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to set NTP servers."
+msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+#, fuzzy
+#| msgid "Register a DNS-SD service"
+msgid "Set DNS servers"
+msgstr "Registruoti DNS-SD tarnybą"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+#, fuzzy
+#| msgid "Authentication is required to register a DNS-SD service"
+msgid "Authentication is required to set DNS servers."
+msgstr "Norint registruoti DNS-SD tarnybą, reikia nustatyti tapatybę"
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+#, fuzzy
+#| msgid "Authentication is required to stop '$(unit)'."
+msgid "Authentication is required to set domains."
+msgstr "Norint stabdyti \"$(unit)\", reikia nustatyti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+#, fuzzy
+#| msgid "Authentication is required to set the local hostname."
+msgid "Authentication is required to set default route."
+msgstr ""
+"Norint nustatyti vietinio serverio pavadinimą, reikia nustatyti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "Norint užmigdyti sistemą, reikia nustatyti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+#, fuzzy
+#| msgid "Authentication is required to get product UUID."
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "Norint gauti produkto UUID, reikia nustatyti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+#, fuzzy
+#| msgid "Authentication is required to register a DNS-SD service"
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "Norint registruoti DNS-SD tarnybą, reikia nustatyti tapatybę"
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "Norint užmigdyti sistemą, reikia nustatyti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+#, fuzzy
+#| msgid "Authentication is required to set the system locale."
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "Norint nustatyti sistemos lokalę, reikia nustatyti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:122
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to reset NTP settings."
+msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:133
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to reset DNS settings."
+msgstr "Norint nustatyti sistemos laiką, reikia nustatyti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to send force renew message."
+msgstr "Norint nustatyti sienos pranešimą, reikia nustatyti tapatybę"
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:155
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "Norint nustatyti sienos pranešimą, reikia nustatyti tapatybę"
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:166
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to reload network settings."
+msgstr "Norint iš naujo įkelti systemd būseną, reikia patvirtinti tapatybę."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:177
+#, fuzzy
+#| msgid "Authentication is required to reboot the system."
+msgid "Authentication is required to reconfigure network interface."
+msgstr "Norint paleisti sistemą iš naujo, reikia nustatyti tapatybę."
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Išnagrinėti perkeliamos tarnybos atvaizdį"
@@ -645,6 +895,17 @@ msgstr "Išregistruoti DNS-SD tarnybą"
 msgid "Authentication is required to unregister a DNS-SD service"
 msgstr "Norint išregistruoti DNS-SD tarnybą, reikia nustatyti tapatybę"
 
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+#, fuzzy
+#| msgid "Authentication is required to set the system keyboard settings."
+msgid "Authentication is required to reset name resolution settings."
+msgstr ""
+"Norint nustatyti sistemos klaviatūros nustatymus, reikia nustatyti tapatybę."
+
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Nustatyti sistemos laiką"
@@ -687,38 +948,66 @@ msgstr ""
 "Norint valdyti ar tinklo laiko sinchronizavimas turėtų būti įjungtas, reikia "
 "nustatyti tapatybę."
 
-#: src/core/dbus-unit.c:316
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Norint paleisti \"$(unit)\", reikia nustatyti tapatybę."
 
-#: src/core/dbus-unit.c:317
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Norint stabdyti \"$(unit)\", reikia nustatyti tapatybę."
 
-#: src/core/dbus-unit.c:318
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Norint įkelti \"$(unit)\" iš naujo, reikia nustatyti tapatybę."
 
-#: src/core/dbus-unit.c:319 src/core/dbus-unit.c:320
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Norint paleisti \"$(unit)\" iš naujo, reikia nustatyti tapatybę."
 
-#: src/core/dbus-unit.c:492
+#: src/core/dbus-unit.c:538
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
 "Norint siųsti UNIX signalą į \"$(unit)\" procesus, reikia nustatyti tapatybę."
 
-#: src/core/dbus-unit.c:523
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Norint atstatyti \"$(unit)\" įtaiso \"failed\" būseną, reikia nustatyti "
 "tapatybę."
 
-#: src/core/dbus-unit.c:556
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Norint nustatyti \"$(unit)\" savybes, reikia nustatyti tapatybę."
+
+#: src/core/dbus-unit.c:711
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Norint atstatyti \"$(unit)\" įtaiso \"failed\" būseną, reikia nustatyti "
+"tapatybę."
+
+#: src/core/dbus-unit.c:760
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to send a UNIX signal to the processes of "
+#| "'$(unit)'."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"Norint siųsti UNIX signalą į \"$(unit)\" procesus, reikia nustatyti tapatybę."
+
+#~ msgid ""
+#~ "Authentication is required to halt the system while an application asked "
+#~ "to inhibit it."
+#~ msgstr ""
+#~ "Norint stabdyti sistemą, nepaisant to, kad programa paprašė tai "
+#~ "sulaikyti, reikia nustatyti tapatybę."
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "Norint nutraukti \"$(unit)\", reikia nustatyti tapatybę."

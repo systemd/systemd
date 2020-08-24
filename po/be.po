@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-06-09 19:54+0300\n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2016-06-09 19:47+0300\n"
 "Last-Translator: Viktar Vaŭčkievič <victorenator@gmail.com>\n"
 "Language-Team: \n"
@@ -20,40 +20,40 @@ msgstr ""
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)\n"
 "X-Generator: Lokalize 2.0\n"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:1
+#: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
 msgstr "Адправіць пароль назад сістэме"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:2
+#: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr "Неабходна аўтэнтыфікацыя для адпраўкі пароля назад сістэме."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
+#: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
 msgstr "Кіраваць сэрвісамі і іншымі сістэмнымі адзінкамі"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
+#: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для кіравання сэрвісамі і іншымі сістэмнымі "
 "адзінкамі."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
+#: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
 msgstr "Кіраваць файламі сэрвісаў і іншых сістэмных адзінак"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
+#: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для кіравання файламі сэрвісаў і іншых сістэмных "
 "адзінак."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
+#: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr "Усталяваць або скінуць зменныя асяроддзя сістэмнага мэнэджэра"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:8
+#: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
@@ -61,27 +61,95 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для ўсталявання або скіду зменных асяроддзя "
 "сістэмнага мэнэджэра."
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:9
+#: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
 msgstr "Перачытаць стан systemd"
 
-#: ../src/core/org.freedesktop.systemd1.policy.in.in.h:10
+#: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "Неабходна аўтэнтыфікацыя для перачытання стану systemd."
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:1
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:14
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to create a user's home area."
+msgstr "Неабходна аўтэнтыфікацыя для перачытання стану systemd."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:24
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to remove a user's home area."
+msgstr "Неабходна аўтэнтыфікацыя для перачытання стану systemd."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:34
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to manage active sessions, users and seats."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr ""
+"Неабходна аўтэнтыфікацыя для кіравання актыўнымі сесіямі, карыстальнікамі і "
+"месцамі."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:44
+#, fuzzy
+#| msgid "Authentication is required to attach a device to a seat."
+msgid "Authentication is required to update a user's home area."
+msgstr "Неабходна аўтэнтыфікацыя для далучэння прылад да працоўных месцаў."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to resize a user's home area."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання ўсеагульнага паведамлення"
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:64
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to manage active sessions, users and seats."
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr ""
+"Неабходна аўтэнтыфікацыя для кіравання актыўнымі сесіямі, карыстальнікамі і "
+"месцамі."
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
 msgstr "Усталяваць імя вузла"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:2
+#: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
 msgstr "Неабходна аўтэнтыфікацыя для ўсталявання імя вузла."
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:3
+#: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
 msgstr "Усталяваць статычнае імя вузла"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:4
+#: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
@@ -89,101 +157,111 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для ўсталявання як статычнага так і прыгожага імя "
 "вузла."
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:5
+#: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
 msgstr "Усталяваць інфармацыю аб машыне"
 
-#: ../src/hostname/org.freedesktop.hostname1.policy.in.h:6
+#: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для ўсталявання інфармацыі аб лакальнай машыне."
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:1
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+#, fuzzy
+#| msgid "Authentication is required to reload '$(unit)'."
+msgid "Authentication is required to get product UUID."
+msgstr "Неабходна аўтэнтыфікацыя для перачытання стану '$(unit)'."
+
+#: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
 msgstr "Імпартаваць вобраз ВМ або кантэйнера"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:2
+#: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import a VM or container image"
 msgstr "Неабходна аўтэнтыфікацыя для імпарту вобраза ВМ або кантэйнера"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:3
+#: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
 msgstr "Экспартаваць вобраз ВМ або кантэйнера"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:4
+#: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export a VM or container image"
 msgstr "Неабходна аўтэнтыфікацыя для экспарту вобраза ВМ або кантэйнера"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:5
+#: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
 msgstr "Спампаваць вобраз ВМ або кантэйнера"
 
-#: ../src/import/org.freedesktop.import1.policy.in.h:6
+#: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
 msgstr "Неабходна аўтэнтыфікацыя для спампоўкі вобраза ВМ або кантэйнера"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:1
+#: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
 msgstr "Усталяваць сістэмную лакаль"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:2
+#: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
 msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмнай лакалі."
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:3
+#: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
 msgstr "Усталяваць сістэмныя налады клавіятуры"
 
-#: ../src/locale/org.freedesktop.locale1.policy.in.h:4
+#: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
 msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмных налад клавіятуры."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:1
+#: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
 msgstr "Дазволіць праграмам перашкаджаць выключэнню сістэмы"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:2
+#: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для дазволу праграмам перашкаджаць выключэнню "
 "сістэмы."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:3
+#: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
 msgstr "Дазволіць праграмам затрымліваць выключэнне сістэмы"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:4
+#: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для дазволу праграмам затрымліваць выключэнне "
 "сістэмы."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:5
+#: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
 msgstr "Дазволіць праграмам перашкаджаць засыпанню сістэмы"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:6
+#: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для дазволу праграмам перашкаджаць засыпанню "
 "сістэмы."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:7
+#: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
 msgstr "Дазволіць праграмам затрымліваць засыпанне сістэмы"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:8
+#: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для дазволу праграмам затрымліваць засыпанне "
 "сістэмы."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:9
+#: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
 msgstr "Дазволіць праграмам перашкаджаць аўтаматычнаму прыпыненню сістэмы"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:10
+#: src/login/org.freedesktop.login1.policy:66
 msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
@@ -191,12 +269,12 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для дазволу праграмам перашкаджаць аўтаматычнаму "
 "прыпыненню сістэмы."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:11
+#: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
 msgstr ""
 "Дазволіць праграмам перашкаджаць сістэме апрацоўваць клавішу выключэння"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:12
+#: src/login/org.freedesktop.login1.policy:76
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
@@ -204,12 +282,12 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для дазволу праграмам перашкаджаць сістэме "
 "апрацоўваць клавішу выключэння."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:13
+#: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
 msgstr ""
 "Дазволіць праграмам перашкаджаць сістэме апрацоўваць клавішу прыпынення"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:14
+#: src/login/org.freedesktop.login1.policy:87
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
@@ -217,12 +295,12 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для дазволу праграмам перашкаджаць сістэме "
 "апрацоўваць клавішу прыпынення."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:15
+#: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr ""
 "Дазволіць праграмам перашкаджаць сістэме апрацоўваць клавішу гібернацыі"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:16
+#: src/login/org.freedesktop.login1.policy:98
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
@@ -230,12 +308,12 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для дазволу праграмам перашкаджаць сістэме "
 "апрацоўваць клавішу гібернацыі."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:17
+#: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
 msgstr ""
 "Дазволіць праграмам перашкаджаць сістэме апрацоўваць закрыццё крышкі ноўтбука"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:18
+#: src/login/org.freedesktop.login1.policy:108
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
@@ -243,58 +321,57 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для дазволу праграмам перашкаджаць сістэме "
 "апрацоўваць закрыццё крышкі ноўтбука."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:19
+#: src/login/org.freedesktop.login1.policy:117
 msgid "Allow non-logged-in user to run programs"
 msgstr ""
 "Дазволіць карыстальніку, якія яшчэ не ўвайшоў у сістэму, выконваць праграмы"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:20
+#: src/login/org.freedesktop.login1.policy:118
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
 "Неабходны відавочны запыт для выканання праграм карыстальніка, які яшчэ не "
 "ўвайшоў у сістэму."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:21
+#: src/login/org.freedesktop.login1.policy:127
 msgid "Allow non-logged-in users to run programs"
 msgstr ""
 "Дазволіць карыстальнікам, якія яшчэ не ўвайшлі ў сістэму, выконваць праграмы"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:22
+#: src/login/org.freedesktop.login1.policy:128
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для выканання праграм карыстальніка, які яшчэ не "
 "ўвайшоў у сістэму."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:23
+#: src/login/org.freedesktop.login1.policy:137
 msgid "Allow attaching devices to seats"
 msgstr "Дазволіць далучаць прылады да працоўных месцаў"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:24
+#: src/login/org.freedesktop.login1.policy:138
 msgid "Authentication is required to attach a device to a seat."
 msgstr "Неабходна аўтэнтыфікацыя для далучэння прылад да працоўных месцаў."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:25
+#: src/login/org.freedesktop.login1.policy:148
 msgid "Flush device to seat attachments"
 msgstr "Адключаць прылады ад працоўных месцаў"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:26
-msgid ""
-"Authentication is required to reset how devices are attached to seats."
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to reset how devices are attached to seats."
 msgstr "Неабходна аўтэнтыфікацыя для адключэння прылад ад працоўных месцаў."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:27
+#: src/login/org.freedesktop.login1.policy:158
 msgid "Power off the system"
 msgstr "Выключыць сістэму"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:28
+#: src/login/org.freedesktop.login1.policy:159
 msgid "Authentication is required to power off the system."
 msgstr "Неабходна аўтэнтыфікацыя для выключэння сістэмы."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:29
+#: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system while other users are logged in"
 msgstr "Выключыць сістэму пры прысутнасці іншых карыстальнікаў"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:30
+#: src/login/org.freedesktop.login1.policy:170
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
@@ -302,63 +379,111 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для выключэння сістэмы пры прысутнасці іншых "
 "карыстальнікаў."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:31
+#: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while an application is inhibiting this"
 msgstr "Выключыць сістэму, калі праграмы перашкаджаюць гэтаму"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:32
+#: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required to power off the system while an application "
-"is inhibiting this."
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для выключэння сістэмы, калі праграмы перашкаджаюць "
 "гэтаму."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:33
+#: src/login/org.freedesktop.login1.policy:191
 msgid "Reboot the system"
 msgstr "Перазагрузіць сістэму"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:34
+#: src/login/org.freedesktop.login1.policy:192
 msgid "Authentication is required to reboot the system."
 msgstr "Неабходна аўтэнтыфікацыя для перазагрузкі сістэмы."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:35
+#: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system while other users are logged in"
 msgstr "Перазагрузіць сістэму пры прысутнасці іншых карыстальнікаў"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:36
+#: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required to reboot the system while other users are "
-"logged in."
+"Authentication is required to reboot the system while other users are logged "
+"in."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для перазагрузкі сістэмы пры прысутнасці іншых "
 "карыстальнікаў."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:37
+#: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "Перазагрузіць сістэму, калі праграмы перашкаджаюць гэтаму"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:38
+#: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required to reboot the system while an application "
-"is inhibiting this."
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для перазагрузкі сістэмы, калі праграмы "
 "перашкаджаюць гэтаму."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:39
+#: src/login/org.freedesktop.login1.policy:224
+#, fuzzy
+#| msgid "Hibernate the system"
+msgid "Halt the system"
+msgstr "Гібернаваць сістэму"
+
+#: src/login/org.freedesktop.login1.policy:225
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to halt the system."
+msgstr "Неабходна аўтэнтыфікацыя для гібернацыі сістэмы."
+
+#: src/login/org.freedesktop.login1.policy:235
+#, fuzzy
+#| msgid "Hibernate the system while other users are logged in"
+msgid "Halt the system while other users are logged in"
+msgstr "Гібернаваць сістэму пры прысутнасці іншых карыстальнікаў"
+
+#: src/login/org.freedesktop.login1.policy:236
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to hibernate the system while other users are "
+#| "logged in."
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr ""
+"Неабходна аўтэнтыфікацыя для гібернацыі сістэмы пры прысутнасці іншых "
+"карыстальнікаў."
+
+#: src/login/org.freedesktop.login1.policy:246
+#, fuzzy
+#| msgid "Hibernate the system while an application is inhibiting this"
+msgid "Halt the system while an application is inhibiting this"
+msgstr "Гібернаваць сістэму, калі праграмы перашкаджаюць гэтаму"
+
+#: src/login/org.freedesktop.login1.policy:247
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to hibernate the system while an application "
+#| "is inhibiting this."
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr ""
+"Неабходна аўтэнтыфікацыя для гібернацыі сістэмы, калі праграмы перашкаджаюць "
+"гэтаму."
+
+#: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
 msgstr "Прыпыніць сістэму"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:40
+#: src/login/org.freedesktop.login1.policy:258
 msgid "Authentication is required to suspend the system."
 msgstr "Неабходна аўтэнтыфікацыя для прыпынення сістэмы."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:41
+#: src/login/org.freedesktop.login1.policy:267
 msgid "Suspend the system while other users are logged in"
 msgstr "Прыпыніць сістэму пры прысутнасці іншых карыстальнікаў"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:42
+#: src/login/org.freedesktop.login1.policy:268
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
@@ -366,31 +491,31 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для прыпынення сістэмы пры прысутнасці іншых "
 "карыстальнікаў."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:43
+#: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "Прыпыніць сістэму, калі праграмы перашкаджаюць гэтаму"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:44
+#: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required to suspend the system while an application "
-"is inhibiting this."
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для прыпынення сістэмы, калі праграмы перашкаджаюць "
 "гэтаму."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:45
+#: src/login/org.freedesktop.login1.policy:289
 msgid "Hibernate the system"
 msgstr "Гібернаваць сістэму"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:46
+#: src/login/org.freedesktop.login1.policy:290
 msgid "Authentication is required to hibernate the system."
 msgstr "Неабходна аўтэнтыфікацыя для гібернацыі сістэмы."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:47
+#: src/login/org.freedesktop.login1.policy:299
 msgid "Hibernate the system while other users are logged in"
 msgstr "Гібернаваць сістэму пры прысутнасці іншых карыстальнікаў"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:48
+#: src/login/org.freedesktop.login1.policy:300
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
@@ -398,124 +523,175 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для гібернацыі сістэмы пры прысутнасці іншых "
 "карыстальнікаў."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:49
+#: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr "Гібернаваць сістэму, калі праграмы перашкаджаюць гэтаму"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:50
+#: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required to hibernate the system while an application "
-"is inhibiting this."
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для гібернацыі сістэмы, калі праграмы перашкаджаюць "
 "гэтаму."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:51
+#: src/login/org.freedesktop.login1.policy:321
 msgid "Manage active sessions, users and seats"
 msgstr "Кіраваць актыўнымі сесіямі, карыстальнікамі і працоўнымі месцамі"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:52
-msgid ""
-"Authentication is required to manage active sessions, users and seats."
+#: src/login/org.freedesktop.login1.policy:322
+msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для кіравання актыўнымі сесіямі, карыстальнікамі і "
 "месцамі."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:53
+#: src/login/org.freedesktop.login1.policy:331
 msgid "Lock or unlock active sessions"
 msgstr "Блакаваць або разблакаваць актыўную сесію"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:54
+#: src/login/org.freedesktop.login1.policy:332
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для блакіроўкі або разблакіроўкі актыўнай сесіі."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:55
-msgid "Allow indication to the firmware to boot to setup interface"
+#: src/login/org.freedesktop.login1.policy:341
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:342
+#, fuzzy
+#| msgid "Authentication is required to set the system timezone."
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмнага часавога поясу."
+
+#: src/login/org.freedesktop.login1.policy:352
+#, fuzzy
+#| msgid "Allow indication to the firmware to boot to setup interface"
+msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Дазволіць указанне прашыўцы на загрузку інтэрфейсу налад"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:56
+#: src/login/org.freedesktop.login1.policy:353
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для ўказання прашыўцы на загрузку інтэрфейсу налад."
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:57
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:364
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to indicate to the firmware to boot to setup "
+#| "interface."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Неабходна аўтэнтыфікацыя для ўказання прашыўцы на загрузку інтэрфейсу налад."
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:375
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to indicate to the firmware to boot to setup "
+#| "interface."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Неабходна аўтэнтыфікацыя для ўказання прашыўцы на загрузку інтэрфейсу налад."
+
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
 msgstr "Усталяваць усеагульнае паведамленне"
 
-#: ../src/login/org.freedesktop.login1.policy.in.h:58
+#: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "Неабходна аўтэнтыфікацыя для ўсталявання ўсеагульнага паведамлення"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:1
+#: src/login/org.freedesktop.login1.policy:395
+msgid "Change Session"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:396
+#, fuzzy
+#| msgid "Authentication is required to set the local hostname."
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання імя вузла."
+
+#: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
 msgstr "Увайсці ў лакальны кантэйнер"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:2
+#: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
 msgstr "Неабходна аўтэнтыфікацыя для ўваходу ў лакальны кантэйнер."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:3
+#: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
 msgstr "Увайсці ў лакальны вузел"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:4
+#: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
 msgstr "Неабходна аўтэнтыфікацыя для ўваходу ў лакальны вузел."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:5
+#: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
 msgstr "Атрымаць абалонку на лакальным кантэйнеры"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:6
+#: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для атрымання абалонкі на лакальным кантэйнеры."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:7
+#: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
 msgstr "Атрымаць абалонку на лакальным вузле"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:8
+#: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
 msgstr "Неабходна аўтэнтыфікацыя для атрымання абалонкі на лакальным вузле."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:9
+#: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
 msgstr "Атрымаць псеўда TTY на лакальным кантэйнеры"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:10
+#: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для атрымання псеўда TTY на лакальным кантэйнеры."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:11
+#: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
 msgstr "Атрымаць псеўда TTY на лакальным вузле"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:12
+#: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
 msgstr "Неабходна аўтэнтыфікацыя для атрымання псеўда TTY на лакальным вузле."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:13
+#: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
 msgstr "Кіраваць лакальнымі віртуальнымі машынамі або кантэйнерамі"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:14
+#: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
 "Неабходна аўтэнтыфікацыя для кіравання лакальнымі віртуальнымі машынамі і "
 "кантэйнерамі."
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:15
+#: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
 msgstr "Кіраваць вобразамі лакальных віртуальных машын і кантэйнераў"
 
-#: ../src/machine/org.freedesktop.machine1.policy.in.h:16
+#: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -523,27 +699,255 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для кіравання вобразамі лакальных віртуальных машын "
 "і кантэйнераў."
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:1
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:23
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to set NTP servers."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмнага часу."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to set DNS servers."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмнага часу."
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+#, fuzzy
+#| msgid "Authentication is required to stop '$(unit)'."
+msgid "Authentication is required to set domains."
+msgstr "Неабходна аўтэнтыфікацыя для спынення '$(unit)'."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+#, fuzzy
+#| msgid "Authentication is required to set the local hostname."
+msgid "Authentication is required to set default route."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання імя вузла."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "Неабходна аўтэнтыфікацыя для гібернацыі сістэмы."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+#, fuzzy
+#| msgid "Authentication is required to log into the local host."
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "Неабходна аўтэнтыфікацыя для ўваходу ў лакальны вузел."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+#, fuzzy
+#| msgid "Authentication is required to set the local hostname."
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання імя вузла."
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "Неабходна аўтэнтыфікацыя для гібернацыі сістэмы."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+#, fuzzy
+#| msgid "Authentication is required to set the system locale."
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмнай лакалі."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:122
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to reset NTP settings."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмнага часу."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:133
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to reset DNS settings."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмнага часу."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to send force renew message."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання ўсеагульнага паведамлення"
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:155
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання ўсеагульнага паведамлення"
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:166
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to reload network settings."
+msgstr "Неабходна аўтэнтыфікацыя для перачытання стану systemd."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:177
+#, fuzzy
+#| msgid "Authentication is required to reboot the system."
+msgid "Authentication is required to reconfigure network interface."
+msgstr "Неабходна аўтэнтыфікацыя для перазагрузкі сістэмы."
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:14
+#, fuzzy
+#| msgid "Authentication is required to import a VM or container image"
+msgid "Authentication is required to inspect a portable service image."
+msgstr "Неабходна аўтэнтыфікацыя для імпарту вобраза ВМ або кантэйнера"
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:24
+#, fuzzy
+#| msgid "Authentication is required to attach a device to a seat."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "Неабходна аўтэнтыфікацыя для далучэння прылад да працоўных месцаў."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:35
+#, fuzzy
+#| msgid "Authentication is required to download a VM or container image"
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "Неабходна аўтэнтыфікацыя для спампоўкі вобраза ВМ або кантэйнера"
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to register a DNS-SD service"
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання ўсеагульнага паведамлення"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to unregister a DNS-SD service"
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання ўсеагульнага паведамлення"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+#, fuzzy
+#| msgid "Authentication is required to set the system keyboard settings."
+msgid "Authentication is required to reset name resolution settings."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмных налад клавіятуры."
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
 msgstr "Усталяваць сістэмны час"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:2
+#: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."
 msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмнага часу."
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:3
+#: src/timedate/org.freedesktop.timedate1.policy:33
 msgid "Set system timezone"
 msgstr "Усталяваць сістэмны часавы пояс"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:4
+#: src/timedate/org.freedesktop.timedate1.policy:34
 msgid "Authentication is required to set the system timezone."
 msgstr "Неабходна аўтэнтыфікацыя для ўсталявання сістэмнага часавога поясу."
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:5
+#: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
 msgstr "Усталяваць часавы пояс (мясцовы або UTC), у якім RTC захоўвае час"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:6
+#: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
@@ -551,11 +955,11 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для ўсталявання часавога поясу (мясцовы або UTC), у "
 "якім захоўваецца час у RTC."
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:7
+#: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Уключыць або выключыць сінхранізацыю часу па сетцы"
 
-#: ../src/timedate/org.freedesktop.timedate1.policy.in.h:8
+#: src/timedate/org.freedesktop.timedate1.policy:54
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
@@ -563,30 +967,54 @@ msgstr ""
 "Неабходна аўтэнтыфікацыя для ўключэння або выключэння сінхранізацыі часу па "
 "сетцы."
 
-#: ../src/core/dbus-unit.c:450
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Неабходна аўтэнтыфікацыя для запуску '$(unit)'."
 
-#: ../src/core/dbus-unit.c:451
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Неабходна аўтэнтыфікацыя для спынення '$(unit)'."
 
-#: ../src/core/dbus-unit.c:452
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Неабходна аўтэнтыфікацыя для перачытання стану '$(unit)'."
 
-#: ../src/core/dbus-unit.c:453 ../src/core/dbus-unit.c:454
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Неабходна аўтэнтыфікацыя для перазапуску '$(unit)'."
 
-#: ../src/core/dbus-unit.c:560
-msgid "Authentication is required to kill '$(unit)'."
-msgstr "Неабходна аўтэнтыфікацыя для забойства '$(unit)'."
+#: src/core/dbus-unit.c:538
+#, fuzzy
+#| msgid "Authentication is required to set properties on '$(unit)'."
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr "Неабходна аўтэнтыфікацыя для ўсталявання ўласцівасцей '$(unit)'."
 
-#: ../src/core/dbus-unit.c:590
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Неабходна аўтэнтыфікацыя для анулявання памылковага стану '$(unit)'."
 
-#: ../src/core/dbus-unit.c:622
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Неабходна аўтэнтыфікацыя для ўсталявання ўласцівасцей '$(unit)'."
+
+#: src/core/dbus-unit.c:711
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr "Неабходна аўтэнтыфікацыя для анулявання памылковага стану '$(unit)'."
+
+#: src/core/dbus-unit.c:760
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "Неабходна аўтэнтыфікацыя для анулявання памылковага стану '$(unit)'."
+
+#~ msgid "Authentication is required to kill '$(unit)'."
+#~ msgstr "Неабходна аўтэнтыфікацыя для забойства '$(unit)'."

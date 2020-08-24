@@ -8,8 +8,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
-"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2020-05-29 03:32+0000\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2020-05-30 09:10-0300\n"
 "Last-Translator: Rafael Fontenelle <rafaelff@gnome.org>\n"
 "Language-Team: Brazilian Portuguese <gnome-pt_br-list@gnome.org>\n"
@@ -901,23 +901,23 @@ msgstr ""
 "É necessária autenticação para controlar se deve ser habilitada, ou não, a "
 "sincronização de horário através de rede."
 
-#: src/core/dbus-unit.c:358
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "É necessária autenticação para iniciar “$(unit)”."
 
-#: src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "É necessária autenticação para parar “$(unit)”."
 
-#: src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "É necessária autenticação para recarregar “$(unit)”."
 
-#: src/core/dbus-unit.c:361 src/core/dbus-unit.c:362
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "É necessária autenticação para reiniciar “$(unit)”."
 
-#: src/core/dbus-unit.c:534
+#: src/core/dbus-unit.c:538
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
@@ -925,16 +925,16 @@ msgstr ""
 "É necessária autenticação para enviar um sinal UNIX para os processos de "
 "“$(unit)”."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "É necessária autenticação para reiniciar o estado “failed” de “$(unit)”."
 
-#: src/core/dbus-unit.c:598
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "É necessária autenticação para definir propriedades em “$(unit)”."
 
-#: src/core/dbus-unit.c:707
+#: src/core/dbus-unit.c:711
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -942,7 +942,7 @@ msgstr ""
 "É necessária autenticação para excluir arquivos e diretórios associados com "
 "“$(unit)”."
 
-#: src/core/dbus-unit.c:756
+#: src/core/dbus-unit.c:760
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
-"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
-"POT-Creation-Date: 2018-03-04 11:09+0700\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2018-03-04 11:12+0700\n"
 "Last-Translator: Andika Triwidada <atriwidada@gnome.org>\n"
 "Language-Team: Indonesian <gnome-l10n-id@googlegroups.com>\n"
@@ -45,11 +45,11 @@ msgstr "Kelola layanan sistem atau berkas unit"
 msgid "Authentication is required to manage system service or unit files."
 msgstr "Otentikasi diperlukan untuk mengelola layanan sistem atau berkas unit."
 
-#: src/core/org.freedesktop.systemd1.policy.in:53
+#: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr "Atur atau hapus variabel lingkungan manajer layanan dan sistem"
 
-#: src/core/org.freedesktop.systemd1.policy.in:54
+#: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
@@ -57,27 +57,91 @@ msgstr ""
 "Otentikasi diperlukan untuk menata atau menghapus variabel lingkungan "
 "manajer layanan dan sistem."
 
-#: src/core/org.freedesktop.systemd1.policy.in:63
+#: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
 msgstr "Muat ulang keadaan systemd"
 
-#: src/core/org.freedesktop.systemd1.policy.in:64
+#: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "Otentikasi diperlukan untuk memuat ulang keadaan systemd."
 
-#: src/hostname/org.freedesktop.hostname1.policy:22
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:14
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to create a user's home area."
+msgstr "Otentikasi diperlukan untuk memuat ulang keadaan systemd."
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:24
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to remove a user's home area."
+msgstr "Otentikasi diperlukan untuk memuat ulang keadaan systemd."
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:34
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to manage active sessions, users and seats."
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr "Otentikasi diperlukan untuk mengelola seat, pengguna, dan sesi aktif."
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:44
+#, fuzzy
+#| msgid "Authentication is required to attach a device to a seat."
+msgid "Authentication is required to update a user's home area."
+msgstr "Otentikasi diperlukan untuk mencantol suatu perangkat ke sebuah seat."
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Resize a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:54
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to resize a user's home area."
+msgstr "Otentikasi diperlukan untuk menyetel pesan wall"
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Change password of a home area"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:64
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to manage active sessions, users and seats."
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "Otentikasi diperlukan untuk mengelola seat, pengguna, dan sesi aktif."
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
 msgstr "Setel nama host"
 
-#: src/hostname/org.freedesktop.hostname1.policy:23
+#: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
 msgstr "Otentikasi diperlukan untuk menata nama host lokal."
 
-#: src/hostname/org.freedesktop.hostname1.policy:32
+#: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
 msgstr "Setel nama host statik"
 
-#: src/hostname/org.freedesktop.hostname1.policy:33
+#: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
@@ -85,13 +149,23 @@ msgstr ""
 "Otentikasi diperlukan untuk menata nama host lokal yang dikonfigurasi "
 "statik, maupun nama host cantik."
 
-#: src/hostname/org.freedesktop.hostname1.policy:43
+#: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
 msgstr "Setel informasi mesin"
 
-#: src/hostname/org.freedesktop.hostname1.policy:44
+#: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr "Otentikasi diperlukan untuk menata informasi mesin lokal."
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr ""
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+#, fuzzy
+#| msgid "Authentication is required to reload '$(unit)'."
+msgid "Authentication is required to get product UUID."
+msgstr "Otentikasi diperlukan untuk memuat ulang '$(unit)'."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -260,8 +334,7 @@ msgid "Flush device to seat attachments"
 msgstr "Siram perangkat untuk mendudukkan lampiran"
 
 #: src/login/org.freedesktop.login1.policy:149
-msgid ""
-"Authentication is required to reset how devices are attached to seats."
+msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
 "Otentikasi diperlukan untuk me-reset bagaimana perangkat dicantolkan ke seat."
 
@@ -291,8 +364,8 @@ msgstr "Matikan daya sistem ketika sebuah aplikasi meminta untuk mencegahnya"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
-"Authentication is required to power off the system while an application "
-"is inhibiting this."
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
 msgstr ""
 "Otentikasi diperlukan untuk mematikan daya sistem ketika sebuah aplikasi "
 "meminta untuk mencegahnya."
@@ -311,8 +384,8 @@ msgstr "Boot ulang sistem ketika pengguna lain sedang log masuk"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid ""
-"Authentication is required to reboot the system while other users are "
-"logged in."
+"Authentication is required to reboot the system while other users are logged "
+"in."
 msgstr ""
 "Otentikasi diperlukan untuk mem-boot ulang sistem ketika pengguna lain "
 "sedang log masuk."
@@ -323,8 +396,8 @@ msgstr "Boot ulang sistem ketika sebuah aplikasi meminta untuk mencegahnya"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
-"Authentication is required to reboot the system while an application "
-"is inhibiting this."
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
 msgstr ""
 "Otentikasi diperlukan untuk mem-boot ulang sistem ketika sebuah aplikasi "
 "meminta untuk mencegahnya."
@@ -343,8 +416,8 @@ msgstr "Halt sistem ketika pengguna lain sedang log masuk"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required to halt the system while other users are "
-"logged in."
+"Authentication is required to halt the system while other users are logged "
+"in."
 msgstr ""
 "Otentikasi diperlukan untuk meng-halt sistem ketika pengguna lain sedang log "
 "masuk."
@@ -354,12 +427,16 @@ msgid "Halt the system while an application is inhibiting this"
 msgstr "Halt sistem ketika sebuah aplikasi meminta untuk mencegahnya"
 
 #: src/login/org.freedesktop.login1.policy:247
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to hibernate the system while an application "
+#| "is inhibiting this."
 msgid ""
-"Authentication is required to halt the system while an application asked "
-"to inhibit it."
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
 msgstr ""
-"Otentikasi diperlukan untuk meng-halt sistem ketika sebuah aplikasi meminta "
-"untuk mencegahnya."
+"Otentikasi diperlukan untuk menghibernasi sistem ketika sebuah aplikasi "
+"meminta mencegahnya."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
@@ -387,8 +464,8 @@ msgstr "Suspensikan sistem ketika sebuah aplikasi meminta untuk mencegahnya"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
-"Authentication is required to suspend the system while an application "
-"is inhibiting this."
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
 msgstr ""
 "Otentikasi diperlukan untuk mensuspensi sistem ketika suatu aplikasi meminta "
 "untuk mencegahnya."
@@ -419,8 +496,8 @@ msgstr "Hibernasikan sistem ketika sebuah aplikasi meminta untuk mencegahnya."
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
-"Authentication is required to hibernate the system while an application "
-"is inhibiting this."
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
 msgstr ""
 "Otentikasi diperlukan untuk menghibernasi sistem ketika sebuah aplikasi "
 "meminta mencegahnya."
@@ -430,8 +507,7 @@ msgid "Manage active sessions, users and seats"
 msgstr "Kelola seat, pengguna, dan sesi aktif"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required to manage active sessions, users and seats."
+msgid "Authentication is required to manage active sessions, users and seats."
 msgstr "Otentikasi diperlukan untuk mengelola seat, pengguna, dan sesi aktif."
 
 #: src/login/org.freedesktop.login1.policy:331
@@ -443,10 +519,22 @@ msgid "Authentication is required to lock or unlock active sessions."
 msgstr "Otentikasi diperlukan untuk mengunci atau membuka kunci sesi aktif."
 
 #: src/login/org.freedesktop.login1.policy:341
-msgid "Allow indication to the firmware to boot to setup interface"
-msgstr "Ijinkan indikasi ke firmware untuk boot ke antar muka penyiapan"
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:342
+#, fuzzy
+#| msgid "Authentication is required to set the system timezone."
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr "Otentikasi diperlukan untuk menyetel zona waktu sistem."
+
+#: src/login/org.freedesktop.login1.policy:352
+#, fuzzy
+#| msgid "Allow indication to the firmware to boot to setup interface"
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "Ijinkan indikasi ke firmware untuk boot ke antar muka penyiapan"
+
+#: src/login/org.freedesktop.login1.policy:353
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -454,13 +542,55 @@ msgstr ""
 "Otentikasi diperlukan untuk mengindikasikan ke firmware agar boot ke "
 "antarmuka penyiapan."
 
-#: src/login/org.freedesktop.login1.policy:351
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:364
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to indicate to the firmware to boot to setup "
+#| "interface."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr ""
+"Otentikasi diperlukan untuk mengindikasikan ke firmware agar boot ke "
+"antarmuka penyiapan."
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:375
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to indicate to the firmware to boot to setup "
+#| "interface."
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr ""
+"Otentikasi diperlukan untuk mengindikasikan ke firmware agar boot ke "
+"antarmuka penyiapan."
+
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
 msgstr "Setel suatu pesan wall"
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "Otentikasi diperlukan untuk menyetel pesan wall"
+
+#: src/login/org.freedesktop.login1.policy:395
+msgid "Change Session"
+msgstr ""
+
+#: src/login/org.freedesktop.login1.policy:396
+#, fuzzy
+#| msgid "Authentication is required to halt the system."
+msgid "Authentication is required to change the virtual terminal."
+msgstr "Otentikasi diperlukan untuk meng-halt sistem."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -538,6 +668,206 @@ msgstr ""
 "Otentikasi diperlukan untuk mengelola mesin virtual lokal dan image "
 "kontainer."
 
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:23
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to set NTP servers."
+msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+#, fuzzy
+#| msgid "Register a DNS-SD service"
+msgid "Set DNS servers"
+msgstr "Daftarkan suatu layanan DNS-SD"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+#, fuzzy
+#| msgid "Authentication is required to register a DNS-SD service"
+msgid "Authentication is required to set DNS servers."
+msgstr "Otentikasi diperlukan untuk mendaftarkan suatu layanan DNS-SD"
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+#, fuzzy
+#| msgid "Authentication is required to stop '$(unit)'."
+msgid "Authentication is required to set domains."
+msgstr "Otentikasi diperlukan untuk menghentikan '$(unit)'."
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+#, fuzzy
+#| msgid "Authentication is required to set the local hostname."
+msgid "Authentication is required to set default route."
+msgstr "Otentikasi diperlukan untuk menata nama host lokal."
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "Otentikasi diperlukan untuk menghibernasi sistem."
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+#, fuzzy
+#| msgid "Authentication is required to log into the local host."
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "Otentikasi diperlukan untuk log masuk ke dalam host lokal."
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+#, fuzzy
+#| msgid "Authentication is required to register a DNS-SD service"
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "Otentikasi diperlukan untuk mendaftarkan suatu layanan DNS-SD"
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+#, fuzzy
+#| msgid "Authentication is required to hibernate the system."
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "Otentikasi diperlukan untuk menghibernasi sistem."
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+#, fuzzy
+#| msgid "Authentication is required to set the system locale."
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "Otentikasi diperlukan untuk menyetel locale sistem."
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:122
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to reset NTP settings."
+msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:133
+#, fuzzy
+#| msgid "Authentication is required to set the system time."
+msgid "Authentication is required to reset DNS settings."
+msgstr "Otentikasi diperlukan untuk menyetel waktu sistem."
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:144
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to send force renew message."
+msgstr "Otentikasi diperlukan untuk menyetel pesan wall"
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:155
+#, fuzzy
+#| msgid "Authentication is required to set a wall message"
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "Otentikasi diperlukan untuk menyetel pesan wall"
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:166
+#, fuzzy
+#| msgid "Authentication is required to reload the systemd state."
+msgid "Authentication is required to reload network settings."
+msgstr "Otentikasi diperlukan untuk memuat ulang keadaan systemd."
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:177
+#, fuzzy
+#| msgid "Authentication is required to reboot the system."
+msgid "Authentication is required to reconfigure network interface."
+msgstr "Otentikasi diperlukan untuk mem-boot ulang sistem."
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:14
+#, fuzzy
+#| msgid "Authentication is required to import a VM or container image"
+msgid "Authentication is required to inspect a portable service image."
+msgstr "Otentikasi diperlukan untuk mengimpor suatu image kontainer atau VM"
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:24
+#, fuzzy
+#| msgid "Authentication is required to attach a device to a seat."
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "Otentikasi diperlukan untuk mencantol suatu perangkat ke sebuah seat."
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr ""
+
+#: src/portable/org.freedesktop.portable1.policy:35
+#, fuzzy
+#| msgid "Authentication is required to download a VM or container image"
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "Otentikasi diperlukan untuk mengunduh suatu image kontainer atau VM"
+
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
 msgstr "Daftarkan suatu layanan DNS-SD"
@@ -553,6 +883,16 @@ msgstr "Cabut pendaftaran suatu layanan DNS-SD"
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service"
 msgstr "Otentikasi diperlukan untuk mencabut pendaftaran suatu layanan DNS-SD"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+#, fuzzy
+#| msgid "Authentication is required to set the system keyboard settings."
+msgid "Authentication is required to reset name resolution settings."
+msgstr "Otentikasi diperlukan untuk menyetel pengaturan papan tik sistem."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -582,11 +922,11 @@ msgstr ""
 "Otentikasi diperlukan untuk mengendalikan apakah RTC menyimpan waktu UTC "
 "atau lokal."
 
-#: src/timedate/org.freedesktop.timedate1.policy:54
+#: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Nyalakan atau matikan penyelarasan waktu jaringan"
 
-#: src/timedate/org.freedesktop.timedate1.policy:55
+#: src/timedate/org.freedesktop.timedate1.policy:54
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
@@ -594,31 +934,64 @@ msgstr ""
 "Otentikasi diperlukan untuk mengendalikan apakah sinkronisasi waktu jaringan "
 "mesti difungsikan."
 
-#: src/core/dbus-unit.c:496
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Otentikasi diperlukan untuk memulai '$(unit)'."
 
-#: src/core/dbus-unit.c:497
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Otentikasi diperlukan untuk menghentikan '$(unit)'."
 
-#: src/core/dbus-unit.c:498
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Otentikasi diperlukan untuk memuat ulang '$(unit)'."
 
-#: src/core/dbus-unit.c:499 src/core/dbus-unit.c:500
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Otentikasi diperlukan untuk memulai ulang '$(unit)'."
 
-#: src/core/dbus-unit.c:607
-msgid "Authentication is required to kill '$(unit)'."
-msgstr "Otentikasi diperlukan untuk mematikan '$(unit)'."
+#: src/core/dbus-unit.c:538
+#, fuzzy
+#| msgid "Authentication is required to set properties on '$(unit)'."
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"'$(unit)'."
+msgstr "Otentikasi diperlukan untuk menata properti pada '$(unit)'."
 
-#: src/core/dbus-unit.c:638
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Otentikasi diperlukan untuk me-reset keadaan \"failed\" dari '$(unit)'."
 
-#: src/core/dbus-unit.c:671
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Otentikasi diperlukan untuk menata properti pada '$(unit)'."
+
+#: src/core/dbus-unit.c:711
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgid ""
+"Authentication is required to delete files and directories associated with "
+"'$(unit)'."
+msgstr ""
+"Otentikasi diperlukan untuk me-reset keadaan \"failed\" dari '$(unit)'."
+
+#: src/core/dbus-unit.c:760
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr ""
+"Otentikasi diperlukan untuk me-reset keadaan \"failed\" dari '$(unit)'."
+
+#~ msgid ""
+#~ "Authentication is required to halt the system while an application asked "
+#~ "to inhibit it."
+#~ msgstr ""
+#~ "Otentikasi diperlukan untuk meng-halt sistem ketika sebuah aplikasi "
+#~ "meminta untuk mencegahnya."
+
+#~ msgid "Authentication is required to kill '$(unit)'."
+#~ msgstr "Otentikasi diperlukan untuk mematikan '$(unit)'."
