@@ -88,7 +88,7 @@ KERNEL_IMAGE="$2"
 if [[ -f /etc/machine-id ]]; then
     read MACHINE_ID < /etc/machine-id
 else
-    MACHINE_ID="Linux"
+    MACHINE_ID="Default"
 fi
 
 if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
