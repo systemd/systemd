@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <ctype.h>
+#include <sys/sdt.h>
 
 #include "alloc-util.h"
 #include "architecture.h"
@@ -16,10 +17,12 @@
 #include "fs-util.h"
 #include "glob-util.h"
 #include "list.h"
+#include "macro.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "probes.h"
 #include "proc-cmdline.h"
 #include "stat-util.h"
 #include "strv.h"
@@ -2247,6 +2250,9 @@ static int udev_rule_apply_line_to_event(
                 return 0;
 
         event->esc = ESCAPE_UNSET;
+
+        TRACE_POINT(RULES_APPLY_LINE, event->dev, line->rule_file->filename, line->line_number);
+
         LIST_FOREACH_SAFE(tokens, token, next_token, line->tokens) {
                 line->current_token = token;
 
