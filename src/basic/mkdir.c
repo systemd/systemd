@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "macro.h"
@@ -186,4 +187,55 @@ int mkdir_p(const char *path, mode_t mode) {
 
 int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
         return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdir_errno_wrapper);
+}
+
+int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
+        _cleanup_free_ char *pp = NULL;
+        _cleanup_close_ int dfd = -1;
+        const char *bn;
+        int r;
+
+        pp = dirname_malloc(p);
+        if (!pp)
+                return -ENOMEM;
+
+        /* Not top-level? */
+        if (!(path_equal(pp, "/") || isempty(pp) || path_equal(pp, "."))) {
+
+                /* Recurse up */
+                r = mkdir_p_root(root, pp, uid, gid, m);
+                if (r < 0)
+                        return r;
+        }
+
+        bn = basename(p);
+        if (path_equal(bn, "/") || isempty(bn) || path_equal(bn, "."))
+                return 0;
+
+        if (!filename_is_valid(bn))
+                return -EINVAL;
+
+        dfd = chase_symlinks_and_open(pp, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_DIRECTORY, NULL);
+        if (dfd < 0)
+                return dfd;
+
+        if (mkdirat(dfd, bn, m) < 0) {
+                if (errno == EEXIST)
+                        return 0;
+
+                return -errno;
+        }
+
+        if (uid_is_valid(uid) || gid_is_valid(gid)) {
+                _cleanup_close_ int nfd = -1;
+
+                nfd = openat(dfd, bn, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (nfd < 0)
+                        return -errno;
+
+                if (fchown(nfd, uid, gid) < 0)
+                        return -errno;
+        }
+
+        return 1;
 }

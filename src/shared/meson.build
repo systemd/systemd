@@ -166,6 +166,8 @@ shared_sources = files('''
         macvlan-util.c
         macvlan-util.h
         main-func.h
+        mkfs-util.c
+        mkfs-util.h
         module-util.h
         mount-util.c
         mount-util.h

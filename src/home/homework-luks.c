@@ -24,6 +24,7 @@
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "mkdir.h"
+#include "mkfs-util.h"
 #include "mount-util.h"
 #include "openssl-util.h"
 #include "parse-util.h"
@@ -1371,71 +1372,6 @@ int home_trim_luks(UserRecord *h) {
         return 0;
 }
 
-static int run_mkfs(
-                const char *node,
-                const char *fstype,
-                const char *label,
-                sd_id128_t uuid,
-                bool discard) {
-
-        int r;
-
-        assert(node);
-        assert(fstype);
-        assert(label);
-
-        r = mkfs_exists(fstype);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check if mkfs for file system %s exists: %m", fstype);
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "No mkfs for file system %s installed.", fstype);
-
-        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR, NULL);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                const char *mkfs;
-                char suuid[37];
-
-                /* Child */
-
-                mkfs = strjoina("mkfs.", fstype);
-                id128_to_uuid_string(uuid, suuid);
-
-                if (streq(fstype, "ext4"))
-                        execlp(mkfs, mkfs,
-                               "-L", label,
-                               "-U", suuid,
-                               "-I", "256",
-                               "-O", "has_journal",
-                               "-m", "0",
-                               "-E", discard ? "lazy_itable_init=1,discard" : "lazy_itable_init=1,nodiscard",
-                               node, NULL);
-                else if (streq(fstype, "btrfs")) {
-                        if (discard)
-                                execlp(mkfs, mkfs, "-L", label, "-U", suuid, node, NULL);
-                        else
-                                execlp(mkfs, mkfs, "-L", label, "-U", suuid, "--nodiscard", node, NULL);
-                } else if (streq(fstype, "xfs")) {
-                        const char *j;
-
-                        j = strjoina("uuid=", suuid);
-                        if (discard)
-                                execlp(mkfs, mkfs, "-L", label, "-m", j, "-m", "reflink=1", node, NULL);
-                        else
-                                execlp(mkfs, mkfs, "-L", label, "-m", j, "-m", "reflink=1", "-K", node, NULL);
-                } else {
-                        log_error("Cannot make file system: %s", fstype);
-                        _exit(EXIT_FAILURE);
-                }
-
-                log_error_errno(errno, "Failed to execute %s: %m", mkfs);
-                _exit(EXIT_FAILURE);
-        }
-
-        return 0;
-}
-
 static struct crypt_pbkdf_type* build_good_pbkdf(struct crypt_pbkdf_type *buffer, UserRecord *hr) {
         assert(buffer);
         assert(hr);
@@ -2083,7 +2019,7 @@ int home_create_luks(
 
         log_info("Setting up LUKS device %s completed.", dm_node);
 
-        r = run_mkfs(dm_node, fstype, user_record_user_name_and_realm(h), fs_uuid, user_record_luks_discard(h));
+        r = make_filesystem(dm_node, fstype, user_record_user_name_and_realm(h), fs_uuid, user_record_luks_discard(h));
         if (r < 0)
                 goto fail;
 

@@ -202,13 +202,26 @@
       <varlistentry>
         <term><option>--size=</option></term>
 
-        <listitem><para>Takes a size in bytes, using the usual K, M, G, T suffixes. If used the specified
-        device node path must refer to a regular file, which is then grown to the specified size if smaller,
-        before any change is made to the partition table. This is not supported if the specified node is a
-        block device. This switch has no effect if the file is already as large as the specified size or
-        larger. The specified size is implicitly rounded up to multiples of 4096. When used with
-        <option>--empty=create</option> this specifies the initial size of the loopback file to
-        create.</para></listitem>
+        <listitem><para>Takes a size in bytes, using the usual K, M, G, T suffixes, or the special value
+        <literal>auto</literal>. If used the specified device node path must refer to a regular file, which
+        is then grown to the specified size if smaller, before any change is made to the partition table. If
+        specified as <literal>auto</literal> the minimal size for the disk image is automatically determined
+        (i.e. the minimal sizes of all partitions are summed up, taking space for additional metadata into
+        account). This switch is not supported if the specified node is a block device. This switch has no
+        effect if the file is already as large as the specified size or larger. The specified size is
+        implicitly rounded up to multiples of 4096. When used with <option>--empty=create</option> this
+        specifies the initial size of the loopback file to create.</para>
+
+        <para>The <option>--size=auto</option> option takes the sizes of pre-existing partitions into
+        account. However, it does not accomodate for partition tables that are not tightly packed: the
+        configured partitions might still not fit into the backing device if empty space exists between
+        pre-existing partitions (or before the first partition) that cannot be fully filled by partitions to
+        grow or create.</para>
+
+        <para>Also note that the automatic size determination does not take files or directories specified
+        with <option>CopyFiles=</option> into account: operation might fail if the specified files or
+        directories require more disk space then the configured per-partition minimal size
+        limit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -281,6 +294,18 @@
         from the specified directory instead of searching in <filename>/usr/lib/repart.d/*.conf</filename>,
         <filename>/etc/repart.d/*.conf</filename>,
         <filename>/run/repart.d/*.conf</filename>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--key-file=</option></term>
+
+        <listitem><para>Takes a file system path. Configures the encryption key to use when setting up LUKS2
+        volumes configured with the <varname>Encrypt=</varname> setting in partition files. Should refer to a
+        regular file containing the key, or an <constant>AF_UNIX</constant> stream socket in the file
+        system. In the latter case a connection is made to it and the key read from it. If this switch is not
+        specified the empty key (i.e. zero length key) is used. This behaviour is useful for setting up encrypted
+        partitions during early first boot that receive their user-supplied password only in a later setup
+        step.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

@@ -47,17 +47,41 @@ static int loop_configure(int fd, const struct loop_config *c) {
                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
                         return -errno;
         } else {
-                if (!FLAGS_SET(c->info.lo_flags, LO_FLAGS_PARTSCAN))
+                bool good = true;
+
+                if (c->info.lo_sizelimit != 0) {
+                        /* Kernel 5.8 vanilla doesn't properly propagate the size limit into the block
+                         * device. If it's used, let's immediately check if it had the desired effect
+                         * hence. And if not use classic LOOP_SET_STATUS64. */
+                        uint64_t z;
+
+                        if (ioctl(fd, BLKGETSIZE64, &z) < 0) {
+                                r = -errno;
+                                goto fail;
+                        }
+
+                        if (z != c->info.lo_sizelimit) {
+                                log_debug("LOOP_CONFIGURE is broken, doesn't honour .lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
+                                good = false;
+                        }
+                }
+
+                if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_PARTSCAN)) {
+                        /* Kernel 5.8 vanilla doesn't properly propagate the partition scanning flag into the
+                         * block device. Let's hence verify if things work correctly here before
+                         * returning. */
+
+                        r = blockdev_partscan_enabled(fd);
+                        if (r < 0)
+                                goto fail;
+                        if (r == 0) {
+                                log_debug("LOOP_CONFIGURE is broken, doesn't honour LO_FLAGS_PARTSCAN. Falling back to LOOP_SET_STATUS64.");
+                                good = false;
+                        }
+                }
+
+                if (good)
                         return 0;
-
-                /* Kernel 5.8 vanilla doesn't properly propagate the partition scanning flag into the
-                 * block device. Let's hence verify if things work correctly here before returning. */
-
-                r = blockdev_partscan_enabled(fd);
-                if (r < 0)
-                        goto fail;
-                if (r > 0)
-                        return 0; /* All is good. */
 
                 /* Otherwise, undo the attachment and use the old APIs */
                 (void) ioctl(fd, LOOP_CLR_FD);
@@ -468,6 +492,21 @@ int loop_device_flock(LoopDevice *d, int operation) {
                 return -EBADF;
 
         if (flock(d->fd, operation) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int loop_device_sync(LoopDevice *d) {
+        assert(d);
+
+        /* We also do this implicitly in loop_device_unref(). Doing this explicitly here has the benefit that
+         * we can check the return value though. */
+
+        if (d->fd < 0)
+                return -EBADF;
+
+        if (fsync(d->fd) < 0)
                 return -errno;
 
         return 0;
