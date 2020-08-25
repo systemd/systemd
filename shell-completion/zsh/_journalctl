@@ -26,11 +26,11 @@ _journalctl_fields() {
 _journalctl_none() {
     local -a _commands _files _jrnl_none
     # Setting use-cache will slow this down considerably
-    _commands=( ${"$(_call_program commands "$service $_sys_service_mgr -F _EXE" 2>/dev/null)"} )
+    _commands=( ${(f)"$(_call_program commands "$service $_sys_service_mgr -F _EXE" 2>/dev/null)"} )
     _jrnl_none='yes'
     _alternative : \
         'files:/dev files:_files -W /dev -P /dev/' \
-        "commands:commands:($_commands[@])" \
+        'commands:commands:compadd -a _commands' \
         'fields:fields:_journalctl_fields'
 }
 
