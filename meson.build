@@ -527,6 +527,11 @@ foreach ident : [
                                  #include <unistd.h>
                                  #include <signal.h>
                                  #include <sys/wait.h>'''],
+        ['clone3',            '''#include <stdlib.h>
+                                 #include <unistd.h>
+                                 #include <signal.h>
+                                 #include <sys/wait.h>
+                                 #include <linux/sched.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')

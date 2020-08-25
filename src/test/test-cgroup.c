@@ -4,6 +4,7 @@
 
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "clone3.h"
 #include "errno-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -127,11 +128,49 @@ static void test_cg_create(void) {
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, test_a) == 0);
 }
 
+static void test_clone3(void) {
+        _cleanup_free_ char *here = NULL;
+        const char *t;
+        pid_t pid;
+        int r;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &here) >= 0);
+        t = prefix_roota(here, "/test-clone3"),
+
+        r = cg_create(SYSTEMD_CGROUP_CONTROLLER, t);
+        if (r < 0 && (ERRNO_IS_PRIVILEGE(r) || r == -EROFS)) {
+                log_info_errno(r, "Skipping %s: %m", __func__);
+                return;
+        }
+        assert_se(r >= 0);
+
+        pid = fork_into_cgroup_path(t);
+        if (pid < 0 && (ERRNO_IS_NOT_SUPPORTED(pid))) {
+                log_info_errno(pid, "Skipping %s: %m", __func__);
+                return;
+        }
+
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                _cleanup_free_ char *child = NULL;
+                assert_se(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &child) >= 0);
+                assert_se(streq_ptr(child, t));
+                _exit(EXIT_SUCCESS);
+        }
+
+        assert_se(wait_for_terminate_and_check("(clone3)", pid, WAIT_LOG) == EXIT_SUCCESS);
+        assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, t) == 0);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         test_cg_split_spec();
         test_cg_create();
+        test_clone3();
 
         return 0;
 }
