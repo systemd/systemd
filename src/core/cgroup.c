@@ -1469,7 +1469,7 @@ CGroupMask unit_get_own_mask(Unit *u) {
         if (!c)
                 return 0;
 
-        return (unit_get_cgroup_mask(u) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u)) & ~unit_get_ancestor_disable_mask(u);
+        return unit_get_cgroup_mask(u) | unit_get_bpf_mask(u) | unit_get_delegate_mask(u);
 }
 
 CGroupMask unit_get_delegate_mask(Unit *u) {
@@ -1493,6 +1493,14 @@ CGroupMask unit_get_delegate_mask(Unit *u) {
 
         assert_se(c = unit_get_cgroup_context(u));
         return CGROUP_MASK_EXTEND_JOINED(c->delegate_controllers);
+}
+
+static CGroupMask unit_get_subtree_mask(Unit *u) {
+
+        /* Returns the mask of this subtree, meaning of the group
+         * itself and its children. */
+
+        return unit_get_own_mask(u) | unit_get_members_mask(u);
 }
 
 CGroupMask unit_get_members_mask(Unit *u) {
@@ -1532,7 +1540,7 @@ CGroupMask unit_get_siblings_mask(Unit *u) {
         return unit_get_subtree_mask(u); /* we are the top-level slice */
 }
 
-CGroupMask unit_get_disable_mask(Unit *u) {
+static CGroupMask unit_get_disable_mask(Unit *u) {
         CGroupContext *c;
 
         c = unit_get_cgroup_context(u);
@@ -1555,14 +1563,6 @@ CGroupMask unit_get_ancestor_disable_mask(Unit *u) {
                 mask |= unit_get_ancestor_disable_mask(UNIT_DEREF(u->slice));
 
         return mask;
-}
-
-CGroupMask unit_get_subtree_mask(Unit *u) {
-
-        /* Returns the mask of this subtree, meaning of the group
-         * itself and its children. */
-
-        return unit_get_own_mask(u) | unit_get_members_mask(u);
 }
 
 CGroupMask unit_get_target_mask(Unit *u) {
@@ -1629,7 +1629,10 @@ const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask) {
 }
 
 static const char *migrate_callback(CGroupMask mask, void *userdata) {
-        return unit_get_realized_cgroup_path(userdata, mask);
+        /* If not realized at all, migrate to root ("").
+         * It may happen if we're upgrading from older version that didn't clean up.
+         */
+        return strempty(unit_get_realized_cgroup_path(userdata, mask));
 }
 
 char *unit_default_cgroup_path(const Unit *u) {
@@ -1820,13 +1823,14 @@ int unit_pick_cgroup_path(Unit *u) {
         return 0;
 }
 
-static int unit_create_cgroup(
+static int unit_update_cgroup(
                 Unit *u,
                 CGroupMask target_mask,
                 CGroupMask enable_mask,
                 ManagerState state) {
 
-        bool created;
+        bool created, is_root_slice;
+        CGroupMask migrate_mask = 0;
         int r;
 
         assert(u);
@@ -1849,7 +1853,9 @@ static int unit_create_cgroup(
         (void) unit_watch_cgroup(u);
         (void) unit_watch_cgroup_memory(u);
 
-        /* Preserve enabled controllers in delegated units, adjust others. */
+
+        /* For v2 we preserve enabled controllers in delegated units, adjust others,
+         * for v1 we figure out which controller hierarchies need migration. */
         if (created || !u->cgroup_realized || !unit_cgroup_delegate(u)) {
                 CGroupMask result_mask = 0;
 
@@ -1858,39 +1864,32 @@ static int unit_create_cgroup(
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enable/disable controllers on cgroup %s, ignoring: %m", u->cgroup_path);
 
-                /* If we just turned off a controller, this might release the controller for our parent too, let's
-                 * enqueue the parent for re-realization in that case again. */
-                if (UNIT_ISSET(u->slice)) {
-                        CGroupMask turned_off;
-
-                        turned_off = (u->cgroup_realized ? u->cgroup_enabled_mask & ~result_mask : 0);
-                        if (turned_off != 0) {
-                                Unit *parent;
-
-                                /* Force the parent to propagate the enable mask to the kernel again, by invalidating
-                                 * the controller we just turned off. */
-
-                                for (parent = UNIT_DEREF(u->slice); parent; parent = UNIT_DEREF(parent->slice))
-                                        unit_invalidate_cgroup(parent, turned_off);
-                        }
-                }
-
                 /* Remember what's actually enabled now */
                 u->cgroup_enabled_mask = result_mask;
+
+                migrate_mask = u->cgroup_realized_mask ^ target_mask;
         }
 
         /* Keep track that this is now realized */
         u->cgroup_realized = true;
         u->cgroup_realized_mask = target_mask;
 
-        if (u->type != UNIT_SLICE && !unit_cgroup_delegate(u)) {
-
-                /* Then, possibly move things over, but not if
-                 * subgroups may contain processes, which is the case
-                 * for slice and delegation units. */
-                r = cg_migrate_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->cgroup_path, migrate_callback, u);
+        /* Migrate processes in controller hierarchies both downwards (enabling) and upwards (disabling).
+         *
+         * Unnecessary controller cgroups are trimmed (after emptied by upward migration).
+         * We perform migration also with whole slices for cases when users don't care about leave
+         * granularity. Since delegated_mask is subset of target mask, we won't trim slice subtree containing
+         * delegated units.
+         */
+        if (cg_all_unified() == 0) {
+                r = cg_migrate_v1_controllers(u->manager->cgroup_supported, migrate_mask, u->cgroup_path, migrate_callback, u);
                 if (r < 0)
-                        log_unit_warning_errno(u, r, "Failed to migrate cgroup from to %s, ignoring: %m", u->cgroup_path);
+                        log_unit_warning_errno(u, r, "Failed to migrate controller cgroups from %s, ignoring: %m", u->cgroup_path);
+
+                is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
+                r = cg_trim_v1_controllers(u->manager->cgroup_supported, ~target_mask, u->cgroup_path, !is_root_slice);
+                if (r < 0)
+                        log_unit_warning_errno(u, r, "Failed to delete controller cgroups %s, ignoring: %m", u->cgroup_path);
         }
 
         /* Set attributes */
@@ -2106,13 +2105,13 @@ static bool unit_has_mask_enables_realized(
                 ((u->cgroup_enabled_mask | enable_mask) & CGROUP_MASK_V2) == (u->cgroup_enabled_mask & CGROUP_MASK_V2);
 }
 
-void unit_add_to_cgroup_realize_queue(Unit *u) {
+static void unit_add_to_cgroup_realize_queue(Unit *u) {
         assert(u);
 
         if (u->in_cgroup_realize_queue)
                 return;
 
-        LIST_PREPEND(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+        LIST_APPEND(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
         u->in_cgroup_realize_queue = true;
 }
 
@@ -2153,7 +2152,7 @@ static int unit_realize_cgroup_now_enable(Unit *u, ManagerState state) {
         new_target_mask = u->cgroup_realized_mask | target_mask;
         new_enable_mask = u->cgroup_enabled_mask | enable_mask;
 
-        return unit_create_cgroup(u, new_target_mask, new_enable_mask, state);
+        return unit_update_cgroup(u, new_target_mask, new_enable_mask, state);
 }
 
 /* Controllers can only be disabled depth-first, from the leaves of the
@@ -2178,7 +2177,7 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
                 /* The cgroup for this unit might not actually be fully
                  * realised yet, in which case it isn't holding any controllers
                  * open anyway. */
-                if (!m->cgroup_path)
+                if (!m->cgroup_realized)
                         continue;
 
                 /* We must disable those below us first in order to release the
@@ -2197,7 +2196,7 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
                 new_target_mask = m->cgroup_realized_mask & target_mask;
                 new_enable_mask = m->cgroup_enabled_mask & enable_mask;
 
-                r = unit_create_cgroup(m, new_target_mask, new_enable_mask, state);
+                r = unit_update_cgroup(m, new_target_mask, new_enable_mask, state);
                 if (r < 0)
                         return r;
         }
@@ -2276,7 +2275,7 @@ static int unit_realize_cgroup_now(Unit *u, ManagerState state) {
         }
 
         /* Now actually deal with the cgroup we were trying to realise and set attributes */
-        r = unit_create_cgroup(u, target_mask, enable_mask, state);
+        r = unit_update_cgroup(u, target_mask, enable_mask, state);
         if (r < 0)
                 return r;
 
@@ -2314,29 +2313,34 @@ unsigned manager_dispatch_cgroup_realize_queue(Manager *m) {
         return n;
 }
 
-static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
-        Unit *slice;
+void unit_add_family_to_cgroup_realize_queue(Unit *u) {
+        assert(u);
+        assert(u->type == UNIT_SLICE);
 
-        /* This adds the siblings of the specified unit and the siblings of all parent units to the cgroup
-         * queue. (But neither the specified unit itself nor the parents.)
+        /* Family of a unit for is defined as (immediate) children of the unit and immediate children of all
+         * its ancestors.
          *
-         * Propagation of realization "side-ways" (i.e. towards siblings) is relevant on cgroup-v1 where
-         * scheduling becomes very weird if two units that own processes reside in the same slice, but one is
-         * realized in the "cpu" hierarchy and one is not (for example because one has CPUWeight= set and the
-         * other does not), because that means individual processes need to be scheduled against whole
-         * cgroups. Let's avoid this asymmetry by always ensuring that units below a slice that are realized
-         * at all are always realized in *all* their hierarchies, and it is sufficient for a unit's sibling
-         * to be realized for the unit itself to be realized too. */
+         * Ideally we would enqueue ancestor path only (bottom up). However, on cgroup-v1 scheduling becomes
+         * very weird if two units that own processes reside in the same slice, but one is realized in the
+         * "cpu" hierarchy and one is not (for example because one has CPUWeight= set and the other does
+         * not), because that means individual processes need to be scheduled against whole cgroups. Let's
+         * avoid this asymmetry by always ensuring that siblings of a unit are always realized in their v1
+         * controller hierarchies too (if unit requires the controller to be realized).
+         *
+         * The function must invalidate cgroup_members_mask of all ancestors in order to calculate up to date
+         * masks. */
 
-        while ((slice = UNIT_DEREF(u->slice))) {
+        do {
                 Iterator i;
                 Unit *m;
                 void *v;
 
-                HASHMAP_FOREACH_KEY(v, m, slice->dependencies[UNIT_BEFORE], i) {
+                /* Children of u likely changed when we're called */
+                u->cgroup_members_mask_valid = false;
 
+                HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE], i) {
                         /* Skip units that have a dependency on the slice but aren't actually in it. */
-                        if (UNIT_DEREF(m->slice) != slice)
+                        if (UNIT_DEREF(m->slice) != u)
                                 continue;
 
                         /* No point in doing cgroup application for units without active processes. */
@@ -2358,8 +2362,9 @@ static void unit_add_siblings_to_cgroup_realize_queue(Unit *u) {
                         unit_add_to_cgroup_realize_queue(m);
                 }
 
-                u = slice;
-        }
+                /* Parent comes after children */
+                unit_add_to_cgroup_realize_queue(u);
+        } while ((u = UNIT_DEREF(u->slice)));
 }
 
 int unit_realize_cgroup(Unit *u) {
@@ -2368,19 +2373,17 @@ int unit_realize_cgroup(Unit *u) {
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
-        /* So, here's the deal: when realizing the cgroups for this
-         * unit, we need to first create all parents, but there's more
-         * actually: for the weight-based controllers we also need to
-         * make sure that all our siblings (i.e. units that are in the
-         * same slice as we are) have cgroups, too. Otherwise, things
-         * would become very uneven as each of their processes would
-         * get as much resources as all our group together. This call
-         * will synchronously create the parent cgroups, but will
-         * defer work on the siblings to the next event loop
-         * iteration. */
+        /* So, here's the deal: when realizing the cgroups for this unit, we need to first create all
+         * parents, but there's more actually: for the weight-based controllers we also need to make sure
+         * that all our siblings (i.e. units that are in the same slice as we are) have cgroups, too.  On the
+         * other hand, when a controller is removed from realized set, it may become unnecessary in siblings
+         * and ancestors and they should be (de)realized too.
+         *
+         * This call will defer work on the siblings and derealized ancestors to the next event loop
+         * iteration and synchronously creates the parent cgroups (unit_realize_cgroup_now). */
 
-        /* Add all sibling slices to the cgroup queue. */
-        unit_add_siblings_to_cgroup_realize_queue(u);
+        if (UNIT_ISSET(u->slice))
+                unit_add_family_to_cgroup_realize_queue(UNIT_DEREF(u->slice));
 
         /* And realize this one now (and apply the values) */
         return unit_realize_cgroup_now(u, manager_state(u->manager));
