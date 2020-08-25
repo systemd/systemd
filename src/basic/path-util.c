@@ -637,6 +637,9 @@ int find_binary(const char *name, char **ret) {
                 if (!j)
                         return -ENOMEM;
 
+                if (is_dir(j, true))
+                        continue;
+
                 if (access(j, X_OK) >= 0) {
                         /* Found it! */
 
