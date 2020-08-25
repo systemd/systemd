@@ -2219,7 +2219,6 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         Object *o;
         JournalFile *f;
         int r;
-        sd_id128_t id;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
@@ -2238,6 +2237,8 @@ _public_ int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id12
         if (ret_boot_id)
                 *ret_boot_id = o->entry.boot_id;
         else {
+                sd_id128_t id;
+
                 r = sd_id128_get_boot(&id);
                 if (r < 0)
                         return r;
