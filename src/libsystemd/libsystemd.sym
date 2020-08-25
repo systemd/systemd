@@ -727,3 +727,8 @@ global:
         sd_event_add_time_relative;
         sd_event_source_set_time_relative;
 } LIBSYSTEMD_246;
+
+LIBSYSTEMD_248 {
+global:
+        sd_bus_error_has_names_sentinel;
+} LIBSYSTEMD_247;

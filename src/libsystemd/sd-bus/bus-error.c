@@ -13,6 +13,7 @@
 #include "errno-list.h"
 #include "errno-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "util.h"
 
 BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_standard_errors[] = {
@@ -355,11 +356,23 @@ _public_ int sd_bus_error_has_name(const sd_bus_error *e, const char *name) {
         return streq_ptr(e->name, name);
 }
 
-_public_ int sd_bus_error_get_errno(const sd_bus_error* e) {
-        if (!e)
+_public_ int sd_bus_error_has_names_sentinel(const sd_bus_error *e, ...) {
+        if (!e || !e->name)
                 return 0;
 
-        if (!e->name)
+        va_list ap;
+        const char *p;
+
+        va_start(ap, e);
+        while ((p = va_arg(ap, const char *)))
+                if (streq(p, e->name))
+                        break;
+        va_end(ap);
+        return !!p;
+}
+
+_public_ int sd_bus_error_get_errno(const sd_bus_error* e) {
+        if (!e || !e->name)
                 return 0;
 
         return bus_error_name_to_errno(e->name);

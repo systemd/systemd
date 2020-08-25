@@ -241,6 +241,8 @@ manpages = [
    'sd_bus_error_free',
    'sd_bus_error_get_errno',
    'sd_bus_error_has_name',
+   'sd_bus_error_has_names',
+   'sd_bus_error_has_names_sentinel',
    'sd_bus_error_is_set',
    'sd_bus_error_move',
    'sd_bus_error_set',

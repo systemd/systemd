@@ -22,6 +22,11 @@ static void test_error(void) {
         assert_se(streq(error.name, SD_BUS_ERROR_NOT_SUPPORTED));
         assert_se(streq(error.message, "xxx"));
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_NOT_SUPPORTED));
+        assert_se(sd_bus_error_has_names_sentinel(&error, SD_BUS_ERROR_NOT_SUPPORTED, NULL));
+        assert_se(sd_bus_error_has_names(&error, SD_BUS_ERROR_NOT_SUPPORTED));
+        assert_se(sd_bus_error_has_names(&error, SD_BUS_ERROR_NOT_SUPPORTED, SD_BUS_ERROR_FILE_NOT_FOUND));
+        assert_se(sd_bus_error_has_names(&error, SD_BUS_ERROR_FILE_NOT_FOUND, SD_BUS_ERROR_NOT_SUPPORTED, NULL));
+        assert_se(!sd_bus_error_has_names(&error, SD_BUS_ERROR_FILE_NOT_FOUND));
         assert_se(sd_bus_error_get_errno(&error) == EOPNOTSUPP);
         assert_se(sd_bus_error_is_set(&error));
         sd_bus_error_free(&error);
@@ -32,6 +37,7 @@ static void test_error(void) {
         assert_se(error.name == NULL);
         assert_se(error.message == NULL);
         assert_se(!sd_bus_error_has_name(&error, SD_BUS_ERROR_FILE_NOT_FOUND));
+        assert_se(!sd_bus_error_has_names(&error, SD_BUS_ERROR_FILE_NOT_FOUND));
         assert_se(sd_bus_error_get_errno(&error) == 0);
         assert_se(!sd_bus_error_is_set(&error));
 
@@ -39,6 +45,7 @@ static void test_error(void) {
         assert_se(streq(error.name, SD_BUS_ERROR_FILE_NOT_FOUND));
         assert_se(streq(error.message, "yyy -1"));
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_FILE_NOT_FOUND));
+        assert_se(sd_bus_error_has_names(&error, SD_BUS_ERROR_FILE_NOT_FOUND));
         assert_se(sd_bus_error_get_errno(&error) == ENOENT);
         assert_se(sd_bus_error_is_set(&error));
 
@@ -51,6 +58,7 @@ static void test_error(void) {
         assert_se(streq(error.message, second.message));
         assert_se(sd_bus_error_get_errno(&second) == ENOENT);
         assert_se(sd_bus_error_has_name(&second, SD_BUS_ERROR_FILE_NOT_FOUND));
+        assert_se(sd_bus_error_has_names(&second, SD_BUS_ERROR_FILE_NOT_FOUND));
         assert_se(sd_bus_error_is_set(&second));
 
         sd_bus_error_free(&error);

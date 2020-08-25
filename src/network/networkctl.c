@@ -510,8 +510,8 @@ static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
 
         r = link_get_property(bus, link, &error, &reply, "org.freedesktop.network1.Link", "BitRates");
         if (r < 0) {
-                bool quiet = sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY) ||
-                             sd_bus_error_has_name(&error, BUS_ERROR_SPEED_METER_INACTIVE);
+                bool quiet = sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY,
+                                                            BUS_ERROR_SPEED_METER_INACTIVE);
 
                 return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING,
                                       r, "Failed to query link bit rates: %s", bus_error_message(&error, r));

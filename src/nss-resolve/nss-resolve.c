@@ -23,12 +23,14 @@ NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
 
 static bool bus_error_shall_fallback(sd_bus_error *e) {
-        return sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_NO_REPLY) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_DISCONNECTED) ||
-               sd_bus_error_has_name(e, SD_BUS_ERROR_TIMEOUT);
+        return sd_bus_error_has_names(e,
+                                      SD_BUS_ERROR_SERVICE_UNKNOWN,
+                                      SD_BUS_ERROR_NAME_HAS_NO_OWNER,
+                                      SD_BUS_ERROR_NO_REPLY,
+                                      SD_BUS_ERROR_ACCESS_DENIED,
+                                      SD_BUS_ERROR_DISCONNECTED,
+                                      SD_BUS_ERROR_TIMEOUT,
+                                      BUS_ERROR_NO_SUCH_UNIT);
 }
 
 static int count_addresses(sd_bus_message *m, int af, const char **canonical) {
