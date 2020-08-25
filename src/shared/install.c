@@ -76,12 +76,10 @@ static bool unit_file_install_info_has_also(const UnitFileInstallInfo *i) {
 }
 
 void unit_file_presets_freep(UnitFilePresets *p) {
-        size_t i;
-
         if (!p)
                 return;
 
-        for (i = 0; i < p->n_rules; i++) {
+        for (size_t i = 0; i < p->n_rules; i++) {
                 free(p->rules[i].pattern);
                 strv_free(p->rules[i].instances);
         }
@@ -290,11 +288,9 @@ int unit_file_changes_add(
 }
 
 void unit_file_changes_free(UnitFileChange *changes, size_t n_changes) {
-        size_t i;
-
         assert(changes || n_changes == 0);
 
-        for (i = 0; i < n_changes; i++) {
+        for (size_t i = 0; i < n_changes; i++) {
                 free(changes[i].path);
                 free(changes[i].source);
         }
@@ -303,14 +299,13 @@ void unit_file_changes_free(UnitFileChange *changes, size_t n_changes) {
 }
 
 void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, size_t n_changes, bool quiet) {
-        size_t i;
         bool logged = false;
 
         assert(changes || n_changes == 0);
         /* If verb is not specified, errors are not allowed! */
         assert(verb || r >= 0);
 
-        for (i = 0; i < n_changes; i++) {
+        for (size_t i = 0; i < n_changes; i++) {
                 assert(verb || changes[i].type >= 0);
 
                 switch(changes[i].type) {
@@ -3055,20 +3050,17 @@ static int pattern_match_multiple_instances(
 
         /* Compose a list of specified instances when unit name is a template  */
         if (unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_free_ char *prefix = NULL;
                 _cleanup_strv_free_ char **out_strv = NULL;
+
                 char **iter;
-
-                r = unit_name_to_prefix(unit_name, &prefix);
-                if (r < 0)
-                        return r;
-
                 STRV_FOREACH(iter, rule.instances) {
                         _cleanup_free_ char *name = NULL;
-                        r = unit_name_build(prefix, *iter, ".service", &name);
+
+                        r = unit_name_replace_instance(unit_name, *iter, &name);
                         if (r < 0)
                                 return r;
-                        r = strv_extend(&out_strv, name);
+
+                        r = strv_consume(&out_strv, TAKE_PTR(name));
                         if (r < 0)
                                 return r;
                 }
@@ -3091,12 +3083,11 @@ static int pattern_match_multiple_instances(
 
 static int query_presets(const char *name, const UnitFilePresets *presets, char ***instance_name_list) {
         PresetAction action = PRESET_UNKNOWN;
-        size_t i;
-        char **s;
+
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        for (i = 0; i < presets->n_rules; i++)
+        for (size_t i = 0; i < presets->n_rules; i++)
                 if (pattern_match_multiple_instances(presets->rules[i], name, instance_name_list) > 0 ||
                     fnmatch(presets->rules[i].pattern, name, FNM_NOESCAPE) == 0) {
                         action = presets->rules[i].action;
@@ -3108,10 +3099,11 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
                 log_debug("Preset files don't specify rule for %s. Enabling.", name);
                 return 1;
         case PRESET_ENABLE:
-                if (instance_name_list && *instance_name_list)
+                if (instance_name_list && *instance_name_list) {
+                        char **s;
                         STRV_FOREACH(s, *instance_name_list)
                                 log_debug("Preset files say enable %s.", *s);
-                else
+                } else
                         log_debug("Preset files say enable %s.", name);
                 return 1;
         case PRESET_DISABLE:
