@@ -50,6 +50,8 @@ struct security_info {
         bool ip_filters_custom_egress;
 
         char *keyring_mode;
+        char *protect_proc;
+        char *proc_subset;
         bool lock_personality;
         bool memory_deny_write_execute;
         bool no_new_privileges;
@@ -135,6 +137,8 @@ static void security_info_free(struct security_info *i) {
         free(i->root_image);
 
         free(i->keyring_mode);
+        free(i->protect_proc);
+        free(i->proc_subset);
         free(i->notify_access);
 
         free(i->device_policy);
@@ -383,6 +387,44 @@ static int assess_keyring_mode(
         assert(ret_description);
 
         *ret_badness = !streq_ptr(info->keyring_mode, "private");
+        *ret_description = NULL;
+
+        return 0;
+}
+
+static int assess_protect_proc(
+                const struct security_assessor *a,
+                const struct security_info *info,
+                const void *data,
+                uint64_t *ret_badness,
+                char **ret_description) {
+
+        assert(ret_badness);
+        assert(ret_description);
+
+        if (streq_ptr(info->protect_proc, "noaccess"))
+                *ret_badness = 1;
+        else if (STRPTR_IN_SET(info->protect_proc, "invisible", "ptraceable"))
+                *ret_badness = 0;
+        else
+                *ret_badness = 3;
+
+        *ret_description = NULL;
+
+        return 0;
+}
+
+static int assess_proc_subset(
+                const struct security_assessor *a,
+                const struct security_info *info,
+                const void *data,
+                uint64_t *ret_badness,
+                char **ret_description) {
+
+        assert(ret_badness);
+        assert(ret_description);
+
+        *ret_badness = !streq_ptr(info->proc_subset, "pid");
         *ret_description = NULL;
 
         return 0;
@@ -1150,6 +1192,24 @@ static const struct security_assessor security_assessor_table[] = {
                 .assess = assess_keyring_mode,
         },
         {
+                .id = "ProtectProc=",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProtectProc=",
+                .description_good = "Service has restricted access to process tree (/proc hidepid=)",
+                .description_bad = "Service has full access to process tree (/proc hidepid=)",
+                .weight = 1000,
+                .range = 3,
+                .assess = assess_protect_proc,
+        },
+        {
+                .id = "ProcSubset=",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#ProcSubset=",
+                .description_good = "Service has no access to non-process /proc files (/proc subset=)",
+                .description_bad = "Service has full access to non-process /proc files (/proc subset=)",
+                .weight = 10,
+                .range = 1,
+                .assess = assess_proc_subset,
+        },
+        {
                 .id = "NotifyAccess=",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#NotifyAccess=",
                 .description_good = "Service child processes cannot alter service state",
@@ -1908,6 +1968,8 @@ static int acquire_security_info(sd_bus *bus, const char *name, struct security_
                 { "IPEgressFilterPath",      "as",      property_read_ip_filters,                0                                                         },
                 { "Id",                      "s",       NULL,                                    offsetof(struct security_info, id)                        },
                 { "KeyringMode",             "s",       NULL,                                    offsetof(struct security_info, keyring_mode)              },
+                { "ProtectProc",             "s",       NULL,                                    offsetof(struct security_info, protect_proc)              },
+                { "ProcSubset",              "s",       NULL,                                    offsetof(struct security_info, proc_subset)               },
                 { "LoadState",               "s",       NULL,                                    offsetof(struct security_info, load_state)                },
                 { "LockPersonality",         "b",       NULL,                                    offsetof(struct security_info, lock_personality)          },
                 { "MemoryDenyWriteExecute",  "b",       NULL,                                    offsetof(struct security_info, memory_deny_write_execute) },

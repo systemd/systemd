@@ -26,13 +26,15 @@ ExecStart=!!@rootlibexecdir@/systemd-networkd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
+ProtectProc=invisible
 ProtectClock=yes
 ProtectControlGroups=yes
 ProtectHome=yes
-ProtectKernelModules=yes
 ProtectKernelLogs=yes
+ProtectKernelModules=yes
 ProtectSystem=strict
 Restart=on-failure
+RestartKillSignal=SIGUSR2
 RestartSec=0
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6 AF_PACKET AF_ALG
 RestrictNamespaces=yes
@@ -44,7 +46,6 @@ SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify
-RestartKillSignal=SIGUSR2
 User=systemd-network
 @SERVICE_WATCHDOG@
 

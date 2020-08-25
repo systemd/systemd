@@ -97,7 +97,7 @@ static const MountEntry protect_kernel_tunables_table[] = {
         { "/proc/latency_stats", READONLY,           true  },
         { "/proc/mtrr",          READONLY,           true  },
         { "/proc/scsi",          READONLY,           true  },
-        { "/proc/sys",           READONLY,           false },
+        { "/proc/sys",           READONLY,           true  },
         { "/proc/sysrq-trigger", READONLY,           true  },
         { "/proc/timer_stats",   READONLY,           true  },
         { "/sys",                READONLY,           false },
@@ -863,32 +863,65 @@ static int mount_sysfs(const MountEntry *m) {
         return 1;
 }
 
-static int mount_procfs(const MountEntry *m) {
-        int r;
+static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
+        const char *entry_path;
 
         assert(m);
+        assert(ns_info);
 
-        (void) mkdir_p_label(mount_entry_path(m), 0755);
+        entry_path = mount_entry_path(m);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
-        if (r < 0)
-                return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
-        if (r > 0) /* make this a NOP if /proc is already a mount point */
-                return 0;
+        /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in
+         * one. i.e we don't reuse existing mounts here under any condition, we want a new instance owned by
+         * our user namespace and with our hidepid= settings applied. Hence, let's get rid of everything
+         * mounted on /proc/ first. */
 
-        /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in one */
-        if (mount("proc", mount_entry_path(m), "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
-                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+        (void) mkdir_p_label(entry_path, 0755);
+        (void) umount_recursive(entry_path, 0);
+
+        if (ns_info->protect_proc != PROTECT_PROC_DEFAULT ||
+            ns_info->proc_subset != PROC_SUBSET_ALL) {
+                _cleanup_free_ char *opts = NULL;
+
+                /* Starting with kernel 5.8 procfs' hidepid= logic is truly per-instance (previously it
+                 * pretended to be per-instance but actually was per-namespace), hence let's make use of it
+                 * if requested. To make sure this logic succeeds only on kernels where hidepid= is
+                 * per-instance, we'll exclusively use the textual value for hidepid=, since support was
+                 * added in the same commit: if it's supported it is thus also per-instance. */
+
+                opts = strjoin("hidepid=",
+                               ns_info->protect_proc == PROTECT_PROC_DEFAULT ? "off" :
+                               protect_proc_to_string(ns_info->protect_proc),
+                               ns_info->proc_subset == PROC_SUBSET_PID ? ",subset=pid" : "");
+                if (!opts)
+                        return -ENOMEM;
+
+                if (mount("proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts) < 0) {
+                        if (errno != EINVAL)
+                                return log_debug_errno(errno, "Failed to mount %s (options=%s): %m", mount_entry_path(m), opts);
+
+                        /* If this failed with EINVAL then this likely means the textual hidepid= stuff is
+                         * not supported by the kernel, and thus the per-instance hidepid= neither, which
+                         * means we really don't want to use it, since it would affect our host's /proc
+                         * mount. Hence let's gracefully fallback to a classic, unrestricted version. */
+                } else
+                        return 1;
+        }
+
+        if (mount("proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
+                return log_debug_errno(errno, "Failed to mount %s (no options): %m", mount_entry_path(m));
 
         return 1;
 }
 
 static int mount_tmpfs(const MountEntry *m) {
+        const char *entry_path, *inner_path;
         int r;
-        const char *entry_path = mount_entry_path(m);
-        const char *source_path = m->path_const;
 
         assert(m);
+
+        entry_path = mount_entry_path(m);
+        inner_path = m->path_const;
 
         /* First, get rid of everything that is below if there is anything. Then, overmount with our new tmpfs */
 
@@ -898,9 +931,9 @@ static int mount_tmpfs(const MountEntry *m) {
         if (mount("tmpfs", entry_path, "tmpfs", m->flags, mount_entry_options(m)) < 0)
                 return log_debug_errno(errno, "Failed to mount %s: %m", entry_path);
 
-        r = label_fix_container(entry_path, source_path, 0);
+        r = label_fix_container(entry_path, inner_path, 0);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, source_path);
+                return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
 
         return 1;
 }
@@ -995,7 +1028,8 @@ static int follow_symlink(
 
 static int apply_mount(
                 const char *root_directory,
-                MountEntry *m) {
+                MountEntry *m,
+                const NamespaceInfo *ns_info) {
 
         _cleanup_free_ char *inaccessible = NULL;
         bool rbind = true, make = false;
@@ -1003,6 +1037,7 @@ static int apply_mount(
         int r;
 
         assert(m);
+        assert(ns_info);
 
         log_debug("Applying namespace mount on %s", mount_entry_path(m));
 
@@ -1107,7 +1142,7 @@ static int apply_mount(
                 return mount_sysfs(m);
 
         case PROCFS:
-                return mount_procfs(m);
+                return mount_procfs(m, ns_info);
 
         case MOUNT_IMAGES:
                 return mount_images(m);
@@ -1219,7 +1254,9 @@ static bool namespace_info_mount_apivfs(const NamespaceInfo *ns_info) {
 
         return ns_info->mount_apivfs ||
                 ns_info->protect_control_groups ||
-                ns_info->protect_kernel_tunables;
+                ns_info->protect_kernel_tunables ||
+                ns_info->protect_proc != PROTECT_PROC_DEFAULT ||
+                ns_info->proc_subset != PROC_SUBSET_ALL;
 }
 
 static size_t namespace_calculate_mounts(
@@ -1233,25 +1270,23 @@ static size_t namespace_calculate_mounts(
                 size_t n_mount_images,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
-                const char* log_namespace,
-                ProtectHome protect_home,
-                ProtectSystem protect_system) {
+                const char* log_namespace) {
 
         size_t protect_home_cnt;
         size_t protect_system_cnt =
-                (protect_system == PROTECT_SYSTEM_STRICT ?
+                (ns_info->protect_system == PROTECT_SYSTEM_STRICT ?
                  ELEMENTSOF(protect_system_strict_table) :
-                 ((protect_system == PROTECT_SYSTEM_FULL) ?
+                 ((ns_info->protect_system == PROTECT_SYSTEM_FULL) ?
                   ELEMENTSOF(protect_system_full_table) :
-                  ((protect_system == PROTECT_SYSTEM_YES) ?
+                  ((ns_info->protect_system == PROTECT_SYSTEM_YES) ?
                    ELEMENTSOF(protect_system_yes_table) : 0)));
 
         protect_home_cnt =
-                (protect_home == PROTECT_HOME_YES ?
+                (ns_info->protect_home == PROTECT_HOME_YES ?
                  ELEMENTSOF(protect_home_yes_table) :
-                 ((protect_home == PROTECT_HOME_READ_ONLY) ?
+                 ((ns_info->protect_home == PROTECT_HOME_READ_ONLY) ?
                   ELEMENTSOF(protect_home_read_only_table) :
-                  ((protect_home == PROTECT_HOME_TMPFS) ?
+                  ((ns_info->protect_home == PROTECT_HOME_TMPFS) ?
                    ELEMENTSOF(protect_home_tmpfs_table) : 0)));
 
         return !!tmp_dir + !!var_tmp_dir +
@@ -1355,8 +1390,6 @@ int setup_namespace(
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 const char *log_namespace,
-                ProtectHome protect_home,
-                ProtectSystem protect_system,
                 unsigned long mount_flags,
                 const void *root_hash,
                 size_t root_hash_size,
@@ -1389,10 +1422,10 @@ int setup_namespace(
 
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
                 if (root_read_only(read_only_paths,
-                                   protect_system) &&
+                                   ns_info->protect_system) &&
                     home_read_only(read_only_paths, inaccessible_paths, empty_directories,
                                    bind_mounts, n_bind_mounts, temporary_filesystems, n_temporary_filesystems,
-                                   protect_home) &&
+                                   ns_info->protect_home) &&
                     strv_isempty(read_write_paths))
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
@@ -1461,8 +1494,7 @@ int setup_namespace(
                         n_temporary_filesystems,
                         n_mount_images,
                         tmp_dir, var_tmp_dir,
-                        log_namespace,
-                        protect_home, protect_system);
+                        log_namespace);
 
         if (n_mounts > 0) {
                 m = mounts = new0(MountEntry, n_mounts);
@@ -1559,11 +1591,11 @@ int setup_namespace(
                         };
                 }
 
-                r = append_protect_home(&m, protect_home, ns_info->ignore_protect_paths);
+                r = append_protect_home(&m, ns_info->protect_home, ns_info->ignore_protect_paths);
                 if (r < 0)
                         goto finish;
 
-                r = append_protect_system(&m, protect_system, false);
+                r = append_protect_system(&m, ns_info->protect_system, false);
                 if (r < 0)
                         goto finish;
 
@@ -1720,7 +1752,7 @@ int setup_namespace(
                                         break;
                                 }
 
-                                r = apply_mount(root, m);
+                                r = apply_mount(root, m, ns_info);
                                 if (r < 0) {
                                         if (error_path && mount_entry_path(m))
                                                 *error_path = strdup(mount_entry_path(m));
@@ -2240,3 +2272,19 @@ static const char* const namespace_type_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(namespace_type, NamespaceType);
+
+static const char* const protect_proc_table[_PROTECT_PROC_MAX] = {
+        [PROTECT_PROC_DEFAULT]    = "default",
+        [PROTECT_PROC_NOACCESS]   = "noaccess",
+        [PROTECT_PROC_INVISIBLE]  = "invisible",
+        [PROTECT_PROC_PTRACEABLE] = "ptraceable",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(protect_proc, ProtectProc);
+
+static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
+        [PROC_SUBSET_ALL] = "all",
+        [PROC_SUBSET_PID] = "pid",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);

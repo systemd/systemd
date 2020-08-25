@@ -1948,7 +1948,9 @@ static bool exec_needs_mount_namespace(
             context->protect_kernel_tunables ||
             context->protect_kernel_modules ||
             context->protect_kernel_logs ||
-            context->protect_control_groups)
+            context->protect_control_groups ||
+            context->protect_proc != PROTECT_PROC_DEFAULT ||
+            context->proc_subset != PROC_SUBSET_ALL)
                 return true;
 
         if (context->root_directory) {
@@ -2650,6 +2652,10 @@ static int apply_mount_namespace(
                         .protect_hostname = context->protect_hostname,
                         .mount_apivfs = context->mount_apivfs,
                         .private_mounts = context->private_mounts,
+                        .protect_home = context->protect_home,
+                        .protect_system = context->protect_system,
+                        .protect_proc = context->protect_proc,
+                        .proc_subset = context->proc_subset,
                 };
         } else if (!context->dynamic_user && root_dir)
                 /*
@@ -2680,8 +2686,6 @@ static int apply_mount_namespace(
                             tmp_dir,
                             var_tmp_dir,
                             context->log_namespace,
-                            needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
-                            needs_sandboxing ? context->protect_system : PROTECT_SYSTEM_NO,
                             context->mount_flags,
                             context->root_hash, context->root_hash_size, context->root_hash_path,
                             context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
@@ -4601,7 +4605,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sRestrictRealtime: %s\n"
                 "%sRestrictSUIDSGID: %s\n"
                 "%sKeyringMode: %s\n"
-                "%sProtectHostname: %s\n",
+                "%sProtectHostname: %s\n"
+                "%sProtectProc: %s\n"
+                "%sProcSubset: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
@@ -4623,7 +4629,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->restrict_realtime),
                 prefix, yes_no(c->restrict_suid_sgid),
                 prefix, exec_keyring_mode_to_string(c->keyring_mode),
-                prefix, yes_no(c->protect_hostname));
+                prefix, yes_no(c->protect_hostname),
+                prefix, protect_proc_to_string(c->protect_proc),
+                prefix, proc_subset_to_string(c->proc_subset));
 
         if (c->root_image)
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);

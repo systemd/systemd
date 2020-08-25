@@ -73,6 +73,8 @@ $1.AmbientCapabilities,          config_parse_capability_set,        0,         
 $1.TimerSlackNSec,               config_parse_nsec,                  0,                             offsetof($1, exec_context.timer_slack_nsec)
 $1.NoNewPrivileges,              config_parse_bool,                  0,                             offsetof($1, exec_context.no_new_privileges)
 $1.KeyringMode,                  config_parse_exec_keyring_mode,     0,                             offsetof($1, exec_context.keyring_mode)
+$1.ProtectProc,                  config_parse_protect_proc,          0,                             offsetof($1, exec_context.protect_proc)
+$1.ProcSubset,                   config_parse_proc_subset,           0,                             offsetof($1, exec_context.proc_subset)
 m4_ifdef(`HAVE_SECCOMP',
 `$1.SystemCallFilter,            config_parse_syscall_filter,        0,                             offsetof($1, exec_context)
 $1.SystemCallArchitectures,      config_parse_syscall_archs,         0,                             offsetof($1, exec_context.syscall_archs)

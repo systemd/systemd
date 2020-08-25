@@ -151,6 +151,8 @@ All execution-related settings are available for transient units.
 ✓ TimerSlackNSec=
 ✓ NoNewPrivileges=
 ✓ KeyringMode=
+✓ ProtectProc=
+✓ ProcSubset=
 ✓ SystemCallFilter=
 ✓ SystemCallArchitectures=
 ✓ SystemCallErrorNumber=

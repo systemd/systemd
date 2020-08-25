@@ -268,6 +268,55 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ProtectProc=</varname></term>
+
+        <listitem><para>Takes one of <literal>noaccess</literal>, <literal>invisible</literal>,
+        <literal>ptraceable</literal> or <literal>default</literal> (which it defaults to). When set, this
+        controls the <literal>hidepid=</literal> mount option of the <literal>procfs</literal> instance for
+        the unit that controls which directories with process metainformation
+        (<filename>/proc/<replaceable>PID</replaceable></filename>) are visible and accessible: when set to
+        <literal>noaccess</literal> the ability to access most of other users' process metadata in
+        <filename>/proc/</filename> is taken away for processes of the service. When set to
+        <literal>invisible</literal> processes owned by other users are hidden from
+        <filename>/proc/</filename>. If <literal>ptraceable</literal> all processes that cannot be
+        <function>ptrace()</function>'ed by a process are hidden to it. If <literal>default</literal> no
+        restrictions on <filename>/proc/</filename> access or visibility are made. For further details see
+        <ulink url="https://www.kernel.org/doc/html/latest/filesystems/proc.html#mount-options">The /proc
+        Filesystem</ulink>. It is generally recommended to run most system services with this option set to
+        <literal>invisible</literal>. This option is implemented via file system namespacing, and thus cannot
+        be used with services that shall be able to install mount points in the host file system
+        hierarchy. It also cannot be used for services that need to access metainformation about other users'
+        processes. This option implies <varname>MountAPIVFS=</varname>.</para>
+
+        <para>If the kernel doesn't support per-mount point <option>hidepid=</option> mount options this
+        setting remains without effect, and the unit's processes will be able to access and see other process
+        as if the option was not used.</para>
+
+        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ProcSubset=</varname></term>
+
+        <listitem><para>Takes one of <literal>all</literal> (the default) and <literal>pid</literal>. If
+        the latter all files and directories not directly associated with process management and introspection
+        are made invisible in the <filename>/proc/</filename> file system configured for the unit's
+        processes. This controls the <literal>subset=</literal> mount option of the <literal>procfs</literal>
+        instance for the unit. For further details see <ulink
+        url="https://www.kernel.org/doc/html/latest/filesystems/proc.html#mount-options">The /proc
+        Filesystem</ulink>. Note that Linux exposes various kernel APIs via <filename>/proc/</filename>,
+        which are made unavailable with this setting. Since these APIs are used frequently this option is
+        useful only in a few, specific cases, and is not suitable for most non-trivial programs.</para>
+
+        <para>Much like <varname>ProtectProc=</varname> above, this is implemented via file system mount
+        namespacing, and hence the same restrictions apply: it is only available to system services, it
+        disables mount propagation to the host mount table, and it implies
+        <varname>MountAPIVFS=</varname>. Also, like <varname>ProtectProc=</varname> this setting is gracefully
+        disabled if the used kernel does not support the <literal>subset=</literal> mount option of
+        <literal>procfs</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>BindPaths=</varname></term>
         <term><varname>BindReadOnlyPaths=</varname></term>
 
