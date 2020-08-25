@@ -85,10 +85,13 @@ fi
 KERNEL_VERSION="$1"
 KERNEL_IMAGE="$2"
 
-if [[ -f /etc/machine-id ]]; then
+# Reuse directory created without a machine ID present if it exists.
+if [[ -d /efi/Default ]] || [[ -d /boot/Default ]] || [[ -d /boot/efi/Default ]]; then
+    MACHINE_ID="Default"
+elif [[ -f /etc/machine-id ]]; then
     read MACHINE_ID < /etc/machine-id
 else
-    MACHINE_ID="Linux"
+    MACHINE_ID="Default"
 fi
 
 if [[ ! $COMMAND ]] || [[ ! $KERNEL_VERSION ]]; then
