@@ -21,7 +21,7 @@ typedef struct SyscallFilterSet {
 } SyscallFilterSet;
 
 enum {
-        /* Please leave DEFAULT first, but sort the rest alphabetically */
+        /* Please leave DEFAULT first and KNOWN last, but sort the rest alphabetically */
         SYSCALL_FILTER_SET_DEFAULT,
         SYSCALL_FILTER_SET_AIO,
         SYSCALL_FILTER_SET_BASIC_IO,
@@ -50,6 +50,7 @@ enum {
         SYSCALL_FILTER_SET_SYNC,
         SYSCALL_FILTER_SET_SYSTEM_SERVICE,
         SYSCALL_FILTER_SET_TIMER,
+        SYSCALL_FILTER_SET_KNOWN,
         _SYSCALL_FILTER_SET_MAX
 };
 
@@ -59,7 +60,13 @@ const SyscallFilterSet *syscall_filter_set_find(const char *name);
 
 int seccomp_filter_set_add(Hashmap *s, bool b, const SyscallFilterSet *set);
 
-int seccomp_add_syscall_filter_item(scmp_filter_ctx *ctx, const char *name, uint32_t action, char **exclude, bool log_missing);
+int seccomp_add_syscall_filter_item(
+                scmp_filter_ctx *ctx,
+                const char *name,
+                uint32_t action,
+                char **exclude,
+                bool log_missing,
+                char ***added);
 
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action, bool log_missing);
 int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action, bool log_missing);

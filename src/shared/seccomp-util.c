@@ -902,29 +902,49 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "timerfd_settime64\0"
                 "times\0"
         },
+        [SYSCALL_FILTER_SET_KNOWN] = {
+                .name = "@known",
+                .help = "All known syscalls declared in the kernel",
+                .value =
+#include "syscall-list.h"
+        },
 };
 
 const SyscallFilterSet *syscall_filter_set_find(const char *name) {
-        unsigned i;
-
         if (isempty(name) || name[0] != '@')
                 return NULL;
 
-        for (i = 0; i < _SYSCALL_FILTER_SET_MAX; i++)
+        for (unsigned i = 0; i < _SYSCALL_FILTER_SET_MAX; i++)
                 if (streq(syscall_filter_sets[i].name, name))
                         return syscall_filter_sets + i;
 
         return NULL;
 }
 
-static int seccomp_add_syscall_filter_set(scmp_filter_ctx seccomp, const SyscallFilterSet *set, uint32_t action, char **exclude, bool log_missing);
+static int add_syscall_filter_set(
+                scmp_filter_ctx seccomp,
+                const SyscallFilterSet *set,
+                uint32_t action,
+                char **exclude,
+                bool log_missing,
+                char ***added);
 
-int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, uint32_t action, char **exclude, bool log_missing) {
+int seccomp_add_syscall_filter_item(
+                scmp_filter_ctx *seccomp,
+                const char *name,
+                uint32_t action,
+                char **exclude,
+                bool log_missing,
+                char ***added) {
+
         assert(seccomp);
         assert(name);
 
         if (strv_contains(exclude, name))
                 return 0;
+
+        /* Any syscalls that are handled are added to the *added strv. The pointer
+         * must be either NULL or point to a valid pre-initialized possibly-empty strv. */
 
         if (name[0] == '@') {
                 const SyscallFilterSet *other;
@@ -935,7 +955,7 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                                                "Filter set %s is not known!",
                                                name);
 
-                return seccomp_add_syscall_filter_set(seccomp, other, action, exclude, log_missing);
+                return add_syscall_filter_set(seccomp, other, action, exclude, log_missing, added);
 
         } else {
                 int id, r;
@@ -959,25 +979,34 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *seccomp, const char *name, 
                                 return r;
                 }
 
+                if (added) {
+                        r = strv_extend(added, name);
+                        if (r < 0)
+                                return r;
+                }
+
                 return 0;
         }
 }
 
-static int seccomp_add_syscall_filter_set(
+static int add_syscall_filter_set(
                 scmp_filter_ctx seccomp,
                 const SyscallFilterSet *set,
                 uint32_t action,
                 char **exclude,
-                bool log_missing) {
+                bool log_missing,
+                char ***added) {
 
         const char *sys;
         int r;
+
+        /* Any syscalls that are handled are added to the *added strv. It needs to be initialized. */
 
         assert(seccomp);
         assert(set);
 
         NULSTR_FOREACH(sys, set->value) {
-                r = seccomp_add_syscall_filter_item(seccomp, sys, action, exclude, log_missing);
+                r = seccomp_add_syscall_filter_item(seccomp, sys, action, exclude, log_missing, added);
                 if (r < 0)
                         return r;
         }
@@ -1003,7 +1032,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                 if (r < 0)
                         return r;
 
-                r = seccomp_add_syscall_filter_set(seccomp, set, action, NULL, log_missing);
+                r = add_syscall_filter_set(seccomp, set, action, NULL, log_missing, NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add filter set: %m");
 
@@ -1160,7 +1189,6 @@ int seccomp_restrict_namespaces(unsigned long retain) {
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
-                unsigned i;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
@@ -1190,7 +1218,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                         continue;
                 }
 
-                for (i = 0; namespace_flag_map[i].name; i++) {
+                for (unsigned i = 0; namespace_flag_map[i].name; i++) {
                         unsigned long f;
 
                         f = namespace_flag_map[i].flag;
@@ -1384,7 +1412,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                         return r;
 
                 if (allow_list) {
-                        int af, first = 0, last = 0;
+                        int first = 0, last = 0;
                         void *afp;
 
                         /* If this is an allow list, we first block the address families that are out of
@@ -1392,7 +1420,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                          * highest address family in the set. */
 
                         SET_FOREACH(afp, address_families, i) {
-                                af = PTR_TO_INT(afp);
+                                int af = PTR_TO_INT(afp);
 
                                 if (af <= 0 || af >= af_max())
                                         continue;
@@ -1446,7 +1474,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                                 }
 
                                 /* Block everything between the first and last entry */
-                                for (af = 1; af < af_max(); af++) {
+                                for (int af = 1; af < af_max(); af++) {
 
                                         if (set_contains(address_families, INT_TO_PTR(af)))
                                                 continue;
@@ -1473,7 +1501,6 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                          * then combined in OR checks. */
 
                         SET_FOREACH(af, address_families, i) {
-
                                 r = seccomp_rule_add_exact(
                                                 seccomp,
                                                 SCMP_ACT_ERRNO(EAFNOSUPPORT),

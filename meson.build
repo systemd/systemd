@@ -1625,8 +1625,15 @@ install_libsystemd_static = static_library(
                         libgcrypt],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
-# Generate autosuspend rules
+############################################################
+
+autosuspend_update_sh = find_program('tools/autosuspend-update.sh')
+hwdb_update_sh = find_program('tools/hwdb-update.sh')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
+make_directive_index_py = find_program('tools/make-directive-index.py')
+make_man_index_py = find_program('tools/make-man-index.py')
+syscall_names_update_sh = find_program('tools/syscall-names-update.sh')
+xml_helper_py = find_program('tools/xml_helper.py')
 
 ############################################################
 
@@ -3328,12 +3335,6 @@ run_target(
         command : ['true'])
 
 ############################################################
-
-make_directive_index_py = find_program('tools/make-directive-index.py')
-make_man_index_py = find_program('tools/make-man-index.py')
-xml_helper_py = find_program('tools/xml_helper.py')
-hwdb_update_sh = find_program('tools/hwdb-update.sh')
-autosuspend_update_sh = find_program('tools/autosuspend-update.sh')
 
 subdir('sysctl.d')
 subdir('sysusers.d')
