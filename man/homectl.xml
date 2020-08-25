@@ -377,6 +377,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--recovery-key=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Accepts a boolean argument. If enabled a recovery key is configured for the
+        account. A recovery key is a computer generated access key that may be used to regain access to an
+        account if the password has been forgotten or the authentication token lost. The key is generated and
+        shown on screen, and should be printed or otherwise transferred to a secure location. A recovery key
+        may be entered instead of a regular password to unlock the account.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--locked=</option><replaceable>BOOLEAN</replaceable></term>
 
         <listitem><para>Takes a boolean argument. Specifies whether this user account shall be locked. If

@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sys/xattr.h>
+
 #include "errno-util.h"
 #include "home-util.h"
 #include "id128-util.h"
 #include "libcrypt-util.h"
+#include "memory-util.h"
+#include "modhex.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "stat-util.h"
@@ -495,8 +499,21 @@ int user_record_test_image_path(UserRecord *h) {
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
-                if (S_ISREG(st.st_mode))
+                if (S_ISREG(st.st_mode)) {
+                        ssize_t n;
+                        char x[2];
+
+                        n = getxattr(ip, "user.home-dirty", x, sizeof(x));
+                        if (n < 0) {
+                                if (errno != ENODATA)
+                                        log_debug_errno(errno, "Unable to read dirty xattr off image file, ignoring: %m");
+
+                        } else if (n == 1 && x[0] == '1')
+                                return USER_TEST_DIRTY;
+
                         return USER_TEST_EXISTS;
+                }
+
                 if (S_ISBLK(st.st_mode)) {
                         /* For block devices we can't really be sure if the device referenced actually is the
                          * fs we look for or some other file system (think: what does /dev/sdb1 refer
@@ -549,7 +566,7 @@ int user_record_test_image_path_and_warn(UserRecord *h) {
         return r;
 }
 
-int user_record_test_secret(UserRecord *h, UserRecord *secret) {
+int user_record_test_password(UserRecord *h, UserRecord *secret) {
         char **i;
         int r;
 
@@ -566,6 +583,48 @@ int user_record_test_secret(UserRecord *h, UserRecord *secret) {
                         return r;
                 if (r > 0)
                         return 0;
+        }
+
+        return -ENOKEY;
+}
+
+int user_record_test_recovery_key(UserRecord *h, UserRecord *secret) {
+        char **i;
+        int r;
+
+        assert(h);
+
+        /* Checks whether any of the specified passwords matches any of the hashed recovery keys of the entry */
+
+        if (h->n_recovery_key == 0)
+                return -ENXIO;
+
+        STRV_FOREACH(i, secret->password) {
+                for (size_t j = 0; j < h->n_recovery_key; j++) {
+                        _cleanup_(erase_and_freep) char *mangled = NULL;
+                        const char *p;
+
+                        if (streq(h->recovery_key[j].type, "modhex64")) {
+                                /* If this key is for a modhex64 recovery key, then try to normalize the
+                                 * passphrase to make things more robust: that way the password becomes case
+                                 * insensitive and the dashes become optional. */
+
+                                r = normalize_recovery_key(*i, &mangled);
+                                if (r == -EINVAL) /* Not a valid modhex64 passphrase, don't bother */
+                                        continue;
+                                if (r < 0)
+                                        return r;
+
+                                p = mangled;
+                        } else
+                                p = *i; /* Unknown recovery key types process as is */
+
+                        r = test_password_one(h->recovery_key[j].hashed_password, p);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return 0;
+                }
         }
 
         return -ENOKEY;

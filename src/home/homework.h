@@ -31,6 +31,7 @@ typedef struct HomeSetup {
         bool undo_mount;
         bool do_offline_fitrim;
         bool do_offline_fallocate;
+        bool do_mark_clean;
 
         uint64_t partition_offset;
         uint64_t partition_size;

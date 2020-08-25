@@ -20,6 +20,7 @@
 #include "main-func.h"
 #include "memory-util.h"
 #include "missing_magic.h"
+#include "modhex.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -46,7 +47,7 @@ int user_record_authenticate(
                 PasswordCache *cache,
                 bool strict_verify) {
 
-        bool need_password = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false, need_user_presence_permitted = false,
+        bool need_password = false, need_recovery_key = false, need_token = false, need_pin = false, need_protected_authentication_path_permitted = false, need_user_presence_permitted = false,
                 pin_locked = false, pin_incorrect = false, pin_incorrect_few_tries_left = false, pin_incorrect_one_try_left = false, token_action_timeout = false;
         int r;
 
@@ -65,11 +66,10 @@ int user_record_authenticate(
          * PKCS#11/FIDO2 dance for the relevant token again and again. */
 
         /* First, let's see if the supplied plain-text passwords work? */
-        r = user_record_test_secret(h, secret);
-        if (r == -ENOKEY) {
-                log_info_errno(r, "None of the supplied plaintext passwords unlocks the user record's hashed passwords.");
+        r = user_record_test_password(h, secret);
+        if (r == -ENOKEY)
                 need_password = true;
-        } else if (r == -ENXIO)
+        else if (r == -ENXIO)
                 log_debug_errno(r, "User record has no hashed passwords, plaintext passwords not tested.");
         else if (r < 0)
                 return log_error_errno(r, "Failed to validate password of record: %m");
@@ -77,6 +77,26 @@ int user_record_authenticate(
                 log_info("Provided password unlocks user record.");
                 return 1;
         }
+
+        /* Similar, but test against the recovery keys */
+        r = user_record_test_recovery_key(h, secret);
+        if (r == -ENOKEY)
+                need_recovery_key = true;
+        else if (r == -ENXIO)
+                log_debug_errno(r, "User record has no recovery keys, plaintext passwords not tested against it.");
+        else if (r < 0)
+                return log_error_errno(r, "Failed to validate the recovery key of the record: %m");
+        else {
+                log_info("Provided password is a recovery key that unlocks the user record.");
+                return 1;
+        }
+
+        if (need_password && need_recovery_key)
+                log_info("None of the supplied plaintext passwords unlock the user record's hashed passwords or recovery keys.");
+        else if (need_password)
+                log_info("None of the supplied plaintext passwords unlock the user record's hashed passwords.");
+        else
+                log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
 
         /* Second, test cached PKCS#11 passwords */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
@@ -235,19 +255,21 @@ int user_record_authenticate(
                 return -EBADSLT;
         if (need_password)
                 return -ENOKEY;
+        if (need_recovery_key)
+                return -EREMOTEIO;
 
-        /* Hmm, this means neither PCKS#11/FIDO2 nor classic hashed passwords were supplied, we cannot
-         * authenticate this reasonably */
+        /* Hmm, this means neither PCKS#11/FIDO2 nor classic hashed passwords or recovery keys were supplied,
+         * we cannot authenticate this reasonably */
         if (strict_verify)
                 return log_debug_errno(SYNTHETIC_ERRNO(EKEYREVOKED),
-                                       "No hashed passwords and no PKCS#11/FIDO2 tokens defined, cannot authenticate user record, refusing.");
+                                       "No hashed passwords, no recovery keys and no PKCS#11/FIDO2 tokens defined, cannot authenticate user record, refusing.");
 
         /* If strict verification is off this means we are possibly in the case where we encountered an
          * unfixated record, i.e. a synthetic one that accordingly lacks any authentication data. In this
          * case, allow the authentication to pass for now, so that the second (or third) authentication level
          * (the ones of the user record in the LUKS header or inside the home directory) will then catch
          * invalid passwords. The second/third authentication always runs in strict verification mode. */
-        log_debug("No hashed passwords and no PKCS#11 tokens defined in record, cannot authenticate user record. "
+        log_debug("No hashed passwords, not recovery keys and no PKCS#11 tokens defined in record, cannot authenticate user record. "
                   "Deferring to embedded user record.");
         return 0;
 }
@@ -286,6 +308,12 @@ int home_setup_undo(HomeSetup *setup) {
                                 r = q;
                 }
 
+                if (setup->do_mark_clean) {
+                        q = run_mark_dirty(setup->image_fd, false);
+                        if (q < 0)
+                                r = q;
+                }
+
                 setup->image_fd = safe_close(setup->image_fd);
         }
 
@@ -293,6 +321,7 @@ int home_setup_undo(HomeSetup *setup) {
         setup->undo_dm = false;
         setup->do_offline_fitrim = false;
         setup->do_offline_fallocate = false;
+        setup->do_mark_clean = false;
 
         setup->dm_name = mfree(setup->dm_name);
         setup->dm_node = mfree(setup->dm_node);
@@ -896,7 +925,7 @@ static int user_record_compile_effective_passwords(
                 STRV_FOREACH(j, h->password) {
                         r = test_password_one(*i, *j);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to test plain text password: %m");
+                                return log_error_errno(r, "Failed to test plaintext password: %m");
                         if (r > 0) {
                                 if (ret_effective_passwords) {
                                         r = strv_extend(&effective, *j);
@@ -912,6 +941,48 @@ static int user_record_compile_effective_passwords(
 
                 if (!found)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Missing plaintext password for defined hashed password");
+        }
+
+        for (n = 0; n < h->n_recovery_key; n++) {
+                bool found = false;
+                char **j;
+
+                log_debug("Looking for plaintext recovery key for: %s", h->recovery_key[n].hashed_password);
+
+                STRV_FOREACH(j, h->password) {
+                        _cleanup_(erase_and_freep) char *mangled = NULL;
+                        const char *p;
+
+                        if (streq(h->recovery_key[n].type, "modhex64")) {
+
+                                r = normalize_recovery_key(*j, &mangled);
+                                if (r == -EINVAL) /* Not properly formatted, probably a regular password. */
+                                        continue;
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to normalize recovery key: %m");
+
+                                p = mangled;
+                        } else
+                                p = *j;
+
+                        r = test_password_one(h->recovery_key[n].hashed_password, p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to test plaintext recovery key: %m");
+                        if (r > 0) {
+                                if (ret_effective_passwords) {
+                                        r = strv_extend(&effective, p);
+                                        if (r < 0)
+                                                return log_oom();
+                                }
+
+                                log_debug("Found plaintext recovery key.");
+                                found = true;
+                                break;
+                        }
+                }
+
+                if (!found)
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTEIO), "Missing plaintext recovery key for defined recovery key");
         }
 
         for (n = 0; n < h->n_pkcs11_encrypted_key; n++) {
@@ -1602,6 +1673,7 @@ static int run(int argc, char *argv[]) {
          * ENOTTY          → operation not support on this storage
          * ESOCKTNOSUPPORT → operation not support on this file system
          * ENOKEY          → password incorrect (or not sufficient, or not supplied)
+         * EREMOTEIO       → recovery key incorrect (or not sufficeint, or not supplied — only if no passwords defined)
          * EBADSLT         → similar, but PKCS#11 device is defined and might be able to provide password, if it was plugged in which it is not
          * ENOANO          → suitable PKCS#11/FIDO2 device found, but PIN is missing to unlock it
          * ERFKILL         → suitable PKCS#11 device found, but OK to ask for on-device interactive authentication not given
@@ -1641,7 +1713,7 @@ static int run(int argc, char *argv[]) {
                 r = home_unlock(home);
         else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb '%s'.", argv[1]);
-        if (r == -ENOKEY && !strv_isempty(home->password)) { /* There were passwords specified but they were incorrect */
+        if (IN_SET(r, -ENOKEY, -EREMOTEIO) && !strv_isempty(home->password) ) { /* There were passwords specified but they were incorrect */
                 usec_t end, n, d;
 
                 /* Make sure bad password replies always take at least 3s, and if longer multiples of 3s, so

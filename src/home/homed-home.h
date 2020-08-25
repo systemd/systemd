@@ -13,6 +13,7 @@ typedef enum HomeState {
         HOME_UNFIXATED,               /* home exists, but local record does not */
         HOME_ABSENT,                  /* local record exists, but home does not */
         HOME_INACTIVE,                /* record and home exist, but is not logged in */
+        HOME_DIRTY,                   /* like HOME_INACTIVE, but the home directory wasn't cleanly deactivated */
         HOME_FIXATING,                /* generating local record from home */
         HOME_FIXATING_FOR_ACTIVATION, /* fixating in order to activate soon */
         HOME_FIXATING_FOR_ACQUIRE,    /* fixating because Acquire() was called */

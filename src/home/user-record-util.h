@@ -31,6 +31,7 @@ enum {
         USER_TEST_UNDEFINED, /* Returned by user_record_test_image_path() if the storage type knows no image paths */
         USER_TEST_ABSENT,
         USER_TEST_EXISTS,
+        USER_TEST_DIRTY,     /* Only applies to user_record_test_image_path(), when the image exists but is marked dirty */
         USER_TEST_MOUNTED,   /* Only applies to user_record_test_home_directory(), when the home directory exists. */
         USER_TEST_MAYBE,     /* Only applies to LUKS devices: block device exists, but we don't know if it's the right one */
 };
@@ -40,7 +41,8 @@ int user_record_test_home_directory_and_warn(UserRecord *h);
 int user_record_test_image_path(UserRecord *h);
 int user_record_test_image_path_and_warn(UserRecord *h);
 
-int user_record_test_secret(UserRecord *h, UserRecord *secret);
+int user_record_test_password(UserRecord *h, UserRecord *secret);
+int user_record_test_recovery_key(UserRecord *h, UserRecord *secret);
 
 int user_record_update_last_changed(UserRecord *h, bool with_password);
 int user_record_set_disk_size(UserRecord *h, uint64_t disk_size);

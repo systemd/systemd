@@ -669,6 +669,7 @@ int bus_home_method_ref(
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
         case HOME_UNFIXATED:
         case HOME_INACTIVE:
+        case HOME_DIRTY:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s not active.", h->user_name);
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);

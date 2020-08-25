@@ -16,7 +16,7 @@ const char *user_record_state_color(const char *state) {
                 return ansi_grey();
         else if (streq(state, "active"))
                 return ansi_highlight_green();
-        else if (streq(state, "locked"))
+        else if (STR_IN_SET(state, "locked", "dirty"))
                  return ansi_highlight_yellow();
 
         return NULL;
@@ -478,6 +478,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
         if (hr->n_fido2_hmac_credential > 0)
                 printf(" FIDO2 Token: %zu\n", hr->n_fido2_hmac_credential);
+
+        if (!strv_isempty(hr->recovery_key_type))
+                printf("Recovery Key: %zu\n", strv_length(hr->recovery_key_type));
 
         k = strv_length(hr->hashed_password);
         if (k == 0)

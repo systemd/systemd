@@ -96,6 +96,7 @@
 #define BUS_ERROR_HOME_ABSENT "org.freedesktop.home1.HomeAbsent"
 #define BUS_ERROR_HOME_BUSY "org.freedesktop.home1.HomeBusy"
 #define BUS_ERROR_BAD_PASSWORD "org.freedesktop.home1.BadPassword"
+#define BUS_ERROR_BAD_RECOVERY_KEY "org.freedesktop.home1.BadRecoveryKey"
 #define BUS_ERROR_LOW_PASSWORD_QUALITY "org.freedesktop.home1.LowPasswordQuality"
 #define BUS_ERROR_BAD_PASSWORD_AND_NO_TOKEN "org.freedesktop.home1.BadPasswordAndNoToken"
 #define BUS_ERROR_TOKEN_PIN_NEEDED "org.freedesktop.home1.TokenPinNeeded"

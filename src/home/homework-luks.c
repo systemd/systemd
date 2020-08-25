@@ -5,6 +5,7 @@
 #include <poll.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/xattr.h>
 
 #include "blkid-util.h"
 #include "blockdev-util.h"
@@ -40,6 +41,53 @@
  * but actually doesn't accept uneven numbers in many cases. To avoid any confusion around this we'll
  * strictly round disk sizes down to the next 1K boundary.*/
 #define DISK_SIZE_ROUND_DOWN(x) ((x) & ~UINT64_C(1023))
+
+int run_mark_dirty(int fd, bool b) {
+        char x = '1';
+        int r, ret;
+
+        /* Sets or removes the 'user.home-dirty' xattr on the specified file. We use this to detect when a
+         * home directory was not properly unmounted. */
+
+        assert(fd >= 0);
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        if (b) {
+                ret = fsetxattr(fd, "user.home-dirty", &x, 1, XATTR_CREATE);
+                if (ret < 0 && errno != EEXIST)
+                        return log_debug_errno(errno, "Could not mark home directory as dirty: %m");
+
+        } else {
+                r = fsync_full(fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to synchronize image before marking it clean: %m");
+
+                ret = fremovexattr(fd, "user.home-dirty");
+                if (ret < 0 && errno != ENODATA)
+                        return log_debug_errno(errno, "Could not mark home directory as clean: %m");
+        }
+
+        r = fsync_full(fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to synchronize dirty flag to disk: %m");
+
+        return ret >= 0;
+}
+
+int run_mark_dirty_by_path(const char *path, bool b) {
+        _cleanup_close_ int fd = -1;
+
+        assert(path);
+
+        fd = open(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open %s to mark dirty or clean: %m", path);
+
+        return run_mark_dirty(fd, b);
+}
 
 static int probe_file_system_by_fd(
                 int fd,
@@ -998,9 +1046,10 @@ int home_prepare_luks(
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
+        _cleanup_close_ int root_fd = -1, image_fd = -1;
         bool dm_activated = false, mounted = false;
-        _cleanup_close_ int root_fd = -1;
         size_t volume_key_size = 0;
+        bool marked_dirty = false;
         uint64_t offset, size;
         int r;
 
@@ -1094,7 +1143,6 @@ int home_prepare_luks(
                 }
         } else {
                 _cleanup_free_ char *fstype = NULL, *subdir = NULL;
-                _cleanup_close_ int fd = -1;
                 const char *ip;
                 struct stat st;
 
@@ -1104,28 +1152,32 @@ int home_prepare_luks(
                 if (!subdir)
                         return log_oom();
 
-                fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
-                if (fd < 0)
+                image_fd = open(ip, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                if (image_fd < 0)
                         return log_error_errno(errno, "Failed to open image file %s: %m", ip);
 
-                if (fstat(fd, &st) < 0)
+                if (fstat(image_fd, &st) < 0)
                         return log_error_errno(errno, "Failed to fstat() image file: %m");
                 if (!S_ISREG(st.st_mode) && !S_ISBLK(st.st_mode))
                         return log_error_errno(
                                         S_ISDIR(st.st_mode) ? SYNTHETIC_ERRNO(EISDIR) : SYNTHETIC_ERRNO(EBADFD),
                                         "Image file %s is not a regular file or block device: %m", ip);
 
-                r = luks_validate(fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
+                r = luks_validate(image_fd, user_record_user_name_and_realm(h), h->partition_uuid, &found_partition_uuid, &offset, &size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to validate disk label: %m");
 
+                /* Everything before this point left the image untouched. We are now starting to make
+                 * changes, hence mark the image dirty */
+                marked_dirty = run_mark_dirty(image_fd, true) > 0;
+
                 if (!user_record_luks_discard(h)) {
-                        r = run_fallocate(fd, &st);
+                        r = run_fallocate(image_fd, &st);
                         if (r < 0)
                                 return r;
                 }
 
-                r = loop_device_make(fd, O_RDWR, offset, size, 0, &loop);
+                r = loop_device_make(image_fd, O_RDWR, offset, size, 0, &loop);
                 if (r == -ENOENT) {
                         log_error_errno(r, "Loopback block device support is not available on this system.");
                         return -ENOLINK; /* make recognizable */
@@ -1180,8 +1232,9 @@ int home_prepare_luks(
                 if (user_record_luks_discard(h))
                         (void) run_fitrim(root_fd);
 
-                setup->image_fd = TAKE_FD(fd);
+                setup->image_fd = TAKE_FD(image_fd);
                 setup->do_offline_fallocate = !(setup->do_offline_fitrim = user_record_luks_offline_discard(h));
+                setup->do_mark_clean = marked_dirty;
         }
 
         setup->loop = TAKE_PTR(loop);
@@ -1209,6 +1262,9 @@ fail:
 
         if (dm_activated)
                 (void) crypt_deactivate(cd, setup->dm_name);
+
+        if (image_fd >= 0 && marked_dirty)
+                (void) run_mark_dirty(image_fd, false);
 
         return r;
 }
@@ -1304,6 +1360,7 @@ int home_activate_luks(
 
         setup.undo_dm = false;
         setup.do_offline_fallocate = false;
+        setup.do_mark_clean = false;
 
         log_info("Everything completed.");
 
@@ -1357,6 +1414,7 @@ int home_deactivate_luks(UserRecord *h) {
         else
                 (void) run_fallocate_by_path(user_record_image_path(h));
 
+        run_mark_dirty_by_path(user_record_image_path(h), false);
         return we_detached;
 }
 
