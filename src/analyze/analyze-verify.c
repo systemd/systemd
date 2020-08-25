@@ -223,7 +223,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *units[strv_length(filenames)];
         _cleanup_free_ char *var = NULL;
-        int r = 0, k, i, count = 0;
+        int r, k, i, count = 0;
         char **filename;
 
         if (strv_isempty(filenames))
