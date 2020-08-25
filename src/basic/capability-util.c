@@ -352,22 +352,30 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         return 0;
 }
 
-int drop_capability(cap_value_t cv) {
+static int change_capability(cap_value_t cv, cap_flag_value_t flag) {
         _cleanup_cap_free_ cap_t tmp_cap = NULL;
 
         tmp_cap = cap_get_proc();
         if (!tmp_cap)
                 return -errno;
 
-        if ((cap_set_flag(tmp_cap, CAP_INHERITABLE, 1, &cv, CAP_CLEAR) < 0) ||
-            (cap_set_flag(tmp_cap, CAP_PERMITTED, 1, &cv, CAP_CLEAR) < 0) ||
-            (cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, &cv, CAP_CLEAR) < 0))
+        if ((cap_set_flag(tmp_cap, CAP_INHERITABLE, 1, &cv, flag) < 0) ||
+            (cap_set_flag(tmp_cap, CAP_PERMITTED, 1, &cv, flag) < 0) ||
+            (cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, &cv, flag) < 0))
                 return -errno;
 
         if (cap_set_proc(tmp_cap) < 0)
                 return -errno;
 
         return 0;
+}
+
+int drop_capability(cap_value_t cv) {
+        return change_capability(cv, CAP_CLEAR);
+}
+
+int keep_capability(cap_value_t cv) {
+        return change_capability(cv, CAP_SET);
 }
 
 bool ambient_capabilities_supported(void) {

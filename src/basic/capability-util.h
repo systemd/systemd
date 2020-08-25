@@ -23,6 +23,7 @@ int capability_update_inherited_set(cap_t caps, uint64_t ambient_set);
 int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities);
 
 int drop_capability(cap_value_t cv);
+int keep_capability(cap_value_t cv);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(cap_t, cap_free);
 #define _cleanup_cap_free_ _cleanup_(cap_freep)
