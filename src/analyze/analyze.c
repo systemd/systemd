@@ -899,7 +899,7 @@ static bool times_in_range(const struct unit_times *times, const struct boot_tim
 static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, char ***units, unsigned branches) {
         _cleanup_strv_free_ char **deps = NULL;
         char **c;
-        int r = 0;
+        int r;
         usec_t service_longest = 0;
         int to_print = 0;
         struct unit_times *times;
