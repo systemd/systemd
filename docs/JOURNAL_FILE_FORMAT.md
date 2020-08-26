@@ -196,7 +196,7 @@ The currently used part of the file is the **header_size** plus the
 **arena_size** field of the header. If a writer needs to write to a file where
 the actual file size on disk is smaller than the reported value it shall
 immediately rotate the file and start a new one. If a writer is asked to write
-to a file with a header that is shorter than his own definition of the struct
+to a file with a header that is shorter than their own definition of the struct
 Header, he shall immediately rotate the file and start a new one.
 
 The **n_objects** field contains a counter for objects currently available in
