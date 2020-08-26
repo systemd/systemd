@@ -1,0 +1,7 @@
+[Unit]
+Description=TESTSUITE-54-CREDS
+
+[Service]
+ExecStartPre=rm -f /failed /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

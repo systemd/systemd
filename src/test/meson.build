@@ -658,6 +658,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-rm-rf.c'],
+         [],
+         []],
+
         [['src/test/test-chase-symlinks.c'],
          [],
          [],

@@ -60,6 +60,7 @@
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "user-util.h"
+#include "utf8.h"
 #include "web-util.h"
 
 static int parse_socket_protocol(const char *s) {
@@ -4266,6 +4267,155 @@ int config_parse_exec_directories(
                         return log_oom();
                 k = NULL;
         }
+}
+
+int config_parse_set_credential(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *word = NULL, *k = NULL, *unescaped = NULL;
+        ExecContext *context = data;
+        ExecSetCredential *old;
+        Unit *u = userdata;
+        const char *p;
+        int r, l;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(context);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                context->set_credentials = hashmap_free(context->set_credentials);
+                return 0;
+        }
+
+        p = rvalue;
+        r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0 || !p) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = unit_full_printf(u, word, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", word);
+                return 0;
+        }
+        if (!credential_name_valid(k)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name \"%s\" not valid, ignoring.", k);
+                return 0;
+        }
+
+        /* We support escape codes here, so that users can insert trailing \n if they like */
+        l = cunescape(p, UNESCAPE_ACCEPT_NUL, &unescaped);
+        if (l < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, l, "Can't unescape \"%s\", ignoring: %m", p);
+                return 0;
+        }
+
+        old = hashmap_get(context->set_credentials, k);
+        if (old) {
+                free_and_replace(old->data, unescaped);
+                old->size = l;
+        } else {
+                _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
+
+                sc = new0(ExecSetCredential, 1);
+                if (!sc)
+                        return log_oom();
+
+                sc->id = TAKE_PTR(k);
+                sc->data = TAKE_PTR(unescaped);
+                sc->size = l;
+
+                r = hashmap_ensure_allocated(&context->set_credentials, &exec_set_credential_hash_ops);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_put(context->set_credentials, sc->id, sc);
+                if (r < 0)
+                        return log_oom();
+
+                TAKE_PTR(sc);
+        }
+
+        return 0;
+}
+
+int config_parse_load_credential(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *word = NULL, *k = NULL, *q = NULL;
+        ExecContext *context = data;
+        Unit *u = userdata;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(context);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                context->load_credentials = strv_free(context->load_credentials);
+                return 0;
+        }
+
+        p = rvalue;
+        r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r <= 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        r = unit_full_printf(u, word, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", word);
+                return 0;
+        }
+        if (!credential_name_valid(k)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Credential name \"%s\" not valid, ignoring.", k);
+                return 0;
+        }
+        r = unit_full_printf(u, p, &q);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in \"%s\", ignoring: %m", p);
+                return 0;
+        }
+        if (path_is_absolute(q) ? !path_is_normalized(q) : !credential_name_valid(q)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Credential source \"%s\" not valid, ignoring.", q);
+                return 0;
+        }
+
+        r = strv_consume_pair(&context->load_credentials, TAKE_PTR(k), TAKE_PTR(q));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
 }
 
 int config_parse_set_status(

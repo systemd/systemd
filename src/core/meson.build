@@ -178,7 +178,8 @@ libcore = static_library(
                         libkmod,
                         libapparmor,
                         libselinux,
-                        libmount])
+                        libmount,
+                        libacl])
 
 systemd_sources = files('main.c')
 

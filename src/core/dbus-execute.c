@@ -748,6 +748,82 @@ static int property_get_log_extra_fields(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_set_credential(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        ExecSetCredential *sc;
+        Iterator iterator;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(say)");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(sc, c->set_credentials, iterator) {
+
+                r = sd_bus_message_open_container(reply, 'r', "say");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(reply, "s", sc->id);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append_array(reply, 'y', sc->data, sc->size);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(reply);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
+static int property_get_load_credential(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        char **i, **j;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(i, j, c->load_credentials) {
+                r = sd_bus_message_append(reply, "(ss)", *i, *j);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_root_hash(
                 sd_bus *bus,
                 const char *path,
@@ -965,6 +1041,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DynamicUser", "b", bus_property_get_bool, offsetof(ExecContext, dynamic_user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveIPC", "b", bus_property_get_bool, offsetof(ExecContext, remove_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SetCredential", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LoadCredential", "a(ss)", property_get_load_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SupplementaryGroups", "as", NULL, offsetof(ExecContext, supplementary_groups), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PAMName", "s", NULL, offsetof(ExecContext, pam_name), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ReadWritePaths", "as", NULL, offsetof(ExecContext, read_write_paths), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1790,6 +1868,146 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, joined);
                         }
+                }
+
+                return 1;
+
+        } else if (streq(name, "SetCredential")) {
+                bool isempty = true;
+
+                r = sd_bus_message_enter_container(message, 'a', "(say)");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *id;
+                        const void *p;
+                        size_t sz;
+
+                        r = sd_bus_message_enter_container(message, 'r', "say");
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = sd_bus_message_read(message, "s", &id);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_read_array(message, 'y', &p, &sz);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return r;
+
+                        if (!credential_name_valid(id))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential ID is invalid: %s", id);
+
+                        isempty = false;
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                _cleanup_free_ char *a = NULL, *b = NULL;
+                                _cleanup_free_ void *copy = NULL;
+                                ExecSetCredential *old;
+
+                                copy = memdup(p, sz);
+                                if (!copy)
+                                        return -ENOMEM;
+
+                                old = hashmap_get(c->set_credentials, id);
+                                if (old) {
+                                        free_and_replace(old->data, copy);
+                                        old->size = sz;
+                                } else {
+                                        _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
+
+                                        sc = new0(ExecSetCredential, 1);
+                                        if (!sc)
+                                                return -ENOMEM;
+
+                                        sc->id = strdup(id);
+                                        if (!sc->id)
+                                                return -ENOMEM;
+
+                                        sc->data = TAKE_PTR(copy);
+                                        sc->size = sz;
+
+                                        r = hashmap_ensure_allocated(&c->set_credentials, &exec_set_credential_hash_ops);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = hashmap_put(c->set_credentials, sc->id, sc);
+                                        if (r < 0)
+                                                return r;
+
+                                        TAKE_PTR(sc);
+                                }
+
+                                a = specifier_escape(id);
+                                if (!a)
+                                        return -ENOMEM;
+
+                                b = cescape_length(p, sz);
+                                if (!b)
+                                        return -ENOMEM;
+
+                                (void) unit_write_settingf(u, flags, name, "%s=%s:%s", name, a, b);
+                        }
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags) && isempty) {
+                        c->set_credentials = hashmap_free(c->set_credentials);
+                        (void) unit_write_settingf(u, flags, name, "%s=", name);
+                }
+
+                return 1;
+
+        } else if (streq(name, "LoadCredential")) {
+                bool isempty = true;
+
+                r = sd_bus_message_enter_container(message, 'a', "(ss)");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        const char *id, *source;
+
+                        r = sd_bus_message_read(message, "(ss)", &id, &source);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (!credential_name_valid(id))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential ID is invalid: %s", id);
+
+                        if (!(path_is_absolute(source) ? path_is_normalized(source) : credential_name_valid(source)))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential source is invalid: %s", source);
+
+                        isempty = false;
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = strv_extend_strv(&c->load_credentials, STRV_MAKE(id, source), /* filter_duplicates = */ false);
+                                if (r < 0)
+                                        return r;
+
+                                (void) unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s:%s", name, id, source);
+                        }
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags) && isempty) {
+                        c->load_credentials = strv_free(c->load_credentials);
+                        (void) unit_write_settingf(u, flags, name, "%s=", name);
                 }
 
                 return 1;

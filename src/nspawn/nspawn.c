@@ -36,6 +36,7 @@
 #include "dev-setup.h"
 #include "dissect-image.h"
 #include "env-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -45,6 +46,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
@@ -58,6 +60,7 @@
 #include "namespace-util.h"
 #include "netlink-util.h"
 #include "nspawn-cgroup.h"
+#include "nspawn-creds.h"
 #include "nspawn-def.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
@@ -219,6 +222,8 @@ static DeviceNode* arg_extra_nodes = NULL;
 static size_t arg_n_extra_nodes = 0;
 static char **arg_sysctl = NULL;
 static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
+static Credential *arg_credentials = NULL;
+static size_t arg_n_credentials = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -406,7 +411,13 @@ static int help(void) {
                "%3$sInput/Output:%4$s\n"
                "     --console=MODE         Select how stdin/stdout/stderr and /dev/console are\n"
                "                            set up for the container.\n"
-               "  -P --pipe                 Equivalent to --console=pipe\n"
+               "  -P --pipe                 Equivalent to --console=pipe\n\n"
+               "%3$sCredentials:%4$s\n"
+               "     --set-credential=ID:VALUE\n"
+               "                            Pass a credential with literal value to container.\n"
+               "     --load-credential=ID:PATH\n"
+               "                            Load credential to pass to container from file or\n"
+               "                            AF_UNIX stream socket.\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
                , link
@@ -675,6 +686,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_VERITY_DATA,
                 ARG_ROOT_HASH_SIG,
+                ARG_SET_CREDENTIAL,
+                ARG_LOAD_CREDENTIAL,
         };
 
         static const struct option options[] = {
@@ -742,6 +755,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",               no_argument,       NULL, ARG_NO_PAGER               },
                 { "verity-data",            required_argument, NULL, ARG_VERITY_DATA            },
                 { "root-hash-sig",          required_argument, NULL, ARG_ROOT_HASH_SIG          },
+                { "set-credential",         required_argument, NULL, ARG_SET_CREDENTIAL         },
+                { "load-credential",        required_argument, NULL, ARG_LOAD_CREDENTIAL        },
                 {}
         };
 
@@ -1496,6 +1511,105 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
+                case ARG_SET_CREDENTIAL: {
+                        _cleanup_free_ char *word = NULL, *data = NULL;
+                        const char *p = optarg;
+                        Credential *a;
+                        size_t i;
+                        int l;
+
+                        r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --set-credential= parameter: %m");
+                        if (r == 0 || !p)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --set-credential=: %s", optarg);
+
+                        if (!credential_name_valid(word))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", word);
+
+                        for (i = 0; i < arg_n_credentials; i++)
+                                if (streq(arg_credentials[i].id, word))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate credential '%s', refusing.", word);
+
+                        l = cunescape(p, UNESCAPE_ACCEPT_NUL, &data);
+                        if (l < 0)
+                                return log_error_errno(l, "Failed to unescape credential data: %s", p);
+
+                        a = reallocarray(arg_credentials, arg_n_credentials + 1, sizeof(Credential));
+                        if (!a)
+                                return log_oom();
+
+                        a[arg_n_credentials++] = (Credential) {
+                                .id = TAKE_PTR(word),
+                                .data = TAKE_PTR(data),
+                                .size = l,
+                        };
+
+                        arg_credentials = a;
+
+                        arg_settings_mask |= SETTING_CREDENTIALS;
+                        break;
+                }
+
+                case ARG_LOAD_CREDENTIAL: {
+                        ReadFullFileFlags flags = READ_FULL_FILE_SECURE;
+                        _cleanup_(erase_and_freep) char *data = NULL;
+                        _cleanup_free_ char *word = NULL, *j = NULL;
+                        const char *p = optarg;
+                        Credential *a;
+                        size_t size, i;
+
+                        r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --set-credential= parameter: %m");
+                        if (r == 0 || !p)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --set-credential=: %s", optarg);
+
+                        if (!credential_name_valid(word))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", word);
+
+                        for (i = 0; i < arg_n_credentials; i++)
+                                if (streq(arg_credentials[i].id, word))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate credential '%s', refusing.", word);
+
+                        if (path_is_absolute(p))
+                                flags |= READ_FULL_FILE_CONNECT_SOCKET;
+                        else {
+                                const char *e;
+
+                                e = getenv("CREDENTIALS_DIRECTORY");
+                                if (!e)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential not available (no credentials passed at all): %s", word);
+
+                                j = path_join(e, p);
+                                if (!j)
+                                        return log_oom();
+                        }
+
+                        r = read_full_file_full(AT_FDCWD, j ?: p, flags, &data, &size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read credential '%s': %m", j ?: p);
+
+                        a = reallocarray(arg_credentials, arg_n_credentials + 1, sizeof(Credential));
+                        if (!a)
+                                return log_oom();
+
+                        a[arg_n_credentials++] = (Credential) {
+                                .id = TAKE_PTR(word),
+                                .data = TAKE_PTR(data),
+                                .size = size,
+                        };
+
+                        arg_credentials = a;
+
+                        arg_settings_mask |= SETTING_CREDENTIALS;
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -2228,6 +2342,66 @@ static int setup_keyring(void) {
         return 0;
 }
 
+static int setup_credentials(const char *root) {
+        const char *q;
+        int r;
+
+        if (arg_n_credentials <= 0)
+                return 0;
+
+        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/host: %m");
+
+        r = userns_mkdir(root, "/run/host/credentials", 0700, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/host/credentials: %m");
+
+        q = prefix_roota(root, "/run/host/credentials");
+        r = mount_verbose(LOG_ERR, NULL, q, "ramfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0700");
+        if (r < 0)
+                return r;
+
+        for (size_t i = 0; i < arg_n_credentials; i++) {
+                _cleanup_free_ char *j = NULL;
+                _cleanup_close_ int fd = -1;
+
+                j = path_join(q, arg_credentials[i].id);
+                if (!j)
+                        return log_oom();
+
+                fd = open(j, O_CREAT|O_EXCL|O_WRONLY|O_CLOEXEC|O_NOFOLLOW, 0600);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to create credential file %s: %m", j);
+
+                r = loop_write(fd, arg_credentials[i].data, arg_credentials[i].size, /* do_poll= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write credential to file %s: %m", j);
+
+                if (fchmod(fd, 0400) < 0)
+                        return log_error_errno(errno, "Failed to adjust access mode of %s: %m", j);
+
+                if (arg_userns_mode != USER_NAMESPACE_NO) {
+                        if (fchown(fd, arg_uid_shift, arg_uid_shift) < 0)
+                                return log_error_errno(errno, "Failed to adjust ownership of %s: %m", j);
+                }
+        }
+
+        if (chmod(q, 0500) < 0)
+                return log_error_errno(errno, "Failed to adjust access mode of %s: %m", q);
+
+        r = userns_lchown(q, 0, 0);
+        if (r < 0)
+                return r;
+
+        /* Make both mount and superblock read-only now */
+        r = mount_verbose(LOG_ERR, NULL, q, NULL, MS_REMOUNT|MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r < 0)
+                return r;
+
+        return mount_verbose(LOG_ERR, NULL, q, NULL, MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0500");
+}
+
 static int setup_kmsg(int kmsg_socket) {
         _cleanup_(unlink_and_freep) char *from = NULL;
         _cleanup_free_ char *fifo = NULL;
@@ -2941,6 +3115,7 @@ static int inner_child(
                 NULL, /* LISTEN_FDS */
                 NULL, /* LISTEN_PID */
                 NULL, /* NOTIFY_SOCKET */
+                NULL, /* CREDENTIALS_DIRECTORY */
                 NULL
         };
         const char *exec_target;
@@ -3190,6 +3365,13 @@ static int inner_child(
         }
         if (asprintf((char **)(envp + n_env++), "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
                 return log_oom();
+
+        if (arg_n_credentials > 0) {
+                envp[n_env] = strdup("CREDENTIALS_DIRECTORY=/run/host/credentials");
+                if (!envp[n_env])
+                        return log_oom();
+                n_env++;
+        }
 
         env_use = strv_env_merge(3, envp, os_release_pairs, arg_setenv);
         if (!env_use)
@@ -3535,6 +3717,10 @@ static int outer_child(
                 return r;
 
         r = setup_keyring();
+        if (r < 0)
+                return r;
+
+        r = setup_credentials(directory);
         if (r < 0)
                 return r;
 
@@ -5339,6 +5525,7 @@ finish:
         expose_port_free_all(arg_expose_ports);
         rlimit_free_all(arg_rlimit);
         device_node_array_free(arg_extra_nodes, arg_n_extra_nodes);
+        credential_free_all(arg_credentials, arg_n_credentials);
 
         if (r < 0)
                 return r;

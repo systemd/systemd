@@ -117,6 +117,7 @@ int setup_namespace(
                 size_t n_mount_images,
                 const char *tmp_dir,
                 const char *var_tmp_dir,
+                const char *creds_path,
                 const char *log_namespace,
                 unsigned long mount_flags,
                 const void *root_hash,

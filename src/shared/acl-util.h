@@ -15,7 +15,7 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path);
 int acl_search_groups(const char* path, char ***ret_groups);
 int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want_mask);
 int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl);
-int add_acls_for_user(int fd, uid_t uid);
+int fd_add_uid_acl_permission(int fd, uid_t uid, bool rd, bool wr, bool ex);
 
 /* acl_free takes multiple argument types.
  * Multiple cleanup functions are necessary. */

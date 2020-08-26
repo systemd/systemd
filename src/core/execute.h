@@ -145,6 +145,13 @@ typedef enum ExecCleanMask {
         _EXEC_CLEAN_MASK_INVALID = -1,
 } ExecCleanMask;
 
+/* A credential configured with SetCredential= */
+typedef struct ExecSetCredential {
+        char *id;
+        void *data;
+        size_t size;
+} ExecSetCredential;
+
 /* Encodes configuration parameters applied to invoked commands. Does not carry runtime data, but only configuration
  * changes sourced from unit files and suchlike. ExecContext objects are usually embedded into Unit objects, and do not
  * change after being loaded. */
@@ -303,6 +310,9 @@ struct ExecContext {
         ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
         ExecPreserveMode runtime_directory_preserve_mode;
         usec_t timeout_clean_usec;
+
+        Hashmap *set_credentials; /* output id → ExecSetCredential */
+        char **load_credentials; /* pairs of output id, path/input id */
 };
 
 static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
@@ -321,11 +331,12 @@ typedef enum ExecFlags {
         EXEC_CGROUP_DELEGATE   = 1 << 6,
         EXEC_IS_CONTROL        = 1 << 7,
         EXEC_CONTROL_CGROUP    = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
+        EXEC_WRITE_CREDENTIALS = 1 << 9, /* Set up the credential store logic */
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1 << 9,
-        EXEC_SETENV_RESULT     = 1 << 10,
-        EXEC_SET_WATCHDOG      = 1 << 11,
+        EXEC_PASS_FDS          = 1 << 10,
+        EXEC_SETENV_RESULT     = 1 << 11,
+        EXEC_SET_WATCHDOG      = 1 << 12,
 } ExecFlags;
 
 /* Parameters for a specific invocation of a command. This structure is put together right before a command is
@@ -345,6 +356,7 @@ struct ExecParameters {
         const char *cgroup_path;
 
         char **prefix;
+        const char *received_credentials;
 
         const char *confirm_spawn;
 
@@ -386,6 +398,7 @@ void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
+int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_root, const char *unit);
 
 const char* exec_context_fdname(const ExecContext *c, int fd_index);
 
@@ -417,6 +430,11 @@ void exec_runtime_vacuum(Manager *m);
 void exec_params_clear(ExecParameters *p);
 
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
+
+ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc);
+DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSetCredential*, exec_set_credential_free);
+
+extern const struct hash_ops exec_set_credential_hash_ops;
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;

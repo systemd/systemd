@@ -23,6 +23,46 @@ static bool is_physical_fs(const struct statfs *sfs) {
         return !is_temporary_fs(sfs) && !is_cgroup_fs(sfs);
 }
 
+static int unlinkat_harder(
+                int dfd,
+                const char *filename,
+                int unlink_flags,
+                RemoveFlags remove_flags) {
+
+        struct stat st;
+        int r;
+
+        /* Like unlinkat(), but tries harder: if we get EACCESS we'll try to set the r/w/x bits on the
+         * directory. This is useful if we run unprivileged and have some files where the w bit is
+         * missing. */
+
+        if (unlinkat(dfd, filename, unlink_flags) >= 0)
+                return 0;
+        if (errno != EACCES || !FLAGS_SET(remove_flags, REMOVE_CHMOD))
+                return -errno;
+
+        if (fstat(dfd, &st) < 0)
+                return -errno;
+        if (!S_ISDIR(st.st_mode))
+                return -ENOTDIR;
+        if ((st.st_mode & 0700) == 0700) /* Already set? */
+                return -EACCES; /* original error */
+        if (st.st_uid != geteuid())  /* this only works if the UID matches ours */
+                return -EACCES;
+
+        if (fchmod(dfd, (st.st_mode | 0700) & 07777) < 0)
+                return -errno;
+
+        if (unlinkat(dfd, filename, unlink_flags) < 0) {
+                r = -errno;
+                /* Try to restore the original access mode if this didn't work */
+                (void) fchmod(dfd, st.st_mode & 07777);
+                return r;
+        }
+
+        return 0;
+}
+
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -132,17 +172,15 @@ int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev) {
                         if (r < 0 && ret == 0)
                                 ret = r;
 
-                        if (unlinkat(fd, de->d_name, AT_REMOVEDIR) < 0) {
-                                if (ret == 0 && errno != ENOENT)
-                                        ret = -errno;
-                        }
+                        r = unlinkat_harder(fd, de->d_name, AT_REMOVEDIR, flags);
+                        if (r < 0 && r != -ENOENT && ret == 0)
+                                ret = r;
 
                 } else if (!(flags & REMOVE_ONLY_DIRECTORIES)) {
 
-                        if (unlinkat(fd, de->d_name, 0) < 0) {
-                                if (ret == 0 && errno != ENOENT)
-                                        ret = -errno;
-                        }
+                        r = unlinkat_harder(fd, de->d_name, 0, flags);
+                        if (r < 0 && r != -ENOENT && ret == 0)
+                                ret = r;
                 }
         }
         return ret;

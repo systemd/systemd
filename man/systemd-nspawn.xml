@@ -1402,7 +1402,51 @@
 
         <listitem><para>Equivalent to <option>--console=pipe</option>.</para></listitem>
       </varlistentry>
+    </variablelist>
 
+    </refsect2><refsect2>
+    <title>Credentials</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--load-credential=</option><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
+        <term><option>--set-credential=</option><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
+
+        <para>Pass a credential to the container. These two options correspond to the
+        <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details about these concepts, as well as the syntax of the option's arguments.</para>
+
+        <para>Note:</para>
+
+        <orderedlist>
+          <listitem><para>When <command>systemd-nspawn</command> runs as systemd system service it can make
+          use and propagate credentials it received via
+          <varname>LoadCredential=</varname>/<varname>SetCredential=</varname> to the container
+          payload.</para></listitem>
+
+          <listitem><para>A systemd service manager running as PID 1 in the container can make use of
+          credentials passed in this way, and propagate them further to services it itself
+          runs.</para></listitem>
+        </orderedlist>
+
+        <para>Thus it is possible to easily propagate credentials from a host service manager to a
+        <command>systemd-nspawn</command> service and from there into its payload and services running within
+        it.</para>
+
+        <para>In order to embed binary data into
+        the credential data for <option>--set-credential=</option> use C-style escaping
+        (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to embed a NUL byte. Note
+        that the invoking shell might already apply unescaping once, hence this might require double
+        escaping!).</para>
+        </varlistentry>
+
+    </variablelist>
+
+    </refsect2><refsect2>
+    <title>Other</title>
+
+    <variablelist>
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />

@@ -537,6 +537,9 @@ int mount_setup(bool loaded_policy, bool leave_propagation) {
         (void) mkdir_label("/run/systemd", 0755);
         (void) mkdir_label("/run/systemd/system", 0755);
 
+        /* Make sure we have a mount point to hide in sandboxes */
+        (void) mkdir_label("/run/credentials", 0755);
+
         /* Also create /run/systemd/inaccessible nodes, so that we always have something to mount
          * inaccessible nodes from. If we run in a container the host might have created these for us already
          * in /run/host/inaccessible/. Use those if we can, since tht way we likely get access to block/char

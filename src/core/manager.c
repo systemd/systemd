@@ -591,6 +591,7 @@ static char** sanitize_environment(char **l) {
                         l,
                         "CACHE_DIRECTORY",
                         "CONFIGURATION_DIRECTORY",
+                        "CREDENTIALS_DIRECTORY",
                         "EXIT_CODE",
                         "EXIT_STATUS",
                         "INVOCATION_ID",
@@ -754,6 +755,7 @@ static int manager_setup_sigchld_event_source(Manager *m) {
 
 int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
         _cleanup_(manager_freep) Manager *m = NULL;
+        const char *e;
         int r;
 
         assert(_m);
@@ -856,6 +858,13 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
         r = manager_setup_prefix(m);
         if (r < 0)
                 return r;
+
+        e = secure_getenv("CREDENTIALS_DIRECTORY");
+        if (e) {
+                m->received_credentials = strdup(e);
+                if (!m->received_credentials)
+                        return -ENOMEM;
+        }
 
         r = sd_event_default(&m->event);
         if (r < 0)
@@ -1420,6 +1429,7 @@ Manager* manager_free(Manager *m) {
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
                 m->prefix[dt] = mfree(m->prefix[dt]);
+        free(m->received_credentials);
 
         return mfree(m);
 }

@@ -256,7 +256,7 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
         if (uid_for_system_journal(uid))
                 return;
 
-        r = add_acls_for_user(f->fd, uid);
+        r = fd_add_uid_acl_permission(f->fd, uid, /* read = */ true, /* write = */ false, /* execute = */ false);
         if (r < 0)
                 log_warning_errno(r, "Failed to set ACL on %s, ignoring: %m", f->path);
 #endif

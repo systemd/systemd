@@ -12,12 +12,13 @@
 #include "user-util.h"
 #include "util.h"
 
-int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
+int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *ret_entry) {
         acl_entry_t i;
         int r;
 
         assert(acl);
-        assert(entry);
+        assert(uid_is_valid(uid));
+        assert(ret_entry);
 
         for (r = acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
              r > 0;
@@ -41,13 +42,14 @@ int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *entry) {
                 acl_free(u);
 
                 if (b) {
-                        *entry = i;
+                        *ret_entry = i;
                         return 1;
                 }
         }
         if (r < 0)
                 return -errno;
 
+        *ret_entry = NULL;
         return 0;
 }
 
@@ -376,11 +378,20 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
         return 0;
 }
 
-int add_acls_for_user(int fd, uid_t uid) {
+int fd_add_uid_acl_permission(
+                int fd,
+                uid_t uid,
+                bool rd,
+                bool wr,
+                bool ex) {
+
         _cleanup_(acl_freep) acl_t acl = NULL;
         acl_permset_t permset;
         acl_entry_t entry;
         int r;
+
+        /* Adds an ACL entry for the specified file to allow the indicated access to the specified
+         * user. Operates purely incrementally. */
 
         assert(fd >= 0);
         assert(uid_is_valid(uid));
@@ -397,10 +408,14 @@ int add_acls_for_user(int fd, uid_t uid) {
                         return -errno;
         }
 
-        /* We do not recalculate the mask unconditionally here, so that the fchmod() mask above stays
-         * intact. */
-        if (acl_get_permset(entry, &permset) < 0 ||
-            acl_add_perm(permset, ACL_READ) < 0)
+        if (acl_get_permset(entry, &permset) < 0)
+                return -errno;
+
+        if (rd && acl_add_perm(permset, ACL_READ) < 0)
+                return -errno;
+        if (wr && acl_add_perm(permset, ACL_WRITE) < 0)
+                return -errno;
+        if (ex && acl_add_perm(permset, ACL_EXECUTE) < 0)
                 return -errno;
 
         r = calc_acl_mask_if_needed(&acl);

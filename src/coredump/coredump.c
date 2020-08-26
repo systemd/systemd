@@ -186,7 +186,7 @@ static int fix_acl(int fd, uid_t uid) {
                 return 0;
 
         /* Make sure normal users can read (but not write or delete) their own coredumps */
-        r = add_acls_for_user(fd, uid);
+        r = fd_add_uid_acl_permission(fd, uid, /* read = */ true, /* write = */ false, /* execute = */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust ACL of coredump: %m");
 #endif
