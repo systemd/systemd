@@ -1112,7 +1112,7 @@ static int home_fixate_internal(
         if (r < 0)
                 return r;
 
-        if (for_state == HOME_FIXATING_FOR_ACTIVATION) {
+        if (IN_SET(for_state, HOME_FIXATING_FOR_ACTIVATION, HOME_FIXATING_FOR_ACQUIRE)) {
                 /* Remember the secret data, since we need it for the activation again, later on. */
                 user_record_unref(h->secret);
                 h->secret = user_record_ref(secret);
