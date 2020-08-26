@@ -131,6 +131,7 @@ static void window_free(Window *w) {
         window_unlink(w);
         w->cache->n_windows--;
         free(w);
+        w = NULL;
 }
 
 _pure_ static bool window_matches(Window *w, int prot, uint64_t offset, size_t size) {
