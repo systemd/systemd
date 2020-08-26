@@ -2038,7 +2038,7 @@ static int udev_rule_apply_token_to_event(
                 }
                 if (sd_device_get_devnum(dev, NULL) >= 0 &&
                     (sd_device_get_devname(dev, &val) < 0 ||
-                     !streq_ptr(buf, startswith(val, "/dev/")))) {
+                     !streq_ptr(buf, path_startswith(val, "/dev/")))) {
                         log_rule_error(dev, rules,
                                        "Kernel device nodes cannot be renamed, ignoring NAME=\"%s\"; please fix it.",
                                        token->value);

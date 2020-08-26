@@ -17,6 +17,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "libudev-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
@@ -90,7 +91,7 @@ static int parse_argv(int argc, char *argv[]) {
                                        "syspath parameter missing.");
 
         /* add /sys if needed */
-        if (!startswith(argv[optind], "/sys"))
+        if (!path_startswith(argv[optind], "/sys"))
                 strscpyl(arg_syspath, sizeof(arg_syspath), "/sys", argv[optind], NULL);
         else
                 strscpy(arg_syspath, sizeof(arg_syspath), argv[optind]);
