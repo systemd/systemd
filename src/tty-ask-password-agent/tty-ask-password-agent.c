@@ -47,7 +47,7 @@ static enum {
         ACTION_LIST,
         ACTION_QUERY,
         ACTION_WATCH,
-        ACTION_WALL
+        ACTION_WALL,
 } arg_action = ACTION_QUERY;
 
 static bool arg_plymouth = false;
@@ -707,7 +707,7 @@ static int run(int argc, char *argv[]) {
                 (void) release_terminal();
         }
 
-        return process_and_watch_password_files(arg_action != ACTION_QUERY);
+        return process_and_watch_password_files(!IN_SET(arg_action, ACTION_QUERY, ACTION_LIST));
 }
 
 DEFINE_MAIN_FUNCTION(run);
