@@ -536,7 +536,6 @@ _public_ int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *fo
 
                                 free(m);
                         } else {
-                                free((char*) e->message);
                                 e->message = m;
                                 return -error;
                         }
