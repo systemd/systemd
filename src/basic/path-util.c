@@ -637,18 +637,27 @@ int find_binary(const char *name, char **ret) {
                 if (!j)
                         return -ENOMEM;
 
-                if (is_dir(j, true))
-                        continue;
-
                 if (access(j, X_OK) >= 0) {
-                        /* Found it! */
+                        _cleanup_free_ char *with_dash;
 
-                        if (ret) {
-                                *ret = path_simplify(j, false);
-                                j = NULL;
+                        with_dash = strjoin(j, "/");
+                        if (!with_dash)
+                                return -ENOMEM;
+
+                        /* If this passes, it must be a directory, and so should be skipped. */
+                        if (access(with_dash, X_OK) >= 0)
+                                continue;
+
+                        /**
+                         * We can't just `continue` inverting this case, since we need to update last_error.
+                         */
+                        if (errno == ENOTDIR) {
+                                /* Found it! */
+                                if (ret)
+                                        *ret = path_simplify(TAKE_PTR(j), false);
+
+                                return 0;
                         }
-
-                        return 0;
                 }
 
                 /* PATH entries which we don't have access to are ignored, as per tradition. */
