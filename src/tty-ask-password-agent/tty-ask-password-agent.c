@@ -143,8 +143,7 @@ static int agent_ask_password_tty(
                 const char *flag_file,
                 char ***ret) {
 
-        int tty_fd = -1;
-        int r;
+        int tty_fd = -1, r;
 
         if (arg_console) {
                 const char *con = arg_device ?: "/dev/console";
@@ -166,7 +165,7 @@ static int agent_ask_password_tty(
                 release_terminal();
         }
 
-        return 0;
+        return r;
 }
 
 static int process_one_password_file(const char *filename) {
