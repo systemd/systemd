@@ -236,6 +236,9 @@ int ask_password_plymouth(
 
         assert(ret);
 
+        if (!message)
+                message = "Password:";
+
         if (flag_file) {
                 notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
                 if (notify < 0)
