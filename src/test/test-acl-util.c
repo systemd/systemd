@@ -41,8 +41,8 @@ static void test_add_acls_for_user(void) {
         } else
                 uid = getuid();
 
-        r = fd_add_uid_acl_permission(fd, uid, true, false, false);
-        log_info_errno(r, "fd_add_uid_acl_permission(%i, "UID_FMT", true, false, false): %m", fd, uid);
+        r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
+        log_info_errno(r, "fd_add_uid_acl_permission(%i, "UID_FMT", ACL_READ): %m", fd, uid);
         assert_se(r >= 0);
 
         cmd = strjoina("ls -l ", fn);
@@ -53,7 +53,7 @@ static void test_add_acls_for_user(void) {
 
         /* set the acls again */
 
-        r = fd_add_uid_acl_permission(fd, uid, true, false, false);
+        r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
         assert_se(r >= 0);
 
         cmd = strjoina("ls -l ", fn);

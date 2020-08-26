@@ -2429,11 +2429,7 @@ static int write_credential(
                 return -errno;
 
         if (uid_is_valid(uid) && uid != getuid()) {
-#if HAVE_ACL
-                r = fd_add_uid_acl_permission(fd, uid, /* read = */ true, /* write = */ false, /* execute = */ false);
-#else
-                r = -EOPNOTSUPP;
-#endif
+                r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
                 if (r < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
                                 return r;
@@ -2549,11 +2545,7 @@ static int acquire_credentials(
          * accessible */
 
         if (uid_is_valid(uid) && uid != getuid()) {
-#if HAVE_ACL
-                r = fd_add_uid_acl_permission(dfd, uid, /* read = */ true, /* write = */ false, /* execute = */ true);
-#else
-                r = -EOPNOTSUPP;
-#endif
+                r = fd_add_uid_acl_permission(dfd, uid, ACL_READ | ACL_EXECUTE);
                 if (r < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
                                 return r;
