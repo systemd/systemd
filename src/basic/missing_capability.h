@@ -10,3 +10,27 @@
 #undef  CAP_LAST_CAP
 #define CAP_LAST_CAP   CAP_AUDIT_READ
 #endif
+
+/* 980737282232b752bb14dab96d77665c15889c36 (5.8) */
+#ifndef CAP_PERFMON
+#define CAP_PERFMON 38
+
+#undef  CAP_LAST_CAP
+#define CAP_LAST_CAP   CAP_PERFMON
+#endif
+
+/* a17b53c4a4b55ec322c132b6670743612229ee9c (5.8) */
+#ifndef CAP_BPF
+#define CAP_BPF 39
+
+#undef  CAP_LAST_CAP
+#define CAP_LAST_CAP   CAP_BPF
+#endif
+
+/* 124ea650d3072b005457faed69909221c2905a1f (5.9) */
+#ifndef CAP_CHECKPOINT_RESTORE
+#define CAP_CHECKPOINT_RESTORE  40
+
+#undef  CAP_LAST_CAP
+#define CAP_LAST_CAP   CAP_CHECKPOINT_RESTORE
+#endif
