@@ -34,6 +34,7 @@ static void cleanup_clear_loop_close(int *fd) {
 }
 
 static int loop_configure(int fd, const struct loop_config *c) {
+        _cleanup_close_ int lock_fd = -1;
         int r;
 
         assert(fd >= 0);
@@ -84,15 +85,46 @@ static int loop_configure(int fd, const struct loop_config *c) {
                         return 0;
 
                 /* Otherwise, undo the attachment and use the old APIs */
-                (void) ioctl(fd, LOOP_CLR_FD);
+                if (ioctl(fd, LOOP_CLR_FD) < 0)
+                        return -errno;
         }
+
+        /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
+         * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
+         * block device while we try to reconfigure it. This is a pretty common case, since udev might
+         * instantly start probing the device as soon as we attach an fd to it. Hence handle it in two ways:
+         * first, let's take the BSD lock that that ensures that udev will not step in between the point in
+         * time where we attach the fd and where we reconfigure the device. Secondly, let's wait 50ms on
+         * EAGAIN and retry. The former should be an efficient mechanism to avoid we have to wait 50ms
+         * needlessly if we are just racing against udev. The latter is protection against all other cases,
+         * i.e. peers that do not take the BSD lock.
+         *
+         * We take the BSD lock on a second, separately opened fd for the device. udev after all watches for
+         * close() events (specifically IN_CLOSE_WRITE) on block devices to reprobe them, hence by having a
+         * separate fd we will later close() we can ensure we trigger udev after everything is done. If we'd
+         * lock our own fd instead and keep it open for a long time udev would possibly never run on it
+         * again, even though the fd is unlocked, simply because we never close() it. It also has the nice
+         * benefit we can use the _cleanup_close_ logic to automatically release the lock, after we are
+         * done. */
+        lock_fd = fd_reopen(fd, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (lock_fd < 0)
+                return lock_fd;
+
+        if (flock(lock_fd, LOCK_EX) < 0)
+                return -errno;
 
         if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
                 return -errno;
 
-        if (ioctl(fd, LOOP_SET_STATUS64, &c->info) < 0) {
-                r = -errno;
-                goto fail;
+        for (unsigned n_attempts = 0;;) {
+                if (ioctl(fd, LOOP_SET_STATUS64, &c->info) >= 0)
+                        break;
+                if (errno != EAGAIN || ++n_attempts >= 64) {
+                        r = log_debug_errno(errno, "Failed to configure loopback device: %m");
+                        goto fail;
+                }
+
+                (void) usleep(50 * USEC_PER_MSEC);
         }
 
         return 0;
