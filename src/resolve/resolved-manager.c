@@ -36,6 +36,7 @@
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
+#include "resolved-varlink.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -663,6 +664,10 @@ int manager_start(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = manager_varlink_init(m);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -706,6 +711,7 @@ Manager *manager_free(Manager *m) {
         manager_llmnr_stop(m);
         manager_mdns_stop(m);
         manager_dns_stub_stop(m);
+        manager_varlink_done(m);
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 

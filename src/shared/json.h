@@ -228,6 +228,7 @@ enum {
         _JSON_BUILD_STRV,
         _JSON_BUILD_BASE64,
         _JSON_BUILD_ID128,
+        _JSON_BUILD_BYTE_ARRAY,
         _JSON_BUILD_MAX,
 };
 
@@ -249,6 +250,7 @@ enum {
 #define JSON_BUILD_STRV(l) _JSON_BUILD_STRV, ({ char **_x = l; _x; })
 #define JSON_BUILD_BASE64(p, n) _JSON_BUILD_BASE64, ({ const void *_x = p; _x; }), ({ size_t _y = n; _y; })
 #define JSON_BUILD_ID128(id) _JSON_BUILD_ID128, ({ sd_id128_t _x = id; _x; })
+#define JSON_BUILD_BYTE_ARRAY(v, n) _JSON_BUILD_BYTE_ARRAY, ({ const void *_x = v; _x; }), ({ size_t _y = n; _y; })
 
 int json_build(JsonVariant **ret, ...);
 int json_buildv(JsonVariant **ret, va_list ap);
@@ -301,6 +303,12 @@ assert_cc(sizeof(uintmax_t) == sizeof(uint64_t));
 
 assert_cc(sizeof(intmax_t) == sizeof(int64_t));
 #define json_dispatch_int64 json_dispatch_integer
+
+assert_cc(sizeof(uint32_t) == sizeof(unsigned));
+#define json_dispatch_uint json_dispatch_uint32
+
+assert_cc(sizeof(int32_t) == sizeof(int));
+#define json_dispatch_int json_dispatch_int32
 
 static inline int json_dispatch_level(JsonDispatchFlags flags) {
 

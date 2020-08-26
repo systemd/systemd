@@ -12,6 +12,7 @@
 union in_addr_union {
         struct in_addr in;
         struct in6_addr in6;
+        uint8_t bytes[CONST_MAX(sizeof(struct in_addr), sizeof(struct in6_addr))];
 };
 
 struct in_addr_data {

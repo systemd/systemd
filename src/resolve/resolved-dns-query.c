@@ -338,8 +338,13 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         dns_query_reset_answer(q);
 
-        sd_bus_message_unref(q->request);
+        sd_bus_message_unref(q->bus_request);
         sd_bus_track_unref(q->bus_track);
+
+        if (q->varlink_request) {
+                varlink_set_userdata(q->varlink_request, NULL);
+                varlink_unref(q->varlink_request);
+        }
 
         dns_packet_unref(q->request_dns_packet);
         dns_packet_unref(q->reply_dns_packet);
@@ -473,14 +478,13 @@ int dns_query_make_auxiliary(DnsQuery *q, DnsQuery *auxiliary_for) {
         return 0;
 }
 
-static void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
+void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
         assert(q);
         assert(!DNS_TRANSACTION_IS_LIVE(state));
         assert(DNS_TRANSACTION_IS_LIVE(q->state));
 
-        /* Note that this call might invalidate the query. Callers
-         * should hence not attempt to access the query or transaction
-         * after calling this function. */
+        /* Note that this call might invalidate the query. Callers should hence not attempt to access the
+         * query or transaction after calling this function. */
 
         q->state = state;
 
@@ -985,36 +989,6 @@ int dns_query_process_cname(DnsQuery *q) {
                 return r;
 
         return DNS_QUERY_RESTARTED; /* We restarted the query for a new cname */
-}
-
-static int on_bus_track(sd_bus_track *t, void *userdata) {
-        DnsQuery *q = userdata;
-
-        assert(t);
-        assert(q);
-
-        log_debug("Client of active query vanished, aborting query.");
-        dns_query_complete(q, DNS_TRANSACTION_ABORTED);
-        return 0;
-}
-
-int dns_query_bus_track(DnsQuery *q, sd_bus_message *m) {
-        int r;
-
-        assert(q);
-        assert(m);
-
-        if (!q->bus_track) {
-                r = sd_bus_track_new(sd_bus_message_get_bus(m), &q->bus_track, on_bus_track, q);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_track_add_sender(q->bus_track, m);
-        if (r < 0)
-                return r;
-
-        return 0;
 }
 
 DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol) {

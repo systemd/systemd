@@ -4,6 +4,7 @@
 #include "sd-bus.h"
 
 #include "set.h"
+#include "varlink.h"
 
 typedef struct DnsQueryCandidate DnsQueryCandidate;
 typedef struct DnsQuery DnsQuery;
@@ -48,10 +49,6 @@ struct DnsQuery {
         uint64_t flags;
         int ifindex;
 
-        /* If true, A or AAAA RR lookups will be suppressed on links with no routable address of the matching address
-         * family */
-        bool suppress_unroutable_family;
-
         /* If true, the RR TTLs of the answer will be clamped by their current left validity in the cache */
         bool clamp_ttl;
 
@@ -72,8 +69,9 @@ struct DnsQuery {
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
         bool previous_redirect_unauthenticated;
 
-        /* Bus client information */
-        sd_bus_message *request;
+        /* Bus + Varlink client information */
+        sd_bus_message *bus_request;
+        Varlink *varlink_request;
         int request_family;
         bool request_address_valid;
         union in_addr_union request_address;
@@ -116,7 +114,7 @@ void dns_query_ready(DnsQuery *q);
 
 int dns_query_process_cname(DnsQuery *q);
 
-int dns_query_bus_track(DnsQuery *q, sd_bus_message *m);
+void dns_query_complete(DnsQuery *q, DnsTransactionState state);
 
 DnsQuestion* dns_query_question_for_protocol(DnsQuery *q, DnsProtocol protocol);
 
