@@ -3,6 +3,7 @@
 ***/
 
 #include <fcntl.h>
+#include <sys/file.h>
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
