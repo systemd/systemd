@@ -4,20 +4,22 @@
 # Sebastian Rasmussen <sebras@gmail.com>, 2015.
 # Andreas Henriksson <andreas@fatal.se>, 2016.
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
+# Göran Uddeborg <goeran@uddeborg.se>, 2020.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2017-03-19 21:18+0100\n"
-"Last-Translator: Josef Andersson <l10nl18nsweja@gmail.com>\n"
-"Language-Team: Swedish\n"
+"PO-Revision-Date: 2020-08-27 02:46+0000\n"
+"Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
+"Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
+"master/sv/>\n"
 "Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 1.8.9\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.2.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -609,7 +611,7 @@ msgstr "Logga in i en lokal behållare"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr "Autentisering krävs för att logga in i en lokal behållare"
+msgstr "Autentisering krävs för att logga in i en lokal behållare."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -617,7 +619,7 @@ msgstr "Logga in på en lokal värd"
 
 #: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
-msgstr "Autentisering krävs för att logga in på den lokala värden"
+msgstr "Autentisering krävs för att logga in på den lokala värden."
 
 #: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
@@ -645,7 +647,7 @@ msgstr "Förvärva en pseudo TTY i en lokal behållare"
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr ""
-"Autentisering krävs för att förvärva en pseudo TTY i en lokal behållare"
+"Autentisering krävs för att förvärva en pseudo TTY i en lokal behållare."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
