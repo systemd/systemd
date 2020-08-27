@@ -1637,6 +1637,7 @@ make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
 syscall_names_update_sh = find_program('tools/syscall-names-update.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
+update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
 
 ############################################################
 
