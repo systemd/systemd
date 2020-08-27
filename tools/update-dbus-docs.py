@@ -308,4 +308,5 @@ if __name__ == '__main__':
         print(f'{p:{mlen + 1}} {t - m}/{t} {c}')
 
     if opts.test and outdated:
-        exit(f'Outdated pages: {", ".join(outdated)}')
+        exit(f'Outdated pages: {", ".join(outdated)}\n'
+             f'Hint: ninja -C {opts.build_dir} man/update-dbus-docs')
