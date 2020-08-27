@@ -120,9 +120,11 @@ def document_has_elem_with_text(document, elem, item_repr):
     else:
         return False
 
-def check_documented(document, declarations):
+def check_documented(document, declarations, stats):
     missing = []
     for klass, items in declarations.items():
+        stats['total'] += len(items)
+
         for item in items:
             if klass == 'method':
                 elem = 'function'
@@ -140,6 +142,8 @@ def check_documented(document, declarations):
                 if PRINT_ERRORS:
                     print(f'{klass} {item} is not documented :(')
                 missing.append((klass, item))
+
+    stats['missing'] += len(missing)
 
     return missing
 
@@ -165,7 +169,7 @@ def xml_to_text(destination, xml, *, only_interface=None):
 
     return file.getvalue(), declarations, interfaces
 
-def subst_output(document, programlisting):
+def subst_output(document, programlisting, stats):
     executable = programlisting.get('executable', None)
     if executable is None:
         # Not our thing
@@ -189,7 +193,7 @@ def subst_output(document, programlisting):
     programlisting.text = '\n' + new_text + '    '
 
     if declarations:
-        missing = check_documented(document, declarations)
+        missing = check_documented(document, declarations, stats)
         parent = programlisting.getparent()
 
         # delete old comments
@@ -253,9 +257,11 @@ def process(page):
     if xml.tag != 'refentry':
         return
 
+    stats = collections.Counter()
+
     pls = xml.findall('.//programlisting')
     for pl in pls:
-        subst_output(xml, pl)
+        subst_output(xml, pl, stats)
 
     out_text = etree.tostring(xml, encoding='unicode')
     # massage format to avoid some lxml whitespace handling idiosyncrasies
@@ -266,6 +272,8 @@ def process(page):
 
     with open(page, 'w') as out:
         out.write(out_text)
+
+    return stats
 
 if __name__ == '__main__':
     pages = sys.argv[1:]
@@ -279,5 +287,13 @@ if __name__ == '__main__':
     if not os.path.exists(f'{build_dir}/systemd'):
         exit(f"{build_dir}/systemd doesn't exist. Use --build-dir=.")
 
-    for page in pages:
-        process(page)
+    stats = {page.split('/')[-1] : process(page) for page in pages}
+
+    # Let's print all statistics at the end
+    mlen = max(len(page) for page in stats)
+    total = 'total', sum(stats.values(), start=collections.Counter())
+    for page, counts in sorted(stats.items()) + [total]:
+        m = counts['missing']
+        t = counts['total']
+        p = page + ':'
+        print(f'{p:{mlen + 1}} {t - m}/{t}')
