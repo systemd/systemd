@@ -442,6 +442,15 @@ int sd_ipv4acd_set_address(sd_ipv4acd *acd, const struct in_addr *address) {
         return 0;
 }
 
+int sd_ipv4acd_get_address(sd_ipv4acd *acd, struct in_addr *address) {
+        assert_return(acd, -EINVAL);
+        assert_return(address, -EINVAL);
+
+        address->s_addr = acd->address;
+
+        return 0;
+}
+
 int sd_ipv4acd_is_running(sd_ipv4acd *acd) {
         assert_return(acd, false);
 
