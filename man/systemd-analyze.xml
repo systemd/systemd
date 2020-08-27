@@ -73,6 +73,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">capability</arg>
+      <arg choice="opt" rep="repeat"><replaceable>CAPABILITY</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">condition</arg>
       <arg choice="plain"><replaceable>CONDITION</replaceable>…</arg>
     </cmdsynopsis>
@@ -342,6 +348,30 @@ FAILURE 1      glibc
 USAGE   64     BSD
 DATAERR 65     BSD
 </programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze capability <optional><replaceable>CAPABILITY</replaceable>...</optional></command></title>
+
+      <para>This command prints a list of Linux capabilities along with their numeric IDs. See <citerefentry
+      project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+      for details. If no argument is specified the full list of capabilities known to the service manager and
+      the kernel is shown. Capabilities defined by the kernel but not known to the service manager are shown
+      as <literal>cap_???</literal>. Optionally, if arguments are specified they may refer to specific
+      cabilities by name or numeric ID, in which case only the indicated capabilities are shown in the
+      table.</para>
+
+      <example>
+        <title><command>Show some example capability names</command></title>
+
+        <programlisting>$ systemd-analyze capability 0 1 {30..32}
+NAME              NUMBER
+cap_chown              0
+cap_dac_override       1
+cap_audit_control     30
+cap_setfcap           31
+cap_mac_override      32</programlisting>
       </example>
     </refsect2>
 
