@@ -664,6 +664,8 @@ static int dhcp4_start_acd(Link *link) {
         if (!link->dhcp_lease)
                 return 0;
 
+        (void) sd_ipv4acd_stop(link->network->dhcp_acd);
+
         link->dhcp4_address_bind = false;
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &addr.in);
