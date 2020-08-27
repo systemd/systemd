@@ -28,7 +28,6 @@ test_create_image() {
         instmods dm_verity =md
         install_dmevent
         generate_module_dependencies
-        inst_binary sfdisk
         inst_binary losetup
 
         BASICTOOLS=(
