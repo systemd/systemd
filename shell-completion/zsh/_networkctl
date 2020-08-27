@@ -24,7 +24,7 @@
             local -a _links
             cmd="${${_networkctl_cmds[(r)$words[1]:*]%%:*}}"
             case $cmd in
-                (status|up|down|lldp|delete|renew|forcerenew|reconfigure)
+                (list|status|up|down|lldp|delete|renew|forcerenew|reconfigure)
                     _links=( "${(foa)$(networkctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $2,$0}' 2>/dev/null)}" )
                     if [[ -n "$_links" ]]; then
                          _describe -t links 'links' _links
