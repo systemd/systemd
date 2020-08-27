@@ -50,13 +50,48 @@ struct statx STATX_DEFINITION;
 struct new_statx STATX_DEFINITION;
 
 /* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
-#ifndef STATX_BTIME
-#define STATX_BTIME 0x00000800U
+#ifndef AT_STATX_DONT_SYNC
+#define AT_STATX_DONT_SYNC 0x4000
 #endif
 
 /* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
-#ifndef AT_STATX_DONT_SYNC
-#define AT_STATX_DONT_SYNC 0x4000
+#ifndef STATX_TYPE
+#define STATX_TYPE 0x00000001U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_MODE
+#define STATX_MODE 0x00000002U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_UID
+#define STATX_UID 0x00000008U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_ATIME
+#define STATX_ATIME 0x00000020U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_MTIME
+#define STATX_MTIME 0x00000040U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_CTIME
+#define STATX_CTIME 0x00000080U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_INO
+#define STATX_INO 0x00000100U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_BTIME
+#define STATX_BTIME 0x00000800U
 #endif
 
 /* fa2fcf4f1df1559a0a4ee0f46915b496cc2ebf60 (5.8) */
