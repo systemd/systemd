@@ -2698,12 +2698,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property RestartUSec is not documented!-->
 
-    <!--property TimeoutStartUSec is not documented!-->
-
-    <!--property TimeoutStopUSec is not documented!-->
-
-    <!--property TimeoutAbortUSec is not documented!-->
-
     <!--property TimeoutStartFailureMode is not documented!-->
 
     <!--property TimeoutStopFailureMode is not documented!-->
@@ -3705,6 +3699,18 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para>Most properties of the Service interface map directly to the corresponding settings in service
       unit files. For the sake of brevity, here's a list of all exceptions only:</para>
+
+      <para><varname>TimeoutStartUSec</varname>, <varname>TimeoutStopUSec</varname> and
+      <varname>TimeoutAbortUSec</varname> contain the start, stop and abort timeouts, in microseconds. Note
+      the slight difference in naming when compared to the matching unit file settings (see
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>7</manvolnum></citerefentry>):
+      these bus properties strictly use microseconds (and thus are suffixed <varname>…USec</varname>) while
+      the unit file settings default to a time unit of seconds (and thus are suffixed
+      <varname>…Sec</varname>), unless a different unit is explicitly specified. This reflects that fact that
+      internally the service manager deals in microsecond units only, and the bus properties are a relatively
+      low-level (binary) concept exposing this. The unit file settings on the other hand are relatively
+      high-level (string-based) concepts and thus support more user friendly time specifications which
+      default to second time units but allow other units too, if specified.</para>
 
       <para><varname>WatchdogTimestamp</varname> and <varname>WatchdogTimestampMonotonic</varname> contain
       <constant>CLOCK_REALTIME</constant>/<constant>CLOCK_MONOTONIC</constant> microsecond timestamps of the
@@ -8967,8 +8973,6 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--method GetProcesses is not documented!-->
 
     <!--method AttachProcesses is not documented!-->
-
-    <!--property TimeoutStopUSec is not documented!-->
 
     <!--property RuntimeMaxUSec is not documented!-->
 

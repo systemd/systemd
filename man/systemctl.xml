@@ -446,7 +446,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             current main process identifier as <literal>MainPID</literal> (which is runtime state), and time settings
             are always exposed as properties ending in the <literal>…USec</literal> suffix even if a matching
             configuration options end in <literal>…Sec</literal>, because microseconds is the normalized time unit used
-            by the system and service manager.</para>
+            internally by the system and service manager.</para>
+
+            <para>For details about many of these properties, see the documentation of the D-Bus interface
+            backing these properties, see
+            <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
