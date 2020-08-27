@@ -255,6 +255,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
        <varlistentry>
         <term>
           <command>delete</command>
+          <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Deletes virtual netdevs. Takes interface name or index number.</para></listitem>
       </varlistentry>
@@ -262,6 +263,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
        <varlistentry>
         <term>
           <command>up</command>
+          <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Bring devices up. Takes interface name or index number.</para></listitem>
       </varlistentry>
@@ -269,6 +271,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
        <varlistentry>
         <term>
           <command>down</command>
+          <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Bring devices down. Takes interface name or index number.</para></listitem>
       </varlistentry>
@@ -276,6 +279,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
        <varlistentry>
         <term>
           <command>renew</command>
+          <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Renew dynamic configurations e.g. addresses received from DHCP server.
         Takes interface name or index number.</para></listitem>
@@ -284,6 +288,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
       <varlistentry>
         <term>
           <command>forcerenew</command>
+          <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Send a FORCERENEW message to all connected clients, triggering DHCP reconfiguration.
         Takes interface name or index number.</para></listitem>
@@ -292,6 +297,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
       <varlistentry>
         <term>
           <command>reconfigure</command>
+          <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Reconfigure network interfaces. Takes interface name or index number.</para></listitem>
       </varlistentry>

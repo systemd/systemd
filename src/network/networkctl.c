@@ -2794,7 +2794,7 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "list",        VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
                 { "status",      VERB_ANY, VERB_ANY, 0,            link_status         },
                 { "lldp",        VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
-                { "label",       VERB_ANY, VERB_ANY, 0,            list_address_labels },
+                { "label",       1,        1,        0,            list_address_labels },
                 { "delete",      2,        VERB_ANY, 0,            link_delete         },
                 { "up",          2,        VERB_ANY, 0,            link_up_down        },
                 { "down",        2,        VERB_ANY, 0,            link_up_down        },
