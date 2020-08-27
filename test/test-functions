@@ -640,7 +640,8 @@ install_dmevent() {
 }
 
 install_systemd() {
-    # install compiled files
+    ddebug "Install compiled systemd"
+
     local _ninja_bin=$(type -P ninja || type -P ninja-build)
     if [[ -z "$_ninja_bin" ]]; then
         dfatal "ninja was not found"
@@ -649,9 +650,6 @@ install_systemd() {
     (set -x; DESTDIR=$initdir "$_ninja_bin" -C $BUILD_DIR install)
     # remove unneeded documentation
     rm -fr $initdir/usr/share/{man,doc}
-    # we strip binaries since debug symbols increase binaries size a lot
-    # and it could fill the available space
-    strip_binaries
 
     [[ "$LOOKS_LIKE_SUSE" ]] && setup_suse
 
