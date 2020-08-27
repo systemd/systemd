@@ -656,6 +656,7 @@ static int configure_dhcpv4_duplicate_address_detection(Link *link) {
 
 static int dhcp4_start_acd(Link *link) {
         union in_addr_union addr;
+        struct in_addr old;
         int r;
 
         if (!link->network->dhcp_send_decline)
@@ -669,6 +670,10 @@ static int dhcp4_start_acd(Link *link) {
         link->dhcp4_address_bind = false;
 
         r = sd_dhcp_lease_get_address(link->dhcp_lease, &addr.in);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_get_address(link->network->dhcp_acd, &old);
         if (r < 0)
                 return r;
 
@@ -687,7 +692,7 @@ static int dhcp4_start_acd(Link *link) {
                 log_link_debug(link, "Starting IPv4ACD client. Probing DHCPv4 address %s", strna(pretty));
         }
 
-        r = sd_ipv4acd_start(link->network->dhcp_acd, true);
+        r = sd_ipv4acd_start(link->network->dhcp_acd, !in4_addr_equal(&addr.in, &old));
         if (r < 0)
                 return r;
 
