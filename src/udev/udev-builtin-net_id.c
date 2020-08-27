@@ -186,7 +186,7 @@ static int dev_pci_onboard(sd_device *dev, struct netnames *names) {
         /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to
          * report for example). Let's define a cut-off where we don't consider the index reliable anymore. We
          * pick some arbitrary cut-off, which is somewhere beyond the realistic number of physical network
-         * interface a system might have. Ideally the kernel would already filter his crap for us, but it
+         * interface a system might have. Ideally the kernel would already filter this crap for us, but it
          * doesn't currently. */
         if (idx > ONBOARD_INDEX_MAX)
                 return -ENOENT;

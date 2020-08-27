@@ -21,7 +21,7 @@ struct LookupPaths {
         char **search_path;
 
         /* Where we shall create or remove our installation symlinks, aka "configuration", and where the user/admin
-         * shall place his own unit files. */
+         * shall place their own unit files. */
         char *persistent_config;
         char *runtime_config;
 

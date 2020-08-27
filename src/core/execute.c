@@ -412,7 +412,7 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
         if (connect(fd, &sa.sa, sa_len) < 0)
                 return errno == EINVAL ? -ENXIO : -errno; /* Propagate initial error if we get EINVAL, i.e. we have
-                                                           * indication that his wasn't an AF_UNIX socket after all */
+                                                           * indication that this wasn't an AF_UNIX socket after all */
 
         if ((flags & O_ACCMODE) == O_RDONLY)
                 r = shutdown(fd, SHUT_WR);
