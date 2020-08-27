@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1+
 
+import argparse
 import collections
 import sys
 import os
@@ -178,7 +179,7 @@ def subst_output(document, programlisting, stats):
     node = programlisting.get('node')
     interface = programlisting.get('interface')
 
-    argv = [f'{build_dir}/{executable}', f'--bus-introspect={interface}']
+    argv = [f'{opts.build_dir}/{executable}', f'--bus-introspect={interface}']
     print(f'COMMAND: {shlex.join(argv)}')
 
     try:
@@ -275,19 +276,19 @@ def process(page):
 
     return stats
 
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument('--build-dir', default='build')
+    p.add_argument('pages', nargs='+')
+    return p.parse_args()
+
 if __name__ == '__main__':
-    pages = sys.argv[1:]
+    opts = parse_args()
 
-    if pages[0].startswith('--build-dir='):
-        build_dir = pages[0].partition('=')[2]
-        pages = pages[1:]
-    else:
-        build_dir = 'build'
+    if not os.path.exists(f'{opts.build_dir}/systemd'):
+        exit(f"{opts.build_dir}/systemd doesn't exist. Use --build-dir=.")
 
-    if not os.path.exists(f'{build_dir}/systemd'):
-        exit(f"{build_dir}/systemd doesn't exist. Use --build-dir=.")
-
-    stats = {page.split('/')[-1] : process(page) for page in pages}
+    stats = {page.split('/')[-1] : process(page) for page in opts.pages}
 
     # Let's print all statistics at the end
     mlen = max(len(page) for page in stats)
