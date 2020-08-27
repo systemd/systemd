@@ -4,9 +4,10 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
-LOOKS_LIKE_DEBIAN=$(source /etc/os-release && [[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && echo yes || :)
-LOOKS_LIKE_ARCH=$(source /etc/os-release && [[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && echo yes || :)
-LOOKS_LIKE_SUSE=$(source /etc/os-release && [[ " $ID_LIKE " = *" suse "* ]] && echo yes || :)
+os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
+LOOKS_LIKE_DEBIAN=$(source $os_release && [[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && echo yes || :)
+LOOKS_LIKE_ARCH=$(source $os_release && [[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && echo yes || :)
+LOOKS_LIKE_SUSE=$(source $os_release && [[ " $ID_LIKE " = *" suse "* ]] && echo yes || :)
 KERNEL_VER=${KERNEL_VER-$(uname -r)}
 KERNEL_MODS="/lib/modules/$KERNEL_VER/"
 QEMU_TIMEOUT="${QEMU_TIMEOUT:-infinity}"
@@ -940,7 +941,7 @@ install_config_files() {
     inst /etc/shells
     inst_any /etc/nsswitch.conf /usr/etc/nsswitch.conf
     inst /etc/pam.conf || :
-    inst /etc/os-release
+    inst_any /etc/os-release /usr/lib/os-release
     inst /etc/localtime
     # we want an empty environment
     > $initdir/etc/environment
