@@ -15,8 +15,6 @@ PARSER = etree.XMLParser(no_network=True,
                          strip_cdata=False,
                          resolve_entities=False)
 
-PRINT_ERRORS = True
-
 class NoCommand(Exception):
     pass
 
@@ -38,7 +36,7 @@ def print_method(declarations, elem, *, prefix, file, is_signal=False):
         argname = arg.get('name')
 
         if argname is None:
-            if PRINT_ERRORS:
+            if opts.print_errors:
                 print(f'method {name}: argument {num+1} has no name', file=sys.stderr)
             argname = 'UNNAMED'
 
@@ -140,7 +138,7 @@ def check_documented(document, declarations, stats):
                 assert False, (klass, item)
 
             if not document_has_elem_with_text(document, elem, item_repr):
-                if PRINT_ERRORS:
+                if opts.print_errors:
                     print(f'{klass} {item} is not documented :(')
                 missing.append((klass, item))
 
@@ -283,7 +281,9 @@ def parse_args():
                    help='only verify that everything is up2date')
     p.add_argument('--build-dir', default='build')
     p.add_argument('pages', nargs='+')
-    return p.parse_args()
+    opts = p.parse_args()
+    opts.print_errors = not opts.test
+    return opts
 
 if __name__ == '__main__':
     opts = parse_args()
