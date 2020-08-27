@@ -6,9 +6,16 @@
         local -a _networkctl_cmds
         _networkctl_cmds=(
             'list:List existing links'
-	    'status:Show information about the specified links'
-	    'lldp:Show Link Layer Discovery Protocol status'
-	    'label:Show address labels'
+            'status:Show information about the specified links'
+            'lldp:Show Link Layer Discovery Protocol status'
+            'label:Show address labels'
+            'delete:Delete virtual netdevs'
+            'up:Bring devices up'
+            'down:Bring devices down'
+            'renew:Renew dynamic configurations'
+            'forcerenew:Trigger DHCP reconfiguration of all connected clients'
+            'reconfigure:Reconfigure interfaces'
+            'reload:Reload .network and .netdev files'
         )
         if (( CURRENT == 1 )); then
             _describe -t commands 'networkctl command' _networkctl_cmds
@@ -16,16 +23,19 @@
             local curcontext="$curcontext"
             local -a _links
             cmd="${${_networkctl_cmds[(r)$words[1]:*]%%:*}}"
-            if [ $cmd = "status" ]; then
-                _links=( "${(foa)$(networkctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $2,$0}' 2>/dev/null)}" )
-                if [[ -n "$_links" ]]; then
-                    _describe -t links 'links' _links
-                else
-                    _message "no links"
-                fi
-            else
-                _message "no more options"
-            fi
+            case $cmd in
+                (list|status|up|down|lldp|delete|renew|forcerenew|reconfigure)
+                    _links=( "${(foa)$(networkctl list --no-legend | awk 'BEGIN{OFS=":"} {sub(/[[ \t]+/, ""); print $2,$0}' 2>/dev/null)}" )
+                    if [[ -n "$_links" ]]; then
+                         _describe -t links 'links' _links
+                    else
+                        _message "no links"
+                    fi
+                    ;;
+                *)
+                    _message "no more options"
+                    ;;
+            esac
         fi
     }
 
