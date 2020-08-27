@@ -271,13 +271,16 @@ def process(page):
                 out_text[out_text.find('<refentryinfo'):] +
                 '\n')
 
-    with open(page, 'w') as out:
-        out.write(out_text)
+    if not opts.test:
+        with open(page, 'w') as out:
+            out.write(out_text)
 
-    return stats
+    return dict(stats=stats, outdated=(out_text != src))
 
 def parse_args():
     p = argparse.ArgumentParser()
+    p.add_argument('--test', action='store_true',
+                   help='only verify that everything is up2date')
     p.add_argument('--build-dir', default='build')
     p.add_argument('pages', nargs='+')
     return p.parse_args()
@@ -292,9 +295,17 @@ if __name__ == '__main__':
 
     # Let's print all statistics at the end
     mlen = max(len(page) for page in stats)
-    total = 'total', sum(stats.values(), start=collections.Counter())
-    for page, counts in sorted(stats.items()) + [total]:
-        m = counts['missing']
-        t = counts['total']
+    total = sum((item['stats'] for item in stats.values()), start=collections.Counter())
+    total = 'total', dict(stats=total, outdated=False)
+    outdated = []
+    for page, info in sorted(stats.items()) + [total]:
+        m = info['stats']['missing']
+        t = info['stats']['total']
         p = page + ':'
-        print(f'{p:{mlen + 1}} {t - m}/{t}')
+        c = 'OUTDATED' if info['outdated'] else ''
+        if c:
+            outdated.append(page)
+        print(f'{p:{mlen + 1}} {t - m}/{t} {c}')
+
+    if opts.test and outdated:
+        exit(f'Outdated pages: {", ".join(outdated)}')
