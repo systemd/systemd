@@ -3127,8 +3127,10 @@ static int apply_mount_namespace(
 
         if (exec_context_has_credentials(context) && params->prefix[EXEC_DIRECTORY_RUNTIME]) {
                 creds_path = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
-                if (!creds_path)
-                        return -ENOMEM;
+                if (!creds_path) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
         }
 
         r = setup_namespace(root_dir, root_image, context->root_image_options,
@@ -3174,6 +3176,7 @@ static int apply_mount_namespace(
                 }
         }
 
+finalize:
         bind_mount_free_many(bind_mounts, n_bind_mounts);
         return r;
 }
