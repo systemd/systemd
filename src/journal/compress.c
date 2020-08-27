@@ -927,11 +927,12 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
                         break;
         }
 
-        log_debug(
-                "ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
-                in_bytes,
-                max_bytes - left,
-                (double) (max_bytes - left) / in_bytes * 100);
+        if (in_bytes > 0)
+                log_debug("ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                          in_bytes, max_bytes - left, (double) (max_bytes - left) / in_bytes * 100);
+        else
+                log_debug("ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes)",
+                          in_bytes, max_bytes - left);
 
         return 0;
 #else
