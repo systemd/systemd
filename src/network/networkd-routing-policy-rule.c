@@ -1280,8 +1280,9 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
-                fprintf(f, "%stable=%"PRIu32 "\n",
+                fprintf(f, "%sinvert_rule=%s table=%"PRIu32"\n",
                         space ? " " : "",
+                        yes_no(rule->invert_rule),
                         rule->table);
         }
 
@@ -1453,6 +1454,13 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         log_warning_errno(r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", b);
                                         continue;
                                 }
+                        } else if (streq(a, "invert_rule")) {
+                                r = parse_boolean(b);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to parse RPDB rule invert_rule, ignoring: %s", b);
+                                        continue;
+                                }
+                                rule->invert_rule = r;
                         }
                 }
 
