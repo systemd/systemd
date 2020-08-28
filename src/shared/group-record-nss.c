@@ -37,7 +37,7 @@ int nss_group_to_group_record(
         g->gid = grp->gr_gid;
 
         if (sgrp) {
-                if (hashed_password_valid(sgrp->sg_passwd)) {
+                if (looks_like_hashed_password(sgrp->sg_passwd)) {
                         g->hashed_password = strv_new(sgrp->sg_passwd);
                         if (!g->hashed_password)
                                 return -ENOMEM;
