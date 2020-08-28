@@ -2297,7 +2297,6 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 'src/cryptsetup/cryptsetup-generator.c',
                 include_directories : includes,
                 link_with : [libshared],
-                dependencies : [libcryptsetup],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : systemgeneratordir)
@@ -2317,7 +2316,6 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 'src/veritysetup/veritysetup-generator.c',
                 include_directories : includes,
                 link_with : [libshared],
-                dependencies : [libcryptsetup],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : systemgeneratordir)
@@ -2672,7 +2670,6 @@ if conf.get('ENABLE_REPART') == 1
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [threads,
-                                libcryptsetup,
                                 libblkid,
                                 libfdisk,
                                 libopenssl],
@@ -2755,7 +2752,6 @@ executable('systemd-growfs',
            'src/partition/growfs.c',
            include_directories : includes,
            link_with : [libshared],
-           dependencies : [libcryptsetup],
            install_rpath : rootlibexecdir,
            install : true,
            install_dir : rootlibexecdir)
