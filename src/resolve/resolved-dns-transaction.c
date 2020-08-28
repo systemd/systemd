@@ -1834,7 +1834,7 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
 
         r = set_ensure_put(&t->dnssec_transactions, NULL, aux);
         if (r < 0)
-                return r;;
+                return r;
 
         r = set_ensure_put(&aux->notify_transactions, NULL, t);
         if (r < 0) {
