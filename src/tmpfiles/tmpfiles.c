@@ -3402,7 +3402,7 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        if (ERRNO_IS_RESOURCE(-r))
+        if (ERRNO_IS_RESOURCE(r))
                 return r;
         if (invalid_config)
                 return EX_DATAERR;
