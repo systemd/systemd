@@ -7,6 +7,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define TEST_CAPABILITY_C
+
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "errno-util.h"

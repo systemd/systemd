@@ -350,7 +350,7 @@ int main(int argc, char *argv[]) {
         assert_se(set_unit_path(test_path) >= 0);
         assert_se(runtime_dir = setup_fake_runtime_dir());
 
-        for (const test_function_t *test = tests; test && *test; test++) {
+        for (const test_function_t *test = tests; *test; test++) {
                 Manager *m = NULL;
                 int r;
 

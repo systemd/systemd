@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1+
 
+import argparse
 import collections
 import sys
 import os
@@ -13,8 +14,6 @@ PARSER = etree.XMLParser(no_network=True,
                          remove_comments=False,
                          strip_cdata=False,
                          resolve_entities=False)
-
-PRINT_ERRORS = True
 
 class NoCommand(Exception):
     pass
@@ -37,7 +36,7 @@ def print_method(declarations, elem, *, prefix, file, is_signal=False):
         argname = arg.get('name')
 
         if argname is None:
-            if PRINT_ERRORS:
+            if opts.print_errors:
                 print(f'method {name}: argument {num+1} has no name', file=sys.stderr)
             argname = 'UNNAMED'
 
@@ -120,9 +119,11 @@ def document_has_elem_with_text(document, elem, item_repr):
     else:
         return False
 
-def check_documented(document, declarations):
+def check_documented(document, declarations, stats):
     missing = []
     for klass, items in declarations.items():
+        stats['total'] += len(items)
+
         for item in items:
             if klass == 'method':
                 elem = 'function'
@@ -137,9 +138,11 @@ def check_documented(document, declarations):
                 assert False, (klass, item)
 
             if not document_has_elem_with_text(document, elem, item_repr):
-                if PRINT_ERRORS:
+                if opts.print_errors:
                     print(f'{klass} {item} is not documented :(')
                 missing.append((klass, item))
+
+    stats['missing'] += len(missing)
 
     return missing
 
@@ -165,7 +168,7 @@ def xml_to_text(destination, xml, *, only_interface=None):
 
     return file.getvalue(), declarations, interfaces
 
-def subst_output(document, programlisting):
+def subst_output(document, programlisting, stats):
     executable = programlisting.get('executable', None)
     if executable is None:
         # Not our thing
@@ -174,7 +177,7 @@ def subst_output(document, programlisting):
     node = programlisting.get('node')
     interface = programlisting.get('interface')
 
-    argv = [f'{build_dir}/{executable}', f'--bus-introspect={interface}']
+    argv = [f'{opts.build_dir}/{executable}', f'--bus-introspect={interface}']
     print(f'COMMAND: {shlex.join(argv)}')
 
     try:
@@ -189,7 +192,7 @@ def subst_output(document, programlisting):
     programlisting.text = '\n' + new_text + '    '
 
     if declarations:
-        missing = check_documented(document, declarations)
+        missing = check_documented(document, declarations, stats)
         parent = programlisting.getparent()
 
         # delete old comments
@@ -253,9 +256,11 @@ def process(page):
     if xml.tag != 'refentry':
         return
 
+    stats = collections.Counter()
+
     pls = xml.findall('.//programlisting')
     for pl in pls:
-        subst_output(xml, pl)
+        subst_output(xml, pl, stats)
 
     out_text = etree.tostring(xml, encoding='unicode')
     # massage format to avoid some lxml whitespace handling idiosyncrasies
@@ -264,20 +269,44 @@ def process(page):
                 out_text[out_text.find('<refentryinfo'):] +
                 '\n')
 
-    with open(page, 'w') as out:
-        out.write(out_text)
+    if not opts.test:
+        with open(page, 'w') as out:
+            out.write(out_text)
+
+    return dict(stats=stats, outdated=(out_text != src))
+
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument('--test', action='store_true',
+                   help='only verify that everything is up2date')
+    p.add_argument('--build-dir', default='build')
+    p.add_argument('pages', nargs='+')
+    opts = p.parse_args()
+    opts.print_errors = not opts.test
+    return opts
 
 if __name__ == '__main__':
-    pages = sys.argv[1:]
+    opts = parse_args()
 
-    if pages[0].startswith('--build-dir='):
-        build_dir = pages[0].partition('=')[2]
-        pages = pages[1:]
-    else:
-        build_dir = 'build'
+    if not os.path.exists(f'{opts.build_dir}/systemd'):
+        exit(f"{opts.build_dir}/systemd doesn't exist. Use --build-dir=.")
 
-    if not os.path.exists(f'{build_dir}/systemd'):
-        exit(f"{build_dir}/systemd doesn't exist. Use --build-dir=.")
+    stats = {page.split('/')[-1] : process(page) for page in opts.pages}
 
-    for page in pages:
-        process(page)
+    # Let's print all statistics at the end
+    mlen = max(len(page) for page in stats)
+    total = sum((item['stats'] for item in stats.values()), start=collections.Counter())
+    total = 'total', dict(stats=total, outdated=False)
+    outdated = []
+    for page, info in sorted(stats.items()) + [total]:
+        m = info['stats']['missing']
+        t = info['stats']['total']
+        p = page + ':'
+        c = 'OUTDATED' if info['outdated'] else ''
+        if c:
+            outdated.append(page)
+        print(f'{p:{mlen + 1}} {t - m}/{t} {c}')
+
+    if opts.test and outdated:
+        exit(f'Outdated pages: {", ".join(outdated)}\n'
+             f'Hint: ninja -C {opts.build_dir} man/update-dbus-docs')
