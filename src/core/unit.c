@@ -1682,10 +1682,10 @@ fail:
                                                      UNIT_ERROR;
         u->load_error = r;
 
-        /* Record the last time we tried to load the unit, so that if the cache gets updated between now
-         * and the next time an attempt is made to load this unit, we know we need to check again. */
+        /* Record the timestamp on the cache, so that if the cache gets updated between now and the next time
+         * an attempt is made to load this unit, we know we need to check again. */
         if (u->load_state == UNIT_NOT_FOUND)
-                u->fragment_loadtime = now(CLOCK_REALTIME);
+                u->fragment_not_found_time = u->manager->unit_cache_mtime;
 
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
