@@ -340,7 +340,7 @@ static int bus_job_allocate_bus_track(Job *j) {
 }
 
 int bus_job_coldplug_bus_track(Job *j) {
-        int r = 0;
+        int r;
         _cleanup_strv_free_ char **deserialized_clients = NULL;
 
         assert(j);
