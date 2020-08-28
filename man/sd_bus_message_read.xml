@@ -73,7 +73,10 @@
     should be read. See the table below for a complete list of allowed arguments and their types. Note that,
     if the basic type is a pointer (e.g., <type>const char *</type> in the case of a string), the argument is
     a pointer to a pointer, and also the pointer value that is written is only borrowed and the contents must
-    be copied if they are to be used after the end of the messages lifetime.</para>
+    be copied if they are to be used after the end of the messages lifetime. If the type is
+    <literal>h</literal> (UNIX file descriptor), the descriptor is not duplicated by this call and the
+    returned descriptor remains in possession of the message object, and needs to be duplicated by the caller
+    in order to keep an open reference to it after the message object is freed.</para>
 
     <para>Each argument may also be <constant>NULL</constant>, in which case the value is read and ignored.
     </para>
@@ -228,6 +231,15 @@ const char *s, *t, *u;
 
 sd_bus_message_read(m, "a{is}", 3, &amp;i, &amp;s, &amp;j, &amp;t, &amp;k, &amp;u);
      </programlisting>
+
+     <para>Read a single file descriptor, and duplicate it in order to keep it open after the message is
+     freed.</para>
+
+     <programlisting>sd_bus_message *m;
+int fd, fd_copy;
+
+sd_bus_message_read(m, "h", &amp;fd);
+fd_copy = fcntl(fd, FD_DUPFD_CLOEXEC, 3);</programlisting>
   </refsect1>
 
   <refsect1>
