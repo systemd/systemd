@@ -4943,7 +4943,7 @@ int unit_load_fragment(Unit *u) {
 
         /* Possibly rebuild the fragment map to catch new units */
         r = unit_file_build_name_map(&u->manager->lookup_paths,
-                                     &u->manager->unit_cache_mtime,
+                                     &u->manager->unit_cache_timestamp_hash,
                                      &u->manager->unit_id_map,
                                      &u->manager->unit_name_map,
                                      &u->manager->unit_path_cache);

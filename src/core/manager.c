@@ -703,7 +703,7 @@ static void manager_free_unit_name_maps(Manager *m) {
         m->unit_id_map = hashmap_free(m->unit_id_map);
         m->unit_name_map = hashmap_free(m->unit_name_map);
         m->unit_path_cache = set_free(m->unit_path_cache);
-        m->unit_cache_mtime =  0;
+        m->unit_cache_timestamp_hash = 0;
 }
 
 static int manager_setup_run_queue(Manager *m) {
@@ -1948,11 +1948,11 @@ bool manager_unit_cache_should_retry_load(Unit *u) {
 
         /* The cache has been updated since the last time we tried to load the unit. There might be new
          * fragment paths to read. */
-        if (u->manager->unit_cache_mtime != u->fragment_not_found_time)
+        if (u->manager->unit_cache_timestamp_hash != u->fragment_not_found_timestamp_hash)
                 return true;
 
         /* The cache needs to be updated because there are modifications on disk. */
-        return !lookup_paths_mtime_good(&u->manager->lookup_paths, u->manager->unit_cache_mtime);
+        return !lookup_paths_timestamp_hash_same(&u->manager->lookup_paths, u->manager->unit_cache_timestamp_hash, NULL);
 }
 
 int manager_load_unit_prepare(

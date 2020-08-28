@@ -43,19 +43,19 @@ bool unit_type_may_template(UnitType type) _const_;
 int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation);
 int unit_validate_alias_symlink_and_warn(const char *filename, const char *target);
 
-bool lookup_paths_mtime_good(const LookupPaths *lp, usec_t mtime);
+bool lookup_paths_timestamp_hash_same(const LookupPaths *lp, uint64_t timestamp_hash, uint64_t *ret_new);
 int unit_file_build_name_map(
                 const LookupPaths *lp,
-                usec_t *ret_time,
-                Hashmap **ret_unit_ids_map,
-                Hashmap **ret_unit_names_map,
-                Set **ret_path_cache);
+                uint64_t *cache_timestamp_hash,
+                Hashmap **unit_ids_map,
+                Hashmap **unit_names_map,
+                Set **path_cache);
 
 int unit_file_find_fragment(
                 Hashmap *unit_ids_map,
                 Hashmap *unit_name_map,
                 const char *unit_name,
                 const char **ret_fragment_path,
-                Set **names);
+                Set **ret_names);
 
 const char* runlevel_to_target(const char *rl);
