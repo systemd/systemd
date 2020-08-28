@@ -1682,7 +1682,7 @@ fail:
         /* Record the timestamp on the cache, so that if the cache gets updated between now and the next time
          * an attempt is made to load this unit, we know we need to check again. */
         if (u->load_state == UNIT_NOT_FOUND)
-                u->fragment_not_found_time = u->manager->unit_cache_mtime;
+                u->fragment_not_found_timestamp_hash = u->manager->unit_cache_timestamp_hash;
 
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
