@@ -848,6 +848,16 @@ int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops  HASHMAP_DEBU
         return hashmap_base_ensure_allocated((HashmapBase**)s, hash_ops, HASHMAP_TYPE_SET  HASHMAP_DEBUG_PASS_ARGS);
 }
 
+int _ordered_hashmap_ensure_put(OrderedHashmap **h, const struct hash_ops *hash_ops, const void *key, void *value  HASHMAP_DEBUG_PARAMS) {
+        int r;
+
+        r = _ordered_hashmap_ensure_allocated(h, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
+        if (r < 0)
+                return r;
+
+        return ordered_hashmap_put(*h, key, value);
+}
+
 static void hashmap_free_no_clear(HashmapBase *h) {
         assert(!h->has_indirect);
         assert(h->n_direct_entries == 0);
