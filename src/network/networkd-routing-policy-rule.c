@@ -1340,17 +1340,21 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         return r;
 
                 for (;;) {
-                        _cleanup_free_ char *word = NULL, *a = NULL, *b = NULL;
+                        _cleanup_free_ char *a = NULL;
+                        char *b;
 
-                        r = extract_first_word(&p, &word, NULL, 0);
+                        r = extract_first_word(&p, &a, NULL, 0);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 break;
 
-                        r = split_pair(word, "=", &a, &b);
-                        if (r < 0)
+                        b = strchr(a, '=');
+                        if (!b) {
+                                log_warning_errno(r, "Failed to parse RPDB rule, ignoring: %s", a);
                                 continue;
+                        }
+                        *b++ = '\0';
 
                         if (STR_IN_SET(a, "from", "to")) {
                                 union in_addr_union *buffer;
