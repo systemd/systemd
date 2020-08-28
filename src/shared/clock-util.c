@@ -142,15 +142,25 @@ int clock_reset_timewarp(void) {
         return 0;
 }
 
-#define TIME_EPOCH_USEC ((usec_t) TIME_EPOCH * USEC_PER_SEC)
+#define EPOCH_FILE "/usr/lib/clock-epoch"
 
 int clock_apply_epoch(void) {
+        struct stat st;
         struct timespec ts;
+        usec_t epoch_usec;
 
-        if (now(CLOCK_REALTIME) >= TIME_EPOCH_USEC)
+        if (stat(EPOCH_FILE, &st) < 0) {
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Cannot stat %s: %m\n", EPOCH_FILE);
+
+                epoch_usec = ((usec_t) TIME_EPOCH * USEC_PER_SEC);
+        } else
+                epoch_usec = timespec_load(&st.st_mtim);
+
+        if (now(CLOCK_REALTIME) >= epoch_usec)
                 return 0;
 
-        if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, TIME_EPOCH_USEC)) < 0)
+        if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, epoch_usec)) < 0)
                 return -errno;
 
         return 1;
