@@ -2,6 +2,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <sys/stat.h>
 
 #include "sd-bus.h"
 #include "sd-device.h"
