@@ -153,7 +153,7 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
 
 static int get_data_size(JournalImporter *imp) {
         int r;
-        void *data;
+        void *data = NULL;
 
         assert(imp);
         assert(imp->state == IMPORTER_STATE_DATA_START);
@@ -190,7 +190,7 @@ static int get_data_data(JournalImporter *imp, void **data) {
 
 static int get_data_newline(JournalImporter *imp) {
         int r;
-        char *data;
+        char *data = NULL;
 
         assert(imp);
         assert(imp->state == IMPORTER_STATE_DATA_FINISH);

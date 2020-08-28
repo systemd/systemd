@@ -97,7 +97,7 @@ int change_uid_gid(const char *user, char **_home) {
         size_t sz = 0, l;
         uid_t uid;
         gid_t gid;
-        pid_t pid;
+        pid_t pid = 0;
         int r;
 
         assert(_home);

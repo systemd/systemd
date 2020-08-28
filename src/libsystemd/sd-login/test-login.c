@@ -14,7 +14,7 @@
 #include "util.h"
 
 static char* format_uids(char **buf, uid_t* uids, int count) {
-        int pos = 0, k, inc;
+        int pos = 0, k, inc = 0;
         size_t size = (DECIMAL_STR_MAX(uid_t) + 1) * count + 1;
 
         assert_se(*buf = malloc(size));

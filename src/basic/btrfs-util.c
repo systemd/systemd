@@ -1455,7 +1455,7 @@ static int subvol_snapshot_children(
                 .fd = old_fd,
         };
         _cleanup_close_ int subvolume_fd = -1;
-        uint64_t new_subvol_id;
+        uint64_t new_subvol_id = 0;
         int r;
 
         assert(old_fd >= 0);

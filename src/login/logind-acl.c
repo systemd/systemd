@@ -71,7 +71,7 @@ int devnode_acl(const char *path,
                         changed = true;
 
         } else if (del && old_uid > 0) {
-                acl_entry_t entry;
+                acl_entry_t entry = 0;
 
                 r = acl_find_uid(acl, old_uid, &entry);
                 if (r < 0)

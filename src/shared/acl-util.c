@@ -358,7 +358,7 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
              r > 0;
              r = acl_get_entry(new, ACL_NEXT_ENTRY, &i)) {
 
-                acl_entry_t j;
+                acl_entry_t j = 0;
 
                 r = find_acl_entry(old, i, &j);
                 if (r < 0)

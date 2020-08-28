@@ -8605,7 +8605,7 @@ static int halt_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c, r, runlevel;
+        int c, r, runlevel = 0;
 
         assert(argc >= 0);
         assert(argv);
@@ -9253,7 +9253,7 @@ static int halt_main(void) {
 }
 
 static int runlevel_main(void) {
-        int r, runlevel, previous;
+        int r, runlevel = 0, previous;
 
         r = utmp_get_runlevel(&runlevel, &previous);
         if (r < 0) {

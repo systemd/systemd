@@ -814,7 +814,7 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
 }
 
 static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_services) {
-        Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {};
+        Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {0};
         _cleanup_strv_free_ char **sysvrcnd_path = NULL;
         SysvStub *service;
         Iterator j;

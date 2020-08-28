@@ -17,7 +17,7 @@
 int expose_port_parse(ExposePort **l, const char *s) {
 
         const char *split, *e;
-        uint16_t container_port, host_port;
+        uint16_t container_port = 0, host_port;
         int protocol;
         ExposePort *p;
         int r;

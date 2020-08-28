@@ -166,7 +166,7 @@ static int on_shutdown(Context *c) {
 }
 
 static int on_runlevel(Context *c) {
-        int r = 0, q, previous, runlevel;
+        int r = 0, q, previous = 0, runlevel;
 
         assert(c);
 

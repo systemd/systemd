@@ -487,7 +487,7 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
         sd_id128_t id;
         const void *a;
         Unit *u;
-        size_t sz;
+        size_t sz = 0;
         int r;
 
         assert(message);
