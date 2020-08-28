@@ -147,6 +147,7 @@ units = [
         ['tmp.mount',                           '',
          'local-fs.target.wants/'],
         ['umount.target',                       ''],
+        ['usb-gadget.target',                   ''],
         ['user.slice',                          ''],
         ['var-lib-machines.mount',              'ENABLE_MACHINED',
          'remote-fs.target.wants/ machines.target.wants/'],
