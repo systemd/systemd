@@ -1425,7 +1425,7 @@ int swap_process_device_new(Manager *m, sd_device *dev) {
         _cleanup_free_ char *e = NULL;
         const char *dn, *devlink;
         Unit *u;
-        int r = 0;
+        int r;
 
         assert(m);
         assert(dev);
@@ -1463,7 +1463,7 @@ int swap_process_device_new(Manager *m, sd_device *dev) {
 
 int swap_process_device_remove(Manager *m, sd_device *dev) {
         const char *dn;
-        int r = 0;
+        int r;
         Swap *s;
 
         r = sd_device_get_devname(dev, &dn);

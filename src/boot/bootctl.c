@@ -118,7 +118,7 @@ static int get_file_version(int fd, char **v) {
         char *buf;
         const char *s, *e;
         char *x = NULL;
-        int r = 0;
+        int r;
 
         assert(fd >= 0);
         assert(v);
@@ -248,7 +248,7 @@ static int print_efi_option(uint16_t id, bool in_order) {
         _cleanup_free_ char *path = NULL;
         sd_id128_t partition;
         bool active;
-        int r = 0;
+        int r;
 
         r = efi_get_boot_option(id, &title, &partition, &path, &active);
         if (r < 0)

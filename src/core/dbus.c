@@ -1149,7 +1149,7 @@ void bus_track_serialize(sd_bus_track *t, FILE *f, const char *prefix) {
 }
 
 int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
-        int r = 0;
+        int r;
 
         assert(m);
         assert(t);

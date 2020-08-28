@@ -532,7 +532,7 @@ static int tree_one(sd_bus *bus, const char *service) {
 static int tree(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         char **i;
-        int r = 0;
+        int r;
 
         /* Do superficial verification of arguments before even opening the bus */
         STRV_FOREACH(i, strv_skip(argv, 1))
