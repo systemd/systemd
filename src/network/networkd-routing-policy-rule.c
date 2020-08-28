@@ -1471,7 +1471,8 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         continue;
                                 }
                                 rule->invert_rule = r;
-                        }
+                        } else
+                                log_warning("Unknown RPDB rule, ignoring: %s", a);
                 }
 
                 r = set_ensure_put(rules, &routing_policy_rule_hash_ops, rule);
