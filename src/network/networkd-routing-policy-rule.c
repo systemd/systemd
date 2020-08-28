@@ -1202,10 +1202,12 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                 }
 
                 family_str = af_to_name(rule->family);
-                if (family_str)
-                fprintf(f, "%sfamily=%s",
-                        space ? " " : "",
-                        family_str);
+                if (family_str) {
+                        fprintf(f, "%sfamily=%s",
+                                space ? " " : "",
+                                family_str);
+                        space = true;
+                }
 
                 if (rule->tos != 0) {
                         fprintf(f, "%stos=%hhu",
@@ -1214,9 +1216,12 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
-                fprintf(f, "%spriority=%"PRIu32,
-                        space ? " " : "",
-                        rule->priority);
+                if (rule->priority != 0) {
+                        fprintf(f, "%spriority=%"PRIu32,
+                                space ? " " : "",
+                                rule->priority);
+                        space = true;
+                }
 
                 if (rule->fwmark != 0) {
                         fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
