@@ -22,19 +22,8 @@
 
 static int dhcp4_update_address(Link *link, bool announce);
 static int dhcp4_remove_all(Link *link);
-static int dhcp4_release_old_lease(Link *link, bool force);
 
-static int dhcp4_address_callback(Address *address) {
-        assert(address);
-        assert(address->link);
-
-        /* Do not call this callback again. */
-        address->callback = NULL;
-
-        return dhcp4_release_old_lease(address->link, true);
-}
-
-static int dhcp4_release_old_lease(Link *link, bool force) {
+static int dhcp4_release_old_lease(Link *link) {
         Route *route;
         Iterator i;
         int k, r = 0;
@@ -43,12 +32,6 @@ static int dhcp4_release_old_lease(Link *link, bool force) {
 
         if (!link->dhcp_address_old && set_isempty(link->dhcp_routes_old))
                 return 0;
-
-        if (!force && (link->dhcp_address && !address_is_ready(link->dhcp_address))) {
-                log_link_debug(link, "New DHCPv4 address is not ready. The old lease will be removed later.");
-                link->dhcp_address->callback = dhcp4_address_callback;
-                return 0;
-        }
 
         log_link_debug(link, "Removing old DHCPv4 address and routes.");
 
@@ -81,7 +64,7 @@ static void dhcp4_check_ready(Link *link) {
         link->dhcp4_configured = true;
 
         /* New address and routes are configured now. Let's release old lease. */
-        r = dhcp4_release_old_lease(link, false);
+        r = dhcp4_release_old_lease(link);
         if (r < 0) {
                 link_enter_failed(link);
                 return;
@@ -557,7 +540,7 @@ static int dhcp_lease_lost(Link *link) {
         link->dhcp4_configured = false;
 
         /* dhcp_lease_lost() may be called during renewing IP address. */
-        k = dhcp4_release_old_lease(link, true);
+        k = dhcp4_release_old_lease(link);
         if (k < 0)
                 r = k;
 
@@ -699,6 +682,34 @@ static int dhcp4_start_acd(Link *link) {
         return 1;
 }
 
+static int dhcp4_address_ready_callback(Address *address) {
+        Link *link;
+        int r;
+
+        assert(address);
+
+        link = address->link;
+
+        /* Do not call this again. */
+        address->callback = NULL;
+
+        r = link_set_dhcp_routes(link);
+        if (r < 0)
+                return r;
+
+        /* Reconfigure static routes as kernel may remove some routes when lease expires. */
+        r = link_request_set_routes(link);
+        if (r < 0)
+                return r;
+
+        r = dhcp4_start_acd(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to start IPv4ACD for DHCP4 adddress: %m");
+
+        dhcp4_check_ready(link);
+        return 0;
+}
+
 static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -715,27 +726,14 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         } else if (r >= 0)
                 (void) manager_rtnl_process_address(rtnl, m, link->manager);
 
-        r = link_set_dhcp_routes(link);
-        if (r < 0) {
-                link_enter_failed(link);
-                return 1;
-        }
-
-        /* Add back static routes since kernel removes while DHCPv4 address is removed from when lease expires */
-        r = link_request_set_routes(link);
-        if (r < 0) {
-                link_enter_failed(link);
-                return 1;
-        }
-
-        r = dhcp4_start_acd(link);
-        if (r < 0) {
-                log_link_error_errno(link, r, "Failed to start IPv4ACD for DHCP4 adddress: %m");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        dhcp4_check_ready(link);
+        if (address_is_ready(link->dhcp_address)) {
+                r = dhcp4_address_ready_callback(link->dhcp_address);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return 1;
+                }
+        } else
+                link->dhcp_address->callback = dhcp4_address_ready_callback;
 
         return 1;
 }
