@@ -364,6 +364,14 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         dns_transaction_gc(t);
 }
 
+static void dns_transaction_complete_errno(DnsTransaction *t, int error) {
+        assert(t);
+        assert(error != 0);
+
+        t->answer_errno = abs(error);
+        dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
+}
+
 static int dns_transaction_pick_server(DnsTransaction *t) {
         DnsServer *server;
 
@@ -415,10 +423,8 @@ static void dns_transaction_retry(DnsTransaction *t, bool next_server) {
                 dns_scope_next_dns_server(t->scope);
 
         r = dns_transaction_go(t);
-        if (r < 0) {
-                t->answer_errno = -r;
-                dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
-        }
+        if (r < 0)
+                dns_transaction_complete_errno(t, r);
 }
 
 static int dns_transaction_maybe_restart(DnsTransaction *t) {
@@ -466,10 +472,8 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
                 dns_transaction_retry(t, true);
                 return;
         }
-        if (error != 0) {
-                t->answer_errno = error;
-                dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
-        }
+        if (error != 0)
+                dns_transaction_complete_errno(t, error);
 }
 
 static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
@@ -834,8 +838,7 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
         return;
 
 fail:
-        t->answer_errno = -r;
-        dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
+        dns_transaction_complete_errno(t, r);
 }
 
 static int dns_transaction_has_positive_answer(DnsTransaction *t, DnsAnswerFlags *flags) {
@@ -1167,8 +1170,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         return;
 
 fail:
-        t->answer_errno = -r;
-        dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
+        dns_transaction_complete_errno(t, r);
 }
 
 static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -1194,8 +1196,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return 0;
         }
         if (r < 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
-                t->answer_errno = -r;
+                dns_transaction_complete_errno(t, r);
                 return 0;
         }
         if (r == 0)
