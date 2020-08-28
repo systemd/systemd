@@ -66,7 +66,7 @@ int nss_passwd_to_user_record(
         hr->uid = pwd->pw_uid;
         hr->gid = pwd->pw_gid;
 
-        if (spwd && hashed_password_valid(spwd->sp_pwdp)) {
+        if (spwd && looks_like_hashed_password(spwd->sp_pwdp)) {
                 strv_free_erase(hr->hashed_password);
                 hr->hashed_password = strv_new(spwd->sp_pwdp);
                 if (!hr->hashed_password)
