@@ -1166,26 +1166,6 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
         return 0;
 }
 
-static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        size_t size;
-        int r;
-
-        assert(state_file);
-
-        r = read_full_file(state_file, &s, &size);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (size <= 0)
-                return -ENODATA;
-
-        *ret = TAKE_PTR(s);
-
-        return size;
-}
-
 int routing_policy_serialize_rules(Set *rules, FILE *f) {
         RoutingPolicyRule *rule = NULL;
         Iterator i;
@@ -1301,6 +1281,26 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
         }
 
         return 0;
+}
+
+static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        size_t size;
+        int r;
+
+        assert(state_file);
+
+        r = read_full_file(state_file, &s, &size);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (size <= 0)
+                return -ENODATA;
+
+        *ret = TAKE_PTR(s);
+
+        return size;
 }
 
 int routing_policy_load_rules(const char *state_file, Set **rules) {
