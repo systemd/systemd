@@ -960,12 +960,13 @@ int transaction_add_job_and_dependencies(
                  * first if anything in the usual paths was modified since the last time
                  * the cache was loaded. Also check if the last time an attempt to load the
                  * unit was made was before the most recent cache refresh, so that we know
-                 * we need to try again - even if the cache is current, it might have been
+                 * we need to try again — even if the cache is current, it might have been
                  * updated in a different context before we had a chance to retry loading
                  * this particular unit.
+                 *
                  * Given building up the transaction is a synchronous operation, attempt
                  * to load the unit immediately. */
-                if (r < 0 && manager_unit_file_maybe_loadable_from_cache(unit)) {
+                if (r < 0 && manager_unit_cache_should_retry_load(unit)) {
                         sd_bus_error_free(e);
                         unit->load_state = UNIT_STUB;
                         r = unit_load(unit);

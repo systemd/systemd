@@ -1671,8 +1671,8 @@ int unit_load(Unit *u) {
         return 0;
 
 fail:
-        /* We convert ENOEXEC errors to the UNIT_BAD_SETTING load state here. Configuration parsing code should hence
-         * return ENOEXEC to ensure units are placed in this state after loading */
+        /* We convert ENOEXEC errors to the UNIT_BAD_SETTING load state here. Configuration parsing code
+         * should hence return ENOEXEC to ensure units are placed in this state after loading. */
 
         u->load_state = u->load_state == UNIT_STUB ? UNIT_NOT_FOUND :
                                      r == -ENOEXEC ? UNIT_BAD_SETTING :
@@ -1680,7 +1680,7 @@ fail:
         u->load_error = r;
 
         /* Record the last time we tried to load the unit, so that if the cache gets updated between now
-         * and the next time an attempt is made to load this unit, we know we need to check again */
+         * and the next time an attempt is made to load this unit, we know we need to check again. */
         if (u->load_state == UNIT_NOT_FOUND)
                 u->fragment_loadtime = now(CLOCK_REALTIME);
 
