@@ -19,7 +19,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "copy.h"
-#include "crypt-util.h"
+#include "cryptsetup-util.h"
 #include "def.h"
 #include "device-nodes.h"
 #include "device-util.h"

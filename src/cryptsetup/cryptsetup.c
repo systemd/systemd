@@ -11,7 +11,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
-#include "crypt-util.h"
+#include "cryptsetup-keyfile.h"
 #include "cryptsetup-pkcs11.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"

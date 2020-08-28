@@ -2,7 +2,7 @@
 
 #include <unistd.h>
 
-#include "cryptsetup-util.h"
+#include "cryptsetup-keyfile.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "memory-util.h"

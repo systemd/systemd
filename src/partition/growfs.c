@@ -11,7 +11,7 @@
 #include <sys/vfs.h>
 
 #include "blockdev-util.h"
-#include "crypt-util.h"
+#include "cryptsetup-util.h"
 #include "device-nodes.h"
 #include "dissect-image.h"
 #include "escape.h"

@@ -24,7 +24,7 @@
 #include "btrfs-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "crypt-util.h"
+#include "cryptsetup-util.h"
 #include "def.h"
 #include "efivars.h"
 #include "errno-util.h"

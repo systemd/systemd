@@ -10,7 +10,7 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-pkcs11.h"
-#include "cryptsetup-util.h"
+#include "cryptsetup-keyfile.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"

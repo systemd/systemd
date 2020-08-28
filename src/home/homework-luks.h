@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include "crypt-util.h"
+#include "cryptsetup-util.h"
 #include "homework.h"
 #include "user-record.h"
 
