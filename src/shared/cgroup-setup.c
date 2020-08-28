@@ -166,7 +166,7 @@ static int trim_cb(const char *path, const struct stat *sb, int typeflag, struct
 
 int cg_trim(const char *controller, const char *path, bool delete_root) {
         _cleanup_free_ char *fs = NULL;
-        int r = 0, q;
+        int r, q;
 
         assert(path);
 
