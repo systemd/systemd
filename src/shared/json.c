@@ -1482,6 +1482,58 @@ static int print_source(FILE *f, JsonVariant *v, JsonFormatFlags flags, bool whi
         return 0;
 }
 
+static void json_format_string(FILE *f, const char *q, JsonFormatFlags flags) {
+        assert(q);
+
+        fputc('"', f);
+
+        if (flags & JSON_FORMAT_COLOR)
+                fputs(ANSI_GREEN, f);
+
+        for (; *q; q++)
+                switch (*q) {
+                case '"':
+                        fputs("\\\"", f);
+                        break;
+
+                case '\\':
+                        fputs("\\\\", f);
+                        break;
+
+                case '\b':
+                        fputs("\\b", f);
+                        break;
+
+                case '\f':
+                        fputs("\\f", f);
+                        break;
+
+                case '\n':
+                        fputs("\\n", f);
+                        break;
+
+                case '\r':
+                        fputs("\\r", f);
+                        break;
+
+                case '\t':
+                        fputs("\\t", f);
+                        break;
+
+                default:
+                        if ((signed char) *q >= 0 && *q < ' ')
+                                fprintf(f, "\\u%04x", *q);
+                        else
+                                fputc(*q, f);
+                        break;
+                }
+
+        if (flags & JSON_FORMAT_COLOR)
+                fputs(ANSI_NORMAL, f);
+
+        fputc('"', f);
+}
+
 static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const char *prefix) {
         int r;
 
@@ -1554,61 +1606,9 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
                         fputs(ANSI_NORMAL, f);
                 break;
 
-        case JSON_VARIANT_STRING: {
-                const char *q;
-
-                fputc('"', f);
-
-                if (flags & JSON_FORMAT_COLOR)
-                        fputs(ANSI_GREEN, f);
-
-                for (q = json_variant_string(v); *q; q++) {
-
-                        switch (*q) {
-
-                        case '"':
-                                fputs("\\\"", f);
-                                break;
-
-                        case '\\':
-                                fputs("\\\\", f);
-                                break;
-
-                        case '\b':
-                                fputs("\\b", f);
-                                break;
-
-                        case '\f':
-                                fputs("\\f", f);
-                                break;
-
-                        case '\n':
-                                fputs("\\n", f);
-                                break;
-
-                        case '\r':
-                                fputs("\\r", f);
-                                break;
-
-                        case '\t':
-                                fputs("\\t", f);
-                                break;
-
-                        default:
-                                if ((signed char) *q >= 0 && *q < ' ')
-                                        fprintf(f, "\\u%04x", *q);
-                                else
-                                        fputc(*q, f);
-                                break;
-                        }
-                }
-
-                if (flags & JSON_FORMAT_COLOR)
-                        fputs(ANSI_NORMAL, f);
-
-                fputc('"', f);
+        case JSON_VARIANT_STRING:
+                json_format_string(f, json_variant_string(v), flags);
                 break;
-        }
 
         case JSON_VARIANT_ARRAY: {
                 size_t i, n;
