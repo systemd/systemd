@@ -8,7 +8,6 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "group-record-show.h"
 #include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
