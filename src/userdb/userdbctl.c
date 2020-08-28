@@ -685,7 +685,8 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "help")) {
                                 puts("classic\n"
                                      "friendly\n"
-                                     "json");
+                                     "json\n"
+                                     "table");
                                 return 0;
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --output= mode: %s", optarg);
