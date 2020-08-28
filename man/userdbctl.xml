@@ -59,7 +59,13 @@
         user friendly, human readable output is generated; if <literal>table</literal> a minimal, tabular
         output is generated; if <literal>json</literal> a JSON formatted output is generated. Defaults to
         <literal>friendly</literal> if a user/group is specified on the command line,
-        <literal>table</literal> otherwise.</para></listitem>
+        <literal>table</literal> otherwise.</para>
+
+        <para>Note that most output formats do not show all available information. In particular,
+        <literal>classic</literal> and <literal>table</literal> show only the most important fields. Various
+        modes also do not show password hashes. Use <literal>json</literal> to view all fields, including
+        any authentication fields.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
