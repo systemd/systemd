@@ -1175,17 +1175,25 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
 
         SET_FOREACH(rule, rules, i) {
                 _cleanup_free_ char *from_str = NULL, *to_str = NULL;
-                bool space = false;
                 const char *family_str;
+                bool space = false;
 
                 fputs("RULE=", f);
+
+                family_str = af_to_name(rule->family);
+                if (family_str) {
+                        fprintf(f, "family=%s",
+                                family_str);
+                        space = true;
+                }
 
                 if (!in_addr_is_null(rule->family, &rule->from)) {
                         r = in_addr_to_string(rule->family, &rule->from, &from_str);
                         if (r < 0)
                                 return r;
 
-                        fprintf(f, "from=%s/%hhu",
+                        fprintf(f, "%sfrom=%s/%hhu",
+                                space ? " " : "",
                                 from_str, rule->from_prefixlen);
                         space = true;
                 }
@@ -1198,14 +1206,6 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         fprintf(f, "%sto=%s/%hhu",
                                 space ? " " : "",
                                 to_str, rule->to_prefixlen);
-                        space = true;
-                }
-
-                family_str = af_to_name(rule->family);
-                if (family_str) {
-                        fprintf(f, "%sfamily=%s",
-                                space ? " " : "",
-                                family_str);
                         space = true;
                 }
 
@@ -1356,7 +1356,18 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         }
                         *b++ = '\0';
 
-                        if (STR_IN_SET(a, "from", "to")) {
+                        if (streq(a, "family")) {
+                                r = af_from_name(b);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to parse RPDB rule family, ignoring: %s", b);
+                                        continue;
+                                }
+                                if (rule->family != AF_UNSPEC && rule->family != r) {
+                                        log_warning("RPDB rule family is already specified, ignoring assignment: %s", b);
+                                        continue;
+                                }
+                                rule->family = r;
+                        } if (STR_IN_SET(a, "from", "to")) {
                                 union in_addr_union *buffer;
                                 uint8_t *prefixlen;
 
@@ -1368,19 +1379,14 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         prefixlen = &rule->from_prefixlen;
                                 }
 
-                                r = in_addr_prefix_from_string_auto(b, &rule->family, buffer, prefixlen);
+                                if (rule->family == AF_UNSPEC)
+                                        r = in_addr_prefix_from_string_auto(b, &rule->family, buffer, prefixlen);
+                                else
+                                        r = in_addr_prefix_from_string(b, rule->family, buffer, prefixlen);
                                 if (r < 0) {
                                         log_warning_errno(r, "RPDB rule prefix is invalid, ignoring assignment: %s", b);
                                         continue;
                                 }
-
-                        } else if (streq(a, "family")) {
-                                r = af_from_name(b);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to parse RPDB rule family, ignoring: %s", b);
-                                        continue;
-                                }
-                                rule->family = r;
                         } else if (streq(a, "tos")) {
                                 r = safe_atou8(b, &rule->tos);
                                 if (r < 0) {
