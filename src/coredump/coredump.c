@@ -607,7 +607,7 @@ static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
 static int get_mount_namespace_leader(pid_t pid, pid_t *container_pid) {
         pid_t cpid = pid, ppid = 0;
         ino_t proc_mntns;
-        int r = 0;
+        int r;
 
         r = get_process_ns(pid, "mnt", &proc_mntns);
         if (r < 0)
