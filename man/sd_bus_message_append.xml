@@ -146,8 +146,10 @@
       </tgroup>
     </table>
 
-    <para>For types "s" and "g" (unicode string or signature), the pointer may be
-    <constant>NULL</constant>, which is equivalent to an empty string. See
+    <para>For types <literal>s</literal> and <literal>g</literal> (unicode string or signature), the pointer
+    may be <constant>NULL</constant>, which is equivalent to an empty string. For <literal>h</literal> (UNIX
+    file descriptor), the descriptor is duplicated by this call and the passed descriptor stays in possession
+    of the caller. See
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for the precise interpretation of those and other types.</para>
   </refsect1>
