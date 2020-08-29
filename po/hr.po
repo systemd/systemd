@@ -3,22 +3,23 @@
 # SOME DESCRIPTIVE TITLE.
 # This file is distributed under the same license as the PACKAGE package.
 # gogo <trebelnik2@gmail.com>, 2016.
-#
+# Gogo Gogsi <linux.hr@protonmail.com>, 2020.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2020-03-08 12:57+0100\n"
-"Last-Translator: gogo <linux.hr@protonmail.com>\n"
-"Language-Team: \n"
+"PO-Revision-Date: 2020-08-29 11:29+0000\n"
+"Last-Translator: Gogo Gogsi <linux.hr@protonmail.com>\n"
+"Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
+"systemd/master/hr/>\n"
 "Language: hr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 2.0.6\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
-"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Weblate 4.2.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -563,7 +564,7 @@ msgstr "Postavljanje zaslonske pruke"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
-msgstr "Potrebna je ovjera za postavljanje zaslonske pruke."
+msgstr "Potrebna je ovjera za postavljanje zaslonske poruke."
 
 #: src/login/org.freedesktop.login1.policy:395
 msgid "Change Session"
@@ -908,14 +909,11 @@ msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
-"Potrebna je ovjera za za brisanje datoteka i direktorija pridruženih sa "
+"Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa "
 "'$(unit)'."
 
 #: src/core/dbus-unit.c:760
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr "Potrebna je ovjera za slanje UNIX signala u procese '$(unit)'."
+msgstr ""
+"Potrebna je ovjera za zamrzavanje ili odmrzavanje procesa '$(unit)' jedinice."
