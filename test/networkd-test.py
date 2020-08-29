@@ -223,7 +223,8 @@ Gateway=192.168.250.1''')
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
 
     def tearDown(self):
-        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd'])
+        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.socket'])
+        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.check_call(['ip', 'link', 'del', 'mybridge'])
         subprocess.check_call(['ip', 'link', 'del', 'port1'])
         subprocess.check_call(['ip', 'link', 'del', 'port2'])
@@ -309,7 +310,8 @@ class ClientTestBase(NetworkdTestingUtilities):
 
     def tearDown(self):
         self.shutdown_iface()
-        subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd.socket'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.call(['ip', 'link', 'del', 'dummy0'],
                         stderr=subprocess.DEVNULL)
 
@@ -987,7 +989,8 @@ class MatchClientTest(unittest.TestCase, NetworkdTestingUtilities):
 
     def tearDown(self):
         """Stop networkd."""
-        subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd.socket'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd.service'])
 
     def test_basic_matching(self):
         """Verify the Name= line works throughout this class."""
@@ -1037,7 +1040,8 @@ class UnmanagedClientTest(unittest.TestCase, NetworkdTestingUtilities):
 
     def tearDown(self):
         """Stop networkd."""
-        subprocess.call(['systemctl', 'stop', 'systemd-networkd'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd.socket'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd.service'])
 
     def create_iface(self):
         """Create temporary veth pairs for interface matching."""

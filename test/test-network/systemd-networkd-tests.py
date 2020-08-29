@@ -328,7 +328,7 @@ def tearDownModule():
 
     shutil.rmtree(networkd_ci_path)
 
-    for u in ['systemd-networkd.service', 'systemd-resolved.service']:
+    for u in ['systemd-networkd.socket', 'systemd-networkd.service', 'systemd-resolved.service']:
         check_output(f'systemctl stop {u}')
 
     shutil.rmtree('/run/systemd/system/systemd-networkd.service.d')
@@ -464,7 +464,8 @@ def remove_networkd_state_files():
 def stop_networkd(show_logs=True, remove_state_files=True):
     if show_logs:
         invocation_id = check_output('systemctl show systemd-networkd -p InvocationID --value')
-    check_output('systemctl stop systemd-networkd')
+    check_output('systemctl stop systemd-networkd.socket')
+    check_output('systemctl stop systemd-networkd.service')
     if show_logs:
         print(check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id))
     if remove_state_files:
@@ -2447,7 +2448,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'Search Domains: one')
 
     def test_keep_configuration_static(self):
-        check_output('systemctl stop systemd-networkd')
+        check_output('systemctl stop systemd-networkd.socket')
+        check_output('systemctl stop systemd-networkd.service')
 
         check_output('ip link add name dummy98 type dummy')
         check_output('ip address add 10.1.2.3/16 dev dummy98')
@@ -3610,7 +3612,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, r'192.168.5.*')
 
-        check_output('systemctl stop systemd-networkd')
+        check_output('systemctl stop systemd-networkd.socket')
+        check_output('systemctl stop systemd-networkd.service')
 
         print('The lease address should be kept after networkd stopped')
         output = check_output('ip address show dev veth99 scope global')
@@ -3645,7 +3648,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.168.5.*')
 
         stop_dnsmasq(dnsmasq_pid_file)
-        check_output('systemctl stop systemd-networkd')
+        check_output('systemctl stop systemd-networkd.socket')
+        check_output('systemctl stop systemd-networkd.service')
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
