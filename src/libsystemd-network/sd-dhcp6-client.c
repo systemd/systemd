@@ -1695,7 +1695,7 @@ int sd_dhcp6_client_is_running(sd_dhcp6_client *client) {
 
 int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         enum DHCP6State state = DHCP6_STATE_SOLICITATION;
-        int r = 0;
+        int r;
 
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
