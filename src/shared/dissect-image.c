@@ -51,6 +51,9 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
+/* how many times to wait for the device nodes to appear */
+#define N_DEVICE_NODE_LIST_ATTEMPTS 10
+
 int probe_filesystem(const char *node, char **ret_fstype) {
         /* Try to find device content type and return it in *ret_fstype. If nothing is found,
          * 0/NULL will be returned. -EUCLEAN will be returned for ambiguous results, and an
@@ -150,9 +153,6 @@ static int enumerator_for_parent(sd_device *d, sd_device_enumerator **ret) {
         *ret = TAKE_PTR(e);
         return 0;
 }
-
-/* how many times to wait for the device nodes to appear */
-#define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
 static int wait_for_partitions_to_appear(
                 int fd,
