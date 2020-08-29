@@ -1941,7 +1941,7 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
          *
          * Returns error if *everything* failed, and 0 otherwise.
          */
-        int r = 0;
+        int r;
         bool any = false;
 
         r = seccomp_rule_add_exact(
