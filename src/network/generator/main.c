@@ -84,7 +84,7 @@ static int context_save(Context *context) {
         NetDev *netdev;
         Link *link;
         Iterator i;
-        int k, r = 0;
+        int k, r;
         const char *p;
 
         p = prefix_roota(arg_root, NETWORKD_UNIT_DIRECTORY);
