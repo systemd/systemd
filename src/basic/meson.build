@@ -140,6 +140,7 @@ basic_sources = files('''
         missing_random.h
         missing_resource.h
         missing_sched.h
+        missing_secure_getenv.c
         missing_securebits.h
         missing_socket.h
         missing_stat.h

@@ -8,6 +8,6 @@
 #  if HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
 #  else
-#    error "neither secure_getenv nor __secure_getenv are available"
+     char *secure_getenv (char const *name);
 #  endif
 #endif
