@@ -1042,7 +1042,7 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
                 homework = getenv("SYSTEMD_HOMEWORK_PATH") ?: SYSTEMD_HOMEWORK_PATH;
 
                 execl(homework, homework, verb, NULL);
-                log_error_errno(errno, "Failed to invoke " SYSTEMD_HOMEWORK_PATH ": %m");
+                log_error_errno(errno, "Failed to invoke %s: %m", homework);
                 _exit(EXIT_FAILURE);
         }
 
