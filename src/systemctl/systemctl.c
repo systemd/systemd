@@ -1064,7 +1064,7 @@ static int list_sockets(int argc, char *argv[], void *userdata) {
         struct socket_info *s;
         unsigned cs = 0;
         size_t size = 0;
-        int r = 0, n;
+        int r, n;
         sd_bus *bus;
 
         r = acquire_bus(BUS_MANAGER, &bus);
@@ -1333,7 +1333,7 @@ static int list_timers(int argc, char *argv[], void *userdata) {
         int n, c = 0;
         dual_timestamp nw;
         sd_bus *bus;
-        int r = 0;
+        int r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -1731,7 +1731,7 @@ static int list_dependencies_one(
 
         _cleanup_strv_free_ char **deps = NULL;
         char **c;
-        int r = 0;
+        int r;
 
         assert(bus);
         assert(name);
@@ -2397,7 +2397,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
 static int cancel_job(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         char **name;
-        int r = 0;
+        int r;
 
         if (argc <= 1)
                 return trivial_method(argc, argv, userdata);
@@ -6973,7 +6973,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         UnitDependency dep;
-        int r = 0;
+        int r;
 
         if (!argv[1])
                 return 0;

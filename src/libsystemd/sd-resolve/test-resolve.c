@@ -53,7 +53,7 @@ static int getnameinfo_handler(sd_resolve_query *q, int ret, const char *host, c
 int main(int argc, char *argv[]) {
         _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q1 = NULL, *q2 = NULL;
         _cleanup_(sd_resolve_unrefp) sd_resolve *resolve = NULL;
-        int r = 0;
+        int r;
 
         struct addrinfo hints = {
                 .ai_family = PF_UNSPEC,

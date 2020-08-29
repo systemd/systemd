@@ -477,7 +477,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **match_list = NULL;
         uint32_t line_number = 0;
-        int r = 0, err;
+        int r, err;
 
         f = fopen(filename, "re");
         if (!f)
