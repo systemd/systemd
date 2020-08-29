@@ -701,6 +701,7 @@ Manager *manager_free(Manager *m) {
 
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
+        ordered_set_free(m->dns_extra_stub_listeners);
 
         sd_event_source_unref(m->network_event_source);
         sd_network_monitor_unref(m->network_monitor);
@@ -712,6 +713,8 @@ Manager *manager_free(Manager *m) {
         manager_mdns_stop(m);
         manager_dns_stub_stop(m);
         manager_varlink_done(m);
+
+        manager_dns_stub_stop_extra(m);
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 

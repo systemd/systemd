@@ -31,6 +31,14 @@ typedef struct EtcHosts {
         Set *no_address;
 } EtcHosts;
 
+typedef struct DNSStubListenerExtra {
+        int fd;
+
+        DnsStubListenerMode mode;
+        SocketAddress address;
+        sd_event_source *dns_stub_extra_event_source;
+} DNSStubListenerExtra;
+
 struct Manager {
         sd_event *event;
 
@@ -136,6 +144,8 @@ struct Manager {
         /* Local DNS stub on 127.0.0.53:53 */
         int dns_stub_udp_fd;
         int dns_stub_tcp_fd;
+
+        OrderedSet *dns_extra_stub_listeners;
 
         sd_event_source *dns_stub_udp_event_source;
         sd_event_source *dns_stub_tcp_event_source;
