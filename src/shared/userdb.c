@@ -6,7 +6,6 @@
 #include "dlfcn-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "group-record-nss.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
 #include "set.h"
