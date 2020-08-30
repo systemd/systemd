@@ -2136,6 +2136,21 @@ SystemCallErrorNumber=EPERM</programlisting>
         details.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SystemCallLog=</varname></term>
+
+        <listitem><para>Takes a space-separated list of system call names. If this setting is used, all
+        system calls executed by the unit processes for the listed ones will be logged. If the first
+        character of the list is <literal>~</literal>, the effect is inverted: all system calls except the
+        listed system calls will be logged. If running in user mode, or in system mode, but without the
+        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=nobody</varname>),
+        <varname>NoNewPrivileges=yes</varname> is implied. This feature makes use of the Secure Computing
+        Mode 2 interfaces of the kernel ('seccomp filtering') and is useful for auditing or setting up a
+        minimal sandboxing environment. This option may be specified more than once, in which case the filter
+        masks are merged. If the empty string is assigned, the filter is reset, all prior assignments will
+        have no effect. This does not affect commands prefixed with <literal>+</literal>.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

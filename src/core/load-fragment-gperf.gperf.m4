@@ -79,6 +79,7 @@ m4_ifdef(`HAVE_SECCOMP',
 `$1.SystemCallFilter,            config_parse_syscall_filter,        0,                             offsetof($1, exec_context)
 $1.SystemCallArchitectures,      config_parse_syscall_archs,         0,                             offsetof($1, exec_context.syscall_archs)
 $1.SystemCallErrorNumber,        config_parse_syscall_errno,         0,                             offsetof($1, exec_context)
+$1.SystemCallLog,                config_parse_syscall_log,           0,                             offsetof($1, exec_context)
 $1.MemoryDenyWriteExecute,       config_parse_bool,                  0,                             offsetof($1, exec_context.memory_deny_write_execute)
 $1.RestrictNamespaces,           config_parse_restrict_namespaces,   0,                             offsetof($1, exec_context)
 $1.RestrictRealtime,             config_parse_bool,                  0,                             offsetof($1, exec_context.restrict_realtime)
@@ -88,6 +89,7 @@ $1.LockPersonality,              config_parse_bool,                  0,         
 `$1.SystemCallFilter,            config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.SystemCallArchitectures,      config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.SystemCallErrorNumber,        config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
+$1.SystemCallLog,                config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.MemoryDenyWriteExecute,       config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.RestrictNamespaces,           config_parse_warn_compat,           DISABLED_CONFIGURATION,        0
 $1.RestrictRealtime,             config_parse_warn_compat,           DISABLED_CONFIGURATION,        0

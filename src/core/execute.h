@@ -302,6 +302,9 @@ struct ExecContext {
         int syscall_errno;
         bool syscall_allow_list:1;
 
+        Hashmap *syscall_log;
+        bool syscall_log_allow_list:1; /* Log listed system calls */
+
         bool address_families_allow_list:1;
         Set *address_families;
 

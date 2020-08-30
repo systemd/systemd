@@ -415,6 +415,58 @@ static int property_get_syscall_filter(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_syscall_log(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+#if HAVE_SECCOMP
+        void *id, *val;
+#endif
+
+        assert(bus);
+        assert(reply);
+        assert(c);
+
+        r = sd_bus_message_open_container(reply, 'r', "bas");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "b", c->syscall_log_allow_list);
+        if (r < 0)
+                return r;
+
+#if HAVE_SECCOMP
+        HASHMAP_FOREACH_KEY(val, id, c->syscall_log) {
+                char *name = NULL;
+
+                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                if (!name)
+                        continue;
+
+                r = strv_consume(&l, name);
+                if (r < 0)
+                        return r;
+        }
+#endif
+
+        strv_sort(l);
+
+        r = sd_bus_message_append_strv(reply, l);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_syscall_archs(
                 sd_bus *bus,
                 const char *path,
@@ -1068,6 +1120,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SystemCallFilter", "(bas)", property_get_syscall_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallArchitectures", "as", property_get_syscall_archs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallErrorNumber", "i", bus_property_get_int, offsetof(ExecContext, syscall_errno), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SystemCallLog", "(bas)", property_get_syscall_log, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Personality", "s", property_get_personality, offsetof(ExecContext, personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LockPersonality", "b", bus_property_get_bool, offsetof(ExecContext, lock_personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2226,6 +2279,76 @@ int bus_exec_context_set_transient_property(
                                 return -ENOMEM;
 
                         unit_write_settingf(u, flags, name, "SystemCallFilter=%s%s", allow_list ? "" : "~", joined);
+                }
+
+                return 1;
+
+        } else if (streq(name, "SystemCallLog")) {
+                int allow_list;
+                _cleanup_strv_free_ char **l = NULL;
+
+                r = sd_bus_message_enter_container(message, 'r', "bas");
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "b", &allow_list);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *joined = NULL;
+                        SeccompParseFlags invert_flag = allow_list ? 0 : SECCOMP_PARSE_INVERT;
+                        char **s;
+
+                        if (strv_isempty(l)) {
+                                c->syscall_log_allow_list = false;
+                                c->syscall_log = hashmap_free(c->syscall_log);
+
+                                unit_write_settingf(u, flags, name, "SystemCallLog=");
+                                return 1;
+                        }
+
+                        if (!c->syscall_log) {
+                                c->syscall_log = hashmap_new(NULL);
+                                if (!c->syscall_log)
+                                        return log_oom();
+
+                                c->syscall_log_allow_list = allow_list;
+                        }
+
+                        STRV_FOREACH(s, l) {
+                                _cleanup_free_ char *n = NULL;
+                                int e;
+
+                                r = parse_syscall_and_errno(*s, &n, &e);
+                                if (r < 0)
+                                        return r;
+
+                                r = seccomp_parse_syscall_filter(n,
+                                                                 0, /* errno not used */
+                                                                 c->syscall_log,
+                                                                 SECCOMP_PARSE_LOG | SECCOMP_PARSE_PERMISSIVE |
+                                                                 invert_flag |
+                                                                 (c->syscall_log_allow_list ? SECCOMP_PARSE_ALLOW_LIST : 0),
+                                                                 u->id,
+                                                                 NULL, 0);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        joined = strv_join(l, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        unit_write_settingf(u, flags, name, "SystemCallLog=%s%s", allow_list ? "" : "~", joined);
                 }
 
                 return 1;

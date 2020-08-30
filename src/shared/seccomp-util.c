@@ -1073,6 +1073,10 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
 
                         if (error == SECCOMP_ERROR_NUMBER_KILL)
                                 a = scmp_act_kill_process();
+#ifdef SCMP_ACT_LOG
+                        else if (action == SCMP_ACT_LOG)
+                                a = SCMP_ACT_LOG;
+#endif
                         else if (action != SCMP_ACT_ALLOW && error >= 0)
                                 a = SCMP_ACT_ERRNO(error);
 

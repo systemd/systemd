@@ -3197,6 +3197,86 @@ int config_parse_syscall_filter(
         }
 }
 
+int config_parse_syscall_log(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        _unused_ const Unit *u = userdata;
+        bool invert = false;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(u);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                c->syscall_log = hashmap_free(c->syscall_log);
+                c->syscall_log_allow_list = false;
+                return 0;
+        }
+
+        if (rvalue[0] == '~') {
+                invert = true;
+                rvalue++;
+        }
+
+        if (!c->syscall_log) {
+                c->syscall_log = hashmap_new(NULL);
+                if (!c->syscall_log)
+                        return log_oom();
+
+                if (invert)
+                        /* Log everything but the ones listed */
+                        c->syscall_log_allow_list = false;
+                else
+                        /* Log nothing but the ones listed */
+                        c->syscall_log_allow_list = true;
+        }
+
+        p = rvalue;
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *name = NULL;
+                int num;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                r = parse_syscall_and_errno(word, &name, &num);
+                if (r < 0 || num >= 0) { /* errno code not allowed */
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse syscall, ignoring: %s", word);
+                        continue;
+                }
+
+                r = seccomp_parse_syscall_filter(
+                                name, 0, c->syscall_log,
+                                SECCOMP_PARSE_LOG|SECCOMP_PARSE_PERMISSIVE|
+                                (invert ? SECCOMP_PARSE_INVERT : 0)|
+                                (c->syscall_log_allow_list ? SECCOMP_PARSE_ALLOW_LIST : 0),
+                                unit, filename, line);
+                if (r < 0)
+                        return r;
+        }
+}
+
 int config_parse_syscall_archs(
                 const char *unit,
                 const char *filename,
@@ -5444,6 +5524,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_syscall_filter,        "SYSCALLS" },
                 { config_parse_syscall_archs,         "ARCHS" },
                 { config_parse_syscall_errno,         "ERRNO" },
+                { config_parse_syscall_log,           "SYSCALLS" },
                 { config_parse_address_families,      "FAMILIES" },
                 { config_parse_restrict_namespaces,   "NAMESPACES"  },
 #endif

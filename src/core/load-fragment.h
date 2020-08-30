@@ -65,6 +65,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_unit_requires_mounts_for);
 CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_syscall_archs);
 CONFIG_PARSER_PROTOTYPE(config_parse_syscall_errno);
+CONFIG_PARSER_PROTOTYPE(config_parse_syscall_log);
 CONFIG_PARSER_PROTOTYPE(config_parse_environ);
 CONFIG_PARSER_PROTOTYPE(config_parse_pass_environ);
 CONFIG_PARSER_PROTOTYPE(config_parse_unset_environ);
