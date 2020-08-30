@@ -405,6 +405,9 @@ int json_variant_new_stringn(JsonVariant **ret, const char *s, size_t n) {
                 return 0;
         }
 
+        if (!utf8_is_valid_n(s, n)) /* JSON strings must be valid UTF-8 */
+                return -EUCLEAN;
+
         r = json_variant_new(&v, JSON_VARIANT_STRING, n + 1);
         if (r < 0)
                 return r;
@@ -636,8 +639,12 @@ int json_variant_new_array_strv(JsonVariant **ret, char **l) {
                                 return r;
 
                         w->is_reference = true;
-                } else
+                } else {
+                        if (!utf8_is_valid_n(l[v->n_elements], k)) /* JSON strings must be valid UTF-8 */
+                                return -EUCLEAN;
+
                         memcpy(w->string, l[v->n_elements], k+1);
+                }
         }
 
         v->normalized = true;

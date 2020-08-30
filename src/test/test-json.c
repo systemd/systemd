@@ -543,7 +543,7 @@ int main(int argc, char *argv[]) {
 
         test_variant("{\"k\": \"v\", \"foo\": [1, 2, 3], \"bar\": {\"zap\": null}}", test_1);
         test_variant("{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"thisisaverylongproperty\": 1.27}", test_2);
-        test_variant("{\"foo\" : \"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFFFFF\\\"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFF\\uDBFF\\uDFFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFFFF\\\"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFF\\uDBFF\\uDFFF\"}", NULL);
+        test_variant("{\"foo\" : \"\\u0935\\u093f\\u0935\\u0947\\u0915\\u0916\\u094d\\u092f\\u093e\\u0924\\u093f\\u0930\\u0935\\u093f\\u092a\\u094d\\u0932\\u0935\\u093e\\u0020\\u0939\\u093e\\u0928\\u094b\\u092a\\u093e\\u092f\\u0903\\u0964\"}", NULL);
 
         test_variant("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
 
