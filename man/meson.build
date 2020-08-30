@@ -79,7 +79,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                                 meson.add_install_script('sh', '-c', cmd)
                                 p2 += link
                         endif
-                        html_pages += link
+                        html_pages += [link]
                 endforeach
 
                 p3 = custom_target(
@@ -90,7 +90,7 @@ foreach tuple : xsltproc.found() ? manpages : []
                         depends : [custom_entities_ent, p2],
                         install : want_html,
                         install_dir : join_paths(docdir, 'html'))
-                html_pages += p3
+                html_pages += [p3]
 
                 file = files(tuple[0] + '.xml')
                 source_xml_files += file
@@ -155,9 +155,9 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                         dst = join_paths(docdir, 'html', htmlalias)
                         cmd = 'ln -fs @0@ $DESTDIR@1@'.format(html, dst)
                         meson.add_install_script('sh', '-c', cmd)
-                        p2 += link
+                        p2 += [link]
                 endif
-                html_pages += link
+                html_pages += [link]
         endif
 
         p3 = custom_target(
@@ -168,7 +168,7 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
                 depends : [custom_entities_ent, p2],
                 install : want_html and have_lxml,
                 install_dir : join_paths(docdir, 'html'))
-        html_pages += p3
+        html_pages += [p3]
 endforeach
 
 # Cannot use run_target because those targets are used in depends
