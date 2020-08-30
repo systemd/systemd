@@ -6,9 +6,34 @@
 #include "strv.h"
 #include "user-record-nss.h"
 #include "user-util.h"
+#include "utf8.h"
 
 #define SET_IF(field, condition, value, fallback)  \
         field = (condition) ? (value) : (fallback)
+
+static inline const char* utf8_only(const char *s) {
+        return s && utf8_is_valid(s) ? s : NULL;
+}
+
+static inline int strv_extend_strv_utf8_only(char ***dst, char **src, bool filter_duplicates) {
+        _cleanup_free_ char **t = NULL;
+        size_t l, j = 0;
+
+        /* First, do a shallow copy of s, filtering for only valid utf-8 strings */
+        l = strv_length(src);
+        t = new(char*, l + 1);
+        if (!t)
+                return -ENOMEM;
+
+        for (size_t i = 0; i < l; i++)
+                if (utf8_is_valid(src[i]))
+                        t[j++] = src[i];
+        if (j == 0)
+                return 0;
+
+        t[j] = NULL;
+        return strv_extend_strv(dst, t, filter_duplicates);
+}
 
 int nss_passwd_to_user_record(
                 const struct passwd *pwd,
@@ -55,18 +80,19 @@ int nss_passwd_to_user_record(
                 free_and_replace(hr->real_name, mangled);
         }
 
-        r = free_and_strdup(&hr->home_directory, empty_to_null(pwd->pw_dir));
+        r = free_and_strdup(&hr->home_directory, utf8_only(empty_to_null(pwd->pw_dir)));
         if (r < 0)
                 return r;
 
-        r = free_and_strdup(&hr->shell, empty_to_null(pwd->pw_shell));
+        r = free_and_strdup(&hr->shell, utf8_only(empty_to_null(pwd->pw_shell)));
         if (r < 0)
                 return r;
 
         hr->uid = pwd->pw_uid;
         hr->gid = pwd->pw_gid;
 
-        if (spwd && looks_like_hashed_password(spwd->sp_pwdp)) {
+        if (spwd &&
+            looks_like_hashed_password(utf8_only(spwd->sp_pwdp))) { /* Ignore locked, disabled, and mojibake passwords */
                 strv_free_erase(hr->hashed_password);
                 hr->hashed_password = strv_new(spwd->sp_pwdp);
                 if (!hr->hashed_password)
@@ -316,26 +342,26 @@ int nss_group_to_group_record(
         if (!g->group_name)
                 return -ENOMEM;
 
-        g->members = strv_copy(grp->gr_mem);
-        if (!g->members)
-                return -ENOMEM;
+        r = strv_extend_strv_utf8_only(&g->members, grp->gr_mem, false);
+        if (r < 0)
+                return r;
 
         g->gid = grp->gr_gid;
 
         if (sgrp) {
-                if (looks_like_hashed_password(sgrp->sg_passwd)) {
+                if (looks_like_hashed_password(utf8_only(sgrp->sg_passwd))) {
                         g->hashed_password = strv_new(sgrp->sg_passwd);
                         if (!g->hashed_password)
                                 return -ENOMEM;
                 }
 
-                r = strv_extend_strv(&g->members, sgrp->sg_mem, 1);
+                r = strv_extend_strv_utf8_only(&g->members, sgrp->sg_mem, true);
                 if (r < 0)
                         return r;
 
-                g->administrators = strv_copy(sgrp->sg_adm);
-                if (!g->administrators)
-                        return -ENOMEM;
+                r = strv_extend_strv_utf8_only(&g->administrators, sgrp->sg_adm, false);
+                if (r < 0)
+                        return r;
         }
 
         r = json_build(&g->json, JSON_BUILD_OBJECT(
