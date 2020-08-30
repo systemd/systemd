@@ -364,6 +364,14 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         dns_transaction_gc(t);
 }
 
+static void dns_transaction_complete_errno(DnsTransaction *t, int error) {
+        assert(t);
+        assert(error != 0);
+
+        t->answer_errno = abs(error);
+        dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
+}
+
 static int dns_transaction_pick_server(DnsTransaction *t) {
         DnsServer *server;
 
@@ -415,10 +423,8 @@ static void dns_transaction_retry(DnsTransaction *t, bool next_server) {
                 dns_scope_next_dns_server(t->scope);
 
         r = dns_transaction_go(t);
-        if (r < 0) {
-                t->answer_errno = -r;
-                dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
-        }
+        if (r < 0)
+                dns_transaction_complete_errno(t, r);
 }
 
 static int dns_transaction_maybe_restart(DnsTransaction *t) {
@@ -466,10 +472,8 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
                 dns_transaction_retry(t, true);
                 return;
         }
-        if (error != 0) {
-                t->answer_errno = error;
-                dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
-        }
+        if (error != 0)
+                dns_transaction_complete_errno(t, error);
 }
 
 static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
@@ -836,8 +840,7 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
         return;
 
 fail:
-        t->answer_errno = -r;
-        dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
+        dns_transaction_complete_errno(t, r);
 }
 
 static int dns_transaction_has_positive_answer(DnsTransaction *t, DnsAnswerFlags *flags) {
@@ -1169,8 +1172,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         return;
 
 fail:
-        t->answer_errno = -r;
-        dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
+        dns_transaction_complete_errno(t, r);
 }
 
 static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
@@ -1182,7 +1184,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
         assert(t->scope);
 
         r = manager_recv(t->scope->manager, fd, DNS_PROTOCOL_DNS, &p);
-        if (ERRNO_IS_DISCONNECT(-r)) {
+        if (ERRNO_IS_DISCONNECT(r)) {
                 usec_t usec;
 
                 /* UDP connection failures get reported via ICMP and then are possibly delivered to us on the
@@ -1196,8 +1198,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return 0;
         }
         if (r < 0) {
-                dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
-                t->answer_errno = -r;
+                dns_transaction_complete_errno(t, r);
                 return 0;
         }
         if (r == 0)
@@ -1736,7 +1737,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
                 return 0;
         }
-        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && ERRNO_IS_DISCONNECT(-r)) {
+        if (t->scope->protocol == DNS_PROTOCOL_LLMNR && ERRNO_IS_DISCONNECT(r)) {
                 /* On LLMNR, if we cannot connect to a host via TCP when doing reverse lookups. This means we cannot
                  * answer this request with this protocol. */
                 dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);
@@ -1833,7 +1834,7 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
 
         r = set_ensure_put(&t->dnssec_transactions, NULL, aux);
         if (r < 0)
-                return r;;
+                return r;
 
         r = set_ensure_put(&aux->notify_transactions, NULL, t);
         if (r < 0) {
