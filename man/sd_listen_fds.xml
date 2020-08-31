@@ -54,24 +54,19 @@
     (i.e. <constant>SD_LISTEN_FDS_START</constant>), the remaining
     descriptors follow at 4, 5, 6, …, if any.</para>
 
-    <para>If a daemon receives more than one file descriptor, they
-    will be passed in the same order as configured in the systemd
-    socket unit file (see
-    <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details). Nonetheless, it is recommended to verify the correct
-    socket types before using them. To simplify this checking, the
-    functions
+    <para>If a daemon receives more than one file descriptor, they will be passed in the same order as
+    configured in the systemd socket unit file (see
+    <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details) — if there's only one such file (see below).  Nonetheless, it is recommended to verify the
+    correct socket types before using them. To simplify this checking, the functions
     <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_is_socket</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_is_socket_inet</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>sd_is_socket_unix</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    are provided. In order to maximize flexibility, it is recommended
-    to make these checks as loose as possible without allowing
-    incorrect setups. i.e. often, the actual port number a socket is
-    bound to matters little for the service to work, hence it should
-    not be verified. On the other hand, whether a socket is a datagram
-    or stream socket matters a lot for the most common program logics
-    and should be checked.</para>
+    <citerefentry><refentrytitle>sd_is_socket_unix</refentrytitle><manvolnum>3</manvolnum></citerefentry> are
+    provided. In order to maximize flexibility, it is recommended to make these checks as loose as possible
+    without allowing incorrect setups. i.e. often, the actual port number a socket is bound to matters little
+    for the service to work, hence it should not be verified. On the other hand, whether a socket is a
+    datagram or stream socket matters a lot for the most common program logics and should be checked.</para>
 
     <para>This function call will set the FD_CLOEXEC flag for all
     passed file descriptors to avoid further inheritance to children
