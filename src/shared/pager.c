@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "copy.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
@@ -152,8 +153,7 @@ int pager_open(PagerFlags flags) {
                         _exit(EXIT_FAILURE);
                 }
 
-                /* Initialize a good charset for less. This is
-                 * particularly important if we output UTF-8
+                /* Initialize a good charset for less. This is particularly important if we output UTF-8
                  * characters. */
                 less_charset = getenv("SYSTEMD_LESSCHARSET");
                 if (!less_charset && is_locale_utf8())
@@ -162,6 +162,25 @@ int pager_open(PagerFlags flags) {
                     setenv("LESSCHARSET", less_charset, 1) < 0) {
                         log_error_errno(errno, "Failed to set environment variable LESSCHARSET: %m");
                         _exit(EXIT_FAILURE);
+                }
+
+                /* People might invoke us from sudo, don't needlessly allow less to be a way to shell out
+                 * privileged stuff. */
+                r = getenv_bool("SYSTEMD_LESSSECURE");
+                if (r == 0) { /* Remove env var if off */
+                        if (unsetenv("LESSSECURE") < 0) {
+                                log_error_errno(errno, "Failed to uset environment variable LESSSECURE: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                } else {
+                        /* Set env var otherwise */
+                        if (r < 0)
+                                log_warning_errno(r, "Unable to parse $SYSTEMD_LESSSECURE, ignoring: %m");
+
+                        if (setenv("LESSSECURE", "1", 1) < 0) {
+                                log_error_errno(errno, "Failed to set environment variable LESSSECURE: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (pager_args) {
