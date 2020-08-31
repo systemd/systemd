@@ -1080,26 +1080,42 @@ static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids)
         return 0;
 }
 
+static int set_securebits(int bits, int mask) {
+        int current, applied;
+        current = prctl(PR_GET_SECUREBITS);
+        if (current < 0)
+                return -errno;
+        /* Clear all securebits defined in mask and set bits */
+        applied = (current & ~mask) | bits;
+        if (current == applied)
+                return 0;
+        if (prctl(PR_SET_SECUREBITS, applied) < 0)
+                return -errno;
+        return 1;
+}
+
 static int enforce_user(const ExecContext *context, uid_t uid) {
         assert(context);
+        int r;
 
         if (!uid_is_valid(uid))
                 return 0;
 
         /* Sets (but doesn't look up) the uid and make sure we keep the
-         * capabilities while doing so. */
+         * capabilities while doing so. For setting secure bits the capability CAP_SETPCAP is
+         * required, so we also need keep-caps in this case.
+         */
 
-        if (context->capability_ambient_set != 0) {
+        if (context->capability_ambient_set != 0 || context->secure_bits != 0) {
 
                 /* First step: If we need to keep capabilities but
                  * drop privileges we need to make sure we keep our
                  * caps, while we drop privileges. */
                 if (uid != 0) {
-                        int sb = context->secure_bits | 1<<SECURE_KEEP_CAPS;
-
-                        if (prctl(PR_GET_SECUREBITS) != sb)
-                                if (prctl(PR_SET_SECUREBITS, sb) < 0)
-                                        return -errno;
+                        /* Add KEEP_CAPS to the securebits */
+                        r = set_securebits(1<<SECURE_KEEP_CAPS, 0);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -3852,12 +3868,27 @@ static int exec_child(
 #endif
 
                 /* PR_GET_SECUREBITS is not privileged, while PR_SET_SECUREBITS is. So to suppress potential EPERMs
-                 * we'll try not to call PR_SET_SECUREBITS unless necessary. */
-                if (prctl(PR_GET_SECUREBITS) != secure_bits)
+                 * we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits requires
+                 * CAP_SETPCAP. */
+                if (prctl(PR_GET_SECUREBITS) != secure_bits) {
+                        /* CAP_SETPCAP is required to set securebits. This capabilitiy is raised into the
+                         * effective set here.
+                         * The effective set is overwritten during execve  with the following  values:
+                         * - ambient set (for non-root processes)
+                         * - (inheritable | bounding) set for root processes)
+                         *
+                         * Hence there is no security impact to raise it in the effective set before execve
+                         */
+                        r = capability_gain_cap_setpcap(NULL);
+                        if (r < 0) {
+                                *exit_status = EXIT_CAPABILITIES;
+                                return log_unit_error_errno(unit, r, "Failed to gain CAP_SETPCAP for setting secure bits");
+                        }
                         if (prctl(PR_SET_SECUREBITS, secure_bits) < 0) {
                                 *exit_status = EXIT_SECUREBITS;
                                 return log_unit_error_errno(unit, errno, "Failed to set process secure bits: %m");
                         }
+                }
 
                 if (context_has_no_new_privileges(context))
                         if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
