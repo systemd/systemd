@@ -1946,9 +1946,6 @@ bool manager_unit_cache_should_retry_load(Unit *u) {
         if (u->load_state != UNIT_NOT_FOUND)
                 return false;
 
-        if (u->manager->unit_cache_mtime == 0)
-                return false;
-
         /* The cache has been updated since the last time we tried to load the unit. There might be new
          * fragment paths to read. */
         if (u->manager->unit_cache_mtime != u->fragment_not_found_time)
