@@ -81,16 +81,14 @@
     services, as well as parallelized starting of services. See the
     blog stories linked at the end for an introduction.</para>
 
-    <para>Note that the daemon software configured for socket
-    activation with socket units needs to be able to accept sockets
-    from systemd, either via systemd's native socket passing interface
-    (see
-    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    for details) or via the traditional
-    <citerefentry project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style
-    socket passing (i.e. sockets passed in via standard input and
-    output, using <varname>StandardInput=socket</varname> in the
-    service file).</para>
+    <para>Note that the daemon software configured for socket activation with socket units needs to be able
+    to accept sockets from systemd, either via systemd's native socket passing interface (see
+    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+    details about the precise protocol used and the order in which the file descriptors are passed) or via
+    traditional <citerefentry
+    project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry>-style
+    socket passing (i.e. sockets passed in via standard input and output, using
+    <varname>StandardInput=socket</varname> in the service file).</para>
 
     <para>All network sockets allocated through <filename>.socket</filename> units are allocated in the host's network
     namespace (see <citerefentry
