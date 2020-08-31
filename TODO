@@ -91,8 +91,7 @@ Features:
     - elfutils (always)
     - p11-kit-trust (always)
     - kmod-libs (only when called from PID 1)
-    - cryptsetup-libs (only in RootImage= handling in PID 1, but not in systemd-cryptsetup)
-    - similar: libblkid
+    - libblkid (only in RootImage= handling in PID 1, but not elsewhere)
     - libpam (only when called from PID 1)
     - bzip2, xz, lz4 (always — gzip and zstd should probably stay static deps the way they are,
       since they are so basic and our defaults)
