@@ -671,6 +671,7 @@
       <xi:include href="less-variables.xml" xpointer="pager"/>
       <xi:include href="less-variables.xml" xpointer="less"/>
       <xi:include href="less-variables.xml" xpointer="lesscharset"/>
+      <xi:include href="less-variables.xml" xpointer="lesssecure"/>
       <xi:include href="less-variables.xml" xpointer="colors"/>
       <xi:include href="less-variables.xml" xpointer="urlify"/>
 
