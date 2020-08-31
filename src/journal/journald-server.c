@@ -247,16 +247,15 @@ static bool uid_for_system_journal(uid_t uid) {
 }
 
 static void server_add_acls(JournalFile *f, uid_t uid) {
-#if HAVE_ACL
-        int r;
-#endif
         assert(f);
 
 #if HAVE_ACL
+        int r;
+
         if (uid_for_system_journal(uid))
                 return;
 
-        r = fd_add_uid_acl_permission(f->fd, uid, /* read = */ true, /* write = */ false, /* execute = */ false);
+        r = fd_add_uid_acl_permission(f->fd, uid, ACL_READ);
         if (r < 0)
                 log_warning_errno(r, "Failed to set ACL on %s, ignoring: %m", f->path);
 #endif

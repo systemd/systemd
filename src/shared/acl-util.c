@@ -378,12 +378,20 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
         return 0;
 }
 
+/* POSIX says that ACL_{READ,WRITE,EXECUTE} don't have to be bitmasks. But that is a natural thing to do and
+ * all extant implementations do it. Let's make sure that we fail verbosely in the (imho unlikely) scenario
+ * that we get a new implementation that does not satisfy this. */
+assert_cc(!(ACL_READ & ACL_WRITE));
+assert_cc(!(ACL_WRITE & ACL_EXECUTE));
+assert_cc(!(ACL_EXECUTE & ACL_READ));
+assert_cc((unsigned) ACL_READ == ACL_READ);
+assert_cc((unsigned) ACL_WRITE == ACL_WRITE);
+assert_cc((unsigned) ACL_EXECUTE == ACL_EXECUTE);
+
 int fd_add_uid_acl_permission(
                 int fd,
                 uid_t uid,
-                bool rd,
-                bool wr,
-                bool ex) {
+                unsigned mask) {
 
         _cleanup_(acl_freep) acl_t acl = NULL;
         acl_permset_t permset;
@@ -411,11 +419,11 @@ int fd_add_uid_acl_permission(
         if (acl_get_permset(entry, &permset) < 0)
                 return -errno;
 
-        if (rd && acl_add_perm(permset, ACL_READ) < 0)
+        if ((mask & ACL_READ) && acl_add_perm(permset, ACL_READ) < 0)
                 return -errno;
-        if (wr && acl_add_perm(permset, ACL_WRITE) < 0)
+        if ((mask & ACL_WRITE) && acl_add_perm(permset, ACL_WRITE) < 0)
                 return -errno;
-        if (ex && acl_add_perm(permset, ACL_EXECUTE) < 0)
+        if ((mask & ACL_EXECUTE) && acl_add_perm(permset, ACL_EXECUTE) < 0)
                 return -errno;
 
         r = calc_acl_mask_if_needed(&acl);
