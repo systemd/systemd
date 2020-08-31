@@ -998,14 +998,17 @@ static int mount_partition(
         assert(m);
         assert(where);
 
+        /* Use decrypted node and matching fstype if available, otherwise use the original device */
         node = m->decrypted_node ?: m->node;
-        fstype = m->decrypted_fstype ?: m->fstype;
+        fstype = m->decrypted_node ? m->decrypted_fstype: m->fstype;
 
-        if (!m->found || !node || !fstype)
+        if (!m->found || !node)
                 return 0;
+        if (!fstype)
+                return -EAFNOSUPPORT;
 
         /* We are looking at an encrypted partition? This either means stacked encryption, or the caller didn't call dissected_image_decrypt() beforehand. Let's return a recognizable error for this case. */
-        if (streq_ptr(fstype, "crypto_LUKS"))
+        if (streq(fstype, "crypto_LUKS"))
                 return -EUNATCH;
 
         rw = m->rw && !(flags & DISSECT_IMAGE_READ_ONLY);
@@ -1081,6 +1084,7 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
          *  -EUNATCH      → Encrypted partition found for which no dm-crypt was set up yet
          *  -EUCLEAN      → fsck for file system failed
          *  -EBUSY        → File system already mounted/used elsewhere (kernel)
+         *  -EAFNOSUPPORT → File system type not supported or not known
          */
 
         if (!m->partitions[PARTITION_ROOT].found)
@@ -1187,6 +1191,8 @@ int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t u
                 return log_error_errno(r, "File system check on image failed.");
         if (r == -EBUSY)
                 return log_error_errno(r, "File system already mounted elsewhere.");
+        if (r == -EAFNOSUPPORT)
+                return log_error_errno(r, "File system type not supported or not known.");
         if (r < 0)
                 return log_error_errno(r, "Failed to mount image: %m");
 
