@@ -74,13 +74,18 @@ int make_salt(char **ret) {
 #endif
 }
 
-bool hashed_password_valid(const char *s) {
-
-        /* Returns true if the specified string is a 'valid' hashed UNIX password, i.e. if starts with '$' or
-         * with '!$' (the latter being a valid, yet locked password). */
-
-        if (isempty(s))
+bool looks_like_hashed_password(const char *s) {
+        /* Returns false if the specified string is certainly not a hashed UNIX password. crypt(5) lists
+         * various hashing methods. We only reject (return false) strings which are documented to have
+         * different meanings.
+         *
+         * In particular, we allow locked passwords, i.e. strings starting with "!", including just "!",
+         * i.e. the locked empty password. See also fc58c0c7bf7e4f525b916e3e5be0de2307fef04e.
+         */
+        if (!s)
                 return false;
 
-        return STARTSWITH_SET(s, "$", "!$");
+        s += strspn(s, "!"); /* Skip (possibly duplicated) locking prefix */
+
+        return !STR_IN_SET(s, "x", "*");
 }

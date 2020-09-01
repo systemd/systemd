@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "json-internal.h"
@@ -16,6 +17,10 @@ static void test_tokenizer(const char *data, ...) {
         unsigned line = 0, column = 0;
         void *state = NULL;
         va_list ap;
+
+        _cleanup_free_ char *cdata;
+        assert_se(cdata = cescape(data));
+        log_info("/* %s data=\"%s\" */", __func__, cdata);
 
         va_start(ap, data);
 
@@ -82,6 +87,10 @@ static void test_variant(const char *data, Test test) {
         _cleanup_free_ char *s = NULL;
         int r;
 
+        _cleanup_free_ char *cdata;
+        assert_se(cdata = cescape(data));
+        log_info("/* %s data=\"%s\" */", __func__, cdata);
+
         r = json_parse(data, 0, &v, NULL, NULL);
         assert_se(r == 0);
         assert_se(v);
@@ -140,6 +149,8 @@ static void test_1(JsonVariant *v) {
         JsonVariant *p, *q;
         unsigned i;
 
+        log_info("/* %s */", __func__);
+
         /* 3 keys + 3 values */
         assert_se(json_variant_elements(v) == 6);
 
@@ -172,6 +183,8 @@ static void test_1(JsonVariant *v) {
 
 static void test_2(JsonVariant *v) {
         JsonVariant *p, *q;
+
+        log_info("/* %s */", __func__);
 
         /* 2 keys + 2 values */
         assert_se(json_variant_elements(v) == 4);
@@ -216,13 +229,12 @@ static void test_2(JsonVariant *v) {
 }
 
 static void test_zeroes(JsonVariant *v) {
-        size_t i;
-
         /* Make sure zero is how we expect it. */
+        log_info("/* %s */", __func__);
 
         assert_se(json_variant_elements(v) == 13);
 
-        for (i = 0; i < json_variant_elements(v); i++) {
+        for (size_t i = 0; i < json_variant_elements(v); i++) {
                 JsonVariant *w;
                 size_t j;
 
@@ -255,6 +267,8 @@ static void test_zeroes(JsonVariant *v) {
 }
 
 static void test_build(void) {
+        log_info("/* %s */", __func__);
+
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL, *b = NULL;
         _cleanup_free_ char *s = NULL, *t = NULL;
 
@@ -355,6 +369,8 @@ static void test_source(void) {
                 "false, 7.5, {} ]\n"
                 "}\n";
 
+        log_info("/* %s */", __func__);
+
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
@@ -376,15 +392,16 @@ static void test_source(void) {
 }
 
 static void test_depth(void) {
+        log_info("/* %s */", __func__);
+
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        unsigned i;
         int r;
 
         v = JSON_VARIANT_STRING_CONST("start");
 
         /* Let's verify that the maximum depth checks work */
 
-        for (i = 0;; i++) {
+        for (unsigned i = 0;; i++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
 
                 assert_se(i <= UINT16_MAX);
@@ -415,6 +432,8 @@ static void test_depth(void) {
 }
 
 static void test_normalize(void) {
+        log_info("/* %s */", __func__);
+
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         _cleanup_free_ char *t = NULL;
 
@@ -459,12 +478,13 @@ static void test_normalize(void) {
 }
 
 static void test_bisect(void) {
+        log_info("/* %s */", __func__);
+
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        char c;
 
         /* Tests the bisection logic in json_variant_by_key() */
 
-        for (c = 'z'; c >= 'a'; c--) {
+        for (char c = 'z'; c >= 'a'; c--) {
 
                 if ((c % 3) == 0)
                         continue;
@@ -484,7 +504,7 @@ static void test_bisect(void) {
 
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
-        for (c = 'a'; c <= 'z'; c++) {
+        for (char c = 'a'; c <= 'z'; c++) {
                 JsonVariant *k;
                 const char *z;
 
@@ -543,7 +563,7 @@ int main(int argc, char *argv[]) {
 
         test_variant("{\"k\": \"v\", \"foo\": [1, 2, 3], \"bar\": {\"zap\": null}}", test_1);
         test_variant("{\"mutant\": [1, null, \"1\", {\"1\": [1, \"1\"]}], \"thisisaverylongproperty\": 1.27}", test_2);
-        test_variant("{\"foo\" : \"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFFFFF\\\"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFF\\uDBFF\\uDFFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFFFF\\\"\\uDBFF\\uDFFF\\\"\\uD9FF\\uDFFF\\uDBFF\\uDFFF\"}", NULL);
+        test_variant("{\"foo\" : \"\\u0935\\u093f\\u0935\\u0947\\u0915\\u0916\\u094d\\u092f\\u093e\\u0924\\u093f\\u0930\\u0935\\u093f\\u092a\\u094d\\u0932\\u0935\\u093e\\u0020\\u0939\\u093e\\u0928\\u094b\\u092a\\u093e\\u092f\\u0903\\u0964\"}", NULL);
 
         test_variant("[ 0, -0, 0.0, -0.0, 0.000, -0.000, 0e0, -0e0, 0e+0, -0e-0, 0e-0, -0e000, 0e+000 ]", test_zeroes);
 

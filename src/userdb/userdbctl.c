@@ -8,7 +8,6 @@
 #include "fd-util.h"
 #include "format-table.h"
 #include "format-util.h"
-#include "group-record-show.h"
 #include "main-func.h"
 #include "pager.h"
 #include "parse-util.h"
@@ -687,7 +686,8 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (streq(optarg, "help")) {
                                 puts("classic\n"
                                      "friendly\n"
-                                     "json");
+                                     "json\n"
+                                     "table");
                                 return 0;
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --output= mode: %s", optarg);
