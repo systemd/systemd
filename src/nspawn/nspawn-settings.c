@@ -809,15 +809,14 @@ static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolv_conf_mode, ResolvConfMode, RESOLV_CONF_AUTO);
 
 int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try) {
+        int r;
+
         assert(s);
         assert(ret_mode);
         assert(ret_try);
 
         if (streq(s, "auto")) {
                 *ret_mode = LINK_AUTO;
-                *ret_try = false;
-        } else if (streq(s, "no")) {
-                *ret_mode = LINK_NO;
                 *ret_try = false;
         } else if (streq(s, "guest")) {
                 *ret_mode = LINK_GUEST;
@@ -831,8 +830,16 @@ int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try) {
         } else if (streq(s, "try-host")) {
                 *ret_mode = LINK_HOST;
                 *ret_try = true;
-        } else
-                return -EINVAL;
+        } else {
+                /* Also support boolean values, to make things less confusing. */
+                r = parse_boolean(s);
+                if (r < 0)
+                        return r;
+
+                /* Let's consider "true" to be equivalent to "auto". */
+                *ret_mode = r ? LINK_AUTO : LINK_NO;
+                *ret_try = false;
+        }
 
         return 0;
 }
