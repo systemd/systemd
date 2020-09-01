@@ -18,6 +18,7 @@
 #include "dbus-socket.h"
 #include "dbus-unit.h"
 #include "def.h"
+#include "errno-list.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -1418,11 +1419,12 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
 
         if (cfd >= 0) {
                 r = instance_from_socket(cfd, s->n_accepted, &instance);
-                if (r == -ENOTCONN)
-                        /* ENOTCONN is legitimate if TCP RST was received.
-                         * This connection is over, but the socket unit lives on. */
+                if (ERRNO_IS_DISCONNECT(r))
+                        /* ENOTCONN is legitimate if TCP RST was received. Other socket families might return
+                         * different errors. This connection is over, but the socket unit lives on. */
                         return log_unit_debug_errno(UNIT(s), r,
-                                                    "Got ENOTCONN on incoming socket, assuming aborted connection attempt, ignoring.");
+                                                    "Got %s on incoming socket, assuming aborted connection attempt, ignoring.",
+                                                    errno_to_name(r));
                 if (r < 0)
                         return r;
         }
@@ -2359,8 +2361,8 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 if (!pending) {
                         if (!UNIT_ISSET(s->service)) {
-                                log_unit_error(UNIT(s), "Service to activate vanished, refusing activation.");
-                                r = -ENOENT;
+                                r = log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT),
+                                                         "Service to activate vanished, refusing activation.");
                                 goto fail;
                         }
 
@@ -2382,8 +2384,10 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 if (s->max_connections_per_source > 0) {
                         r = socket_acquire_peer(s, cfd, &p);
-                        if (r < 0)
-                                goto refuse;
+                        if (ERRNO_IS_DISCONNECT(r))
+                                goto notconn;
+                        if (r < 0) /* We didn't have enough resources to acquire peer information, let's fail. */
+                                goto fail;
                         if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
@@ -2397,6 +2401,8 @@ static void socket_enter_running(Socket *s, int cfd) {
                 }
 
                 r = socket_instantiate_service(s, cfd);
+                if (ERRNO_IS_DISCONNECT(r))
+                        goto notconn;
                 if (r < 0)
                         goto fail;
 
@@ -2406,6 +2412,8 @@ static void socket_enter_running(Socket *s, int cfd) {
                 s->n_accepted++;
 
                 r = service_set_socket_fd(service, cfd, s, s->selinux_context_from_net);
+                if (ERRNO_IS_DISCONNECT(r))
+                        goto notconn;
                 if (r < 0)
                         goto fail;
 
@@ -2430,13 +2438,18 @@ static void socket_enter_running(Socket *s, int cfd) {
 
 refuse:
         s->n_refused++;
+notconn:
         safe_close(cfd);
         return;
 
 fail:
-        log_unit_warning(UNIT(s), "Failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
-                         cfd >= 0 ? "template" : "non-template",
-                         bus_error_message(&error, r));
+        if (ERRNO_IS_RESOURCE(r))
+                log_unit_warning(UNIT(s), "Failed to queue service startup job: %s",
+                                 bus_error_message(&error, r));
+        else
+                log_unit_warning(UNIT(s), "Failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
+                                 cfd >= 0 ? "template" : "non-template",
+                                 bus_error_message(&error, r));
 
         socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
         safe_close(cfd);
