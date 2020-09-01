@@ -24,10 +24,10 @@
 #include "fileio-label.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "id128-util.h"
 #include "io-util.h"
 #include "install.h"
+#include "label.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -5670,7 +5670,7 @@ static int unit_export_invocation_id(Unit *u) {
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to get invocation path: %m");
 
-        r = symlink_atomic(u->invocation_id_string, p);
+        r = symlink_atomic_label(u->invocation_id_string, p);
         if (r < 0)
                 return log_unit_debug_errno(u, r, "Failed to create invocation ID symlink %s: %m", p);
 
