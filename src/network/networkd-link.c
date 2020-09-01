@@ -821,7 +821,7 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
         bool keep_dhcp = may_keep_dhcp &&
                          link->network &&
                          (link->manager->restarting ||
-                          FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
+                          FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP));
 
         if (link->dhcp_client && !keep_dhcp) {
                 k = sd_dhcp_client_stop(link->dhcp_client);
@@ -880,6 +880,8 @@ void link_enter_failed(Link *link) {
         log_link_warning(link, "Failed");
 
         link_set_state(link, LINK_STATE_FAILED);
+
+
 
         link_stop_clients(link, false);
 
