@@ -233,7 +233,7 @@ struct Manager {
         Hashmap *unit_id_map;
         Hashmap *unit_name_map;
         Set *unit_path_cache;
-        usec_t unit_cache_mtime;
+        uint64_t unit_cache_timestamp_hash;
 
         char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
         char **client_environment;     /* Environment variables created by clients through the bus API */
@@ -464,7 +464,7 @@ Unit *manager_get_unit(Manager *m, const char *name);
 
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
-bool manager_unit_file_maybe_loadable_from_cache(Unit *u);
+bool manager_unit_cache_should_retry_load(Unit *u);
 int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
 int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
 int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);

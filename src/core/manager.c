@@ -704,7 +704,7 @@ static void manager_free_unit_name_maps(Manager *m) {
         m->unit_id_map = hashmap_free(m->unit_id_map);
         m->unit_name_map = hashmap_free(m->unit_name_map);
         m->unit_path_cache = set_free(m->unit_path_cache);
-        m->unit_cache_mtime =  0;
+        m->unit_cache_timestamp_hash = 0;
 }
 
 static int manager_setup_run_queue(Manager *m) {
@@ -1947,19 +1947,22 @@ unsigned manager_dispatch_load_queue(Manager *m) {
         return n;
 }
 
-bool manager_unit_file_maybe_loadable_from_cache(Unit *u) {
+bool manager_unit_cache_should_retry_load(Unit *u) {
         assert(u);
 
+        /* Automatic reloading from disk only applies to units which were not found sometime in the past, and
+         * the not-found stub is kept pinned in the unit graph by dependencies. For units that were
+         * previously loaded, we don't do automatic reloading, and daemon-reload is necessary to update. */
         if (u->load_state != UNIT_NOT_FOUND)
                 return false;
 
-        if (u->manager->unit_cache_mtime == 0)
-                return false;
-
-        if (u->manager->unit_cache_mtime > u->fragment_loadtime)
+        /* The cache has been updated since the last time we tried to load the unit. There might be new
+         * fragment paths to read. */
+        if (u->manager->unit_cache_timestamp_hash != u->fragment_not_found_timestamp_hash)
                 return true;
 
-        return !lookup_paths_mtime_good(&u->manager->lookup_paths, u->manager->unit_cache_mtime);
+        /* The cache needs to be updated because there are modifications on disk. */
+        return !lookup_paths_timestamp_hash_same(&u->manager->lookup_paths, u->manager->unit_cache_timestamp_hash, NULL);
 }
 
 int manager_load_unit_prepare(
@@ -2008,10 +2011,10 @@ int manager_load_unit_prepare(
                  * first if anything in the usual paths was modified since the last time
                  * the cache was loaded. Also check if the last time an attempt to load the
                  * unit was made was before the most recent cache refresh, so that we know
-                 * we need to try again - even if the cache is current, it might have been
+                 * we need to try again — even if the cache is current, it might have been
                  * updated in a different context before we had a chance to retry loading
                  * this particular unit. */
-                if (manager_unit_file_maybe_loadable_from_cache(ret))
+                if (manager_unit_cache_should_retry_load(ret))
                         ret->load_state = UNIT_STUB;
                 else {
                         *_ret = ret;

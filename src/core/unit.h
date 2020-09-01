@@ -136,7 +136,7 @@ typedef struct Unit {
         char *source_path; /* if converted, the source file */
         char **dropin_paths;
 
-        usec_t fragment_loadtime;
+        usec_t fragment_not_found_timestamp_hash;
         usec_t fragment_mtime;
         usec_t source_mtime;
         usec_t dropin_mtime;
