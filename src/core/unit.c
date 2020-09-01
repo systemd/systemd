@@ -1040,8 +1040,6 @@ Unit* unit_follow_merge(Unit *u) {
 }
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
-        ExecDirectoryType dt;
-        char **dp;
         int r;
 
         assert(u);
@@ -1065,10 +1063,11 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         return r;
         }
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 if (!u->manager->prefix[dt])
                         continue;
 
+                char **dp;
                 STRV_FOREACH(dp, c->directories[dt].paths) {
                         _cleanup_free_ char *p;
 
@@ -1188,13 +1187,12 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
                 { UNIT_DEPENDENCY_MOUNTINFO_DEFAULT,  "mountinfo-default"  },
                 { UNIT_DEPENDENCY_PROC_SWAP,          "proc-swap"          },
         };
-        size_t i;
 
         assert(f);
         assert(kind);
         assert(space);
 
-        for (i = 0; i < ELEMENTSOF(table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
 
                 if (mask == 0)
                         break;
@@ -1223,7 +1221,6 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char timestamp[5][FORMAT_TIMESTAMP_MAX], timespan[FORMAT_TIMESPAN_MAX];
         Unit *following;
         _cleanup_set_free_ Set *following_set = NULL;
-        const char *n;
         CGroupMask m;
         int r;
 
@@ -1430,7 +1427,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         else if (u->load_state == UNIT_ERROR)
                 fprintf(f, "%s\tLoad Error Code: %s\n", prefix, strerror_safe(u->load_error));
 
-        for (n = sd_bus_track_first(u->bus_track); n; n = sd_bus_track_next(u->bus_track))
+        for (const char *n = sd_bus_track_first(u->bus_track); n; n = sd_bus_track_next(u->bus_track))
                 fprintf(f, "%s\tBus Ref: %s\n", prefix, n);
 
         if (u->job)
@@ -2044,7 +2041,6 @@ bool unit_is_unneeded(Unit *u) {
                 UNIT_WANTED_BY,
                 UNIT_BOUND_BY,
         };
-        size_t j;
 
         assert(u);
 
@@ -2057,7 +2053,7 @@ bool unit_is_unneeded(Unit *u) {
         if (u->job)
                 return false;
 
-        for (j = 0; j < ELEMENTSOF(deps); j++) {
+        for (size_t j = 0; j < ELEMENTSOF(deps); j++) {
                 Unit *other;
                 Iterator i;
                 void *v;
@@ -2088,13 +2084,12 @@ static void check_unneeded_dependencies(Unit *u) {
                 UNIT_WANTS,
                 UNIT_BINDS_TO,
         };
-        size_t j;
 
         assert(u);
 
         /* Add all units this unit depends on to the queue that processes StopWhenUnneeded= behaviour. */
 
-        for (j = 0; j < ELEMENTSOF(deps); j++) {
+        for (size_t j = 0; j < ELEMENTSOF(deps); j++) {
                 Unit *other;
                 Iterator i;
                 void *v;
@@ -2251,8 +2246,6 @@ static int unit_log_resources(Unit *u) {
         size_t n_message_parts = 0, n_iovec = 0;
         char* message_parts[1 + 2 + 2 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
-        CGroupIPAccountingMetric m;
-        size_t i;
         int r;
         const char* const ip_fields[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
                 [CGROUP_IP_INGRESS_BYTES]   = "IP_METRIC_INGRESS_BYTES",
@@ -2364,7 +2357,7 @@ static int unit_log_resources(Unit *u) {
                 }
         }
 
-        for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
+        for (CGroupIPAccountingMetric m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
                 char buf[FORMAT_BYTES_MAX] = "";
                 uint64_t value = UINT64_MAX;
 
@@ -2467,10 +2460,10 @@ static int unit_log_resources(Unit *u) {
         r = 0;
 
 finish:
-        for (i = 0; i < n_message_parts; i++)
+        for (size_t i = 0; i < n_message_parts; i++)
                 free(message_parts[i]);
 
-        for (i = 0; i < n_iovec; i++)
+        for (size_t i = 0; i < n_iovec; i++)
                 free(iovec[i].iov_base);
 
         return r;
@@ -2798,10 +2791,10 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         /* Then, let's also drop the unit, in case it's in the array keyed by -pid */
         array = hashmap_get(u->manager->watch_pids, PID_TO_PTR(-pid));
         if (array) {
-                size_t n, m = 0;
-
                 /* Let's iterate through the array, dropping our own entry */
-                for (n = 0; array[n]; n++)
+
+                size_t m = 0;
+                for (size_t n = 0; array[n]; n++)
                         if (array[n] != u)
                                 array[m++] = array[n];
                 array[m] = NULL;
@@ -3531,7 +3524,6 @@ static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_M
 };
 
 int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
-        CGroupIPAccountingMetric m;
         int r;
 
         assert(u);
@@ -3603,7 +3595,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
 
         bus_track_serialize(u->bus_track, f, "ref");
 
-        for (m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
+        for (CGroupIPAccountingMetric m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
                 uint64_t v;
 
                 r = unit_get_ip_accounting(u, m, &v);
@@ -4444,7 +4436,6 @@ static int user_from_unit_name(Unit *u, char **ret) {
 int unit_patch_contexts(Unit *u) {
         CGroupContext *cc;
         ExecContext *ec;
-        unsigned i;
         int r;
 
         assert(u);
@@ -4456,7 +4447,7 @@ int unit_patch_contexts(Unit *u) {
         ec = unit_get_exec_context(u);
         if (ec) {
                 /* This only copies in the ones that need memory */
-                for (i = 0; i < _RLIMIT_MAX; i++)
+                for (unsigned i = 0; i < _RLIMIT_MAX; i++)
                         if (u->manager->rlimit[i] && !ec->rlimit[i]) {
                                 ec->rlimit[i] = newdup(struct rlimit, u->manager->rlimit[i], 1);
                                 if (!ec->rlimit[i])
@@ -5646,7 +5637,6 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         char *pattern;
         le64_t *sizes;
         ssize_t n;
-        size_t i;
         int r;
 
         if (u->exported_log_extra_fields)
@@ -5658,7 +5648,7 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         sizes = newa(le64_t, c->n_log_extra_fields);
         iovec = newa(struct iovec, c->n_log_extra_fields * 2);
 
-        for (i = 0; i < c->n_log_extra_fields; i++) {
+        for (size_t i = 0; i < c->n_log_extra_fields; i++) {
                 sizes[i] = htole64(c->log_extra_fields[i].iov_len);
 
                 iovec[i*2] = IOVEC_MAKE(sizes + i, sizeof(le64_t));
