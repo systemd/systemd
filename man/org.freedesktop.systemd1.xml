@@ -179,6 +179,13 @@ node /org/freedesktop/systemd1 {
       DisableUnitFiles(in  as files,
                        in  b runtime,
                        out a(sss) changes);
+      EnableUnitFilesWithFlags(in  as files,
+                               in  t flags,
+                               out b carries_install_info,
+                               out a(sss) changes);
+      DisableUnitFilesWithFlags(in  as files,
+                                in  t flags,
+                                out a(sss) changes);
       ReenableUnitFiles(in  as files,
                         in  b runtime,
                         in  b force,
@@ -836,6 +843,10 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="DisableUnitFiles()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="EnableUnitFilesWithFlags()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="DisableUnitFilesWithFlags()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ReenableUnitFiles()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="LinkUnitFiles()"/>
@@ -1292,6 +1303,20 @@ node /org/freedesktop/systemd1 {
       <para>Similarly, <function>DisableUnitFiles()</function> disables one or more units in the system,
       i.e. removes all symlinks to them in <filename>/etc</filename> and <filename>/run</filename>.</para>
 
+      <para>The <function>EnableUnitFilesWithFlags()</function> and <function>DisableUnitFilesWithFlags()</function>
+      take in options as flags instead of booleans to allow for extendability, defined as follows:</para>
+
+      <programlisting>
+#define SD_SYSTEMD_UNIT_RUNTIME  (UINT64_C(1) &lt;&lt; 0)
+#define SD_SYSTEMD_UNIT_FORCE    (UINT64_C(1) &lt;&lt; 1)
+#define SD_SYSTEMD_UNIT_PORTABLE (UINT64_C(1) &lt;&lt; 2)
+      </programlisting>
+
+      <para><varname>SD_SYSTEMD_UNIT_RUNTIME</varname> will enable or disable the unit for runtime only,
+      <varname>SD_SYSTEMD_UNIT_FORCE</varname> controls whether symlinks pointing to other units shall be
+      replaced if necessary. <varname>SD_SYSTEMD_UNIT_PORTABLE</varname> will add or remove the symlinks in
+      <filename>/etc/systemd/system.attached</filename> and <filename>/run/systemd/system.attached</filename>.</para>
+
       <para>Similarly, <function>ReenableUnitFiles()</function> applies the changes to one or more units that
       would result from disabling and enabling the unit quickly one after the other in an atomic
       fashion. This is useful to apply updated [Install] information contained in unit files.</para>
@@ -1480,6 +1505,7 @@ node /org/freedesktop/systemd1 {
       <function>RestartUnit()</function> and similar, <function>SetProperty()</function>) require
       <interfacename>org.freedesktop.systemd1.manage-units</interfacename>. Operations which modify unit file
       enablement state (<function>EnableUnitFiles()</function>, <function>DisableUnitFiles()</function>,
+      <function>EnableUnitFilesWithFlags()</function>, <function>DisableUnitFilesWithFlags()</function>,
       <function>ReenableUnitFiles()</function>, <function>LinkUnitFiles()</function>,
       <function>PresetUnitFiles</function>, <function>MaskUnitFiles</function>, and similar) require
       <interfacename>org.freedesktop.systemd1.manage-unit-files</interfacename>. Operations which modify the
