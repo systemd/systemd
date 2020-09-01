@@ -77,7 +77,7 @@ enum {
         META_ARGV_UID,          /* %u: as seen in the initial user namespace */
         META_ARGV_GID,          /* %g: as seen in the initial user namespace */
         META_ARGV_SIGNAL,       /* %s: number of signal causing dump */
-        META_ARGV_TIMESTAMP,    /* %t: time of dump, expressed as seconds since the Epoch */
+        META_ARGV_TIMESTAMP,    /* %t: time of dump, expressed as seconds since the Epoch (we expand this to µs granularity) */
         META_ARGV_RLIMIT,       /* %c: core file size soft resource limit */
         META_ARGV_HOSTNAME,     /* %h: hostname */
         _META_ARGV_MAX,
@@ -328,7 +328,7 @@ static int make_filename(const Context *context, char **ret) {
                 return -ENOMEM;
 
         if (asprintf(ret,
-                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
+                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s",
                      c,
                      u,
                      SD_ID128_FORMAT_VAL(boot),
@@ -1046,8 +1046,11 @@ static int send_iovec(const struct iovec_wrapper *iovw, int input_fd) {
         return 0;
 }
 
-static int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *context,
-                                         int argc, char **argv) {
+static int gather_pid_metadata_from_argv(
+                struct iovec_wrapper *iovw,
+                Context *context,
+                int argc, char **argv) {
+
         _cleanup_free_ char *free_timestamp = NULL;
         int i, r, signo;
         char *t;
@@ -1065,6 +1068,7 @@ static int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *co
                 t = argv[i];
 
                 switch (i) {
+
                 case META_ARGV_TIMESTAMP:
                         /* The journal fields contain the timestamp padded with six
                          * zeroes, so that the kernel-supplied 1s granularity timestamps
@@ -1074,12 +1078,14 @@ static int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *co
                         if (!t)
                                 return log_oom();
                         break;
+
                 case META_ARGV_SIGNAL:
                         /* For signal, record its pretty name too */
                         if (safe_atoi(argv[i], &signo) >= 0 && SIGNAL_VALID(signo))
                                 (void) iovw_put_string_field(iovw, "COREDUMP_SIGNAL_NAME=SIG",
                                                              signal_to_string(signo));
                         break;
+
                 default:
                         break;
                 }
