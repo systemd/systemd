@@ -105,7 +105,7 @@ int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus) {
         return 0;
 }
 
-static int cpu_set_add(CPUSet *cpu_set, unsigned cpu) {
+int cpu_set_add(CPUSet *cpu_set, unsigned cpu) {
         int r;
 
         if (cpu >= 8192)
