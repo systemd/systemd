@@ -7313,19 +7313,30 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         if (r < 0)
                 return log_error_errno(r, "Failed to determine temporary filename for \"%s\": %m", new_path);
 
-        r = mkdir_parents(new_path, 0755);
+        r = mkdir_parents_label(new_path, 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
+
+        r = mac_selinux_create_file_prepare(original_path, S_IFREG);
+        if (r < 0)
+                return r;
 
         r = copy_file(original_path, t, 0, 0644, 0, 0, COPY_REFLINK);
         if (r == -ENOENT) {
 
                 r = touch(t);
+
+                mac_selinux_create_file_clear();
+
                 if (r < 0)
                         return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
 
-        } else if (r < 0)
-                return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", new_path);
+        } else {
+                mac_selinux_create_file_clear();
+
+                if (r < 0)
+                         return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", new_path);
+        }
 
         *ret_tmp_fn = TAKE_PTR(t);
 
@@ -7603,6 +7614,10 @@ static int edit(int argc, char *argv[], void *userdata) {
         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine unit paths: %m");
+
+        r = mac_selinux_init();
+        if (r < 0)
+                return r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
