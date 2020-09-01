@@ -20,6 +20,7 @@ typedef enum {
         ARCHITECTURE_ARM_BE,
         ARCHITECTURE_CRIS,
         ARCHITECTURE_IA64,
+        ARCHITECTURE_LOONGARCH64,
         ARCHITECTURE_M68K,
         ARCHITECTURE_MIPS,
         ARCHITECTURE_MIPS64,
@@ -197,6 +198,10 @@ int uname_architecture(void);
 #  elif defined(__SH4A__)
 #    define LIB_ARCH_TUPLE "sh4a-linux-gnu"
 #  endif
+#elif defined(__loongarch64)
+#    pragma message "Please update the Arch tuple of loongarch64 after psABI is stable"
+#    define native_architecture() ARCHITECTURE_LOONGARCH64
+#    define LIB_ARCH_TUPLE "loongarch64-linux-gnu"
 #elif defined(__m68k__)
 #  define native_architecture() ARCHITECTURE_M68K
 #  define LIB_ARCH_TUPLE "m68k-linux-gnu"
