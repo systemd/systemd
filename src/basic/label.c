@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "btrfs-util.h"
+#include "fs-util.h"
 #include "label.h"
 #include "macro.h"
 #include "selinux-util.h"
@@ -43,6 +44,27 @@ int symlink_label(const char *old_path, const char *new_path) {
                 return r;
 
         return mac_smack_fix(new_path, 0);
+}
+
+int symlink_atomic_label(const char *from, const char *to) {
+        int r;
+
+        assert(from);
+        assert(to);
+
+        r = mac_selinux_create_file_prepare(to, S_IFLNK);
+        if (r < 0)
+                return r;
+
+        if (symlink_atomic(from, to) < 0)
+                r = -errno;
+
+        mac_selinux_create_file_clear();
+
+        if (r < 0)
+                return r;
+
+        return mac_smack_fix(to, 0);
 }
 
 int mknod_label(const char *pathname, mode_t mode, dev_t dev) {
