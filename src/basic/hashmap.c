@@ -730,10 +730,6 @@ bool _hashmap_iterate(HashmapBase *h, Iterator *i, void **value, const void **ke
         return true;
 }
 
-bool set_iterate(const Set *s, Iterator *i, void **value) {
-        return _hashmap_iterate(HASHMAP_BASE((Set*) s), i, value, NULL);
-}
-
 #define HASHMAP_FOREACH_IDX(idx, h, i) \
         for ((i) = ITERATOR_FIRST, (idx) = hashmap_iterate_entry((h), &(i)); \
              (idx != IDX_NIL); \

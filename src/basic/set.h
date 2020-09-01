@@ -77,7 +77,9 @@ static inline unsigned set_buckets(const Set *s) {
         return _hashmap_buckets(HASHMAP_BASE((Set *) s));
 }
 
-bool set_iterate(const Set *s, Iterator *i, void **value);
+static inline bool set_iterate(const Set *s, Iterator *i, void **value) {
+        return _hashmap_iterate(HASHMAP_BASE((Set*) s), i, value, NULL);
+}
 
 static inline void set_clear(Set *s) {
         _hashmap_clear(HASHMAP_BASE(s), NULL, NULL);
