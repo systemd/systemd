@@ -10,8 +10,9 @@ We welcome contributions from everyone. However, please follow the following gui
 
 ## Filing Issues
 
-* We use [GitHub Issues](https://github.com/systemd/systemd/issues) **exclusively** for tracking **bugs** and **feature** **requests** of systemd. If you are looking for help, please contact [systemd-devel mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) instead.
+* We use [GitHub Issues](https://github.com/systemd/systemd/issues) **exclusively** for tracking **bugs** and **feature** **requests** (RFEs) of systemd. If you are looking for help, please contact [systemd-devel mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) instead.
 * We only track bugs in the **two** **most** **recently** **released** (non-rc) **versions** of systemd in the GitHub Issue tracker. If you are using an older version of systemd, please contact your distribution's bug tracker instead (see below). See [GitHub Release Page](https://github.com/systemd/systemd/releases) for the list of most recent releases.
+* When filing a feature request issue (RFE), please always check first if the newest upstream version of systemd already implements the feature, and whether there's already an issue filed for your feature by someone else.
 * When filing an issue, specify the **systemd** **version** you are experiencing the issue with. Also, indicate which **distribution** you are using.
 * Please include an explanation how to reproduce the issue you are pointing out.
 
