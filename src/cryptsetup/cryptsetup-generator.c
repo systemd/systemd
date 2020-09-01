@@ -48,53 +48,53 @@ STATIC_DESTRUCTOR_REGISTER(arg_disks, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_default_keyfile, freep);
 
-static int split_keyspec(const char *keyspec, char **ret_keyfile, char **ret_keydev) {
-        _cleanup_free_ char *keyfile = NULL, *keydev = NULL;
+static int split_locationspec(const char *locationspec, char **ret_file, char **ret_device) {
+        _cleanup_free_ char *file = NULL, *device = NULL;
         const char *c;
 
-        assert(ret_keyfile);
-        assert(ret_keydev);
+        assert(ret_file);
+        assert(ret_device);
 
-        if (!keyspec) {
-                *ret_keyfile = *ret_keydev = NULL;
+        if (!locationspec) {
+                *ret_file = *ret_device = NULL;
                 return 0;
         }
 
-        c = strrchr(keyspec, ':');
+        c = strrchr(locationspec, ':');
         if (c) {
-                /* The keydev part has to be either an absolute path to device node (/dev/something,
+                /* The device part has to be either an absolute path to device node (/dev/something,
                  * /dev/foo/something, or even possibly /dev/foo/something:part), or a fstab device
-                 * specification starting with LABEL= or similar. The keyfile part has the same syntax.
+                 * specification starting with LABEL= or similar. The file part has the same syntax.
                  *
-                 * Let's try to guess if the second part looks like a keydev specification, or just part of a
+                 * Let's try to guess if the second part looks like a device specification, or just part of a
                  * filename with a colon. fstab_node_to_udev_node() will convert the fstab device syntax to
                  * an absolute path. If we didn't get an absolute path, assume that it is just part of the
-                 * first keyfile argument. */
+                 * first file argument. */
 
-                keydev = fstab_node_to_udev_node(c + 1);
-                if (!keydev)
+                device = fstab_node_to_udev_node(c + 1);
+                if (!device)
                         return log_oom();
 
-                if (path_is_absolute(keydev))
-                        keyfile = strndup(keyspec, c-keyspec);
+                if (path_is_absolute(device))
+                        file = strndup(locationspec, c-locationspec);
                 else {
-                        log_debug("Keyspec argument contains a colon, but \"%s\" doesn't look like a device specification.\n"
+                        log_debug("Location specification argument contains a colon, but \"%s\" doesn't look like a device specification.\n"
                                   "Assuming that \"%s\" is a single device specification.",
-                                  c + 1, keyspec);
-                        keydev = mfree(keydev);
+                                  c + 1, locationspec);
+                        device = mfree(device);
                         c = NULL;
                 }
         }
 
         if (!c)
-                /* No keydev specified */
-                keyfile = strdup(keyspec);
+                /* No device specified */
+                file = strdup(locationspec);
 
-        if (!keyfile)
+        if (!file)
                 return log_oom();
 
-        *ret_keyfile = TAKE_PTR(keyfile);
-        *ret_keydev = TAKE_PTR(keydev);
+        *ret_file = TAKE_PTR(file);
+        *ret_device = TAKE_PTR(device);
 
         return 0;
 }
@@ -611,7 +611,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return log_oom();
 
                 keyspec = value + n + 1;
-                r = split_keyspec(keyspec, &keyfile, &keydev);
+                r = split_locationspec(keyspec, &keyfile, &keydev);
                 if (r < 0)
                         return r;
 
@@ -697,7 +697,7 @@ static int add_crypttab_devices(void) {
                         continue;
                 }
 
-                r = split_keyspec(keyspec, &keyfile, &keydev);
+                r = split_locationspec(keyspec, &keyfile, &keydev);
                 if (r < 0)
                         return r;
 
