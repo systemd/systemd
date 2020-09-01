@@ -81,6 +81,7 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         if (r == 0) {
                 const char *cmdline[] = {
                        "tar",
+                       "--ignore-zeros",
                        "--numeric-owner",
                        "-C", path,
                        "-px",
