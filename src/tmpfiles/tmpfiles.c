@@ -38,6 +38,8 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "missing_stat.h"
+#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -490,49 +492,137 @@ static DIR* opendir_nomod(const char *path) {
         return xopendirat_nomod(AT_FDCWD, path);
 }
 
+static inline nsec_t load_statx_timestamp_nsec(const struct statx_timestamp *ts) {
+        assert(ts);
+
+        if (ts->tv_sec < 0)
+                return NSEC_INFINITY;
+
+        if ((nsec_t) ts->tv_sec >= (UINT64_MAX - ts->tv_nsec) / NSEC_PER_SEC)
+                return NSEC_INFINITY;
+
+        return ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec;
+}
+
 static int dir_cleanup(
                 Item *i,
                 const char *p,
                 DIR *d,
-                const struct stat *ds,
-                usec_t cutoff,
-                dev_t rootdev,
+                nsec_t self_atime_nsec,
+                nsec_t self_mtime_nsec,
+                nsec_t cutoff_nsec,
+                dev_t rootdev_major,
+                dev_t rootdev_minor,
                 bool mountpoint,
                 int maxdepth,
                 bool keep_this_level) {
 
-        struct dirent *dent;
+        static bool use_statx = true;
         bool deleted = false;
+        struct dirent *dent;
         int r = 0;
 
         FOREACH_DIRENT_ALL(dent, d, break) {
-                struct stat s;
-                usec_t age;
                 _cleanup_free_ char *sub_path = NULL;
+                nsec_t atime_nsec, mtime_nsec, ctime_nsec, btime_nsec;
+                mode_t mode;
+                uid_t uid;
 
                 if (dot_or_dot_dot(dent->d_name))
                         continue;
 
-                if (fstatat(dirfd(d), dent->d_name, &s, AT_SYMLINK_NOFOLLOW) < 0) {
-                        if (errno == ENOENT)
-                                continue;
+                if (use_statx) {
+                        /* If statx() is supported, use it. It's preferable over fstatat() since it tells us
+                         * explicitly where we are looking at a mount point, for free as side
+                         * information. Determing the same information without statx() is hard, see the
+                         * complexity of path_is_mount_point(), and also much slower as it requires a numbre
+                         * of syscalls instead of just one. Hence, when we have modern statx() we use it
+                         * instead of fstat() and do proper mount point checks, while on older kernels's well
+                         * do traditional st_dev based detection of mount points.
+                         *
+                         * Using statx() for detecting mount points also has the benfit that we handle weird
+                         * file systems such as overlayfs better where each file is originating from a
+                         * different st_dev. */
 
-                        /* FUSE, NFS mounts, SELinux might return EACCES */
-                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                           "stat(%s/%s) failed: %m", p, dent->d_name);
-                        continue;
+                        struct statx sx
+#if HAS_FEATURE_MEMORY_SANITIZER
+                                = {}
+#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
+#endif
+                                ;
+
+                        if (statx(dirfd(d), dent->d_name,
+                                  AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                                  STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                                  &sx) < 0) {
+
+                                if (errno == ENOENT)
+                                        continue;
+                                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EPERM)
+                                        use_statx = false; /* Not supported or blocked by seccomp or so */
+                                else {
+                                        /* FUSE, NFS mounts, SELinux might return EACCES */
+                                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                                           "statx(%s/%s) failed: %m", p, dent->d_name);
+                                        continue;
+                                }
+                        } else {
+                                if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) {
+                                        /* Yay, we have the mount point API, use it */
+                                        if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
+                                                log_debug("Ignoring \"%s/%s\": different mount points.", p, dent->d_name);
+                                                continue;
+                                        }
+                                } else {
+                                        /* So we have statx() but the STATX_ATTR_MOUNT_ROOT flag is not
+                                         * supported, fall back to traditional stx_dev checking. */
+                                        if (sx.stx_dev_major != rootdev_major ||
+                                            sx.stx_dev_minor != rootdev_minor) {
+                                                log_debug("Ignoring \"%s/%s\": different filesystem.", p, dent->d_name);
+                                                continue;
+                                        }
+                                }
+
+                                mode = sx.stx_mode;
+                                uid = sx.stx_uid;
+                                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? load_statx_timestamp_nsec(&sx.stx_atime) : 0;
+                                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? load_statx_timestamp_nsec(&sx.stx_mtime) : 0;
+                                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? load_statx_timestamp_nsec(&sx.stx_ctime) : 0;
+                                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? load_statx_timestamp_nsec(&sx.stx_btime) : 0;
+                        }
                 }
 
-                /* Stay on the same filesystem */
-                if (s.st_dev != rootdev) {
-                        log_debug("Ignoring \"%s/%s\": different filesystem.", p, dent->d_name);
-                        continue;
+                if (!use_statx) {
+                        struct stat s;
+
+                        if (fstatat(dirfd(d), dent->d_name, &s, AT_SYMLINK_NOFOLLOW) < 0) {
+                                if (errno == ENOENT)
+                                        continue;
+
+                                /* FUSE, NFS mounts, SELinux might return EACCES */
+                                r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                                   "stat(%s/%s) failed: %m", p, dent->d_name);
+                                continue;
+                        }
+
+                        /* Stay on the same filesystem */
+                        if (major(s.st_dev) != rootdev_major || minor(s.st_dev) != rootdev_minor) {
+                                log_debug("Ignoring \"%s/%s\": different filesystem.", p, dent->d_name);
+                                continue;
+                        }
+
+                        mode = s.st_mode;
+                        uid = s.st_uid;
+                        atime_nsec = timespec_load_nsec(&s.st_atim);
+                        mtime_nsec = timespec_load_nsec(&s.st_mtim);
+                        ctime_nsec = timespec_load_nsec(&s.st_ctim);
+                        btime_nsec = 0;
                 }
 
                 /* Try to detect bind mounts of the same filesystem instance; they
                  * do not differ in device major/minors. This type of query is not
                  * supported on all kernels or filesystem types though. */
-                if (S_ISDIR(s.st_mode)) {
+                if (S_ISDIR(mode)) {
                         int q;
 
                         q = fd_is_mount_point(dirfd(d), dent->d_name, 0);
@@ -561,12 +651,12 @@ static int dir_cleanup(
                         continue;
                 }
 
-                if (S_ISDIR(s.st_mode)) {
+                if (S_ISDIR(mode)) {
                         _cleanup_closedir_ DIR *sub_dir = NULL;
 
                         if (mountpoint &&
                             streq(dent->d_name, "lost+found") &&
-                            s.st_uid == 0) {
+                            uid == 0) {
                                 log_debug("Ignoring directory \"%s\".", sub_path);
                                 continue;
                         }
@@ -589,7 +679,11 @@ static int dir_cleanup(
                                         continue;
                                 }
 
-                                q = dir_cleanup(i, sub_path, sub_dir, &s, cutoff, rootdev, false, maxdepth-1, false);
+                                q = dir_cleanup(i,
+                                                sub_path, sub_dir,
+                                                atime_nsec, mtime_nsec, cutoff_nsec,
+                                                rootdev_major, rootdev_minor,
+                                                false, maxdepth-1, false);
                                 if (q < 0)
                                         r = q;
                         }
@@ -605,22 +699,28 @@ static int dir_cleanup(
                         }
 
                         /* Ignore ctime, we change it when deleting */
-                        age = timespec_load(&s.st_mtim);
-                        if (age >= cutoff) {
+                        if (mtime_nsec != NSEC_INFINITY && mtime_nsec >= cutoff_nsec) {
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 /* Follows spelling in stat(1). */
                                 log_debug("Directory \"%s\": modify time %s is too new.",
                                           sub_path,
-                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
+                                          format_timestamp_style(a, sizeof(a), mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
                                 continue;
                         }
 
-                        age = timespec_load(&s.st_atim);
-                        if (age >= cutoff) {
+                        if (atime_nsec != NSEC_INFINITY && atime_nsec >= cutoff_nsec) {
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 log_debug("Directory \"%s\": access time %s is too new.",
                                           sub_path,
-                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
+                                          format_timestamp_style(a, sizeof(a), atime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
+                                continue;
+                        }
+
+                        if (btime_nsec != NSEC_INFINITY && btime_nsec >= cutoff_nsec) {
+                                char a[FORMAT_TIMESTAMP_MAX];
+                                log_debug("Directory \"%s\": birth time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_style(a, sizeof(a), btime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
                                 continue;
                         }
 
@@ -632,14 +732,14 @@ static int dir_cleanup(
                 } else {
                         /* Skip files for which the sticky bit is set. These are semantics we define, and are
                          * unknown elsewhere. See XDG_RUNTIME_DIR specification for details. */
-                        if (s.st_mode & S_ISVTX) {
+                        if (mode & S_ISVTX) {
                                 log_debug("Skipping \"%s\": sticky bit set.", sub_path);
                                 continue;
                         }
 
                         if (mountpoint &&
-                            S_ISREG(s.st_mode) &&
-                            s.st_uid == 0 &&
+                            S_ISREG(mode) &&
+                            uid == 0 &&
                             STR_IN_SET(dent->d_name,
                                        ".journal",
                                        "aquota.user",
@@ -649,13 +749,13 @@ static int dir_cleanup(
                         }
 
                         /* Ignore sockets that are listed in /proc/net/unix */
-                        if (S_ISSOCK(s.st_mode) && unix_socket_alive(sub_path)) {
+                        if (S_ISSOCK(mode) && unix_socket_alive(sub_path)) {
                                 log_debug("Skipping \"%s\": live socket.", sub_path);
                                 continue;
                         }
 
                         /* Ignore device nodes */
-                        if (S_ISCHR(s.st_mode) || S_ISBLK(s.st_mode)) {
+                        if (S_ISCHR(mode) || S_ISBLK(mode)) {
                                 log_debug("Skipping \"%s\": a device.", sub_path);
                                 continue;
                         }
@@ -666,31 +766,36 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        age = timespec_load(&s.st_mtim);
-                        if (age >= cutoff) {
+                        if (mtime_nsec != NSEC_INFINITY && mtime_nsec >= cutoff_nsec) {
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 /* Follows spelling in stat(1). */
                                 log_debug("File \"%s\": modify time %s is too new.",
                                           sub_path,
-                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
+                                          format_timestamp_style(a, sizeof(a), mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
                                 continue;
                         }
 
-                        age = timespec_load(&s.st_atim);
-                        if (age >= cutoff) {
+                        if (atime_nsec != NSEC_INFINITY && atime_nsec >= cutoff_nsec) {
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 log_debug("File \"%s\": access time %s is too new.",
                                           sub_path,
-                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
+                                          format_timestamp_style(a, sizeof(a), atime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
                                 continue;
                         }
 
-                        age = timespec_load(&s.st_ctim);
-                        if (age >= cutoff) {
+                        if (ctime_nsec != NSEC_INFINITY && ctime_nsec >= cutoff_nsec) {
                                 char a[FORMAT_TIMESTAMP_MAX];
                                 log_debug("File \"%s\": change time %s is too new.",
                                           sub_path,
-                                          format_timestamp_style(a, sizeof(a), age, TIMESTAMP_US));
+                                          format_timestamp_style(a, sizeof(a), ctime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
+                                continue;
+                        }
+
+                        if (btime_nsec != NSEC_INFINITY && btime_nsec >= cutoff_nsec) {
+                                char a[FORMAT_TIMESTAMP_MAX];
+                                log_debug("File \"%s\": birth time %s is too new.",
+                                          sub_path,
+                                          format_timestamp_style(a, sizeof(a), btime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
                                 continue;
                         }
 
@@ -705,21 +810,19 @@ static int dir_cleanup(
 
 finish:
         if (deleted) {
-                char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX];
-                usec_t age1, age2;
-
-                age1 = timespec_load(&ds->st_atim);
-                age2 = timespec_load(&ds->st_mtim);
+                char a[FORMAT_TIMESTAMP_MAX], m[FORMAT_TIMESTAMP_MAX];
+                struct timespec ts[2];
 
                 log_debug("Restoring access and modification time on \"%s\": %s, %s",
                           p,
-                          format_timestamp_style(a, sizeof(a), age1, TIMESTAMP_US),
-                          format_timestamp_style(b, sizeof(b), age2, TIMESTAMP_US));
+                          format_timestamp_style(a, sizeof(a), self_atime_nsec / NSEC_PER_USEC, TIMESTAMP_US),
+                          format_timestamp_style(m, sizeof(m), self_mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
+
+                timespec_store_nsec(ts + 0, self_atime_nsec);
+                timespec_store_nsec(ts + 1, self_mtime_nsec);
 
                 /* Restore original directory timestamps */
-                if (futimens(dirfd(d), (struct timespec[]) {
-                                ds->st_atim,
-                                ds->st_mtim }) < 0)
+                if (futimens(dirfd(d), ts) < 0)
                         log_warning_errno(errno, "Failed to revert timestamps of '%s', ignoring: %m", p);
         }
 
@@ -2186,11 +2289,20 @@ static int remove_item(Item *i) {
 }
 
 static int clean_item_instance(Item *i, const char* instance) {
-        _cleanup_closedir_ DIR *d = NULL;
-        struct stat s, ps;
-        bool mountpoint;
-        usec_t cutoff, n;
         char timestamp[FORMAT_TIMESTAMP_MAX];
+        _cleanup_closedir_ DIR *d = NULL;
+        uint32_t dev_major, dev_minor;
+        nsec_t atime_nsec, mtime_nsec;
+        int mountpoint = -1;
+        usec_t cutoff, n;
+        uint64_t ino;
+
+        struct statx sx
+#if HAS_FEATURE_MEMORY_SANITIZER
+                = {}
+#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
+#endif
+                ;
 
         assert(i);
 
@@ -2213,24 +2325,53 @@ static int clean_item_instance(Item *i, const char* instance) {
                 return log_error_errno(errno, "Failed to open directory %s: %m", instance);
         }
 
-        if (fstat(dirfd(d), &s) < 0)
-                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
+        if (statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx) < 0) {
+                struct stat s;
 
-        if (!S_ISDIR(s.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR),
-                                       "%s is not a directory.", i->path);
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
+                        return log_error_errno(errno, "statx(%s) failed: %m", i->path);
 
-        if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
-                return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
+                if (fstat(dirfd(d), &s) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
-        mountpoint = s.st_dev != ps.st_dev || s.st_ino == ps.st_ino;
+                dev_major = major(s.st_dev);
+                dev_minor = minor(s.st_dev);
+                ino = s.st_ino;
+                atime_nsec = timespec_load_nsec(&s.st_atim);
+                mtime_nsec = timespec_load_nsec(&s.st_mtim);
+        } else {
+
+                if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                        mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+
+                dev_major = sx.stx_dev_major;
+                dev_minor = sx.stx_dev_minor;
+                ino = sx.stx_ino;
+                atime_nsec = load_statx_timestamp_nsec(&sx.stx_atime);
+                mtime_nsec = load_statx_timestamp_nsec(&sx.stx_mtime);
+        }
+
+        if (mountpoint < 0) {
+                struct stat ps;
+
+                if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
+                        return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
+
+                mountpoint =
+                        dev_major != major(ps.st_dev) ||
+                        dev_minor != minor(ps.st_dev) ||
+                        ino != ps.st_ino;
+        }
+
 
         log_debug("Cleanup threshold for %s \"%s\" is %s",
                   mountpoint ? "mount point" : "directory",
                   instance,
                   format_timestamp_style(timestamp, sizeof(timestamp), cutoff, TIMESTAMP_US));
 
-        return dir_cleanup(i, instance, d, &s, cutoff, s.st_dev, mountpoint,
+        return dir_cleanup(i, instance, d,
+                           atime_nsec, mtime_nsec, cutoff * NSEC_PER_USEC,
+                           dev_major, dev_minor, mountpoint,
                            MAX_DEPTH, i->keep_first_level);
 }
 
