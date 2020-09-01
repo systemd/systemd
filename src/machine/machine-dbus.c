@@ -1066,7 +1066,7 @@ finish:
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *src, *dest, *host_path, *container_path, *host_basename, *container_basename, *container_dirname;
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
-        CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE;
+        CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS;
         _cleanup_close_ int hostfd = -1;
         Machine *m = userdata;
         bool copy_from;
