@@ -70,6 +70,9 @@ int uname_architecture(void) {
                 { "parisc64",   ARCHITECTURE_PARISC64 },
                 { "parisc",     ARCHITECTURE_PARISC   },
 
+#elif defined(__loongarch64)
+                { "loongarch64", ARCHITECTURE_LOONGARCH64 },
+
 #elif defined(__m68k__)
                 { "m68k",       ARCHITECTURE_M68K     },
 
@@ -168,6 +171,7 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
         [ARCHITECTURE_RISCV64] = "riscv64",
         [ARCHITECTURE_ARC] = "arc",
         [ARCHITECTURE_ARC_BE] = "arc-be",
+        [ARCHITECTURE_LOONGARCH64] = "loongarch64",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(architecture, int);

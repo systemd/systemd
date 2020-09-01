@@ -20,6 +20,7 @@ enum {
         ARCHITECTURE_ARM_BE,
         ARCHITECTURE_CRIS,
         ARCHITECTURE_IA64,
+        ARCHITECTURE_LOONGARCH64,
         ARCHITECTURE_M68K,
         ARCHITECTURE_MIPS,
         ARCHITECTURE_MIPS64,
@@ -227,6 +228,10 @@ int uname_architecture(void);
 #    define native_architecture() ARCHITECTURE_ARC
 #    define LIB_ARCH_TUPLE "arc-linux"
 #  endif
+#elif defined(__loongarch64)
+#    pragma message "Please update the Arch tuple of loongarch64 after psABI is stable"
+#    define native_architecture() ARCHITECTURE_LOONGARCH64
+#    define LIB_ARCH_TUPLE "loongarch64-linux-gnu"
 #else
 #  error "Please register your architecture here!"
 #endif
