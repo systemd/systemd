@@ -814,6 +814,9 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
         int r = 0, k;
         Address *ad;
 
+        log_link_warning(link, "DBG - before return");
+        return r;
+
         assert(link);
         assert(link->manager);
         assert(link->manager->event);
@@ -825,6 +828,7 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
 
         if (link->dhcp_client && !keep_dhcp) {
                 k = sd_dhcp_client_stop(link->dhcp_client);
+                log_link_warning(link, "DBG - stopping client in link_stop_clients");
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");
         }
