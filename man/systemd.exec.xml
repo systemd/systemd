@@ -1042,7 +1042,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Controls the NUMA node list which will be applied alongside with selected NUMA policy.
         Takes a list of NUMA nodes and has the same syntax as a list of CPUs for <varname>CPUAffinity=</varname>
-        option. Note that the list of NUMA nodes is not required for <option>default</option> and <option>local</option>
+        option or special "all" value which will include all available NUMA nodes in the mask. Note that the list
+        of NUMA nodes is not required for <option>default</option> and <option>local</option>
         policies and for <option>preferred</option> policy we expect a single NUMA node.</para></listitem>
       </varlistentry>
 

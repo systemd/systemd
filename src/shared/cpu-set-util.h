@@ -20,6 +20,7 @@ static inline void cpu_set_reset(CPUSet *a) {
 }
 
 int cpu_set_add_all(CPUSet *a, const CPUSet *b);
+int cpu_set_add(CPUSet *a, unsigned cpu);
 
 char* cpu_set_to_string(const CPUSet *a);
 char *cpu_set_to_range_string(const CPUSet *a);

@@ -5,6 +5,8 @@
 
 #include "alloc-util.h"
 #include "cpu-set-util.h"
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
 #include "missing_syscall.h"
@@ -120,6 +122,61 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
 
         *ret = s;
         s = (CPUSet) {};
+
+        return 0;
+}
+
+static int numa_max_node(void) {
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
+        int r, max_node = 0;
+
+        d = opendir("/sys/devices/system/node");
+        if (!d)
+                return -errno;
+
+        FOREACH_DIRENT(de, d, break) {
+                int node;
+                const char *n;
+
+                (void) dirent_ensure_type(d, de);
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                n = startswith(de->d_name, "node");
+                if (!n)
+                        continue;
+
+                r = safe_atoi(n, &node);
+                if (r < 0)
+                        continue;
+
+                if (node > max_node)
+                        max_node = node;
+        }
+
+        return max_node;
+}
+
+int numa_mask_add_all(CPUSet *mask) {
+        int m;
+
+        assert(mask);
+
+        m = numa_max_node();
+        if (m < 0) {
+                log_debug_errno(m, "Failed to determine maximum NUMA node index, assuming 1023: %m");
+                m = 1023; /* CONFIG_NODES_SHIFT is set to 10 on x86_64, i.e. 1024 NUMA nodes in total */
+        }
+
+        for (int i = 0; i <= m; i++) {
+                int r;
+
+                r = cpu_set_add(mask, i);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }

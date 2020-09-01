@@ -1370,10 +1370,18 @@ int config_parse_numa_mask(const char *unit,
         assert(rvalue);
         assert(data);
 
-        r = parse_cpu_set_extend(rvalue, &p->nodes, true, unit, filename, line, lvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse NUMA node mask, ignoring: %s", rvalue);
-                return 0;
+        if (streq(rvalue, "all")) {
+                r = numa_mask_add_all(&p->nodes);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to create NUMA mask representing \"all\" NUMA nodes, ignoring: %m");
+                        return 0;
+                }
+        } else {
+                r = parse_cpu_set_extend(rvalue, &p->nodes, true, unit, filename, line, lvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse NUMA node mask, ignoring: %s", rvalue);
+                        return 0;
+                }
         }
 
         return r;
