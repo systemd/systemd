@@ -627,7 +627,7 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                 }
 
                 /* Try to copy as directory? */
-                r = copy_directory_fd(source_fd, arg_target, COPY_REFLINK|COPY_MERGE_EMPTY|COPY_SIGINT);
+                r = copy_directory_fd(source_fd, arg_target, COPY_REFLINK|COPY_MERGE_EMPTY|COPY_SIGINT|COPY_HARDLINKS);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOTDIR)
@@ -699,9 +699,9 @@ static int action_copy(DissectedImage *m, LoopDevice *d) {
                                 if (errno != ENOENT)
                                         return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
 
-                                r = copy_tree_at(source_fd, ".", dfd, basename(arg_target), UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT);
+                                r = copy_tree_at(source_fd, ".", dfd, basename(arg_target), UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                         } else
-                                r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT);
+                                r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 

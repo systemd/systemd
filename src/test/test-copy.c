@@ -81,10 +81,12 @@ static void test_copy_tree(void) {
         char original_dir[] = "/tmp/test-copy_tree/";
         char copy_dir[] = "/tmp/test-copy_tree-copy/";
         char **files = STRV_MAKE("file", "dir1/file", "dir1/dir2/file", "dir1/dir2/dir3/dir4/dir5/file");
-        char **links = STRV_MAKE("link", "file",
-                                 "link2", "dir1/file");
+        char **symlinks = STRV_MAKE("link", "file",
+                                    "link2", "dir1/file");
+        char **hardlinks = STRV_MAKE("hlink", "file",
+                                     "hlink2", "dir1/file");
         const char *unixsockp;
-        char **p, **link;
+        char **p, **ll;
         struct stat st;
         int xattr_worked = -1; /* xattr support is optional in temporary directories, hence use it if we can,
                                 * but don't fail if we can't */
@@ -110,20 +112,30 @@ static void test_copy_tree(void) {
                 xattr_worked = k >= 0;
         }
 
-        STRV_FOREACH_PAIR(link, p, links) {
+        STRV_FOREACH_PAIR(ll, p, symlinks) {
                 _cleanup_free_ char *f, *l;
 
                 assert_se(f = path_join(original_dir, *p));
-                assert_se(l = path_join(original_dir, *link));
+                assert_se(l = path_join(original_dir, *ll));
 
                 assert_se(mkdir_parents(l, 0755) >= 0);
                 assert_se(symlink(f, l) == 0);
         }
 
+        STRV_FOREACH_PAIR(ll, p, hardlinks) {
+                _cleanup_free_ char *f, *l;
+
+                assert_se(f = path_join(original_dir, *p));
+                assert_se(l = path_join(original_dir, *ll));
+
+                assert_se(mkdir_parents(l, 0755) >= 0);
+                assert_se(link(f, l) == 0);
+        }
+
         unixsockp = strjoina(original_dir, "unixsock");
         assert_se(mknod(unixsockp, S_IFSOCK|0644, 0) >= 0);
 
-        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE) == 0);
+        assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS) == 0);
 
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *buf, *f, *c = NULL;
@@ -147,14 +159,28 @@ static void test_copy_tree(void) {
                 }
         }
 
-        STRV_FOREACH_PAIR(link, p, links) {
+        STRV_FOREACH_PAIR(ll, p, symlinks) {
                 _cleanup_free_ char *target, *f, *l;
 
                 assert_se(f = strjoin(original_dir, *p));
-                assert_se(l = strjoin(copy_dir, *link));
+                assert_se(l = strjoin(copy_dir, *ll));
 
                 assert_se(chase_symlinks(l, NULL, 0, &target, NULL) == 1);
                 assert_se(path_equal(f, target));
+        }
+
+        STRV_FOREACH_PAIR(ll, p, hardlinks) {
+                _cleanup_free_ char *f, *l;
+                struct stat a, b;
+
+                assert_se(f = strjoin(copy_dir, *p));
+                assert_se(l = strjoin(copy_dir, *ll));
+
+                assert_se(lstat(f, &a) >= 0);
+                assert_se(lstat(l, &b) >= 0);
+
+                assert_se(a.st_ino == b.st_ino);
+                assert_se(a.st_dev == b.st_dev);
         }
 
         unixsockp = strjoina(copy_dir, "unixsock");
