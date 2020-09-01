@@ -63,6 +63,7 @@
 #include "ratelimit.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
+#include "selinux-util.h"
 #include "serialize.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -963,9 +964,9 @@ static int manager_setup_notify(Manager *m) {
                 (void) mkdir_parents_label(m->notify_socket, 0755);
                 (void) sockaddr_un_unlink(&sa.un);
 
-                r = bind(fd, &sa.sa, sa_len);
+                r = mac_selinux_bind(fd, &sa.sa, sa_len);
                 if (r < 0)
-                        return log_error_errno(errno, "bind(%s) failed: %m", m->notify_socket);
+                        return log_error_errno(r, "bind(%s) failed: %m", m->notify_socket);
 
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
                 if (r < 0)
