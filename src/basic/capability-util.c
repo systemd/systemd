@@ -161,28 +161,21 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         return 0;
 }
 
-int capability_bounding_set_drop(uint64_t keep, bool right_now) {
-        _cleanup_cap_free_ cap_t before_cap = NULL, after_cap = NULL;
+int capability_gain_cap_setpcap(cap_t *ret_before_caps) {
+        _cleanup_cap_free_ cap_t caps = NULL;
         cap_flag_value_t fv;
-        int r;
-
-        /* If we are run as PID 1 we will lack CAP_SETPCAP by default
-         * in the effective set (yes, the kernel drops that when
-         * executing init!), so get it back temporarily so that we can
-         * call PR_CAPBSET_DROP. */
-
-        before_cap = cap_get_proc();
-        if (!before_cap)
+        caps = cap_get_proc();
+        if (!caps)
                 return -errno;
 
-        if (cap_get_flag(before_cap, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0)
+        if (cap_get_flag(caps, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0)
                 return -errno;
 
         if (fv != CAP_SET) {
                 _cleanup_cap_free_ cap_t temp_cap = NULL;
                 static const cap_value_t v = CAP_SETPCAP;
 
-                temp_cap = cap_dup(before_cap);
+                temp_cap = cap_dup(caps);
                 if (!temp_cap)
                         return -errno;
 
@@ -193,8 +186,27 @@ int capability_bounding_set_drop(uint64_t keep, bool right_now) {
                         log_debug_errno(errno, "Can't acquire effective CAP_SETPCAP bit, ignoring: %m");
 
                 /* If we didn't manage to acquire the CAP_SETPCAP bit, we continue anyway, after all this just means
-                 * we'll fail later, when we actually intend to drop some capabilities. */
+                 * we'll fail later, when we actually intend to drop some capabilities or try to set securebits. */
         }
+        if (ret_before_caps)
+                /* Return the capabilities as they have been before setting CAP_SETPCAP */
+                *ret_before_caps = TAKE_PTR(caps);
+
+        return 0;
+}
+
+int capability_bounding_set_drop(uint64_t keep, bool right_now) {
+        _cleanup_cap_free_ cap_t before_cap = NULL, after_cap = NULL;
+        int r;
+
+        /* If we are run as PID 1 we will lack CAP_SETPCAP by default
+         * in the effective set (yes, the kernel drops that when
+         * executing init!), so get it back temporarily so that we can
+         * call PR_CAPBSET_DROP. */
+
+        r = capability_gain_cap_setpcap(&before_cap);
+        if (r < 0)
+                return r;
 
         after_cap = cap_dup(before_cap);
         if (!after_cap)
