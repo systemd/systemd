@@ -2083,7 +2083,7 @@ static int method_enable_unit_files_generic(
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileFlags flags;
-        int runtime, force, r;
+        int r;
 
         assert(message);
         assert(m);
@@ -2092,11 +2092,23 @@ static int method_enable_unit_files_generic(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(message, "bb", &runtime, &force);
-        if (r < 0)
-                return r;
+        if (sd_bus_message_is_method_call(message, NULL, "EnableUnitFilesWithFlags")) {
+                uint64_t raw_flags;
 
-        flags = unit_file_bools_to_flags(runtime, force);
+                r = sd_bus_message_read(message, "t", &raw_flags);
+                if (r < 0)
+                        return r;
+                if ((raw_flags & ~_UNIT_FILE_FLAGS_MASK_PUBLIC) != 0)
+                        return -EINVAL;
+                flags = raw_flags;
+        } else {
+                int runtime, force;
+
+                r = sd_bus_message_read(message, "bb", &runtime, &force);
+                if (r < 0)
+                        return r;
+                flags = unit_file_bools_to_flags(runtime, force);
+        }
 
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
@@ -2109,6 +2121,10 @@ static int method_enable_unit_files_generic(
                 return install_error(error, r, changes, n_changes);
 
         return reply_unit_file_changes_and_free(m, message, carries_install_info ? r : -1, changes, n_changes, error);
+}
+
+static int method_enable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_enable_unit_files_generic(message, userdata, unit_file_enable, true, error);
 }
 
 static int method_enable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2188,8 +2204,9 @@ static int method_disable_unit_files_generic(
 
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
+        UnitFileFlags flags;
         size_t n_changes = 0;
-        int r, runtime;
+        int r;
 
         assert(message);
         assert(m);
@@ -2198,9 +2215,24 @@ static int method_disable_unit_files_generic(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_read(message, "b", &runtime);
-        if (r < 0)
-                return r;
+        if (sd_bus_message_is_method_call(message, NULL, "DisableUnitFilesWithFlags")) {
+                uint64_t raw_flags;
+
+                r = sd_bus_message_read(message, "t", &raw_flags);
+                if (r < 0)
+                        return r;
+                if ((raw_flags & ~_UNIT_FILE_FLAGS_MASK_PUBLIC) != 0 ||
+                                FLAGS_SET(raw_flags, UNIT_FILE_FORCE))
+                        return -EINVAL;
+                flags = raw_flags;
+        } else {
+                int runtime;
+
+                r = sd_bus_message_read(message, "b", &runtime);
+                if (r < 0)
+                        return r;
+                flags = unit_file_bools_to_flags(runtime, false);
+        }
 
         r = bus_verify_manage_unit_files_async(m, message, error);
         if (r < 0)
@@ -2208,11 +2240,15 @@ static int method_disable_unit_files_generic(
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = call(m->unit_file_scope, runtime ? UNIT_FILE_RUNTIME : 0, NULL, l, &changes, &n_changes);
+        r = call(m->unit_file_scope, flags, NULL, l, &changes, &n_changes);
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
         return reply_unit_file_changes_and_free(m, message, -1, changes, n_changes, error);
+}
+
+static int method_disable_unit_files_with_flags(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return method_disable_unit_files_generic(message, userdata, unit_file_disable, error);
 }
 
 static int method_disable_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2983,6 +3019,23 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                  "a(sss)",
                                  SD_BUS_PARAM(changes),
                                  method_disable_unit_files,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("EnableUnitFilesWithFlags",
+                                 "ast",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(flags),
+                                 "ba(sss)",
+                                 SD_BUS_PARAM(carries_install_info)
+                                 SD_BUS_PARAM(changes),
+                                 method_enable_unit_files_with_flags,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("DisableUnitFilesWithFlags",
+                                 "ast",
+                                 SD_BUS_PARAM(files)
+                                 SD_BUS_PARAM(flags),
+                                 "a(sss)",
+                                 SD_BUS_PARAM(changes),
+                                 method_disable_unit_files_with_flags,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ReenableUnitFiles",
                                  "asbb",

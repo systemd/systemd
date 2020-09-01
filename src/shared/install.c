@@ -249,6 +249,15 @@ static int path_is_vendor_or_generator(const LookupPaths *p, const char *path) {
         return path_equal(rpath, SYSTEM_DATA_UNIT_PATH);
 }
 
+static const char* config_path_from_flags(const LookupPaths *paths, UnitFileFlags flags) {
+        assert(paths);
+
+        if (FLAGS_SET(flags, UNIT_FILE_PORTABLE))
+                return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? paths->runtime_attached : paths->persistent_attached;
+        else
+                return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? paths->runtime_config : paths->persistent_config;
+}
+
 int unit_file_changes_add(
                 UnitFileChange **changes,
                 size_t *n_changes,
@@ -2582,7 +2591,7 @@ int unit_file_enable(
         if (r < 0)
                 return r;
 
-        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        config_path = config_path_from_flags(&paths, flags);
         if (!config_path)
                 return -ENXIO;
 
@@ -2625,7 +2634,7 @@ int unit_file_disable(
         if (r < 0)
                 return r;
 
-        config_path = (flags & UNIT_FILE_RUNTIME) ? paths.runtime_config : paths.persistent_config;
+        config_path = config_path_from_flags(&paths, flags);
         if (!config_path)
                 return -ENXIO;
 
