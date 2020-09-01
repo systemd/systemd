@@ -9,6 +9,7 @@
 #include "io-util.h"
 #include "list.h"
 #include "process-util.h"
+#include "selinux-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -2243,9 +2244,11 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
 
         (void) sockaddr_un_unlink(&sockaddr.un);
 
-        RUN_WITH_UMASK(~m & 0777)
-                if (bind(fd, &sockaddr.sa, sockaddr_len) < 0)
-                        return -errno;
+        RUN_WITH_UMASK(~m & 0777) {
+                r = mac_selinux_bind(fd, &sockaddr.sa, sockaddr_len);
+                if (r < 0)
+                        return r;
+        }
 
         if (listen(fd, SOMAXCONN) < 0)
                 return -errno;

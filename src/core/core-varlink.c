@@ -291,7 +291,7 @@ int manager_varlink_init(Manager *m) {
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
         if (!MANAGER_IS_TEST_RUN(m)) {
-                (void) mkdir_p("/run/systemd/userdb", 0755);
+                (void) mkdir_p_label("/run/systemd/userdb", 0755);
 
                 r = varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.DynamicUser", 0666);
                 if (r < 0)
