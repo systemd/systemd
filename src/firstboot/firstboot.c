@@ -77,7 +77,7 @@ static bool press_any_key(void) {
 static void print_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
         static bool done = false;
-        const char *pn;
+        const char *pn, *ac;
         int r;
 
         if (done)
@@ -93,9 +93,10 @@ static void print_welcome(void) {
                                "Failed to read os-release file, ignoring: %m");
 
         pn = isempty(pretty_name) ? "Linux" : pretty_name;
+        ac = isempty(ansi_color) ? "0" : ansi_color;
 
         if (colors_enabled())
-                printf("\nWelcome to your new installation of \x1B[%sm%s\x1B[0m!\n", ansi_color, pn);
+                printf("\nWelcome to your new installation of \x1B[%sm%s\x1B[0m!\n", ac, pn);
         else
                 printf("\nWelcome to your new installation of %s!\n", pn);
 
