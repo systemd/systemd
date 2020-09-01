@@ -13,14 +13,14 @@
                 0;                              \
         })
 
-Set *_set_new(const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
+Set* _set_new(const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS);
 #define set_new(ops) _set_new(ops HASHMAP_DEBUG_SRC_ARGS)
 
-static inline Set *set_free(Set *s) {
+static inline Set* set_free(Set *s) {
         return (Set*) _hashmap_free(HASHMAP_BASE(s), NULL, NULL);
 }
 
-static inline Set *set_free_free(Set *s) {
+static inline Set* set_free_free(Set *s) {
         return (Set*) _hashmap_free(HASHMAP_BASE(s), free, NULL);
 }
 

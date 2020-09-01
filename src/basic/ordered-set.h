@@ -54,7 +54,7 @@ static inline void* ordered_set_steal_first(OrderedSet *s) {
         return ordered_hashmap_steal_first((OrderedHashmap*) s);
 }
 
-static inline char **ordered_set_get_strv(OrderedSet *s) {
+static inline char** ordered_set_get_strv(OrderedSet *s) {
         return _hashmap_get_strv(HASHMAP_BASE((OrderedHashmap*) s));
 }
 
