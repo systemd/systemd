@@ -544,12 +544,7 @@ static int dir_cleanup(
                          * file systems such as overlayfs better where each file is originating from a
                          * different st_dev. */
 
-                        struct statx sx
-#if HAS_FEATURE_MEMORY_SANITIZER
-                                = {}
-#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
-#endif
-                                ;
+                        STRUCT_STATX_DEFINE(sx);
 
                         if (statx(dirfd(d), dent->d_name,
                                   AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
@@ -2293,16 +2288,10 @@ static int clean_item_instance(Item *i, const char* instance) {
         _cleanup_closedir_ DIR *d = NULL;
         uint32_t dev_major, dev_minor;
         nsec_t atime_nsec, mtime_nsec;
+        STRUCT_STATX_DEFINE(sx);
         int mountpoint = -1;
         usec_t cutoff, n;
         uint64_t ino;
-
-        struct statx sx
-#if HAS_FEATURE_MEMORY_SANITIZER
-                = {}
-#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
-#endif
-                ;
 
         assert(i);
 
