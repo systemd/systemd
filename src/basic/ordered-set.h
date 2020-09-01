@@ -7,20 +7,16 @@
 
 typedef struct OrderedSet OrderedSet;
 
-static inline OrderedSet* ordered_set_new(const struct hash_ops *ops) {
-        return (OrderedSet*) ordered_hashmap_new(ops);
+static inline OrderedSet* _ordered_set_new(const struct hash_ops *ops  HASHMAP_DEBUG_PARAMS) {
+        return (OrderedSet*) _ordered_hashmap_new(ops  HASHMAP_DEBUG_PASS_ARGS);
 }
+#define ordered_set_new(ops) _ordered_set_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 
-static inline int ordered_set_ensure_allocated(OrderedSet **s, const struct hash_ops *ops) {
-        if (*s)
-                return 0;
+int _ordered_set_ensure_allocated(OrderedSet **s, const struct hash_ops *ops  HASHMAP_DEBUG_PARAMS);
+#define ordered_set_ensure_allocated(s, ops) _ordered_set_ensure_allocated(s, ops  HASHMAP_DEBUG_SRC_ARGS)
 
-        *s = ordered_set_new(ops);
-        if (!*s)
-                return -ENOMEM;
-
-        return 0;
-}
+int _ordered_set_ensure_put(OrderedSet **s, const struct hash_ops *ops, void *p  HASHMAP_DEBUG_PARAMS);
+#define ordered_set_ensure_put(s, hash_ops, key) _ordered_set_ensure_put(s, hash_ops, key  HASHMAP_DEBUG_SRC_ARGS)
 
 static inline OrderedSet* ordered_set_free(OrderedSet *s) {
         return (OrderedSet*) ordered_hashmap_free((OrderedHashmap*) s);

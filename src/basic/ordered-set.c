@@ -4,6 +4,27 @@
 #include "ordered-set.h"
 #include "strv.h"
 
+int _ordered_set_ensure_allocated(OrderedSet **s, const struct hash_ops *ops  HASHMAP_DEBUG_PARAMS) {
+        if (*s)
+                return 0;
+
+        *s = _ordered_set_new(ops  HASHMAP_DEBUG_PASS_ARGS);
+        if (!*s)
+                return -ENOMEM;
+
+        return 0;
+}
+
+int _ordered_set_ensure_put(OrderedSet **s, const struct hash_ops *ops, void *p  HASHMAP_DEBUG_PARAMS) {
+        int r;
+
+        r = _ordered_set_ensure_allocated(s, ops  HASHMAP_DEBUG_PASS_ARGS);
+        if (r < 0)
+                return r;
+
+        return ordered_set_put(*s, p);
+}
+
 int ordered_set_consume(OrderedSet *s, void *p) {
         int r;
 
