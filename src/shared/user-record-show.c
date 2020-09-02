@@ -46,6 +46,10 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->last_change_usec != USEC_INFINITY) {
                 char buf[FORMAT_TIMESTAMP_MAX];
                 printf(" Last Change: %s\n", format_timestamp(buf, sizeof(buf), hr->last_change_usec));
+
+                if (hr->last_change_usec > now(CLOCK_REALTIME))
+                        printf("              %sModification time lies in the future, system clock wrong?%s\n",
+                               ansi_highlight_yellow(), ansi_normal());
         }
 
         if (hr->last_password_change_usec != USEC_INFINITY &&
@@ -56,10 +60,6 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
 
         r = user_record_test_blocked(hr);
         switch (r) {
-
-        case -ESTALE:
-                printf("    Login OK: %sno%s (last change time is in the future)\n", ansi_highlight_red(), ansi_normal());
-                break;
 
         case -ENOLCK:
                 printf("    Login OK: %sno%s (record is locked)\n", ansi_highlight_red(), ansi_normal());
@@ -73,10 +73,11 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("    Login OK: %sno%s (record not valid anymore))\n", ansi_highlight_red(), ansi_normal());
                 break;
 
+        case -ESTALE:
         default: {
                 usec_t y;
 
-                if (r < 0) {
+                if (r < 0 && r != -ESTALE) {
                         errno = -r;
                         printf("    Login OK: %sno%s (%m)\n", ansi_highlight_red(), ansi_normal());
                         break;
