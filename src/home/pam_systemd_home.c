@@ -744,8 +744,8 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         switch (r) {
 
         case -ESTALE:
-                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "User record is newer than current system time, prohibiting access.");
-                return PAM_ACCT_EXPIRED;
+                pam_syslog(handle, LOG_WARNING, "User record for '%s' is newer than current system time, assuming incorrect system clock, allowing access.", ur->user_name);
+                break;
 
         case -ENOLCK:
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "User record is blocked, prohibiting access.");

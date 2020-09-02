@@ -1776,18 +1776,19 @@ int user_record_test_blocked(UserRecord *h) {
 
         assert(h);
 
-        n = now(CLOCK_REALTIME);
-        if (h->last_change_usec != UINT64_MAX &&
-            h->last_change_usec > n) /* Don't allow log ins when the record is from the future */
-                return -ESTALE;
-
         if (h->locked > 0)
                 return -ENOLCK;
+
+        n = now(CLOCK_REALTIME);
 
         if (h->not_before_usec != UINT64_MAX && n < h->not_before_usec)
                 return -EL2HLT;
         if (h->not_after_usec != UINT64_MAX && n > h->not_after_usec)
                 return -EL3HLT;
+
+        if (h->last_change_usec != UINT64_MAX &&
+            h->last_change_usec > n) /* Complain during log-ins when the record is from the future */
+                return -ESTALE;
 
         return 0;
 }
