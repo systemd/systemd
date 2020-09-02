@@ -1812,6 +1812,7 @@ int user_record_test_password_change_required(UserRecord *h) {
             -EKEYEXPIRED: Password is about to expire, warn user
                -ENETDOWN: Record has expiration info but no password change timestamp
                   -EROFS: No password change required nor permitted
+                 -ESTALE: RTC likely incorrect, last password change is in the future
                        0: No password change required, but permitted
          */
 
@@ -1820,6 +1821,14 @@ int user_record_test_password_change_required(UserRecord *h) {
                 return -EKEYREVOKED;
 
         n = now(CLOCK_REALTIME);
+
+        /* Password change in the future? Then our RTC is likely incorrect */
+        if (h->last_password_change_usec != UINT64_MAX &&
+            h->last_password_change_usec > n &&
+            (h->password_change_min_usec != UINT64_MAX ||
+             h->password_change_max_usec != UINT64_MAX ||
+             h->password_change_inactive_usec != UINT64_MAX))
+            return -ESTALE;
 
         /* Then, let's check if password changing is currently allowed at all */
         if (h->password_change_min_usec != UINT64_MAX) {

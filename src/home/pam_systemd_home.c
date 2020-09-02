@@ -802,6 +802,11 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Password will expire soon, please change.");
                 break;
 
+        case -ESTALE:
+                /* If the system clock is wrong, let's log but continue */
+                pam_syslog(handle, LOG_WARNING, "Couldn't check if password change is required, last change is in the future, system clock likely wrong.");
+                break;
+
         case -EROFS:
                 /* All good, just means the password if we wanted to change we couldn't, but we don't need to */
                 break;

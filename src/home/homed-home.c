@@ -1529,8 +1529,8 @@ static int home_may_change_password(
         assert(h);
 
         r = user_record_test_password_change_required(h->record);
-        if (IN_SET(r, -EKEYREVOKED, -EOWNERDEAD, -EKEYEXPIRED))
-                return 0; /* expired in some form, but chaning is allowed */
+        if (IN_SET(r, -EKEYREVOKED, -EOWNERDEAD, -EKEYEXPIRED, -ESTALE))
+                return 0; /* expired in some form, but changing is allowed */
         if (IN_SET(r, -EKEYREJECTED, -EROFS))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Expiration settings of account %s do not allow changing of password.", h->user_name);
         if (r < 0)

@@ -125,6 +125,10 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf(" Password OK: %schange not permitted%s\n", ansi_highlight_yellow(), ansi_normal());
                 break;
 
+        case -ESTALE:
+                printf(" Password OK: %slast password change in future%s\n", ansi_highlight_yellow(), ansi_normal());
+                break;
+
         default:
                 if (r < 0) {
                         errno = -r;
