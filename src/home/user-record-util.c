@@ -1158,10 +1158,12 @@ int user_record_ratelimit(UserRecord *h) {
 
         usec = now(CLOCK_REALTIME);
 
-        if (h->ratelimit_begin_usec != UINT64_MAX && h->ratelimit_begin_usec > usec)
-                /* Hmm, time is running backwards? Say no! */
-                return 0;
-        else if (h->ratelimit_begin_usec == UINT64_MAX ||
+        if (h->ratelimit_begin_usec != UINT64_MAX && h->ratelimit_begin_usec > usec) {
+                /* Hmm, start-time is after the current time? If so, the RTC most likely doesn't work. */
+                new_ratelimit_begin_usec = usec;
+                new_ratelimit_count = 1;
+                log_debug("Rate limit timestamp is in the future, assuming incorrect system clock, resetting limit.");
+        } else if (h->ratelimit_begin_usec == UINT64_MAX ||
                  usec_add(h->ratelimit_begin_usec, user_record_ratelimit_interval_usec(h)) <= usec) {
                 /* Fresh start */
                 new_ratelimit_begin_usec = usec;

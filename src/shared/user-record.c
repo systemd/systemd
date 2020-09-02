@@ -1670,6 +1670,11 @@ uint64_t user_record_ratelimit_next_try(UserRecord *h) {
             h->ratelimit_count == UINT64_MAX)
                 return UINT64_MAX;
 
+        if (h->ratelimit_begin_usec > now(CLOCK_REALTIME)) /* If the ratelimit time is in the future, then
+                                                            * the local clock is probably incorrect. Let's
+                                                            * not refuse login then. */
+                return UINT64_MAX;
+
         if (h->ratelimit_count < user_record_ratelimit_burst(h))
                 return 0;
 
