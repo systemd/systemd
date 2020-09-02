@@ -82,6 +82,7 @@ int udev_device_get_is_initialized(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_get_tags_list_entry(struct udev_device *udev_device);
+struct udev_list_entry *udev_device_get_current_tags_list_entry(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_get_sysattr_list_entry(struct udev_device *udev_device);
 const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key);
 const char *udev_device_get_driver(struct udev_device *udev_device);
@@ -92,6 +93,7 @@ unsigned long long int udev_device_get_usec_since_initialized(struct udev_device
 const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const char *sysattr);
 int udev_device_set_sysattr_value(struct udev_device *udev_device, const char *sysattr, const char *value);
 int udev_device_has_tag(struct udev_device *udev_device, const char *tag);
+int udev_device_has_current_tag(struct udev_device *udev_device, const char *tag);
 
 /*
  * udev_monitor

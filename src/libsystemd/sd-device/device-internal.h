@@ -28,10 +28,10 @@ struct sd_device {
         Set *sysattrs; /* names of sysattrs */
         Iterator sysattrs_iterator;
 
-        Set *tags;
-        Iterator tags_iterator;
+        Set *all_tags, *current_tags;
+        Iterator all_tags_iterator, current_tags_iterator;
+        uint64_t all_tags_iterator_generation, current_tags_iterator_generation; /* generation when iteration was started */
         uint64_t tags_generation; /* changes whenever the tags are changed */
-        uint64_t tags_iterator_generation; /* generation when iteration was started */
 
         Set *devlinks;
         Iterator devlinks_iterator;
@@ -71,7 +71,7 @@ struct sd_device {
 
         bool parent_set:1; /* no need to try to reload parent */
         bool sysattrs_read:1; /* don't try to re-read sysattrs once read */
-        bool property_tags_outdated:1; /* need to update TAGS= property */
+        bool property_tags_outdated:1; /* need to update TAGS= or CURRENT_TAGS= property */
         bool property_devlinks_outdated:1; /* need to update DEVLINKS= property */
         bool properties_buf_outdated:1; /* need to reread hashmap */
         bool sysname_set:1; /* don't reread sysname */

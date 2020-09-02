@@ -736,6 +736,10 @@ static bool device_is_ready(sd_device *dev) {
         if (device_is_renaming(dev) > 0)
                 return false;
 
+        /* Is it really tagged as 'systemd' right now? */
+        if (sd_device_has_current_tag(dev, "systemd") <= 0)
+                return false;
+
         if (sd_device_get_property_value(dev, "SYSTEMD_READY", &ready) < 0)
                 return true;
 
