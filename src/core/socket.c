@@ -2307,12 +2307,13 @@ static void flush_ports(Socket *s) {
         }
 }
 
-static void socket_enter_running(Socket *s, int cfd) {
+static void socket_enter_running(Socket *s, int cfd_in) {
+        /* Note that this call takes possession of the connection fd passed. It either has to assign it
+         * somewhere or close it. */
+        _cleanup_close_ int cfd = cfd_in;
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        /* Note that this call takes possession of the connection fd passed. It either has to assign it somewhere or
-         * close it. */
 
         assert(s);
 
@@ -2323,9 +2324,8 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 if (cfd >= 0)
                         goto refuse;
-                else
-                        flush_ports(s);
 
+                flush_ports(s);
                 return;
         }
 
@@ -2375,7 +2375,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 if (s->max_connections_per_source > 0) {
                         r = socket_acquire_peer(s, cfd, &p);
                         if (ERRNO_IS_DISCONNECT(r))
-                                goto notconn;
+                                return;
                         if (r < 0) /* We didn't have enough resources to acquire peer information, let's fail. */
                                 goto fail;
                         if (r > 0 && p->n_ref > s->max_connections_per_source) {
@@ -2392,7 +2392,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 r = socket_load_service_unit(s, cfd, &service);
                 if (ERRNO_IS_DISCONNECT(r))
-                        goto notconn;
+                        return;
                 if (r < 0)
                         goto fail;
 
@@ -2405,7 +2405,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 r = service_set_socket_fd(SERVICE(service), cfd, s, s->selinux_context_from_net);
                 if (ERRNO_IS_DISCONNECT(r))
-                        goto notconn;
+                        return;
                 if (r < 0)
                         goto fail;
 
@@ -2426,12 +2426,11 @@ static void socket_enter_running(Socket *s, int cfd) {
                 unit_add_to_dbus_queue(UNIT(s));
         }
 
+        TAKE_FD(cfd);
         return;
 
 refuse:
         s->n_refused++;
-notconn:
-        safe_close(cfd);
         return;
 
 fail:
@@ -2444,7 +2443,6 @@ fail:
                                  bus_error_message(&error, r));
 
         socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
-        safe_close(cfd);
 }
 
 static void socket_run_next(Socket *s) {
