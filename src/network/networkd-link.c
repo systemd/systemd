@@ -3655,6 +3655,11 @@ static int link_load(Link *link) {
                 r = network_apply(network, link);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to apply network %s: %m", basename(network_file));
+
+                if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                    if (asprintf(&link->lease_file, "/var/systemd/persist/netif/leases/%d", link->ifindex) < 0)
+                            return -ENOMEM;
+                }
         }
 
 network_file_fail:
