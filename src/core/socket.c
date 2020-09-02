@@ -207,27 +207,6 @@ static int socket_arm_timer(Socket *s, usec_t usec) {
         return 0;
 }
 
-static int socket_instantiate_service(Socket *s, int cfd) {
-        Unit *service;
-        int r;
-
-        assert(s);
-        assert(cfd >= 0);
-
-        /* This fills in s->service if it isn't filled in yet. For Accept=yes sockets we create the next
-         * connection service here. For Accept=no this is mostly a NOP since the service is figured out at
-         * load time anyway. */
-
-        r = socket_load_service_unit(s, cfd, &service);
-        if (r < 0)
-                return r;
-
-        unit_ref_set(&s->service, UNIT(s), service);
-
-        return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, service,
-                                         false, UNIT_DEPENDENCY_IMPLICIT);
-}
-
 static bool have_non_accept_socket(Socket *s) {
         SocketPort *p;
 
@@ -2385,7 +2364,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 socket_set_state(s, SOCKET_RUNNING);
         } else {
                 _cleanup_(socket_peer_unrefp) SocketPeer *p = NULL;
-                Service *service;
+                Unit *service;
 
                 if (s->n_connections >= s->max_connections) {
                         log_unit_warning(UNIT(s), "Too many incoming connections (%u), dropping connection.",
@@ -2411,18 +2390,20 @@ static void socket_enter_running(Socket *s, int cfd) {
                         }
                 }
 
-                r = socket_instantiate_service(s, cfd);
+                r = socket_load_service_unit(s, cfd, &service);
                 if (ERRNO_IS_DISCONNECT(r))
                         goto notconn;
                 if (r < 0)
                         goto fail;
 
-                service = SERVICE(UNIT_DEREF(s->service));
-                unit_ref_unset(&s->service);
+                r = unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, service,
+                                              false, UNIT_DEPENDENCY_IMPLICIT);
+                if (r < 0)
+                        goto fail;
 
                 s->n_accepted++;
 
-                r = service_set_socket_fd(service, cfd, s, s->selinux_context_from_net);
+                r = service_set_socket_fd(SERVICE(service), cfd, s, s->selinux_context_from_net);
                 if (ERRNO_IS_DISCONNECT(r))
                         goto notconn;
                 if (r < 0)
@@ -2431,13 +2412,13 @@ static void socket_enter_running(Socket *s, int cfd) {
                 TAKE_FD(cfd); /* We passed ownership of the fd to the service now. Forget it here. */
                 s->n_connections++;
 
-                service->peer = TAKE_PTR(p); /* Pass ownership of the peer reference */
+                SERVICE(service)->peer = TAKE_PTR(p); /* Pass ownership of the peer reference */
 
-                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, NULL, &error, NULL);
+                r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, NULL, &error, NULL);
                 if (r < 0) {
                         /* We failed to activate the new service, but it still exists. Let's make sure the
                          * service closes and forgets the connection fd again, immediately. */
-                        service_close_socket_fd(service);
+                        service_close_socket_fd(SERVICE(service));
                         goto fail;
                 }
 
