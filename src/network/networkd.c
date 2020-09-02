@@ -66,6 +66,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'leases': %m");
 
+        r = mkdir_safe_label("/var/systemd/persist/netif/leases/", 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
+        if (r < 0)
+                log_warning_errno(r, "Could not create persistant store directory 'leases': %m");
+
         r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
