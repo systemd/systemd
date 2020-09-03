@@ -501,9 +501,11 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                         return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
         }
 
-        r = sd_netlink_message_append_u32(m, FRA_PRIORITY, rule->priority);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append FRA_PRIORITY attribute: %m");
+        if (rule->priority > 0) {
+                r = sd_netlink_message_append_u32(m, FRA_PRIORITY, rule->priority);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append FRA_PRIORITY attribute: %m");
+        }
 
         if (rule->tos > 0) {
                 r = sd_rtnl_message_routing_policy_rule_set_tos(m, rule->tos);
@@ -1234,9 +1236,12 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
-                fprintf(f, "%spriority=%"PRIu32,
-                        space ? " " : "",
-                        rule->priority);
+                if (rule->priority != 0) {
+                        fprintf(f, "%spriority=%"PRIu32,
+                                space ? " " : "",
+                                rule->priority);
+                        space = true;
+                }
 
                 if (rule->fwmark != 0) {
                         fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
