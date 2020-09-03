@@ -96,7 +96,8 @@ static int run(int argc, char *argv[]) {
 
         assert_se(udev_rules_load(&rules, RESOLVE_NAME_EARLY) == 0);
 
-        const char *syspath = strjoina("/sys", devpath);
+        const char *syspath;
+        syspath = strjoina("/sys", devpath);
         r = device_new_from_synthetic_event(&dev, syspath, action);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open device '%s'", devpath);
