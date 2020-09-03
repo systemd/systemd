@@ -71,6 +71,12 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* Let's make sure the test runs with selinux assumed disabled. */
+#if HAVE_SELINUX
+        fini_selinuxmnt();
+#endif
+        mac_selinux_retest();
+
         if (argc == 2) {
                 if (!streq(argv[1], "check")) {
                         log_error("Unknown argument: %s", argv[1]);

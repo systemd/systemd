@@ -757,7 +757,8 @@ tests += [
           librt,
           libblkid,
           libkmod,
-          libacl],
+          libacl,
+          libselinux],
          '', 'manual', '-DLOG_REALM=LOG_REALM_UDEV'],
 
         [['src/test/test-id128.c'],
