@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 
 #include "alloc-util.h"
-#include "crypt-util.h"
+#include "cryptsetup-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "log.h"

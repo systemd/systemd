@@ -24,7 +24,7 @@
 #include "btrfs-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
-#include "crypt-util.h"
+#include "cryptsetup-util.h"
 #include "def.h"
 #include "efivars.h"
 #include "errno-util.h"
@@ -2370,7 +2370,7 @@ static int partition_encrypt(
                 char **ret_volume,
                 int *ret_fd) {
 
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         _cleanup_free_ char *dm_name = NULL, *vol = NULL;
         char suuid[ID128_UUID_STRING_MAX];
@@ -2380,6 +2380,10 @@ static int partition_encrypt(
 
         assert(p);
         assert(p->encrypt);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return log_error_errno(r, "libcryptsetup not found, cannot encrypt: %m");
 
         if (asprintf(&dm_name, "luks-repart-%08" PRIx64, random_u64()) < 0)
                 return log_oom();
@@ -2404,13 +2408,13 @@ static int partition_encrypt(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate volume key: %m");
 
-        r = crypt_init(&cd, node);
+        r = sym_crypt_init(&cd, node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_format(cd,
+        r = sym_crypt_format(cd,
                          CRYPT_LUKS2,
                          "aes",
                          "xts-plain64",
@@ -2424,7 +2428,7 @@ static int partition_encrypt(
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
-        r = crypt_keyslot_add_by_volume_key(
+        r = sym_crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
                         volume_key,
@@ -2434,7 +2438,7 @@ static int partition_encrypt(
         if (r < 0)
                 return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
-        r = crypt_activate_by_volume_key(
+        r = sym_crypt_activate_by_volume_key(
                         cd,
                         dm_name,
                         volume_key,
@@ -2474,7 +2478,7 @@ static int deactivate_luks(struct crypt_device *cd, const char *node) {
         /* udev or so might access out block device in the background while we are done. Let's hence force
          * detach the volume. We sync'ed before, hence this should be safe. */
 
-        r = crypt_deactivate_by_name(cd, basename(node), CRYPT_DEACTIVATE_FORCE);
+        r = sym_crypt_deactivate_by_name(cd, basename(node), CRYPT_DEACTIVATE_FORCE);
         if (r < 0)
                 return log_error_errno(r, "Failed to deactivate LUKS device: %m");
 
@@ -2490,7 +2494,7 @@ static int context_copy_blocks(Context *context) {
         /* Copy in file systems on the block level */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+                _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_free_ char *encrypted = NULL;
                 _cleanup_close_ int encrypted_dev_fd = -1;
@@ -2553,7 +2557,7 @@ static int context_copy_blocks(Context *context) {
                         if (r < 0)
                                 return r;
 
-                        crypt_free(cd);
+                        sym_crypt_free(cd);
                         cd = NULL;
 
                         r = loop_device_sync(d);
@@ -2694,7 +2698,7 @@ static int context_mkfs(Context *context) {
         /* Make a file system */
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+                _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_free_ char *encrypted = NULL;
                 _cleanup_close_ int encrypted_dev_fd = -1;
@@ -2781,7 +2785,7 @@ static int context_mkfs(Context *context) {
                         if (r < 0)
                                 return r;
 
-                        crypt_free(cd);
+                        sym_crypt_free(cd);
                         cd = NULL;
                 }
 

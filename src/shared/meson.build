@@ -73,8 +73,8 @@ shared_sources = files('''
         coredump-util.h
         cpu-set-util.c
         cpu-set-util.h
-        crypt-util.c
-        crypt-util.h
+        cryptsetup-util.c
+        cryptsetup-util.h
         daemon-util.h
         dev-setup.c
         dev-setup.h
@@ -354,7 +354,6 @@ libshared_deps = [threads,
                   libblkid,
                   libcap,
                   libcrypt,
-                  libcryptsetup,
                   libgcrypt,
                   libidn,
                   libiptc,

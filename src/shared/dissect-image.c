@@ -19,7 +19,7 @@
 #include "blkid-util.h"
 #include "blockdev-util.h"
 #include "copy.h"
-#include "crypt-util.h"
+#include "cryptsetup-util.h"
 #include "def.h"
 #include "device-nodes.h"
 #include "device-util.h"
@@ -1225,13 +1225,13 @@ DecryptedImage* decrypted_image_unref(DecryptedImage* d) {
                 DecryptedPartition *p = d->decrypted + i;
 
                 if (p->device && p->name && !p->relinquished) {
-                        r = crypt_deactivate(p->device, p->name);
+                        r = sym_crypt_deactivate_by_name(p->device, p->name, 0);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to deactivate encrypted partition %s", p->name);
                 }
 
                 if (p->device)
-                        crypt_free(p->device);
+                        sym_crypt_free(p->device);
                 free(p->name);
         }
 
@@ -1265,7 +1265,7 @@ static int make_dm_name_and_node(const void *original_node, const char *suffix, 
         if (!filename_is_valid(name))
                 return -EINVAL;
 
-        node = path_join(crypt_get_dir(), name);
+        node = path_join(sym_crypt_get_dir(), name);
         if (!node)
                 return -ENOMEM;
 
@@ -1282,7 +1282,7 @@ static int decrypt_partition(
                 DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL;
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
         assert(m);
@@ -1297,6 +1297,10 @@ static int decrypt_partition(
         if (!passphrase)
                 return -ENOKEY;
 
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
         r = make_dm_name_and_node(m->node, "-decrypted", &name, &node);
         if (r < 0)
                 return r;
@@ -1304,19 +1308,19 @@ static int decrypt_partition(
         if (!GREEDY_REALLOC0(d->decrypted, d->n_allocated, d->n_decrypted + 1))
                 return -ENOMEM;
 
-        r = crypt_init(&cd, m->node);
+        r = sym_crypt_init(&cd, m->node);
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_load(cd, CRYPT_LUKS, NULL);
+        r = sym_crypt_load(cd, CRYPT_LUKS, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
-        r = crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
-                                         ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
-                                         ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
+        r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
+                                             ((flags & DISSECT_IMAGE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
+                                             ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
         if (r < 0) {
                 log_debug_errno(r, "Failed to activate LUKS device: %m");
                 return r == -EPERM ? -EKEYREJECTED : r;
@@ -1334,23 +1338,26 @@ static int decrypt_partition(
 static int verity_can_reuse(const void *root_hash, size_t root_hash_size, bool has_sig, const char *name, struct crypt_device **ret_cd) {
         /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
         _cleanup_free_ char *root_hash_existing = NULL;
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         struct crypt_params_verity crypt_params = {};
         size_t root_hash_existing_size = root_hash_size;
         int r;
 
         assert(ret_cd);
 
-        r = crypt_init_by_name(&cd, name);
+        r = sym_crypt_init_by_name(&cd, name);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_init_by_name failed: %m");
-        r = crypt_get_verity_info(cd, &crypt_params);
+
+        r = sym_crypt_get_verity_info(cd, &crypt_params);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
+
         root_hash_existing = malloc0(root_hash_size);
         if (!root_hash_existing)
                 return -ENOMEM;
-        r = crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing, &root_hash_existing_size, NULL, 0);
+
+        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing, &root_hash_existing_size, NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_volume_key_get failed: %m");
         if (root_hash_size != root_hash_existing_size || memcmp(root_hash_existing, root_hash, root_hash_size) != 0)
@@ -1370,7 +1377,8 @@ static int verity_can_reuse(const void *root_hash, size_t root_hash_size, bool h
 static inline void dm_deferred_remove_clean(char *name) {
         if (!name)
                 return;
-        (void) crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
+
+        (void) sym_crypt_deactivate_by_name(NULL, name, CRYPT_DEACTIVATE_DEFERRED);
         free(name);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
@@ -1388,7 +1396,7 @@ static int verity_partition(
                 DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL, *hash_sig_from_file = NULL;
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
         int r;
 
@@ -1408,11 +1416,17 @@ static int verity_partition(
                         return 0;
         }
 
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
         if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
                 /* Use the roothash, which is unique per volume, as the device node name, so that it can be reused */
                 _cleanup_free_ char *root_hash_encoded = NULL;
+
                 root_hash_encoded = hexmem(root_hash, root_hash_size);
                 if (!root_hash_encoded)
+
                         return -ENOMEM;
                 r = make_dm_name_and_node(root_hash_encoded, "-verity", &name, &node);
         } else
@@ -1426,17 +1440,17 @@ static int verity_partition(
                         return r;
         }
 
-        r = crypt_init(&cd, verity_data ?: v->node);
+        r = sym_crypt_init(&cd, verity_data ?: v->node);
         if (r < 0)
                 return r;
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_load(cd, CRYPT_VERITY, NULL);
+        r = sym_crypt_load(cd, CRYPT_VERITY, NULL);
         if (r < 0)
                 return r;
 
-        r = crypt_set_data_device(cd, m->node);
+        r = sym_crypt_set_data_device(cd, m->node);
         if (r < 0)
                 return r;
 
@@ -1449,12 +1463,12 @@ static int verity_partition(
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
                 if (root_hash_sig || hash_sig_from_file) {
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-                        r = crypt_activate_by_signed_key(cd, name, root_hash, root_hash_size, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, CRYPT_ACTIVATE_READONLY);
+                        r = sym_crypt_activate_by_signed_key(cd, name, root_hash, root_hash_size, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, CRYPT_ACTIVATE_READONLY);
 #else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()");
 #endif
                 } else
-                        r = crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
+                        r = sym_crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
@@ -1500,7 +1514,7 @@ static int verity_partition(
                                         return r;
 
                                 if (cd)
-                                        crypt_free(cd);
+                                        sym_crypt_free(cd);
                                 cd = existing_cd;
                         }
                 }
@@ -1664,7 +1678,7 @@ int decrypted_image_relinquish(DecryptedImage *d) {
                 if (p->relinquished)
                         continue;
 
-                r = crypt_deactivate_by_name(NULL, p->name, CRYPT_DEACTIVATE_DEFERRED);
+                r = sym_crypt_deactivate_by_name(NULL, p->name, CRYPT_DEACTIVATE_DEFERRED);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to mark %s for auto-removal: %m", p->name);
 
