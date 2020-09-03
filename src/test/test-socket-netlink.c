@@ -17,6 +17,7 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
                 if (r < 0)
                         log_error_errno(r, "Printing failed for \"%s\": %m", in);
                 assert(r >= 0);
+                assert_se(a.type == 0);
         }
 
         log_info("\"%s\" → %s %d → \"%s\" (expect %d / \"%s\")",
@@ -206,9 +207,13 @@ static void test_socket_address_is(void) {
         log_info("/* %s */", __func__);
 
         assert_se(socket_address_parse(&a, "192.168.1.1:8888") >= 0);
-        assert_se(socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
+        assert_se( socket_address_is(&a, "192.168.1.1:8888", 0 /* unspecified yet */));
+        assert_se(!socket_address_is(&a, "route", 0));
         assert_se(!socket_address_is(&a, "route", SOCK_STREAM));
         assert_se(!socket_address_is(&a, "192.168.1.1:8888", SOCK_RAW));
+        assert_se(!socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
+        a.type = SOCK_STREAM;
+        assert_se( socket_address_is(&a, "192.168.1.1:8888", SOCK_STREAM));
 }
 
 static void test_socket_address_is_netlink(void) {
@@ -217,7 +222,7 @@ static void test_socket_address_is_netlink(void) {
         log_info("/* %s */", __func__);
 
         assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
-        assert_se(socket_address_is_netlink(&a, "route 10"));
+        assert_se( socket_address_is_netlink(&a, "route 10"));
         assert_se(!socket_address_is_netlink(&a, "192.168.1.1:8888"));
         assert_se(!socket_address_is_netlink(&a, "route 1"));
 }

@@ -62,29 +62,25 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         assert(a);
         assert(s);
 
-        *a = (SocketAddress) {
-                .type = SOCK_STREAM,
-        };
-
         if (*s == '/') {
                 /* AF_UNIX socket */
-                size_t l;
 
-                l = strlen(s);
+                size_t l = strlen(s);
                 if (l >= sizeof(a->sockaddr.un.sun_path)) /* Note that we refuse non-NUL-terminated sockets when
                                                            * parsing (the kernel itself is less strict here in what it
                                                            * accepts) */
                         return -EINVAL;
 
-                a->sockaddr.un.sun_family = AF_UNIX;
+                *a = (SocketAddress) {
+                        .sockaddr.un.sun_family = AF_UNIX,
+                        .size = offsetof(struct sockaddr_un, sun_path) + l + 1,
+                };
                 memcpy(a->sockaddr.un.sun_path, s, l);
-                a->size = offsetof(struct sockaddr_un, sun_path) + l + 1;
 
         } else if (*s == '@') {
                 /* Abstract AF_UNIX socket */
-                size_t l;
 
-                l = strlen(s+1);
+                size_t l = strlen(s+1);
                 if (l >= sizeof(a->sockaddr.un.sun_path) - 1) /* Note that we refuse non-NUL-terminated sockets here
                                                                * when parsing, even though abstract namespace sockets
                                                                * explicitly allow embedded NUL bytes and don't consider
@@ -92,14 +88,16 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                                                * sockets. */
                         return -EINVAL;
 
-                a->sockaddr.un.sun_family = AF_UNIX;
+                *a = (SocketAddress) {
+                        .sockaddr.un.sun_family = AF_UNIX,
+                        .size = offsetof(struct sockaddr_un, sun_path) + 1 + l,
+                };
                 memcpy(a->sockaddr.un.sun_path+1, s+1, l);
-                a->size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
 
         } else if (startswith(s, "vsock:")) {
                 /* AF_VSOCK socket in vsock:cid:port notation */
                 const char *cid_start = s + STRLEN("vsock:");
-                unsigned port;
+                unsigned port, cid;
 
                 e = strchr(cid_start, ':');
                 if (!e)
@@ -113,16 +111,22 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 if (!n)
                         return -ENOMEM;
 
-                if (!isempty(n)) {
-                        r = safe_atou(n, &a->sockaddr.vm.svm_cid);
+                if (isempty(n))
+                        cid = VMADDR_CID_ANY;
+                else {
+                        r = safe_atou(n, &cid);
                         if (r < 0)
                                 return r;
-                } else
-                        a->sockaddr.vm.svm_cid = VMADDR_CID_ANY;
+                }
 
-                a->sockaddr.vm.svm_family = AF_VSOCK;
-                a->sockaddr.vm.svm_port = port;
-                a->size = sizeof(struct sockaddr_vm);
+                *a = (SocketAddress) {
+                        .sockaddr.vm = {
+                                .svm_cid = cid,
+                                .svm_family = AF_VSOCK,
+                                .svm_port = port,
+                        },
+                        .size = sizeof(struct sockaddr_vm),
+                };
 
         } else {
                 uint16_t port;
@@ -132,17 +136,24 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                         return r; /* Valid port syntax, but the numerical value is wrong for a port. */
                 if (r >= 0) {
                         /* Just a port */
-                        if (socket_ipv6_is_supported()) {
-                                a->sockaddr.in6.sin6_family = AF_INET6;
-                                a->sockaddr.in6.sin6_port = htobe16(port);
-                                a->sockaddr.in6.sin6_addr = in6addr_any;
-                                a->size = sizeof(struct sockaddr_in6);
-                        } else {
-                                a->sockaddr.in.sin_family = AF_INET;
-                                a->sockaddr.in.sin_port = htobe16(port);
-                                a->sockaddr.in.sin_addr.s_addr = INADDR_ANY;
-                                a->size = sizeof(struct sockaddr_in);
-                        }
+                        if (socket_ipv6_is_supported())
+                                *a = (SocketAddress) {
+                                        .sockaddr.in6 = {
+                                                .sin6_family = AF_INET6,
+                                                .sin6_port = htobe16(port),
+                                                .sin6_addr = in6addr_any,
+                                        },
+                                        .size = sizeof(struct sockaddr_in6),
+                                };
+                        else
+                                *a = (SocketAddress) {
+                                        .sockaddr.in = {
+                                                .sin_family = AF_INET,
+                                                .sin_port = htobe16(port),
+                                                .sin_addr.s_addr = INADDR_ANY,
+                                        },
+                                        .size = sizeof(struct sockaddr_in),
+                                };
 
                 } else {
                         union in_addr_union address;
@@ -155,21 +166,25 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                         if (port == 0) /* No port, no go. */
                                 return -EINVAL;
 
-                        if (family == AF_INET) {
-                                a->sockaddr.in = (struct sockaddr_in) {
-                                        .sin_family = AF_INET,
-                                        .sin_addr = address.in,
-                                        .sin_port = htobe16(port),
+                        if (family == AF_INET)
+                                *a = (SocketAddress) {
+                                        .sockaddr.in = {
+                                                .sin_family = AF_INET,
+                                                .sin_addr = address.in,
+                                                .sin_port = htobe16(port),
+                                        },
+                                        .size = sizeof(struct sockaddr_in),
                                 };
-                                a->size = sizeof(struct sockaddr_in);
-                        } else if (family == AF_INET6) {
-                                a->sockaddr.in6 = (struct sockaddr_in6) {
-                                        .sin6_family = AF_INET6,
-                                        .sin6_addr = address.in6,
-                                        .sin6_port = htobe16(port),
+                        else if (family == AF_INET6)
+                                *a = (SocketAddress) {
+                                        .sockaddr.in6 = {
+                                                .sin6_family = AF_INET6,
+                                                .sin6_addr = address.in6,
+                                                .sin6_port = htobe16(port),
+                                        },
+                                        .size = sizeof(struct sockaddr_in6),
                                 };
-                                a->size = sizeof(struct sockaddr_in6);
-                        } else
+                        else
                                 assert_not_reached("Family quarrel");
                 }
         }
