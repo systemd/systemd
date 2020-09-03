@@ -17,6 +17,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "namespace-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -43,12 +44,12 @@ static int fake_filesystems(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to detach mount namespace: %m");
 
-        for (size_t i = 0; i < ELEMENTSOF(fakefss); i++)
-                if (mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL) < 0) {
-                        log_full_errno(fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR, errno, "%s: %m", fakefss[i].error);
-                        if (!fakefss[i].ignore_mount_error)
-                                return -errno;
-                }
+        for (size_t i = 0; i < ELEMENTSOF(fakefss); i++) {
+                r = mount_verbose(fakefss[i].ignore_mount_error ? LOG_NOTICE : LOG_ERR,
+                                  fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL);
+                if (r < 0 && !fakefss[i].ignore_mount_error)
+                        return r;
+        }
 
         return 0;
 }
