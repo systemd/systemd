@@ -12,11 +12,19 @@ static void test_socket_address_parse_one(const char *in, int ret, int family, c
         int r;
 
         r = socket_address_parse(&a, in);
-        if (r >= 0)
-                assert_se(socket_address_print(&a, &out) >= 0);
+        if (r >= 0) {
+                r = socket_address_print(&a, &out);
+                if (r < 0)
+                        log_error_errno(r, "Printing failed for \"%s\": %m", in);
+                assert(r >= 0);
+        }
 
-        log_info("\"%s\" → %s → \"%s\" (expect \"%s\")", in,
-                 r >= 0 ? "✓" : "✗", empty_to_dash(out), r >= 0 ? expected ?: in : "-");
+        log_info("\"%s\" → %s %d → \"%s\" (expect %d / \"%s\")",
+                 in,
+                 r >= 0 ? "✓" : "✗", r,
+                 empty_to_dash(out),
+                 ret,
+                 ret >= 0 ? expected ?: in : "-");
         assert_se(r == ret);
         if (r >= 0) {
                 assert_se(a.sockaddr.sa.sa_family == family);
