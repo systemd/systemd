@@ -625,7 +625,7 @@ static void dhcp_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 assert_not_reached("Invalid IPv4ACD event.");
         }
 
-        sd_ipv4acd_stop(acd);
+        (void) sd_ipv4acd_stop(acd);
 
         return;
 }
