@@ -1360,39 +1360,39 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                                 r = in_addr_prefix_from_string_auto(b, &rule->family, buffer, prefixlen);
                                 if (r < 0) {
-                                        log_error_errno(r, "RPDB rule prefix is invalid, ignoring assignment: %s", b);
+                                        log_warning_errno(r, "RPDB rule prefix is invalid, ignoring assignment: %s", b);
                                         continue;
                                 }
 
                         } else if (streq(a, "family")) {
                                 r = af_from_name(b);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule family, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule family, ignoring: %s", b);
                                         continue;
                                 }
                                 rule->family = r;
                         } else if (streq(a, "tos")) {
                                 r = safe_atou8(b, &rule->tos);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule TOS, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule TOS, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "table")) {
                                 r = safe_atou32(b, &rule->table);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule table, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule table, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "priority")) {
                                 r = safe_atou32(b, &rule->priority);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule priority, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule priority, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "fwmark")) {
                                 r = parse_fwmark_fwmask(b, &rule->fwmark, &rule->fwmask);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", a);
+                                        log_warning_errno(r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", a);
                                         continue;
                                 }
                         } else if (streq(a, "iif")) {
@@ -1406,13 +1406,13 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         } else if (streq(a, "protocol")) {
                                 r = safe_atou8(b, &rule->protocol);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule protocol, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule protocol, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "sourceport")) {
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule source port range, ignoring assignment: '%s'", b);
+                                        log_warning_errno(r, "Invalid routing policy rule source port range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
@@ -1421,7 +1421,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         } else if (streq(a, "destinationport")) {
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule destination port range, ignoring assignment: '%s'", b);
+                                        log_warning_errno(r, "Invalid routing policy rule destination port range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
@@ -1432,7 +1432,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                                 r = parse_uid_range(b, &lower, &upper);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule uid range, ignoring assignment: '%s'", b);
+                                        log_warning_errno(r, "Invalid routing policy rule uid range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
@@ -1441,11 +1441,11 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         } else if (streq(a, "suppress_prefixlen")) {
                                 r = parse_ip_prefix_length(b, &rule->suppress_prefixlen);
                                 if (r == -ERANGE) {
-                                        log_error_errno(r, "Prefix length outside of valid range 0-128, ignoring: %s", b);
+                                        log_warning_errno(r, "Prefix length outside of valid range 0-128, ignoring: %s", b);
                                         continue;
                                 }
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", b);
                                         continue;
                                 }
                         }
