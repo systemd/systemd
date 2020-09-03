@@ -17,6 +17,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "namespace-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -43,12 +44,12 @@ static int fake_filesystems(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to detach mount namespace: %m");
 
-        for (size_t i = 0; i < ELEMENTSOF(fakefss); i++)
-                if (mount(fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL) < 0) {
-                        log_full_errno(fakefss[i].ignore_mount_error ? LOG_DEBUG : LOG_ERR, errno, "%s: %m", fakefss[i].error);
-                        if (!fakefss[i].ignore_mount_error)
-                                return -errno;
-                }
+        for (size_t i = 0; i < ELEMENTSOF(fakefss); i++) {
+                r = mount_verbose(fakefss[i].ignore_mount_error ? LOG_NOTICE : LOG_ERR,
+                                  fakefss[i].src, fakefss[i].target, NULL, MS_BIND, NULL);
+                if (r < 0 && !fakefss[i].ignore_mount_error)
+                        return r;
+        }
 
         return 0;
 }
@@ -62,20 +63,24 @@ static int run(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        if (!IN_SET(argc, 2, 3)) {
-                log_error("This program needs one or two arguments, %d given", argc - 1);
-                return -EINVAL;
-        }
+        if (!IN_SET(argc, 2, 3))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program needs one or two arguments, %d given", argc - 1);
 
         r = fake_filesystems();
         if (r < 0)
                 return r;
 
+        /* Let's make sure the test runs with selinux assumed disabled. */
+#if HAVE_SELINUX
+        fini_selinuxmnt();
+#endif
+        mac_selinux_retest();
+
         if (argc == 2) {
-                if (!streq(argv[1], "check")) {
-                        log_error("Unknown argument: %s", argv[1]);
-                        return -EINVAL;
-                }
+                if (!streq(argv[1], "check"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown argument: %s", argv[1]);
 
                 return 0;
         }
@@ -91,7 +96,8 @@ static int run(int argc, char *argv[]) {
 
         assert_se(udev_rules_load(&rules, RESOLVE_NAME_EARLY) == 0);
 
-        const char *syspath = strjoina("/sys", devpath);
+        const char *syspath;
+        syspath = strjoina("/sys", devpath);
         r = device_new_from_synthetic_event(&dev, syspath, action);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open device '%s'", devpath);
