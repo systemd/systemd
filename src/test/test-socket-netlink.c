@@ -293,18 +293,59 @@ static void test_in_addr_ifindex_name_from_string_auto(void) {
 }
 
 static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str, int family, uint16_t port, int ifindex, const char *server_name) {
-        _cleanup_free_ char *name = NULL, *x = NULL;
         union in_addr_union a;
         uint16_t p;
         int f, i;
+        char *fake;
 
-        assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, &name) >= 0);
-        assert_se(family == f);
-        assert_se(port == p);
-        assert_se(ifindex == i);
-        assert_se(streq_ptr(server_name, name));
-        assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, i, name, &x) >= 0);
-        assert_se(streq(str, x));
+        log_info("%s: %s", __func__, str);
+
+        {
+                _cleanup_free_ char *name = NULL, *x = NULL;
+                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, &name) == 0);
+                assert_se(family == f);
+                assert_se(port == p);
+                assert_se(ifindex == i);
+                assert_se(streq_ptr(server_name, name));
+                assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, i, name, &x) >= 0);
+                assert_se(streq(str, x));
+        }
+
+        if (port > 0)
+                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, NULL, &i, &fake) == -EINVAL);
+        else {
+                _cleanup_free_ char *name = NULL, *x = NULL;
+                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, NULL, &i, &name) == 0);
+                assert_se(family == f);
+                assert_se(ifindex == i);
+                assert_se(streq_ptr(server_name, name));
+                assert_se(in_addr_port_ifindex_name_to_string(f, &a, 0, i, name, &x) >= 0);
+                assert_se(streq(str, x));
+        }
+
+        if (ifindex > 0)
+                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, NULL, &fake) == -EINVAL);
+        else {
+                _cleanup_free_ char *name = NULL, *x = NULL;
+                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, NULL, &name) == 0);
+                assert_se(family == f);
+                assert_se(port == p);
+                assert_se(streq_ptr(server_name, name));
+                assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, 0, name, &x) >= 0);
+                assert_se(streq(str, x));
+        }
+
+        if (server_name)
+                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, NULL) == -EINVAL);
+        else {
+                _cleanup_free_ char *x = NULL;
+                assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, NULL) == 0);
+                assert_se(family == f);
+                assert_se(port == p);
+                assert_se(ifindex == i);
+                assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, i, NULL, &x) >= 0);
+                assert_se(streq(str, x));
+        }
 }
 
 static void test_in_addr_port_ifindex_name_from_string_auto(void) {

@@ -345,10 +345,14 @@ int in_addr_port_ifindex_name_from_string_auto(
 
         /* This accepts the following:
          * 192.168.0.1:53#example.com
-         * [2001:4860:4860::8888]:53%eth0#example.com */
-
-        /* if ret_port is NULL, then strings with port cannot be specified.
-         * Also, if ret_server_name is NULL, then server_name cannot be specified. */
+         * [2001:4860:4860::8888]:53%eth0#example.com
+         *
+         * If ret_port is NULL, then the port cannot be specified.
+         * If ret_ifindex is NULL, then the interface index cannot be specified.
+         * If ret_server_name is NULL, then server_name cannot be specified.
+         *
+         * ret_family is always AF_INET or AF_INET6.
+         */
 
         m = strchr(s, '#');
         if (m) {
@@ -369,15 +373,15 @@ int in_addr_port_ifindex_name_from_string_auto(
 
         m = strchr(s, '%');
         if (m) {
+                if (!ret_ifindex)
+                        return -EINVAL;
+
                 if (isempty(m + 1))
                         return -EINVAL;
 
-                if (ret_ifindex) {
-                        /* If we shall return the interface index, try to parse it */
-                        ifindex = resolve_interface(NULL, m + 1);
-                        if (ifindex < 0)
-                                return ifindex;
-                }
+                ifindex = resolve_interface(NULL, m + 1);
+                if (ifindex < 0)
+                        return ifindex;
 
                 s = buf2 = strndup(s, m - s);
                 if (!buf2)
