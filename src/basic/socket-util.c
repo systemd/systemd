@@ -686,17 +686,19 @@ static const char* const ip_tos_table[] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ip_tos, int, 0xff);
 
-bool ifname_valid_full(const char *p, bool alternative) {
+bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
         bool numeric = true;
 
         /* Checks whether a network interface name is valid. This is inspired by dev_valid_name() in the kernel sources
          * but slightly stricter, as we only allow non-control, non-space ASCII characters in the interface name. We
          * also don't permit names that only container numbers, to avoid confusion with numeric interface indexes. */
 
+        assert(!(flags & ~_IFNAME_VALID_ALL));
+
         if (isempty(p))
                 return false;
 
-        if (alternative) {
+        if (flags & IFNAME_VALID_ALTERNATIVE) {
                 if (strlen(p) >= ALTIFNAMSIZ)
                         return false;
         } else {
@@ -707,22 +709,27 @@ bool ifname_valid_full(const char *p, bool alternative) {
         if (dot_or_dot_dot(p))
                 return false;
 
-        while (*p) {
-                if ((unsigned char) *p >= 127U)
+        for (const char *t = p; *t; t++) {
+                if ((unsigned char) *t >= 127U)
                         return false;
 
-                if ((unsigned char) *p <= 32U)
+                if ((unsigned char) *t <= 32U)
                         return false;
 
-                if (IN_SET(*p, ':', '/'))
+                if (IN_SET(*t, ':', '/'))
                         return false;
 
-                numeric = numeric && (*p >= '0' && *p <= '9');
-                p++;
+                numeric = numeric && (*t >= '0' && *t <= '9');
         }
 
-        if (numeric)
-                return false;
+        if (numeric) {
+                if (!(flags & IFNAME_VALID_NUMERIC))
+                        return false;
+
+                /* Verify that the number is well-formatted and in range. */
+                if (parse_ifindex(p) < 0)
+                        return false;
+        }
 
         return true;
 }

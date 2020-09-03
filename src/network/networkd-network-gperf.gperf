@@ -39,7 +39,7 @@ Match.Type,                                  config_parse_match_strv,           
 Match.WLANInterfaceType,                     config_parse_match_strv,                                  0,                             offsetof(Network, match_wlan_iftype)
 Match.SSID,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match_ssid)
 Match.BSSID,                                 config_parse_hwaddrs,                                     0,                             offsetof(Network, match_bssid)
-Match.Name,                                  config_parse_match_ifnames,                               1,                             offsetof(Network, match_name)
+Match.Name,                                  config_parse_match_ifnames,                               IFNAME_VALID_ALTERNATIVE,      offsetof(Network, match_name)
 Match.Property,                              config_parse_match_property,                              0,                             offsetof(Network, match_property)
 Match.Host,                                  config_parse_net_condition,                               CONDITION_HOST,                offsetof(Network, conditions)
 Match.Virtualization,                        config_parse_net_condition,                               CONDITION_VIRTUALIZATION,      offsetof(Network, conditions)

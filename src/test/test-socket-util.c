@@ -26,13 +26,13 @@ assert_cc(SUN_PATH_LEN == 108);
 static void test_ifname_valid(void) {
         log_info("/* %s */", __func__);
 
-        assert(ifname_valid("foo"));
-        assert(ifname_valid("eth0"));
+        assert( ifname_valid("foo"));
+        assert( ifname_valid("eth0"));
 
         assert(!ifname_valid("0"));
         assert(!ifname_valid("99"));
-        assert(ifname_valid("a99"));
-        assert(ifname_valid("99a"));
+        assert( ifname_valid("a99"));
+        assert( ifname_valid("99a"));
 
         assert(!ifname_valid(NULL));
         assert(!ifname_valid(""));
@@ -44,9 +44,13 @@ static void test_ifname_valid(void) {
         assert(ifname_valid("foo.bar"));
         assert(!ifname_valid("x:y"));
 
-        assert(ifname_valid("xxxxxxxxxxxxxxx"));
-        assert(!ifname_valid("xxxxxxxxxxxxxxxx"));
-        assert(ifname_valid_full("xxxxxxxxxxxxxxxx", true));
+        assert( ifname_valid_full("xxxxxxxxxxxxxxx", 0));
+        assert(!ifname_valid_full("xxxxxxxxxxxxxxxx", 0));
+        assert( ifname_valid_full("xxxxxxxxxxxxxxxx", IFNAME_VALID_ALTERNATIVE));
+        assert( ifname_valid_full("xxxxxxxxxxxxxxxx", IFNAME_VALID_ALTERNATIVE));
+        assert(!ifname_valid_full("999", IFNAME_VALID_ALTERNATIVE));
+        assert( ifname_valid_full("999", IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC));
+        assert(!ifname_valid_full("0", IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC));
 }
 
 static void test_socket_print_unix_one(const char *in, size_t len_in, const char *expected) {
