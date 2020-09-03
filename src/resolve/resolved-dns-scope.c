@@ -403,11 +403,11 @@ static int dns_scope_socket(
                 /* RFC 4795, section 2.5 requires the TTL to be set to 1 */
 
                 if (sa.sa.sa_family == AF_INET) {
-                        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, true);
+                        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, 1);
                         if (r < 0)
                                 return r;
                 } else if (sa.sa.sa_family == AF_INET6) {
-                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, true);
+                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 1);
                         if (r < 0)
                                 return r;
                 }
