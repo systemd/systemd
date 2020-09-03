@@ -1349,6 +1349,40 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOQO*Inc.*:pnOQO*Model*2*:pvr*
  KEYBOARD_KEY_f3=volumeup
 
 ###########################################################
+# Ortek
+###########################################################
+
+# Adesso AKB-805MAC
+# The key code identifiers used below exactly match the text
+# labels on the keys/buttons (or standard icons on the buttons
+# that have no text labels), except as noted.
+evdev:input:b0003v05A4p9735*
+ KEYBOARD_KEY_c0015=back
+ KEYBOARD_KEY_c0012=forward
+ KEYBOARD_KEY_c000c=stop
+ KEYBOARD_KEY_c0018=refresh
+ KEYBOARD_KEY_c00b9=search
+ KEYBOARD_KEY_c0006=bookmarks    # Button labeled "Favorites"
+ KEYBOARD_KEY_c00a8=homepage     # Button labeled "Web/Home"
+ KEYBOARD_KEY_c0010=mute
+ KEYBOARD_KEY_c0011=volumedown
+ KEYBOARD_KEY_c0014=volumeup
+ KEYBOARD_KEY_c000e=close
+ KEYBOARD_KEY_c00a7=print
+ KEYBOARD_KEY_c0013=documents    # Button labeled "Stickies"
+ KEYBOARD_KEY_c000d=find         # Button labeled "Sherlock2"
+ KEYBOARD_KEY_c000f=mail
+ KEYBOARD_KEY_c000a=calc
+ KEYBOARD_KEY_c000b=sleep
+ KEYBOARD_KEY_c0007=previoussong # Button with standard |<< icon
+ KEYBOARD_KEY_c0008=playpause    # Button with standad >/|| icon
+ KEYBOARD_KEY_c0009=nextsong     # Button with standard >>| icon
+ KEYBOARD_KEY_c00b2=stopcd       # Button with standard square box icon
+ KEYBOARD_KEY_c0016=prog1        # Key labeled "pf1"
+ KEYBOARD_KEY_c00bb=prog2        # Key labeled "pf2"
+ KEYBOARD_KEY_c00b8=prog3        # Key labeled "pf3"
+
+###########################################################
 # Plantronics
 ###########################################################
 
