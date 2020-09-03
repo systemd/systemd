@@ -579,7 +579,7 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, true);
+        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, 1);
         if (r < 0)
                 return r;
 
@@ -621,7 +621,7 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         if (r < 0)
                 goto fail;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, true);
+        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, 1);
         if (r < 0)
                 goto fail;
 

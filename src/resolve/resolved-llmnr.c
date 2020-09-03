@@ -326,7 +326,7 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                 return log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to create socket: %m");
 
         /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
-        r = setsockopt_int(s, IPPROTO_IP, IP_TTL, true);
+        r = setsockopt_int(s, IPPROTO_IP, IP_TTL, 1);
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set IP_TTL: %m");
 
@@ -397,7 +397,7 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
                 return log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to create socket: %m");
 
         /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_UNICAST_HOPS, true);
+        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 1);
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_UNICAST_HOPS: %m");
 
