@@ -379,6 +379,10 @@ int in_addr_port_ifindex_name_from_string_auto(
                 if (isempty(m + 1))
                         return -EINVAL;
 
+                if (!ifname_valid_full(m + 1, IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC))
+                        return -EINVAL; /* We want to return -EINVAL for syntactically invalid names,
+                                         * and -ENODEV for valid but nonexistent interfaces. */
+
                 ifindex = resolve_interface(NULL, m + 1);
                 if (ifindex < 0)
                         return ifindex;
