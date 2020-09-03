@@ -4599,6 +4599,10 @@ int exec_spawn(Unit *unit,
         if (!line)
                 return log_oom();
 
+        /* fork with up-to-date SELinux label database, so the child inherits the up-to-date db
+           and, until the next SELinux policy changes, we safe further reloads in future children */
+        mac_selinux_maybe_reload();
+
         log_struct(LOG_DEBUG,
                    LOG_UNIT_MESSAGE(unit, "About to execute: %s", line),
                    "EXECUTABLE=%s", command->path,

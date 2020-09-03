@@ -35,14 +35,17 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 static int mac_selinux_reload(int seqno);
 
 static int cached_use = -1;
+static bool initialized = false;
+static int (*enforcing_status_func)(void) = security_getenforce;
+static int last_policyload = 0;
 static struct selabel_handle *label_hnd = NULL;
 
 #define log_enforcing(...)                                              \
-        log_full(security_getenforce() != 0 ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
+        log_full(mac_selinux_enforcing() ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
 
 #define log_enforcing_errno(error, ...)                                 \
         ({                                                              \
-                bool _enforcing = security_getenforce() != 0;           \
+                bool _enforcing = mac_selinux_enforcing();              \
                 int _level = _enforcing ? LOG_ERR : LOG_WARNING;        \
                 int _e = (error);                                       \
                                                                         \
@@ -66,32 +69,33 @@ bool mac_selinux_use(void) {
 #endif
 }
 
+bool mac_selinux_enforcing(void) {
+#if HAVE_SELINUX
+        return enforcing_status_func() != 0;
+#else
+        return false;
+#endif
+}
+
 void mac_selinux_retest(void) {
 #if HAVE_SELINUX
         cached_use = -1;
 #endif
 }
 
-int mac_selinux_init(void) {
 #if HAVE_SELINUX
+static int open_label_db(void) {
+        struct selabel_handle *hnd;
         usec_t before_timestamp, after_timestamp;
         struct mallinfo before_mallinfo, after_mallinfo;
         char timespan[FORMAT_TIMESPAN_MAX];
         int l;
 
-        selinux_set_callback(SELINUX_CB_POLICYLOAD, (union selinux_callback) mac_selinux_reload);
-
-        if (label_hnd)
-                return 0;
-
-        if (!mac_selinux_use())
-                return 0;
-
         before_mallinfo = mallinfo();
         before_timestamp = now(CLOCK_MONOTONIC);
 
-        label_hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
-        if (!label_hnd)
+        hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
+        if (!hnd)
                 return log_enforcing_errno(errno, "Failed to initialize SELinux labeling handle: %m");
 
         after_timestamp = now(CLOCK_MONOTONIC);
@@ -103,37 +107,94 @@ int mac_selinux_init(void) {
                   format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp, 0),
                   (l+1023)/1024);
 
+        /* release memory after measurement */
+        if (label_hnd)
+                selabel_close(label_hnd);
+        label_hnd = TAKE_PTR(hnd);
+
+        return 0;
+}
+#endif
+
+int mac_selinux_init(void) {
+#if HAVE_SELINUX
+        int r;
+
+        if (initialized)
+                return 0;
+
+        if (!mac_selinux_use())
+                return 0;
+
+        r = selinux_status_open(/* no netlink fallback */ 0);
+        if (r < 0)
+                return log_enforcing_errno(errno, "Failed to open SELinux status page: %m");
+
+        r = open_label_db();
+        if (r < 0) {
+                selinux_status_close();
+                return r;
+        }
+
+        /* save the current policyload sequence number, so `mac_selinux_maybe_reload()` does
+           not trigger on first call without any actual change */
+        last_policyload = selinux_status_policyload();
+
+        /* now that the SELinux status page has been successfully opened,
+           retrieve the enforcing status over it (to avoid system calls in `security_getenforce()`) */
+        enforcing_status_func = selinux_status_getenforce;
+
+        initialized = true;
 #endif
         return 0;
+}
+
+void mac_selinux_maybe_reload(void) {
+#if HAVE_SELINUX
+        int r;
+
+        r = selinux_status_updated();
+        if (r < 0)
+                log_debug_errno(errno, "Failed to update SELinux from status page: %m");
+        if (r > 0) {
+                int policyload;
+
+                log_debug("SELinux status page update");
+
+                /* from libselinux > 3.1 callbacks gets automatically called, see
+                   https://github.com/SELinuxProject/selinux/commit/05bdc03130d741e53e1fb45a958d0a2c184be503 */
+
+                /* only reload on policy changes, not enforcing status changes */
+                policyload = selinux_status_policyload();
+                if (policyload != last_policyload) {
+                        mac_selinux_reload(policyload);
+                        last_policyload = policyload;
+                }
+        }
+#endif
 }
 
 void mac_selinux_finish(void) {
 
 #if HAVE_SELINUX
-        if (!label_hnd)
-                return;
+        if (label_hnd) {
+                selabel_close(label_hnd);
+                label_hnd = NULL;
+        }
 
-        selabel_close(label_hnd);
-        label_hnd = NULL;
+        enforcing_status_func = security_getenforce;
+
+        selinux_status_close();
+
+        initialized = false;
 #endif
 }
 
 #if HAVE_SELINUX
 static int mac_selinux_reload(int seqno) {
-        struct selabel_handle *backup_label_hnd;
+        log_debug("SELinux reload %d", seqno);
 
-        if (!label_hnd)
-                return 0;
-
-        backup_label_hnd = TAKE_PTR(label_hnd);
-
-        /* try to initialize new handle
-         *    on success close backup
-         *    on failure restore backup */
-        if (mac_selinux_init() == 0)
-                selabel_close(backup_label_hnd);
-        else
-                label_hnd = backup_label_hnd;
+        (void) open_label_db();
 
         return 0;
 }
@@ -167,7 +228,7 @@ int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFi
                 return -errno;
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
-        (void) avc_netlink_check_nb();
+        mac_selinux_maybe_reload();
 
         if (selabel_lookup_raw(label_hnd, &fcon, inside_path, st.st_mode) < 0) {
                 r = -errno;
@@ -363,7 +424,7 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
         assert(path_is_absolute(abspath));
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
-        (void) avc_netlink_check_nb();
+        mac_selinux_maybe_reload();
 
         r = selabel_lookup_raw(label_hnd, &filecon, abspath, mode);
         if (r < 0) {
@@ -507,7 +568,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         path = strndupa(un->sun_path, addrlen - offsetof(struct sockaddr_un, sun_path));
 
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
-        (void) avc_netlink_check_nb();
+        mac_selinux_maybe_reload();
 
         if (path_is_absolute(path))
                 r = selabel_lookup_raw(label_hnd, &fcon, path, S_IFSOCK);

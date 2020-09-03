@@ -198,7 +198,7 @@ int mac_selinux_generic_access_check(
                 return r;
 
         /* delay call until we checked in `access_init()` if SELinux is actually enabled */
-        enforce = security_getenforce() != 0;
+        enforce = mac_selinux_enforcing();
 
         r = sd_bus_query_sender_creds(
                         message,
@@ -278,7 +278,7 @@ int mac_selinux_generic_access_check(
         return enforce ? r : 0;
 }
 
-#else
+#else /* HAVE_SELINUX */
 
 int mac_selinux_generic_access_check(
                 sd_bus_message *message,
@@ -289,4 +289,4 @@ int mac_selinux_generic_access_check(
         return 0;
 }
 
-#endif
+#endif /* HAVE_SELINUX */

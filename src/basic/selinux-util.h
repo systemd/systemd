@@ -17,8 +17,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char*, freecon);
 
 bool mac_selinux_use(void);
 void mac_selinux_retest(void);
+bool mac_selinux_enforcing(void);
 
 int mac_selinux_init(void);
+void mac_selinux_maybe_reload(void);
 void mac_selinux_finish(void);
 
 int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFixFlags flags);

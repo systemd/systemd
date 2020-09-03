@@ -656,6 +656,10 @@ static void event_run(Manager *manager, struct event *event) {
         /* Re-enable the debug message for the next batch of events */
         log_children_max_reached = true;
 
+        /* fork with up-to-date SELinux label database, so the child inherits the up-to-date db
+           and, until the next SELinux policy changes, we safe further reloads in future children */
+        mac_selinux_maybe_reload();
+
         /* start new worker and pass initial device */
         worker_spawn(manager, event);
 }
