@@ -18,6 +18,7 @@
 #include "dbus-socket.h"
 #include "dbus-unit.h"
 #include "def.h"
+#include "errno-list.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -204,27 +205,6 @@ static int socket_arm_timer(Socket *s, usec_t usec) {
         (void) sd_event_source_set_description(s->timer_event_source, "socket-timer");
 
         return 0;
-}
-
-static int socket_instantiate_service(Socket *s, int cfd) {
-        Unit *service;
-        int r;
-
-        assert(s);
-        assert(cfd >= 0);
-
-        /* This fills in s->service if it isn't filled in yet. For Accept=yes sockets we create the next
-         * connection service here. For Accept=no this is mostly a NOP since the service is figured out at
-         * load time anyway. */
-
-        r = socket_load_service_unit(s, cfd, &service);
-        if (r < 0)
-                return r;
-
-        unit_ref_set(&s->service, UNIT(s), service);
-
-        return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, service,
-                                         false, UNIT_DEPENDENCY_IMPLICIT);
 }
 
 static bool have_non_accept_socket(Socket *s) {
@@ -1424,11 +1404,12 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
 
         if (cfd >= 0) {
                 r = instance_from_socket(cfd, s->n_accepted, &instance);
-                if (r == -ENOTCONN)
-                        /* ENOTCONN is legitimate if TCP RST was received.
-                         * This connection is over, but the socket unit lives on. */
+                if (ERRNO_IS_DISCONNECT(r))
+                        /* ENOTCONN is legitimate if TCP RST was received. Other socket families might return
+                         * different errors. This connection is over, but the socket unit lives on. */
                         return log_unit_debug_errno(UNIT(s), r,
-                                                    "Got ENOTCONN on incoming socket, assuming aborted connection attempt, ignoring.");
+                                                    "Got %s on incoming socket, assuming aborted connection attempt, ignoring.",
+                                                    errno_to_name(r));
                 if (r < 0)
                         return r;
         }
@@ -2326,12 +2307,13 @@ static void flush_ports(Socket *s) {
         }
 }
 
-static void socket_enter_running(Socket *s, int cfd) {
+static void socket_enter_running(Socket *s, int cfd_in) {
+        /* Note that this call takes possession of the connection fd passed. It either has to assign it
+         * somewhere or close it. */
+        _cleanup_close_ int cfd = cfd_in;
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
-
-        /* Note that this call takes possession of the connection fd passed. It either has to assign it somewhere or
-         * close it. */
 
         assert(s);
 
@@ -2342,9 +2324,8 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 if (cfd >= 0)
                         goto refuse;
-                else
-                        flush_ports(s);
 
+                flush_ports(s);
                 return;
         }
 
@@ -2370,8 +2351,8 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 if (!pending) {
                         if (!UNIT_ISSET(s->service)) {
-                                log_unit_error(UNIT(s), "Service to activate vanished, refusing activation.");
-                                r = -ENOENT;
+                                r = log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT),
+                                                         "Service to activate vanished, refusing activation.");
                                 goto fail;
                         }
 
@@ -2383,7 +2364,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 socket_set_state(s, SOCKET_RUNNING);
         } else {
                 _cleanup_(socket_peer_unrefp) SocketPeer *p = NULL;
-                Service *service;
+                Unit *service;
 
                 if (s->n_connections >= s->max_connections) {
                         log_unit_warning(UNIT(s), "Too many incoming connections (%u), dropping connection.",
@@ -2393,8 +2374,10 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                 if (s->max_connections_per_source > 0) {
                         r = socket_acquire_peer(s, cfd, &p);
-                        if (r < 0)
-                                goto refuse;
+                        if (ERRNO_IS_DISCONNECT(r))
+                                return;
+                        if (r < 0) /* We didn't have enough resources to acquire peer information, let's fail. */
+                                goto fail;
                         if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
@@ -2407,29 +2390,35 @@ static void socket_enter_running(Socket *s, int cfd) {
                         }
                 }
 
-                r = socket_instantiate_service(s, cfd);
+                r = socket_load_service_unit(s, cfd, &service);
+                if (ERRNO_IS_DISCONNECT(r))
+                        return;
                 if (r < 0)
                         goto fail;
 
-                service = SERVICE(UNIT_DEREF(s->service));
-                unit_ref_unset(&s->service);
+                r = unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, service,
+                                              false, UNIT_DEPENDENCY_IMPLICIT);
+                if (r < 0)
+                        goto fail;
 
                 s->n_accepted++;
 
-                r = service_set_socket_fd(service, cfd, s, s->selinux_context_from_net);
+                r = service_set_socket_fd(SERVICE(service), cfd, s, s->selinux_context_from_net);
+                if (ERRNO_IS_DISCONNECT(r))
+                        return;
                 if (r < 0)
                         goto fail;
 
                 TAKE_FD(cfd); /* We passed ownership of the fd to the service now. Forget it here. */
                 s->n_connections++;
 
-                service->peer = TAKE_PTR(p); /* Pass ownership of the peer reference */
+                SERVICE(service)->peer = TAKE_PTR(p); /* Pass ownership of the peer reference */
 
-                r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, NULL, &error, NULL);
+                r = manager_add_job(UNIT(s)->manager, JOB_START, service, JOB_REPLACE, NULL, &error, NULL);
                 if (r < 0) {
                         /* We failed to activate the new service, but it still exists. Let's make sure the
                          * service closes and forgets the connection fd again, immediately. */
-                        service_close_socket_fd(service);
+                        service_close_socket_fd(SERVICE(service));
                         goto fail;
                 }
 
@@ -2437,20 +2426,23 @@ static void socket_enter_running(Socket *s, int cfd) {
                 unit_add_to_dbus_queue(UNIT(s));
         }
 
+        TAKE_FD(cfd);
         return;
 
 refuse:
         s->n_refused++;
-        safe_close(cfd);
         return;
 
 fail:
-        log_unit_warning(UNIT(s), "Failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
-                         cfd >= 0 ? "template" : "non-template",
-                         bus_error_message(&error, r));
+        if (ERRNO_IS_RESOURCE(r))
+                log_unit_warning(UNIT(s), "Failed to queue service startup job: %s",
+                                 bus_error_message(&error, r));
+        else
+                log_unit_warning(UNIT(s), "Failed to queue service startup job (Maybe the service file is missing or not a %s unit?): %s",
+                                 cfd >= 0 ? "template" : "non-template",
+                                 bus_error_message(&error, r));
 
         socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
-        safe_close(cfd);
 }
 
 static void socket_run_next(Socket *s) {
