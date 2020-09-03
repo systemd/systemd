@@ -479,6 +479,7 @@ static int add_mmap(
         if (!c)
                 goto outofmem;
 
+        m->last_unused = NULL;
         w = window_add(m, f, prot, keep_always, woffset, wsize, d);
         if (!w)
                 goto outofmem;
