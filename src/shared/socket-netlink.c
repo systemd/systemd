@@ -157,9 +157,9 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 
                 } else {
                         union in_addr_union address;
-                        int family;
+                        int family, ifindex;
 
-                        r = in_addr_port_ifindex_name_from_string_auto(s, &family, &address, &port, NULL, NULL);
+                        r = in_addr_port_ifindex_name_from_string_auto(s, &family, &address, &port, &ifindex, NULL);
                         if (r < 0)
                                 return r;
 
@@ -181,6 +181,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                                 .sin6_family = AF_INET6,
                                                 .sin6_addr = address.in6,
                                                 .sin6_port = htobe16(port),
+                                                .sin6_scope_id = ifindex,
                                         },
                                         .size = sizeof(struct sockaddr_in6),
                                 };
