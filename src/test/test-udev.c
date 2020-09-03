@@ -63,10 +63,9 @@ static int run(int argc, char *argv[]) {
 
         test_setup_logging(LOG_INFO);
 
-        if (!IN_SET(argc, 2, 3)) {
-                log_error("This program needs one or two arguments, %d given", argc - 1);
-                return -EINVAL;
-        }
+        if (!IN_SET(argc, 2, 3))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program needs one or two arguments, %d given", argc - 1);
 
         r = fake_filesystems();
         if (r < 0)
@@ -79,10 +78,9 @@ static int run(int argc, char *argv[]) {
         mac_selinux_retest();
 
         if (argc == 2) {
-                if (!streq(argv[1], "check")) {
-                        log_error("Unknown argument: %s", argv[1]);
-                        return -EINVAL;
-                }
+                if (!streq(argv[1], "check"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Unknown argument: %s", argv[1]);
 
                 return 0;
         }
