@@ -213,6 +213,41 @@ static void test_socket_address_is_netlink(void) {
         assert_se(!socket_address_is_netlink(&a, "route 1"));
 }
 
+static void test_socket_addr_port_from_string_auto_one(const char *in, uint16_t port, int ret, int family, const char *expected) {
+        _cleanup_free_ char *out = NULL;
+        SocketAddress a;
+        int r;
+
+        r = socket_addr_port_from_string_auto(in, port, &a);
+        if (r >= 0)
+                assert_se(sockaddr_pretty(&a.sockaddr.sa, a.size, false, true, &out) >= 0);
+
+        log_info("\"%s\" → %s → \"%s\" (expect \"%s\")", in,
+                 r >= 0 ? "✓" : "✗", empty_to_dash(out), r >= 0 ? expected ?: in : "-");
+        assert_se(r == ret);
+        if (r >= 0) {
+                assert_se(a.sockaddr.sa.sa_family == family);
+                assert_se(streq(out, expected ?: in));
+        }
+}
+
+static void test_socket_addr_port_from_string_auto(void) {
+        log_info("/* %s */", __func__);
+
+        test_socket_addr_port_from_string_auto_one("junk", 51, -EINVAL, 0, NULL);
+        test_socket_addr_port_from_string_auto_one("192.168.1.1", 53, 0, AF_INET, "192.168.1.1:53");
+        test_socket_addr_port_from_string_auto_one(".168.1.1", 53, -EINVAL, 0, NULL);
+        test_socket_addr_port_from_string_auto_one("989.168.1.1", 53, -EINVAL, 0, NULL);
+
+        test_socket_addr_port_from_string_auto_one("[::1]", 53, -EINVAL, 0, NULL);
+        test_socket_addr_port_from_string_auto_one("[::1]8888", 53, -EINVAL, 0, NULL);
+        test_socket_addr_port_from_string_auto_one("2001:db8:3c4d:15::1a2f:1a2b", 53, 0, AF_INET6, "[2001:db8:3c4d:15::1a2f:1a2b]:53");
+        test_socket_addr_port_from_string_auto_one("[2001:db8:3c4d:15::1a2f:1a2b]:2001", 53, 0, AF_INET6, "[2001:db8:3c4d:15::1a2f:1a2b]:2001");
+        test_socket_addr_port_from_string_auto_one("[::1]:0", 53, -EINVAL, 0, NULL);
+        test_socket_addr_port_from_string_auto_one("[::1]:65536", 53, -ERANGE, 0, NULL);
+        test_socket_addr_port_from_string_auto_one("[a:b:1]:8888", 53, -EINVAL, 0, NULL);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -222,6 +257,7 @@ int main(int argc, char *argv[]) {
         test_socket_address_get_path();
         test_socket_address_is();
         test_socket_address_is_netlink();
+        test_socket_addr_port_from_string_auto();
 
         return 0;
 }

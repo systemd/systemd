@@ -270,6 +270,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DNSStubListenerExtra=</varname></term>
+        <listitem><para>Takes an IPv4 or IPv6 address to listen on. The address may optionally be prefixed by <literal>:</literal> and
+        a protocol name (<literal>udp</literal> or <literal>tcp</literal>). When an IPv6 address is specified with a port number, then the
+        address must be in the square brackets. This option can be specified multiple times. If an empty string is assigned, then the all
+        previous assignments are cleared. It may also be optionally suffixed by a numeric port number with separator <literal>:</literal>.
+        If the protocol is not specified, the service will listen on both <literal>UDP</literal> and <literal>TCP</literal>. If the port is not
+        specified, then the service takes port as 53. This option may be used multiple times. Note that this is independent of the
+        primary DNS stub configured with <varname>DNSStubListener=</varname>, and only configures <emphasis>additional</emphasis>
+        sockets to listen on. Defaults to unset.</para>
+
+        <para>If the string in the format <literal>udp</literal>:[<replaceable>x</replaceable>]:<replaceable>y</replaceable>,
+        it is read as protocol <literal>udp</literal> and IPv6 address x on a port y.</para>
+
+        <para>If the string in the format [<replaceable>x</replaceable>]:<replaceable>y</replaceable>, it is read as both protocol
+        <literal>udp</literal> and <literal>tcp</literal>, IPv6 address x on a port y.</para>
+
+        <para>If the string in the format <replaceable>x</replaceable>, it is read as protocol both <literal>udp</literal> and
+        <literal>tcp</literal>, IPv6/IPv4 address x on a port 53.</para>
+
+        <para>If the string in the format <literal>udp</literal>:<replaceable>x</replaceable>:<replaceable>y</replaceable>,
+        it is read as protocol <literal>udp</literal> and IPv4 address x on a port y.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ReadEtcHosts=</varname></term>
         <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default),
         <command>systemd-resolved</command> will read <filename>/etc/hosts</filename>, and try to resolve
