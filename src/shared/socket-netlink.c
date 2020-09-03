@@ -66,39 +66,8 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 .type = SOCK_STREAM,
         };
 
-        if (*s == '[') {
-                uint16_t port;
-
-                /* IPv6 in [x:.....:z]:p notation */
-
-                e = strchr(s+1, ']');
-                if (!e)
-                        return -EINVAL;
-
-                n = strndup(s+1, e-s-1);
-                if (!n)
-                        return -ENOMEM;
-
-                errno = 0;
-                if (inet_pton(AF_INET6, n, &a->sockaddr.in6.sin6_addr) <= 0)
-                        return errno_or_else(EINVAL);
-
-                e++;
-                if (*e != ':')
-                        return -EINVAL;
-
-                e++;
-                r = parse_ip_port(e, &port);
-                if (r < 0)
-                        return r;
-
-                a->sockaddr.in6.sin6_family = AF_INET6;
-                a->sockaddr.in6.sin6_port = htobe16(port);
-                a->size = sizeof(struct sockaddr_in6);
-
-        } else if (*s == '/') {
+        if (*s == '/') {
                 /* AF_UNIX socket */
-
                 size_t l;
 
                 l = strlen(s);
@@ -158,47 +127,11 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         } else {
                 uint16_t port;
 
-                e = strchr(s, ':');
-                if (e) {
-                        r = parse_ip_port(e + 1, &port);
-                        if (r < 0)
-                                return r;
-
-                        n = strndup(s, e-s);
-                        if (!n)
-                                return -ENOMEM;
-
-                        /* IPv4 in w.x.y.z:p notation? */
-                        r = inet_pton(AF_INET, n, &a->sockaddr.in.sin_addr);
-                        if (r < 0)
-                                return -errno;
-
-                        if (r > 0) {
-                                /* Gotcha, it's a traditional IPv4 address */
-                                a->sockaddr.in.sin_family = AF_INET;
-                                a->sockaddr.in.sin_port = htobe16(port);
-                                a->size = sizeof(struct sockaddr_in);
-                        } else {
-                                int idx;
-
-                                /* Uh, our last resort, an interface name */
-                                idx = resolve_ifname(NULL, n);
-                                if (idx < 0)
-                                        return idx;
-
-                                a->sockaddr.in6.sin6_family = AF_INET6;
-                                a->sockaddr.in6.sin6_port = htobe16(port);
-                                a->sockaddr.in6.sin6_scope_id = idx;
-                                a->sockaddr.in6.sin6_addr = in6addr_any;
-                                a->size = sizeof(struct sockaddr_in6);
-                        }
-                } else {
-
+                r = parse_ip_port(s, &port);
+                if (r == -ERANGE)
+                        return r; /* Valid port syntax, but the numerical value is wrong for a port. */
+                if (r >= 0) {
                         /* Just a port */
-                        r = parse_ip_port(s, &port);
-                        if (r < 0)
-                                return r;
-
                         if (socket_ipv6_is_supported()) {
                                 a->sockaddr.in6.sin6_family = AF_INET6;
                                 a->sockaddr.in6.sin6_port = htobe16(port);
@@ -210,6 +143,34 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                 a->sockaddr.in.sin_addr.s_addr = INADDR_ANY;
                                 a->size = sizeof(struct sockaddr_in);
                         }
+
+                } else {
+                        union in_addr_union address;
+                        int family;
+
+                        r = in_addr_port_ifindex_name_from_string_auto(s, &family, &address, &port, NULL, NULL);
+                        if (r < 0)
+                                return r;
+
+                        if (port == 0) /* No port, no go. */
+                                return -EINVAL;
+
+                        if (family == AF_INET) {
+                                a->sockaddr.in = (struct sockaddr_in) {
+                                        .sin_family = AF_INET,
+                                        .sin_addr = address.in,
+                                        .sin_port = htobe16(port),
+                                };
+                                a->size = sizeof(struct sockaddr_in);
+                        } else if (family == AF_INET6) {
+                                a->sockaddr.in6 = (struct sockaddr_in6) {
+                                        .sin6_family = AF_INET6,
+                                        .sin6_addr = address.in6,
+                                        .sin6_port = htobe16(port),
+                                };
+                                a->size = sizeof(struct sockaddr_in6);
+                        } else
+                                assert_not_reached("Family quarrel");
                 }
         }
 
