@@ -2545,6 +2545,7 @@ static int native_help(void) {
                "  dnssec [LINK [MODE]]         Get/set per-interface DNSSEC mode\n"
                "  nta [LINK [DOMAIN...]]       Get/set per-interface DNSSEC NTA\n"
                "  revert LINK                  Revert per-interface configuration\n"
+               "  log-level [LEVEL]            Get/set logging threshold for systemd-resolved\n"
                "\nOptions:\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
