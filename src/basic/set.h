@@ -34,7 +34,7 @@ int _set_ensure_allocated(Set **s, const struct hash_ops *hash_ops HASHMAP_DEBUG
 int set_put(Set *s, const void *key);
 /* no set_update */
 /* no set_replace */
-static inline void *set_get(const Set *s, void *key) {
+static inline void *set_get(const Set *s, const void *key) {
         return _hashmap_get(HASHMAP_BASE((Set *) s), key);
 }
 /* no set_get2 */
