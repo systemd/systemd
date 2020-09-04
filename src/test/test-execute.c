@@ -782,7 +782,6 @@ typedef struct test_entry {
 #define entry(x) {x, #x}
 
 static int run_tests(UnitFileScope scope, const test_entry tests[], char **patterns) {
-        const test_entry *test = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -795,7 +794,7 @@ static int run_tests(UnitFileScope scope, const test_entry tests[], char **patte
         assert_se(r >= 0);
         assert_se(manager_startup(m, NULL, NULL) >= 0);
 
-        for (test = tests; test && test->f; test++)
+        for (const test_entry *test = tests; test->f; test++)
                 if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
                         test->f(m);
                 else
