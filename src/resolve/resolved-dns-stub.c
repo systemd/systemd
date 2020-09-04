@@ -710,10 +710,7 @@ int manager_dns_stub_start(Manager *m) {
                 DNSStubListenerExtra *l;
                 Iterator i;
 
-                log_debug("Creating stub listener extra using %s.",
-                          m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP ? "UDP" :
-                          m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" :
-                          "UDP/TCP");
+                log_debug("Creating extra stub listeners.");
 
                 ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners, i)
                         if (l->mode == DNS_STUB_LISTENER_UDP)
