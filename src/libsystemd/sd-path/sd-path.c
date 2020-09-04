@@ -437,6 +437,9 @@ _public_ int sd_path_lookup(uint64_t type, const char *suffix, char **path) {
         r = sd_path_lookup_strv(type, suffix, &l);
         if (r < 0)
                 return r;
+        /* system.attached paths are not for general usage */
+        strv_remove(l, "/etc/systemd/system.attached");
+        strv_remove(l, "/run/systemd/system.attached");
 
         buffer = strv_join(l, ":");
         if (!buffer)

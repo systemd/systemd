@@ -5308,8 +5308,15 @@ int unit_load_fragment(Unit *u) {
                         u->load_state = u->perpetual ? UNIT_LOADED : UNIT_MASKED; /* don't allow perpetual units to ever be masked */
                         u->fragment_mtime = 0;
                 } else {
+                        _cleanup_free_ char *parent = NULL;
+
                         u->load_state = UNIT_LOADED;
                         u->fragment_mtime = timespec_load(&st.st_mtim);
+
+                        parent = dirname_malloc(u->fragment_path);
+                        if (!parent)
+                                return -ENOMEM;
+                        u->attached = !!strstr(parent, "system.attached");
 
                         /* Now, parse the file contents */
                         r = config_parse(u->id, fragment, f,

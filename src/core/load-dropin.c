@@ -20,7 +20,7 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                                         u->manager->lookup_paths.search_path,
                                         u->manager->unit_path_cache,
                                         dir_suffix, NULL,
-                                        u->id, u->aliases,
+                                        u->id, u->aliases, u->attached,
                                         &paths);
         if (r < 0)
                 return r;

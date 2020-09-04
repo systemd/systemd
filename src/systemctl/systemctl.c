@@ -2633,6 +2633,8 @@ static int unit_find_paths(
         } else {
                 const char *_path;
                 _cleanup_set_free_free_ Set *names = NULL;
+                _cleanup_free_ char *parent = NULL;
+                bool attached = false;
 
                 if (!cached_name_map) {
                         r = unit_file_build_name_map(lp, NULL, &cached_id_map, &cached_name_map, NULL);
@@ -2648,12 +2650,16 @@ static int unit_find_paths(
                         path = strdup(_path);
                         if (!path)
                                 return log_oom();
+                        parent = dirname_malloc(path);
+                        if (!parent)
+                                return log_oom();
+                        attached = !!strstr(parent, "system.attached");
                 }
 
                 if (ret_dropin_paths) {
                         r = unit_file_find_dropin_paths(arg_root, lp->search_path, NULL,
                                                         ".d", ".conf",
-                                                        NULL, names, &dropins);
+                                                        NULL, names, attached, &dropins);
                         if (r < 0)
                                 return r;
                 }

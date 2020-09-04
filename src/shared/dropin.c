@@ -220,6 +220,8 @@ static int unit_file_find_dirs(
         return unit_file_find_dirs(original_root, unit_path_cache, unit_path, built, suffix, dirs);
 }
 
+/* system.attached paths will be skipped unless attached is true, so that
+ * attached directories cannot affect system services. */
 int unit_file_find_dropin_paths(
                 const char *original_root,
                 char **lookup_path,
@@ -228,6 +230,7 @@ int unit_file_find_dropin_paths(
                 const char *file_suffix,
                 const char *name,
                 const Set *aliases,
+                bool attached,
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
@@ -240,11 +243,13 @@ int unit_file_find_dropin_paths(
 
         if (name)
                 STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, name, dir_suffix, &dirs);
+                        if (attached || !strstr(*p, "system.attached"))
+                                (void) unit_file_find_dirs(original_root, unit_path_cache, *p, name, dir_suffix, &dirs);
 
         SET_FOREACH(n, aliases, i)
                 STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, n, dir_suffix, &dirs);
+                        if (attached || !strstr(*p, "system.attached"))
+                                (void) unit_file_find_dirs(original_root, unit_path_cache, *p, n, dir_suffix, &dirs);
 
         /* All the names in the unit are of the same type so just grab one. */
         n = name ?: (const char*) set_first(aliases);
@@ -259,12 +264,13 @@ int unit_file_find_dropin_paths(
                 /* Special top level drop in for "<unit type>.<suffix>". Add this last as it's the most generic
                  * and should be able to be overridden by more specific drop-ins. */
                 STRV_FOREACH(p, lookup_path)
-                        (void) unit_file_find_dirs(original_root,
-                                                   unit_path_cache,
-                                                   *p,
-                                                   unit_type_to_string(type),
-                                                   dir_suffix,
-                                                   &dirs);
+                        if (attached || !strstr(*p, "system.attached"))
+                                (void) unit_file_find_dirs(original_root,
+                                                        unit_path_cache,
+                                                        *p,
+                                                        unit_type_to_string(type),
+                                                        dir_suffix,
+                                                        &dirs);
         }
 
         if (strv_isempty(dirs)) {

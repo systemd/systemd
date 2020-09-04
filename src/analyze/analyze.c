@@ -1542,8 +1542,10 @@ static int dump_unit_paths(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "lookup_paths_init() failed: %m");
 
+        /* system.attached paths are not for general usage */
         STRV_FOREACH(p, paths.search_path)
-                puts(*p);
+                if (!strstr(*p, "system.attached"))
+                        puts(*p);
 
         return 0;
 }
