@@ -652,9 +652,8 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         if (r < 0)
                 goto fail;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, 1);
-        if (r < 0)
-                goto fail;
+        /* Do not set IP_TTL for extra DNS stub listners, as the address may not be local and in that
+         * case people may want ttl > 1. */
 
         r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
         if (r < 0)
