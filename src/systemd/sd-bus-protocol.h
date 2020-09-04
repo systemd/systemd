@@ -94,6 +94,12 @@ enum {
 #define SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED \
                                                 "org.freedesktop.DBus.Error.InteractiveAuthorizationRequired"
 
+/* https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-marshaling-signature */
+#define SD_BUS_MAXIMUM_SIGNATURE_LENGTH 255
+
+/* https://dbus.freedesktop.org/doc/dbus-specification.html#message-protocol-names */
+#define SD_BUS_MAXIMUM_NAME_LENGTH 255
+
 _SD_END_DECLARATIONS;
 
 #endif
