@@ -45,6 +45,9 @@ int in_addr_port_ifindex_name_to_string(int family, const union in_addr_union *u
 static inline int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifindex, char **ret) {
         return in_addr_port_ifindex_name_to_string(family, u, 0, ifindex, NULL, ret);
 }
+static inline int in_addr_port_to_string(int family, const union in_addr_union *u, uint16_t port, char **ret) {
+        return in_addr_port_ifindex_name_to_string(family, u, port, 0, NULL, ret);
+}
 int in_addr_from_string(int family, const char *s, union in_addr_union *ret);
 int in_addr_from_string_auto(const char *s, int *ret_family, union in_addr_union *ret);
 
