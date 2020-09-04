@@ -205,6 +205,35 @@ struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t leng
                          strnlen(_sa->sun_path, sizeof(_sa->sun_path))+1); \
         })
 
+#define SOCKADDR_LEN(sa)                                                \
+        ({                                                              \
+                const union sockaddr_union *__sa = &(sa);               \
+                size_t _len;                                            \
+                switch(__sa->sa.sa_family) {                            \
+                case AF_INET:                                           \
+                        _len = sizeof(struct sockaddr_in);              \
+                        break;                                          \
+                case AF_INET6:                                          \
+                        _len = sizeof(struct sockaddr_in6);             \
+                        break;                                          \
+                case AF_UNIX:                                           \
+                        _len = SOCKADDR_UN_LEN(__sa->un);               \
+                        break;                                          \
+                case AF_PACKET:                                         \
+                        _len = SOCKADDR_LL_LEN(__sa->ll);               \
+                        break;                                          \
+                case AF_NETLINK:                                        \
+                        _len = sizeof(struct sockaddr_nl);              \
+                        break;                                          \
+                case AF_VSOCK:                                          \
+                        _len = sizeof(struct sockaddr_vm);              \
+                        break;                                          \
+                default:                                                \
+                        assert_not_reached("invalid socket family");    \
+                }                                                       \
+                _len;                                                   \
+        })
+
 int socket_ioctl_fd(void);
 
 int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path);
