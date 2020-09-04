@@ -484,7 +484,6 @@ _public_ int sd_bus_error_set_errno(sd_bus_error *e, int error) {
 
 _public_ int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *format, va_list ap) {
         PROTECT_ERRNO;
-        int r;
 
         if (error < 0)
                 error = -error;
@@ -515,33 +514,30 @@ _public_ int sd_bus_error_set_errnofv(sd_bus_error *e, int error, const char *fo
         }
 
         if (format) {
-                char *m;
+                _cleanup_free_ char *m = NULL;
 
                 /* Then, let's try to fill in the supplied message */
 
                 errno = error; /* Make sure that %m resolves to the specified error */
-                r = vasprintf(&m, format, ap);
-                if (r >= 0) {
+                if (vasprintf(&m, format, ap) < 0)
+                        goto fail;
 
-                        if (e->_need_free <= 0) {
-                                char *t;
+                if (e->_need_free <= 0) {
+                        char *t;
 
-                                t = strdup(e->name);
-                                if (t) {
-                                        e->_need_free = 1;
-                                        e->name = t;
-                                        e->message = m;
-                                        return -error;
-                                }
+                        t = strdup(e->name);
+                        if (!t)
+                                goto fail;
 
-                                free(m);
-                        } else {
-                                e->message = m;
-                                return -error;
-                        }
+                        e->_need_free = 1;
+                        e->name = t;
                 }
+
+                e->message = TAKE_PTR(m);
+                return -error;
         }
 
+fail:
         /* If that didn't work, use strerror() for the message */
         bus_error_strerror(e, error);
         return -error;
