@@ -5,6 +5,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "missing_network.h"
+#include "missing_socket.h"
 #include "resolved-dns-stub.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
@@ -406,20 +407,35 @@ static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void
         return 0;
 }
 
-static int set_dns_stub_common_socket_options(int fd) {
+static int set_dns_stub_common_socket_options(int fd, int family) {
         int r;
 
         assert(fd >= 0);
+        assert(IN_SET(family, AF_INET, AF_INET6));
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
-        if (r < 0)
-                return r;
+        if (family == AF_INET) {
+                r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
+                if (r < 0)
+                        return r;
 
-        return setsockopt_int(fd, IPPROTO_IP, IP_RECVTTL, true);
+                r = setsockopt_int(fd, IPPROTO_IP, IP_RECVTTL, true);
+                if (r < 0)
+                        return r;
+        } else {
+                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
+                if (r < 0)
+                        return r;
+
+                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int manager_dns_stub_udp_fd(Manager *m) {
@@ -438,7 +454,7 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         if (fd < 0)
                 return -errno;
 
-        r = set_dns_stub_common_socket_options(fd);
+        r = set_dns_stub_common_socket_options(fd, AF_INET);
         if (r < 0)
                 return r;
 
@@ -487,11 +503,13 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
                 goto fail;
         }
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
-        if (r < 0)
-                goto fail;
+        if (l->family == AF_INET) {
+                r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
+                if (r < 0)
+                        goto fail;
+        }
 
-        r = set_dns_stub_common_socket_options(fd);
+        r = set_dns_stub_common_socket_options(fd, l->family);
         if (r < 0)
                 goto fail;
 
@@ -592,7 +610,7 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         if (fd < 0)
                 return -errno;
 
-        r = set_dns_stub_common_socket_options(fd);
+        r = set_dns_stub_common_socket_options(fd, AF_INET);
         if (r < 0)
                 return r;
 
@@ -648,14 +666,17 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
                 goto fail;
         }
 
-        r = set_dns_stub_common_socket_options(fd);
+        r = set_dns_stub_common_socket_options(fd, l->family);
         if (r < 0)
                 goto fail;
 
         /* Do not set IP_TTL for extra DNS stub listners, as the address may not be local and in that
          * case people may want ttl > 1. */
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
+        if (l->family == AF_INET)
+                r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
+        else
+                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_FREEBIND, true);
         if (r < 0)
                 goto fail;
 
