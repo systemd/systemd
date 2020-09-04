@@ -101,8 +101,6 @@
 #define SNDBUF_SIZE (8*1024*1024)
 
 static int shift_fds(int fds[], size_t n_fds) {
-        int start, restart_from;
-
         if (n_fds <= 0)
                 return 0;
 
@@ -110,13 +108,10 @@ static int shift_fds(int fds[], size_t n_fds) {
 
         assert(fds);
 
-        start = 0;
-        for (;;) {
-                int i;
+        for (int start = 0;;) {
+                int restart_from = -1;
 
-                restart_from = -1;
-
-                for (i = start; i < (int) n_fds; i++) {
+                for (int i = start; i < (int) n_fds; i++) {
                         int nfd;
 
                         /* Already at right index? */
@@ -146,7 +141,7 @@ static int shift_fds(int fds[], size_t n_fds) {
 }
 
 static int flags_fds(const int fds[], size_t n_socket_fds, size_t n_storage_fds, bool nonblock) {
-        size_t i, n_fds;
+        size_t n_fds;
         int r;
 
         n_fds = n_socket_fds + n_storage_fds;
@@ -158,7 +153,7 @@ static int flags_fds(const int fds[], size_t n_socket_fds, size_t n_storage_fds,
         /* Drops/Sets O_NONBLOCK and FD_CLOEXEC from the file flags.
          * O_NONBLOCK only applies to socket activation though. */
 
-        for (i = 0; i < n_fds; i++) {
+        for (size_t i = 0; i < n_fds; i++) {
 
                 if (i < n_socket_fds) {
                         r = fd_nonblock(fds[i], nonblock);
@@ -1745,7 +1740,6 @@ static int build_environment(
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
-        ExecDirectoryType t;
         size_t n_env = 0;
         char *x;
 
@@ -1873,7 +1867,7 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
                 _cleanup_free_ char *pre = NULL, *joined = NULL;
                 const char *n;
 
@@ -1991,12 +1985,10 @@ static bool exec_needs_mount_namespace(
                 return true;
 
         if (context->root_directory) {
-                ExecDirectoryType t;
-
                 if (context->mount_apivfs)
                         return true;
 
-                for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
                         if (!params->prefix[t])
                                 continue;
 
@@ -2880,8 +2872,7 @@ static int compile_bind_mounts(
 
         _cleanup_strv_free_ char **empty_directories = NULL;
         BindMount *bind_mounts;
-        size_t n, h = 0, i;
-        ExecDirectoryType t;
+        size_t n, h = 0;
         int r;
 
         assert(context);
@@ -2891,7 +2882,7 @@ static int compile_bind_mounts(
         assert(ret_empty_directories);
 
         n = context->n_bind_mounts;
-        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
                 if (!params->prefix[t])
                         continue;
 
@@ -2909,7 +2900,7 @@ static int compile_bind_mounts(
         if (!bind_mounts)
                 return -ENOMEM;
 
-        for (i = 0; i < context->n_bind_mounts; i++) {
+        for (size_t i = 0; i < context->n_bind_mounts; i++) {
                 BindMount *item = context->bind_mounts + i;
                 char *s, *d;
 
@@ -2935,7 +2926,7 @@ static int compile_bind_mounts(
                 };
         }
 
-        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
                 char **suffix;
 
                 if (!params->prefix[t])
@@ -3020,8 +3011,6 @@ static bool insist_on_sandboxing(
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts) {
 
-        size_t i;
-
         assert(context);
         assert(n_bind_mounts == 0 || bind_mounts);
 
@@ -3043,7 +3032,7 @@ static bool insist_on_sandboxing(
 
         /* If there are any bind mounts set that don't map back onto themselves, fs namespacing becomes
          * essential. */
-        for (i = 0; i < n_bind_mounts; i++)
+        for (size_t i = 0; i < n_bind_mounts; i++)
                 if (!path_equal(bind_mounts[i].source, bind_mounts[i].destination))
                         return true;
 
@@ -3236,13 +3225,12 @@ static int apply_root_directory(
         assert(context);
         assert(exit_status);
 
-        if (params->flags & EXEC_APPLY_CHROOT) {
+        if (params->flags & EXEC_APPLY_CHROOT)
                 if (!needs_mount_ns && context->root_directory)
                         if (chroot(context->root_directory) < 0) {
                                 *exit_status = EXIT_CHROOT;
                                 return -errno;
                         }
-        }
 
         return 0;
 }
@@ -3467,7 +3455,6 @@ static int acquire_home(const ExecContext *c, uid_t uid, const char** home, char
 
 static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p, char ***ret) {
         _cleanup_strv_free_ char ** list = NULL;
-        ExecDirectoryType t;
         int r;
 
         assert(c);
@@ -3480,7 +3467,7 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
          * dynamic UID allocation, in order to save us from doing costly recursive chown()s of the special
          * directories. */
 
-        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
                 char **i;
 
                 if (t == EXEC_DIRECTORY_CONFIGURATION)
@@ -3615,7 +3602,6 @@ static int exec_child(
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         size_t n_fds;
-        ExecDirectoryType dt;
         int secure_bits;
         _cleanup_free_ gid_t *gids_after_pam = NULL;
         int ngids_after_pam = 0;
@@ -3954,7 +3940,7 @@ static int exec_child(
                 }
         }
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 r = setup_exec_directory(context, params, uid, gid, dt, exit_status);
                 if (r < 0)
                         return log_unit_error_errno(unit, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
@@ -4674,8 +4660,6 @@ int exec_spawn(Unit *unit,
 }
 
 void exec_context_init(ExecContext *c) {
-        ExecDirectoryType i;
-
         assert(c);
 
         c->umask = 0022;
@@ -4686,8 +4670,8 @@ void exec_context_init(ExecContext *c) {
         c->ignore_sigpipe = true;
         c->timer_slack_nsec = NSEC_INFINITY;
         c->personality = PERSONALITY_INVALID;
-        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
-                c->directories[i].mode = 0755;
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
+                c->directories[t].mode = 0755;
         c->timeout_clean_usec = USEC_INFINITY;
         c->capability_bounding_set = CAP_ALL;
         assert_cc(NAMESPACE_FLAGS_INITIAL != NAMESPACE_FLAGS_ALL);
@@ -4697,9 +4681,6 @@ void exec_context_init(ExecContext *c) {
 }
 
 void exec_context_done(ExecContext *c) {
-        ExecDirectoryType i;
-        size_t l;
-
         assert(c);
 
         c->environment = strv_free(c->environment);
@@ -4709,7 +4690,7 @@ void exec_context_done(ExecContext *c) {
 
         rlimit_free_all(c->rlimit);
 
-        for (l = 0; l < 3; l++) {
+        for (size_t l = 0; l < 3; l++) {
                 c->stdio_fdname[l] = mfree(c->stdio_fdname[l]);
                 c->stdio_file[l] = mfree(c->stdio_file[l]);
         }
@@ -4758,8 +4739,8 @@ void exec_context_done(ExecContext *c) {
         c->syscall_archs = set_free(c->syscall_archs);
         c->address_families = set_free(c->address_families);
 
-        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
-                c->directories[i].paths = strv_free(c->directories[i].paths);
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
+                c->directories[t].paths = strv_free(c->directories[t].paths);
 
         c->log_level_max = -1;
 
@@ -4852,23 +4833,17 @@ ExecCommand* exec_command_free_list(ExecCommand *c) {
 }
 
 void exec_command_free_array(ExecCommand **c, size_t n) {
-        size_t i;
-
-        for (i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
                 c[i] = exec_command_free_list(c[i]);
 }
 
 void exec_command_reset_status_array(ExecCommand *c, size_t n) {
-        size_t i;
-
-        for (i = 0; i < n; i++)
+        for (size_t i = 0; i < n; i++)
                 exec_status_reset(&c[i].exec_status);
 }
 
 void exec_command_reset_status_list_array(ExecCommand **c, size_t n) {
-        size_t i;
-
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 ExecCommand *z;
 
                 LIST_FOREACH(command, z, c[i])
@@ -4920,7 +4895,7 @@ static int exec_context_named_iofds(
                 const ExecParameters *p,
                 int named_iofds[static 3]) {
 
-        size_t i, targets;
+        size_t targets;
         const char* stdio_fdname[3];
         size_t n_fds;
 
@@ -4932,12 +4907,12 @@ static int exec_context_named_iofds(
                   (c->std_output == EXEC_OUTPUT_NAMED_FD) +
                   (c->std_error == EXEC_OUTPUT_NAMED_FD);
 
-        for (i = 0; i < 3; i++)
+        for (size_t i = 0; i < 3; i++)
                 stdio_fdname[i] = exec_context_fdname(c, i);
 
         n_fds = p->n_storage_fds + p->n_socket_fds;
 
-        for (i = 0; i < n_fds  && targets > 0; i++)
+        for (size_t i = 0; i < n_fds  && targets > 0; i++)
                 if (named_iofds[STDIN_FILENO] < 0 &&
                     c->std_input == EXEC_INPUT_NAMED_FD &&
                     stdio_fdname[STDIN_FILENO] &&
@@ -4975,7 +4950,6 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
         STRV_FOREACH(i, c->environment_files) {
                 char *fn;
                 int k;
-                unsigned n;
                 bool ignore = false;
                 char **p;
                 _cleanup_globfree_ glob_t pglob = {};
@@ -5008,7 +4982,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 /* When we don't match anything, -ENOENT should be returned */
                 assert(pglob.gl_pathc > 0);
 
-                for (n = 0; n < pglob.gl_pathc; n++) {
+                for (unsigned n = 0; n < pglob.gl_pathc; n++) {
                         k = load_env_file(NULL, pglob.gl_pathv[n], &p);
                         if (k < 0) {
                                 if (ignore)
@@ -5095,8 +5069,6 @@ static void strv_fprintf(FILE *f, char **l) {
 
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         char **e, **d, buf_clean[FORMAT_TIMESPAN_MAX];
-        ExecDirectoryType dt;
-        unsigned i;
         int r;
 
         assert(c);
@@ -5207,7 +5179,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f, "%sRuntimeDirectoryPreserve: %s\n", prefix, exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
 
-        for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 fprintf(f, "%s%sMode: %04o\n", prefix, exec_directory_type_to_string(dt), c->directories[dt].mode);
 
                 STRV_FOREACH(d, c->directories[dt].paths)
@@ -5233,7 +5205,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         "%sCoredumpFilter: 0x%"PRIx64"\n",
                         prefix, c->coredump_filter);
 
-        for (i = 0; i < RLIM_NLIMITS; i++)
+        for (unsigned i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i]) {
                         fprintf(f, "%sLimit%s: " RLIM_FMT "\n",
                                 prefix, rlimit_to_string(i), c->rlimit[i]->rlim_max);
@@ -5361,16 +5333,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         if (c->log_ratelimit_burst > 0)
                 fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_ratelimit_burst);
 
-        if (c->n_log_extra_fields > 0) {
-                size_t j;
-
-                for (j = 0; j < c->n_log_extra_fields; j++) {
-                        fprintf(f, "%sLogExtraFields: ", prefix);
-                        fwrite(c->log_extra_fields[j].iov_base,
-                               1, c->log_extra_fields[j].iov_len,
-                               f);
-                        fputc('\n', f);
-                }
+        for (size_t j = 0; j < c->n_log_extra_fields; j++) {
+                fprintf(f, "%sLogExtraFields: ", prefix);
+                fwrite(c->log_extra_fields[j].iov_base,
+                       1, c->log_extra_fields[j].iov_len,
+                       f);
+                fputc('\n', f);
         }
 
         if (c->log_namespace)
@@ -5434,24 +5402,22 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fputs("\n", f);
         }
 
-        if (c->n_bind_mounts > 0)
-                for (i = 0; i < c->n_bind_mounts; i++)
-                        fprintf(f, "%s%s: %s%s:%s:%s\n", prefix,
-                                c->bind_mounts[i].read_only ? "BindReadOnlyPaths" : "BindPaths",
-                                c->bind_mounts[i].ignore_enoent ? "-": "",
-                                c->bind_mounts[i].source,
-                                c->bind_mounts[i].destination,
-                                c->bind_mounts[i].recursive ? "rbind" : "norbind");
+        for (size_t i = 0; i < c->n_bind_mounts; i++)
+                fprintf(f, "%s%s: %s%s:%s:%s\n", prefix,
+                        c->bind_mounts[i].read_only ? "BindReadOnlyPaths" : "BindPaths",
+                        c->bind_mounts[i].ignore_enoent ? "-": "",
+                        c->bind_mounts[i].source,
+                        c->bind_mounts[i].destination,
+                        c->bind_mounts[i].recursive ? "rbind" : "norbind");
 
-        if (c->n_temporary_filesystems > 0)
-                for (i = 0; i < c->n_temporary_filesystems; i++) {
-                        TemporaryFileSystem *t = c->temporary_filesystems + i;
+        for (size_t i = 0; i < c->n_temporary_filesystems; i++) {
+                const TemporaryFileSystem *t = c->temporary_filesystems + i;
 
-                        fprintf(f, "%sTemporaryFileSystem: %s%s%s\n", prefix,
-                                t->path,
-                                isempty(t->options) ? "" : ":",
-                                strempty(t->options));
-                }
+                fprintf(f, "%sTemporaryFileSystem: %s%s%s\n", prefix,
+                        t->path,
+                        isempty(t->options) ? "" : ":",
+                        strempty(t->options));
+        }
 
         if (c->utmp_id)
                 fprintf(f,
@@ -5566,7 +5532,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fprintf(f, "%d\n", c->syscall_errno);
         }
 
-        for (i = 0; i < c->n_mount_images; i++) {
+        for (size_t i = 0; i < c->n_mount_images; i++) {
                 MountOptions *o;
 
                 fprintf(f, "%sMountImages: %s%s:%s%s", prefix,
@@ -5613,11 +5579,9 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
 }
 
 void exec_context_free_log_extra_fields(ExecContext *c) {
-        size_t l;
-
         assert(c);
 
-        for (l = 0; l < c->n_log_extra_fields; l++)
+        for (size_t l = 0; l < c->n_log_extra_fields; l++)
                 free(c->log_extra_fields[l].iov_base);
         c->log_extra_fields = mfree(c->log_extra_fields);
         c->n_log_extra_fields = 0;
@@ -5654,14 +5618,13 @@ int exec_context_get_clean_directories(
                 char ***ret) {
 
         _cleanup_strv_free_ char **l = NULL;
-        ExecDirectoryType t;
         int r;
 
         assert(c);
         assert(prefix);
         assert(ret);
 
-        for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
                 char **i;
 
                 if (!FLAGS_SET(mask, 1U << t))
