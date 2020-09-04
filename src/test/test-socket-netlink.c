@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "missing_network.h"
 #include "tests.h"
 #include "socket-netlink.h"
 #include "string-util.h"
@@ -248,6 +249,108 @@ static void test_socket_addr_port_from_string_auto(void) {
         test_socket_addr_port_from_string_auto_one("[a:b:1]:8888", 53, -EINVAL, 0, NULL);
 }
 
+static void test_in_addr_ifindex_to_string_one(int f, const char *a, int ifindex, const char *b) {
+        _cleanup_free_ char *r = NULL;
+        union in_addr_union ua, uuaa;
+        int ff, ifindex2;
+
+        assert_se(in_addr_from_string(f, a, &ua) >= 0);
+        assert_se(in_addr_ifindex_to_string(f, &ua, ifindex, &r) >= 0);
+        printf("test_in_addr_ifindex_to_string_one: %s == %s\n", b, r);
+        assert_se(streq(b, r));
+
+        assert_se(in_addr_ifindex_from_string_auto(b, &ff, &uuaa, &ifindex2) >= 0);
+        assert_se(ff == f);
+        assert_se(in_addr_equal(f, &ua, &uuaa));
+        assert_se(ifindex2 == ifindex || ifindex2 == 0);
+}
+
+static void test_in_addr_ifindex_to_string(void) {
+        log_info("/* %s */", __func__);
+
+        test_in_addr_ifindex_to_string_one(AF_INET, "192.168.0.1", 7, "192.168.0.1");
+        test_in_addr_ifindex_to_string_one(AF_INET, "10.11.12.13", 9, "10.11.12.13");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 10, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "::1", 11, "::1");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 12, "fe80::%12");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::", 0, "fe80::");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::14", 12, "fe80::14%12");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::15", -7, "fe80::15");
+        test_in_addr_ifindex_to_string_one(AF_INET6, "fe80::16", LOOPBACK_IFINDEX, "fe80::16%1");
+}
+
+static void test_in_addr_ifindex_from_string_auto(void) {
+        int family, ifindex;
+        union in_addr_union ua;
+
+        log_info("/* %s */", __func__);
+        /* Most in_addr_ifindex_from_string_auto() invocations have already been tested above, but let's test some more */
+
+        assert_se(in_addr_ifindex_from_string_auto("fe80::17", &family, &ua, &ifindex) >= 0);
+        assert_se(family == AF_INET6);
+        assert_se(ifindex == 0);
+
+        assert_se(in_addr_ifindex_from_string_auto("fe80::18%19", &family, &ua, &ifindex) >= 0);
+        assert_se(family == AF_INET6);
+        assert_se(ifindex == 19);
+
+        assert_se(in_addr_ifindex_from_string_auto("fe80::18%lo", &family, &ua, &ifindex) >= 0);
+        assert_se(family == AF_INET6);
+        assert_se(ifindex == LOOPBACK_IFINDEX);
+
+        assert_se(in_addr_ifindex_from_string_auto("fe80::19%thisinterfacecantexist", &family, &ua, &ifindex) == -ENODEV);
+}
+
+static void test_in_addr_ifindex_name_from_string_auto_one(const char *a, const char *expected) {
+        int family, ifindex;
+        union in_addr_union ua;
+        _cleanup_free_ char *server_name = NULL;
+
+        assert_se(in_addr_ifindex_name_from_string_auto(a, &family, &ua, &ifindex, &server_name) >= 0);
+        assert_se(streq_ptr(server_name, expected));
+}
+
+static void test_in_addr_ifindex_name_from_string_auto(void) {
+        log_info("/* %s */", __func__);
+
+        test_in_addr_ifindex_name_from_string_auto_one("192.168.0.1", NULL);
+        test_in_addr_ifindex_name_from_string_auto_one("192.168.0.1#test.com", "test.com");
+        test_in_addr_ifindex_name_from_string_auto_one("fe80::18%19", NULL);
+        test_in_addr_ifindex_name_from_string_auto_one("fe80::18%19#another.test.com", "another.test.com");
+}
+
+static void test_in_addr_port_ifindex_name_from_string_auto_one(const char *str, int family, uint16_t port, int ifindex, const char *server_name) {
+        _cleanup_free_ char *name = NULL, *x = NULL;
+        union in_addr_union a;
+        uint16_t p;
+        int f, i;
+
+        assert_se(in_addr_port_ifindex_name_from_string_auto(str, &f, &a, &p, &i, &name) >= 0);
+        assert_se(family == f);
+        assert_se(port == p);
+        assert_se(ifindex == i);
+        assert_se(streq_ptr(server_name, name));
+        assert_se(in_addr_port_ifindex_name_to_string(f, &a, p, i, name, &x) >= 0);
+        assert_se(streq(str, x));
+}
+
+static void test_in_addr_port_ifindex_name_from_string_auto(void) {
+        log_info("/* %s */", __func__);
+
+        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1", AF_INET, 0, 0, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1#test.com", AF_INET, 0, 0, "test.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1:53", AF_INET, 53, 0, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("192.168.0.1:53#example.com", AF_INET, 53, 0, "example.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18", AF_INET6, 0, 0, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18#hoge.com", AF_INET6, 0, 0, "hoge.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18%19", AF_INET6, 0, 19, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53", AF_INET6, 53, 0, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("fe80::18%19#hoge.com", AF_INET6, 0, 19, "hoge.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53#hoge.com", AF_INET6, 53, 0, "hoge.com");
+        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%19", AF_INET6, 53, 19, NULL);
+        test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%19#hoge.com", AF_INET6, 53, 19, "hoge.com");
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -258,6 +361,11 @@ int main(int argc, char *argv[]) {
         test_socket_address_is();
         test_socket_address_is_netlink();
         test_socket_addr_port_from_string_auto();
+
+        test_in_addr_ifindex_to_string();
+        test_in_addr_ifindex_from_string_auto();
+        test_in_addr_ifindex_name_from_string_auto();
+        test_in_addr_port_ifindex_name_from_string_auto();
 
         return 0;
 }
