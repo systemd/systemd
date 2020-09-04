@@ -1166,26 +1166,6 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
         return 0;
 }
 
-static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        size_t size;
-        int r;
-
-        assert(state_file);
-
-        r = read_full_file(state_file, &s, &size);
-        if (r == -ENOENT)
-                return -ENODATA;
-        if (r < 0)
-                return r;
-        if (size <= 0)
-                return -ENODATA;
-
-        *ret = TAKE_PTR(s);
-
-        return size;
-}
-
 int routing_policy_serialize_rules(Set *rules, FILE *f) {
         RoutingPolicyRule *rule = NULL;
         Iterator i;
@@ -1195,17 +1175,25 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
 
         SET_FOREACH(rule, rules, i) {
                 _cleanup_free_ char *from_str = NULL, *to_str = NULL;
-                bool space = false;
                 const char *family_str;
+                bool space = false;
 
                 fputs("RULE=", f);
+
+                family_str = af_to_name(rule->family);
+                if (family_str) {
+                        fprintf(f, "family=%s",
+                                family_str);
+                        space = true;
+                }
 
                 if (!in_addr_is_null(rule->family, &rule->from)) {
                         r = in_addr_to_string(rule->family, &rule->from, &from_str);
                         if (r < 0)
                                 return r;
 
-                        fprintf(f, "from=%s/%hhu",
+                        fprintf(f, "%sfrom=%s/%hhu",
+                                space ? " " : "",
                                 from_str, rule->from_prefixlen);
                         space = true;
                 }
@@ -1221,12 +1209,6 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
-                family_str = af_to_name(rule->family);
-                if (family_str)
-                fprintf(f, "%sfamily=%s",
-                        space ? " " : "",
-                        family_str);
-
                 if (rule->tos != 0) {
                         fprintf(f, "%stos=%hhu",
                                 space ? " " : "",
@@ -1234,9 +1216,12 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
-                fprintf(f, "%spriority=%"PRIu32,
-                        space ? " " : "",
-                        rule->priority);
+                if (rule->priority != 0) {
+                        fprintf(f, "%spriority=%"PRIu32,
+                                space ? " " : "",
+                                rule->priority);
+                        space = true;
+                }
 
                 if (rule->fwmark != 0) {
                         fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
@@ -1295,12 +1280,33 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
-                fprintf(f, "%stable=%"PRIu32 "\n",
+                fprintf(f, "%sinvert_rule=%s table=%"PRIu32"\n",
                         space ? " " : "",
+                        yes_no(rule->invert_rule),
                         rule->table);
         }
 
         return 0;
+}
+
+static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        size_t size;
+        int r;
+
+        assert(state_file);
+
+        r = read_full_file(state_file, &s, &size);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+        if (size <= 0)
+                return -ENODATA;
+
+        *ret = TAKE_PTR(s);
+
+        return size;
 }
 
 int routing_policy_load_rules(const char *state_file, Set **rules) {
@@ -1334,19 +1340,34 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         return r;
 
                 for (;;) {
-                        _cleanup_free_ char *word = NULL, *a = NULL, *b = NULL;
+                        _cleanup_free_ char *a = NULL;
+                        char *b;
 
-                        r = extract_first_word(&p, &word, NULL, 0);
+                        r = extract_first_word(&p, &a, NULL, 0);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 break;
 
-                        r = split_pair(word, "=", &a, &b);
-                        if (r < 0)
+                        b = strchr(a, '=');
+                        if (!b) {
+                                log_warning_errno(r, "Failed to parse RPDB rule, ignoring: %s", a);
                                 continue;
+                        }
+                        *b++ = '\0';
 
-                        if (STR_IN_SET(a, "from", "to")) {
+                        if (streq(a, "family")) {
+                                r = af_from_name(b);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to parse RPDB rule family, ignoring: %s", b);
+                                        continue;
+                                }
+                                if (rule->family != AF_UNSPEC && rule->family != r) {
+                                        log_warning("RPDB rule family is already specified, ignoring assignment: %s", b);
+                                        continue;
+                                }
+                                rule->family = r;
+                        } if (STR_IN_SET(a, "from", "to")) {
                                 union in_addr_union *buffer;
                                 uint8_t *prefixlen;
 
@@ -1358,41 +1379,36 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         prefixlen = &rule->from_prefixlen;
                                 }
 
-                                r = in_addr_prefix_from_string_auto(b, &rule->family, buffer, prefixlen);
+                                if (rule->family == AF_UNSPEC)
+                                        r = in_addr_prefix_from_string_auto(b, &rule->family, buffer, prefixlen);
+                                else
+                                        r = in_addr_prefix_from_string(b, rule->family, buffer, prefixlen);
                                 if (r < 0) {
-                                        log_error_errno(r, "RPDB rule prefix is invalid, ignoring assignment: %s", b);
+                                        log_warning_errno(r, "RPDB rule prefix is invalid, ignoring assignment: %s", b);
                                         continue;
                                 }
-
-                        } else if (streq(a, "family")) {
-                                r = af_from_name(b);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule family, ignoring: %s", b);
-                                        continue;
-                                }
-                                rule->family = r;
                         } else if (streq(a, "tos")) {
                                 r = safe_atou8(b, &rule->tos);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule TOS, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule TOS, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "table")) {
                                 r = safe_atou32(b, &rule->table);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule table, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule table, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "priority")) {
                                 r = safe_atou32(b, &rule->priority);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule priority, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule priority, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "fwmark")) {
                                 r = parse_fwmark_fwmask(b, &rule->fwmark, &rule->fwmask);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", a);
+                                        log_warning_errno(r, "Failed to parse RPDB rule firewall mark or mask, ignoring: %s", a);
                                         continue;
                                 }
                         } else if (streq(a, "iif")) {
@@ -1406,13 +1422,13 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         } else if (streq(a, "protocol")) {
                                 r = safe_atou8(b, &rule->protocol);
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule protocol, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule protocol, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "sourceport")) {
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule source port range, ignoring assignment: '%s'", b);
+                                        log_warning_errno(r, "Invalid routing policy rule source port range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
@@ -1421,7 +1437,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         } else if (streq(a, "destinationport")) {
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule destination port range, ignoring assignment: '%s'", b);
+                                        log_warning_errno(r, "Invalid routing policy rule destination port range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
@@ -1432,7 +1448,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                                 r = parse_uid_range(b, &lower, &upper);
                                 if (r < 0) {
-                                        log_error_errno(r, "Invalid routing policy rule uid range, ignoring assignment: '%s'", b);
+                                        log_warning_errno(r, "Invalid routing policy rule uid range, ignoring assignment: '%s'", b);
                                         continue;
                                 }
 
@@ -1441,14 +1457,22 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                         } else if (streq(a, "suppress_prefixlen")) {
                                 r = parse_ip_prefix_length(b, &rule->suppress_prefixlen);
                                 if (r == -ERANGE) {
-                                        log_error_errno(r, "Prefix length outside of valid range 0-128, ignoring: %s", b);
+                                        log_warning_errno(r, "Prefix length outside of valid range 0-128, ignoring: %s", b);
                                         continue;
                                 }
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule suppress_prefixlen, ignoring: %s", b);
                                         continue;
                                 }
-                        }
+                        } else if (streq(a, "invert_rule")) {
+                                r = parse_boolean(b);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to parse RPDB rule invert_rule, ignoring: %s", b);
+                                        continue;
+                                }
+                                rule->invert_rule = r;
+                        } else
+                                log_warning("Unknown RPDB rule, ignoring: %s", a);
                 }
 
                 r = set_ensure_put(rules, &routing_policy_rule_hash_ops, rule);
