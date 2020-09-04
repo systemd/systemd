@@ -161,7 +161,7 @@ void route_free(Route *route) {
         free(route);
 }
 
-static void route_hash_func(const Route *route, struct siphash *state) {
+void route_hash_func(const Route *route, struct siphash *state) {
         assert(route);
 
         siphash24_compress(&route->family, sizeof(route->family), state);
@@ -196,7 +196,7 @@ static void route_hash_func(const Route *route, struct siphash *state) {
         }
 }
 
-static int route_compare_func(const Route *a, const Route *b) {
+int route_compare_func(const Route *a, const Route *b) {
         int r;
 
         r = CMP(a->family, b->family);
