@@ -543,7 +543,29 @@ static void test_exec_supplementarygroups(Manager *m) {
         test(__func__, m, "exec-supplementarygroups-multiple-groups-withuid.service", 0, CLD_EXITED);
 }
 
+static char* private_directory_bad(Manager *m) {
+        /* This mirrors setup_exec_directory(). */
+
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+                _cleanup_free_ char *p = NULL;
+                struct stat st;
+
+                assert_se(p = path_join(m->prefix[dt], "private"));
+
+                if (stat(p, &st) >= 0 &&
+                    (st.st_mode & (S_IRWXG|S_IRWXO)))
+                        return TAKE_PTR(p);
+        }
+
+        return NULL;
+}
+
 static void test_exec_dynamicuser(Manager *m) {
+        _cleanup_free_ char *bad = private_directory_bad(m);
+        if (bad) {
+                log_warning("%s: %s has bad permissions, skipping test.", __func__, bad);
+                return;
+        }
 
         test(__func__, m, "exec-dynamicuser-fixeduser.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         if (check_user_has_group_with_same_name("adm"))
