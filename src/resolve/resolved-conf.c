@@ -64,7 +64,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 DNSStubListenerExtra,
                 dns_stub_listener_extra_hash_func,
                 dns_stub_listener_extra_compare_func,
-                free);
+                dns_stub_listener_extra_free);
 
 static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
         _cleanup_free_ char *server_name = NULL;
@@ -451,7 +451,7 @@ int config_parse_dns_stub_listener_extra(
                 return 0;
         }
 
-        r = dns_stub_extra_new(&stub);
+        r = dns_stub_listener_extra_new(&stub);
         if (r < 0)
                 return log_oom();
 

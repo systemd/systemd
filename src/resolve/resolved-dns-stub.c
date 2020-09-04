@@ -17,7 +17,7 @@
 static int manager_dns_stub_udp_fd(Manager *m);
 static int manager_dns_stub_tcp_fd(Manager *m);
 
-int dns_stub_extra_new(DNSStubListenerExtra **ret) {
+int dns_stub_listener_extra_new(DNSStubListenerExtra **ret) {
         DNSStubListenerExtra *l;
 
         l = new(DNSStubListenerExtra, 1);
@@ -32,6 +32,18 @@ int dns_stub_extra_new(DNSStubListenerExtra **ret) {
         *ret = TAKE_PTR(l);
 
         return 0;
+}
+
+DNSStubListenerExtra *dns_stub_listener_extra_free(DNSStubListenerExtra *p) {
+        if (!p)
+                return NULL;
+
+        p->udp_event_source = sd_event_source_unref(p->udp_event_source);
+        p->tcp_event_source = sd_event_source_unref(p->tcp_event_source);
+        p->udp_fd = safe_close(p->udp_fd);
+        p->tcp_fd = safe_close(p->tcp_fd);
+
+        return mfree(p);
 }
 
 static int dns_stub_make_reply_packet(
@@ -766,18 +778,4 @@ void manager_dns_stub_stop(Manager *m) {
 
         m->dns_stub_udp_fd = safe_close(m->dns_stub_udp_fd);
         m->dns_stub_tcp_fd = safe_close(m->dns_stub_tcp_fd);
-}
-
-void manager_dns_stub_stop_extra(Manager *m) {
-        DNSStubListenerExtra *l;
-        Iterator i;
-
-        assert(m);
-
-        ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners, i) {
-                l->udp_event_source = sd_event_source_unref(l->udp_event_source);
-                l->tcp_event_source = sd_event_source_unref(l->tcp_event_source);
-                l->udp_fd = safe_close(l->udp_fd);
-                l->tcp_fd = safe_close(l->tcp_fd);
-        }
 }
