@@ -36,7 +36,7 @@ typedef struct DNSStubListenerExtra {
 
         DnsStubListenerMode mode;
         SocketAddress address;
-        sd_event_source *dns_stub_extra_event_source;
+        sd_event_source *event_source;
 } DNSStubListenerExtra;
 
 struct Manager {

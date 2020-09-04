@@ -483,11 +483,11 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
                 goto fail;
         }
 
-        r = sd_event_add_io(m->event, &l->dns_stub_extra_event_source, fd, EPOLLIN, on_dns_stub_packet, m);
+        r = sd_event_add_io(m->event, &l->event_source, fd, EPOLLIN, on_dns_stub_packet, m);
         if (r < 0)
                 goto fail;
 
-        (void) sd_event_source_set_description(l->dns_stub_extra_event_source, "dns-stub-udp-extra");
+        (void) sd_event_source_set_description(l->event_source, "dns-stub-udp-extra");
 
         l->fd = TAKE_FD(fd);
 
@@ -639,11 +639,11 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
                 goto fail;
         }
 
-        r = sd_event_add_io(m->event, &l->dns_stub_extra_event_source, fd, EPOLLIN, on_dns_stub_packet, m);
+        r = sd_event_add_io(m->event, &l->event_source, fd, EPOLLIN, on_dns_stub_packet, m);
         if (r < 0)
                 goto fail;
 
-        (void) sd_event_source_set_description(l->dns_stub_extra_event_source, "dns-stub-tcp-extra");
+        (void) sd_event_source_set_description(l->event_source, "dns-stub-tcp-extra");
 
         l->fd = TAKE_FD(fd);
 
@@ -742,7 +742,7 @@ void manager_dns_stub_stop_extra(Manager *m) {
         assert(m);
 
         ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners, i) {
-                l->dns_stub_extra_event_source = sd_event_source_unref(l->dns_stub_extra_event_source);
+                l->event_source = sd_event_source_unref(l->event_source);
                 l->fd = safe_close(l->fd);
         }
 }
