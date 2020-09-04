@@ -14,9 +14,6 @@
  * IP and UDP header sizes */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)
 
-static int manager_dns_stub_udp_fd(Manager *m);
-static int manager_dns_stub_tcp_fd(Manager *m);
-
 int dns_stub_listener_extra_new(DNSStubListenerExtra **ret) {
         DNSStubListenerExtra *l;
 
@@ -164,17 +161,11 @@ static int dns_stub_send(Manager *m, DnsStream *s, DnsPacket *p, DnsPacket *repl
         if (s)
                 r = dns_stream_write_packet(s, reply);
         else {
-                int fd;
-
-                fd = manager_dns_stub_udp_fd(m);
-                if (fd < 0)
-                        return log_debug_errno(fd, "Failed to get reply socket: %m");
-
                 /* Note that it is essential here that we explicitly choose the source IP address for this packet. This
                  * is because otherwise the kernel will choose it automatically based on the routing table and will
                  * thus pick 127.0.0.1 rather than 127.0.0.53. */
 
-                r = manager_send(m, fd, LOOPBACK_IFINDEX, p->family, &p->sender, p->sender_port, &p->destination, reply);
+                r = manager_send(m, p->fd, p->ifindex, p->family, &p->sender, p->sender_port, &p->destination, reply);
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
