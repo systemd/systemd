@@ -7,9 +7,9 @@ typedef enum DnsStubListenerMode DnsStubListenerMode;
 
 enum DnsStubListenerMode {
         DNS_STUB_LISTENER_NO,
-        DNS_STUB_LISTENER_UDP,
-        DNS_STUB_LISTENER_TCP,
-        DNS_STUB_LISTENER_YES,
+        DNS_STUB_LISTENER_UDP = 1 << 0,
+        DNS_STUB_LISTENER_TCP = 1 << 1,
+        DNS_STUB_LISTENER_YES = DNS_STUB_LISTENER_UDP | DNS_STUB_LISTENER_TCP,
         _DNS_STUB_LISTENER_MODE_MAX,
         _DNS_STUB_LISTENER_MODE_INVALID = -1
 };

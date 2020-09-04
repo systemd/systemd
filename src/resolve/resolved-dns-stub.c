@@ -684,11 +684,11 @@ int manager_dns_stub_start(Manager *m) {
                           m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" :
                           "UDP/TCP");
 
-        if (IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_UDP))
+        if (FLAGS_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_UDP))
                 r = manager_dns_stub_udp_fd(m);
 
         if (r >= 0 &&
-            IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_TCP)) {
+            FLAGS_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_TCP)) {
                 t = "TCP";
                 r = manager_dns_stub_tcp_fd(m);
         }
