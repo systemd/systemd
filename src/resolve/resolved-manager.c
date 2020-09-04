@@ -578,8 +578,6 @@ int manager_new(Manager **ret) {
                 .llmnr_ipv6_tcp_fd = -1,
                 .mdns_ipv4_fd = -1,
                 .mdns_ipv6_fd = -1,
-                .dns_stub_udp_fd = -1,
-                .dns_stub_tcp_fd = -1,
                 .hostname_fd = -1,
 
                 .llmnr_support = DEFAULT_LLMNR_MODE,

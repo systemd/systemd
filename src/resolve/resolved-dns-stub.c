@@ -20,14 +20,9 @@ static int manager_dns_stub_tcp_fd(Manager *m);
 int dns_stub_listener_extra_new(DNSStubListenerExtra **ret) {
         DNSStubListenerExtra *l;
 
-        l = new(DNSStubListenerExtra, 1);
+        l = new0(DNSStubListenerExtra, 1);
         if (!l)
                 return -ENOMEM;
-
-        *l = (DNSStubListenerExtra) {
-                .udp_fd = -1,
-                .tcp_fd = -1,
-        };
 
         *ret = TAKE_PTR(l);
 
@@ -40,8 +35,6 @@ DNSStubListenerExtra *dns_stub_listener_extra_free(DNSStubListenerExtra *p) {
 
         p->udp_event_source = sd_event_source_unref(p->udp_event_source);
         p->tcp_event_source = sd_event_source_unref(p->tcp_event_source);
-        p->udp_fd = safe_close(p->udp_fd);
-        p->tcp_fd = safe_close(p->tcp_fd);
 
         return mfree(p);
 }
@@ -459,8 +452,8 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         _cleanup_close_ int fd = -1;
         int r;
 
-        if (m->dns_stub_udp_fd >= 0)
-                return m->dns_stub_udp_fd;
+        if (m->dns_stub_udp_event_source)
+                return sd_event_source_get_io_fd(m->dns_stub_udp_event_source);
 
         fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
@@ -482,9 +475,13 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_io_fd_own(m->dns_stub_udp_event_source, true);
+        if (r < 0)
+                return r;
+
         (void) sd_event_source_set_description(m->dns_stub_udp_event_source, "dns-stub-udp");
 
-        return m->dns_stub_udp_fd = TAKE_FD(fd);
+        return TAKE_FD(fd);
 }
 
 static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
@@ -493,7 +490,7 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         union sockaddr_union sa;
         int r;
 
-        if (l->udp_fd >= 0)
+        if (l->udp_event_source)
                 return 0;
 
         if (l->family == AF_INET)
@@ -534,6 +531,10 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         if (r < 0)
                 goto fail;
 
+        r = sd_event_source_set_io_fd_own(l->udp_event_source, true);
+        if (r < 0)
+                goto fail;
+
         (void) sd_event_source_set_description(l->udp_event_source, "dns-stub-udp-extra");
 
         if (DEBUG_LOGGING) {
@@ -541,9 +542,7 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
                 log_debug("Listening on UDP socket %s.", strnull(pretty));
         }
 
-        l->udp_fd = TAKE_FD(fd);
-
-        return 0;
+        return TAKE_FD(fd);
 
 fail:
         assert(r < 0);
@@ -607,8 +606,8 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         _cleanup_close_ int fd = -1;
         int r;
 
-        if (m->dns_stub_tcp_fd >= 0)
-                return m->dns_stub_tcp_fd;
+        if (m->dns_stub_tcp_event_source)
+                return sd_event_source_get_io_fd(m->dns_stub_tcp_event_source);
 
         fd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
@@ -637,9 +636,13 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_io_fd_own(m->dns_stub_tcp_event_source, true);
+        if (r < 0)
+                return r;
+
         (void) sd_event_source_set_description(m->dns_stub_tcp_event_source, "dns-stub-tcp");
 
-        return m->dns_stub_tcp_fd = TAKE_FD(fd);
+        return TAKE_FD(fd);
 }
 
 static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
@@ -648,8 +651,8 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         union sockaddr_union sa;
         int r;
 
-        if (l->tcp_fd >= 0)
-                return 0;
+        if (l->tcp_event_source)
+                return sd_event_source_get_io_fd(l->tcp_event_source);;
 
         if (l->family == AF_INET)
                 sa = (union sockaddr_union) {
@@ -698,6 +701,10 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         if (r < 0)
                 goto fail;
 
+        r = sd_event_source_set_io_fd_own(l->tcp_event_source, true);
+        if (r < 0)
+                goto fail;
+
         (void) sd_event_source_set_description(l->tcp_event_source, "dns-stub-tcp-extra");
 
         if (DEBUG_LOGGING) {
@@ -705,9 +712,7 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
                 log_debug("Listening on TCP socket %s.", strnull(pretty));
         }
 
-        l->tcp_fd = TAKE_FD(fd);
-
-        return 0;
+        return TAKE_FD(fd);
 
 fail:
         assert(r < 0);
@@ -775,7 +780,4 @@ void manager_dns_stub_stop(Manager *m) {
 
         m->dns_stub_udp_event_source = sd_event_source_unref(m->dns_stub_udp_event_source);
         m->dns_stub_tcp_event_source = sd_event_source_unref(m->dns_stub_tcp_event_source);
-
-        m->dns_stub_udp_fd = safe_close(m->dns_stub_udp_fd);
-        m->dns_stub_tcp_fd = safe_close(m->dns_stub_tcp_fd);
 }
