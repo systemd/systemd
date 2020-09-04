@@ -48,6 +48,7 @@ _resolvectl() {
         [DNSSEC]='dnssec'
         [DNSOVERTLS]='dnsovertls'
         [STANDALONE]='statistics reset-statistics flush-caches reset-server-features'
+        [LOG_LEVEL]='log-level'
     )
     local -A ARGS=(
         [FAMILY]='tcp udp sctp'
@@ -94,6 +95,9 @@ _resolvectl() {
 
     elif __contains_word "$verb" ${VERBS[STATUS]}; then
         comps="$interfaces"
+
+    elif __contains_word "$verb" ${VERBS[LOG_LEVEL]}; then
+        comps='debug info notice warning err crit alert emerg'
 
     elif __contains_word "$verb" ${VERBS[FAMILY]}; then
         for ((i++; i < COMP_CWORD; i++)); do
