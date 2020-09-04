@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <net/if_arp.h>
+
 #include "errno-util.h"
 #include "fd-util.h"
 #include "missing_network.h"
@@ -460,12 +462,26 @@ static int manager_dns_stub_udp_fd(Manager *m) {
 static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         _cleanup_free_ char *pretty = NULL;
         _cleanup_close_ int fd = -1;
+        union sockaddr_union sa;
         int r;
 
         if (l->udp_fd >= 0)
                 return 0;
 
-        fd = socket(socket_address_family(&l->address), SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (l->family == AF_INET)
+                sa = (union sockaddr_union) {
+                        .in.sin_family = l->family,
+                        .in.sin_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in.sin_addr = l->address.in,
+                };
+        else
+                sa = (union sockaddr_union) {
+                        .in6.sin6_family = l->family,
+                        .in6.sin6_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in6.sin6_addr = l->address.in6,
+                };
+
+        fd = socket(l->family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
                 r = -errno;
                 goto fail;
@@ -479,7 +495,7 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         if (r < 0)
                 goto fail;
 
-        if (bind(fd, &l->address.sockaddr.sa, l->address.size) < 0) {
+        if (bind(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -491,7 +507,7 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         (void) sd_event_source_set_description(l->udp_event_source, "dns-stub-udp-extra");
 
         if (DEBUG_LOGGING) {
-                (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
+                (void) in_addr_port_to_string(l->family, &l->address, l->port, &pretty);
                 log_debug("Listening on UDP socket %s.", strnull(pretty));
         }
 
@@ -500,7 +516,7 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         return 0;
 
 fail:
-        (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
+        (void) in_addr_port_to_string(l->family, &l->address, l->port, &pretty);
         if (r == -EADDRINUSE)
                 return log_warning_errno(r,
                                          "Another process is already listening on UDP socket %s.\n"
@@ -607,12 +623,26 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
 static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         _cleanup_free_ char *pretty = NULL;
         _cleanup_close_ int fd = -1;
+        union sockaddr_union sa;
         int r;
 
         if (l->tcp_fd >= 0)
                 return 0;
 
-        fd = socket(socket_address_family(&l->address), SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (l->family == AF_INET)
+                sa = (union sockaddr_union) {
+                        .in.sin_family = l->family,
+                        .in.sin_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in.sin_addr = l->address.in,
+                };
+        else
+                sa = (union sockaddr_union) {
+                        .in6.sin6_family = l->family,
+                        .in6.sin6_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in6.sin6_addr = l->address.in6,
+                };
+
+        fd = socket(l->family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
                 r = -errno;
                 goto fail;
@@ -630,7 +660,7 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         if (r < 0)
                 goto fail;
 
-        if (bind(fd, &l->address.sockaddr.sa, l->address.size) < 0) {
+        if (bind(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -647,7 +677,7 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         (void) sd_event_source_set_description(l->tcp_event_source, "dns-stub-tcp-extra");
 
         if (DEBUG_LOGGING) {
-                (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
+                (void) in_addr_port_to_string(l->family, &l->address, l->port, &pretty);
                 log_debug("Listening on TCP socket %s.", strnull(pretty));
         }
 
@@ -656,7 +686,7 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         return 0;
 
 fail:
-        (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
+        (void) in_addr_port_to_string(l->family, &l->address, l->port, &pretty);
         if (r == -EADDRINUSE)
                 return log_warning_errno(r,
                                          "Another process is already listening on TCP socket %s.\n"

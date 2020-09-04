@@ -30,20 +30,15 @@ static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MA
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_stub_listener_mode, DnsStubListenerMode, DNS_STUB_LISTENER_YES);
 
 static void dns_stub_listener_extra_hash_func(const DNSStubListenerExtra *a, struct siphash *state) {
-        unsigned port;
-
         assert(a);
 
         siphash24_compress(&a->mode, sizeof(a->mode), state);
-        siphash24_compress(&socket_address_family(&a->address), sizeof(a->address.type), state);
-        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(socket_address_family(&a->address)), state);
-
-        (void) sockaddr_port(&a->address.sockaddr.sa, &port);
-        siphash24_compress(&port, sizeof(port), state);
+        siphash24_compress(&a->family, sizeof(a->family), state);
+        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
+        siphash24_compress(&a->port, sizeof(a->port), state);
 }
 
 static int dns_stub_listener_extra_compare_func(const DNSStubListenerExtra *a, const DNSStubListenerExtra *b) {
-        unsigned p, q;
         int r;
 
         assert(a);
@@ -53,18 +48,15 @@ static int dns_stub_listener_extra_compare_func(const DNSStubListenerExtra *a, c
         if (r != 0)
                 return r;
 
-        r = CMP(socket_address_family(&a->address), socket_address_family(&b->address));
+        r = CMP(a->family, b->family);
         if (r != 0)
                 return r;
 
-        r = memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(socket_address_family(&a->address)));
+        r = memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
         if (r != 0)
                 return r;
 
-        (void) sockaddr_port(&a->address.sockaddr.sa, &p);
-        (void) sockaddr_port(&b->address.sockaddr.sa, &q);
-
-        return CMP(p, q);
+        return CMP(a->port, b->port);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -476,7 +468,7 @@ int config_parse_dns_stub_listener_extra(
                 }
         }
 
-        r = socket_addr_port_from_string_auto(p, 53, &stub->address);
+        r = in_addr_port_from_string_auto(p, &stub->family, &stub->address, &stub->port);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse address in %s=%s, ignoring assignment: %m",

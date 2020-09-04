@@ -36,7 +36,11 @@ typedef struct DNSStubListenerExtra {
         int tcp_fd;
 
         DnsStubListenerMode mode;
-        SocketAddress address;
+
+        int family;
+        union in_addr_union address;
+        uint16_t port;
+
         sd_event_source *udp_event_source;
         sd_event_source *tcp_event_source;
 } DNSStubListenerExtra;
