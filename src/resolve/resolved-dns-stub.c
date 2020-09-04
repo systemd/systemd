@@ -499,20 +499,20 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
 
         return 0;
 
- fail:
-       (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
-       if (r == -EADDRINUSE)
-               return log_warning_errno(r,
-                                        "Another process is already listening on UDP socket %s.\n"
-                                        "Turning off local DNS stub extra support.", strnull(pretty));
-       if (r == -EPERM)
-               return log_warning_errno(r,
-                                        "Failed to listen on UDP socket %s: %m.\n"
-                                        "Turning off local DNS stub extra support.", strnull(pretty));
+fail:
+        (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
+        if (r == -EADDRINUSE)
+                return log_warning_errno(r,
+                                         "Another process is already listening on UDP socket %s.\n"
+                                         "Turning off local DNS stub extra support.", strnull(pretty));
+        if (r == -EPERM)
+                return log_warning_errno(r,
+                                         "Failed to listen on UDP socket %s: %m.\n"
+                                         "Turning off local DNS stub extra support.", strnull(pretty));
 
-       assert(r < 0);
+        assert(r < 0);
 
-       return log_warning_errno(r, "Failed to listen on UDP socket %s, ignoring: %m", strnull(pretty));
+        return log_warning_errno(r, "Failed to listen on UDP socket %s, ignoring: %m", strnull(pretty));
 }
 
 static int on_dns_stub_stream_packet(DnsStream *s) {
@@ -655,20 +655,20 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
 
         return 0;
 
- fail:
-       (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
-       if (r == -EADDRINUSE)
-               return log_warning_errno(r,
-                                        "Another process is already listening on TCP socket %s.\n"
-                                        "Turning off local DNS stub extra support.", strnull(pretty));
-       if (r == -EPERM)
-               return log_warning_errno(r,
-                                        "Failed to listen on TCP socket %s: %m.\n"
-                                        "Turning off local DNS stub extra support.", strnull(pretty));
+fail:
+        (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
+        if (r == -EADDRINUSE)
+                return log_warning_errno(r,
+                                         "Another process is already listening on TCP socket %s.\n"
+                                         "Turning off local DNS stub extra support.", strnull(pretty));
+        if (r == -EPERM)
+                return log_warning_errno(r,
+                                         "Failed to listen on TCP socket %s: %m.\n"
+                                         "Turning off local DNS stub extra support.", strnull(pretty));
 
-       assert(r < 0);
+        assert(r < 0);
 
-       return log_warning_errno(r, "Failed to listen on TCP socket %s, ignoring: %m", strnull(pretty));
+        return log_warning_errno(r, "Failed to listen on TCP socket %s, ignoring: %m", strnull(pretty));
 }
 
 int manager_dns_stub_start(Manager *m) {
