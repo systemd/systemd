@@ -235,33 +235,6 @@ int socket_address_parse_and_warn(SocketAddress *a, const char *s) {
         return 0;
 }
 
-int socket_addr_port_from_string_auto(const char *s, uint16_t default_port, SocketAddress *a) {
-        union in_addr_union address;
-        uint16_t port = 0;
-        int family, r;
-
-        assert(a);
-        assert(s);
-
-        r = in_addr_port_ifindex_name_from_string_auto(s, &family, &address, &port, NULL, NULL);
-        if (r < 0)
-                return r;
-
-        if (family == AF_INET) {
-                memcpy(&a->sockaddr.in.sin_addr, &address.in.s_addr, sizeof(a->sockaddr.in.sin_addr));
-                a->sockaddr.in.sin_family = AF_INET;
-                a->size = sizeof(struct sockaddr_in);
-                a->sockaddr.in.sin_port = port ? htobe16(port) : htobe16(default_port);
-        } else {
-                memcpy(&a->sockaddr.in6.sin6_addr, &address.in6, sizeof(a->sockaddr.in6.sin6_addr));
-                a->sockaddr.in6.sin6_family = AF_INET6;
-                a->sockaddr.in6.sin6_port = port ? htobe16(port) : htobe16(default_port);
-                a->size = sizeof(struct sockaddr_in6);
-        }
-
-        return 0;
-}
-
 int socket_address_parse_netlink(SocketAddress *a, const char *s) {
         _cleanup_free_ char *word = NULL;
         unsigned group = 0;
