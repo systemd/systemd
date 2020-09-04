@@ -162,7 +162,7 @@ static uint32_t address_prefix(const Address *a) {
                 return be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
 }
 
-static void address_hash_func(const Address *a, struct siphash *state) {
+void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
@@ -187,7 +187,7 @@ static void address_hash_func(const Address *a, struct siphash *state) {
         }
 }
 
-static int address_compare_func(const Address *a1, const Address *a2) {
+int address_compare_func(const Address *a1, const Address *a2) {
         int r;
 
         r = CMP(a1->family, a2->family);
