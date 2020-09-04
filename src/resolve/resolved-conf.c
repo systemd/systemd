@@ -444,10 +444,8 @@ int config_parse_dns_stub_listener_extra(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ DNSStubListenerExtra *udp = NULL, *tcp = NULL;
-        _cleanup_free_ char *word = NULL;
+        _cleanup_free_ DNSStubListenerExtra *stub = NULL;
         Manager *m = userdata;
-        bool both = false;
         const char *p;
         int r;
 
@@ -461,78 +459,41 @@ int config_parse_dns_stub_listener_extra(
                 return 0;
         }
 
-        p = rvalue;
-        r = extract_first_word(&p, &word, ":", 0);
-        if (r == -ENOMEM)
+        r = dns_stub_extra_new(&stub);
+        if (r < 0)
                 return log_oom();
-        if (r <= 0) {
+
+        p = startswith(rvalue, "udp:");
+        if (p)
+                stub->mode = DNS_STUB_LISTENER_UDP;
+        else {
+                p = startswith(rvalue, "tcp:");
+                if (p)
+                        stub->mode = DNS_STUB_LISTENER_TCP;
+                else {
+                        stub->mode = DNS_STUB_LISTENER_YES;
+                        p = rvalue;
+                }
+        }
+
+        r = socket_addr_port_from_string_auto(p, 53, &stub->address);
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid DNSStubListenExtra='%s', ignoring assignment", rvalue);
+                           "Failed to parse address in %s=%s, ignoring assignment: %m",
+                           lvalue, rvalue);
                 return 0;
         }
 
-        /*  First look for udp/tcp. If not specified then turn both TCP and UDP */
-        if (!STR_IN_SET(word, "tcp", "udp")) {
-                both = true;
-                p = rvalue;
+        r = ordered_set_ensure_put(&m->dns_extra_stub_listeners, &dns_stub_listener_extra_hash_ops, stub);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to store %s=%s, ignoring assignment: %m", lvalue, rvalue);
+                return 0;
         }
 
-        if (streq(word, "tcp") || both) {
-                r = dns_stub_extra_new(&tcp);
-                if (r < 0)
-                        return log_oom();
-
-                tcp->mode = DNS_STUB_LISTENER_TCP;
-        }
-
-        if (streq(word, "udp") || both) {
-                r = dns_stub_extra_new(&udp);
-                if (r < 0)
-                        return log_oom();
-
-                udp->mode = DNS_STUB_LISTENER_UDP;
-        }
-
-        if (tcp) {
-                r = socket_addr_port_from_string_auto(p, 53, &tcp->address);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address in DNSStubListenExtra='%s', ignoring", rvalue);
-                        return 0;
-                }
-        }
-
-        if (udp) {
-                r = socket_addr_port_from_string_auto(p, 53, &udp->address);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address in DNSStubListenExtra='%s', ignoring", rvalue);
-                        return 0;
-                }
-        }
-
-        if (tcp) {
-                r = ordered_set_ensure_put(&m->dns_extra_stub_listeners, &dns_stub_listener_extra_hash_ops, tcp);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                return log_oom();
-
-                        log_warning_errno(r, "Failed to store TCP DNSStubListenExtra='%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-        }
-
-        if (udp) {
-                r = ordered_set_ensure_put(&m->dns_extra_stub_listeners, &dns_stub_listener_extra_hash_ops, udp);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                return log_oom();
-
-                        log_warning_errno(r, "Failed to store UDP DNSStubListenExtra='%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-        }
-
-        TAKE_PTR(tcp);
-        TAKE_PTR(udp);
+        TAKE_PTR(stub);
 
         return 0;
 }

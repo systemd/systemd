@@ -32,11 +32,13 @@ typedef struct EtcHosts {
 } EtcHosts;
 
 typedef struct DNSStubListenerExtra {
-        int fd;
+        int udp_fd;
+        int tcp_fd;
 
         DnsStubListenerMode mode;
         SocketAddress address;
-        sd_event_source *event_source;
+        sd_event_source *udp_event_source;
+        sd_event_source *tcp_event_source;
 } DNSStubListenerExtra;
 
 struct Manager {
