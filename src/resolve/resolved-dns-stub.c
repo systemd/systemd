@@ -303,7 +303,7 @@ static int dns_stub_stream_complete(DnsStream *s, int error) {
         return 0;
 }
 
-static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
+static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p, bool is_extra) {
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         int r;
 
@@ -311,8 +311,9 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         assert(p);
         assert(p->protocol == DNS_PROTOCOL_DNS);
 
-        if (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
-            in_addr_is_localhost(p->family, &p->destination) <= 0) {
+        if (!is_extra &&
+            (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
+             in_addr_is_localhost(p->family, &p->destination) <= 0)) {
                 log_error("Got packet on unexpected IP range, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
                 return;
@@ -393,9 +394,8 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         TAKE_PTR(q);
 }
 
-static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_dns_stub_packet_internal(sd_event_source *s, int fd, uint32_t revents, Manager *m, bool is_extra) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        Manager *m = userdata;
         int r;
 
         r = manager_recv(m, fd, DNS_PROTOCOL_DNS, &p);
@@ -405,11 +405,19 @@ static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void
         if (dns_packet_validate_query(p) > 0) {
                 log_debug("Got DNS stub UDP query packet for id %u", DNS_PACKET_ID(p));
 
-                dns_stub_process_query(m, NULL, p);
+                dns_stub_process_query(m, NULL, p, is_extra);
         } else
                 log_debug("Invalid DNS stub UDP packet, ignoring.");
 
         return 0;
+}
+
+static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return on_dns_stub_packet_internal(s, fd, revents, userdata, false);
+}
+
+static int on_dns_stub_packet_extra(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return on_dns_stub_packet_internal(s, fd, revents, userdata, true);
 }
 
 static int set_dns_stub_common_socket_options(int fd, int family) {
@@ -527,7 +535,7 @@ static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
                 goto fail;
         }
 
-        r = sd_event_add_io(m->event, &l->udp_event_source, fd, EPOLLIN, on_dns_stub_packet, m);
+        r = sd_event_add_io(m->event, &l->udp_event_source, fd, EPOLLIN, on_dns_stub_packet_extra, m);
         if (r < 0)
                 goto fail;
 
@@ -552,7 +560,7 @@ fail:
         return log_warning_errno(r, "Failed to listen on UDP socket %s: %m", strnull(pretty));
 }
 
-static int on_dns_stub_stream_packet(DnsStream *s) {
+static int on_dns_stub_stream_packet_internal(DnsStream *s, bool is_extra) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
 
         assert(s);
@@ -563,16 +571,23 @@ static int on_dns_stub_stream_packet(DnsStream *s) {
         if (dns_packet_validate_query(p) > 0) {
                 log_debug("Got DNS stub TCP query packet for id %u", DNS_PACKET_ID(p));
 
-                dns_stub_process_query(s->manager, s, p);
+                dns_stub_process_query(s->manager, s, p, is_extra);
         } else
                 log_debug("Invalid DNS stub TCP packet, ignoring.");
 
         return 0;
 }
 
-static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_dns_stub_stream_packet(DnsStream *s) {
+        return on_dns_stub_stream_packet_internal(s, false);
+}
+
+static int on_dns_stub_stream_packet_extra(DnsStream *s) {
+        return on_dns_stub_stream_packet_internal(s, true);
+}
+
+static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t revents, Manager *m, bool is_extra) {
         DnsStream *stream;
-        Manager *m = userdata;
         int cfd, r;
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
@@ -589,12 +604,20 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
                 return r;
         }
 
-        stream->on_packet = on_dns_stub_stream_packet;
+        stream->on_packet = is_extra ? on_dns_stub_stream_packet_extra : on_dns_stub_stream_packet;
         stream->complete = dns_stub_stream_complete;
 
         /* We let the reference to the stream dangle here, it will be dropped later by the complete callback. */
 
         return 0;
+}
+
+static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return on_dns_stub_stream_internal(s, fd, revents, userdata, false);
+}
+
+static int on_dns_stub_stream_extra(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return on_dns_stub_stream_internal(s, fd, revents, userdata, true);
 }
 
 static int manager_dns_stub_tcp_fd(Manager *m) {
@@ -697,7 +720,7 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
                 goto fail;
         }
 
-        r = sd_event_add_io(m->event, &l->tcp_event_source, fd, EPOLLIN, on_dns_stub_packet, m);
+        r = sd_event_add_io(m->event, &l->tcp_event_source, fd, EPOLLIN, on_dns_stub_stream_extra, m);
         if (r < 0)
                 goto fail;
 
