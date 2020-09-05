@@ -220,10 +220,6 @@ int socket_address_parse_netlink(SocketAddress *a, const char *s) {
         assert(a);
         assert(s);
 
-        *a = (SocketAddress) {
-                .type = SOCK_RAW,
-        };
-
         r = extract_first_word(&s, &word, NULL, 0);
         if (r < 0)
                 return r;
@@ -240,12 +236,13 @@ int socket_address_parse_netlink(SocketAddress *a, const char *s) {
                         return r;
         }
 
-        a->sockaddr.nl.nl_family = AF_NETLINK;
-        a->sockaddr.nl.nl_groups = group;
-
-        a->type = SOCK_RAW;
-        a->size = sizeof(struct sockaddr_nl);
-        a->protocol = family;
+        *a = (SocketAddress) {
+                .type = SOCK_RAW,
+                .sockaddr.nl.nl_family = AF_NETLINK,
+                .sockaddr.nl.nl_groups = group,
+                .protocol = family,
+                .size = sizeof(struct sockaddr_nl),
+        };
 
         return 0;
 }
