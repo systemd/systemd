@@ -2212,9 +2212,7 @@ int varlink_server_listen_fd(VarlinkServer *s, int fd) {
         };
 
         if (s->event) {
-                _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
-
-                r = sd_event_add_io(s->event, &es, fd, EPOLLIN, connect_callback, ss);
+                r = sd_event_add_io(s->event, &ss->event_source, fd, EPOLLIN, connect_callback, ss);
                 if (r < 0)
                         return r;
 
