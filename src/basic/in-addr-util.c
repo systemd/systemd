@@ -402,46 +402,6 @@ int in_addr_prefix_to_string(int family, const union in_addr_union *u, unsigned 
         return 0;
 }
 
-int in_addr_ifindex_to_string(int family, const union in_addr_union *u, int ifindex, char **ret) {
-        _cleanup_free_ char *x = NULL;
-        size_t l;
-        int r;
-
-        assert(u);
-        assert(ret);
-
-        /* Much like in_addr_to_string(), but optionally appends the zone interface index to the address, to properly
-         * handle IPv6 link-local addresses. */
-
-        if (family != AF_INET6)
-                goto fallback;
-        if (ifindex <= 0)
-                goto fallback;
-
-        r = in_addr_is_link_local(family, u);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                goto fallback;
-
-        l = INET6_ADDRSTRLEN + 1 + DECIMAL_STR_MAX(ifindex) + 1;
-        x = new(char, l);
-        if (!x)
-                return -ENOMEM;
-
-        errno = 0;
-        if (!inet_ntop(family, u, x, l))
-                return errno_or_else(EINVAL);
-
-        sprintf(strchr(x, 0), "%%%i", ifindex);
-
-        *ret = TAKE_PTR(x);
-        return 0;
-
-fallback:
-        return in_addr_to_string(family, u, ret);
-}
-
 int in_addr_port_ifindex_name_to_string(int family, const union in_addr_union *u, uint16_t port, int ifindex, const char *server_name, char **ret) {
         _cleanup_free_ char *ip_str = NULL, *x = NULL;
         int r;

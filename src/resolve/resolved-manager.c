@@ -578,8 +578,6 @@ int manager_new(Manager **ret) {
                 .llmnr_ipv6_tcp_fd = -1,
                 .mdns_ipv4_fd = -1,
                 .mdns_ipv6_fd = -1,
-                .dns_stub_udp_fd = -1,
-                .dns_stub_tcp_fd = -1,
                 .hostname_fd = -1,
 
                 .llmnr_support = DEFAULT_LLMNR_MODE,
@@ -701,7 +699,6 @@ Manager *manager_free(Manager *m) {
 
         hashmap_free(m->links);
         hashmap_free(m->dns_transactions);
-        ordered_set_free(m->dns_extra_stub_listeners);
 
         sd_event_source_unref(m->network_event_source);
         sd_network_monitor_unref(m->network_monitor);
@@ -714,7 +711,7 @@ Manager *manager_free(Manager *m) {
         manager_dns_stub_stop(m);
         manager_varlink_done(m);
 
-        manager_dns_stub_stop_extra(m);
+        ordered_set_free(m->dns_extra_stub_listeners);
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 
@@ -793,6 +790,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
 
         p->size = (size_t) l;
 
+        p->fd = fd;
         p->family = sa.sa.sa_family;
         p->ipproto = IPPROTO_UDP;
         if (p->family == AF_INET) {

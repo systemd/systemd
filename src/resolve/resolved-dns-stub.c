@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <net/if_arp.h>
+
 #include "errno-util.h"
 #include "fd-util.h"
 #include "missing_network.h"
+#include "missing_socket.h"
 #include "resolved-dns-stub.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
@@ -11,23 +14,26 @@
  * IP and UDP header sizes */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)
 
-static int manager_dns_stub_udp_fd(Manager *m);
-static int manager_dns_stub_tcp_fd(Manager *m);
-
-int dns_stub_extra_new(DNSStubListenerExtra **ret) {
+int dns_stub_listener_extra_new(DNSStubListenerExtra **ret) {
         DNSStubListenerExtra *l;
 
-        l = new(DNSStubListenerExtra, 1);
+        l = new0(DNSStubListenerExtra, 1);
         if (!l)
                 return -ENOMEM;
-
-        *l = (DNSStubListenerExtra) {
-                .fd = -1,
-        };
 
         *ret = TAKE_PTR(l);
 
         return 0;
+}
+
+DNSStubListenerExtra *dns_stub_listener_extra_free(DNSStubListenerExtra *p) {
+        if (!p)
+                return NULL;
+
+        p->udp_event_source = sd_event_source_unref(p->udp_event_source);
+        p->tcp_event_source = sd_event_source_unref(p->tcp_event_source);
+
+        return mfree(p);
 }
 
 static int dns_stub_make_reply_packet(
@@ -155,17 +161,11 @@ static int dns_stub_send(Manager *m, DnsStream *s, DnsPacket *p, DnsPacket *repl
         if (s)
                 r = dns_stream_write_packet(s, reply);
         else {
-                int fd;
-
-                fd = manager_dns_stub_udp_fd(m);
-                if (fd < 0)
-                        return log_debug_errno(fd, "Failed to get reply socket: %m");
-
                 /* Note that it is essential here that we explicitly choose the source IP address for this packet. This
                  * is because otherwise the kernel will choose it automatically based on the routing table and will
                  * thus pick 127.0.0.1 rather than 127.0.0.53. */
 
-                r = manager_send(m, fd, LOOPBACK_IFINDEX, p->family, &p->sender, p->sender_port, &p->destination, reply);
+                r = manager_send(m, p->fd, p->ifindex, p->family, &p->sender, p->sender_port, &p->destination, reply);
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
@@ -294,7 +294,7 @@ static int dns_stub_stream_complete(DnsStream *s, int error) {
         return 0;
 }
 
-static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
+static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p, bool is_extra) {
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         int r;
 
@@ -302,8 +302,9 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         assert(p);
         assert(p->protocol == DNS_PROTOCOL_DNS);
 
-        if (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
-            in_addr_is_localhost(p->family, &p->destination) <= 0) {
+        if (!is_extra &&
+            (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
+             in_addr_is_localhost(p->family, &p->destination) <= 0)) {
                 log_error("Got packet on unexpected IP range, refusing.");
                 dns_stub_send_failure(m, s, p, DNS_RCODE_SERVFAIL, false);
                 return;
@@ -384,9 +385,8 @@ static void dns_stub_process_query(Manager *m, DnsStream *s, DnsPacket *p) {
         TAKE_PTR(q);
 }
 
-static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_dns_stub_packet_internal(sd_event_source *s, int fd, uint32_t revents, Manager *m, bool is_extra) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        Manager *m = userdata;
         int r;
 
         r = manager_recv(m, fd, DNS_PROTOCOL_DNS, &p);
@@ -396,27 +396,50 @@ static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void
         if (dns_packet_validate_query(p) > 0) {
                 log_debug("Got DNS stub UDP query packet for id %u", DNS_PACKET_ID(p));
 
-                dns_stub_process_query(m, NULL, p);
+                dns_stub_process_query(m, NULL, p, is_extra);
         } else
                 log_debug("Invalid DNS stub UDP packet, ignoring.");
 
         return 0;
 }
 
-static int set_dns_stub_common_socket_options(int fd) {
+static int on_dns_stub_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return on_dns_stub_packet_internal(s, fd, revents, userdata, false);
+}
+
+static int on_dns_stub_packet_extra(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return on_dns_stub_packet_internal(s, fd, revents, userdata, true);
+}
+
+static int set_dns_stub_common_socket_options(int fd, int family) {
         int r;
 
         assert(fd >= 0);
+        assert(IN_SET(family, AF_INET, AF_INET6));
 
         r = setsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR, true);
         if (r < 0)
                 return r;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
-        if (r < 0)
-                return r;
+        if (family == AF_INET) {
+                r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
+                if (r < 0)
+                        return r;
 
-        return setsockopt_int(fd, IPPROTO_IP, IP_RECVTTL, true);
+                r = setsockopt_int(fd, IPPROTO_IP, IP_RECVTTL, true);
+                if (r < 0)
+                        return r;
+        } else {
+                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
+                if (r < 0)
+                        return r;
+
+                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int manager_dns_stub_udp_fd(Manager *m) {
@@ -428,14 +451,14 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         _cleanup_close_ int fd = -1;
         int r;
 
-        if (m->dns_stub_udp_fd >= 0)
-                return m->dns_stub_udp_fd;
+        if (m->dns_stub_udp_event_source)
+                return sd_event_source_get_io_fd(m->dns_stub_udp_event_source);
 
         fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
-        r = set_dns_stub_common_socket_options(fd);
+        r = set_dns_stub_common_socket_options(fd, AF_INET);
         if (r < 0)
                 return r;
 
@@ -451,70 +474,84 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_io_fd_own(m->dns_stub_udp_event_source, true);
+        if (r < 0)
+                return r;
+
         (void) sd_event_source_set_description(m->dns_stub_udp_event_source, "dns-stub-udp");
 
-        return m->dns_stub_udp_fd = TAKE_FD(fd);
+        return TAKE_FD(fd);
 }
 
 static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         _cleanup_free_ char *pretty = NULL;
         _cleanup_close_ int fd = -1;
+        union sockaddr_union sa;
         int r;
 
-        if (l->fd >= 0)
+        if (l->udp_event_source)
                 return 0;
 
-        fd = socket(socket_address_family(&l->address), SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (l->family == AF_INET)
+                sa = (union sockaddr_union) {
+                        .in.sin_family = l->family,
+                        .in.sin_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in.sin_addr = l->address.in,
+                };
+        else
+                sa = (union sockaddr_union) {
+                        .in6.sin6_family = l->family,
+                        .in6.sin6_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in6.sin6_addr = l->address.in6,
+                };
+
+        fd = socket(l->family, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
+        if (l->family == AF_INET) {
+                r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
+                if (r < 0)
+                        goto fail;
+        }
+
+        r = set_dns_stub_common_socket_options(fd, l->family);
         if (r < 0)
                 goto fail;
 
-        r = set_dns_stub_common_socket_options(fd);
-        if (r < 0)
-                goto fail;
-
-        if (bind(fd, &l->address.sockaddr.sa, l->address.size) < 0) {
+        if (bind(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        r = sd_event_add_io(m->event, &l->dns_stub_extra_event_source, fd, EPOLLIN, on_dns_stub_packet, m);
+        r = sd_event_add_io(m->event, &l->udp_event_source, fd, EPOLLIN, on_dns_stub_packet_extra, m);
         if (r < 0)
                 goto fail;
 
-        (void) sd_event_source_set_description(l->dns_stub_extra_event_source, "dns-stub-udp-extra");
+        r = sd_event_source_set_io_fd_own(l->udp_event_source, true);
+        if (r < 0)
+                goto fail;
 
-        l->fd = TAKE_FD(fd);
+        (void) sd_event_source_set_description(l->udp_event_source, "dns-stub-udp-extra");
 
         if (DEBUG_LOGGING) {
-                (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
+                (void) in_addr_port_to_string(l->family, &l->address, l->port, &pretty);
                 log_debug("Listening on UDP socket %s.", strnull(pretty));
         }
 
-        return 0;
+        return TAKE_FD(fd);
 
- fail:
-       (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
-       if (r == -EADDRINUSE)
-               return log_warning_errno(r,
-                                        "Another process is already listening on UDP socket %s.\n"
-                                        "Turning off local DNS stub extra support.", strnull(pretty));
-       if (r == -EPERM)
-               return log_warning_errno(r,
-                                        "Failed to listen on UDP socket %s: %m.\n"
-                                        "Turning off local DNS stub extra support.", strnull(pretty));
-
-       assert(r < 0);
-
-       return log_warning_errno(r, "Failed to listen on UDP socket %s, ignoring: %m", strnull(pretty));
+fail:
+        assert(r < 0);
+        (void) in_addr_port_to_string(l->family, &l->address, l->port, &pretty);
+        if (r == -EADDRINUSE)
+                return log_warning_errno(r, "Another process is already listening on UDP socket %s: %m", strnull(pretty));
+        return log_warning_errno(r, "Failed to listen on UDP socket %s: %m", strnull(pretty));
 }
 
-static int on_dns_stub_stream_packet(DnsStream *s) {
+static int on_dns_stub_stream_packet_internal(DnsStream *s, bool is_extra) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
 
         assert(s);
@@ -525,16 +562,23 @@ static int on_dns_stub_stream_packet(DnsStream *s) {
         if (dns_packet_validate_query(p) > 0) {
                 log_debug("Got DNS stub TCP query packet for id %u", DNS_PACKET_ID(p));
 
-                dns_stub_process_query(s->manager, s, p);
+                dns_stub_process_query(s->manager, s, p, is_extra);
         } else
                 log_debug("Invalid DNS stub TCP packet, ignoring.");
 
         return 0;
 }
 
-static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int on_dns_stub_stream_packet(DnsStream *s) {
+        return on_dns_stub_stream_packet_internal(s, false);
+}
+
+static int on_dns_stub_stream_packet_extra(DnsStream *s) {
+        return on_dns_stub_stream_packet_internal(s, true);
+}
+
+static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t revents, Manager *m, bool is_extra) {
         DnsStream *stream;
-        Manager *m = userdata;
         int cfd, r;
 
         cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
@@ -551,12 +595,20 @@ static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void
                 return r;
         }
 
-        stream->on_packet = on_dns_stub_stream_packet;
+        stream->on_packet = is_extra ? on_dns_stub_stream_packet_extra : on_dns_stub_stream_packet;
         stream->complete = dns_stub_stream_complete;
 
         /* We let the reference to the stream dangle here, it will be dropped later by the complete callback. */
 
         return 0;
+}
+
+static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return on_dns_stub_stream_internal(s, fd, revents, userdata, false);
+}
+
+static int on_dns_stub_stream_extra(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return on_dns_stub_stream_internal(s, fd, revents, userdata, true);
 }
 
 static int manager_dns_stub_tcp_fd(Manager *m) {
@@ -568,14 +620,14 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         _cleanup_close_ int fd = -1;
         int r;
 
-        if (m->dns_stub_tcp_fd >= 0)
-                return m->dns_stub_tcp_fd;
+        if (m->dns_stub_tcp_event_source)
+                return sd_event_source_get_io_fd(m->dns_stub_tcp_event_source);
 
         fd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
-        r = set_dns_stub_common_socket_options(fd);
+        r = set_dns_stub_common_socket_options(fd, AF_INET);
         if (r < 0)
                 return r;
 
@@ -598,38 +650,58 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = sd_event_source_set_io_fd_own(m->dns_stub_tcp_event_source, true);
+        if (r < 0)
+                return r;
+
         (void) sd_event_source_set_description(m->dns_stub_tcp_event_source, "dns-stub-tcp");
 
-        return m->dns_stub_tcp_fd = TAKE_FD(fd);
+        return TAKE_FD(fd);
 }
 
 static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
         _cleanup_free_ char *pretty = NULL;
         _cleanup_close_ int fd = -1;
+        union sockaddr_union sa;
         int r;
 
-        if (l->fd >= 0)
-                return 0;
+        if (l->tcp_event_source)
+                return sd_event_source_get_io_fd(l->tcp_event_source);;
 
-        fd = socket(socket_address_family(&l->address), SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        if (l->family == AF_INET)
+                sa = (union sockaddr_union) {
+                        .in.sin_family = l->family,
+                        .in.sin_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in.sin_addr = l->address.in,
+                };
+        else
+                sa = (union sockaddr_union) {
+                        .in6.sin6_family = l->family,
+                        .in6.sin6_port = htobe16(l->port != 0 ? l->port : 53U),
+                        .in6.sin6_addr = l->address.in6,
+                };
+
+        fd = socket(l->family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0) {
                 r = -errno;
                 goto fail;
         }
 
-        r = set_dns_stub_common_socket_options(fd);
+        r = set_dns_stub_common_socket_options(fd, l->family);
         if (r < 0)
                 goto fail;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, 1);
+        /* Do not set IP_TTL for extra DNS stub listners, as the address may not be local and in that
+         * case people may want ttl > 1. */
+
+        if (l->family == AF_INET)
+                r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
+        else
+                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_FREEBIND, true);
         if (r < 0)
                 goto fail;
 
-        r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
-        if (r < 0)
-                goto fail;
-
-        if (bind(fd, &l->address.sockaddr.sa, l->address.size) < 0) {
+        if (bind(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -639,35 +711,29 @@ static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
                 goto fail;
         }
 
-        r = sd_event_add_io(m->event, &l->dns_stub_extra_event_source, fd, EPOLLIN, on_dns_stub_packet, m);
+        r = sd_event_add_io(m->event, &l->tcp_event_source, fd, EPOLLIN, on_dns_stub_stream_extra, m);
         if (r < 0)
                 goto fail;
 
-        (void) sd_event_source_set_description(l->dns_stub_extra_event_source, "dns-stub-tcp-extra");
+        r = sd_event_source_set_io_fd_own(l->tcp_event_source, true);
+        if (r < 0)
+                goto fail;
 
-        l->fd = TAKE_FD(fd);
+        (void) sd_event_source_set_description(l->tcp_event_source, "dns-stub-tcp-extra");
 
         if (DEBUG_LOGGING) {
-                (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
+                (void) in_addr_port_to_string(l->family, &l->address, l->port, &pretty);
                 log_debug("Listening on TCP socket %s.", strnull(pretty));
         }
 
-        return 0;
+        return TAKE_FD(fd);
 
- fail:
-       (void) sockaddr_pretty(&l->address.sockaddr.sa, FAMILY_ADDRESS_SIZE(l->address.sockaddr.sa.sa_family), true, true, &pretty);
-       if (r == -EADDRINUSE)
-               return log_warning_errno(r,
-                                        "Another process is already listening on TCP socket %s.\n"
-                                        "Turning off local DNS stub extra support.", strnull(pretty));
-       if (r == -EPERM)
-               return log_warning_errno(r,
-                                        "Failed to listen on TCP socket %s: %m.\n"
-                                        "Turning off local DNS stub extra support.", strnull(pretty));
-
-       assert(r < 0);
-
-       return log_warning_errno(r, "Failed to listen on TCP socket %s, ignoring: %m", strnull(pretty));
+fail:
+        assert(r < 0);
+        (void) in_addr_port_to_string(l->family, &l->address, l->port, &pretty);
+        if (r == -EADDRINUSE)
+                return log_warning_errno(r, "Another process is already listening on TCP socket %s: %m", strnull(pretty));
+        return log_warning_errno(r, "Failed to listen on TCP socket %s: %m", strnull(pretty));
 }
 
 int manager_dns_stub_start(Manager *m) {
@@ -684,11 +750,11 @@ int manager_dns_stub_start(Manager *m) {
                           m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" :
                           "UDP/TCP");
 
-        if (IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_UDP))
+        if (FLAGS_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_UDP))
                 r = manager_dns_stub_udp_fd(m);
 
         if (r >= 0 &&
-            IN_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_YES, DNS_STUB_LISTENER_TCP)) {
+            FLAGS_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_TCP)) {
                 t = "TCP";
                 r = manager_dns_stub_tcp_fd(m);
         }
@@ -710,16 +776,14 @@ int manager_dns_stub_start(Manager *m) {
                 DNSStubListenerExtra *l;
                 Iterator i;
 
-                log_debug("Creating stub listener extra using %s.",
-                          m->dns_stub_listener_mode == DNS_STUB_LISTENER_UDP ? "UDP" :
-                          m->dns_stub_listener_mode == DNS_STUB_LISTENER_TCP ? "TCP" :
-                          "UDP/TCP");
+                log_debug("Creating extra stub listeners.");
 
-                ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners, i)
-                        if (l->mode == DNS_STUB_LISTENER_UDP)
+                ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners, i) {
+                        if (FLAGS_SET(l->mode, DNS_STUB_LISTENER_UDP))
                                 (void) manager_dns_stub_udp_fd_extra(m, l);
-                        else
+                        if (FLAGS_SET(l->mode, DNS_STUB_LISTENER_TCP))
                                 (void) manager_dns_stub_tcp_fd_extra(m, l);
+                }
         }
 
         return 0;
@@ -730,19 +794,4 @@ void manager_dns_stub_stop(Manager *m) {
 
         m->dns_stub_udp_event_source = sd_event_source_unref(m->dns_stub_udp_event_source);
         m->dns_stub_tcp_event_source = sd_event_source_unref(m->dns_stub_tcp_event_source);
-
-        m->dns_stub_udp_fd = safe_close(m->dns_stub_udp_fd);
-        m->dns_stub_tcp_fd = safe_close(m->dns_stub_tcp_fd);
-}
-
-void manager_dns_stub_stop_extra(Manager *m) {
-        DNSStubListenerExtra *l;
-        Iterator i;
-
-        assert(m);
-
-        ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners, i) {
-                l->dns_stub_extra_event_source = sd_event_source_unref(l->dns_stub_extra_event_source);
-                l->fd = safe_close(l->fd);
-        }
 }

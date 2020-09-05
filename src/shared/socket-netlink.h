@@ -16,7 +16,6 @@ int make_socket_fd(int log_level, const char* address, int type, int flags);
 int socket_address_parse(SocketAddress *a, const char *s);
 int socket_address_parse_and_warn(SocketAddress *a, const char *s);
 int socket_address_parse_netlink(SocketAddress *a, const char *s);
-int socket_addr_port_from_string_auto(const char *s, uint16_t default_port, SocketAddress *a);
 
 bool socket_address_is(const SocketAddress *a, const char *s, int type);
 bool socket_address_is_netlink(const SocketAddress *a, const char *s);
@@ -34,6 +33,7 @@ static inline int in_addr_ifindex_name_from_string_auto(const char *s, int *fami
 static inline int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex) {
         return in_addr_ifindex_name_from_string_auto(s, family, ret, ifindex, NULL);
 }
+int in_addr_port_from_string_auto(const char *s, int *ret_family, union in_addr_union *ret_address, uint16_t *ret_port);
 
 struct in_addr_full {
         int family;

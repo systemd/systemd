@@ -30,20 +30,15 @@ static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MA
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_stub_listener_mode, DnsStubListenerMode, DNS_STUB_LISTENER_YES);
 
 static void dns_stub_listener_extra_hash_func(const DNSStubListenerExtra *a, struct siphash *state) {
-        unsigned port;
-
         assert(a);
 
         siphash24_compress(&a->mode, sizeof(a->mode), state);
-        siphash24_compress(&socket_address_family(&a->address), sizeof(a->address.type), state);
-        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(socket_address_family(&a->address)), state);
-
-        (void) sockaddr_port(&a->address.sockaddr.sa, &port);
-        siphash24_compress(&port, sizeof(port), state);
+        siphash24_compress(&a->family, sizeof(a->family), state);
+        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
+        siphash24_compress(&a->port, sizeof(a->port), state);
 }
 
 static int dns_stub_listener_extra_compare_func(const DNSStubListenerExtra *a, const DNSStubListenerExtra *b) {
-        unsigned p, q;
         int r;
 
         assert(a);
@@ -53,18 +48,15 @@ static int dns_stub_listener_extra_compare_func(const DNSStubListenerExtra *a, c
         if (r != 0)
                 return r;
 
-        r = CMP(socket_address_family(&a->address), socket_address_family(&b->address));
+        r = CMP(a->family, b->family);
         if (r != 0)
                 return r;
 
-        r = memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(socket_address_family(&a->address)));
+        r = memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
         if (r != 0)
                 return r;
 
-        (void) sockaddr_port(&a->address.sockaddr.sa, &p);
-        (void) sockaddr_port(&b->address.sockaddr.sa, &q);
-
-        return CMP(p, q);
+        return CMP(a->port, b->port);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -72,7 +64,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 DNSStubListenerExtra,
                 dns_stub_listener_extra_hash_func,
                 dns_stub_listener_extra_compare_func,
-                free);
+                dns_stub_listener_extra_free);
 
 static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
         _cleanup_free_ char *server_name = NULL;
@@ -444,10 +436,8 @@ int config_parse_dns_stub_listener_extra(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ DNSStubListenerExtra *udp = NULL, *tcp = NULL;
-        _cleanup_free_ char *word = NULL;
+        _cleanup_free_ DNSStubListenerExtra *stub = NULL;
         Manager *m = userdata;
-        bool both = false;
         const char *p;
         int r;
 
@@ -461,78 +451,41 @@ int config_parse_dns_stub_listener_extra(
                 return 0;
         }
 
-        p = rvalue;
-        r = extract_first_word(&p, &word, ":", 0);
-        if (r == -ENOMEM)
+        r = dns_stub_listener_extra_new(&stub);
+        if (r < 0)
                 return log_oom();
-        if (r <= 0) {
+
+        p = startswith(rvalue, "udp:");
+        if (p)
+                stub->mode = DNS_STUB_LISTENER_UDP;
+        else {
+                p = startswith(rvalue, "tcp:");
+                if (p)
+                        stub->mode = DNS_STUB_LISTENER_TCP;
+                else {
+                        stub->mode = DNS_STUB_LISTENER_YES;
+                        p = rvalue;
+                }
+        }
+
+        r = in_addr_port_from_string_auto(p, &stub->family, &stub->address, &stub->port);
+        if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid DNSStubListenExtra='%s', ignoring assignment", rvalue);
+                           "Failed to parse address in %s=%s, ignoring assignment: %m",
+                           lvalue, rvalue);
                 return 0;
         }
 
-        /*  First look for udp/tcp. If not specified then turn both TCP and UDP */
-        if (!STR_IN_SET(word, "tcp", "udp")) {
-                both = true;
-                p = rvalue;
+        r = ordered_set_ensure_put(&m->dns_extra_stub_listeners, &dns_stub_listener_extra_hash_ops, stub);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to store %s=%s, ignoring assignment: %m", lvalue, rvalue);
+                return 0;
         }
 
-        if (streq(word, "tcp") || both) {
-                r = dns_stub_extra_new(&tcp);
-                if (r < 0)
-                        return log_oom();
-
-                tcp->mode = DNS_STUB_LISTENER_TCP;
-        }
-
-        if (streq(word, "udp") || both) {
-                r = dns_stub_extra_new(&udp);
-                if (r < 0)
-                        return log_oom();
-
-                udp->mode = DNS_STUB_LISTENER_UDP;
-        }
-
-        if (tcp) {
-                r = socket_addr_port_from_string_auto(p, 53, &tcp->address);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address in DNSStubListenExtra='%s', ignoring", rvalue);
-                        return 0;
-                }
-        }
-
-        if (udp) {
-                r = socket_addr_port_from_string_auto(p, 53, &udp->address);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address in DNSStubListenExtra='%s', ignoring", rvalue);
-                        return 0;
-                }
-        }
-
-        if (tcp) {
-                r = ordered_set_ensure_put(&m->dns_extra_stub_listeners, &dns_stub_listener_extra_hash_ops, tcp);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                return log_oom();
-
-                        log_warning_errno(r, "Failed to store TCP DNSStubListenExtra='%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-        }
-
-        if (udp) {
-                r = ordered_set_ensure_put(&m->dns_extra_stub_listeners, &dns_stub_listener_extra_hash_ops, udp);
-                if (r < 0) {
-                        if (r == -ENOMEM)
-                                return log_oom();
-
-                        log_warning_errno(r, "Failed to store UDP DNSStubListenExtra='%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-        }
-
-        TAKE_PTR(tcp);
-        TAKE_PTR(udp);
+        TAKE_PTR(stub);
 
         return 0;
 }
