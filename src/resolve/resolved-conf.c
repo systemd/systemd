@@ -423,7 +423,7 @@ int config_parse_dns_stub_listener_extra(
                 }
         }
 
-        r = in_addr_port_from_string_auto(p, &stub->family, &stub->address, &stub->port);
+        r = in_addr_port_ifindex_name_from_string_auto(p, &stub->family, &stub->address, &stub->port, NULL, NULL);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse address in %s=%s, ignoring assignment: %m",

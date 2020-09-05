@@ -463,36 +463,6 @@ int in_addr_port_ifindex_name_from_string_auto(
         return r;
 }
 
-int in_addr_port_from_string_auto(
-                const char *s,
-                int *ret_family,
-                union in_addr_union *ret_address,
-                uint16_t *ret_port) {
-
-        union in_addr_union addr;
-        int family, ifindex, r;
-        uint16_t port;
-
-        assert(s);
-
-        r = in_addr_port_ifindex_name_from_string_auto(s, &family, &addr, &port, &ifindex, NULL);
-        if (r < 0)
-                return r;
-
-        /* This does not accept interface specified. */
-        if (ifindex != 0)
-                return -EINVAL;
-
-        if (ret_family)
-                *ret_family = family;
-        if (ret_address)
-                *ret_address = addr;
-        if (ret_port)
-                *ret_port = port;
-
-        return r;
-}
-
 struct in_addr_full *in_addr_full_free(struct in_addr_full *a) {
         if (!a)
                 return NULL;

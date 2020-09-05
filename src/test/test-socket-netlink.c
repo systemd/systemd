@@ -365,36 +365,6 @@ static void test_in_addr_port_ifindex_name_from_string_auto(void) {
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%19#hoge.com", AF_INET6, 53, 19, "hoge.com");
 }
 
-static void test_in_addr_port_from_string_auto_one(const char *str, int family, const char *address_string, uint16_t port) {
-        union in_addr_union a, b;
-        uint16_t p;
-        int f;
-
-        assert_se(in_addr_port_from_string_auto(str, &f, &a, &p) >= 0);
-        assert_se(family == f);
-        assert_se(port == p);
-        assert_se(in_addr_from_string(family, address_string, &b) >= 0);
-        assert_se(in_addr_equal(family, &a, &b) == 1);
-}
-
-static void test_in_addr_port_from_string_auto(void) {
-        log_info("/* %s */", __func__);
-
-        assert_se(in_addr_port_from_string_auto("192.168.0.1#test.com", NULL, NULL, NULL) < 0);
-        assert_se(in_addr_port_from_string_auto("192.168.0.1:53#example.com", NULL, NULL, NULL) < 0);
-        assert_se(in_addr_port_from_string_auto("fe80::18#hoge.com", NULL, NULL, NULL) < 0);
-        assert_se(in_addr_port_from_string_auto("fe80::18%19", NULL, NULL, NULL) < 0);
-        assert_se(in_addr_port_from_string_auto("fe80::18%19#hoge.com", NULL, NULL, NULL) < 0);
-        assert_se(in_addr_port_from_string_auto("[fe80::18]:53#hoge.com", NULL, NULL, NULL) < 0);
-        assert_se(in_addr_port_from_string_auto("[fe80::18]:53%19", NULL, NULL, NULL) < 0);
-        assert_se(in_addr_port_from_string_auto("[fe80::18]:53%19#hoge.com", NULL, NULL, NULL) < 0);
-
-        test_in_addr_port_from_string_auto_one("192.168.0.1", AF_INET, "192.168.0.1", 0);
-        test_in_addr_port_from_string_auto_one("192.168.0.1:53", AF_INET, "192.168.0.1", 53);
-        test_in_addr_port_from_string_auto_one("fe80::18", AF_INET6, "fe80::18", 0);
-        test_in_addr_port_from_string_auto_one("[fe80::18]:53", AF_INET6, "fe80::18", 53);
-}
-
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
@@ -409,7 +379,6 @@ int main(int argc, char *argv[]) {
         test_in_addr_ifindex_from_string_auto();
         test_in_addr_ifindex_name_from_string_auto();
         test_in_addr_port_ifindex_name_from_string_auto();
-        test_in_addr_port_from_string_auto();
 
         return 0;
 }
