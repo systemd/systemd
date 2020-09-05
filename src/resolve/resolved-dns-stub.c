@@ -477,6 +477,62 @@ static int on_dns_stub_packet_extra(sd_event_source *s, int fd, uint32_t revents
         return on_dns_stub_packet_internal(s, fd, revents, l->manager, l);
 }
 
+static int on_dns_stub_stream_packet(DnsStream *s) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+
+        assert(s);
+
+        p = dns_stream_take_read_packet(s);
+        assert(p);
+
+        if (dns_packet_validate_query(p) > 0) {
+                log_debug("Got DNS stub TCP query packet for id %u", DNS_PACKET_ID(p));
+
+                dns_stub_process_query(s->manager, s->stub_listener_extra, s, p);
+        } else
+                log_debug("Invalid DNS stub TCP packet, ignoring.");
+
+        return 0;
+}
+
+static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t revents, Manager *m, DnsStubListenerExtra *l) {
+        DnsStream *stream;
+        int cfd, r;
+
+        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        if (cfd < 0) {
+                if (ERRNO_IS_ACCEPT_AGAIN(errno))
+                        return 0;
+
+                return -errno;
+        }
+
+        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL);
+        if (r < 0) {
+                safe_close(cfd);
+                return r;
+        }
+
+        stream->stub_listener_extra = l;
+        stream->on_packet = on_dns_stub_stream_packet;
+        stream->complete = dns_stub_stream_complete;
+
+        /* We let the reference to the stream dangle here, it will be dropped later by the complete callback. */
+
+        return 0;
+}
+
+static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        return on_dns_stub_stream_internal(s, fd, revents, userdata, NULL);
+}
+
+static int on_dns_stub_stream_extra(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        DnsStubListenerExtra *l = userdata;
+
+        assert(l);
+        return on_dns_stub_stream_internal(s, fd, revents, l->manager, l);
+}
+
 static int set_dns_stub_common_socket_options(int fd, int family) {
         int r;
 
@@ -620,62 +676,6 @@ fail:
         if (r == -EADDRINUSE)
                 return log_warning_errno(r, "Another process is already listening on UDP socket %s: %m", strnull(pretty));
         return log_warning_errno(r, "Failed to listen on UDP socket %s: %m", strnull(pretty));
-}
-
-static int on_dns_stub_stream_packet(DnsStream *s) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-
-        assert(s);
-
-        p = dns_stream_take_read_packet(s);
-        assert(p);
-
-        if (dns_packet_validate_query(p) > 0) {
-                log_debug("Got DNS stub TCP query packet for id %u", DNS_PACKET_ID(p));
-
-                dns_stub_process_query(s->manager, s->stub_listener_extra, s, p);
-        } else
-                log_debug("Invalid DNS stub TCP packet, ignoring.");
-
-        return 0;
-}
-
-static int on_dns_stub_stream_internal(sd_event_source *s, int fd, uint32_t revents, Manager *m, DnsStubListenerExtra *l) {
-        DnsStream *stream;
-        int cfd, r;
-
-        cfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
-        if (cfd < 0) {
-                if (ERRNO_IS_ACCEPT_AGAIN(errno))
-                        return 0;
-
-                return -errno;
-        }
-
-        r = dns_stream_new(m, &stream, DNS_STREAM_STUB, DNS_PROTOCOL_DNS, cfd, NULL);
-        if (r < 0) {
-                safe_close(cfd);
-                return r;
-        }
-
-        stream->stub_listener_extra = l;
-        stream->on_packet = on_dns_stub_stream_packet;
-        stream->complete = dns_stub_stream_complete;
-
-        /* We let the reference to the stream dangle here, it will be dropped later by the complete callback. */
-
-        return 0;
-}
-
-static int on_dns_stub_stream(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        return on_dns_stub_stream_internal(s, fd, revents, userdata, NULL);
-}
-
-static int on_dns_stub_stream_extra(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        DnsStubListenerExtra *l = userdata;
-
-        assert(l);
-        return on_dns_stub_stream_internal(s, fd, revents, l->manager, l);
 }
 
 static int manager_dns_stub_tcp_fd(Manager *m) {
