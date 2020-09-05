@@ -153,6 +153,9 @@ void mac_selinux_maybe_reload(void) {
 #if HAVE_SELINUX
         int r;
 
+        if (!initialized)
+                return;
+
         r = selinux_status_updated();
         if (r < 0)
                 log_debug_errno(errno, "Failed to update SELinux from status page: %m");
