@@ -213,12 +213,87 @@ static void test_errno_mapping_custom(void) {
         assert_se(sd_bus_error_add_map(test_errors_bad2) == -EINVAL);
 }
 
+static void test_sd_bus_error_set_errnof(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *str = NULL;
+
+        assert_se(sd_bus_error_set_errnof(NULL, 0, NULL) == 0);
+        assert_se(sd_bus_error_set_errnof(NULL, ENOANO, NULL) == -ENOANO);
+
+        assert_se(sd_bus_error_set_errnof(&error, 0, NULL) == 0);
+        assert_se(!bus_error_is_dirty(&error));
+
+        assert_se(sd_bus_error_set_errnof(&error, EACCES, NULL) == -EACCES);
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED));
+        errno = EACCES;
+        assert_se(asprintf(&str, "%m") >= 0);
+        assert_se(streq(error.message, str));
+        assert_se(error._need_free == 0);
+
+        str = mfree(str);
+        sd_bus_error_free(&error);
+
+        assert_se(sd_bus_error_set_errnof(&error, ENOANO, NULL) == -ENOANO);
+        assert_se(sd_bus_error_has_name(&error, "System.Error.ENOANO"));
+        errno = ENOANO;
+        assert_se(asprintf(&str, "%m") >= 0);
+        assert_se(streq(error.message, str));
+        assert_se(error._need_free == 1);
+
+        str = mfree(str);
+        sd_bus_error_free(&error);
+
+        assert_se(sd_bus_error_set_errnof(&error, 100000, NULL) == -100000);
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_FAILED));
+        errno = 100000;
+        assert_se(asprintf(&str, "%m") >= 0);
+        assert_se(streq(error.message, str));
+        assert_se(error._need_free == 1);
+
+        str = mfree(str);
+        sd_bus_error_free(&error);
+
+        assert_se(sd_bus_error_set_errnof(NULL, 0, "hoge %s: %m", "foo") == 0);
+        assert_se(sd_bus_error_set_errnof(NULL, ENOANO, "hoge %s: %m", "foo") == -ENOANO);
+
+        assert_se(sd_bus_error_set_errnof(&error, 0, "hoge %s: %m", "foo") == 0);
+        assert_se(!bus_error_is_dirty(&error));
+
+        assert_se(sd_bus_error_set_errnof(&error, EACCES, "hoge %s: %m", "foo") == -EACCES);
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED));
+        errno = EACCES;
+        assert_se(asprintf(&str, "hoge %s: %m", "foo") >= 0);
+        assert_se(streq(error.message, str));
+        assert_se(error._need_free == 1);
+
+        str = mfree(str);
+        sd_bus_error_free(&error);
+
+        assert_se(sd_bus_error_set_errnof(&error, ENOANO, "hoge %s: %m", "foo") == -ENOANO);
+        assert_se(sd_bus_error_has_name(&error, "System.Error.ENOANO"));
+        errno = ENOANO;
+        assert_se(asprintf(&str, "hoge %s: %m", "foo") >= 0);
+        assert_se(streq(error.message, str));
+        assert_se(error._need_free == 1);
+
+        str = mfree(str);
+        sd_bus_error_free(&error);
+
+        assert_se(sd_bus_error_set_errnof(&error, 100000, "hoge %s: %m", "foo") == -100000);
+        assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_FAILED));
+        errno = 100000;
+        assert_se(asprintf(&str, "hoge %s: %m", "foo") >= 0);
+        assert_se(streq(error.message, str));
+        assert_se(error._need_free == 1);
+}
+
 int main(int argc, char *argv[]) {
         dump_mapping_table();
 
         test_error();
         test_errno_mapping_standard();
         test_errno_mapping_custom();
+        test_sd_bus_error_set_errnof();
 
         return 0;
 }
