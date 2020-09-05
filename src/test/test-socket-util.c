@@ -504,17 +504,11 @@ int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
         test_ifname_valid();
-
         test_socket_print_unix();
-
         test_sockaddr_equal();
-
         test_sockaddr_un_len();
-
         test_in_addr_is_multicast();
-
         test_getpeercred_getpeergroups();
-
         test_passfd_read();
         test_passfd_contents_read();
         test_receive_nopassfd();

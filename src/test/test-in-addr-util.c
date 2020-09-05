@@ -58,6 +58,8 @@ static void test_in_addr_prefix_from_string_one(
 }
 
 static void test_in_addr_prefix_from_string(void) {
+        log_info("/* %s */", __func__);
+
         test_in_addr_prefix_from_string_one("", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
         test_in_addr_prefix_from_string_one("/", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
         test_in_addr_prefix_from_string_one("/8", AF_INET, -EINVAL, NULL, 0, -EINVAL, 0, -EINVAL, 0);
@@ -90,7 +92,7 @@ static void test_in_addr_prefix_to_string_valid(int family, const char *p) {
         union in_addr_union u;
         unsigned char l;
 
-        log_info("/* %s */", p);
+        log_info("%s: %s", __func__, p);
 
         assert_se(in_addr_prefix_from_string(p, family, &u, &l) >= 0);
         assert_se(in_addr_prefix_to_string(family, &u, l, &str) >= 0);
@@ -102,7 +104,7 @@ static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p)
         union in_addr_union u1, u2;
         unsigned char len1, len2;
 
-        log_info("/* %s */", p);
+        log_info("%s: %s", __func__, p);
 
         assert_se(in_addr_prefix_from_string(p, family, &u1, &len1) >= 0);
         assert_se(in_addr_prefix_to_string(family, &u1, len1, &str1) >= 0);
@@ -115,6 +117,8 @@ static void test_in_addr_prefix_to_string_unoptimized(int family, const char *p)
 }
 
 static void test_in_addr_prefix_to_string(void) {
+        log_info("/* %s */", __func__);
+
         test_in_addr_prefix_to_string_valid(AF_INET, "0.0.0.0/32");
         test_in_addr_prefix_to_string_valid(AF_INET, "1.2.3.4/0");
         test_in_addr_prefix_to_string_valid(AF_INET, "1.2.3.4/24");
@@ -136,6 +140,8 @@ static void test_in_addr_prefix_to_string(void) {
 static void test_in_addr_random_prefix(void) {
         _cleanup_free_ char *str = NULL;
         union in_addr_union a;
+
+        log_info("/* %s */", __func__);
 
         assert_se(in_addr_from_string(AF_INET, "192.168.10.1", &a) >= 0);
 
