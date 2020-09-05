@@ -564,19 +564,22 @@ static int set_dns_stub_common_socket_options(int fd, int family) {
         return 0;
 }
 
-static int manager_dns_stub_udp_fd(Manager *m) {
+static int manager_dns_stub_fd(Manager *m, int type) {
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
-                .in.sin_port = htobe16(53),
                 .in.sin_addr.s_addr = htobe32(INADDR_DNS_STUB),
+                .in.sin_port = htobe16(53),
         };
         _cleanup_close_ int fd = -1;
         int r;
 
-        if (m->dns_stub_udp_event_source)
-                return sd_event_source_get_io_fd(m->dns_stub_udp_event_source);
+        assert(IN_SET(type, SOCK_DGRAM, SOCK_STREAM));
 
-        fd = socket(AF_INET, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        sd_event_source **event_source = type == SOCK_DGRAM ? &m->dns_stub_udp_event_source : &m->dns_stub_tcp_event_source;
+        if (*event_source)
+                return sd_event_source_get_io_fd(*event_source);
+
+        fd = socket(AF_INET, type | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return -errno;
 
@@ -589,18 +592,29 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, 1);
+        if (r < 0)
+                return r;
+
         if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
                 return -errno;
 
-        r = sd_event_add_io(m->event, &m->dns_stub_udp_event_source, fd, EPOLLIN, on_dns_stub_packet, m);
+        if (type == SOCK_STREAM &&
+            listen(fd, SOMAXCONN) < 0)
+                return -errno;
+
+        r = sd_event_add_io(m->event, event_source, fd, EPOLLIN,
+                            type == SOCK_DGRAM ? on_dns_stub_packet : on_dns_stub_stream,
+                            m);
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_io_fd_own(m->dns_stub_udp_event_source, true);
+        r = sd_event_source_set_io_fd_own(*event_source, true);
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(m->dns_stub_udp_event_source, "dns-stub-udp");
+        (void) sd_event_source_set_description(*event_source,
+                                               type == SOCK_DGRAM ? "dns-stub-udp" : "dns-stub-tcp");
 
         return TAKE_FD(fd);
 }
@@ -614,12 +628,8 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
         assert(m);
         assert(IN_SET(type, SOCK_DGRAM, SOCK_STREAM));
 
-        if (!l) {
-                if (type == SOCK_DGRAM)
-                        return manager_dns_stub_udp_fd(m);
-                else
-                        return manager_dns_stub_tcp_fd(m);
-        }
+        if (!l)
+                return manager_dns_stub_fd(m, type);
 
         sd_event_source **event_source = type == SOCK_DGRAM ? &l->udp_event_source : &l->tcp_event_source;
         if (*event_source)
@@ -701,54 +711,6 @@ fail:
                                  strnull(pretty));
 }
 
-static int manager_dns_stub_tcp_fd(Manager *m) {
-        union sockaddr_union sa = {
-                .in.sin_family = AF_INET,
-                .in.sin_addr.s_addr = htobe32(INADDR_DNS_STUB),
-                .in.sin_port = htobe16(53),
-        };
-        _cleanup_close_ int fd = -1;
-        int r;
-
-        if (m->dns_stub_tcp_event_source)
-                return sd_event_source_get_io_fd(m->dns_stub_tcp_event_source);
-
-        fd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (fd < 0)
-                return -errno;
-
-        r = set_dns_stub_common_socket_options(fd, AF_INET);
-        if (r < 0)
-                return r;
-
-        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, 1);
-        if (r < 0)
-                return r;
-
-        /* Make sure no traffic from outside the local host can leak to onto this socket */
-        r = socket_bind_to_ifindex(fd, LOOPBACK_IFINDEX);
-        if (r < 0)
-                return r;
-
-        if (bind(fd, &sa.sa, sizeof(sa.in)) < 0)
-                return -errno;
-
-        if (listen(fd, SOMAXCONN) < 0)
-                return -errno;
-
-        r = sd_event_add_io(m->event, &m->dns_stub_tcp_event_source, fd, EPOLLIN, on_dns_stub_stream, m);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_io_fd_own(m->dns_stub_tcp_event_source, true);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(m->dns_stub_tcp_event_source, "dns-stub-tcp");
-
-        return TAKE_FD(fd);
-}
-
 int manager_dns_stub_start(Manager *m) {
         const char *t = "UDP";
         int r = 0;
@@ -764,23 +726,21 @@ int manager_dns_stub_start(Manager *m) {
                           "UDP/TCP");
 
         if (FLAGS_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_UDP))
-                r = manager_dns_stub_udp_fd(m);
+                r = manager_dns_stub_fd(m, SOCK_DGRAM);
 
         if (r >= 0 &&
             FLAGS_SET(m->dns_stub_listener_mode, DNS_STUB_LISTENER_TCP)) {
                 t = "TCP";
-                r = manager_dns_stub_tcp_fd(m);
+                r = manager_dns_stub_fd(m, SOCK_STREAM);
         }
 
         if (IN_SET(r, -EADDRINUSE, -EPERM)) {
-                if (r == -EADDRINUSE)
-                        log_warning_errno(r,
-                                          "Another process is already listening on %s socket 127.0.0.53:53.\n"
-                                          "Turning off local DNS stub support.", t);
-                else
-                        log_warning_errno(r,
-                                          "Failed to listen on %s socket 127.0.0.53:53: %m.\n"
-                                          "Turning off local DNS stub support.", t);
+                log_warning_errno(r,
+                                  r == -EADDRINUSE ? "Another process is already listening on %s socket 127.0.0.53:53.\n"
+                                                     "Turning off local DNS stub support." :
+                                                     "Failed to listen on %s socket 127.0.0.53:53: %m.\n"
+                                                     "Turning off local DNS stub support.",
+                                  t);
                 manager_dns_stub_stop(m);
         } else if (r < 0)
                 return log_error_errno(r, "Failed to listen on %s socket 127.0.0.53:53: %m", t);
