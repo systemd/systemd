@@ -27,12 +27,12 @@
     <para><filename>/usr/lib/sysusers.d/*.conf</filename></para>
 
     <programlisting>
-#Type Name       ID                   GECOS                 Home directory Shell
-u     user_name  uid                  "User Description"    /path/to/shell
-u     user_name  uid:gid              -                     -
-u     user_name  /file/owned/by/user  -                     -
-g     group_name gid                  "Group Description"
-g     group_name /file/owned/by/group -
+#Type Name       ID                  GECOS              Home directory Shell
+u     user_name  uid                 "User Description" /home/dir      /path/to/shell
+u     user_name  uid:gid             "User Description" /home/dir      /path/to/shell
+u     user_name  /file/owned/by/user "User Description" /home/dir      /path/to/shell
+g     group_name gid
+g     group_name /file/owned/by/group
 m     user_name  group_name
 r     -          lowest-highest</programlisting>
   </refsynopsisdiv>
