@@ -517,7 +517,6 @@ static int dir_cleanup(
                 int maxdepth,
                 bool keep_this_level) {
 
-        static bool use_statx = true;
         bool deleted = false;
         struct dirent *dent;
         int r = 0;
@@ -525,114 +524,72 @@ static int dir_cleanup(
         FOREACH_DIRENT_ALL(dent, d, break) {
                 _cleanup_free_ char *sub_path = NULL;
                 nsec_t atime_nsec, mtime_nsec, ctime_nsec, btime_nsec;
-                mode_t mode;
-                uid_t uid;
 
                 if (dot_or_dot_dot(dent->d_name))
                         continue;
 
-                if (use_statx) {
-                        /* If statx() is supported, use it. It's preferable over fstatat() since it tells us
-                         * explicitly where we are looking at a mount point, for free as side
-                         * information. Determing the same information without statx() is hard, see the
-                         * complexity of path_is_mount_point(), and also much slower as it requires a numbre
-                         * of syscalls instead of just one. Hence, when we have modern statx() we use it
-                         * instead of fstat() and do proper mount point checks, while on older kernels's well
-                         * do traditional st_dev based detection of mount points.
-                         *
-                         * Using statx() for detecting mount points also has the benfit that we handle weird
-                         * file systems such as overlayfs better where each file is originating from a
-                         * different st_dev. */
+                /* If statx() is supported, use it. It's preferable over fstatat() since it tells us
+                 * explicitly where we are looking at a mount point, for free as side information. Determing
+                 * the same information without statx() is hard, see the complexity of path_is_mount_point(),
+                 * and also much slower as it requires a number of syscalls instead of just one. Hence, when
+                 * we have modern statx() we use it instead of fstat() and do proper mount point checks,
+                 * while on older kernels's well do traditional st_dev based detection of mount points.
+                 *
+                 * Using statx() for detecting mount points also has the benfit that we handle weird file
+                 * systems such as overlayfs better where each file is originating from a different
+                 * st_dev. */
 
-                        struct statx sx
-#if HAS_FEATURE_MEMORY_SANITIZER
-                                = {}
-#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
-#endif
-                                ;
+                STRUCT_STATX_DEFINE(sx);
 
-                        if (statx(dirfd(d), dent->d_name,
-                                  AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
-                                  STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
-                                  &sx) < 0) {
-
-                                if (errno == ENOENT)
-                                        continue;
-                                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EPERM)
-                                        use_statx = false; /* Not supported or blocked by seccomp or so */
-                                else {
-                                        /* FUSE, NFS mounts, SELinux might return EACCES */
-                                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                                           "statx(%s/%s) failed: %m", p, dent->d_name);
-                                        continue;
-                                }
-                        } else {
-                                if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) {
-                                        /* Yay, we have the mount point API, use it */
-                                        if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
-                                                log_debug("Ignoring \"%s/%s\": different mount points.", p, dent->d_name);
-                                                continue;
-                                        }
-                                } else {
-                                        /* So we have statx() but the STATX_ATTR_MOUNT_ROOT flag is not
-                                         * supported, fall back to traditional stx_dev checking. */
-                                        if (sx.stx_dev_major != rootdev_major ||
-                                            sx.stx_dev_minor != rootdev_minor) {
-                                                log_debug("Ignoring \"%s/%s\": different filesystem.", p, dent->d_name);
-                                                continue;
-                                        }
-                                }
-
-                                mode = sx.stx_mode;
-                                uid = sx.stx_uid;
-                                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? load_statx_timestamp_nsec(&sx.stx_atime) : 0;
-                                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? load_statx_timestamp_nsec(&sx.stx_mtime) : 0;
-                                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? load_statx_timestamp_nsec(&sx.stx_ctime) : 0;
-                                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? load_statx_timestamp_nsec(&sx.stx_btime) : 0;
-                        }
+                r = statx_fallback(
+                                dirfd(d), dent->d_name,
+                                AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                                STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                                &sx);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
+                        /* FUSE, NFS mounts, SELinux might return EACCES */
+                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                           "statx(%s/%s) failed: %m", p, dent->d_name);
+                        continue;
                 }
 
-                if (!use_statx) {
-                        struct stat s;
-
-                        if (fstatat(dirfd(d), dent->d_name, &s, AT_SYMLINK_NOFOLLOW) < 0) {
-                                if (errno == ENOENT)
-                                        continue;
-
-                                /* FUSE, NFS mounts, SELinux might return EACCES */
-                                r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                                   "stat(%s/%s) failed: %m", p, dent->d_name);
+                if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) {
+                        /* Yay, we have the mount point API, use it */
+                        if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
+                                log_debug("Ignoring \"%s/%s\": different mount points.", p, dent->d_name);
                                 continue;
                         }
-
-                        /* Stay on the same filesystem */
-                        if (major(s.st_dev) != rootdev_major || minor(s.st_dev) != rootdev_minor) {
+                } else {
+                        /* So we might have statx() but the STATX_ATTR_MOUNT_ROOT flag is not supported, fall
+                         * back to traditional stx_dev checking. */
+                        if (sx.stx_dev_major != rootdev_major ||
+                            sx.stx_dev_minor != rootdev_minor) {
                                 log_debug("Ignoring \"%s/%s\": different filesystem.", p, dent->d_name);
                                 continue;
                         }
 
-                        mode = s.st_mode;
-                        uid = s.st_uid;
-                        atime_nsec = timespec_load_nsec(&s.st_atim);
-                        mtime_nsec = timespec_load_nsec(&s.st_mtim);
-                        ctime_nsec = timespec_load_nsec(&s.st_ctim);
-                        btime_nsec = 0;
-                }
+                        /* Try to detect bind mounts of the same filesystem instance; they do not differ in device
+                         * major/minors. This type of query is not supported on all kernels or filesystem types
+                         * though. */
+                        if (S_ISDIR(sx.stx_mode)) {
+                                int q;
 
-                /* Try to detect bind mounts of the same filesystem instance; they
-                 * do not differ in device major/minors. This type of query is not
-                 * supported on all kernels or filesystem types though. */
-                if (S_ISDIR(mode)) {
-                        int q;
-
-                        q = fd_is_mount_point(dirfd(d), dent->d_name, 0);
-                        if (q < 0)
-                                log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, dent->d_name);
-                        else if (q > 0) {
-                                log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.", p, dent->d_name);
-                                continue;
+                                q = fd_is_mount_point(dirfd(d), dent->d_name, 0);
+                                if (q < 0)
+                                        log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, dent->d_name);
+                                else if (q > 0) {
+                                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.", p, dent->d_name);
+                                        continue;
+                                }
                         }
                 }
+
+                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? load_statx_timestamp_nsec(&sx.stx_atime) : 0;
+                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? load_statx_timestamp_nsec(&sx.stx_mtime) : 0;
+                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? load_statx_timestamp_nsec(&sx.stx_ctime) : 0;
+                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? load_statx_timestamp_nsec(&sx.stx_btime) : 0;
 
                 sub_path = path_join(p, dent->d_name);
                 if (!sub_path) {
@@ -651,12 +608,12 @@ static int dir_cleanup(
                         continue;
                 }
 
-                if (S_ISDIR(mode)) {
+                if (S_ISDIR(sx.stx_mode)) {
                         _cleanup_closedir_ DIR *sub_dir = NULL;
 
                         if (mountpoint &&
                             streq(dent->d_name, "lost+found") &&
-                            uid == 0) {
+                            sx.stx_uid == 0) {
                                 log_debug("Ignoring directory \"%s\".", sub_path);
                                 continue;
                         }
@@ -732,14 +689,14 @@ static int dir_cleanup(
                 } else {
                         /* Skip files for which the sticky bit is set. These are semantics we define, and are
                          * unknown elsewhere. See XDG_RUNTIME_DIR specification for details. */
-                        if (mode & S_ISVTX) {
+                        if (sx.stx_mode & S_ISVTX) {
                                 log_debug("Skipping \"%s\": sticky bit set.", sub_path);
                                 continue;
                         }
 
                         if (mountpoint &&
-                            S_ISREG(mode) &&
-                            uid == 0 &&
+                            S_ISREG(sx.stx_mode) &&
+                            sx.stx_uid == 0 &&
                             STR_IN_SET(dent->d_name,
                                        ".journal",
                                        "aquota.user",
@@ -749,13 +706,13 @@ static int dir_cleanup(
                         }
 
                         /* Ignore sockets that are listed in /proc/net/unix */
-                        if (S_ISSOCK(mode) && unix_socket_alive(sub_path)) {
+                        if (S_ISSOCK(sx.stx_mode) && unix_socket_alive(sub_path)) {
                                 log_debug("Skipping \"%s\": live socket.", sub_path);
                                 continue;
                         }
 
                         /* Ignore device nodes */
-                        if (S_ISCHR(mode) || S_ISBLK(mode)) {
+                        if (S_ISCHR(sx.stx_mode) || S_ISBLK(sx.stx_mode)) {
                                 log_debug("Skipping \"%s\": a device.", sub_path);
                                 continue;
                         }
@@ -2291,18 +2248,9 @@ static int remove_item(Item *i) {
 static int clean_item_instance(Item *i, const char* instance) {
         char timestamp[FORMAT_TIMESTAMP_MAX];
         _cleanup_closedir_ DIR *d = NULL;
-        uint32_t dev_major, dev_minor;
-        nsec_t atime_nsec, mtime_nsec;
-        int mountpoint = -1;
+        STRUCT_STATX_DEFINE(sx);
+        int mountpoint, r;
         usec_t cutoff, n;
-        uint64_t ino;
-
-        struct statx sx
-#if HAS_FEATURE_MEMORY_SANITIZER
-                = {}
-#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
-#endif
-                ;
 
         assert(i);
 
@@ -2325,44 +2273,23 @@ static int clean_item_instance(Item *i, const char* instance) {
                 return log_error_errno(errno, "Failed to open directory %s: %m", instance);
         }
 
-        if (statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx) < 0) {
-                struct stat s;
+        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx);
+        if (r < 0)
+                return log_error_errno(r, "statx(%s) failed: %m", instance);
 
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
-                        return log_error_errno(errno, "statx(%s) failed: %m", i->path);
-
-                if (fstat(dirfd(d), &s) < 0)
-                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                dev_major = major(s.st_dev);
-                dev_minor = minor(s.st_dev);
-                ino = s.st_ino;
-                atime_nsec = timespec_load_nsec(&s.st_atim);
-                mtime_nsec = timespec_load_nsec(&s.st_mtim);
-        } else {
-
-                if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
-                        mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
-
-                dev_major = sx.stx_dev_major;
-                dev_minor = sx.stx_dev_minor;
-                ino = sx.stx_ino;
-                atime_nsec = load_statx_timestamp_nsec(&sx.stx_atime);
-                mtime_nsec = load_statx_timestamp_nsec(&sx.stx_mtime);
-        }
-
-        if (mountpoint < 0) {
+        if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        else {
                 struct stat ps;
 
                 if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
                         return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
 
                 mountpoint =
-                        dev_major != major(ps.st_dev) ||
-                        dev_minor != minor(ps.st_dev) ||
-                        ino != ps.st_ino;
+                        sx.stx_dev_major != major(ps.st_dev) ||
+                        sx.stx_dev_minor != minor(ps.st_dev) ||
+                        sx.stx_ino != ps.st_ino;
         }
-
 
         log_debug("Cleanup threshold for %s \"%s\" is %s",
                   mountpoint ? "mount point" : "directory",
@@ -2370,8 +2297,10 @@ static int clean_item_instance(Item *i, const char* instance) {
                   format_timestamp_style(timestamp, sizeof(timestamp), cutoff, TIMESTAMP_US));
 
         return dir_cleanup(i, instance, d,
-                           atime_nsec, mtime_nsec, cutoff * NSEC_PER_USEC,
-                           dev_major, dev_minor, mountpoint,
+                           load_statx_timestamp_nsec(&sx.stx_atime),
+                           load_statx_timestamp_nsec(&sx.stx_mtime),
+                           cutoff * NSEC_PER_USEC,
+                           sx.stx_dev_major, sx.stx_dev_minor, mountpoint,
                            MAX_DEPTH, i->keep_first_level);
 }
 

@@ -10,6 +10,7 @@
 #include <sys/vfs.h>
 
 #include "macro.h"
+#include "missing_stat.h"
 
 int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
@@ -91,3 +92,24 @@ int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret
 int proc_mounted(void);
 
 bool stat_inode_unmodified(const struct stat *a, const struct stat *b);
+
+int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx);
+
+#if HAS_FEATURE_MEMORY_SANITIZER
+#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
+#  define STRUCT_STATX_DEFINE(var)              \
+        struct statx var = {}
+#  define STRUCT_NEW_STATX_DEFINE(var)          \
+        union {                                 \
+                struct statx sx;                \
+                struct new_statx nsx;           \
+        } var = {}
+#else
+#  define STRUCT_STATX_DEFINE(var)              \
+        struct statx var
+#  define STRUCT_NEW_STATX_DEFINE(var)          \
+        union {                                 \
+                struct statx sx;                \
+                struct new_statx nsx;           \
+        } var
+#endif

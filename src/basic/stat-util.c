@@ -15,6 +15,7 @@
 #include "macro.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
+#include "missing_syscall.h"
 #include "parse-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -412,4 +413,60 @@ bool stat_inode_unmodified(const struct stat *a, const struct stat *b) {
                 a->st_dev == b->st_dev &&
                 a->st_ino == b->st_ino &&
                 (!(S_ISCHR(a->st_mode) || S_ISBLK(a->st_mode)) || a->st_rdev == b->st_rdev); /* if device node, also compare major/minor, because we can */
+}
+
+int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx) {
+        static bool avoid_statx = false;
+        struct stat st;
+
+        if (!avoid_statx) {
+                if (statx(dfd, path, flags, mask, sx) < 0) {
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EPERM)
+                                return -errno;
+
+                        /* If statx() is not supported or if we see EPERM (which might indicate seccomp
+                         * filtering or so), let's do a fallback. Not that on EACCES we'll not fall back,
+                         * since that is likely an indication of fs access issues, which we should
+                         * propagate */
+                } else
+                        return 0;
+
+                avoid_statx = true;
+        }
+
+        /* Only do fallback if fstatat() supports the flag too, or if it's one of the sync flags, which are
+         * OK to ignore */
+        if ((flags & ~(AT_EMPTY_PATH|AT_NO_AUTOMOUNT|AT_SYMLINK_NOFOLLOW|
+                      AT_STATX_SYNC_AS_STAT|AT_STATX_FORCE_SYNC|AT_STATX_DONT_SYNC)) != 0)
+                return -EOPNOTSUPP;
+
+        if (fstatat(dfd, path, &st, flags & (AT_EMPTY_PATH|AT_NO_AUTOMOUNT|AT_SYMLINK_NOFOLLOW)) < 0)
+                return -errno;
+
+        *sx = (struct statx) {
+                .stx_mask = STATX_TYPE|STATX_MODE|
+                STATX_NLINK|STATX_UID|STATX_GID|
+                STATX_ATIME|STATX_MTIME|STATX_CTIME|
+                STATX_INO|STATX_SIZE|STATX_BLOCKS,
+                .stx_blksize = st.st_blksize,
+                .stx_nlink = st.st_nlink,
+                .stx_uid = st.st_uid,
+                .stx_gid = st.st_gid,
+                .stx_mode = st.st_mode,
+                .stx_ino = st.st_ino,
+                .stx_size = st.st_size,
+                .stx_blocks = st.st_blocks,
+                .stx_rdev_major = major(st.st_rdev),
+                .stx_rdev_minor = minor(st.st_rdev),
+                .stx_dev_major = major(st.st_dev),
+                .stx_dev_minor = minor(st.st_dev),
+                .stx_atime.tv_sec = st.st_atim.tv_sec,
+                .stx_atime.tv_nsec = st.st_atim.tv_nsec,
+                .stx_mtime.tv_sec = st.st_mtim.tv_sec,
+                .stx_mtime.tv_nsec = st.st_mtim.tv_nsec,
+                .stx_ctime.tv_sec = st.st_ctim.tv_sec,
+                .stx_ctime.tv_nsec = st.st_ctim.tv_nsec,
+        };
+
+        return 0;
 }

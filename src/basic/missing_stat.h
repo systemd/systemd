@@ -50,6 +50,16 @@ struct statx STATX_DEFINITION;
 struct new_statx STATX_DEFINITION;
 
 /* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef AT_STATX_SYNC_AS_STAT
+#define AT_STATX_SYNC_AS_STAT 0x0000
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef AT_STATX_FORCE_SYNC
+#define AT_STATX_FORCE_SYNC 0x2000
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
 #ifndef AT_STATX_DONT_SYNC
 #define AT_STATX_DONT_SYNC 0x4000
 #endif
@@ -65,8 +75,18 @@ struct new_statx STATX_DEFINITION;
 #endif
 
 /* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_NLINK
+#define STATX_NLINK 0x00000004U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
 #ifndef STATX_UID
 #define STATX_UID 0x00000008U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_GID
+#define STATX_GID 0x00000010U
 #endif
 
 /* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
@@ -87,6 +107,16 @@ struct new_statx STATX_DEFINITION;
 /* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
 #ifndef STATX_INO
 #define STATX_INO 0x00000100U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_SIZE
+#define STATX_SIZE 0x00000200U
+#endif
+
+/* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */
+#ifndef STATX_BLOCKS
+#define STATX_BLOCKS 0x00000400U
 #endif
 
 /* a528d35e8bfcc521d7cb70aaf03e1bd296c8493f (4.11) */

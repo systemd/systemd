@@ -13,6 +13,7 @@
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
 
@@ -135,13 +136,8 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
         _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
         int mount_id = -1, mount_id_parent = -1;
         bool nosupp = false, check_st_dev = true;
+        STRUCT_STATX_DEFINE(sx);
         struct stat a, b;
-        struct statx sx
-#if HAS_FEATURE_MEMORY_SANITIZER
-                = {}
-#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
-#endif
-                ;
         int r;
 
         assert(fd >= 0);
@@ -298,15 +294,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
 }
 
 int path_get_mnt_id(const char *path, int *ret) {
-        union {
-                struct statx sx;
-                struct new_statx nsx;
-        } buf
-#if HAS_FEATURE_MEMORY_SANITIZER
-                = {}
-#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
-#endif
-                ;
+        STRUCT_NEW_STATX_DEFINE(buf);
         int r;
 
         if (statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_MNT_ID, &buf.sx) < 0) {
