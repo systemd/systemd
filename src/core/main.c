@@ -2001,15 +2001,26 @@ static void log_execution_mode(bool *ret_first_boot) {
                         *ret_first_boot = false;
                         log_info("Running in initial RAM disk.");
                 } else {
-                        /* Let's check whether we are in first boot, i.e. whether /etc is still unpopulated. We use
-                         * /etc/machine-id as flag file, for this: if it exists we assume /etc is populated, if it
-                         * doesn't it's unpopulated. This allows container managers and installers to provision a
-                         * couple of files already. If the container manager wants to provision the machine ID itself
-                         * it should pass $container_uuid to PID 1. */
+                        int r;
+                        _cleanup_free_ char *id_text = NULL;
 
-                        *ret_first_boot = access("/etc/machine-id", F_OK) < 0;
-                        if (*ret_first_boot)
-                                log_info("Running with unpopulated /etc.");
+                        /* Let's check whether we are in first boot.  We use /etc/machine-id as flag file
+                         * for this: If it is missing or contains the value "uninitialized", this is the
+                         * first boot.  In any other case, it is not.  This allows container managers and
+                         * installers to provision a couple of files already.  If the container manager
+                         * wants to provision the machine ID itself it should pass $container_uuid to PID 1. */
+
+                        r = read_one_line_file("/etc/machine-id", &id_text);
+                        if (r < 0 || streq(id_text, "uninitialized")) {
+                                if (r < 0 && r != -ENOENT)
+                                        log_warning_errno(r, "Unexpected error while reading /etc/machine-id, ignoring: %m");
+
+                                *ret_first_boot = true;
+                                log_info("Detected first boot.");
+                        } else {
+                                *ret_first_boot = false;
+                                log_debug("Detected initialized system, this is not the first boot.");
+                        }
                 }
         } else {
                 if (DEBUG_LOGGING) {
