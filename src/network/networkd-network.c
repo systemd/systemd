@@ -1153,6 +1153,12 @@ int config_parse_dns(
         assert(lvalue);
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                n->dns = mfree(n->dns);
+                n->n_dns = 0;
+                return 0;
+        }
+
         for (;;) {
                 _cleanup_free_ char *w = NULL;
                 union in_addr_union a;
