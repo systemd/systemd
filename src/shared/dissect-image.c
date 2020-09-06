@@ -2148,6 +2148,8 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                                         log_debug_errno(r, "Image contains invalid /etc/machine-id: %s", line);
                         } else if (r == 0)
                                 log_debug("/etc/machine-id file is empty.");
+                        else if (streq(line, "uninitialized"))
+                                log_debug("/etc/machine-id file is uninitialized (likely aborted first boot).");
                         else
                                 log_debug("/etc/machine-id has unexpected length %i.", r);
 
