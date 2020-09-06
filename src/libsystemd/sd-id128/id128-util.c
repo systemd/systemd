@@ -10,6 +10,7 @@
 #include "id128-util.h"
 #include "io-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 
 char *id128_to_uuid_string(sd_id128_t id, char s[static ID128_UUID_STRING_MAX]) {
         unsigned n, k = 0;
@@ -97,6 +98,11 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
 
         switch (l) {
 
+        case 13:
+        case 14:
+                /* Treat an "uninitialized" id file like an empty one */
+                return f == ID128_PLAIN_OR_UNINIT && strneq(buffer, "uninitialized\n", l) ? -ENOMEDIUM : -EINVAL;
+
         case 33: /* plain UUID with trailing newline */
                 if (buffer[32] != '\n')
                         return -EINVAL;
@@ -115,7 +121,7 @@ int id128_read_fd(int fd, Id128Format f, sd_id128_t *ret) {
 
                 _fallthrough_;
         case 36: /* RFC UUID without trailing newline */
-                if (f == ID128_PLAIN)
+                if (IN_SET(f, ID128_PLAIN, ID128_PLAIN_OR_UNINIT))
                         return -EINVAL;
 
                 buffer[36] = 0;
