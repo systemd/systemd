@@ -17,6 +17,7 @@ units = [
         ['emergency.target',                    ''],
         ['exit.target',                         ''],
         ['final.target',                        ''],
+        ['first-boot-complete.target',          ''],
         ['getty.target',                        '',
          'multi-user.target.wants/'],
         ['getty-pre.target',                    ''],
