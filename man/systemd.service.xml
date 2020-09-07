@@ -292,10 +292,11 @@
       <varlistentry>
         <term><varname>BusName=</varname></term>
 
-        <listitem><para>Takes a D-Bus bus name that this service is
-        reachable as. This option is mandatory for services where
-        <varname>Type=</varname> is set to
-        <option>dbus</option>.</para>
+        <listitem><para>Takes a D-Bus destination name that this service shall use. This option is mandatory
+        for services where <varname>Type=</varname> is set to <option>dbus</option>. It is recommended to
+        always set this property if known to make it easy to map the service name to the D-Bus destination.
+        In particular, <command>systemctl service-log-level/service-log-target</command> verbs make use of
+        this.</para>
         </listitem>
       </varlistentry>
 

@@ -6327,6 +6327,98 @@ static int log_level(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int service_name_to_dbus(sd_bus *bus, const char *name, char **ret_dbus_name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *bus_name = NULL;
+        int r;
+
+        /* First, look for the BusName= property */
+        _cleanup_free_ char *dbus_path = unit_dbus_path_from_name(name);
+        if (!dbus_path)
+                return log_oom();
+
+        r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                dbus_path,
+                                "org.freedesktop.systemd1.Service",
+                                "BusName",
+                                &error,
+                                &bus_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to obtain BusName= property of %s: %s",
+                                       name, bus_error_message(&error, r));
+
+        if (isempty(bus_name))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOLINK),
+                                       "Unit %s doesn't declare BusName=.", name);
+
+        *ret_dbus_name = TAKE_PTR(bus_name);
+        return 0;
+}
+
+static int service_log_setting(int argc, char *argv[], void *userdata) {
+        sd_bus *bus;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *unit = NULL, *dbus_name = NULL;
+        int r;
+
+        assert(STR_IN_SET(argv[0], "service-log-level", "service-log-target"));
+        bool level = streq(argv[0], "service-log-level");
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0)
+                return r;
+
+        r = unit_name_mangle_with_suffix(argv[1], argv[0],
+                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                         ".service", &unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name: %m");
+
+        r = service_name_to_dbus(bus, unit, &dbus_name);
+        if (r < 0)
+                return r;
+
+        if (argc == 2) {
+                _cleanup_free_ char *value = NULL;
+
+                r = sd_bus_get_property_string(
+                                bus,
+                                dbus_name,
+                                "/org/freedesktop/LogControl1",
+                                "org.freedesktop.LogControl1",
+                                level ? "LogLevel" : "LogTarget",
+                                &error,
+                                &value);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get log %s of service %s: %s",
+                                               level ? "level" : "target",
+                                               dbus_name, bus_error_message(&error, r));
+
+                puts(value);
+
+        } else {
+                assert(argc == 3);
+
+                r = sd_bus_set_property(
+                                bus,
+                                dbus_name,
+                                "/org/freedesktop/LogControl1",
+                                "org.freedesktop.LogControl1",
+                                level ? "LogLevel" : "LogTarget",
+                                &error,
+                                "s",
+                                argv[2]);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set log %s of service %s to %s: %s",
+                                               level ? "level" : "target",
+                                               dbus_name, argv[2], bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
 static int log_target(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -7734,6 +7826,8 @@ static int systemctl_help(void) {
                "  freeze PATTERN...                   Freeze execution of unit processes\n"
                "  thaw PATTERN...                     Resume execution of a frozen unit\n"
                "  set-property UNIT PROPERTY=VALUE... Sets one or more properties of a unit\n"
+               "  service-log-level SERVICE [LEVEL]   Get/set logging threshold for service\n"
+               "  service-log-target SERVICE [TARGET] Get/set logging target for service\n"
                "  reset-failed [PATTERN...]           Reset failed state for all, one, or more\n"
                "                                      units"
                "\n%3$sUnit File Commands:%4$s\n"
@@ -9034,6 +9128,8 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "daemon-reexec",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload           },
                 { "log-level",             VERB_ANY, 2,        VERB_ONLINE_ONLY, log_level               },
                 { "log-target",            VERB_ANY, 2,        VERB_ONLINE_ONLY, log_target              },
+                { "service-log-level",     2,        3,        VERB_ONLINE_ONLY, service_log_setting     },
+                { "service-log-target",    2,        3,        VERB_ONLINE_ONLY, service_log_setting     },
                 { "service-watchdogs",     VERB_ANY, 2,        VERB_ONLINE_ONLY, service_watchdogs       },
                 { "show-environment",      VERB_ANY, 1,        VERB_ONLINE_ONLY, show_environment        },
                 { "set-environment",       2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment         },

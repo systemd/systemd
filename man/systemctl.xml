@@ -551,6 +551,62 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
+          <term><command>service-log-level</command> <replaceable>SERVICE</replaceable> [<replaceable>LEVEL</replaceable>]</term>
+
+          <listitem><para>If the <replaceable>LEVEL</replaceable> argument is not given, print the current
+          log level as reported by service <replaceable>SERVICE</replaceable>.</para>
+
+          <para>If the optional argument <replaceable>LEVEL</replaceable> is provided, then change the
+          current log level of the service to <replaceable>LEVEL</replaceable>. The log level should be a
+          typical syslog log level, i.e. a value in the range 0…7 or one of the strings
+          <constant>emerg</constant>, <constant>alert</constant>, <constant>crit</constant>,
+          <constant>err</constant>, <constant>warning</constant>, <constant>notice</constant>,
+          <constant>info</constant>, <constant>debug</constant>; see <citerefentry
+          project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          for details.</para>
+
+          <para>The service must have the appropriate
+          <varname>BusName=<replaceable>destination</replaceable></varname> property and also implement the
+          generic
+          <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
+          <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
+          <replaceable>destination</replaceable>.)</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>service-log-target</command> <replaceable>SERVICE</replaceable> [<replaceable>TARGET</replaceable>]</term>
+
+          <listitem><para>If the <replaceable>TARGET</replaceable> argument is not given, print the current
+          log target as reported by service <replaceable>SERVICE</replaceable>.</para>
+
+          <para>If the optional argument <replaceable>TARGET</replaceable> is provided, then change the
+          current log target of the service to <replaceable>TARGET</replaceable>. The log target should be
+          one of the strings <constant>console</constant> (for log output to the service's standard error
+          stream), <constant>kmsg</constant> (for log output to the kernel log buffer),
+          <constant>journal</constant> (for log output to
+          <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          using the native journal protocol), <constant>syslog</constant> (for log output to the classic
+          syslog socket <filename>/dev/log</filename>), <constant>null</constant> (for no log output
+          whatsoever) or <constant>auto</constant> (for an automatically determined choice, typically
+          equivalent to <constant>console</constant> if the service is invoked interactively, and
+          <constant>journal</constant> or <constant>syslog</constant> otherwise).</para>
+
+          <para>For most services, only a small subset of log targets make sense. In particular, most
+          "normal" services should only implement <constant>console</constant>, <constant>journal</constant>,
+          and <constant>null</constant>. Anything else is only appropriate for low-level services that
+          are active in very early boot before proper logging is established.</para>
+
+          <para>The service must have the appropriate
+          <varname>BusName=<replaceable>destination</replaceable></varname> property and also implement the
+          generic
+          <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
+          <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
+          <replaceable>destination</replaceable>.)</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>reset-failed [<replaceable>PATTERN</replaceable>…]</command></term>
 
           <listitem>

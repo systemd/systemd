@@ -24,8 +24,8 @@
     <title>Introduction</title>
 
     <para><interfacename>org.freedesktop.LogControl1</interfacename> is a generic interface that is intended
-    to be used by any daemon which should allow setting the log level and target over D-Bus. It is implemented
-    by various daemons that are part of the
+    to be used by any daemon which allows the log level and target to be set over D-Bus. It is implemented by
+    various daemons that are part of the
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> suite.</para>
 
     <para>It is assumed that those settings are global for the whole program, so a fixed object path is
@@ -95,12 +95,35 @@ node /org/freedesktop/LogControl1 {
       It is a short string that identifies the program that is the source of log messages that is passed to
       the <citerefentry project="man-pages"><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry> call.
       </para>
-
-      <para>Note: <command>journalctl</command> option <option>-p</option>/<option>--priority=</option> may
-      be used to filter log messages by log level, option <option>-t</option>/<option>--identifier=</option>
-      may be used to by the syslog identifier, and filters like <literal>_TRANSPORT=syslog</literal>,
-      <literal>_TRANSPORT=journal</literal>, and <literal>_TRANSPORT=kernel</literal> may be used to filter
-      messages by the mechanism through which they reached <command>systemd-journald</command>.</para>
     </refsect2>
+  </refsect1>
+
+  <refsect1>
+    <title>Tools</title>
+
+    <para><command>journalctl</command> option <option>-p</option>/<option>--priority=</option> may be used
+    to filter log messages by log level, option <option>-t</option>/<option>--identifier=</option> may be
+    used to by the syslog identifier, and filters like <literal>_TRANSPORT=syslog</literal>,
+    <literal>_TRANSPORT=journal</literal>, and <literal>_TRANSPORT=kernel</literal> may be used to filter
+    messages by the mechanism through which they reached <command>systemd-journald</command>.</para>
+
+    <para><command>systemctl log-level</command> and <command>systemctl log-target</command> verbs may be
+    used to query and set the <varname>LogLevel</varname> and <varname>LogTarget</varname> properties of the
+    service manager. <command>systemctl service-log-level</command> and <command>systemctl
+    service-log-target</command> may similarly be used for individual services. (Services must have the
+    <varname>BusName=</varname> property set and must implement the interface described here. See
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details about <varname>BusName=</varname>.)</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
   </refsect1>
 </refentry>
