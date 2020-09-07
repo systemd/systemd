@@ -393,6 +393,8 @@ int find_hibernate_location(HibernateLocation **ret_hibernate_location) {
                 r = swap_device_to_device_id(swap, &swap_device);
                 if (r < 0)
                         return log_debug_errno(r, "%s: failed to query device number: %m", swap->device);
+                if (swap_device == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "%s: not backed by block device.", swap->device);
 
                 hibernate_location = hibernate_location_free(hibernate_location);
                 hibernate_location = new(HibernateLocation, 1);
