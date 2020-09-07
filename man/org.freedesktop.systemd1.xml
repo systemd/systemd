@@ -1309,12 +1309,12 @@ node /org/freedesktop/systemd1 {
       <programlisting>
 #define SD_SYSTEMD_UNIT_RUNTIME  (UINT64_C(1) &lt;&lt; 0)
 #define SD_SYSTEMD_UNIT_FORCE    (UINT64_C(1) &lt;&lt; 1)
-#define SD_SYSTEMD_UNIT_PORTABLE (UINT64_C(1) &lt;&lt; 2)
+#define SD_SYSTEMD_UNIT_ATTACHED (UINT64_C(1) &lt;&lt; 2)
       </programlisting>
 
       <para><varname>SD_SYSTEMD_UNIT_RUNTIME</varname> will enable or disable the unit for runtime only,
       <varname>SD_SYSTEMD_UNIT_FORCE</varname> controls whether symlinks pointing to other units shall be
-      replaced if necessary. <varname>SD_SYSTEMD_UNIT_PORTABLE</varname> will add or remove the symlinks in
+      replaced if necessary. <varname>SD_SYSTEMD_UNIT_ATTACHED</varname> will add or remove the symlinks in
       <filename>/etc/systemd/system.attached</filename> and <filename>/run/systemd/system.attached</filename>.</para>
 
       <para>Similarly, <function>ReenableUnitFiles()</function> applies the changes to one or more units that

@@ -252,7 +252,7 @@ static int path_is_vendor_or_generator(const LookupPaths *p, const char *path) {
 static const char* config_path_from_flags(const LookupPaths *paths, UnitFileFlags flags) {
         assert(paths);
 
-        if (FLAGS_SET(flags, UNIT_FILE_PORTABLE))
+        if (FLAGS_SET(flags, UNIT_FILE_ATTACHED))
                 return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? paths->runtime_attached : paths->persistent_attached;
         else
                 return FLAGS_SET(flags, UNIT_FILE_RUNTIME) ? paths->runtime_config : paths->persistent_config;
