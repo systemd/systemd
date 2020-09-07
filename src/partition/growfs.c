@@ -92,8 +92,7 @@ static int maybe_resize_underlying_device(const char *mountpath, dev_t main_devn
         cryptsetup_enable_logging(NULL);
 #endif
 
-        r = get_block_device_harder(mountpath, &devno);
-        if (r < 0)
+        if(get_block_device_harder(mountpath, &devno) <= 0)
                 return log_error_errno(r, "Failed to determine underlying block device of \"%s\": %m",
                                        mountpath);
 
