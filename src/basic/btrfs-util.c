@@ -294,6 +294,15 @@ int btrfs_get_block_device_fd(int fd, dev_t *dev) {
                         return -errno;
                 }
 
+                /* For the root fs — when no initrd is involved — btrfs returns /dev/root on any kernels from
+                 * the past few years. That sucks, as we have no API to determine the actual root then. let's
+                 * return an recognizable error for this case, so that the caller can maybe print a nice
+                 * message about this.
+                 *
+                 * https://bugzilla.kernel.org/show_bug.cgi?id=89721 */
+                if (path_equal((char*) di.path, "/dev/root"))
+                        return -EUCLEAN;
+
                 if (stat((char*) di.path, &st) < 0)
                         return -errno;
 
