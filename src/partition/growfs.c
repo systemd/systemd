@@ -11,6 +11,7 @@
 #include <sys/vfs.h>
 
 #include "blockdev-util.h"
+#include "btrfs-util.h"
 #include "cryptsetup-util.h"
 #include "device-nodes.h"
 #include "dissect-image.h"
@@ -212,6 +213,8 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"%s\" is not a mount point: %m", arg_target);
 
         r = get_block_device(arg_target, &devno);
+        if (r == -EUCLEAN)
+                return btrfs_log_dev_root(LOG_ERR, r, arg_target);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine block device of \"%s\": %m", arg_target);
 
