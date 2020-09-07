@@ -34,7 +34,7 @@ int quotactl_path(int cmd, const char *path, int id, void *addr) {
         r = get_block_device(path, &devno);
         if (r < 0)
                 return r;
-        if (devno == 0)
+        if (devno == 0) /* Doesn't have a block device */
                 return -ENODEV;
 
         return quotactl_devno(cmd, devno, id, addr);
