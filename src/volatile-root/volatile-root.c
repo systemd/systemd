@@ -176,7 +176,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine device major/minor of %s: %m", path);
         else if (r == 0)
-                return log_error_errno(r, "Path %s has no underlying block device, ignoring.", path);
+                return log_debug("path %s has no underlying block device, ignoring.", path);
         else if (r > 0) {
                 _cleanup_free_ char *dn = NULL;
 
