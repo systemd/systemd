@@ -2734,6 +2734,8 @@ static int context_open_copy_block_paths(Context *context) {
                                 /* Special support for btrfs */
 
                                 r = btrfs_get_block_device_fd(source_fd, &devt);
+                                if (r == -EUCLEAN)
+                                        return btrfs_log_dev_root(LOG_ERR, r, p->copy_blocks_path);
                                 if (r < 0)
                                         return log_error_errno(r, "Unable to determine backing block device of '%s': %m", p->copy_blocks_path);
 
@@ -3150,6 +3152,8 @@ static int find_root(char **ret, int *ret_fd) {
                 }
 
                 r = acquire_root_devno(arg_node, O_RDONLY|O_CLOEXEC, ret, ret_fd);
+                if (r == -EUCLEAN)
+                        return btrfs_log_dev_root(LOG_ERR, r, arg_node);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine backing device of %s: %m", arg_node);
 
@@ -3177,6 +3181,8 @@ static int find_root(char **ret, int *ret_fd) {
 
                 r = acquire_root_devno(p, O_RDONLY|O_DIRECTORY|O_CLOEXEC, ret, ret_fd);
                 if (r < 0) {
+                        if (r == -EUCLEAN)
+                                return btrfs_log_dev_root(LOG_ERR, r, p);
                         if (r != -ENODEV)
                                 return log_error_errno(r, "Failed to determine backing device of %s: %m", p);
                 } else
