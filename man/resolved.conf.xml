@@ -295,6 +295,14 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RestrictInterfaces=</varname></term>
+        <listitem><para>An allow-listed of interface names. When set, <command>systemd-resolved</command>
+        handles only interfaces which are in the allow-list. This option can be specified multiple times.
+        If an empty string is assigned, then the all previous assignments are cleared. Defaults to unset.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ReadEtcHosts=</varname></term>
         <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default),
         <command>systemd-resolved</command> will read <filename>/etc/hosts</filename>, and try to resolve

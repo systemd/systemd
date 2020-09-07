@@ -30,3 +30,4 @@ Resolve.DNSStubListener,           config_parse_dns_stub_listener_mode,  0,     
 Resolve.ReadEtcHosts,              config_parse_bool,                    0,                   offsetof(Manager, read_etc_hosts)
 Resolve.ResolveUnicastSingleLabel, config_parse_bool,                    0,                   offsetof(Manager, resolve_unicast_single_label)
 Resolve.DNSStubListenerExtra,      config_parse_dns_stub_listener_extra, 0,                   offsetof(Manager, dns_extra_stub_listeners)
+Resolve.RestrictInterfaces,        config_parse_strv,                    0,                   offsetof(Manager, restrict_interfaces)

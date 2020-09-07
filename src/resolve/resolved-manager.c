@@ -18,6 +18,7 @@
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -44,11 +45,29 @@
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
+static bool interface_in_restricted_list(Manager *m, int ifindex) {
+        char ifname[IFNAMSIZ + 1], **p;
+
+        assert(m);
+        assert(ifindex > 0);
+
+        /* Empty list means all interfaces will be handled. */
+        if (strv_isempty(m->restrict_interfaces))
+                return true;
+
+        if (format_ifname(ifindex, ifname))
+                STRV_FOREACH(p, m->restrict_interfaces)
+                        if (fnmatch(*p, ifname, 0) == 0)
+                                return true;
+
+        return false;
+}
+
 static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
         Manager *m = userdata;
+        int ifindex, r;
         uint16_t type;
         Link *l;
-        int ifindex, r;
 
         assert(rtnl);
         assert(m);
@@ -61,6 +80,9 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
         r = sd_rtnl_message_link_get_ifindex(mm, &ifindex);
         if (r < 0)
                 goto fail;
+
+        if (!interface_in_restricted_list(m, ifindex))
+                return 0;
 
         l = hashmap_get(m->links, INT_TO_PTR(ifindex));
 
@@ -740,6 +762,8 @@ Manager *manager_free(Manager *m) {
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
+
+        strv_free(m->restrict_interfaces);
 
         return mfree(m);
 }
