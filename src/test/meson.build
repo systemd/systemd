@@ -1042,6 +1042,11 @@ tests += [
          [],
          []],
 
+        [['src/libsystemd/sd-lldp/test-lldp.c'],
+         [libbasic,libshared_static,libsystemd_static
+          ],
+         []],
+
 ]
 
 if cxx_cmd != ''
@@ -1124,11 +1129,6 @@ tests += [
           'src/libsystemd-network/dhcp-identifier.c',
           'src/libsystemd-network/dhcp6-internal.h',
           'src/systemd/sd-dhcp6-client.h'],
-         [libshared,
-          libsystemd_network],
-         []],
-
-        [['src/libsystemd-network/test-lldp.c'],
          [libshared,
           libsystemd_network],
          []],
