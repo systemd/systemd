@@ -96,6 +96,8 @@ static int maybe_resize_underlying_device(const char *mountpath, dev_t main_devn
         if (r < 0)
                 return log_error_errno(r, "Failed to determine underlying block device of \"%s\": %m",
                                        mountpath);
+        if(r == 0)
+                return log_debug("Mountpath %s has no underlying block device, ignoring.", mountpath);
 
         log_debug("Underlying device %d:%d, main dev %d:%d, %s",
                   major(devno), minor(devno),
