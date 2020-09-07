@@ -70,6 +70,12 @@ libsystemd_sources = files('''
         sd-hwdb/hwdb-util.c
         sd-hwdb/hwdb-util.h
         sd-hwdb/sd-hwdb.c
+        sd-lldp/sd-lldp.c
+        sd-lldp/lldp-internal.h
+        sd-lldp/lldp-neighbor.c
+        sd-lldp/lldp-neighbor.h
+        sd-lldp/lldp-network.c
+        sd-lldp/lldp-network.h
         sd-netlink/generic-netlink.c
         sd-netlink/generic-netlink.h
         sd-netlink/netlink-internal.h

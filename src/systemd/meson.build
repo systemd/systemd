@@ -13,6 +13,7 @@ _systemd_headers = '''
         sd-login.h
         sd-messages.h
         sd-path.h
+        sd-lldp.h
 '''.split()
 
 # https://github.com/mesonbuild/meson/issues/1633
@@ -28,7 +29,6 @@ _not_installed_headers = '''
         sd-dhcp-server.h
         sd-ipv4acd.h
         sd-ipv4ll.h
-        sd-lldp.h
         sd-ndisc.h
         sd-netlink.h
         sd-network.h
