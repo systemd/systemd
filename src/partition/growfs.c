@@ -97,6 +97,8 @@ static int maybe_resize_underlying_device(const char *mountpath, dev_t main_devn
         if (r < 0)
                 return log_error_errno(r, "Failed to determine underlying block device of \"%s\": %m",
                                        mountpath);
+        if (devno == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" not backed by block device.", arg_target);
 
         log_debug("Underlying device %d:%d, main dev %d:%d, %s",
                   major(devno), minor(devno),
@@ -217,6 +219,8 @@ static int run(int argc, char *argv[]) {
                 return btrfs_log_dev_root(LOG_ERR, r, arg_target);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine block device of \"%s\": %m", arg_target);
+        if (devno == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" not backed by block device.", arg_target);
 
         r = maybe_resize_underlying_device(arg_target, devno);
         if (r < 0)
