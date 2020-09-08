@@ -213,14 +213,16 @@ static int run(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to extract instance: %m");
                                 if (isempty(name))
-                                        return log_error("Unit %s is missing the instance name.", *i);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unit %s is missing the instance name.", *i);
 
                                 r = unit_name_template(*i, &template);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to extract template: %m");
                                 if (arg_template && !streq(arg_template, template))
-                                        return log_error("Unit %s template %s does not match specified template %s.",
-                                                         *i, template, arg_template);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Unit %s template %s does not match specified template %s.",
+                                                               *i, template, arg_template);
                         } else {
                                 name = strdup(*i);
                                 if (!name)
