@@ -881,6 +881,16 @@ libm = cc.find_library('m')
 libdl = cc.find_library('dl')
 libcrypt = cc.find_library('crypt')
 
+crypt_header = conf.get('HAVE_CRYPT_H') == 1 ? \
+               '''#include <crypt.h>''' : '''#include <unistd.h>'''
+foreach ident : [
+        ['crypt_ra',          crypt_header]]
+
+        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE',
+                               dependencies : libcrypt)
+        conf.set10('HAVE_' + ident[0].to_upper(), have)
+endforeach
+
 libcap = dependency('libcap', required : false)
 if not libcap.found()
         # Compat with Ubuntu 14.04 which ships libcap w/o .pc file
