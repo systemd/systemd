@@ -62,6 +62,8 @@ struct Route {
         LIST_FIELDS(Route, routes);
 };
 
+void route_hash_func(const Route *route, struct siphash *state);
+int route_compare_func(const Route *a, const Route *b);
 extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);

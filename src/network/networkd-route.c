@@ -9,6 +9,7 @@
 #include "netlink-util.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-manager.h"
+#include "networkd-ndisc.h"
 #include "networkd-route.h"
 #include "parse-util.h"
 #include "set.h"
@@ -142,6 +143,9 @@ void route_free(Route *route) {
         network_config_section_free(route->section);
 
         if (route->link) {
+                NDiscRoute *n;
+                Iterator i;
+
                 set_remove(route->link->routes, route);
                 set_remove(route->link->routes_foreign, route);
                 set_remove(route->link->dhcp_routes, route);
@@ -150,8 +154,9 @@ void route_free(Route *route) {
                 set_remove(route->link->dhcp6_routes_old, route);
                 set_remove(route->link->dhcp6_pd_routes, route);
                 set_remove(route->link->dhcp6_pd_routes_old, route);
-                set_remove(route->link->ndisc_routes, route);
-                set_remove(route->link->ndisc_routes_old, route);
+                SET_FOREACH(n, route->link->ndisc_routes, i)
+                        if (n->route == route)
+                                free(set_remove(route->link->ndisc_routes, n));
         }
 
         ordered_set_free_free(route->multipath_routes);
@@ -161,7 +166,7 @@ void route_free(Route *route) {
         free(route);
 }
 
-static void route_hash_func(const Route *route, struct siphash *state) {
+void route_hash_func(const Route *route, struct siphash *state) {
         assert(route);
 
         siphash24_compress(&route->family, sizeof(route->family), state);
@@ -196,7 +201,7 @@ static void route_hash_func(const Route *route, struct siphash *state) {
         }
 }
 
-static int route_compare_func(const Route *a, const Route *b) {
+int route_compare_func(const Route *a, const Route *b) {
         int r;
 
         r = CMP(a->family, b->family);
