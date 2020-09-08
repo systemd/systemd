@@ -91,18 +91,9 @@ int device_monitor_allow_unicast_sender(sd_device_monitor *m, sd_device_monitor 
 }
 
 _public_ int sd_device_monitor_set_receive_buffer_size(sd_device_monitor *m, size_t size) {
-        int r, n = (int) size;
-
         assert_return(m, -EINVAL);
-        assert_return((size_t) n == size, -EINVAL);
 
-        if (setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUFFORCE, n) < 0) {
-                r = setsockopt_int(m->sock, SOL_SOCKET, SO_RCVBUF, n);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        return fd_set_rcvbuf(m->sock, size, false);
 }
 
 int device_monitor_disconnect(sd_device_monitor *m) {
