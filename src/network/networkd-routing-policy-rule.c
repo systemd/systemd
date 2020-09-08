@@ -540,9 +540,7 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                 r = sd_netlink_message_append_u32(m, FRA_FWMARK, rule->fwmark);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_FWMARK attribute: %m");
-        }
 
-        if (rule->fwmask > 0) {
                 r = sd_netlink_message_append_u32(m, FRA_FWMASK, rule->fwmask);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_FWMASK attribute: %m");
@@ -676,10 +674,13 @@ static int parse_fwmark_fwmask(const char *s, uint32_t *ret_fwmark, uint32_t *re
         if (r < 0)
                 return r;
 
-        if (slash) {
-                r = safe_atou32(slash + 1, &fwmask);
-                if (r < 0)
-                        return r;
+        if (fwmark > 0) {
+                if (slash) {
+                        r = safe_atou32(slash + 1, &fwmask);
+                        if (r < 0)
+                                return r;
+                } else
+                        fwmask = UINT32_MAX;
         }
 
         *ret_fwmark = fwmark;
@@ -1239,9 +1240,11 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                 }
 
                 if (rule->fwmark != 0) {
-                        fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
+                        fprintf(f, "%sfwmark=%"PRIu32,
                                 space ? " " : "",
-                                rule->fwmark, rule->fwmask);
+                                rule->fwmark);
+                        if (rule->fwmask != UINT32_MAX)
+                                fprintf(f, "/%"PRIu32, rule->fwmask);
                         space = true;
                 }
 

@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
         test_rule_serialization("ignored values",
                                 "RULE=something=to=ignore from=1.2.3.4/32 from=1.2.3.4/32"
                                 "   \t  to=2.3.4.5/24 to=2.3.4.5/32 tos=5 fwmark=2 fwmark=1 table=10 table=20",
-                                "RULE=family=AF_INET from=1.2.3.4/32 to=2.3.4.5/32 tos=5 fwmark=1/0 invert_rule=no table=20");
+                                "RULE=family=AF_INET from=1.2.3.4/32 to=2.3.4.5/32 tos=5 fwmark=1 invert_rule=no table=20");
 
         test_rule_serialization("ipv6",
                                 "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 invert_rule=yes table=6", NULL);
