@@ -228,12 +228,12 @@ void log_assert_failed_return_realm(
 #define log_full_errno(level, error, ...)                               \
         log_full_errno_realm(LOG_REALM, (level), (error), __VA_ARGS__)
 
-#define log_full(level, ...) log_full_errno((level), 0, __VA_ARGS__)
+#define log_full(level, ...) (void) log_full_errno((level), 0, __VA_ARGS__)
 
 int log_emergency_level(void);
 
 /* Normal logging */
-#define log_debug(...)     log_full(LOG_DEBUG,   __VA_ARGS__)
+#define log_debug(...)     log_full_errno(LOG_DEBUG, 0, __VA_ARGS__)
 #define log_info(...)      log_full(LOG_INFO,    __VA_ARGS__)
 #define log_notice(...)    log_full(LOG_NOTICE,  __VA_ARGS__)
 #define log_warning(...)   log_full(LOG_WARNING, __VA_ARGS__)
