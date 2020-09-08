@@ -908,11 +908,11 @@ void emit_bpf_firewall_warning(Unit *u) {
         if (!warned) {
                 bool quiet = bpf_firewall_unsupported_reason == -EPERM && detect_container();
 
-                log_unit_full(u, quiet ? LOG_DEBUG : LOG_WARNING, bpf_firewall_unsupported_reason,
-                              "unit configures an IP firewall, but %s.\n"
-                              "(This warning is only shown for the first unit using IP firewalling.)",
-                              getuid() != 0 ? "not running as root" :
-                                              "the local system does not support BPF/cgroup firewalling");
+                log_unit_full_errno(u, quiet ? LOG_DEBUG : LOG_WARNING, bpf_firewall_unsupported_reason,
+                                    "unit configures an IP firewall, but %s.\n"
+                                    "(This warning is only shown for the first unit using IP firewalling.)",
+                                    getuid() != 0 ? "not running as root" :
+                                                    "the local system does not support BPF/cgroup firewalling");
                 warned = true;
         }
 }

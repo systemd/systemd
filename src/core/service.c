@@ -915,17 +915,17 @@ static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
          * good */
 
         if (pid == getpid_cached() || pid == 1) {
-                log_unit_full(UNIT(s), prio, 0, "New main PID "PID_FMT" is the manager, refusing.", pid);
+                log_unit_full(UNIT(s), prio, "New main PID "PID_FMT" is the manager, refusing.", pid);
                 return -EPERM;
         }
 
         if (pid == s->control_pid) {
-                log_unit_full(UNIT(s), prio, 0, "New main PID "PID_FMT" is the control process, refusing.", pid);
+                log_unit_full(UNIT(s), prio, "New main PID "PID_FMT" is the control process, refusing.", pid);
                 return -EPERM;
         }
 
         if (!pid_is_alive(pid)) {
-                log_unit_full(UNIT(s), prio, 0, "New main PID "PID_FMT" does not exist or is a zombie.", pid);
+                log_unit_full(UNIT(s), prio, "New main PID "PID_FMT" does not exist or is a zombie.", pid);
                 return -ESRCH;
         }
 
@@ -955,16 +955,16 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
         r = chase_symlinks(s->pid_file, NULL, CHASE_SAFE, NULL, &fd);
         if (r == -ENOLINK) {
-                log_unit_full(UNIT(s), LOG_DEBUG, r,
-                              "Potentially unsafe symlink chain, will now retry with relaxed checks: %s", s->pid_file);
+                log_unit_debug_errno(UNIT(s), r,
+                                     "Potentially unsafe symlink chain, will now retry with relaxed checks: %s", s->pid_file);
 
                 questionable_pid_file = true;
 
                 r = chase_symlinks(s->pid_file, NULL, 0, NULL, &fd);
         }
         if (r < 0)
-                return log_unit_full(UNIT(s), prio, fd,
-                                     "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
+                return log_unit_full_errno(UNIT(s), prio, fd,
+                                           "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
         /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd
          * chase_symlinks() returned us into a proper fd first. */
@@ -977,7 +977,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
         r = parse_pid(k, &pid);
         if (r < 0)
-                return log_unit_full(UNIT(s), prio, r, "Failed to parse PID from file %s: %m", s->pid_file);
+                return log_unit_full_errno(UNIT(s), prio, r, "Failed to parse PID from file %s: %m", s->pid_file);
 
         if (s->main_pid_known && pid == s->main_pid)
                 return 0;
