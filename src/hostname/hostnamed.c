@@ -217,6 +217,7 @@ static const char* fallback_chassis(void) {
         case 0x4: /* Low Profile Desktop */
         case 0x6: /* Mini Tower */
         case 0x7: /* Tower */
+        case 0xD: /* All in one (i.e. PC built into monitor) */
                 return "desktop";
 
         case 0x8: /* Portable */
