@@ -325,13 +325,13 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
 
                         r = chmod_and_chown(devnode, mode, uid, gid);
                         if (r < 0)
-                                log_device_full(dev, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
-                                                "Failed to set owner/mode of %s to uid=" UID_FMT
-                                                ", gid=" GID_FMT ", mode=%#o: %m",
-                                                devnode,
-                                                uid_is_valid(uid) ? uid : stats.st_uid,
-                                                gid_is_valid(gid) ? gid : stats.st_gid,
-                                                mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
+                                log_device_full_errno(dev, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
+                                                      "Failed to set owner/mode of %s to uid=" UID_FMT
+                                                      ", gid=" GID_FMT ", mode=%#o: %m",
+                                                      devnode,
+                                                      uid_is_valid(uid) ? uid : stats.st_uid,
+                                                      gid_is_valid(gid) ? gid : stats.st_gid,
+                                                      mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
                 } else
                         log_device_debug(dev, "Preserve permissions of %s, uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o",
                                          devnode,
@@ -348,8 +348,8 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
 
                                 q = mac_selinux_apply(devnode, label);
                                 if (q < 0)
-                                        log_device_full(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
-                                                        "SECLABEL: failed to set SELinux label '%s': %m", label);
+                                        log_device_full_errno(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
+                                                              "SECLABEL: failed to set SELinux label '%s': %m", label);
                                 else
                                         log_device_debug(dev, "SECLABEL: set SELinux label '%s'", label);
 
@@ -358,8 +358,8 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
 
                                 q = mac_smack_apply(devnode, SMACK_ATTR_ACCESS, label);
                                 if (q < 0)
-                                        log_device_full(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
-                                                        "SECLABEL: failed to set SMACK label '%s': %m", label);
+                                        log_device_full_errno(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
+                                                              "SECLABEL: failed to set SMACK label '%s': %m", label);
                                 else
                                         log_device_debug(dev, "SECLABEL: set SMACK label '%s'", label);
 

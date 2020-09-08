@@ -97,10 +97,8 @@ int udev_watch_begin(sd_device *dev) {
         log_device_debug(dev, "Adding watch on '%s'", devnode);
         wd = inotify_add_watch(inotify_fd, devnode, IN_CLOSE_WRITE);
         if (wd < 0)
-                return log_device_full(dev,
-                                       errno == ENOENT ? LOG_DEBUG : LOG_ERR,
-                                       errno,
-                                       "Failed to add device '%s' to watch: %m", devnode);
+                return log_device_full_errno(dev, errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                                             "Failed to add device '%s' to watch: %m", devnode);
 
         device_set_watch_handle(dev, wd);
 
