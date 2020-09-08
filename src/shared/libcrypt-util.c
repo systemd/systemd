@@ -117,3 +117,35 @@ bool looks_like_hashed_password(const char *s) {
 
         return !STR_IN_SET(s, "x", "*");
 }
+
+int test_password_one(const char *hashed_password, const char *password) {
+        struct crypt_data cc = {};
+        const char *k;
+        bool b;
+
+        errno = 0;
+        k = crypt_r(password, hashed_password, &cc);
+        if (!k) {
+                explicit_bzero_safe(&cc, sizeof(cc));
+                return errno_or_else(EINVAL);
+        }
+
+        b = streq(k, hashed_password);
+        explicit_bzero_safe(&cc, sizeof(cc));
+        return b;
+}
+
+int test_password_many(char **hashed_password, const char *password) {
+        char **hpw;
+        int r;
+
+        STRV_FOREACH(hpw, hashed_password) {
+                r = test_password_one(*hpw, password);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return true;
+        }
+
+        return false;
+}
