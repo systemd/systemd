@@ -36,11 +36,11 @@
 #include "path-util.h"
 #include "set.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
-#include "virt.h"
 
 /* use 128 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (128*1024*1024)
@@ -261,10 +261,9 @@ static int manager_udev_process_link(sd_device_monitor *monitor, sd_device *devi
 static int manager_connect_udev(Manager *m) {
         int r;
 
-        /* udev does not initialize devices inside containers,
-         * so we rely on them being already initialized before
-         * entering the container */
-        if (detect_container() > 0)
+        /* udev does not initialize devices inside containers, so we rely on them being already
+         * initialized before entering the container. */
+        if (path_is_read_only_fs("/sys") > 0)
                 return 0;
 
         r = sd_device_monitor_new(&m->device_monitor);
