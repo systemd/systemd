@@ -1,5 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#if HAVE_CRYPT_H
+#  include <crypt.h>
+#else
+#  include <unistd.h>
+#endif
+
 #include "strv.h"
 #include "tests.h"
 #include "libcrypt-util.h"
