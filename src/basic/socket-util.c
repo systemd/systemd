@@ -621,6 +621,9 @@ int fd_inc_sndbuf(int fd, size_t n) {
         int r, value;
         socklen_t l = sizeof(value);
 
+        if (n > INT_MAX)
+                return -ERANGE;
+
         r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
         if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
                 return 0;
@@ -639,6 +642,9 @@ int fd_inc_sndbuf(int fd, size_t n) {
 int fd_inc_rcvbuf(int fd, size_t n) {
         int r, value;
         socklen_t l = sizeof(value);
+
+        if (n > INT_MAX)
+                return -ERANGE;
 
         r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
         if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
