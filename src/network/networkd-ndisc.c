@@ -586,14 +586,14 @@ static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address,
                 _cleanup_free_ struct in6_addr *new_address = NULL;
 
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
-                    && IN6_ARE_ADDR_EQUAL(&j->prefix, address)) {
+                    && (IN6_IS_ADDR_UNSPECIFIED(&j->prefix) || IN6_ARE_ADDR_EQUAL(&j->prefix, address))) {
                         /* While this loop uses dad_counter and a retry limit as specified in RFC 7217, the loop
                            does not actually attempt Duplicate Address Detection; the counter will be incremented
                            only when the address generation algorithm produces an invalid address, and the loop
                            may exit with an address which ends up being unusable due to duplication on the link.
                         */
                         for (; j->dad_counter < DAD_CONFLICTS_IDGEN_RETRIES_RFC7217; j->dad_counter++) {
-                                r = make_stableprivate_address(link, &j->prefix, prefixlen, j->dad_counter, &new_address);
+                                r = make_stableprivate_address(link, address, prefixlen, j->dad_counter, &new_address);
                                 if (r < 0)
                                         return r;
                                 if (r > 0)
@@ -1396,29 +1396,42 @@ int config_parse_address_generation_type(
         if (r < 0)
                 return log_oom();
 
-        if ((p = startswith(rvalue, "static:")))
-                token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_STATIC;
-        else if ((p = startswith(rvalue, "prefixstable:")))
+        if ((p = startswith(rvalue, "prefixstable"))) {
                 token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE;
-        else {
+                if (*p == ':')
+                        p++;
+                else if (*p == '\0')
+                        p = NULL;
+                else {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid IPv6 token mode in %s=, ignoring assignment: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+        } else {
                 token->address_generation_type = IPV6_TOKEN_ADDRESS_GENERATION_STATIC;
-                p = rvalue;
+                p = startswith(rvalue, "static:");
+                if (!p)
+                        p = rvalue;
         }
 
-        r = in_addr_from_string(AF_INET6, p, &buffer);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse IPv6 %s, ignoring: %s", lvalue, rvalue);
-                return 0;
+        if (p) {
+                r = in_addr_from_string(AF_INET6, p, &buffer);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse IP address in %s=, ignoring assignment: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+                if (token->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_STATIC &&
+                    in_addr_is_null(AF_INET6, &buffer)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "IPv6 address in %s= cannot be the ANY address, ignoring assignment: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+                token->prefix = buffer.in6;
         }
-
-        if (in_addr_is_null(AF_INET6, &buffer)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "IPv6 %s cannot be the ANY address, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-
-        token->prefix = buffer.in6;
 
         r = ordered_set_ensure_allocated(&network->ipv6_tokens, &ipv6_token_hash_ops);
         if (r < 0)
