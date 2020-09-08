@@ -691,7 +691,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         switch (type) {
         case RTM_NEWNEIGH:
                 if (neighbor)
-                        log_link_debug(link, "Remembering neighbor: %s->%s",
+                        log_link_debug(link, "Received remembered neighbor: %s->%s",
                                        strnull(addr_str), strnull(lladdr_str));
                 else {
                         /* A neighbor appeared that we did not request */
@@ -1181,9 +1181,12 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
 
         switch (type) {
         case RTM_NEWRULE:
-                if (!rule) {
+                if (rule)
+                        log_debug("Received remembered routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
+                                  strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                else {
                         log_debug("Remembering foreign routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
-                                  from, tmp->from_prefixlen, to, tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                                  strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
                         r = routing_policy_rule_add_foreign(m, tmp, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
@@ -1192,10 +1195,13 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 }
                 break;
         case RTM_DELRULE:
-                log_debug("Forgetting routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
-                          from, tmp->from_prefixlen, to, tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
-                routing_policy_rule_free(rule);
-
+                if (rule) {
+                        log_debug("Forgetting routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
+                                  strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        routing_policy_rule_free(rule);
+                } else
+                        log_debug("Kernel removed a routing policy rule we don't remember: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u, ignoring.",
+                                  strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
                 break;
 
         default:
@@ -1298,19 +1304,24 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
 
         switch (type) {
         case RTM_NEWNEXTHOP:
-                if (!nexthop) {
-                        log_debug("Remembering foreign nexthop: %s, oif: %d, id: %d", gateway, tmp->oif, tmp->id);
+                if (nexthop)
+                        log_link_debug(link, "Received remembered nexthop: %s, oif: %d, id: %d", strna(gateway), tmp->oif, tmp->id);
+                else {
+                        log_link_debug(link, "Remembering foreign nexthop: %s, oif: %d, id: %d", strna(gateway), tmp->oif, tmp->id);
                         r = nexthop_add_foreign(link, tmp, &nexthop);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not remember foreign nexthop, ignoring: %m");
+                                log_link_warning_errno(link, r, "Could not remember foreign nexthop, ignoring: %m");
                                 return 0;
                         }
                 }
                 break;
         case RTM_DELNEXTHOP:
-                log_debug("Forgetting foreign nexthop: %s, oif: %d, id: %d", gateway, tmp->oif, tmp->id);
-                nexthop_free(nexthop);
-
+                if (nexthop) {
+                        log_link_debug(link, "Forgetting nexthop: %s, oif: %d, id: %d", strna(gateway), tmp->oif, tmp->id);
+                        nexthop_free(nexthop);
+                } else
+                        log_link_debug(link, "Kernel removed a nexthop we don't remember: %s, oif: %d, id: %d, ignoring.",
+                                       strna(gateway), tmp->oif, tmp->id);
                 break;
 
         default:
