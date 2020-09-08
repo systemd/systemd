@@ -119,20 +119,16 @@ bool looks_like_hashed_password(const char *s) {
 }
 
 int test_password_one(const char *hashed_password, const char *password) {
-        struct crypt_data cc = {};
+        _cleanup_(erase_and_freep) void *cd_data = NULL;
+        int cd_size = 0;
         const char *k;
-        bool b;
 
         errno = 0;
-        k = crypt_r(password, hashed_password, &cc);
-        if (!k) {
-                explicit_bzero_safe(&cc, sizeof(cc));
+        k = crypt_ra(password, hashed_password, &cd_data, &cd_size);
+        if (!k)
                 return errno_or_else(EINVAL);
-        }
 
-        b = streq(k, hashed_password);
-        explicit_bzero_safe(&cc, sizeof(cc));
-        return b;
+        return streq(k, hashed_password);
 }
 
 int test_password_many(char **hashed_password, const char *password) {
