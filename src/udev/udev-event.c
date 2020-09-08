@@ -632,7 +632,7 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
                 if (si->si_status == 0)
                         log_device_debug(spawn->device, "Process '%s' succeeded.", spawn->cmd);
                 else
-                        log_device_full(spawn->device, spawn->accept_failure ? LOG_DEBUG : LOG_WARNING, 0,
+                        log_device_full(spawn->device, spawn->accept_failure ? LOG_DEBUG : LOG_WARNING,
                                         "Process '%s' failed with exit code %i.", spawn->cmd, si->si_status);
                 ret = si->si_status;
                 break;

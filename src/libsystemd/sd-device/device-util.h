@@ -31,7 +31,7 @@
              device;                                                        \
              device = sd_device_enumerator_get_subsystem_next(enumerator))
 
-#define log_device_full(device, level, error, ...)                      \
+#define log_device_full_errno(device, level, error, ...)                \
         ({                                                              \
                 const char *_sysname = NULL;                            \
                 sd_device *_d = (device);                               \
@@ -41,17 +41,19 @@
                         (void) sd_device_get_sysname(_d, &_sysname);    \
                 log_object_internal(_level, _error, PROJECT_FILE, __LINE__, __func__, \
                                     _sysname ? "DEVICE=" : NULL, _sysname, \
-                                    NULL, NULL, ##__VA_ARGS__);         \
+                                    NULL, NULL, __VA_ARGS__);           \
         })
 
-#define log_device_debug(device, ...)   log_device_full(device, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_device_info(device, ...)    log_device_full(device, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_device_notice(device, ...)  log_device_full(device, LOG_NOTICE, 0, ##__VA_ARGS__)
-#define log_device_warning(device, ...) log_device_full(device, LOG_WARNING, 0, ##__VA_ARGS__)
-#define log_device_error(device, ...)   log_device_full(device, LOG_ERR, 0, ##__VA_ARGS__)
+#define log_device_full(device, level, ...) (void) log_device_full_errno(device, level, 0, __VA_ARGS__)
 
-#define log_device_debug_errno(device, error, ...)   log_device_full(device, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_device_info_errno(device, error, ...)    log_device_full(device, LOG_INFO, error, ##__VA_ARGS__)
-#define log_device_notice_errno(device, error, ...)  log_device_full(device, LOG_NOTICE, error, ##__VA_ARGS__)
-#define log_device_warning_errno(device, error, ...) log_device_full(device, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_device_error_errno(device, error, ...)   log_device_full(device, LOG_ERR, error, ##__VA_ARGS__)
+#define log_device_debug(device, ...)   log_device_full_errno(device, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_device_info(device, ...)    log_device_full(device, LOG_INFO, __VA_ARGS__)
+#define log_device_notice(device, ...)  log_device_full(device, LOG_NOTICE, __VA_ARGS__)
+#define log_device_warning(device, ...) log_device_full(device, LOG_WARNING, __VA_ARGS__)
+#define log_device_error(device, ...)   log_device_full(device, LOG_ERR, __VA_ARGS__)
+
+#define log_device_debug_errno(device, error, ...)   log_device_full_errno(device, LOG_DEBUG, error, __VA_ARGS__)
+#define log_device_info_errno(device, error, ...)    log_device_full_errno(device, LOG_INFO, error, __VA_ARGS__)
+#define log_device_notice_errno(device, error, ...)  log_device_full_errno(device, LOG_NOTICE, error, __VA_ARGS__)
+#define log_device_warning_errno(device, error, ...) log_device_full_errno(device, LOG_WARNING, error, __VA_ARGS__)
+#define log_device_error_errno(device, error, ...)   log_device_full_errno(device, LOG_ERR, error, __VA_ARGS__)
