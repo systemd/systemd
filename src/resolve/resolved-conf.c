@@ -406,7 +406,7 @@ int config_parse_dns_stub_listener_extra(
                 return 0;
         }
 
-        r = dns_stub_listener_extra_new(&stub);
+        r = dns_stub_listener_extra_new(m, &stub);
         if (r < 0)
                 return log_oom();
 
