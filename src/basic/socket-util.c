@@ -628,13 +628,21 @@ int fd_inc_sndbuf(int fd, size_t n) {
         if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
                 return 0;
 
-        /* If we have the privileges we will ignore the kernel limit. */
+        /* First, try to set the buffer size with SO_SNDBUF. */
+        r = setsockopt_int(fd, SOL_SOCKET, SO_SNDBUF, n);
+        if (r < 0)
+                return r;
 
-        if (setsockopt_int(fd, SOL_SOCKET, SO_SNDBUF, n) < 0) {
-                r = setsockopt_int(fd, SOL_SOCKET, SO_SNDBUFFORCE, n);
-                if (r < 0)
-                        return r;
-        }
+        /* SO_SNDBUF above may set to the kernel limit, instead of the requested size.
+         * So, we need to check the actual buffer size here. */
+        r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
+        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
+                return 1;
+
+        /* If we have the privileges we will ignore the kernel limit. */
+        r = setsockopt_int(fd, SOL_SOCKET, SO_SNDBUFFORCE, n);
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -650,13 +658,21 @@ int fd_inc_rcvbuf(int fd, size_t n) {
         if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
                 return 0;
 
-        /* If we have the privileges we will ignore the kernel limit. */
+        /* First, try to set the buffer size with SO_RCVBUF. */
+        r = setsockopt_int(fd, SOL_SOCKET, SO_RCVBUF, n);
+        if (r < 0)
+                return r;
 
-        if (setsockopt_int(fd, SOL_SOCKET, SO_RCVBUF, n) < 0) {
-                r = setsockopt_int(fd, SOL_SOCKET, SO_RCVBUFFORCE, n);
-                if (r < 0)
-                        return r;
-        }
+        /* SO_RCVBUF above may set to the kernel limit, instead of the requested size.
+         * So, we need to check the actual buffer size here. */
+        r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
+        if (r >= 0 && l == sizeof(value) && (size_t) value >= n*2)
+                return 1;
+
+        /* If we have the privileges we will ignore the kernel limit. */
+        r = setsockopt_int(fd, SOL_SOCKET, SO_RCVBUFFORCE, n);
+        if (r < 0)
+                return r;
 
         return 1;
 }
