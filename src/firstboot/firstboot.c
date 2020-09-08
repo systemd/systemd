@@ -802,7 +802,7 @@ static int write_root_shadow(const char *shadow_path, const char *hashed_passwor
 
 static int process_root_args(void) {
         _cleanup_close_ int lock = -1;
-        struct crypt_data cd = {};
+        _cleanup_(erase_and_freep) char *_hashed_password = NULL;
         const char *password, *hashed_password;
         const char *etc_passwd, *etc_shadow;
         int r;
@@ -866,20 +866,13 @@ static int process_root_args(void) {
                 password = "x";
                 hashed_password = arg_root_password;
         } else if (arg_root_password) {
-                _cleanup_free_ char *salt = NULL;
-                /* hashed_password points inside cd after crypt_r returns so cd has function scope. */
+                r = hash_password(arg_root_password, &_hashed_password);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to hash password: %m");
 
                 password = "x";
+                hashed_password = _hashed_password;
 
-                r = make_salt(&salt);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get salt: %m");
-
-                errno = 0;
-                hashed_password = crypt_r(arg_root_password, salt, &cd);
-                if (!hashed_password)
-                        return log_error_errno(errno == 0 ? SYNTHETIC_ERRNO(EINVAL) : errno,
-                                        "Failed to encrypt password: %m");
         } else if (arg_delete_root_password)
                 password = hashed_password = "";
         else

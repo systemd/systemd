@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
 #include "macro.h"
@@ -72,6 +73,30 @@ int make_salt(char **ret) {
         *ret = salt;
         return 0;
 #endif
+}
+
+int hash_password(const char *password, char **ret) {
+        _cleanup_free_ char *salt = NULL;
+        char *p;
+        struct crypt_data cd = {};
+        int r;
+
+        r = make_salt(&salt);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to generate salt: %m");
+
+        errno = 0;
+        p = crypt_r(password, salt, &cd);
+        if (!p)
+                return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)),
+                                       "crypt_r() failed: %m");
+
+        p = strdup(p);
+        if (!p)
+                return -ENOMEM;
+
+        *ret = p;
+        return 0;
 }
 
 bool looks_like_hashed_password(const char *s) {

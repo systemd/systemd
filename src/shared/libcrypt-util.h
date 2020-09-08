@@ -18,5 +18,5 @@
 #include <stdlib.h>
 
 int make_salt(char **ret);
-
+int hash_password(const char *password, char **ret);
 bool looks_like_hashed_password(const char *s);
