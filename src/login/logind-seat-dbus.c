@@ -345,14 +345,13 @@ static int seat_node_enumerator(sd_bus *bus, const char *path, void *userdata, c
         sd_bus_message *message;
         Manager *m = userdata;
         Seat *seat;
-        Iterator i;
         int r;
 
         assert(bus);
         assert(path);
         assert(nodes);
 
-        HASHMAP_FOREACH(seat, m->seats, i) {
+        HASHMAP_FOREACH(seat, m->seats) {
                 char *p;
 
                 p = seat_bus_path(seat);

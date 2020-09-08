@@ -1250,11 +1250,10 @@ int link_save_user(Link *l) {
 
         if (!set_isempty(l->dnssec_negative_trust_anchors)) {
                 bool space = false;
-                Iterator i;
                 char *nta;
 
                 fputs("NTAS=", f);
-                SET_FOREACH(nta, l->dnssec_negative_trust_anchors, i) {
+                SET_FOREACH(nta, l->dnssec_negative_trust_anchors) {
 
                         if (space)
                                 fputc(' ', f);

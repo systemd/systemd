@@ -314,7 +314,6 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
         if (apply_mode || apply_uid || apply_gid || apply_mac) {
                 bool selinux = false, smack = false;
                 const char *name, *label;
-                Iterator i;
 
                 if (apply_mode || apply_uid || apply_gid) {
                         log_device_debug(dev, "Setting permissions %s, uid=" UID_FMT ", gid=" GID_FMT ", mode=%#o",
@@ -340,7 +339,7 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
                                          mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
 
                 /* apply SECLABEL{$module}=$label */
-                ORDERED_HASHMAP_FOREACH_KEY(label, name, seclabel_list, i) {
+                ORDERED_HASHMAP_FOREACH_KEY(label, name, seclabel_list) {
                         int q;
 
                         if (streq(name, "selinux")) {

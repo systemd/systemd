@@ -85,7 +85,6 @@ int journal_access_blocked(sd_journal *j) {
 }
 
 int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_users) {
-        Iterator it;
         void *code;
         char *path;
         int r = 0;
@@ -107,7 +106,7 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_use
                         r = log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");
         }
 
-        HASHMAP_FOREACH_KEY(path, code, j->errors, it) {
+        HASHMAP_FOREACH_KEY(path, code, j->errors) {
                 int err;
 
                 err = abs(PTR_TO_INT(code));

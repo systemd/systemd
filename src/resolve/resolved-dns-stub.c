@@ -774,11 +774,10 @@ int manager_dns_stub_start(Manager *m) {
 
         if (!ordered_set_isempty(m->dns_extra_stub_listeners)) {
                 DNSStubListenerExtra *l;
-                Iterator i;
 
                 log_debug("Creating extra stub listeners.");
 
-                ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners, i) {
+                ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners) {
                         if (FLAGS_SET(l->mode, DNS_STUB_LISTENER_UDP))
                                 (void) manager_dns_stub_udp_fd_extra(m, l);
                         if (FLAGS_SET(l->mode, DNS_STUB_LISTENER_TCP))

@@ -612,7 +612,6 @@ static int worker_spawn(Manager *manager, struct event *event) {
 static void event_run(Manager *manager, struct event *event) {
         static bool log_children_max_reached = true;
         struct worker *worker;
-        Iterator i;
         int r;
 
         assert(manager);
@@ -626,7 +625,7 @@ static void event_run(Manager *manager, struct event *event) {
                                  event->seqnum, r >= 0 ? device_action_to_string(action) : "<unknown>");
         }
 
-        HASHMAP_FOREACH(worker, manager->workers, i) {
+        HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state != WORKER_IDLE)
                         continue;
 
@@ -724,11 +723,10 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
 static void manager_kill_workers(Manager *manager) {
         struct worker *worker;
-        Iterator i;
 
         assert(manager);
 
-        HASHMAP_FOREACH(worker, manager->workers, i) {
+        HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state == WORKER_KILLED)
                         continue;
 

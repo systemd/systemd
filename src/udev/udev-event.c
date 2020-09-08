@@ -1056,10 +1056,9 @@ int udev_event_execute_rules(UdevEvent *event,
 void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_signal) {
         const char *command;
         void *val;
-        Iterator i;
         int r;
 
-        ORDERED_HASHMAP_FOREACH_KEY(val, command, event->run_list, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(val, command, event->run_list) {
                 UdevBuiltinCommand builtin_cmd = PTR_TO_UDEV_BUILTIN_CMD(val);
 
                 if (builtin_cmd != _UDEV_BUILTIN_INVALID) {

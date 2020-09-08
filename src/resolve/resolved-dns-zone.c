@@ -630,11 +630,10 @@ int dns_zone_verify_conflicts(DnsZone *zone, DnsResourceKey *key) {
 
 void dns_zone_verify_all(DnsZone *zone) {
         DnsZoneItem *i;
-        Iterator iterator;
 
         assert(zone);
 
-        HASHMAP_FOREACH(i, zone->by_key, iterator) {
+        HASHMAP_FOREACH(i, zone->by_key) {
                 DnsZoneItem *j;
 
                 LIST_FOREACH(by_key, j, i)
@@ -643,7 +642,6 @@ void dns_zone_verify_all(DnsZone *zone) {
 }
 
 void dns_zone_dump(DnsZone *zone, FILE *f) {
-        Iterator iterator;
         DnsZoneItem *i;
 
         if (!zone)
@@ -652,7 +650,7 @@ void dns_zone_dump(DnsZone *zone, FILE *f) {
         if (!f)
                 f = stdout;
 
-        HASHMAP_FOREACH(i, zone->by_key, iterator) {
+        HASHMAP_FOREACH(i, zone->by_key) {
                 DnsZoneItem *j;
 
                 LIST_FOREACH(by_key, j, i) {

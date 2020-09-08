@@ -635,14 +635,13 @@ static int session_node_enumerator(sd_bus *bus, const char *path, void *userdata
         sd_bus_message *message;
         Manager *m = userdata;
         Session *session;
-        Iterator i;
         int r;
 
         assert(bus);
         assert(path);
         assert(nodes);
 
-        HASHMAP_FOREACH(session, m->sessions, i) {
+        HASHMAP_FOREACH(session, m->sessions) {
                 char *p;
 
                 p = session_bus_path(session);
@@ -753,12 +752,11 @@ int session_send_lock(Session *s, bool lock) {
 
 int session_send_lock_all(Manager *m, bool lock) {
         Session *session;
-        Iterator i;
         int r = 0;
 
         assert(m);
 
-        HASHMAP_FOREACH(session, m->sessions, i) {
+        HASHMAP_FOREACH(session, m->sessions) {
                 int k;
 
                 k = session_send_lock(session, lock);

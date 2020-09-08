@@ -758,7 +758,6 @@ static int bus_home_node_enumerator(
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         size_t k = 0;
-        Iterator i;
         Home *h;
         int r;
 
@@ -768,7 +767,7 @@ static int bus_home_node_enumerator(
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(h, m->homes_by_uid, i) {
+        HASHMAP_FOREACH(h, m->homes_by_uid) {
                 r = bus_home_path(h, l + k);
                 if (r < 0)
                         return r;

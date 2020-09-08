@@ -1516,9 +1516,8 @@ CGroupMask unit_get_members_mask(Unit *u) {
         if (u->type == UNIT_SLICE) {
                 void *v;
                 Unit *member;
-                Iterator i;
 
-                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i)
+                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE])
                         if (UNIT_DEREF(member->slice) == u)
                                 u->cgroup_members_mask |= unit_get_subtree_mask(member); /* note that this calls ourselves again, for the children */
         }
@@ -1940,7 +1939,6 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
 int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         CGroupMask delegated_mask;
         const char *p;
-        Iterator i;
         void *pidp;
         int r, q;
 
@@ -1970,7 +1968,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         delegated_mask = unit_get_delegate_mask(u);
 
         r = 0;
-        SET_FOREACH(pidp, pids, i) {
+        SET_FOREACH(pidp, pids) {
                 pid_t pid = PTR_TO_PID(pidp);
                 CGroupController c;
 
@@ -2158,7 +2156,6 @@ static int unit_realize_cgroup_now_enable(Unit *u, ManagerState state) {
 /* Controllers can only be disabled depth-first, from the leaves of the
  * hierarchy upwards to the unit in question. */
 static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
-        Iterator i;
         Unit *m;
         void *v;
 
@@ -2167,7 +2164,7 @@ static int unit_realize_cgroup_now_disable(Unit *u, ManagerState state) {
         if (u->type != UNIT_SLICE)
                 return 0;
 
-        HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE], i) {
+        HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE]) {
                 CGroupMask target_mask, enable_mask, new_target_mask, new_enable_mask;
                 int r;
 
@@ -2331,14 +2328,13 @@ void unit_add_family_to_cgroup_realize_queue(Unit *u) {
          * masks. */
 
         do {
-                Iterator i;
                 Unit *m;
                 void *v;
 
                 /* Children of u likely changed when we're called */
                 u->cgroup_members_mask_valid = false;
 
-                HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE], i) {
+                HASHMAP_FOREACH_KEY(v, m, u->dependencies[UNIT_BEFORE]) {
                         /* Skip units that have a dependency on the slice but aren't actually in it. */
                         if (UNIT_DEREF(m->slice) != u)
                                 continue;
@@ -3527,10 +3523,9 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
          * list of our children includes our own. */
         if (u->type == UNIT_SLICE) {
                 Unit *member;
-                Iterator i;
                 void *v;
 
-                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE], i)
+                HASHMAP_FOREACH_KEY(v, member, u->dependencies[UNIT_BEFORE])
                         if (UNIT_DEREF(member->slice) == u)
                                 unit_invalidate_cgroup_bpf(member);
         }
@@ -3552,12 +3547,11 @@ bool unit_cgroup_delegate(Unit *u) {
 }
 
 void manager_invalidate_startup_units(Manager *m) {
-        Iterator i;
         Unit *u;
 
         assert(m);
 
-        SET_FOREACH(u, m->startup_units, i)
+        SET_FOREACH(u, m->startup_units)
                 unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO);
 }
 

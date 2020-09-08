@@ -18,7 +18,6 @@ static int property_get_ether_addrs(
 
         char buf[ETHER_ADDR_TO_STRING_MAX];
         const struct ether_addr *p;
-        Iterator i;
         Set *s;
         int r;
 
@@ -32,7 +31,7 @@ static int property_get_ether_addrs(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(p, s, i) {
+        SET_FOREACH(p, s) {
                 r = sd_bus_message_append(reply, "s", ether_addr_to_string(p, buf));
                 if (r < 0)
                         return r;
@@ -88,7 +87,6 @@ int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         Network *network;
-        Iterator i;
         int r;
 
         assert(bus);
@@ -96,7 +94,7 @@ int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
         assert(m);
         assert(nodes);
 
-        ORDERED_HASHMAP_FOREACH(network, m->networks, i) {
+        ORDERED_HASHMAP_FOREACH(network, m->networks) {
                 char *p;
 
                 p = network_bus_path(network);

@@ -158,13 +158,12 @@ static int dump_processes(
                 size_t n = 0, i;
                 pid_t *pids;
                 void *pidp;
-                Iterator j;
                 int width;
 
                 /* Order processes by their PID */
                 pids = newa(pid_t, hashmap_size(cg->pids));
 
-                HASHMAP_FOREACH_KEY(name, pidp, cg->pids, j)
+                HASHMAP_FOREACH_KEY(name, pidp, cg->pids)
                         pids[n++] = PTR_TO_PID(pidp);
 
                 assert(n == hashmap_size(cg->pids));
@@ -261,16 +260,14 @@ static int dump_extra_processes(
         _cleanup_hashmap_free_ Hashmap *names = NULL;
         struct CGroupInfo *cg;
         size_t n_allocated = 0, n = 0, k;
-        Iterator i;
         int width, r;
 
         /* Prints the extra processes, i.e. those that are in cgroups we haven't displayed yet. We show them as
          * combined, sorted, linear list. */
 
-        HASHMAP_FOREACH(cg, cgroups, i) {
+        HASHMAP_FOREACH(cg, cgroups) {
                 const char *name;
                 void *pidp;
-                Iterator j;
 
                 if (cg->done)
                         continue;
@@ -285,7 +282,7 @@ static int dump_extra_processes(
                 if (!GREEDY_REALLOC(pids, n_allocated, n + hashmap_size(cg->pids)))
                         return -ENOMEM;
 
-                HASHMAP_FOREACH_KEY(name, pidp, cg->pids, j) {
+                HASHMAP_FOREACH_KEY(name, pidp, cg->pids) {
                         pids[n++] = PTR_TO_PID(pidp);
 
                         r = hashmap_put(names, pidp, (void*) name);

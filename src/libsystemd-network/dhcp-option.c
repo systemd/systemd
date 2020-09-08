@@ -81,9 +81,8 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 OrderedHashmap *s = (OrderedHashmap *) optval;
                 struct sd_dhcp_option *p;
                 size_t l = 0;
-                Iterator i;
 
-                ORDERED_HASHMAP_FOREACH(p, s, i)
+                ORDERED_HASHMAP_FOREACH(p, s)
                         l += p->length + 2;
 
                 if (*offset + l + 2 > size)
@@ -94,7 +93,7 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 
                 *offset += 2;
 
-                ORDERED_HASHMAP_FOREACH(p, s, i) {
+                ORDERED_HASHMAP_FOREACH(p, s) {
                         options[*offset] = p->option;
                         options[*offset + 1] = p->length;
                         memcpy(&options[*offset + 2], p->data, p->length);

@@ -442,7 +442,6 @@ static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
         Image *image;
-        Iterator i;
         int r;
 
         assert(bus);
@@ -457,7 +456,7 @@ static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(image, images, i) {
+        HASHMAP_FOREACH(image, images) {
                 char *p;
 
                 p = image_bus_path(image->name);

@@ -2483,7 +2483,6 @@ static int acquire_credentials(
         _cleanup_close_ int dfd = -1;
         ExecSetCredential *sc;
         char **id, **fn;
-        Iterator iterator;
         int r;
 
         assert(context);
@@ -2495,7 +2494,7 @@ static int acquire_credentials(
 
         /* First we use the literally specified credentials. Note that they might be overriden again below,
          * and thus act as a "default" if the same credential is specified multiple times */
-        HASHMAP_FOREACH(sc, context->set_credentials, iterator) {
+        HASHMAP_FOREACH(sc, context->set_credentials) {
                 size_t add;
 
                 add = strlen(sc->id) + sc->size;
@@ -5484,7 +5483,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->syscall_filter) {
 #if HAVE_SECCOMP
-                Iterator j;
                 void *id, *val;
                 bool first = true;
 #endif
@@ -5497,7 +5495,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fputc('~', f);
 
 #if HAVE_SECCOMP
-                HASHMAP_FOREACH_KEY(val, id, c->syscall_filter, j) {
+                HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
                         _cleanup_free_ char *name = NULL;
                         const char *errno_name = NULL;
                         int num = PTR_TO_INT(val);
@@ -5525,7 +5523,6 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->syscall_archs) {
 #if HAVE_SECCOMP
-                Iterator j;
                 void *id;
 #endif
 
@@ -5534,7 +5531,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         prefix);
 
 #if HAVE_SECCOMP
-                SET_FOREACH(id, c->syscall_archs, j)
+                SET_FOREACH(id, c->syscall_archs)
                         fprintf(f, " %s", strna(seccomp_arch_to_string(PTR_TO_UINT32(id) - 1)));
 #endif
                 fputc('\n', f);
@@ -6100,13 +6097,12 @@ ExecRuntime *exec_runtime_unref(ExecRuntime *rt, bool destroy) {
 
 int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds) {
         ExecRuntime *rt;
-        Iterator i;
 
         assert(m);
         assert(f);
         assert(fds);
 
-        HASHMAP_FOREACH(rt, m->exec_runtime_by_id, i) {
+        HASHMAP_FOREACH(rt, m->exec_runtime_by_id) {
                 fprintf(f, "exec-runtime=%s", rt->id);
 
                 if (rt->tmp_dir)
@@ -6309,13 +6305,12 @@ finalize:
 
 void exec_runtime_vacuum(Manager *m) {
         ExecRuntime *rt;
-        Iterator i;
 
         assert(m);
 
         /* Free unreferenced ExecRuntime objects. This is used after manager deserialization process. */
 
-        HASHMAP_FOREACH(rt, m->exec_runtime_by_id, i) {
+        HASHMAP_FOREACH(rt, m->exec_runtime_by_id) {
                 if (rt->n_ref > 0)
                         continue;
 

@@ -121,12 +121,11 @@ static int network_resolve_netdev_one(Network *network, const char *name, NetDev
 
 static int network_resolve_stacked_netdevs(Network *network) {
         void *name, *kind;
-        Iterator i;
         int r;
 
         assert(network);
 
-        HASHMAP_FOREACH_KEY(kind, name, network->stacked_netdev_names, i) {
+        HASHMAP_FOREACH_KEY(kind, name, network->stacked_netdev_names) {
                 _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
 
                 r = network_resolve_netdev_one(network, name, PTR_TO_INT(kind), &netdev);
@@ -160,7 +159,6 @@ int network_verify(Network *network) {
         FdbEntry *fdb, *fdb_next;
         TrafficControl *tc;
         SRIOV *sr_iov;
-        Iterator i;
 
         assert(network);
         assert(network->filename);
@@ -328,11 +326,11 @@ int network_verify(Network *network) {
                         routing_policy_rule_free(rule);
 
         bool has_root = false, has_clsact = false;
-        ORDERED_HASHMAP_FOREACH(tc, network->tc_by_section, i)
+        ORDERED_HASHMAP_FOREACH(tc, network->tc_by_section)
                 if (traffic_control_section_verify(tc, &has_root, &has_clsact) < 0)
                         traffic_control_free(tc);
 
-        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section, i)
+        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section)
                 if (sr_iov_section_verify(sr_iov) < 0)
                         sr_iov_free(sr_iov);
 
@@ -600,7 +598,6 @@ int network_load(Manager *manager, OrderedHashmap **networks) {
 int network_reload(Manager *manager) {
         OrderedHashmap *new_networks = NULL;
         Network *n, *old;
-        Iterator i;
         int r;
 
         assert(manager);
@@ -609,7 +606,7 @@ int network_reload(Manager *manager) {
         if (r < 0)
                 goto failure;
 
-        ORDERED_HASHMAP_FOREACH(n, new_networks, i) {
+        ORDERED_HASHMAP_FOREACH(n, new_networks) {
                 r = network_get_by_name(manager, n->name, &old);
                 if (r < 0)
                         continue; /* The .network file is new. */
@@ -798,12 +795,11 @@ int network_get(Manager *manager, unsigned short iftype, sd_device *device,
                 enum nl80211_iftype wlan_iftype, const char *ssid, const struct ether_addr *bssid,
                 Network **ret) {
         Network *network;
-        Iterator i;
 
         assert(manager);
         assert(ret);
 
-        ORDERED_HASHMAP_FOREACH(network, manager->networks, i)
+        ORDERED_HASHMAP_FOREACH(network, manager->networks)
                 if (net_match_config(network->match_mac, network->match_permanent_mac,
                                      network->match_path, network->match_driver,
                                      network->match_type, network->match_name, network->match_property,

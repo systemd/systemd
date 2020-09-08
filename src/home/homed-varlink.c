@@ -103,13 +103,12 @@ int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMet
         else if (p.user_name)
                 h = hashmap_get(m->homes_by_name, p.user_name);
         else {
-                Iterator i;
 
                 /* If neither UID nor name was specified, then dump all homes. Do so with varlink_notify()
                  * for all entries but the last, so that clients can stream the results, and easily process
                  * them piecemeal. */
 
-                HASHMAP_FOREACH(h, m->homes_by_name, i) {
+                HASHMAP_FOREACH(h, m->homes_by_name) {
 
                         if (!home_user_match_lookup_parameters(&p, h))
                                 continue;
@@ -219,9 +218,8 @@ int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMe
         else if (p.group_name)
                 h = hashmap_get(m->homes_by_name, p.group_name);
         else {
-                Iterator i;
 
-                HASHMAP_FOREACH(h, m->homes_by_name, i) {
+                HASHMAP_FOREACH(h, m->homes_by_name) {
 
                         if (!home_group_match_lookup_parameters(&p, h))
                                 continue;
@@ -315,9 +313,8 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
 
         } else if (p.group_name) {
                 const char *last = NULL;
-                Iterator i;
 
-                HASHMAP_FOREACH(h, m->homes_by_name, i) {
+                HASHMAP_FOREACH(h, m->homes_by_name) {
 
                         if (!strv_contains(h->record->member_of, p.group_name))
                                 continue;
@@ -337,9 +334,8 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
                                                                       JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(p.group_name))));
         } else {
                 const char *last_user_name = NULL, *last_group_name = NULL;
-                Iterator i;
 
-                HASHMAP_FOREACH(h, m->homes_by_name, i) {
+                HASHMAP_FOREACH(h, m->homes_by_name) {
                         char **j;
 
                         STRV_FOREACH(j, h->record->member_of) {

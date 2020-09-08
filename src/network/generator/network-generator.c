@@ -957,7 +957,6 @@ int parse_cmdline_item(const char *key, const char *value, void *data) {
 int context_merge_networks(Context *context) {
         Network *all, *network;
         Route *route;
-        Iterator i;
         int r;
 
         assert(context);
@@ -974,7 +973,7 @@ int context_merge_networks(Context *context) {
         if (hashmap_size(context->networks_by_name) <= 1)
                 return 0;
 
-        HASHMAP_FOREACH(network, context->networks_by_name, i) {
+        HASHMAP_FOREACH(network, context->networks_by_name) {
                 if (network == all)
                         continue;
 

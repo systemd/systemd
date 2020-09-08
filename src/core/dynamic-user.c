@@ -611,7 +611,6 @@ static DynamicUser* dynamic_user_destroy(DynamicUser *d) {
 
 int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
         DynamicUser *d;
-        Iterator i;
 
         assert(m);
         assert(f);
@@ -619,7 +618,7 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
 
         /* Dump the dynamic user database into the manager serialization, to deal with daemon reloads. */
 
-        HASHMAP_FOREACH(d, m->dynamic_users, i) {
+        HASHMAP_FOREACH(d, m->dynamic_users) {
                 int copy0, copy1;
 
                 copy0 = fdset_put_dup(fds, d->storage_socket[0]);
@@ -674,7 +673,6 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds) {
 
 void dynamic_user_vacuum(Manager *m, bool close_user) {
         DynamicUser *d;
-        Iterator i;
 
         assert(m);
 
@@ -682,7 +680,7 @@ void dynamic_user_vacuum(Manager *m, bool close_user) {
          * to which no reference exist. This is called after a daemon reload finished, in order to destroy users which
          * might not be referenced anymore. */
 
-        HASHMAP_FOREACH(d, m->dynamic_users, i) {
+        HASHMAP_FOREACH(d, m->dynamic_users) {
                 if (d->n_ref > 0)
                         continue;
 

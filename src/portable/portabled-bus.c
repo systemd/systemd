@@ -135,7 +135,6 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         Manager *m = userdata;
         Image *image;
-        Iterator i;
         int r;
 
         assert(message);
@@ -157,7 +156,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(image, images, i) {
+        HASHMAP_FOREACH(image, images) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error_state = SD_BUS_ERROR_NULL;
                 PortableState state = _PORTABLE_STATE_INVALID;
                 _cleanup_free_ char *p = NULL;

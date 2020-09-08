@@ -189,11 +189,10 @@ int session_set_leader(Session *s, pid_t pid) {
 
 static void session_save_devices(Session *s, FILE *f) {
         SessionDevice *sd;
-        Iterator i;
 
         if (!hashmap_isempty(s->devices)) {
                 fprintf(f, "DEVICES=");
-                HASHMAP_FOREACH(sd, s->devices, i)
+                HASHMAP_FOREACH(sd, s->devices)
                         fprintf(f, "%u:%u ", major(sd->dev), minor(sd->dev));
                 fprintf(f, "\n");
         }

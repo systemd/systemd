@@ -157,7 +157,6 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
                 else {
                         _cleanup_free_ struct udev_list_entry **buf = NULL;
                         struct udev_list_entry *entry, **p;
-                        Iterator i;
                         size_t j;
 
                         buf = new(struct udev_list_entry *, n);
@@ -165,7 +164,7 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
                                 return NULL;
 
                         p = buf;
-                        HASHMAP_FOREACH(entry, list->unique_entries, i)
+                        HASHMAP_FOREACH(entry, list->unique_entries)
                                 *p++ = entry;
 
                         typesafe_qsort(buf, n, udev_list_entry_compare_func);

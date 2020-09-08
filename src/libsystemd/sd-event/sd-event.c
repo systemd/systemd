@@ -2870,7 +2870,6 @@ static int process_timer(
 
 static int process_child(sd_event *e) {
         sd_event_source *s;
-        Iterator i;
         int r;
 
         assert(e);
@@ -2895,7 +2894,7 @@ static int process_child(sd_event *e) {
            the callback still sees the process as a zombie.
         */
 
-        HASHMAP_FOREACH(s, e->child_sources, i) {
+        HASHMAP_FOREACH(s, e->child_sources) {
                 assert(s->type == SOURCE_CHILD);
 
                 if (s->pending)
@@ -3100,12 +3099,11 @@ static int event_inotify_data_process(sd_event *e, struct inotify_data *d) {
 
                 if (d->buffer.ev.mask & IN_Q_OVERFLOW) {
                         struct inode_data *inode_data;
-                        Iterator i;
 
                         /* The queue overran, let's pass this event to all event sources connected to this inotify
                          * object */
 
-                        HASHMAP_FOREACH(inode_data, d->inodes, i) {
+                        HASHMAP_FOREACH(inode_data, d->inodes) {
                                 sd_event_source *s;
 
                                 LIST_FOREACH(inotify.by_inode_data, s, inode_data->event_sources) {
@@ -3203,12 +3201,11 @@ static int source_dispatch(sd_event_source *s) {
 
         if (s->type != SOURCE_POST) {
                 sd_event_source *z;
-                Iterator i;
 
                 /* If we execute a non-post source, let's mark all
                  * post sources as pending */
 
-                SET_FOREACH(z, s->event->post_sources, i) {
+                SET_FOREACH(z, s->event->post_sources) {
                         if (z->enabled == SD_EVENT_OFF)
                                 continue;
 

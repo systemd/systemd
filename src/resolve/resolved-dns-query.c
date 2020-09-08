@@ -129,14 +129,13 @@ static int dns_query_candidate_add_transaction(DnsQueryCandidate *c, DnsResource
 
 static int dns_query_candidate_go(DnsQueryCandidate *c) {
         DnsTransaction *t;
-        Iterator i;
         int r;
         unsigned n = 0;
 
         assert(c);
 
         /* Start the transactions that are not started yet */
-        SET_FOREACH(t, c->transactions, i) {
+        SET_FOREACH(t, c->transactions) {
                 if (t->state != DNS_TRANSACTION_NULL)
                         continue;
 
@@ -157,14 +156,13 @@ static int dns_query_candidate_go(DnsQueryCandidate *c) {
 static DnsTransactionState dns_query_candidate_state(DnsQueryCandidate *c) {
         DnsTransactionState state = DNS_TRANSACTION_NO_SERVERS;
         DnsTransaction *t;
-        Iterator i;
 
         assert(c);
 
         if (c->error_code != 0)
                 return DNS_TRANSACTION_ERRNO;
 
-        SET_FOREACH(t, c->transactions, i) {
+        SET_FOREACH(t, c->transactions) {
 
                 switch (t->state) {
 
@@ -729,7 +727,6 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
         bool has_authenticated = false, has_non_authenticated = false;
         DnssecResult dnssec_result_authenticated = _DNSSEC_RESULT_INVALID, dnssec_result_non_authenticated = _DNSSEC_RESULT_INVALID;
         DnsTransaction *t;
-        Iterator i;
         int r;
 
         assert(q);
@@ -753,7 +750,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                 q->answer_errno = c->error_code;
         }
 
-        SET_FOREACH(t, c->transactions, i) {
+        SET_FOREACH(t, c->transactions) {
 
                 switch (t->state) {
 

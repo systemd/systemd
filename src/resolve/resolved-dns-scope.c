@@ -1218,7 +1218,6 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         DnsTransaction *t;
         DnsZoneItem *z, *i;
         unsigned size = 0;
-        Iterator iterator;
         char *service_type;
         int r;
 
@@ -1238,7 +1237,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 return 0; /* we reach this point only if changing hostname didn't help */
 
         /* Calculate answer's size. */
-        HASHMAP_FOREACH(z, scope->zone.by_key, iterator) {
+        HASHMAP_FOREACH(z, scope->zone.by_key) {
                 if (z->state != DNS_ZONE_ITEM_ESTABLISHED)
                         continue;
 
@@ -1270,7 +1269,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 return log_oom();
 
         /* Second iteration, actually add RRs to the answer. */
-        HASHMAP_FOREACH(z, scope->zone.by_key, iterator)
+        HASHMAP_FOREACH(z, scope->zone.by_key)
                 LIST_FOREACH (by_key, i, z) {
                         DnsAnswerFlags flags;
 
@@ -1288,7 +1287,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 }
 
         /* Since all the active services are in the zone make them discoverable now. */
-        SET_FOREACH(service_type, types, iterator) {
+        SET_FOREACH(service_type, types) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr;
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
@@ -1338,7 +1337,6 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 }
 
 int dns_scope_add_dnssd_services(DnsScope *scope) {
-        Iterator i;
         DnssdService *service;
         DnssdTxtData *txt_data;
         int r;
@@ -1350,7 +1348,7 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
 
         scope->announced = false;
 
-        HASHMAP_FOREACH(service, scope->manager->dnssd_services, i) {
+        HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
                 service->withdrawn = false;
 
                 r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
@@ -1373,7 +1371,6 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
 
 int dns_scope_remove_dnssd_services(DnsScope *scope) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        Iterator i;
         DnssdService *service;
         DnssdTxtData *txt_data;
         int r;
@@ -1389,7 +1386,7 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(service, scope->manager->dnssd_services, i) {
+        HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
                 dns_zone_remove_rr(&scope->zone, service->ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->srv_rr);
                 LIST_FOREACH(items, txt_data, service->txt_data_items)

@@ -46,7 +46,6 @@ static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata
         Manager *manager = userdata;
         sd_netlink_message *i;
         usec_t usec_now;
-        Iterator j;
         Link *link;
         int r;
 
@@ -64,7 +63,7 @@ static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata
         manager->speed_meter_usec_old = manager->speed_meter_usec_new;
         manager->speed_meter_usec_new = usec_now;
 
-        HASHMAP_FOREACH(link, manager->links, j)
+        HASHMAP_FOREACH(link, manager->links)
                 link->stats_updated = false;
 
         r = sd_rtnl_message_new_link(manager->rtnl, &req, RTM_GETLINK, 0);

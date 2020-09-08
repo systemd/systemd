@@ -14,7 +14,6 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
         DnssdService *s = userdata;
         DnssdTxtData *txt_data;
         Manager *m;
-        Iterator i;
         Link *l;
         int r;
 
@@ -32,7 +31,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
                 if (l->mdns_ipv4_scope) {
                         r = dns_scope_announce(l->mdns_ipv4_scope, true);
                         if (r < 0)
@@ -91,7 +90,6 @@ static int dnssd_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         DnssdService *service;
-        Iterator i;
         unsigned c = 0;
         int r;
 
@@ -104,7 +102,7 @@ static int dnssd_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(service, m->dnssd_services, i) {
+        HASHMAP_FOREACH(service, m->dnssd_services) {
                 char *p;
 
                 r = sd_bus_path_encode("/org/freedesktop/resolve1/dnssd", service->name, &p);

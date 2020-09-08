@@ -135,8 +135,10 @@ int _set_put_strdupv(Set **s, char **l  HASHMAP_DEBUG_PARAMS);
 
 int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags flags);
 
-#define SET_FOREACH(e, s, i) \
-        for ((i) = ITERATOR_FIRST; set_iterate((s), &(i), (void**)&(e)); )
+#define _SET_FOREACH(e, s, i) \
+        for (Iterator i = ITERATOR_FIRST; set_iterate((s), &i, (void**)&(e)); )
+#define SET_FOREACH(e, s) \
+        _SET_FOREACH(e, s, UNIQ_T(i, UNIQ))
 
 #define SET_FOREACH_MOVE(e, d, s)                                       \
         for (; ({ e = set_first(s); assert_se(!e || set_move_one(d, s, e) >= 0); e; }); )

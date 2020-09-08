@@ -464,7 +464,6 @@ static int domain_name_cmp(char * const *a, char * const *b) {
 
 static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
         DnsAnswer *a;
-        Iterator i;
 
         assert(d);
 
@@ -472,7 +471,7 @@ static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
                 log_info("No positive trust anchors defined.");
         else {
                 log_info("Positive Trust Anchors:");
-                HASHMAP_FOREACH(a, d->positive_by_key, i) {
+                HASHMAP_FOREACH(a, d->positive_by_key) {
                         DnsResourceRecord *rr;
 
                         DNS_ANSWER_FOREACH(rr, a)

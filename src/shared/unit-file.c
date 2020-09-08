@@ -399,9 +399,8 @@ int unit_file_build_name_map(
         }
 
         /* Let's also put the names in the reverse db. */
-        Iterator it;
         const char *dummy, *src;
-        HASHMAP_FOREACH_KEY(dummy, src, ids, it) {
+        HASHMAP_FOREACH_KEY(dummy, src, ids) {
                 const char *dst;
 
                 r = unit_ids_map_get(ids, src, &dst);

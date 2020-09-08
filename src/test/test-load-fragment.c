@@ -33,7 +33,6 @@
 static int test_unit_file_get_set(void) {
         int r;
         Hashmap *h;
-        Iterator i;
         UnitFileList *p;
 
         h = hashmap_new(&string_hash_ops);
@@ -48,7 +47,7 @@ static int test_unit_file_get_set(void) {
         if (r < 0)
                 return EXIT_FAILURE;
 
-        HASHMAP_FOREACH(p, h, i)
+        HASHMAP_FOREACH(p, h)
                 printf("%s = %s\n", p->path, unit_file_state_to_string(p->state));
 
         unit_file_list_free(h);

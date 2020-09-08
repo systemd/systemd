@@ -265,7 +265,6 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 
 static int manager_startup(Manager *m) {
         Machine *machine;
-        Iterator i;
         int r;
 
         assert(m);
@@ -287,7 +286,7 @@ static int manager_startup(Manager *m) {
         manager_gc(m, false);
 
         /* And start everything */
-        HASHMAP_FOREACH(machine, m->machines, i)
+        HASHMAP_FOREACH(machine, m->machines)
                 machine_start(machine, NULL, NULL);
 
         return 0;

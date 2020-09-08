@@ -450,7 +450,6 @@ int catalog_update(const char* database, const char* root, const char* const* di
         ssize_t offset;
         char *payload;
         CatalogItem *i;
-        Iterator j;
         unsigned n;
         int r;
         int64_t sz;
@@ -482,7 +481,7 @@ int catalog_update(const char* database, const char* root, const char* const* di
                 return log_oom();
 
         n = 0;
-        ORDERED_HASHMAP_FOREACH_KEY(payload, i, h, j) {
+        ORDERED_HASHMAP_FOREACH_KEY(payload, i, h) {
                 log_debug("Found " SD_ID128_FORMAT_STR ", language %s",
                           SD_ID128_FORMAT_VAL(i->id),
                           isempty(i->language) ? "C" : i->language);

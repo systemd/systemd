@@ -1500,7 +1500,6 @@ static int do_unit_files(int argc, char *argv[], void *userdata) {
         _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
         char **patterns = strv_skip(argv, 1);
-        Iterator i;
         const char *k, *dst;
         char **v;
         int r;
@@ -1513,7 +1512,7 @@ static int do_unit_files(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "unit_file_build_name_map() failed: %m");
 
-        HASHMAP_FOREACH_KEY(dst, k, unit_ids, i) {
+        HASHMAP_FOREACH_KEY(dst, k, unit_ids) {
                 if (!strv_fnmatch_or_empty(patterns, k, FNM_NOESCAPE) &&
                     !strv_fnmatch_or_empty(patterns, dst, FNM_NOESCAPE))
                         continue;
@@ -1521,7 +1520,7 @@ static int do_unit_files(int argc, char *argv[], void *userdata) {
                 printf("ids: %s → %s\n", k, dst);
         }
 
-        HASHMAP_FOREACH_KEY(v, k, unit_names, i) {
+        HASHMAP_FOREACH_KEY(v, k, unit_names) {
                 if (!strv_fnmatch_or_empty(patterns, k, FNM_NOESCAPE) &&
                     !strv_fnmatch_strv_or_empty(patterns, v, FNM_NOESCAPE))
                         continue;

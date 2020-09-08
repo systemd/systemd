@@ -125,7 +125,6 @@ void address_free(Address *address) {
 
         if (address->link && !address->acd) {
                 NDiscAddress *n;
-                Iterator i;
 
                 set_remove(address->link->addresses, address);
                 set_remove(address->link->addresses_foreign, address);
@@ -138,7 +137,7 @@ void address_free(Address *address) {
                 set_remove(address->link->dhcp6_addresses_old, address);
                 set_remove(address->link->dhcp6_pd_addresses, address);
                 set_remove(address->link->dhcp6_pd_addresses_old, address);
-                SET_FOREACH(n, address->link->ndisc_addresses, i)
+                SET_FOREACH(n, address->link->ndisc_addresses)
                         if (n->address == address)
                                 free(set_remove(address->link->ndisc_addresses, n));
 
@@ -455,9 +454,8 @@ int address_get(Link *link,
 
 static bool address_exists_internal(Set *addresses, int family, const union in_addr_union *in_addr) {
         Address *address;
-        Iterator i;
 
-        SET_FOREACH(address, addresses, i) {
+        SET_FOREACH(address, addresses) {
                 if (address->family != family)
                         continue;
                 if (in_addr_equal(address->family, &address->in_addr, in_addr))

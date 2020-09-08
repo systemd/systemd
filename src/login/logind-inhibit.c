@@ -372,12 +372,11 @@ bool inhibitor_is_orphan(Inhibitor *i) {
 
 InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
         Inhibitor *i;
-        Iterator j;
         InhibitWhat what = 0;
 
         assert(m);
 
-        HASHMAP_FOREACH(i, m->inhibitors, j)
+        HASHMAP_FOREACH(i, m->inhibitors)
                 if (i->mode == mm && i->started)
                         what |= i->what;
 
@@ -413,14 +412,13 @@ bool manager_is_inhibited(
                 Inhibitor **offending) {
 
         Inhibitor *i;
-        Iterator j;
         struct dual_timestamp ts = DUAL_TIMESTAMP_NULL;
         bool inhibited = false;
 
         assert(m);
         assert(w > 0 && w < _INHIBIT_WHAT_MAX);
 
-        HASHMAP_FOREACH(i, m->inhibitors, j) {
+        HASHMAP_FOREACH(i, m->inhibitors) {
                 if (!i->started)
                         continue;
 

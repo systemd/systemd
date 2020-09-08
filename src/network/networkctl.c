@@ -2477,7 +2477,6 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
         int index, r, i;
-        Iterator j;
         void *p;
 
         r = sd_netlink_open(&rtnl);
@@ -2498,7 +2497,7 @@ static int link_up_down(int argc, char *argv[], void *userdata) {
                         return log_oom();
         }
 
-        SET_FOREACH(p, indexes, j) {
+        SET_FOREACH(p, indexes) {
                 index = PTR_TO_INT(p);
                 r = link_up_down_send_message(rtnl, argv[0], index);
                 if (r < 0) {
@@ -2516,7 +2515,6 @@ static int link_delete(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
         int index, r, i;
-        Iterator j;
         void *p;
 
         r = sd_netlink_open(&rtnl);
@@ -2537,7 +2535,7 @@ static int link_delete(int argc, char *argv[], void *userdata) {
                         return log_oom();
         }
 
-        SET_FOREACH(p, indexes, j) {
+        SET_FOREACH(p, indexes) {
                 index = PTR_TO_INT(p);
                 r = link_delete_send_message(rtnl, index);
                 if (r < 0) {
@@ -2641,7 +2639,6 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_set_free_ Set *indexes = NULL;
         int index, i, r;
-        Iterator j;
         void *p;
 
         r = sd_bus_open_system(&bus);
@@ -2662,7 +2659,7 @@ static int verb_reconfigure(int argc, char *argv[], void *userdata) {
                         return log_oom();
         }
 
-        SET_FOREACH(p, indexes, j) {
+        SET_FOREACH(p, indexes) {
                 index = PTR_TO_INT(p);
                 r = bus_call_method(bus, bus_network_mgr, "ReconfigureLink", &error, NULL, "i", index);
                 if (r < 0) {

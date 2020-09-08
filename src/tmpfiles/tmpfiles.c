@@ -375,9 +375,8 @@ static bool takes_ownership(ItemType t) {
 
 static struct Item* find_glob(OrderedHashmap *h, const char *match) {
         ItemArray *j;
-        Iterator i;
 
-        ORDERED_HASHMAP_FOREACH(j, h, i) {
+        ORDERED_HASHMAP_FOREACH(j, h) {
                 size_t n;
 
                 for (n = 0; n < j->n_items; n++) {
@@ -2372,10 +2371,9 @@ static int process_item_array(ItemArray *array, OperationMask operation) {
 
         /* Clean up all children first */
         if ((operation & (OPERATION_REMOVE|OPERATION_CLEAN)) && !set_isempty(array->children)) {
-                Iterator i;
                 ItemArray *c;
 
-                SET_FOREACH(c, array->children, i) {
+                SET_FOREACH(c, array->children) {
                         int k;
 
                         k = process_item_array(c, operation & (OPERATION_REMOVE|OPERATION_CLEAN));
@@ -3163,7 +3161,6 @@ static int parse_argv(int argc, char *argv[]) {
 static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
         _cleanup_(hashmap_freep) Hashmap *uid_cache = NULL, *gid_cache = NULL;
         _cleanup_fclose_ FILE *_f = NULL;
-        Iterator iterator;
         unsigned v = 0;
         FILE *f;
         Item *i;
@@ -3219,14 +3216,13 @@ static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoe
         }
 
         /* we have to determine age parameter for each entry of type X */
-        ORDERED_HASHMAP_FOREACH(i, globs, iterator) {
-                Iterator iter;
+        ORDERED_HASHMAP_FOREACH(i, globs) {
                 Item *j, *candidate_item = NULL;
 
                 if (i->type != IGNORE_DIRECTORY_PATH)
                         continue;
 
-                ORDERED_HASHMAP_FOREACH(j, items, iter) {
+                ORDERED_HASHMAP_FOREACH(j, items) {
                         if (!IN_SET(j->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA))
                                 continue;
 
@@ -3337,7 +3333,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         _cleanup_strv_free_ char **config_dirs = NULL;
         bool invalid_config = false;
-        Iterator iterator;
         ItemArray *a;
         enum {
                 PHASE_REMOVE_AND_CLEAN,
@@ -3431,12 +3426,12 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         /* Let's now link up all child/parent relationships */
-        ORDERED_HASHMAP_FOREACH(a, items, iterator) {
+        ORDERED_HASHMAP_FOREACH(a, items) {
                 r = link_parent(a);
                 if (r < 0)
                         return r;
         }
-        ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
+        ORDERED_HASHMAP_FOREACH(a, globs) {
                 r = link_parent(a);
                 if (r < 0)
                         return r;
@@ -3458,14 +3453,14 @@ static int run(int argc, char *argv[]) {
                         continue;
 
                 /* The non-globbing ones usually create things, hence we apply them first */
-                ORDERED_HASHMAP_FOREACH(a, items, iterator) {
+                ORDERED_HASHMAP_FOREACH(a, items) {
                         k = process_item_array(a, op);
                         if (k < 0 && r >= 0)
                                 r = k;
                 }
 
                 /* The globbing ones usually alter things, hence we apply them second. */
-                ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
+                ORDERED_HASHMAP_FOREACH(a, globs) {
                         k = process_item_array(a, op);
                         if (k < 0 && r >= 0)
                                 r = k;

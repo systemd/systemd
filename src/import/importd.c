@@ -562,7 +562,6 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         Manager *m = userdata;
         char *p, *e;
         Transfer *t;
-        Iterator i;
         ssize_t n;
         int r;
 
@@ -585,7 +584,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
-        HASHMAP_FOREACH(t, m->transfers, i)
+        HASHMAP_FOREACH(t, m->transfers)
                 if (ucred->pid == t->pid)
                         break;
 
@@ -670,13 +669,12 @@ static int manager_new(Manager **ret) {
 
 static Transfer *manager_find(Manager *m, TransferType type, const char *remote) {
         Transfer *t;
-        Iterator i;
 
         assert(m);
         assert(type >= 0);
         assert(type < _TRANSFER_TYPE_MAX);
 
-        HASHMAP_FOREACH(t, m->transfers, i)
+        HASHMAP_FOREACH(t, m->transfers)
                 if (t->type == type && streq_ptr(t->remote, remote))
                         return t;
 
@@ -990,7 +988,6 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Transfer *t;
-        Iterator i;
         int r;
 
         assert(msg);
@@ -1004,7 +1001,7 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(t, m->transfers, i) {
+        HASHMAP_FOREACH(t, m->transfers) {
 
                 r = sd_bus_message_append(
                                 reply,
@@ -1162,13 +1159,12 @@ static int transfer_node_enumerator(
         Manager *m = userdata;
         Transfer *t;
         unsigned k = 0;
-        Iterator i;
 
         l = new0(char*, hashmap_size(m->transfers) + 1);
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(t, m->transfers, i) {
+        HASHMAP_FOREACH(t, m->transfers) {
 
                 l[k] = strdup(t->object_path);
                 if (!l[k])

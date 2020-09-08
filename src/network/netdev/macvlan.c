@@ -24,7 +24,6 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_net
         assert(m);
 
         if (m->mode == NETDEV_MACVLAN_MODE_SOURCE && !set_isempty(m->match_source_mac)) {
-                Iterator i;
                 const struct ether_addr *mac_addr;
 
                 r = sd_netlink_message_append_u32(req, IFLA_MACVLAN_MACADDR_MODE, MACVLAN_MACADDR_SET);
@@ -35,7 +34,7 @@ static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_net
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not open IFLA_MACVLAN_MACADDR_DATA container: %m");
 
-                SET_FOREACH(mac_addr, m->match_source_mac, i) {
+                SET_FOREACH(mac_addr, m->match_source_mac) {
                         r = sd_netlink_message_append_ether_addr(req, IFLA_MACVLAN_MACADDR, mac_addr);
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_MACVLAN_MACADDR attribute: %m");

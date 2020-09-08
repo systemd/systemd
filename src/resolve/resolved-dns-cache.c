@@ -1015,14 +1015,13 @@ int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_
 
 int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
         unsigned ancount = 0;
-        Iterator iterator;
         DnsCacheItem *i;
         int r;
 
         assert(cache);
         assert(p);
 
-        HASHMAP_FOREACH(i, cache->by_key, iterator) {
+        HASHMAP_FOREACH(i, cache->by_key) {
                 DnsCacheItem *j;
 
                 LIST_FOREACH(by_key, j, i) {
@@ -1063,7 +1062,6 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p) {
 }
 
 void dns_cache_dump(DnsCache *cache, FILE *f) {
-        Iterator iterator;
         DnsCacheItem *i;
 
         if (!cache)
@@ -1072,7 +1070,7 @@ void dns_cache_dump(DnsCache *cache, FILE *f) {
         if (!f)
                 f = stdout;
 
-        HASHMAP_FOREACH(i, cache->by_key, iterator) {
+        HASHMAP_FOREACH(i, cache->by_key) {
                 DnsCacheItem *j;
 
                 LIST_FOREACH(by_key, j, i) {

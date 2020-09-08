@@ -25,7 +25,6 @@ static int property_get_auto_login(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
-        Iterator i;
         Home *h;
         int r;
 
@@ -37,7 +36,7 @@ static int property_get_auto_login(
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(h, m->homes_by_name, i) {
+        HASHMAP_FOREACH(h, m->homes_by_name) {
                 _cleanup_(strv_freep) char **seats = NULL;
                 _cleanup_free_ char *home_path = NULL;
                 char **s;
@@ -151,7 +150,6 @@ static int method_list_homes(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
-        Iterator i;
         Home *h;
         int r;
 
@@ -166,7 +164,7 @@ static int method_list_homes(
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(h, m->homes_by_uid, i) {
+        HASHMAP_FOREACH(h, m->homes_by_uid) {
                 _cleanup_free_ char *path = NULL;
 
                 r = bus_home_path(h, &path);
@@ -560,7 +558,6 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
         _cleanup_(operation_unrefp) Operation *o = NULL;
         bool waiting = false;
         Manager *m = userdata;
-        Iterator i;
         Home *h;
         int r;
 
@@ -570,7 +567,7 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
          * for every suitable home we have and only when all of them completed we send a reply indicating
          * completion. */
 
-        HASHMAP_FOREACH(h, m->homes_by_name, i) {
+        HASHMAP_FOREACH(h, m->homes_by_name) {
 
                 /* Automatically suspend all homes that have at least one client referencing it that asked
                  * for "please suspend", and no client that asked for "please do not suspend". */

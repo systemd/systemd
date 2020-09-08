@@ -64,8 +64,10 @@ int ordered_set_put_strdupv(OrderedSet *s, char **l);
 int ordered_set_put_string_set(OrderedSet *s, OrderedSet *l);
 void ordered_set_print(FILE *f, const char *field, OrderedSet *s);
 
-#define ORDERED_SET_FOREACH(e, s, i)                                    \
-        for ((i) = ITERATOR_FIRST; ordered_set_iterate((s), &(i), (void**)&(e)); )
+#define _ORDERED_SET_FOREACH(e, s, i) \
+        for (Iterator i = ITERATOR_FIRST; ordered_set_iterate((s), &i, (void**)&(e)); )
+#define ORDERED_SET_FOREACH(e, s) \
+        _ORDERED_SET_FOREACH(e, s, UNIQ_T(i, UNIQ))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet*, ordered_set_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet*, ordered_set_free_free);

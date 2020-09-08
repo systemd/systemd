@@ -753,13 +753,12 @@ DnsServer *manager_get_dns_server(Manager *m) {
 
         if (!m->current_dns_server) {
                 bool found = false;
-                Iterator i;
 
                 /* No DNS servers configured, let's see if there are
                  * any on any links. If not, we use the fallback
                  * servers */
 
-                HASHMAP_FOREACH(l, m->links, i)
+                HASHMAP_FOREACH(l, m->links)
                         if (l->dns_servers) {
                                 found = true;
                                 break;

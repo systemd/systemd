@@ -30,7 +30,6 @@ static void test_unit_file_build_name_map(char **ids) {
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_hashmap_free_ Hashmap *unit_ids = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_names = NULL;
-        Iterator i;
         const char *k, *dst;
         char **v;
         usec_t mtime = 0;
@@ -40,10 +39,10 @@ static void test_unit_file_build_name_map(char **ids) {
 
         assert_se(unit_file_build_name_map(&lp, &mtime, &unit_ids, &unit_names, NULL) == 1);
 
-        HASHMAP_FOREACH_KEY(dst, k, unit_ids, i)
+        HASHMAP_FOREACH_KEY(dst, k, unit_ids)
                 log_info("ids: %s → %s", k, dst);
 
-        HASHMAP_FOREACH_KEY(v, k, unit_names, i) {
+        HASHMAP_FOREACH_KEY(v, k, unit_names) {
                 _cleanup_free_ char *j = strv_join(v, ", ");
                 log_info("aliases: %s ← %s", k, j);
         }
@@ -59,7 +58,6 @@ static void test_unit_file_build_name_map(char **ids) {
         char **id;
         STRV_FOREACH(id, ids) {
                  const char *fragment, *name;
-                 Iterator it;
                  _cleanup_set_free_free_ Set *names = NULL;
                  log_info("*** %s ***", *id);
                  r = unit_file_find_fragment(unit_ids,
@@ -70,7 +68,7 @@ static void test_unit_file_build_name_map(char **ids) {
                  assert(r == 0);
                  log_info("fragment: %s", fragment);
                  log_info("names:");
-                 SET_FOREACH(name, names, it)
+                 SET_FOREACH(name, names)
                          log_info("    %s", name);
         }
 }

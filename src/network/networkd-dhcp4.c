@@ -25,7 +25,6 @@ static int dhcp4_remove_all(Link *link);
 
 static int dhcp4_release_old_lease(Link *link) {
         Route *route;
-        Iterator i;
         int k, r = 0;
 
         assert(link);
@@ -37,7 +36,7 @@ static int dhcp4_release_old_lease(Link *link) {
 
         link_dirty(link);
 
-        SET_FOREACH(route, link->dhcp_routes_old, i) {
+        SET_FOREACH(route, link->dhcp_routes_old) {
                 k = route_remove(route, link, NULL);
                 if (k < 0)
                         r = k;
@@ -507,12 +506,11 @@ static int dhcp4_remove_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
 static int dhcp4_remove_all(Link *link) {
         Route *route;
-        Iterator i;
         int k, r = 0;
 
         assert(link);
 
-        SET_FOREACH(route, link->dhcp_routes, i) {
+        SET_FOREACH(route, link->dhcp_routes) {
                 k = route_remove(route, link, dhcp4_remove_route_handler);
                 if (k < 0)
                         r = k;
@@ -1245,7 +1243,6 @@ int dhcp4_set_client_identifier(Link *link) {
 int dhcp4_configure(Link *link) {
         sd_dhcp_option *send_option;
         void *request_options;
-        Iterator i;
         int r;
 
         assert(link);
@@ -1337,7 +1334,7 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for timezone: %m");
         }
 
-        SET_FOREACH(request_options, link->network->dhcp_request_options, i) {
+        SET_FOREACH(request_options, link->network->dhcp_request_options) {
                 uint32_t option = PTR_TO_UINT32(request_options);
 
                 r = sd_dhcp_client_set_request_option(link->dhcp_client, option);
@@ -1349,7 +1346,7 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for '%u': %m", option);
         }
 
-        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_options, i) {
+        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_options) {
                 r = sd_dhcp_client_add_option(link->dhcp_client, send_option);
                 if (r == -EEXIST)
                         continue;
@@ -1357,7 +1354,7 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set send option: %m");
         }
 
-        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_vendor_options, i) {
+        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_vendor_options) {
                 r = sd_dhcp_client_add_vendor_option(link->dhcp_client, send_option);
                 if (r == -EEXIST)
                         continue;

@@ -702,11 +702,10 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
 
 static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {
         DnsTransaction *dt;
-        Iterator i;
 
         assert(t);
 
-        SET_FOREACH(dt, t->dnssec_transactions, i)
+        SET_FOREACH(dt, t->dnssec_transactions)
                 if (DNS_TRANSACTION_IS_LIVE(dt->state))
                         return true;
 
@@ -715,14 +714,13 @@ static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {
 
 static int dns_transaction_dnssec_ready(DnsTransaction *t) {
         DnsTransaction *dt;
-        Iterator i;
 
         assert(t);
 
         /* Checks whether the auxiliary DNSSEC transactions of our transaction have completed, or are still
          * ongoing. Returns 0, if we aren't ready for the DNSSEC validation, positive if we are. */
 
-        SET_FOREACH(dt, t->dnssec_transactions, i) {
+        SET_FOREACH(dt, t->dnssec_transactions) {
 
                 switch (dt->state) {
 
@@ -1476,7 +1474,6 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
         bool add_known_answers = false;
         DnsTransaction *other;
-        Iterator i;
         DnsResourceKey *tkey;
         _cleanup_set_free_ Set *keys = NULL;
         unsigned qdcount;
@@ -1585,7 +1582,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                         return r;
         }
 
-        SET_FOREACH(tkey, keys, i) {
+        SET_FOREACH(tkey, keys) {
                 _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
                 bool tentative;
 
@@ -1774,7 +1771,6 @@ int dns_transaction_go(DnsTransaction *t) {
 
 static int dns_transaction_find_cyclic(DnsTransaction *t, DnsTransaction *aux) {
         DnsTransaction *n;
-        Iterator i;
         int r;
 
         assert(t);
@@ -1785,7 +1781,7 @@ static int dns_transaction_find_cyclic(DnsTransaction *t, DnsTransaction *aux) {
         if (t == aux)
                 return 1;
 
-        SET_FOREACH(n, aux->dnssec_transactions, i) {
+        SET_FOREACH(n, aux->dnssec_transactions) {
                 r = dns_transaction_find_cyclic(t, n);
                 if (r != 0)
                         return r;
@@ -1977,7 +1973,6 @@ static bool dns_transaction_dnssec_supported(DnsTransaction *t) {
 
 static bool dns_transaction_dnssec_supported_full(DnsTransaction *t) {
         DnsTransaction *dt;
-        Iterator i;
 
         assert(t);
 
@@ -1986,7 +1981,7 @@ static bool dns_transaction_dnssec_supported_full(DnsTransaction *t) {
         if (!dns_transaction_dnssec_supported(t))
                 return false;
 
-        SET_FOREACH(dt, t->dnssec_transactions, i)
+        SET_FOREACH(dt, t->dnssec_transactions)
                 if (!dns_transaction_dnssec_supported(dt))
                         return false;
 
@@ -2380,11 +2375,10 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         case DNS_TYPE_SOA:
         case DNS_TYPE_NS: {
                 DnsTransaction *dt;
-                Iterator i;
 
                 /* For SOA or NS RRs we look for a matching DS transaction */
 
-                SET_FOREACH(dt, t->dnssec_transactions, i) {
+                SET_FOREACH(dt, t->dnssec_transactions) {
 
                         if (dt->key->class != rr->key->class)
                                 continue;
@@ -2418,7 +2412,6 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
         case DNS_TYPE_DNAME: {
                 const char *parent = NULL;
                 DnsTransaction *dt;
-                Iterator i;
 
                 /*
                  * CNAME/DNAME RRs cannot be located at a zone apex, hence look directly for the parent SOA.
@@ -2426,7 +2419,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                  * DS RRs are signed if the parent is signed, hence also look at the parent SOA
                  */
 
-                SET_FOREACH(dt, t->dnssec_transactions, i) {
+                SET_FOREACH(dt, t->dnssec_transactions) {
 
                         if (dt->key->class != rr->key->class)
                                 continue;
@@ -2462,11 +2455,10 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
 
         default: {
                 DnsTransaction *dt;
-                Iterator i;
 
                 /* Any other kind of RR (including DNSKEY/NSEC/NSEC3). Let's see if our SOA lookup was authenticated */
 
-                SET_FOREACH(dt, t->dnssec_transactions, i) {
+                SET_FOREACH(dt, t->dnssec_transactions) {
 
                         if (dt->key->class != rr->key->class)
                                 continue;
@@ -2494,7 +2486,6 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
 static int dns_transaction_in_private_tld(DnsTransaction *t, const DnsResourceKey *key) {
         DnsTransaction *dt;
         const char *tld;
-        Iterator i;
         int r;
 
         /* If DNSSEC downgrade mode is on, checks whether the
@@ -2530,7 +2521,7 @@ static int dns_transaction_in_private_tld(DnsTransaction *t, const DnsResourceKe
         if (!dns_name_is_single_label(tld))
                 return false;
 
-        SET_FOREACH(dt, t->dnssec_transactions, i) {
+        SET_FOREACH(dt, t->dnssec_transactions) {
 
                 if (dt->key->class != key->class)
                         continue;
@@ -2556,7 +2547,6 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         DnsTransaction *dt;
         const char *name;
         uint16_t type = 0;
-        Iterator i;
         int r;
 
         assert(t);
@@ -2614,7 +2604,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
         /* For all other RRs we check the SOA on the same level to see
          * if it's signed. */
 
-        SET_FOREACH(dt, t->dnssec_transactions, i) {
+        SET_FOREACH(dt, t->dnssec_transactions) {
 
                 if (dt->key->class != t->key->class)
                         continue;
@@ -2651,7 +2641,6 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
 
         DNS_ANSWER_FOREACH(rrsig, t->answer) {
                 DnsTransaction *dt;
-                Iterator i;
 
                 r = dnssec_key_match_rrsig(rr->key, rrsig);
                 if (r < 0)
@@ -2659,7 +2648,7 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
                 if (r == 0)
                         continue;
 
-                SET_FOREACH(dt, t->dnssec_transactions, i) {
+                SET_FOREACH(dt, t->dnssec_transactions) {
 
                         if (dt->key->class != rr->key->class)
                                 continue;
@@ -2771,14 +2760,13 @@ static int dns_transaction_invalidate_revoked_keys(DnsTransaction *t) {
 
 static int dns_transaction_copy_validated(DnsTransaction *t) {
         DnsTransaction *dt;
-        Iterator i;
         int r;
 
         assert(t);
 
         /* Copy all validated RRs from the auxiliary DNSSEC transactions into our set of validated RRs */
 
-        SET_FOREACH(dt, t->dnssec_transactions, i) {
+        SET_FOREACH(dt, t->dnssec_transactions) {
 
                 if (DNS_TRANSACTION_IS_LIVE(dt->state))
                         continue;

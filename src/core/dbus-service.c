@@ -42,7 +42,6 @@ static int property_get_exit_status_set(
 
         const ExitStatusSet *status_set = userdata;
         unsigned n;
-        Iterator i;
         int r;
 
         assert(bus);
@@ -57,7 +56,7 @@ static int property_get_exit_status_set(
         if (r < 0)
                 return r;
 
-        BITMAP_FOREACH(n, &status_set->status, i) {
+        BITMAP_FOREACH(n, &status_set->status) {
                 assert(n < 256);
 
                 r = sd_bus_message_append_basic(reply, 'i', &n);
@@ -73,7 +72,7 @@ static int property_get_exit_status_set(
         if (r < 0)
                 return r;
 
-        BITMAP_FOREACH(n, &status_set->signal, i) {
+        BITMAP_FOREACH(n, &status_set->signal) {
                 const char *str;
 
                 str = signal_to_string(n);

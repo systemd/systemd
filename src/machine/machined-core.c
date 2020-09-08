@@ -38,7 +38,6 @@ int manager_enqueue_nscd_cache_flush(Manager *m) {
 
 int manager_find_machine_for_uid(Manager *m, uid_t uid, Machine **ret_machine, uid_t *ret_internal_uid) {
         Machine *machine;
-        Iterator i;
         int r;
 
         assert(m);
@@ -47,7 +46,7 @@ int manager_find_machine_for_uid(Manager *m, uid_t uid, Machine **ret_machine, u
         /* Finds the machine for the specified host UID and returns it along with the UID translated into the
          * internal UID inside the machine */
 
-        HASHMAP_FOREACH(machine, m->machines, i) {
+        HASHMAP_FOREACH(machine, m->machines) {
                 uid_t converted;
 
                 r = machine_owns_uid(machine, uid, &converted);
@@ -74,13 +73,12 @@ int manager_find_machine_for_uid(Manager *m, uid_t uid, Machine **ret_machine, u
 
 int manager_find_machine_for_gid(Manager *m, gid_t gid, Machine **ret_machine, gid_t *ret_internal_gid) {
         Machine *machine;
-        Iterator i;
         int r;
 
         assert(m);
         assert(gid_is_valid(gid));
 
-        HASHMAP_FOREACH(machine, m->machines, i) {
+        HASHMAP_FOREACH(machine, m->machines) {
                 gid_t converted;
 
                 r = machine_owns_gid(machine, gid, &converted);

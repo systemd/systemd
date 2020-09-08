@@ -108,13 +108,12 @@ static int dhcp6_pd_remove_old(Link *link, bool force);
 
 static int dhcp6_pd_address_callback(Address *address) {
         Address *a;
-        Iterator i;
 
         assert(address);
         assert(address->link);
 
         /* Make this called only once */
-        SET_FOREACH(a, address->link->dhcp6_pd_addresses, i)
+        SET_FOREACH(a, address->link->dhcp6_pd_addresses)
                 a->callback = NULL;
 
         return dhcp6_pd_remove_old(address->link, true);
@@ -123,7 +122,6 @@ static int dhcp6_pd_address_callback(Address *address) {
 static int dhcp6_pd_remove_old(Link *link, bool force) {
         Address *address;
         Route *route;
-        Iterator i;
         int k, r = 0;
 
         assert(link);
@@ -138,14 +136,14 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         if (!force) {
                 bool set_callback = !set_isempty(link->dhcp6_pd_addresses);
 
-                SET_FOREACH(address, link->dhcp6_pd_addresses, i)
+                SET_FOREACH(address, link->dhcp6_pd_addresses)
                         if (address_is_ready(address)) {
                                 set_callback = false;
                                 break;
                         }
 
                 if (set_callback) {
-                        SET_FOREACH(address, link->dhcp6_pd_addresses, i)
+                        SET_FOREACH(address, link->dhcp6_pd_addresses)
                                 address->callback = dhcp6_pd_address_callback;
                         return 0;
                 }
@@ -155,7 +153,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
 
         link_dirty(link);
 
-        SET_FOREACH(route, link->dhcp6_pd_routes_old, i) {
+        SET_FOREACH(route, link->dhcp6_pd_routes_old) {
                 k = route_remove(route, link, NULL);
                 if (k < 0)
                         r = k;
@@ -164,7 +162,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
                 dhcp6_pd_free(hashmap_get(link->manager->dhcp6_prefixes, &route->dst.in6));
         }
 
-        SET_FOREACH(address, link->dhcp6_pd_addresses_old, i) {
+        SET_FOREACH(address, link->dhcp6_pd_addresses_old) {
                 k = address_remove(address, link, NULL);
                 if (k < 0)
                         r = k;
@@ -176,7 +174,6 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
 int dhcp6_pd_remove(Link *link) {
         Address *address;
         Route *route;
-        Iterator i;
         int k, r = 0;
 
         assert(link);
@@ -196,7 +193,7 @@ int dhcp6_pd_remove(Link *link) {
 
         link_dirty(link);
 
-        SET_FOREACH(route, link->dhcp6_pd_routes, i) {
+        SET_FOREACH(route, link->dhcp6_pd_routes) {
                 k = route_remove(route, link, NULL);
                 if (k < 0)
                         r = k;
@@ -205,7 +202,7 @@ int dhcp6_pd_remove(Link *link) {
                 dhcp6_pd_free(hashmap_get(link->manager->dhcp6_prefixes, &route->dst.in6));
         }
 
-        SET_FOREACH(address, link->dhcp6_pd_addresses, i) {
+        SET_FOREACH(address, link->dhcp6_pd_addresses) {
                 k = address_remove(address, link, NULL);
                 if (k < 0)
                         r = k;
@@ -517,7 +514,6 @@ static void dhcp6_pd_prefix_distribute(Link *dhcp6_link,
                                       uint32_t lifetime_valid,
                                       bool assign_preferred_subnet_id) {
 
-        Iterator i;
         Link *link;
         int r;
 
@@ -526,7 +522,7 @@ static void dhcp6_pd_prefix_distribute(Link *dhcp6_link,
         assert(masked_pd_prefix);
         assert(pd_prefix_len <= 64);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links, i) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
                 _cleanup_free_ char *assigned_buf = NULL;
                 union in_addr_union assigned_prefix;
 
@@ -636,13 +632,12 @@ static int dhcp6_pd_finalize(Link *link) {
 
 static void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
         Link *link;
-        Iterator i;
         int r;
 
         assert(dhcp6_link);
         assert(dhcp6_link->manager);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links, i) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -659,13 +654,12 @@ static int dhcp6_remove_old(Link *link, bool force);
 
 static int dhcp6_address_callback(Address *address) {
         Address *a;
-        Iterator i;
 
         assert(address);
         assert(address->link);
 
         /* Make this called only once */
-        SET_FOREACH(a, address->link->dhcp6_addresses, i)
+        SET_FOREACH(a, address->link->dhcp6_addresses)
                 a->callback = NULL;
 
         return dhcp6_remove_old(address->link, true);
@@ -674,7 +668,6 @@ static int dhcp6_address_callback(Address *address) {
 static int dhcp6_remove_old(Link *link, bool force) {
         Address *address;
         Route *route;
-        Iterator i;
         int k, r = 0;
 
         assert(link);
@@ -688,14 +681,14 @@ static int dhcp6_remove_old(Link *link, bool force) {
         if (!force) {
                 bool set_callback = !set_isempty(link->dhcp6_addresses);
 
-                SET_FOREACH(address, link->dhcp6_addresses, i)
+                SET_FOREACH(address, link->dhcp6_addresses)
                         if (address_is_ready(address)) {
                                 set_callback = false;
                                 break;
                         }
 
                 if (set_callback) {
-                        SET_FOREACH(address, link->dhcp6_addresses, i)
+                        SET_FOREACH(address, link->dhcp6_addresses)
                                 address->callback = dhcp6_address_callback;
                         return 0;
                 }
@@ -705,13 +698,13 @@ static int dhcp6_remove_old(Link *link, bool force) {
 
         link_dirty(link);
 
-        SET_FOREACH(route, link->dhcp6_routes_old, i) {
+        SET_FOREACH(route, link->dhcp6_routes_old) {
                 k = route_remove(route, link, NULL);
                 if (k < 0)
                         r = k;
         }
 
-        SET_FOREACH(address, link->dhcp6_addresses_old, i) {
+        SET_FOREACH(address, link->dhcp6_addresses_old) {
                 k = address_remove(address, link, NULL);
                 if (k < 0)
                         r = k;
@@ -723,7 +716,6 @@ static int dhcp6_remove_old(Link *link, bool force) {
 static int dhcp6_remove(Link *link) {
         Address *address;
         Route *route;
-        Iterator i;
         int k, r = 0;
 
         assert(link);
@@ -742,13 +734,13 @@ static int dhcp6_remove(Link *link) {
 
         link_dirty(link);
 
-        SET_FOREACH(route, link->dhcp6_routes, i) {
+        SET_FOREACH(route, link->dhcp6_routes) {
                 k = route_remove(route, link, NULL);
                 if (k < 0)
                         r = k;
         }
 
-        SET_FOREACH(address, link->dhcp6_addresses, i) {
+        SET_FOREACH(address, link->dhcp6_addresses) {
                 k = address_remove(address, link, NULL);
                 if (k < 0)
                         r = k;
@@ -846,14 +838,13 @@ static int dhcp6_set_unreachable_route(Link *link, const union in_addr_union *ad
 }
 
 static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
-        Iterator i;
         Link *link;
         int r;
 
         assert(dhcp6_link);
         assert(dhcp6_link->dhcp6_lease);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links, i) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -918,7 +909,7 @@ static int dhcp6_pd_prefix_acquired(Link *dhcp6_link) {
                                            false);
         }
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links, i) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -1230,7 +1221,6 @@ int dhcp6_request_address(Link *link, int ir) {
 
 int dhcp6_request_prefix_delegation(Link *link) {
         Link *l;
-        Iterator i;
 
         assert(link);
         assert(link->manager);
@@ -1240,7 +1230,7 @@ int dhcp6_request_prefix_delegation(Link *link) {
 
         log_link_debug(link, "Requesting DHCPv6 prefixes to be delegated for new link");
 
-        HASHMAP_FOREACH(l, link->manager->links, i) {
+        HASHMAP_FOREACH(l, link->manager->links) {
                 int r, enabled;
 
                 if (l == link)
@@ -1334,12 +1324,11 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
 
 static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
         Link *link;
-        Iterator i;
 
         assert(dhcp6_link);
         assert(dhcp6_link->manager);
 
-        HASHMAP_FOREACH(link, dhcp6_link->manager->links, i) {
+        HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
                 if (link == dhcp6_link)
                         continue;
 
@@ -1358,7 +1347,6 @@ int dhcp6_configure(Link *link) {
         sd_dhcp6_option *send_option;
         void *request_options;
         const DUID *duid;
-        Iterator i;
         int r;
 
         assert(link);
@@ -1400,7 +1388,7 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set DUID: %m");
 
-        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp6_client_send_options, i) {
+        ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp6_client_send_options) {
                 r = sd_dhcp6_client_add_option(client, send_option);
                 if (r == -EEXIST)
                         continue;
@@ -1428,7 +1416,7 @@ int dhcp6_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set MUD URL: %m");
         }
 
-        SET_FOREACH(request_options, link->network->dhcp6_request_options, i) {
+        SET_FOREACH(request_options, link->network->dhcp6_request_options) {
                 uint32_t option = PTR_TO_UINT32(request_options);
 
                 r = sd_dhcp6_client_set_request_option(client, option);
@@ -1452,7 +1440,7 @@ int dhcp6_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set vendor class: %m");
         }
 
-        ORDERED_HASHMAP_FOREACH(vendor_option, link->network->dhcp6_client_send_vendor_options, i) {
+        ORDERED_HASHMAP_FOREACH(vendor_option, link->network->dhcp6_client_send_vendor_options) {
                 r = sd_dhcp6_client_add_vendor_option(client, vendor_option);
                 if (r == -EEXIST)
                         continue;

@@ -168,7 +168,6 @@ int devnode_acl_all(const char *seat,
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
         sd_device *d;
-        Iterator i;
         char *n;
         int r;
 
@@ -239,7 +238,7 @@ int devnode_acl_all(const char *seat,
         }
 
         r = 0;
-        SET_FOREACH(n, nodes, i) {
+        SET_FOREACH(n, nodes) {
                 int k;
 
                 log_debug("Changing ACLs at %s for seat %s (uid "UID_FMT"→"UID_FMT"%s%s)",

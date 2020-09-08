@@ -65,7 +65,6 @@ static void test_catalog_import_badid(void) {
 static void test_catalog_import_one(void) {
         _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
         char *payload;
-        Iterator j;
 
         const char *input =
 "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
@@ -80,7 +79,7 @@ static void test_catalog_import_one(void) {
         h = test_import(input, -1, 0);
         assert_se(ordered_hashmap_size(h) == 1);
 
-        ORDERED_HASHMAP_FOREACH(payload, h, j) {
+        ORDERED_HASHMAP_FOREACH(payload, h) {
                 printf("expect: %s\n", expect);
                 printf("actual: %s\n", payload);
                 assert_se(streq(expect, payload));
@@ -90,7 +89,6 @@ static void test_catalog_import_one(void) {
 static void test_catalog_import_merge(void) {
         _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
         char *payload;
-        Iterator j;
 
         const char *input =
 "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
@@ -116,14 +114,13 @@ static void test_catalog_import_merge(void) {
         h = test_import(input, -1, 0);
         assert_se(ordered_hashmap_size(h) == 1);
 
-        ORDERED_HASHMAP_FOREACH(payload, h, j)
+        ORDERED_HASHMAP_FOREACH(payload, h)
                 assert_se(streq(combined, payload));
 }
 
 static void test_catalog_import_merge_no_body(void) {
         _cleanup_ordered_hashmap_free_free_free_ OrderedHashmap *h = NULL;
         char *payload;
-        Iterator j;
 
         const char *input =
 "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededed\n" \
@@ -148,7 +145,7 @@ static void test_catalog_import_merge_no_body(void) {
         h = test_import(input, -1, 0);
         assert_se(ordered_hashmap_size(h) == 1);
 
-        ORDERED_HASHMAP_FOREACH(payload, h, j)
+        ORDERED_HASHMAP_FOREACH(payload, h)
                 assert_se(streq(combined, payload));
 }
 

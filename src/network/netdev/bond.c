@@ -201,7 +201,6 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         }
 
         if (b->arp_interval > 0 && !ordered_set_isempty(b->arp_ip_targets)) {
-                Iterator i;
                 void *val;
                 int n = 0;
 
@@ -209,7 +208,7 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not open contaniner IFLA_BOND_ARP_IP_TARGET : %m");
 
-                ORDERED_SET_FOREACH(val, b->arp_ip_targets, i) {
+                ORDERED_SET_FOREACH(val, b->arp_ip_targets) {
                         r = sd_netlink_message_append_u32(m, n++, PTR_TO_UINT32(val));
                         if (r < 0)
                                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_BOND_ARP_ALL_TARGETS attribute: %m");

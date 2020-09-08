@@ -644,10 +644,9 @@ static int add_crypttab_devices(void) {
 
 static int add_proc_cmdline_devices(void) {
         int r;
-        Iterator i;
         crypto_device *d;
 
-        HASHMAP_FOREACH(d, arg_disks, i) {
+        HASHMAP_FOREACH(d, arg_disks) {
                 _cleanup_free_ char *device = NULL;
 
                 if (!d->create)

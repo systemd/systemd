@@ -1168,12 +1168,11 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
 
 int routing_policy_serialize_rules(Set *rules, FILE *f) {
         RoutingPolicyRule *rule = NULL;
-        Iterator i;
         int r;
 
         assert(f);
 
-        SET_FOREACH(rule, rules, i) {
+        SET_FOREACH(rule, rules) {
                 _cleanup_free_ char *from_str = NULL, *to_str = NULL;
                 const char *family_str;
                 bool space = false;
@@ -1489,13 +1488,12 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
 static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule *rule) {
         RoutingPolicyRule *link_rule;
-        Iterator i;
         Link *link;
 
         assert(m);
         assert(rule);
 
-        HASHMAP_FOREACH(link, m->links, i) {
+        HASHMAP_FOREACH(link, m->links) {
                 if (!link->network)
                         continue;
 
@@ -1509,13 +1507,12 @@ static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule
 
 void routing_policy_rule_purge(Manager *m, Link *link) {
         RoutingPolicyRule *rule, *existing;
-        Iterator i;
         int r;
 
         assert(m);
         assert(link);
 
-        SET_FOREACH(rule, m->rules_saved, i) {
+        SET_FOREACH(rule, m->rules_saved) {
                 existing = set_get(m->rules_foreign, rule);
                 if (!existing)
                         continue; /* Saved rule does not exist anymore. */

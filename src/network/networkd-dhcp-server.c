@@ -228,7 +228,6 @@ int dhcp4_server_configure(Link *link) {
         sd_dhcp_option *p;
         Link *uplink = NULL;
         Address *address;
-        Iterator i;
         int r;
 
         address = link_find_dhcp_server_address(link);
@@ -322,7 +321,7 @@ int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set timezone for DHCP server: %m");
         }
 
-        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options, i) {
+        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options) {
                 r = sd_dhcp_server_add_option(link->dhcp_server, p);
                 if (r == -EEXIST)
                         continue;
@@ -330,7 +329,7 @@ int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
         }
 
-        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_vendor_options, i) {
+        ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_vendor_options) {
                 r = sd_dhcp_server_add_vendor_option(link->dhcp_server, p);
                 if (r == -EEXIST)
                         continue;

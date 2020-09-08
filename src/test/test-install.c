@@ -22,7 +22,6 @@ static void dump_changes(UnitFileChange *c, unsigned n) {
 int main(int argc, char* argv[]) {
         Hashmap *h;
         UnitFileList *p;
-        Iterator i;
         int r;
         const char *const files[] = { "avahi-daemon.service", NULL };
         const char *const files2[] = { "/home/lennart/test.service", NULL };
@@ -36,7 +35,7 @@ int main(int argc, char* argv[]) {
         r = unit_file_get_list(UNIT_FILE_SYSTEM, NULL, h, NULL, NULL);
         assert_se(r == 0);
 
-        HASHMAP_FOREACH(p, h, i) {
+        HASHMAP_FOREACH(p, h) {
                 UnitFileState s = _UNIT_FILE_STATE_INVALID;
 
                 r = unit_file_get_state(UNIT_FILE_SYSTEM, NULL, basename(p->path), &s);

@@ -75,19 +75,17 @@ static bool address_pool_prefix_is_taken(
                 const union in_addr_union *u,
                 unsigned prefixlen) {
 
-        Iterator i;
         Link *l;
         Network *n;
 
         assert(p);
         assert(u);
 
-        HASHMAP_FOREACH(l, p->manager->links, i) {
+        HASHMAP_FOREACH(l, p->manager->links) {
                 Address *a;
-                Iterator j;
 
                 /* Don't clash with assigned addresses */
-                SET_FOREACH(a, l->addresses, j) {
+                SET_FOREACH(a, l->addresses) {
                         if (a->family != p->family)
                                 continue;
 
@@ -106,7 +104,7 @@ static bool address_pool_prefix_is_taken(
         }
 
         /* And don't clash with configured but un-assigned addresses either */
-        ORDERED_HASHMAP_FOREACH(n, p->manager->networks, i) {
+        ORDERED_HASHMAP_FOREACH(n, p->manager->networks) {
                 Address *a;
 
                 LIST_FOREACH(addresses, a, n->static_addresses) {

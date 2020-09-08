@@ -455,7 +455,6 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
 static DnsStream *dns_stream_free(DnsStream *s) {
         DnsPacket *p;
-        Iterator i;
 
         assert(s);
 
@@ -471,7 +470,7 @@ static DnsStream *dns_stream_free(DnsStream *s) {
                 dnstls_stream_free(s);
 #endif
 
-        ORDERED_SET_FOREACH(p, s->write_queue, i)
+        ORDERED_SET_FOREACH(p, s->write_queue)
                 dns_packet_unref(ordered_set_remove(s->write_queue, p));
 
         dns_packet_unref(s->write_packet);

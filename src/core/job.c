@@ -458,7 +458,6 @@ int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
 }
 
 static bool job_is_runnable(Job *j) {
-        Iterator i;
         Unit *other;
         void *v;
 
@@ -482,7 +481,7 @@ static bool job_is_runnable(Job *j) {
         if (j->type == JOB_NOP)
                 return true;
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i)
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER])
                 if (other->job && job_compare(j, other->job, UNIT_AFTER) > 0) {
                         log_unit_debug(j->unit,
                                        "starting held back, waiting for: %s",
@@ -490,7 +489,7 @@ static bool job_is_runnable(Job *j) {
                         return false;
                 }
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i)
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE])
                 if (other->job && job_compare(j, other->job, UNIT_BEFORE) > 0) {
                         log_unit_debug(j->unit,
                                        "stopping held back, waiting for: %s",
@@ -957,12 +956,11 @@ static void job_emit_done_status_message(Unit *u, uint32_t job_id, JobType t, Jo
 
 static void job_fail_dependencies(Unit *u, UnitDependency d) {
         Unit *other;
-        Iterator i;
         void *v;
 
         assert(u);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[d], i) {
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[d]) {
                 Job *j = other->job;
 
                 if (!j)
@@ -978,7 +976,6 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
         Unit *u;
         Unit *other;
         JobType t;
-        Iterator i;
         void *v;
 
         assert(j);
@@ -1072,12 +1069,12 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
 finish:
         /* Try to start the next jobs that can be started */
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_AFTER], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_AFTER])
                 if (other->job) {
                         job_add_to_run_queue(other->job);
                         job_add_to_gc_queue(other->job);
                 }
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BEFORE], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BEFORE])
                 if (other->job) {
                         job_add_to_run_queue(other->job);
                         job_add_to_gc_queue(other->job);
@@ -1427,7 +1424,6 @@ int job_get_timeout(Job *j, usec_t *timeout) {
 
 bool job_may_gc(Job *j) {
         Unit *other;
-        Iterator i;
         void *v;
 
         assert(j);
@@ -1457,11 +1453,11 @@ bool job_may_gc(Job *j) {
                 return false;
 
         /* The logic is inverse to job_is_runnable, we cannot GC as long as we block any job. */
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i)
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE])
                 if (other->job && job_compare(j, other->job, UNIT_BEFORE) < 0)
                         return false;
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i)
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER])
                 if (other->job && job_compare(j, other->job, UNIT_AFTER) < 0)
                         return false;
 
@@ -1508,7 +1504,6 @@ int job_get_before(Job *j, Job*** ret) {
         _cleanup_free_ Job** list = NULL;
         size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
-        Iterator i;
         void *v;
 
         /* Returns a list of all pending jobs that need to finish before this job may be started. */
@@ -1521,7 +1516,7 @@ int job_get_before(Job *j, Job*** ret) {
                 return 0;
         }
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER]) {
                 if (!other->job)
                         continue;
                 if (job_compare(j, other->job, UNIT_AFTER) <= 0)
@@ -1532,7 +1527,7 @@ int job_get_before(Job *j, Job*** ret) {
                 list[n++] = other->job;
         }
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i) {
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE]) {
                 if (!other->job)
                         continue;
                 if (job_compare(j, other->job, UNIT_BEFORE) <= 0)
@@ -1555,14 +1550,13 @@ int job_get_after(Job *j, Job*** ret) {
         size_t n = 0, n_allocated = 0;
         Unit *other = NULL;
         void *v;
-        Iterator i;
 
         assert(j);
         assert(ret);
 
         /* Returns a list of all pending jobs that are waiting for this job to finish. */
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE], i) {
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_BEFORE]) {
                 if (!other->job)
                         continue;
 
@@ -1577,7 +1571,7 @@ int job_get_after(Job *j, Job*** ret) {
                 list[n++] = other->job;
         }
 
-        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER], i) {
+        HASHMAP_FOREACH_KEY(v, other, j->unit->dependencies[UNIT_AFTER]) {
                 if (!other->job)
                         continue;
 

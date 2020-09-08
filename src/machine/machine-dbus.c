@@ -1382,14 +1382,13 @@ static int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata
         _cleanup_strv_free_ char **l = NULL;
         Machine *machine = NULL;
         Manager *m = userdata;
-        Iterator i;
         int r;
 
         assert(bus);
         assert(path);
         assert(nodes);
 
-        HASHMAP_FOREACH(machine, m->machines, i) {
+        HASHMAP_FOREACH(machine, m->machines) {
                 char *p;
 
                 p = machine_bus_path(machine);

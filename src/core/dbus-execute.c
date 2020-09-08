@@ -360,7 +360,6 @@ static int property_get_syscall_filter(
         int r;
 
 #if HAVE_SECCOMP
-        Iterator i;
         void *id, *val;
 #endif
 
@@ -377,7 +376,7 @@ static int property_get_syscall_filter(
                 return r;
 
 #if HAVE_SECCOMP
-        HASHMAP_FOREACH_KEY(val, id, c->syscall_filter, i) {
+        HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
                 _cleanup_free_ char *name = NULL;
                 const char *e = NULL;
                 char *s;
@@ -430,7 +429,6 @@ static int property_get_syscall_archs(
         int r;
 
 #if HAVE_SECCOMP
-        Iterator i;
         void *id;
 #endif
 
@@ -439,7 +437,7 @@ static int property_get_syscall_archs(
         assert(c);
 
 #if HAVE_SECCOMP
-        SET_FOREACH(id, c->syscall_archs, i) {
+        SET_FOREACH(id, c->syscall_archs) {
                 const char *name;
 
                 name = seccomp_arch_to_string(PTR_TO_UINT32(id) - 1);
@@ -526,7 +524,6 @@ static int property_get_address_families(
 
         ExecContext *c = userdata;
         _cleanup_strv_free_ char **l = NULL;
-        Iterator i;
         void *af;
         int r;
 
@@ -542,7 +539,7 @@ static int property_get_address_families(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(af, c->address_families, i) {
+        SET_FOREACH(af, c->address_families) {
                 const char *name;
 
                 name = af_to_name(PTR_TO_INT(af));
@@ -759,7 +756,6 @@ static int property_get_set_credential(
 
         ExecContext *c = userdata;
         ExecSetCredential *sc;
-        Iterator iterator;
         int r;
 
         assert(bus);
@@ -771,7 +767,7 @@ static int property_get_set_credential(
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(sc, c->set_credentials, iterator) {
+        HASHMAP_FOREACH(sc, c->set_credentials) {
 
                 r = sd_bus_message_open_container(reply, 'r', "say");
                 if (r < 0)

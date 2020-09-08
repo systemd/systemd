@@ -38,7 +38,6 @@ static void test_mount_propagation_flags(const char *name, int ret, unsigned lon
 static void test_mnt_id(void) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_hashmap_free_free_ Hashmap *h = NULL;
-        Iterator i;
         char *p;
         void *k;
         int r;
@@ -72,7 +71,7 @@ static void test_mnt_id(void) {
                 path = NULL;
         }
 
-        HASHMAP_FOREACH_KEY(p, k, h, i) {
+        HASHMAP_FOREACH_KEY(p, k, h) {
                 int mnt_id = PTR_TO_INT(k), mnt_id2;
 
                 r = path_get_mnt_id(p, &mnt_id2);

@@ -144,7 +144,6 @@ void route_free(Route *route) {
 
         if (route->link) {
                 NDiscRoute *n;
-                Iterator i;
 
                 set_remove(route->link->routes, route);
                 set_remove(route->link->routes_foreign, route);
@@ -154,7 +153,7 @@ void route_free(Route *route) {
                 set_remove(route->link->dhcp6_routes_old, route);
                 set_remove(route->link->dhcp6_pd_routes, route);
                 set_remove(route->link->dhcp6_pd_routes_old, route);
-                SET_FOREACH(n, route->link->ndisc_routes, i)
+                SET_FOREACH(n, route->link->ndisc_routes)
                         if (n->route == route)
                                 free(set_remove(route->link->ndisc_routes, n));
         }
@@ -575,7 +574,6 @@ static int append_nexthops(Route *route, sd_netlink_message *req) {
         struct rtnexthop *rtnh;
         MultipathRoute *m;
         size_t offset;
-        Iterator i;
         int r;
 
         if (ordered_set_isempty(route->multipath_routes))
@@ -591,7 +589,7 @@ static int append_nexthops(Route *route, sd_netlink_message *req) {
         };
         offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
 
-        ORDERED_SET_FOREACH(m, route->multipath_routes, i) {
+        ORDERED_SET_FOREACH(m, route->multipath_routes) {
                 r = append_nexthop_one(route, m, &rta, offset);
                 if (r < 0)
                         return r;

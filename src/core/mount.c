@@ -281,7 +281,6 @@ static int update_parameters_proc_self_mountinfo(
 static int mount_add_mount_dependencies(Mount *m) {
         MountParameters *pm;
         Unit *other;
-        Iterator i;
         Set *s;
         int r;
 
@@ -315,7 +314,7 @@ static int mount_add_mount_dependencies(Mount *m) {
 
         /* Adds in dependencies to other units that use this path or paths further down in the hierarchy */
         s = manager_get_units_requiring_mounts_for(UNIT(m)->manager, m->where);
-        SET_FOREACH(other, s, i) {
+        SET_FOREACH(other, s) {
 
                 if (other->load_state != UNIT_LOADED)
                         continue;
@@ -1903,7 +1902,6 @@ static int drain_libmount(Manager *m) {
 static int mount_process_proc_self_mountinfo(Manager *m) {
         _cleanup_set_free_free_ Set *around = NULL, *gone = NULL;
         const char *what;
-        Iterator i;
         Unit *u;
         int r;
 
@@ -2001,7 +1999,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                 mount->proc_flags = 0;
         }
 
-        SET_FOREACH(what, gone, i) {
+        SET_FOREACH(what, gone) {
                 if (set_contains(around, what))
                         continue;
 

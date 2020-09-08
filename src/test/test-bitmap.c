@@ -4,7 +4,6 @@
 
 int main(int argc, const char *argv[]) {
         _cleanup_bitmap_free_ Bitmap *b = NULL, *b2 = NULL;
-        Iterator it;
         unsigned n = (unsigned) -1, i = 0;
 
         b = bitmap_new();
@@ -46,14 +45,14 @@ int main(int argc, const char *argv[]) {
         assert_se(bitmap_isset(b, 32) == true);
         bitmap_unset(b, 32);
 
-        BITMAP_FOREACH(n, NULL, it)
+        BITMAP_FOREACH(n, NULL)
                 assert_not_reached("NULL bitmap");
 
         assert_se(bitmap_set(b, 0) == 0);
         assert_se(bitmap_set(b, 1) == 0);
         assert_se(bitmap_set(b, 256) == 0);
 
-        BITMAP_FOREACH(n, b, it) {
+        BITMAP_FOREACH(n, b) {
                 assert_se(n == i);
                 if (i == 0)
                         i = 1;
@@ -67,7 +66,7 @@ int main(int argc, const char *argv[]) {
 
         i = 0;
 
-        BITMAP_FOREACH(n, b, it) {
+        BITMAP_FOREACH(n, b) {
                 assert_se(n == i);
                 if (i == 0)
                         i = 1;

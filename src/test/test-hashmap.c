@@ -54,7 +54,6 @@ static void test_string_compare_func(void) {
 static void compare_cache(Hashmap *map, IteratedCache *cache) {
         const void **keys = NULL, **values = NULL;
         unsigned num, idx;
-        Iterator iter;
         void *k, *v;
 
         assert_se(iterated_cache_get(cache, &keys, &values, &num) == 0);
@@ -62,7 +61,7 @@ static void compare_cache(Hashmap *map, IteratedCache *cache) {
         assert_se(num == 0 || values);
 
         idx = 0;
-        HASHMAP_FOREACH_KEY(v, k, map, iter) {
+        HASHMAP_FOREACH_KEY(v, k, map) {
                 assert_se(v == values[idx]);
                 assert_se(k == keys[idx]);
 

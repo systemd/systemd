@@ -401,13 +401,9 @@ static int should_skip_path(const char *prefix, const char *suffix) {
 
 static int process_suffix(const char *suffix, const char *onlyprefix) {
         const char *p;
-        char *f;
-        OrderedHashmap *top, *bottom, *drops;
-        OrderedHashmap *h;
-        char *key;
-        int r = 0, k;
-        Iterator i, j;
-        int n_found = 0;
+        char *f, *key;
+        OrderedHashmap *top, *bottom, *drops, *h;
+        int r = 0, k, n_found = 0;
         bool dropins;
 
         assert(suffix);
@@ -441,7 +437,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
                         r = k;
         }
 
-        ORDERED_HASHMAP_FOREACH_KEY(f, key, top, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(f, key, top) {
                 char *o;
 
                 o = ordered_hashmap_get(bottom, key);
@@ -461,7 +457,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
                 h = ordered_hashmap_get(drops, key);
                 if (h)
-                        ORDERED_HASHMAP_FOREACH(o, h, j)
+                        ORDERED_HASHMAP_FOREACH(o, h)
                                 if (!onlyprefix || startswith(o, onlyprefix))
                                         n_found += notify_override_extended(f, o);
         }
@@ -470,7 +466,7 @@ finish:
         ordered_hashmap_free_free(top);
         ordered_hashmap_free_free(bottom);
 
-        ORDERED_HASHMAP_FOREACH_KEY(h, key, drops, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(h, key, drops) {
                 ordered_hashmap_free_free(ordered_hashmap_remove(drops, key));
                 ordered_hashmap_remove(drops, key);
                 free(key);

@@ -469,7 +469,6 @@ static void test_hashmap_ensure_allocated(void) {
 
 static void test_hashmap_foreach_key(void) {
         Hashmap *m;
-        Iterator i;
         bool key_found[] = { false, false, false, false };
         const char *s;
         const char *key;
@@ -486,7 +485,7 @@ static void test_hashmap_foreach_key(void) {
         NULSTR_FOREACH(key, key_table)
                 hashmap_put(m, key, (void*) (const char*) "my dummy val");
 
-        HASHMAP_FOREACH_KEY(s, key, m, i) {
+        HASHMAP_FOREACH_KEY(s, key, m) {
                 assert(s);
                 if (!key_found[0] && streq(key, "key 1"))
                         key_found[0] = true;
@@ -506,7 +505,6 @@ static void test_hashmap_foreach_key(void) {
 
 static void test_hashmap_foreach(void) {
         Hashmap *m;
-        Iterator i;
         bool value_found[] = { false, false, false, false };
         char *val1, *val2, *val3, *val4, *s;
         unsigned count;
@@ -525,14 +523,14 @@ static void test_hashmap_foreach(void) {
         m = NULL;
 
         count = 0;
-        HASHMAP_FOREACH(s, m, i)
+        HASHMAP_FOREACH(s, m)
                 count++;
         assert_se(count == 0);
 
         m = hashmap_new(&string_hash_ops);
 
         count = 0;
-        HASHMAP_FOREACH(s, m, i)
+        HASHMAP_FOREACH(s, m)
                 count++;
         assert_se(count == 0);
 
@@ -541,7 +539,7 @@ static void test_hashmap_foreach(void) {
         hashmap_put(m, "Key 3", val3);
         hashmap_put(m, "Key 4", val4);
 
-        HASHMAP_FOREACH(s, m, i) {
+        HASHMAP_FOREACH(s, m) {
                 if (!value_found[0] && streq(s, val1))
                         value_found[0] = true;
                 else if (!value_found[1] && streq(s, val2))

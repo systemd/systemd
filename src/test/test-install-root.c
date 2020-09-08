@@ -548,7 +548,6 @@ static void test_preset_and_list(const char *root) {
         const char *p, *q;
         UnitFileState state;
         bool got_yes = false, got_no = false;
-        Iterator j;
         UnitFileList *fl;
         Hashmap *h;
 
@@ -631,7 +630,7 @@ static void test_preset_and_list(const char *root) {
         p = strjoina(root, "/usr/lib/systemd/system/preset-yes.service");
         q = strjoina(root, "/usr/lib/systemd/system/preset-no.service");
 
-        HASHMAP_FOREACH(fl, h, j) {
+        HASHMAP_FOREACH(fl, h) {
                 assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, basename(fl->path), &state) >= 0);
                 assert_se(fl->state == state);
 
