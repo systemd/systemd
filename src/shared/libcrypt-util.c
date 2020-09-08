@@ -8,6 +8,7 @@
 #include "libcrypt-util.h"
 #include "log.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "missing_stdlib.h"
 #include "random-util.h"
 #include "string-util.h"
@@ -75,21 +76,23 @@ int make_salt(char **ret) {
 #endif
 }
 
-int hash_password(const char *password, char **ret) {
+int hash_password_full(const char *password, void **cd_data, int *cd_size, char **ret) {
         _cleanup_free_ char *salt = NULL;
+        _cleanup_(erase_and_freep) void *_cd_data = NULL;
         char *p;
-        struct crypt_data cd = {};
-        int r;
+        int r, _cd_size = 0;
+
+        assert(!!cd_data == !!cd_size);
 
         r = make_salt(&salt);
         if (r < 0)
                 return log_debug_errno(r, "Failed to generate salt: %m");
 
         errno = 0;
-        p = crypt_r(password, salt, &cd);
+        p = crypt_ra(password, salt, cd_data ?: &_cd_data, cd_size ?: &_cd_size);
         if (!p)
                 return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)),
-                                       "crypt_r() failed: %m");
+                                       "crypt_ra() failed: %m");
 
         p = strdup(p);
         if (!p)

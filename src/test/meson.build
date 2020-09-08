@@ -301,6 +301,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-libcrypt-util.c'],
+         [],
+         []],
+
         [['src/test/test-offline-passwd.c',
           'src/shared/offline-passwd.c',
           'src/shared/offline-passwd.h'],
