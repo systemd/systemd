@@ -189,9 +189,9 @@ struct UdevRules {
                 UdevRuleLine *_l = _f ? _f->current_line : NULL;        \
                 const char *_n = _f ? _f->filename : NULL;              \
                                                                         \
-                log_device_full(device, level, error, "%s:%u " fmt,     \
-                                strna(_n), _l ? _l->line_number : 0,    \
-                                ##__VA_ARGS__);                         \
+                log_device_full_errno(device, level, error, "%s:%u " fmt, \
+                                      strna(_n), _l ? _l->line_number : 0, \
+                                      ##__VA_ARGS__);                   \
         })
 
 #define log_rule_full(device, rules, level, ...)   (void) log_rule_full_errno(device, rules, level, 0, __VA_ARGS__)
