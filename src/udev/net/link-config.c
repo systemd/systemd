@@ -314,7 +314,8 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
         case NET_ADDR_PERM:
                 break;
         default:
-                return log_device_warning(device, "Unknown addr_assign_type %u, ignoring", addr_type);
+                log_device_warning(device, "Unknown addr_assign_type %u, ignoring", addr_type);
+                return 0;
         }
 
         if (want_random == (addr_type == NET_ADDR_RANDOM))
