@@ -268,7 +268,6 @@ static int manager_rtnl_listen(Manager *m) {
 
 static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
-        Iterator i;
         Link *l;
         int r;
 
@@ -276,7 +275,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         sd_network_monitor_flush(m->network_monitor);
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
                 r = link_update(l);
                 if (r < 0)
                         log_warning_errno(r, "Failed to update monitor information for %i: %m", l->ifindex);
@@ -509,7 +508,6 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         DnsServer *server;
         size_t size = 0;
         DnsScope *scope;
-        Iterator i;
         Link *l;
 
         assert(s);
@@ -527,7 +525,7 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
                 dns_server_dump(server, f);
         LIST_FOREACH(servers, server, m->fallback_dns_servers)
                 dns_server_dump(server, f);
-        HASHMAP_FOREACH(l, m->links, i)
+        HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, server, l->dns_servers)
                         dns_server_dump(server, f);
 
@@ -1066,13 +1064,12 @@ int manager_send(
 uint32_t manager_find_mtu(Manager *m) {
         uint32_t mtu = 0;
         Link *l;
-        Iterator i;
 
         /* If we don't know on which link a DNS packet would be
          * delivered, let's find the largest MTU that works on all
          * interfaces we know of */
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
                 if (l->mtu <= 0)
                         continue;
 
@@ -1096,7 +1093,6 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
 }
 
 void manager_refresh_rrs(Manager *m) {
-        Iterator i;
         Link *l;
         DnssdService *s;
 
@@ -1108,11 +1104,11 @@ void manager_refresh_rrs(Manager *m) {
         m->mdns_host_ipv6_key = dns_resource_key_unref(m->mdns_host_ipv6_key);
 
         if (m->mdns_support == RESOLVE_SUPPORT_YES)
-                HASHMAP_FOREACH(s, m->dnssd_services, i)
+                HASHMAP_FOREACH(s, m->dnssd_services)
                         if (dnssd_update_rrs(s) < 0)
                                 log_warning("Failed to refresh DNS-SD service '%s'", s->name);
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
                 link_add_rrs(l, true);
                 link_add_rrs(l, false);
         }
@@ -1180,12 +1176,11 @@ int manager_next_hostname(Manager *m) {
 }
 
 LinkAddress* manager_find_link_address(Manager *m, int family, const union in_addr_union *in_addr) {
-        Iterator i;
         Link *l;
 
         assert(m);
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
                 LinkAddress *a;
 
                 a = link_find_address(l, family, in_addr);
@@ -1272,7 +1267,6 @@ int manager_is_own_hostname(Manager *m, const char *name) {
 
 int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         DnsServer *s;
-        Iterator i;
         Link *l;
         int r;
 
@@ -1293,7 +1287,7 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
         }
 
         /* Then, add the per-link servers */
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
                 LIST_FOREACH(servers, s, l->dns_servers) {
                         r = ordered_set_put(*dns, s);
                         if (r == -EEXIST)
@@ -1324,7 +1318,6 @@ int manager_compile_dns_servers(Manager *m, OrderedSet **dns) {
  */
 int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_route) {
         DnsSearchDomain *d;
-        Iterator i;
         Link *l;
         int r;
 
@@ -1348,7 +1341,7 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
 
                 LIST_FOREACH(domains, d, l->search_domains) {
 
@@ -1378,7 +1371,6 @@ DnssecMode manager_get_dnssec_mode(Manager *m) {
 
 bool manager_dnssec_supported(Manager *m) {
         DnsServer *server;
-        Iterator i;
         Link *l;
 
         assert(m);
@@ -1390,7 +1382,7 @@ bool manager_dnssec_supported(Manager *m) {
         if (server && !dns_server_dnssec_supported(server))
                 return false;
 
-        HASHMAP_FOREACH(l, m->links, i)
+        HASHMAP_FOREACH(l, m->links)
                 if (!link_dnssec_supported(l))
                         return false;
 
@@ -1423,14 +1415,13 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
 }
 
 bool manager_routable(Manager *m, int family) {
-        Iterator i;
         Link *l;
 
         assert(m);
 
         /* Returns true if the host has at least one interface with a routable address of the specified type */
 
-        HASHMAP_FOREACH(l, m->links, i)
+        HASHMAP_FOREACH(l, m->links)
                 if (link_relevant(l, family, false))
                         return true;
 
@@ -1449,13 +1440,12 @@ void manager_flush_caches(Manager *m) {
 }
 
 void manager_reset_server_features(Manager *m) {
-        Iterator i;
         Link *l;
 
         dns_server_reset_features_all(m->dns_servers);
         dns_server_reset_features_all(m->fallback_dns_servers);
 
-        HASHMAP_FOREACH(l, m->links, i)
+        HASHMAP_FOREACH(l, m->links)
                 dns_server_reset_features_all(l->dns_servers);
 
         log_info("Resetting learnt feature levels on all servers.");
@@ -1516,14 +1506,13 @@ void manager_cleanup_saved_user(Manager *m) {
 }
 
 bool manager_next_dnssd_names(Manager *m) {
-        Iterator i;
         DnssdService *s;
         bool tried = false;
         int r;
 
         assert(m);
 
-        HASHMAP_FOREACH(s, m->dnssd_services, i) {
+        HASHMAP_FOREACH(s, m->dnssd_services) {
                 _cleanup_free_ char * new_name = NULL;
 
                 if (!s->withdrawn)

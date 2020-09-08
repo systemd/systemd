@@ -1058,7 +1058,6 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         const char *k;
-        Iterator i;
         Unit *u;
         int r;
 
@@ -1079,7 +1078,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH_KEY(u, k, m->units, i) {
+        HASHMAP_FOREACH_KEY(u, k, m->units) {
                 if (k != u->id)
                         continue;
 
@@ -1139,7 +1138,6 @@ static int method_list_units_by_patterns(sd_bus_message *message, void *userdata
 static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
-        Iterator i;
         Job *j;
         int r;
 
@@ -1160,7 +1158,7 @@ static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(j, m->jobs, i) {
+        HASHMAP_FOREACH(j, m->jobs) {
                 _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
 
                 job_path = job_dbus_path(j);
@@ -1759,7 +1757,6 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         DynamicUser *d;
-        Iterator i;
         int r;
 
         assert(message);
@@ -1778,7 +1775,7 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(d, m->dynamic_users, i) {
+        HASHMAP_FOREACH(d, m->dynamic_users) {
                 uid_t uid;
 
                 r = dynamic_user_current(d, &uid);
@@ -1804,7 +1801,6 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         Manager *m = userdata;
         UnitFileList *item;
         Hashmap *h;
-        Iterator i;
         int r;
 
         assert(message);
@@ -1832,7 +1828,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 goto fail;
 
-        HASHMAP_FOREACH(item, h, i) {
+        HASHMAP_FOREACH(item, h) {
 
                 r = sd_bus_message_append(reply, "(ss)", item->path, unit_file_state_to_string(item->state));
                 if (r < 0)

@@ -94,7 +94,6 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
         _cleanup_(hashmap_freep) Hashmap *all_services = NULL;
         XdgAutostartService *service;
-        Iterator j;
         int r;
 
         assert_se(dest_late);
@@ -107,7 +106,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(service, all_services, j)
+        HASHMAP_FOREACH(service, all_services)
                 (void) xdg_autostart_service_generate_unit(service, dest_late);
 
         return 0;

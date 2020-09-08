@@ -357,7 +357,6 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         struct passwd *pw = NULL;
-        Iterator iterator;
         Item *i;
         int r;
 
@@ -406,7 +405,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         return -errno;
         }
 
-        ORDERED_HASHMAP_FOREACH(i, todo_uids, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, todo_uids) {
                 struct passwd n = {
                         .pw_name = i->name,
                         .pw_uid = i->uid,
@@ -456,7 +455,6 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         struct spwd *sp = NULL;
-        Iterator iterator;
         long lstchg;
         Item *i;
         int r;
@@ -508,7 +506,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         return -errno;
         }
 
-        ORDERED_HASHMAP_FOREACH(i, todo_uids, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, todo_uids) {
                 struct spwd n = {
                         .sp_namp = i->name,
                         .sp_pwdp = (char*) "!*", /* lock this password, and make it invalid */
@@ -556,7 +554,6 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         _cleanup_(unlink_and_freep) char *group_tmp = NULL;
         bool group_changed = false;
         struct group *gr = NULL;
-        Iterator iterator;
         Item *i;
         int r;
 
@@ -611,7 +608,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                         return -errno;
         }
 
-        ORDERED_HASHMAP_FOREACH(i, todo_gids, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, todo_gids) {
                 struct group n = {
                         .gr_name = i->name,
                         .gr_gid = i->gid,
@@ -654,7 +651,6 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         _cleanup_fclose_ FILE *original = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *gshadow_tmp = NULL;
         bool group_changed = false;
-        Iterator iterator;
         Item *i;
         int r;
 
@@ -697,7 +693,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                         return -errno;
         }
 
-        ORDERED_HASHMAP_FOREACH(i, todo_gids, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, todo_gids) {
                 struct sgrp n = {
                         .sg_namp = i->name,
                         .sg_passwd = (char*) "!!",
@@ -1267,11 +1263,10 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_hash_ops, char, string_hash_f
 
 static int add_implicit(void) {
         char *g, **l;
-        Iterator iterator;
         int r;
 
         /* Implicitly create additional users and groups, if they were listed in "m" lines */
-        ORDERED_HASHMAP_FOREACH_KEY(l, g, members, iterator) {
+        ORDERED_HASHMAP_FOREACH_KEY(l, g, members) {
                 char **m;
 
                 STRV_FOREACH(m, l)
@@ -1900,7 +1895,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
         _cleanup_close_ int lock = -1;
-        Iterator iterator;
         Item *i;
         int r;
 
@@ -1980,10 +1974,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read group database: %m");
 
-        ORDERED_HASHMAP_FOREACH(i, groups, iterator)
+        ORDERED_HASHMAP_FOREACH(i, groups)
                 (void) process_item(i);
 
-        ORDERED_HASHMAP_FOREACH(i, users, iterator)
+        ORDERED_HASHMAP_FOREACH(i, users)
                 (void) process_item(i);
 
         r = write_files();

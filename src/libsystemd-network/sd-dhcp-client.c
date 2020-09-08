@@ -919,7 +919,6 @@ static int dhcp_client_send_raw(
 
 static int client_append_common_discover_request_options(sd_dhcp_client *client, DHCPPacket *packet, size_t *optoffset, size_t optlen) {
         sd_dhcp_option *j;
-        Iterator i;
         int r;
 
         assert(client);
@@ -970,7 +969,7 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
                         return r;
         }
 
-        ORDERED_HASHMAP_FOREACH(j, client->extra_options, i) {
+        ORDERED_HASHMAP_FOREACH(j, client->extra_options) {
                 r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
                                        j->option, j->length, j->data);
                 if (r < 0)

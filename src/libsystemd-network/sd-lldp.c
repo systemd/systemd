@@ -431,7 +431,6 @@ static int lldp_start_timer(sd_lldp *lldp, sd_lldp_neighbor *neighbor) {
 
 _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
         sd_lldp_neighbor **l = NULL, *n;
-        Iterator i;
         int k = 0, r;
 
         assert_return(lldp, -EINVAL);
@@ -452,7 +451,7 @@ _public_ int sd_lldp_get_neighbors(sd_lldp *lldp, sd_lldp_neighbor ***ret) {
                 return r;
         }
 
-        HASHMAP_FOREACH(n, lldp->neighbor_by_id, i)
+        HASHMAP_FOREACH(n, lldp->neighbor_by_id)
                 l[k++] = sd_lldp_neighbor_ref(n);
 
         assert((size_t) k == hashmap_size(lldp->neighbor_by_id));

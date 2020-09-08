@@ -354,7 +354,6 @@ static int dns_packet_extend(DnsPacket *p, size_t add, void **ret, size_t *start
 }
 
 void dns_packet_truncate(DnsPacket *p, size_t sz) {
-        Iterator i;
         char *s;
         void *n;
 
@@ -363,7 +362,7 @@ void dns_packet_truncate(DnsPacket *p, size_t sz) {
         if (p->size <= sz)
                 return;
 
-        HASHMAP_FOREACH_KEY(n, s, p->names, i) {
+        HASHMAP_FOREACH_KEY(n, s, p->names) {
 
                 if (PTR_TO_SIZE(n) < sz)
                         continue;
@@ -646,7 +645,6 @@ fail:
 }
 
 static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
-        Iterator i;
         uint8_t window = 0;
         uint8_t entry = 0;
         uint8_t bitmaps[32] = {};
@@ -658,7 +656,7 @@ static int dns_packet_append_types(DnsPacket *p, Bitmap *types, size_t *start) {
 
         saved_size = p->size;
 
-        BITMAP_FOREACH(n, types, i) {
+        BITMAP_FOREACH(n, types) {
                 assert(n <= 0xffff);
 
                 if ((n >> 8) != window && bitmaps[entry / 8] != 0) {

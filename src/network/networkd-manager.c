@@ -81,12 +81,11 @@ static int setup_default_address_pool(Manager *m) {
 
 static int manager_reset_all(Manager *m) {
         Link *link;
-        Iterator i;
         int r;
 
         assert(m);
 
-        HASHMAP_FOREACH(link, m->links, i) {
+        HASHMAP_FOREACH(link, m->links) {
                 r = link_carrier_reset(link);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Could not reset carrier: %m");
@@ -1519,7 +1518,6 @@ static int manager_save(Manager *m) {
         _cleanup_strv_free_ char **p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         Link *link;
-        Iterator i;
         int r;
 
         assert(m);
@@ -1546,7 +1544,7 @@ static int manager_save(Manager *m) {
         if (!route_domains)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(link, m->links, i) {
+        HASHMAP_FOREACH(link, m->links) {
                 const struct in_addr *addresses;
 
                 if (link->flags & IFF_LOOPBACK)
@@ -1723,14 +1721,13 @@ fail:
 static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         Manager *m = userdata;
         Link *link;
-        Iterator i;
 
         assert(m);
 
         if (m->dirty)
                 manager_save(m);
 
-        SET_FOREACH(link, m->dirty_links, i)
+        SET_FOREACH(link, m->dirty_links)
                 (void) link_save_and_clean(link);
 
         return 1;
@@ -1827,14 +1824,13 @@ int manager_new(Manager **ret) {
 void manager_free(Manager *m) {
         AddressPool *pool;
         Link *link;
-        Iterator i;
 
         if (!m)
                 return;
 
         free(m->state_file);
 
-        HASHMAP_FOREACH(link, m->links, i)
+        HASHMAP_FOREACH(link, m->links)
                 (void) link_stop_clients(link, true);
 
         m->dhcp6_prefixes = hashmap_free_with_destructor(m->dhcp6_prefixes, dhcp6_pd_free);
@@ -1880,7 +1876,6 @@ void manager_free(Manager *m) {
 
 int manager_start(Manager *m) {
         Link *link;
-        Iterator i;
         int r;
 
         assert(m);
@@ -1894,7 +1889,7 @@ int manager_start(Manager *m) {
 
         manager_save(m);
 
-        HASHMAP_FOREACH(link, m->links, i)
+        HASHMAP_FOREACH(link, m->links)
                 (void) link_save(link);
 
         return 0;

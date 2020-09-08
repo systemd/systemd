@@ -2338,12 +2338,11 @@ static void socket_enter_running(Socket *s, int cfd_in) {
         if (cfd < 0) {
                 bool pending = false;
                 Unit *other;
-                Iterator i;
                 void *v;
 
                 /* If there's already a start pending don't bother to
                  * do anything */
-                HASHMAP_FOREACH_KEY(v, other, UNIT(s)->dependencies[UNIT_TRIGGERS], i)
+                HASHMAP_FOREACH_KEY(v, other, UNIT(s)->dependencies[UNIT_TRIGGERS])
                         if (unit_active_or_pending(other)) {
                                 pending = true;
                                 break;
@@ -2788,7 +2787,6 @@ static void socket_distribute_fds(Unit *u, FDSet *fds) {
         assert(u);
 
         LIST_FOREACH(port, p, s->ports) {
-                Iterator i;
                 int fd;
 
                 if (p->type != SOCKET_SOCKET)
@@ -2797,7 +2795,7 @@ static void socket_distribute_fds(Unit *u, FDSet *fds) {
                 if (p->fd >= 0)
                         continue;
 
-                FDSET_FOREACH(fd, fds, i) {
+                FDSET_FOREACH(fd, fds) {
                         if (socket_address_matches_fd(&p->address, fd)) {
                                 p->fd = fdset_remove(fds, fd);
                                 s->deserialized_state = SOCKET_LISTENING;

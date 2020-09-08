@@ -479,7 +479,6 @@ static int server_send_ack(
         _cleanup_free_ DHCPPacket *packet = NULL;
         be32_t lease_time;
         sd_dhcp_option *j;
-        Iterator i;
         size_t offset;
         int r;
 
@@ -531,7 +530,7 @@ static int server_send_ack(
                         return r;
         }
 
-        ORDERED_HASHMAP_FOREACH(j, server->extra_options, i) {
+        ORDERED_HASHMAP_FOREACH(j, server->extra_options) {
                 r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
                                        j->option, j->length, j->data);
                 if (r < 0)

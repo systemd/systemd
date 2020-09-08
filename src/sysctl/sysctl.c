@@ -119,10 +119,9 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
 
 static int apply_all(OrderedHashmap *sysctl_options) {
         Option *option;
-        Iterator i;
         int r = 0;
 
-        ORDERED_HASHMAP_FOREACH(option, sysctl_options, i) {
+        ORDERED_HASHMAP_FOREACH(option, sysctl_options) {
                 int k;
 
                 /* Ignore "negative match" options, they are there only to exclude stuff from globs. */

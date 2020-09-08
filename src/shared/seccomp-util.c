@@ -1058,7 +1058,6 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
-                Iterator i;
                 void *syscall_id, *val;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
@@ -1067,7 +1066,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                 if (r < 0)
                         return r;
 
-                HASHMAP_FOREACH_KEY(val, syscall_id, set, i) {
+                HASHMAP_FOREACH_KEY(val, syscall_id, set) {
                         uint32_t a = action;
                         int id = PTR_TO_INT(syscall_id) - 1;
                         int error = PTR_TO_INT(val);
@@ -1368,7 +1367,6 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
                 bool supported;
-                Iterator i;
 
                 log_debug("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
@@ -1419,7 +1417,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                          * range and then everything that is not in the set. First, we find the lowest and
                          * highest address family in the set. */
 
-                        SET_FOREACH(afp, address_families, i) {
+                        SET_FOREACH(afp, address_families) {
                                 int af = PTR_TO_INT(afp);
 
                                 if (af <= 0 || af >= af_max())
@@ -1500,7 +1498,7 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                         /* If this is a deny list, then generate one rule for each address family that are
                          * then combined in OR checks. */
 
-                        SET_FOREACH(af, address_families, i) {
+                        SET_FOREACH(af, address_families) {
                                 r = seccomp_rule_add_exact(
                                                 seccomp,
                                                 SCMP_ACT_ERRNO(EAFNOSUPPORT),
@@ -1742,7 +1740,6 @@ int seccomp_memory_deny_write_execute(void) {
 
 int seccomp_restrict_archs(Set *archs) {
         _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
-        Iterator i;
         void *id;
         int r;
 
@@ -1760,7 +1757,7 @@ int seccomp_restrict_archs(Set *archs) {
         if (!seccomp)
                 return -ENOMEM;
 
-        SET_FOREACH(id, archs, i) {
+        SET_FOREACH(id, archs) {
                 r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
                 if (r < 0 && r != -EEXIST)
                         return r;

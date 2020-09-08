@@ -319,14 +319,13 @@ static int user_node_enumerator(sd_bus *bus, const char *path, void *userdata, c
         sd_bus_message *message;
         Manager *m = userdata;
         User *user;
-        Iterator i;
         int r;
 
         assert(bus);
         assert(path);
         assert(nodes);
 
-        HASHMAP_FOREACH(user, m->users, i) {
+        HASHMAP_FOREACH(user, m->users) {
                 char *p;
 
                 p = user_bus_path(user);

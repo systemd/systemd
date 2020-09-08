@@ -1324,7 +1324,6 @@ static int bus_property_get_dns_servers_internal(
 
         Manager *m = userdata;
         DnsServer *s;
-        Iterator i;
         Link *l;
         int r;
 
@@ -1341,7 +1340,7 @@ static int bus_property_get_dns_servers_internal(
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links, i)
+        HASHMAP_FOREACH(l, m->links)
                 LIST_FOREACH(servers, s, l->dns_servers) {
                         r = bus_dns_server_append(reply, s, true, extended);
                         if (r < 0)
@@ -1477,7 +1476,6 @@ static int bus_property_get_domains(
 
         Manager *m = userdata;
         DnsSearchDomain *d;
-        Iterator i;
         Link *l;
         int r;
 
@@ -1494,7 +1492,7 @@ static int bus_property_get_domains(
                         return r;
         }
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
                 LIST_FOREACH(domains, d, l->search_domains) {
                         r = sd_bus_message_append(reply, "(isb)", l->ifindex, d->name, d->route_only);
                         if (r < 0)
@@ -1581,7 +1579,6 @@ static int bus_property_get_ntas(
 
         Manager *m = userdata;
         const char *domain;
-        Iterator i;
         int r;
 
         assert(reply);
@@ -1591,7 +1588,7 @@ static int bus_property_get_ntas(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(domain, m->trust_anchor.negative_by_name, i) {
+        SET_FOREACH(domain, m->trust_anchor.negative_by_name) {
                 r = sd_bus_message_append(reply, "s", domain);
                 if (r < 0)
                         return r;

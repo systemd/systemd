@@ -70,12 +70,11 @@ int ordered_set_put_strdupv(OrderedSet *s, char **l) {
 
 int ordered_set_put_string_set(OrderedSet *s, OrderedSet *l) {
         int n = 0, r;
-        Iterator i;
         char *p;
 
         /* Like ordered_set_put_strv, but for an OrderedSet of strings */
 
-        ORDERED_SET_FOREACH(p, l, i) {
+        ORDERED_SET_FOREACH(p, l) {
                 r = ordered_set_put_strdup(s, p);
                 if (r < 0)
                         return r;
@@ -88,7 +87,6 @@ int ordered_set_put_string_set(OrderedSet *s, OrderedSet *l) {
 
 void ordered_set_print(FILE *f, const char *field, OrderedSet *s) {
         bool space = false;
-        Iterator i;
         char *p;
 
         if (ordered_set_isempty(s))
@@ -96,7 +94,7 @@ void ordered_set_print(FILE *f, const char *field, OrderedSet *s) {
 
         fputs(field, f);
 
-        ORDERED_SET_FOREACH(p, s, i)
+        ORDERED_SET_FOREACH(p, s)
                 fputs_with_space(f, p, NULL, &space);
 
         fputc('\n', f);

@@ -494,7 +494,6 @@ static int netdev_macsec_configure_transmit_association(NetDev *netdev, Transmit
 static int netdev_macsec_configure(NetDev *netdev, Link *link, sd_netlink_message *m) {
         TransmitAssociation *a;
         ReceiveChannel *c;
-        Iterator i;
         MACsec *s;
         int r;
 
@@ -502,13 +501,13 @@ static int netdev_macsec_configure(NetDev *netdev, Link *link, sd_netlink_messag
         s = MACSEC(netdev);
         assert(s);
 
-        ORDERED_HASHMAP_FOREACH(a, s->transmit_associations_by_section, i) {
+        ORDERED_HASHMAP_FOREACH(a, s->transmit_associations_by_section) {
                 r = netdev_macsec_configure_transmit_association(netdev, a);
                 if (r < 0)
                         return r;
         }
 
-        ORDERED_HASHMAP_FOREACH(c, s->receive_channels, i) {
+        ORDERED_HASHMAP_FOREACH(c, s->receive_channels) {
                 r = netdev_macsec_configure_receive_channel(netdev, c);
                 if (r < 0)
                         return r;
@@ -1148,7 +1147,6 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
         TransmitAssociation *a;
         ReceiveAssociation *n;
         ReceiveChannel *c;
-        Iterator i;
         uint8_t an, encoding_an;
         bool use_for_encoding;
         int r;
@@ -1157,7 +1155,7 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
         assert(v);
         assert(filename);
 
-        ORDERED_HASHMAP_FOREACH(c, v->receive_channels_by_section, i) {
+        ORDERED_HASHMAP_FOREACH(c, v->receive_channels_by_section) {
                 r = macsec_receive_channel_verify(c);
                 if (r < 0)
                         macsec_receive_channel_free(c);
@@ -1166,7 +1164,7 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
         an = 0;
         use_for_encoding = false;
         encoding_an = 0;
-        ORDERED_HASHMAP_FOREACH(a, v->transmit_associations_by_section, i) {
+        ORDERED_HASHMAP_FOREACH(a, v->transmit_associations_by_section) {
                 r = macsec_transmit_association_verify(a);
                 if (r < 0) {
                         macsec_transmit_association_free(a);
@@ -1201,7 +1199,7 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
         assert(encoding_an < MACSEC_MAX_ASSOCIATION_NUMBER);
         v->encoding_an = encoding_an;
 
-        ORDERED_HASHMAP_FOREACH(n, v->receive_associations_by_section, i) {
+        ORDERED_HASHMAP_FOREACH(n, v->receive_associations_by_section) {
                 r = macsec_receive_association_verify(n);
                 if (r < 0)
                         macsec_receive_association_free(n);

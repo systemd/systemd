@@ -20,7 +20,6 @@
 static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *manager = userdata;
-        Iterator i;
         Link *link;
         int r;
 
@@ -32,7 +31,7 @@ static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(link, manager->links, i) {
+        HASHMAP_FOREACH(link, manager->links) {
                 _cleanup_free_ char *path = NULL;
 
                 path = link_bus_path(link);
@@ -201,7 +200,6 @@ static int bus_method_reconfigure_link(sd_bus_message *message, void *userdata, 
 
 static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *manager = userdata;
-        Iterator i;
         Link *link;
         int r;
 
@@ -222,7 +220,7 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(link, manager->links, i) {
+        HASHMAP_FOREACH(link, manager->links) {
                 r = link_reconfigure(link, false);
                 if (r < 0)
                         return r;

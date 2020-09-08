@@ -231,7 +231,6 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
 static void write_resolv_conf_search(
                 OrderedSet *domains,
                 FILE *f) {
-        Iterator i;
         char *domain;
 
         assert(domains);
@@ -239,7 +238,7 @@ static void write_resolv_conf_search(
 
         fputs("search", f);
 
-        ORDERED_SET_FOREACH(domain, domains, i) {
+        ORDERED_SET_FOREACH(domain, domains) {
                 fputc(' ', f);
                 fputs(domain, f);
         }
@@ -248,7 +247,6 @@ static void write_resolv_conf_search(
 }
 
 static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
-        Iterator i;
 
         fputs("# This file is managed by man:systemd-resolved(8). Do not edit.\n"
               "#\n"
@@ -269,7 +267,7 @@ static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSe
                 unsigned count = 0;
                 DnsServer *s;
 
-                ORDERED_SET_FOREACH(s, dns, i)
+                ORDERED_SET_FOREACH(s, dns)
                         write_resolv_conf_server(s, f, &count);
         }
 

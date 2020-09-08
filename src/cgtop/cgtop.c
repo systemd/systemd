@@ -582,7 +582,6 @@ static int group_compare(Group * const *a, Group * const *b) {
 }
 
 static void display(Hashmap *a) {
-        Iterator i;
         Group *g;
         Group **array;
         signed path_columns;
@@ -596,7 +595,7 @@ static void display(Hashmap *a) {
 
         array = newa(Group*, hashmap_size(a));
 
-        HASHMAP_FOREACH(g, a, i)
+        HASHMAP_FOREACH(g, a)
                 if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)
                         array[n++] = g;
 

@@ -510,14 +510,13 @@ void unit_submit_to_stop_when_unneeded_queue(Unit *u) {
 
 static void bidi_set_free(Unit *u, Hashmap *h) {
         Unit *other;
-        Iterator i;
         void *v;
 
         assert(u);
 
         /* Frees the hashmap and makes sure we are dropped from the inverse pointers */
 
-        HASHMAP_FOREACH_KEY(v, other, h, i) {
+        HASHMAP_FOREACH_KEY(v, other, h) {
                 for (UnitDependency d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                         hashmap_remove(other->dependencies[d], u);
 
@@ -614,7 +613,6 @@ static void unit_done(Unit *u) {
 }
 
 void unit_free(Unit *u) {
-        Iterator i;
         char *t;
 
         if (!u)
@@ -638,7 +636,7 @@ void unit_free(Unit *u) {
 
         unit_free_requires_mounts_for(u);
 
-        SET_FOREACH(t, u->aliases, i)
+        SET_FOREACH(t, u->aliases)
                 hashmap_remove_value(u->manager->units, t, u);
         if (u->id)
                 hashmap_remove_value(u->manager->units, u->id, u);
@@ -819,7 +817,6 @@ static int hashmap_complete_move(Hashmap **s, Hashmap **other) {
 
 static int merge_names(Unit *u, Unit *other) {
         char *name;
-        Iterator i;
         int r;
 
         assert(u);
@@ -838,7 +835,7 @@ static int merge_names(Unit *u, Unit *other) {
         TAKE_PTR(other->id);
         other->aliases = set_free_free(other->aliases);
 
-        SET_FOREACH(name, u->aliases, i)
+        SET_FOREACH(name, u->aliases)
                 assert_se(hashmap_replace(u->manager->units, name, u) == 0);
 
         return 0;
@@ -866,7 +863,6 @@ static int reserve_dependencies(Unit *u, Unit *other, UnitDependency d) {
 }
 
 static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitDependency d) {
-        Iterator i;
         Unit *back;
         void *v;
         int r;
@@ -878,7 +874,7 @@ static void merge_dependencies(Unit *u, Unit *other, const char *other_id, UnitD
         assert(d < _UNIT_DEPENDENCY_MAX);
 
         /* Fix backwards pointers. Let's iterate through all dependent units of the other unit. */
-        HASHMAP_FOREACH_KEY(v, back, other->dependencies[d], i)
+        HASHMAP_FOREACH_KEY(v, back, other->dependencies[d])
 
                 /* Let's now iterate through the dependencies of that dependencies of the other units,
                  * looking for pointers back, and let's fix them up, to instead point to 'u'. */
@@ -1216,7 +1212,6 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
 
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t, **j;
-        Iterator i;
         const char *prefix2;
         char timestamp[5][FORMAT_TIMESTAMP_MAX], timespan[FORMAT_TIMESPAN_MAX];
         Unit *following;
@@ -1234,7 +1229,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s-> Unit %s:\n",
                 prefix, u->id);
 
-        SET_FOREACH(t, u->aliases, i)
+        SET_FOREACH(t, u->aliases)
                 fprintf(f, "%s\tAlias: %s\n", prefix, t);
 
         fprintf(f,
@@ -1321,7 +1316,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (r >= 0) {
                 Unit *other;
 
-                SET_FOREACH(other, following_set, i)
+                SET_FOREACH(other, following_set)
                         fprintf(f, "%s\tFollowing Set Member: %s\n", prefix, other->id);
         }
 
@@ -1373,7 +1368,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 UnitDependencyInfo di;
                 Unit *other;
 
-                HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[d], i) {
+                HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[d]) {
                         bool space = false;
 
                         fprintf(f, "%s\t%s: %s (", prefix, unit_dependency_to_string(d), other->id);
@@ -1389,7 +1384,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 UnitDependencyInfo di;
                 const char *path;
 
-                HASHMAP_FOREACH_KEY(di.data, path, u->requires_mounts_for, i) {
+                HASHMAP_FOREACH_KEY(di.data, path, u->requires_mounts_for) {
                         bool space = false;
 
                         fprintf(f, "%s\tRequiresMountsFor: %s (", prefix, path);
@@ -1536,12 +1531,11 @@ static int unit_add_slice_dependencies(Unit *u) {
 static int unit_add_mount_dependencies(Unit *u) {
         UnitDependencyInfo di;
         const char *path;
-        Iterator i;
         int r;
 
         assert(u);
 
-        HASHMAP_FOREACH_KEY(di.data, path, u->requires_mounts_for, i) {
+        HASHMAP_FOREACH_KEY(di.data, path, u->requires_mounts_for) {
                 char prefix[strlen(path) + 1];
 
                 PATH_FOREACH_PREFIX_MORE(prefix, path) {
@@ -1804,7 +1798,6 @@ bool unit_shall_confirm_spawn(Unit *u) {
 
 static bool unit_verify_deps(Unit *u) {
         Unit *other;
-        Iterator j;
         void *v;
 
         assert(u);
@@ -1814,7 +1807,7 @@ static bool unit_verify_deps(Unit *u) {
          * processing, but do not have any effect afterwards. We don't check BindsTo= dependencies that are not used in
          * conjunction with After= as for them any such check would make things entirely racy. */
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO], j) {
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO]) {
 
                 if (!hashmap_contains(u->dependencies[UNIT_AFTER], other))
                         continue;
@@ -2055,13 +2048,12 @@ bool unit_is_unneeded(Unit *u) {
 
         for (size_t j = 0; j < ELEMENTSOF(deps); j++) {
                 Unit *other;
-                Iterator i;
                 void *v;
 
                 /* If a dependent unit has a job queued, is active or transitioning, or is marked for
                  * restart, then don't clean this one up. */
 
-                HASHMAP_FOREACH_KEY(v, other, u->dependencies[deps[j]], i) {
+                HASHMAP_FOREACH_KEY(v, other, u->dependencies[deps[j]]) {
                         if (other->job)
                                 return false;
 
@@ -2091,10 +2083,9 @@ static void check_unneeded_dependencies(Unit *u) {
 
         for (size_t j = 0; j < ELEMENTSOF(deps); j++) {
                 Unit *other;
-                Iterator i;
                 void *v;
 
-                HASHMAP_FOREACH_KEY(v, other, u->dependencies[deps[j]], i)
+                HASHMAP_FOREACH_KEY(v, other, u->dependencies[deps[j]])
                         unit_submit_to_stop_when_unneeded_queue(other);
         }
 }
@@ -2103,7 +2094,6 @@ static void unit_check_binds_to(Unit *u) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool stop = false;
         Unit *other;
-        Iterator i;
         void *v;
         int r;
 
@@ -2115,7 +2105,7 @@ static void unit_check_binds_to(Unit *u) {
         if (unit_active_state(u) != UNIT_ACTIVE)
                 return;
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO], i) {
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO]) {
                 if (other->job)
                         continue;
 
@@ -2151,54 +2141,51 @@ static void unit_check_binds_to(Unit *u) {
 }
 
 static void retroactively_start_dependencies(Unit *u) {
-        Iterator i;
         Unit *other;
         void *v;
 
         assert(u);
         assert(UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)));
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRES], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRES])
                 if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BINDS_TO])
                 if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, NULL, NULL, NULL);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_WANTS], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_WANTS])
                 if (!hashmap_get(u->dependencies[UNIT_AFTER], other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_START, other, JOB_FAIL, NULL, NULL, NULL);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTS], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTS])
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTED_BY], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_CONFLICTED_BY])
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 static void retroactively_stop_dependencies(Unit *u) {
         Unit *other;
-        Iterator i;
         void *v;
 
         assert(u);
         assert(UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)));
 
         /* Pull down units which are bound to us recursively if enabled */
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BOUND_BY], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_BOUND_BY])
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, NULL, NULL, NULL);
 }
 
 void unit_start_on_failure(Unit *u) {
         Unit *other;
-        Iterator i;
         void *v;
         int r;
 
@@ -2209,7 +2196,7 @@ void unit_start_on_failure(Unit *u) {
 
         log_unit_info(u, "Triggering OnFailure= dependencies.");
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_ON_FAILURE], i) {
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_ON_FAILURE]) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, NULL, &error, NULL);
@@ -2220,12 +2207,11 @@ void unit_start_on_failure(Unit *u) {
 
 void unit_trigger_notify(Unit *u) {
         Unit *other;
-        Iterator i;
         void *v;
 
         assert(u);
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_TRIGGERED_BY], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_TRIGGERED_BY])
                 if (UNIT_VTABLE(other)->trigger_notify)
                         UNIT_VTABLE(other)->trigger_notify(other, u);
 }
@@ -2820,7 +2806,6 @@ void unit_unwatch_all_pids(Unit *u) {
 
 static void unit_tidy_watch_pids(Unit *u) {
         pid_t except1, except2;
-        Iterator i;
         void *e;
 
         assert(u);
@@ -2830,7 +2815,7 @@ static void unit_tidy_watch_pids(Unit *u) {
         except1 = unit_main_pid(u);
         except2 = unit_control_pid(u);
 
-        SET_FOREACH(e, u->pids, i) {
+        SET_FOREACH(e, u->pids) {
                 pid_t pid = PTR_TO_PID(e);
 
                 if (pid == except1 || pid == except2)
@@ -5102,7 +5087,6 @@ int unit_setup_exec_runtime(Unit *u) {
         ExecRuntime **rt;
         size_t offset;
         Unit *other;
-        Iterator i;
         void *v;
         int r;
 
@@ -5115,7 +5099,7 @@ int unit_setup_exec_runtime(Unit *u) {
                 return 0;
 
         /* Try to get it from somebody else */
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_JOINS_NAMESPACE_OF], i) {
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_JOINS_NAMESPACE_OF]) {
                 r = exec_runtime_acquire(u->manager, NULL, other->id, false, rt);
                 if (r == 1)
                         return 1;
@@ -5518,11 +5502,10 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                 do {
                         UnitDependencyInfo di;
                         Unit *other;
-                        Iterator i;
 
                         done = true;
 
-                        HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[d], i) {
+                        HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[d]) {
                                 if ((di.origin_mask & ~mask) == di.origin_mask)
                                         continue;
                                 di.origin_mask &= ~mask;

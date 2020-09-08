@@ -1644,14 +1644,13 @@ static int add_units(sd_journal *j) {
 
         if (!strv_isempty(patterns)) {
                 _cleanup_set_free_free_ Set *units = NULL;
-                Iterator it;
                 char *u;
 
                 r = get_possible_units(j, SYSTEM_UNITS, patterns, &units);
                 if (r < 0)
                         return r;
 
-                SET_FOREACH(u, units, it) {
+                SET_FOREACH(u, units) {
                         r = add_matches_for_unit(j, u);
                         if (r < 0)
                                 return r;
@@ -1689,14 +1688,13 @@ static int add_units(sd_journal *j) {
 
         if (!strv_isempty(patterns)) {
                 _cleanup_set_free_free_ Set *units = NULL;
-                Iterator it;
                 char *u;
 
                 r = get_possible_units(j, USER_UNITS, patterns, &units);
                 if (r < 0)
                         return r;
 
-                SET_FOREACH(u, units, it) {
+                SET_FOREACH(u, units) {
                         r = add_matches_for_user_unit(j, u, getuid());
                         if (r < 0)
                                 return r;
@@ -1745,10 +1743,9 @@ static int add_priorities(sd_journal *j) {
 
 static int add_facilities(sd_journal *j) {
         void *p;
-        Iterator it;
         int r;
 
-        SET_FOREACH(p, arg_facilities, it) {
+        SET_FOREACH(p, arg_facilities) {
                 char match[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
 
                 xsprintf(match, "SYSLOG_FACILITY=%d", PTR_TO_INT(p));
@@ -1960,14 +1957,13 @@ static int setup_keys(void) {
 
 static int verify(sd_journal *j) {
         int r = 0;
-        Iterator i;
         JournalFile *f;
 
         assert(j);
 
         log_show_color(true);
 
-        ORDERED_HASHMAP_FOREACH(f, j->files, i) {
+        ORDERED_HASHMAP_FOREACH(f, j->files) {
                 int k;
                 usec_t first = 0, validated = 0, last = 0;
 
@@ -2327,9 +2323,8 @@ int main(int argc, char *argv[]) {
 
         case ACTION_VACUUM: {
                 Directory *d;
-                Iterator i;
 
-                HASHMAP_FOREACH(d, j->directories_by_path, i) {
+                HASHMAP_FOREACH(d, j->directories_by_path) {
                         int q;
 
                         q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, !arg_quiet);

@@ -516,7 +516,6 @@ static int method_list_sessions(sd_bus_message *message, void *userdata, sd_bus_
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Session *session;
-        Iterator i;
         int r;
 
         assert(message);
@@ -530,7 +529,7 @@ static int method_list_sessions(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(session, m->sessions, i) {
+        HASHMAP_FOREACH(session, m->sessions) {
                 _cleanup_free_ char *p = NULL;
 
                 p = session_bus_path(session);
@@ -558,7 +557,6 @@ static int method_list_users(sd_bus_message *message, void *userdata, sd_bus_err
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         User *user;
-        Iterator i;
         int r;
 
         assert(message);
@@ -572,7 +570,7 @@ static int method_list_users(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(user, m->users, i) {
+        HASHMAP_FOREACH(user, m->users) {
                 _cleanup_free_ char *p = NULL;
 
                 p = user_bus_path(user);
@@ -598,7 +596,6 @@ static int method_list_seats(sd_bus_message *message, void *userdata, sd_bus_err
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Seat *seat;
-        Iterator i;
         int r;
 
         assert(message);
@@ -612,7 +609,7 @@ static int method_list_seats(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(seat, m->seats, i) {
+        HASHMAP_FOREACH(seat, m->seats) {
                 _cleanup_free_ char *p = NULL;
 
                 p = seat_bus_path(seat);
@@ -635,7 +632,6 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
         Inhibitor *inhibitor;
-        Iterator i;
         int r;
 
         assert(message);
@@ -649,7 +645,7 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(inhibitor, m->inhibitors, i) {
+        HASHMAP_FOREACH(inhibitor, m->inhibitors) {
 
                 r = sd_bus_message_append(reply, "(ssssuu)",
                                           strempty(inhibit_what_to_string(inhibitor->what)),
@@ -1499,13 +1495,12 @@ static int have_multiple_sessions(
                 uid_t uid) {
 
         Session *session;
-        Iterator i;
 
         assert(m);
 
         /* Check for other users' sessions. Greeter sessions do not
          * count, and non-login sessions do not count either. */
-        HASHMAP_FOREACH(session, m->sessions, i)
+        HASHMAP_FOREACH(session, m->sessions)
                 if (session->class == SESSION_USER &&
                     session->user->user_record->uid != uid)
                         return true;
@@ -3900,7 +3895,6 @@ int match_properties_changed(sd_bus_message *message, void *userdata, sd_bus_err
 int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         Session *session;
-        Iterator i;
         int b, r;
 
         assert(message);
@@ -3918,7 +3912,7 @@ int match_reloading(sd_bus_message *message, void *userdata, sd_bus_error *error
         /* systemd finished reloading, let's recheck all our sessions */
         log_debug("System manager has been reloaded, rechecking sessions...");
 
-        HASHMAP_FOREACH(session, m->sessions, i)
+        HASHMAP_FOREACH(session, m->sessions)
                 session_add_to_gc_queue(session);
 
         return 0;

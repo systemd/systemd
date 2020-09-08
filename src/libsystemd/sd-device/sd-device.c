@@ -1502,7 +1502,6 @@ static char *join_string_set(Set *s) {
         size_t ret_allocated = 0, ret_len;
         _cleanup_free_ char *ret = NULL;
         const char *tag;
-        Iterator i;
 
         if (!GREEDY_REALLOC(ret, ret_allocated, 2))
                 return NULL;
@@ -1510,7 +1509,7 @@ static char *join_string_set(Set *s) {
         strcpy(ret, ":");
         ret_len = 1;
 
-        SET_FOREACH(tag, s, i) {
+        SET_FOREACH(tag, s) {
                 char *e;
 
                 if (!GREEDY_REALLOC(ret, ret_allocated, ret_len + strlen(tag) + 2))

@@ -164,14 +164,13 @@ static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
-        Iterator i;
         Job *j;
 
         l = new0(char*, hashmap_size(m->jobs)+1);
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(j, m->jobs, i) {
+        HASHMAP_FOREACH(j, m->jobs) {
                 l[k] = job_dbus_path(j);
                 if (!l[k])
                         return -ENOMEM;

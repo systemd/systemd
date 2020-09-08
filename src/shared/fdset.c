@@ -161,13 +161,12 @@ finish:
 }
 
 int fdset_cloexec(FDSet *fds, bool b) {
-        Iterator i;
         void *p;
         int r;
 
         assert(fds);
 
-        SET_FOREACH(p, MAKE_SET(fds), i) {
+        SET_FOREACH(p, MAKE_SET(fds)) {
                 r = fd_cloexec(PTR_TO_FD(p), b);
                 if (r < 0)
                         return r;
@@ -209,7 +208,6 @@ fail:
 
 int fdset_close_others(FDSet *fds) {
         void *e;
-        Iterator i;
         int *a = NULL;
         size_t j = 0, m;
 
@@ -217,7 +215,7 @@ int fdset_close_others(FDSet *fds) {
 
         if (m > 0) {
                 a = newa(int, m);
-                SET_FOREACH(e, MAKE_SET(fds), i)
+                SET_FOREACH(e, MAKE_SET(fds))
                         a[j++] = PTR_TO_FD(e);
         }
 

@@ -66,7 +66,6 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
 
 bool manager_configured(Manager *m) {
         bool one_ready = false;
-        Iterator i;
         const char *ifname;
         void *p;
         Link *l;
@@ -74,7 +73,7 @@ bool manager_configured(Manager *m) {
 
         if (!hashmap_isempty(m->interfaces)) {
                 /* wait for all the links given on the command line to appear */
-                HASHMAP_FOREACH_KEY(p, ifname, m->interfaces, i) {
+                HASHMAP_FOREACH_KEY(p, ifname, m->interfaces) {
                         LinkOperationalStateRange *range = p;
 
                         l = hashmap_get(m->links_by_name, ifname);
@@ -106,7 +105,7 @@ bool manager_configured(Manager *m) {
 
         /* wait for all links networkd manages to be in admin state 'configured'
          * and at least one link to gain a carrier */
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
                 if (manager_ignore_link(m, l)) {
                         log_link_debug(l, "link is ignored");
                         continue;
@@ -255,7 +254,6 @@ static int manager_rtnl_listen(Manager *m) {
 
 static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
-        Iterator i;
         Link *l;
         int r;
 
@@ -263,7 +261,7 @@ static int on_network_event(sd_event_source *s, int fd, uint32_t revents, void *
 
         sd_network_monitor_flush(m->network_monitor);
 
-        HASHMAP_FOREACH(l, m->links, i) {
+        HASHMAP_FOREACH(l, m->links) {
                 r = link_update_monitor(l);
                 if (r < 0 && r != -ENODATA)
                         log_link_warning_errno(l, r, "Failed to update link state, ignoring: %m");

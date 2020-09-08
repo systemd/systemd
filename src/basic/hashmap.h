@@ -407,17 +407,25 @@ static inline char** ordered_hashmap_get_strv(OrderedHashmap *h) {
  * the entries were inserted.
  * It is safe to remove the current entry.
  */
-#define HASHMAP_FOREACH(e, h, i) \
-        for ((i) = ITERATOR_FIRST; hashmap_iterate((h), &(i), (void**)&(e), NULL); )
+#define _HASHMAP_FOREACH(e, h, i) \
+        for (Iterator i = ITERATOR_FIRST; hashmap_iterate((h), &i, (void**)&(e), NULL); )
+#define HASHMAP_FOREACH(e, h) \
+        _HASHMAP_FOREACH(e, h, UNIQ_T(i, UNIQ))
 
-#define ORDERED_HASHMAP_FOREACH(e, h, i) \
-        for ((i) = ITERATOR_FIRST; ordered_hashmap_iterate((h), &(i), (void**)&(e), NULL); )
+#define _ORDERED_HASHMAP_FOREACH(e, h, i) \
+        for (Iterator i = ITERATOR_FIRST; ordered_hashmap_iterate((h), &i, (void**)&(e), NULL); )
+#define ORDERED_HASHMAP_FOREACH(e, h) \
+        _ORDERED_HASHMAP_FOREACH(e, h, UNIQ_T(i, UNIQ))
 
-#define HASHMAP_FOREACH_KEY(e, k, h, i) \
-        for ((i) = ITERATOR_FIRST; hashmap_iterate((h), &(i), (void**)&(e), (const void**) &(k)); )
+#define _HASHMAP_FOREACH_KEY(e, k, h, i) \
+        for (Iterator i = ITERATOR_FIRST; hashmap_iterate((h), &i, (void**)&(e), (const void**) &(k)); )
+#define HASHMAP_FOREACH_KEY(e, k, h) \
+        _HASHMAP_FOREACH_KEY(e, k, h, UNIQ_T(i, UNIQ))
 
-#define ORDERED_HASHMAP_FOREACH_KEY(e, k, h, i) \
-        for ((i) = ITERATOR_FIRST; ordered_hashmap_iterate((h), &(i), (void**)&(e), (const void**) &(k)); )
+#define _ORDERED_HASHMAP_FOREACH_KEY(e, k, h, i) \
+        for (Iterator i = ITERATOR_FIRST; ordered_hashmap_iterate((h), &i, (void**)&(e), (const void**) &(k)); )
+#define ORDERED_HASHMAP_FOREACH_KEY(e, k, h) \
+        _ORDERED_HASHMAP_FOREACH_KEY(e, k, h, UNIQ_T(i, UNIQ))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free_free);

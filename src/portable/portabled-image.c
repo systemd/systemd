@@ -85,7 +85,6 @@ int manager_image_cache_add(Manager *m, Image *image) {
 
 int manager_image_cache_discover(Manager *m, Hashmap *images, sd_bus_error *error) {
         Image *image;
-        Iterator i;
         int r;
 
         assert(m);
@@ -97,7 +96,7 @@ int manager_image_cache_discover(Manager *m, Hashmap *images, sd_bus_error *erro
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(image, images, i)
+        HASHMAP_FOREACH(image, images)
                 (void) manager_image_cache_add(m, image);
 
         return 0;

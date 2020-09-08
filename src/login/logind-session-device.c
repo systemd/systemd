@@ -408,7 +408,6 @@ void session_device_free(SessionDevice *sd) {
 
 void session_device_complete_pause(SessionDevice *sd) {
         SessionDevice *iter;
-        Iterator i;
 
         if (!sd->active)
                 return;
@@ -416,7 +415,7 @@ void session_device_complete_pause(SessionDevice *sd) {
         session_device_stop(sd);
 
         /* if not all devices are paused, wait for further completion events */
-        HASHMAP_FOREACH(iter, sd->session->devices, i)
+        HASHMAP_FOREACH(iter, sd->session->devices)
                 if (iter->active)
                         return;
 
@@ -426,11 +425,10 @@ void session_device_complete_pause(SessionDevice *sd) {
 
 void session_device_resume_all(Session *s) {
         SessionDevice *sd;
-        Iterator i;
 
         assert(s);
 
-        HASHMAP_FOREACH(sd, s->devices, i) {
+        HASHMAP_FOREACH(sd, s->devices) {
                 if (sd->active)
                         continue;
 
@@ -445,11 +443,10 @@ void session_device_resume_all(Session *s) {
 
 void session_device_pause_all(Session *s) {
         SessionDevice *sd;
-        Iterator i;
 
         assert(s);
 
-        HASHMAP_FOREACH(sd, s->devices, i) {
+        HASHMAP_FOREACH(sd, s->devices) {
                 if (!sd->active)
                         continue;
 
@@ -461,11 +458,10 @@ void session_device_pause_all(Session *s) {
 unsigned session_device_try_pause_all(Session *s) {
         unsigned num_pending = 0;
         SessionDevice *sd;
-        Iterator i;
 
         assert(s);
 
-        HASHMAP_FOREACH(sd, s->devices, i) {
+        HASHMAP_FOREACH(sd, s->devices) {
                 if (!sd->active)
                         continue;
 

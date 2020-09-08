@@ -57,10 +57,9 @@ static int target_add_default_dependencies(Target *t) {
 
         for (k = 0; k < ELEMENTSOF(deps); k++) {
                 Unit *other;
-                Iterator i;
                 void *v;
 
-                HASHMAP_FOREACH_KEY(v, other, UNIT(t)->dependencies[deps[k]], i) {
+                HASHMAP_FOREACH_KEY(v, other, UNIT(t)->dependencies[deps[k]]) {
                         r = unit_add_default_target_dependency(other, UNIT(t));
                         if (r < 0)
                                 return r;

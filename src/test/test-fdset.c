@@ -115,7 +115,6 @@ static void test_fdset_iterate(void) {
         int fd = -1;
         FDSet *fdset = NULL;
         char name[] = "/tmp/test-fdset_iterate.XXXXXX";
-        Iterator i;
         int c = 0;
         int a;
 
@@ -128,7 +127,7 @@ static void test_fdset_iterate(void) {
         assert_se(fdset_put(fdset, fd) >= 0);
         assert_se(fdset_put(fdset, fd) >= 0);
 
-        FDSET_FOREACH(a, fdset, i) {
+        FDSET_FOREACH(a, fdset) {
                 c++;
                 assert_se(a == fd);
         }

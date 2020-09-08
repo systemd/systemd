@@ -1235,7 +1235,6 @@ static int process_get_managed_objects(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_set_free_free_ Set *s = NULL;
-        Iterator i;
         char *path;
         int r;
 
@@ -1265,7 +1264,7 @@ static int process_get_managed_objects(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(path, s, i) {
+        SET_FOREACH(path, s) {
                 r = object_manager_serialize_path_and_fallbacks(bus, reply, path, &error);
                 if (r < 0)
                         return bus_maybe_reply_error(m, r, &error);

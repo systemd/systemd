@@ -468,13 +468,12 @@ static bool device_is_bound_by_mounts(Device *d, sd_device *dev) {
 
 static void device_upgrade_mount_deps(Unit *u) {
         Unit *other;
-        Iterator i;
         void *v;
         int r;
 
         /* Let's upgrade Requires= to BindsTo= on us. (Used when SYSTEMD_MOUNT_DEVICE_BOUND is set) */
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRED_BY], i) {
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REQUIRED_BY]) {
                 if (other->type != UNIT_MOUNT)
                         continue;
 

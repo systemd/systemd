@@ -333,11 +333,10 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
 }
 
 void dnssd_signal_conflict(Manager *manager, const char *name) {
-        Iterator i;
         DnssdService *s;
         int r;
 
-        HASHMAP_FOREACH(s, manager->dnssd_services, i) {
+        HASHMAP_FOREACH(s, manager->dnssd_services) {
                 if (s->withdrawn)
                         continue;
 

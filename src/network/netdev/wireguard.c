@@ -395,14 +395,13 @@ static void resolve_endpoints(NetDev *netdev) {
         };
         WireguardPeer *peer;
         Wireguard *w;
-        Iterator i;
         int r;
 
         assert(netdev);
         w = WIREGUARD(netdev);
         assert(w);
 
-        SET_FOREACH(peer, w->peers_with_unresolved_endpoint, i) {
+        SET_FOREACH(peer, w->peers_with_unresolved_endpoint) {
                 r = resolve_getaddrinfo(netdev->manager->resolve,
                                         NULL,
                                         peer->endpoint_host,

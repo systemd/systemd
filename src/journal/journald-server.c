@@ -473,10 +473,9 @@ static int do_rotate(
 
 static void server_process_deferred_closes(Server *s) {
         JournalFile *f;
-        Iterator i;
 
         /* Perform any deferred closes which aren't still offlining. */
-        SET_FOREACH(f, s->deferred_closes, i) {
+        SET_FOREACH(f, s->deferred_closes) {
                 if (journal_file_is_offlining(f))
                         continue;
 
@@ -609,7 +608,6 @@ static int vacuum_offline_user_journals(Server *s) {
 
 void server_rotate(Server *s) {
         JournalFile *f;
-        Iterator i;
         void *k;
         int r;
 
@@ -620,7 +618,7 @@ void server_rotate(Server *s) {
         (void) do_rotate(s, &s->system_journal, "system", s->seal, 0);
 
         /* Then, rotate all user journals we have open (keeping them open) */
-        ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(f, k, s->user_journals) {
                 r = do_rotate(s, &f, "user", s->seal, PTR_TO_UID(k));
                 if (r >= 0)
                         ordered_hashmap_replace(s->user_journals, k, f);
@@ -639,7 +637,6 @@ void server_rotate(Server *s) {
 
 void server_sync(Server *s) {
         JournalFile *f;
-        Iterator i;
         int r;
 
         if (s->system_journal) {
@@ -648,7 +645,7 @@ void server_sync(Server *s) {
                         log_warning_errno(r, "Failed to sync system journal, ignoring: %m");
         }
 
-        ORDERED_HASHMAP_FOREACH(f, s->user_journals, i) {
+        ORDERED_HASHMAP_FOREACH(f, s->user_journals) {
                 r = journal_file_set_offline(f, false);
                 if (r < 0)
                         log_warning_errno(r, "Failed to sync user journal, ignoring: %m");
@@ -2433,7 +2430,6 @@ int server_init(Server *s, const char *namespace) {
 void server_maybe_append_tags(Server *s) {
 #if HAVE_GCRYPT
         JournalFile *f;
-        Iterator i;
         usec_t n;
 
         n = now(CLOCK_REALTIME);
@@ -2441,7 +2437,7 @@ void server_maybe_append_tags(Server *s) {
         if (s->system_journal)
                 journal_file_maybe_append_tag(s->system_journal, n);
 
-        ORDERED_HASHMAP_FOREACH(f, s->user_journals, i)
+        ORDERED_HASHMAP_FOREACH(f, s->user_journals)
                 journal_file_maybe_append_tag(f, n);
 #endif
 }

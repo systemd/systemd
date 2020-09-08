@@ -365,7 +365,6 @@ void link_update_operstate(Link *link, bool also_update_master) {
         uint8_t scope = RT_SCOPE_NOWHERE;
         bool changed = false;
         Address *address;
-        Iterator i;
 
         assert(link);
 
@@ -384,7 +383,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
         if (carrier_state >= LINK_CARRIER_STATE_CARRIER) {
                 Link *slave;
 
-                SET_FOREACH(slave, link->slaves, i) {
+                SET_FOREACH(slave, link->slaves) {
                         link_update_operstate(slave, false);
 
                         if (slave->carrier_state < LINK_CARRIER_STATE_CARRIER)
@@ -392,7 +391,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 }
         }
 
-        SET_FOREACH(address, link->addresses, i) {
+        SET_FOREACH(address, link->addresses) {
                 if (!address_is_ready(address))
                         continue;
 
@@ -401,7 +400,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
         }
 
         /* for operstate we also take foreign addresses into account */
-        SET_FOREACH(address, link->addresses_foreign, i) {
+        SET_FOREACH(address, link->addresses_foreign) {
                 if (!address_is_ready(address))
                         continue;
 
@@ -886,10 +885,9 @@ void link_enter_failed(Link *link) {
 
 static int link_join_netdevs_after_configured(Link *link) {
         NetDev *netdev;
-        Iterator i;
         int r;
 
-        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
+        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
                 if (netdev->ifindex > 0)
                         /* Assume already enslaved. */
                         continue;
@@ -1101,7 +1099,6 @@ int link_request_set_routes(Link *link) {
 
 void link_check_ready(Link *link) {
         Address *a;
-        Iterator i;
 
         assert(link);
 
@@ -1126,7 +1123,7 @@ void link_check_ready(Link *link) {
                 return;
         }
 
-        SET_FOREACH(a, link->addresses, i)
+        SET_FOREACH(a, link->addresses)
                 if (!address_is_ready(a)) {
                         _cleanup_free_ char *str = NULL;
 
@@ -1175,7 +1172,7 @@ void link_check_ready(Link *link) {
                         return;
                 }
 
-                SET_FOREACH(n, link->ndisc_addresses, i)
+                SET_FOREACH(n, link->ndisc_addresses)
                         if (!n->marked) {
                                 has_ndisc_address = true;
                                 break;
@@ -1259,7 +1256,6 @@ static int link_set_bridge_fdb(Link *link) {
 
 static int static_address_ready_callback(Address *address) {
         Address *a;
-        Iterator i;
         Link *link;
 
         assert(address);
@@ -1270,7 +1266,7 @@ static int static_address_ready_callback(Address *address) {
         if (!link->addresses_configured)
                 return 0;
 
-        SET_FOREACH(a, link->static_addresses, i)
+        SET_FOREACH(a, link->static_addresses)
                 if (!address_is_ready(a)) {
                         _cleanup_free_ char *str = NULL;
 
@@ -1280,7 +1276,7 @@ static int static_address_ready_callback(Address *address) {
                 }
 
         /* This should not be called again */
-        SET_FOREACH(a, link->static_addresses, i)
+        SET_FOREACH(a, link->static_addresses)
                 a->callback = NULL;
 
         link->addresses_ready = true;
@@ -1567,9 +1563,8 @@ static bool link_reduces_vlan_mtu(Link *link) {
 static uint32_t link_get_requested_mtu_by_stacked_netdevs(Link *link) {
         uint32_t mtu = 0;
         NetDev *dev;
-        Iterator i;
 
-        HASHMAP_FOREACH(dev, link->network->stacked_netdevs, i)
+        HASHMAP_FOREACH(dev, link->network->stacked_netdevs)
                 if (dev->kind == NETDEV_KIND_VLAN && dev->mtu > 0)
                         /* See vlan_dev_change_mtu() in kernel. */
                         mtu = MAX(mtu, link_reduces_vlan_mtu(link) ? dev->mtu + 4 : dev->mtu);
@@ -2031,7 +2026,6 @@ static int link_set_group(Link *link) {
 
 static int link_handle_bound_to_list(Link *link) {
         Link *l;
-        Iterator i;
         int r;
         bool required_up = false;
         bool link_is_up = false;
@@ -2044,7 +2038,7 @@ static int link_handle_bound_to_list(Link *link) {
         if (link->flags & IFF_UP)
                 link_is_up = true;
 
-        HASHMAP_FOREACH (l, link->bound_to_links, i)
+        HASHMAP_FOREACH (l, link->bound_to_links)
                 if (link_has_carrier(l)) {
                         required_up = true;
                         break;
@@ -2064,7 +2058,6 @@ static int link_handle_bound_to_list(Link *link) {
 }
 
 static int link_handle_bound_by_list(Link *link) {
-        Iterator i;
         Link *l;
         int r;
 
@@ -2073,7 +2066,7 @@ static int link_handle_bound_by_list(Link *link) {
         if (hashmap_isempty(link->bound_by_links))
                 return 0;
 
-        HASHMAP_FOREACH (l, link->bound_by_links, i) {
+        HASHMAP_FOREACH (l, link->bound_by_links) {
                 r = link_handle_bound_to_list(l);
                 if (r < 0)
                         return r;
@@ -2108,7 +2101,6 @@ static int link_put_carrier(Link *link, Link *carrier, Hashmap **h) {
 static int link_new_bound_by_list(Link *link) {
         Manager *m;
         Link *carrier;
-        Iterator i;
         int r;
         bool list_updated = false;
 
@@ -2117,7 +2109,7 @@ static int link_new_bound_by_list(Link *link) {
 
         m = link->manager;
 
-        HASHMAP_FOREACH(carrier, m->links, i) {
+        HASHMAP_FOREACH(carrier, m->links) {
                 if (!carrier->network)
                         continue;
 
@@ -2136,7 +2128,7 @@ static int link_new_bound_by_list(Link *link) {
         if (list_updated)
                 link_dirty(link);
 
-        HASHMAP_FOREACH(carrier, link->bound_by_links, i) {
+        HASHMAP_FOREACH(carrier, link->bound_by_links) {
                 r = link_put_carrier(carrier, link, &carrier->bound_to_links);
                 if (r < 0)
                         return r;
@@ -2150,7 +2142,6 @@ static int link_new_bound_by_list(Link *link) {
 static int link_new_bound_to_list(Link *link) {
         Manager *m;
         Link *carrier;
-        Iterator i;
         int r;
         bool list_updated = false;
 
@@ -2165,7 +2156,7 @@ static int link_new_bound_to_list(Link *link) {
 
         m = link->manager;
 
-        HASHMAP_FOREACH (carrier, m->links, i) {
+        HASHMAP_FOREACH (carrier, m->links) {
                 if (strv_fnmatch(link->network->bind_carrier, carrier->ifname)) {
                         r = link_put_carrier(link, carrier, &link->bound_to_links);
                         if (r < 0)
@@ -2178,7 +2169,7 @@ static int link_new_bound_to_list(Link *link) {
         if (list_updated)
                 link_dirty(link);
 
-        HASHMAP_FOREACH (carrier, link->bound_to_links, i) {
+        HASHMAP_FOREACH (carrier, link->bound_to_links) {
                 r = link_put_carrier(carrier, link, &carrier->bound_by_links);
                 if (r < 0)
                         return r;
@@ -2213,9 +2204,8 @@ static int link_new_carrier_maps(Link *link) {
 
 static void link_free_bound_to_list(Link *link) {
         Link *bound_to;
-        Iterator i;
 
-        HASHMAP_FOREACH (bound_to, link->bound_to_links, i) {
+        HASHMAP_FOREACH (bound_to, link->bound_to_links) {
                 hashmap_remove(link->bound_to_links, INT_TO_PTR(bound_to->ifindex));
 
                 if (hashmap_remove(bound_to->bound_by_links, INT_TO_PTR(link->ifindex)))
@@ -2227,9 +2217,8 @@ static void link_free_bound_to_list(Link *link) {
 
 static void link_free_bound_by_list(Link *link) {
         Link *bound_by;
-        Iterator i;
 
-        HASHMAP_FOREACH (bound_by, link->bound_by_links, i) {
+        HASHMAP_FOREACH (bound_by, link->bound_by_links) {
                 hashmap_remove(link->bound_by_links, INT_TO_PTR(bound_by->ifindex));
 
                 if (hashmap_remove(bound_by->bound_to_links, INT_TO_PTR(link->ifindex))) {
@@ -2413,7 +2402,6 @@ static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
 
 static int link_enter_join_netdev(Link *link) {
         NetDev *netdev;
-        Iterator i;
         int r;
 
         assert(link);
@@ -2486,7 +2474,7 @@ static int link_enter_join_netdev(Link *link) {
                 }
         }
 
-        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs, i) {
+        HASHMAP_FOREACH(netdev, link->network->stacked_netdevs) {
 
                 if (netdev->ifindex > 0)
                         /* Assume already enslaved. */
@@ -2745,7 +2733,6 @@ static bool link_is_static_route_configured(Link *link, Route *route) {
 
 static bool link_address_is_dynamic(Link *link, Address *address) {
         Route *route;
-        Iterator i;
 
         assert(link);
         assert(address);
@@ -2756,7 +2743,7 @@ static bool link_address_is_dynamic(Link *link, Address *address) {
         /* Even when the address is leased from a DHCP server, networkd assign the address
          * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
          * corresponding routes with RTPROT_DHCP. */
-        SET_FOREACH(route, link->routes_foreign, i) {
+        SET_FOREACH(route, link->routes_foreign) {
                 if (route->protocol != RTPROT_DHCP)
                         continue;
 
@@ -2816,7 +2803,6 @@ static int link_drop_foreign_config(Link *link) {
         Address *address;
         Neighbor *neighbor;
         Route *route;
-        Iterator i;
         int r;
 
         /* The kernel doesn't notify us about tentative addresses;
@@ -2827,7 +2813,7 @@ static int link_drop_foreign_config(Link *link) {
                         return r;
         }
 
-        SET_FOREACH(address, link->addresses_foreign, i) {
+        SET_FOREACH(address, link->addresses_foreign) {
                 /* we consider IPv6LL addresses to be managed by the kernel */
                 if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1 && link_ipv6ll_enabled(link))
                         continue;
@@ -2849,7 +2835,7 @@ static int link_drop_foreign_config(Link *link) {
                 }
         }
 
-        SET_FOREACH(neighbor, link->neighbors_foreign, i) {
+        SET_FOREACH(neighbor, link->neighbors_foreign) {
                 if (link_is_neighbor_configured(link, neighbor)) {
                         r = neighbor_add(link, neighbor->family, &neighbor->in_addr, &neighbor->lladdr, neighbor->lladdr_size, NULL);
                         if (r < 0)
@@ -2861,7 +2847,7 @@ static int link_drop_foreign_config(Link *link) {
                 }
         }
 
-        SET_FOREACH(route, link->routes_foreign, i) {
+        SET_FOREACH(route, link->routes_foreign) {
                 /* do not touch routes managed by the kernel */
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
@@ -2930,10 +2916,9 @@ static int link_drop_config(Link *link) {
         Address *address, *pool_address;
         Neighbor *neighbor;
         Route *route;
-        Iterator i;
         int r;
 
-        SET_FOREACH(address, link->addresses, i) {
+        SET_FOREACH(address, link->addresses) {
                 /* we consider IPv6LL addresses to be managed by the kernel */
                 if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1 && link_ipv6ll_enabled(link))
                         continue;
@@ -2953,13 +2938,13 @@ static int link_drop_config(Link *link) {
                         }
         }
 
-        SET_FOREACH(neighbor, link->neighbors, i) {
+        SET_FOREACH(neighbor, link->neighbors) {
                 r = neighbor_remove(neighbor, link, NULL);
                 if (r < 0)
                         return r;
         }
 
-        SET_FOREACH(route, link->routes, i) {
+        SET_FOREACH(route, link->routes) {
                 /* do not touch routes managed by the kernel */
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
@@ -2994,13 +2979,12 @@ static int link_configure_ipv4_dad(Link *link) {
 
 static int link_configure_traffic_control(Link *link) {
         TrafficControl *tc;
-        Iterator i;
         int r;
 
         link->tc_configured = false;
         link->tc_messages = 0;
 
-        ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section, i) {
+        ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section) {
                 r = traffic_control_configure(link, tc);
                 if (r < 0)
                         return r;
@@ -3016,13 +3000,12 @@ static int link_configure_traffic_control(Link *link) {
 
 static int link_configure_sr_iov(Link *link) {
         SRIOV *sr_iov;
-        Iterator i;
         int r;
 
         link->sr_iov_configured = false;
         link->sr_iov_messages = 0;
 
-        ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section, i) {
+        ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section) {
                 r = sr_iov_configure(link, sr_iov);
                 if (r < 0)
                         return r;
@@ -4224,7 +4207,6 @@ int link_update(Link *link, sd_netlink_message *m) {
 
 static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
         bool space = false;
-        Iterator i;
         Link *link;
 
         assert(f);
@@ -4234,7 +4216,7 @@ static void print_link_hashmap(FILE *f, const char *prefix, Hashmap* h) {
                 return;
 
         fputs(prefix, f);
-        HASHMAP_FOREACH(link, h, i) {
+        HASHMAP_FOREACH(link, h) {
                 if (space)
                         fputc(' ', f);
 
@@ -4319,7 +4301,6 @@ int link_save(Link *link) {
         _cleanup_fclose_ FILE *f = NULL;
         Route *route;
         Address *a;
-        Iterator i;
         int r;
 
         assert(link);
@@ -4401,7 +4382,7 @@ int link_save(Link *link) {
                 if (link->network->ipv6_accept_ra_use_dns && link->ndisc_rdnss) {
                         NDiscRDNSS *dd;
 
-                        SET_FOREACH(dd, link->ndisc_rdnss, i)
+                        SET_FOREACH(dd, link->ndisc_rdnss)
                                 serialize_in6_addrs(f, &dd->address, 1, &space);
                 }
 
@@ -4439,7 +4420,7 @@ int link_save(Link *link) {
 
                 fputs("DOMAINS=", f);
                 space = false;
-                ORDERED_SET_FOREACH(p, link->search_domains ?: link->network->search_domains, i)
+                ORDERED_SET_FOREACH(p, link->search_domains ?: link->network->search_domains)
                         fputs_with_space(f, p, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_YES) {
@@ -4454,7 +4435,7 @@ int link_save(Link *link) {
                 if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_YES) {
                         NDiscDNSSL *dd;
 
-                        SET_FOREACH(dd, link->ndisc_dnssl, i)
+                        SET_FOREACH(dd, link->ndisc_dnssl)
                                 fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
                 }
 
@@ -4464,7 +4445,7 @@ int link_save(Link *link) {
 
                 fputs("ROUTE_DOMAINS=", f);
                 space = false;
-                ORDERED_SET_FOREACH(p, link->route_domains ?: link->network->route_domains, i)
+                ORDERED_SET_FOREACH(p, link->route_domains ?: link->network->route_domains)
                         fputs_with_space(f, p, NULL, &space);
 
                 if (link->network->dhcp_use_domains == DHCP_USE_DOMAINS_ROUTE) {
@@ -4479,7 +4460,7 @@ int link_save(Link *link) {
                 if (link->network->ipv6_accept_ra_use_domains == DHCP_USE_DOMAINS_ROUTE) {
                         NDiscDNSSL *dd;
 
-                        SET_FOREACH(dd, link->ndisc_dnssl, i)
+                        SET_FOREACH(dd, link->ndisc_dnssl)
                                 fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
                 }
 
@@ -4530,7 +4511,7 @@ int link_save(Link *link) {
 
                         fputs("DNSSEC_NTA=", f);
                         space = false;
-                        SET_FOREACH(n, nta_anchors, i)
+                        SET_FOREACH(n, nta_anchors)
                                 fputs_with_space(f, n, NULL, &space);
                         fputc('\n', f);
                 }
@@ -4539,7 +4520,7 @@ int link_save(Link *link) {
 
                 fputs("ADDRESSES=", f);
                 space = false;
-                SET_FOREACH(a, link->addresses, i) {
+                SET_FOREACH(a, link->addresses) {
                         _cleanup_free_ char *address_str = NULL;
 
                         r = in_addr_to_string(a->family, &a->in_addr, &address_str);
@@ -4555,7 +4536,7 @@ int link_save(Link *link) {
 
                 fputs("ROUTES=", f);
                 space = false;
-                SET_FOREACH(route, link->routes, i) {
+                SET_FOREACH(route, link->routes) {
                         _cleanup_free_ char *route_str = NULL;
 
                         r = in_addr_to_string(route->family, &route->dst, &route_str);

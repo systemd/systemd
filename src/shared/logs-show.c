@@ -1000,7 +1000,6 @@ static int output_json(
         sd_id128_t boot_id;
         Hashmap *h = NULL;
         size_t n = 0;
-        Iterator i;
         int r;
 
         assert(j);
@@ -1070,7 +1069,7 @@ static int output_json(
                 goto finish;
         }
 
-        HASHMAP_FOREACH(d, h, i) {
+        HASHMAP_FOREACH(d, h) {
                 assert(d->n_values > 0);
 
                 array[n++] = json_variant_ref(d->name);
@@ -1190,7 +1189,6 @@ static int output_cat(
 
         int r, prio = LOG_INFO;
         const char *field;
-        Iterator iterator;
 
         assert(j);
         assert(f);
@@ -1224,7 +1222,7 @@ static int output_cat(
         if (set_isempty(output_fields))
                 return output_cat_field(f, j, flags, prio, "MESSAGE", highlight);
 
-        SET_FOREACH(field, output_fields, iterator) {
+        SET_FOREACH(field, output_fields) {
                 r = output_cat_field(f, j, flags, prio, field, streq(field, "MESSAGE") ? highlight : NULL);
                 if (r < 0)
                         return r;

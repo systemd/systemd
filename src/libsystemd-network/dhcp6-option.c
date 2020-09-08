@@ -81,7 +81,6 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
 
 int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHashmap *vendor_options) {
         sd_dhcp6_option *options;
-        Iterator i;
         int r;
 
         assert(buf);
@@ -89,7 +88,7 @@ int dhcp6_option_append_vendor_option(uint8_t **buf, size_t *buflen, OrderedHash
         assert(buflen);
         assert(vendor_options);
 
-        ORDERED_HASHMAP_FOREACH(options, vendor_options, i) {
+        ORDERED_HASHMAP_FOREACH(options, vendor_options) {
                 _cleanup_free_ uint8_t *p = NULL;
                 size_t total;
 

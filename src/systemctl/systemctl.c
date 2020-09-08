@@ -1546,7 +1546,6 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
         if (install_client_side()) {
                 Hashmap *h;
                 UnitFileList *u;
-                Iterator i;
                 unsigned n_units;
 
                 h = hashmap_new(&string_hash_ops);
@@ -1567,7 +1566,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                         return log_oom();
                 }
 
-                HASHMAP_FOREACH(u, h, i) {
+                HASHMAP_FOREACH(u, h) {
                         if (!output_show_unit_file(u, NULL, NULL))
                                 continue;
 

@@ -353,7 +353,6 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device_monitor, sd_device_monitor, devic
 
 static int passes_filter(sd_device_monitor *m, sd_device *device) {
         const char *tag, *subsystem, *devtype, *s, *d = NULL;
-        Iterator i;
         int r;
 
         assert_return(m, -EINVAL);
@@ -370,7 +369,7 @@ static int passes_filter(sd_device_monitor *m, sd_device *device) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        HASHMAP_FOREACH_KEY(devtype, subsystem, m->subsystem_filter, i) {
+        HASHMAP_FOREACH_KEY(devtype, subsystem, m->subsystem_filter) {
                 if (!streq(s, subsystem))
                         continue;
 
@@ -390,7 +389,7 @@ tag:
         if (set_isempty(m->tag_filter))
                 return 1;
 
-        SET_FOREACH(tag, m->tag_filter, i)
+        SET_FOREACH(tag, m->tag_filter)
                 if (sd_device_has_tag(device, tag) > 0)
                         return 1;
 
@@ -631,7 +630,6 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
         struct sock_fprog filter;
         const char *subsystem, *devtype, *tag;
         unsigned i = 0;
-        Iterator it;
 
         assert_return(m, -EINVAL);
 
@@ -655,7 +653,7 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
                 int tag_matches = set_size(m->tag_filter);
 
                 /* add all tags matches */
-                SET_FOREACH(tag, m->tag_filter, it) {
+                SET_FOREACH(tag, m->tag_filter) {
                         uint64_t tag_bloom_bits = string_bloom64(tag);
                         uint32_t tag_bloom_hi = tag_bloom_bits >> 32;
                         uint32_t tag_bloom_lo = tag_bloom_bits & 0xffffffff;
@@ -682,7 +680,7 @@ _public_ int sd_device_monitor_filter_update(sd_device_monitor *m) {
 
         /* add all subsystem matches */
         if (!hashmap_isempty(m->subsystem_filter)) {
-                HASHMAP_FOREACH_KEY(devtype, subsystem, m->subsystem_filter, it) {
+                HASHMAP_FOREACH_KEY(devtype, subsystem, m->subsystem_filter) {
                         uint32_t hash = string_hash32(subsystem);
 
                         /* load device subsystem value in A */

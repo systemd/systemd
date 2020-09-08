@@ -198,7 +198,6 @@ static void manager_flip_auto_status(Manager *m, bool enable, const char *reason
 
 static void manager_print_jobs_in_progress(Manager *m) {
         _cleanup_free_ char *job_of_n = NULL;
-        Iterator i;
         Job *j;
         unsigned counter = 0, print_nr;
         char cylon[6 + CYLON_BUFFER_EXTRA + 1];
@@ -213,7 +212,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
 
         print_nr = (m->jobs_in_progress_iteration / JOBS_IN_PROGRESS_PERIOD_DIVISOR) % m->n_running_jobs;
 
-        HASHMAP_FOREACH(j, m->jobs, i)
+        HASHMAP_FOREACH(j, m->jobs)
                 if (j->state == JOB_RUNNING && counter++ == print_nr)
                         break;
 
@@ -1147,13 +1146,12 @@ enum {
 
 static void unit_gc_mark_good(Unit *u, unsigned gc_marker) {
         Unit *other;
-        Iterator i;
         void *v;
 
         u->gc_marker = gc_marker + GC_OFFSET_GOOD;
 
         /* Recursively mark referenced units as GOOD as well */
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REFERENCES], i)
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REFERENCES])
                 if (other->gc_marker == gc_marker + GC_OFFSET_UNSURE)
                         unit_gc_mark_good(other, gc_marker);
 }
@@ -1161,7 +1159,6 @@ static void unit_gc_mark_good(Unit *u, unsigned gc_marker) {
 static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
         Unit *other;
         bool is_bad;
-        Iterator i;
         void *v;
 
         assert(u);
@@ -1180,7 +1177,7 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
 
         is_bad = true;
 
-        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REFERENCED_BY], i) {
+        HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_REFERENCED_BY]) {
                 unit_gc_sweep(other, gc_marker);
 
                 if (other->gc_marker == gc_marker + GC_OFFSET_GOOD)
@@ -1474,7 +1471,6 @@ static void manager_enumerate(Manager *m) {
 }
 
 static void manager_coldplug(Manager *m) {
-        Iterator i;
         Unit *u;
         char *k;
         int r;
@@ -1484,7 +1480,7 @@ static void manager_coldplug(Manager *m) {
         log_debug("Invoking unit coldplug() handlers…");
 
         /* Let's place the units back into their deserialized state */
-        HASHMAP_FOREACH_KEY(u, k, m->units, i) {
+        HASHMAP_FOREACH_KEY(u, k, m->units) {
 
                 /* ignore aliases */
                 if (u->id != k)
@@ -1497,7 +1493,6 @@ static void manager_coldplug(Manager *m) {
 }
 
 static void manager_catchup(Manager *m) {
-        Iterator i;
         Unit *u;
         char *k;
 
@@ -1506,7 +1501,7 @@ static void manager_catchup(Manager *m) {
         log_debug("Invoking unit catchup() handlers…");
 
         /* Let's catch up on any state changes that happened while we were reloading/reexecing */
-        HASHMAP_FOREACH_KEY(u, k, m->units, i) {
+        HASHMAP_FOREACH_KEY(u, k, m->units) {
 
                 /* ignore aliases */
                 if (u->id != k)
@@ -1517,12 +1512,11 @@ static void manager_catchup(Manager *m) {
 }
 
 static void manager_distribute_fds(Manager *m, FDSet *fds) {
-        Iterator i;
         Unit *u;
 
         assert(m);
 
-        HASHMAP_FOREACH(u, m->units, i) {
+        HASHMAP_FOREACH(u, m->units) {
 
                 if (fdset_size(fds) <= 0)
                         break;
@@ -1903,10 +1897,9 @@ static int manager_dispatch_target_deps_queue(Manager *m) {
 
                 for (k = 0; k < ELEMENTSOF(deps); k++) {
                         Unit *target;
-                        Iterator i;
                         void *v;
 
-                        HASHMAP_FOREACH_KEY(v, target, u->dependencies[deps[k]], i) {
+                        HASHMAP_FOREACH_KEY(v, target, u->dependencies[deps[k]]) {
                                 r = unit_add_default_target_dependency(u, target);
                                 if (r < 0)
                                         return r;
@@ -2099,25 +2092,23 @@ int manager_load_startable_unit_or_warn(
 }
 
 void manager_dump_jobs(Manager *s, FILE *f, const char *prefix) {
-        Iterator i;
         Job *j;
 
         assert(s);
         assert(f);
 
-        HASHMAP_FOREACH(j, s->jobs, i)
+        HASHMAP_FOREACH(j, s->jobs)
                 job_dump(j, f, prefix);
 }
 
 void manager_dump_units(Manager *s, FILE *f, const char *prefix) {
-        Iterator i;
         Unit *u;
         const char *t;
 
         assert(s);
         assert(f);
 
-        HASHMAP_FOREACH_KEY(u, t, s->units, i)
+        HASHMAP_FOREACH_KEY(u, t, s->units)
                 if (u->id == t)
                         unit_dump(u, f, prefix);
 }
@@ -2840,7 +2831,6 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
 static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
-        Iterator i;
         Unit *u;
 
         assert(m);
@@ -2853,7 +2843,7 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
         /* Restart the watch */
         (void) manager_setup_time_change(m);
 
-        HASHMAP_FOREACH(u, m->units, i)
+        HASHMAP_FOREACH(u, m->units)
                 if (UNIT_VTABLE(u)->time_change)
                         UNIT_VTABLE(u)->time_change(u);
 
@@ -2867,7 +2857,6 @@ static int manager_dispatch_timezone_change(
 
         Manager *m = userdata;
         int changed;
-        Iterator i;
         Unit *u;
 
         assert(m);
@@ -2886,7 +2875,7 @@ static int manager_dispatch_timezone_change(
 
         log_debug("Timezone has been changed (now: %s).", tzname[daylight]);
 
-        HASHMAP_FOREACH(u, m->units, i)
+        HASHMAP_FOREACH(u, m->units)
                 if (UNIT_VTABLE(u)->timezone_change)
                         UNIT_VTABLE(u)->timezone_change(u);
 
@@ -3189,7 +3178,6 @@ static void manager_serialize_uid_refs_internal(
                 Hashmap **uid_refs,
                 const char *field_name) {
 
-        Iterator i;
         void *p, *k;
 
         assert(m);
@@ -3200,7 +3188,7 @@ static void manager_serialize_uid_refs_internal(
         /* Serialize the UID reference table. Or actually, just the IPC destruction flag of it, as
          * the actual counter of it is better rebuild after a reload/reexec. */
 
-        HASHMAP_FOREACH_KEY(p, k, *uid_refs, i) {
+        HASHMAP_FOREACH_KEY(p, k, *uid_refs) {
                 uint32_t c;
                 uid_t uid;
 
@@ -3230,7 +3218,6 @@ int manager_serialize(
 
         ManagerTimestamp q;
         const char *t;
-        Iterator i;
         Unit *u;
         int r;
 
@@ -3323,7 +3310,7 @@ int manager_serialize(
 
         (void) fputc('\n', f);
 
-        HASHMAP_FOREACH_KEY(u, t, m->units, i) {
+        HASHMAP_FOREACH_KEY(u, t, m->units) {
                 if (u->id != t)
                         continue;
 
@@ -3826,11 +3813,10 @@ int manager_reload(Manager *m) {
 
 void manager_reset_failed(Manager *m) {
         Unit *u;
-        Iterator i;
 
         assert(m);
 
-        HASHMAP_FOREACH(u, m->units, i)
+        HASHMAP_FOREACH(u, m->units)
                 unit_reset_failed(u);
 }
 
@@ -4663,14 +4649,13 @@ static void manager_vacuum_uid_refs_internal(
                 Hashmap **uid_refs,
                 int (*_clean_ipc)(uid_t uid)) {
 
-        Iterator i;
         void *p, *k;
 
         assert(m);
         assert(uid_refs);
         assert(_clean_ipc);
 
-        HASHMAP_FOREACH_KEY(p, k, *uid_refs, i) {
+        HASHMAP_FOREACH_KEY(p, k, *uid_refs) {
                 uint32_t c, n;
                 uid_t uid;
 

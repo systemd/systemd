@@ -83,7 +83,6 @@ static int context_save(Context *context) {
         Network *network;
         NetDev *netdev;
         Link *link;
-        Iterator i;
         int k, r;
         const char *p;
 
@@ -93,19 +92,19 @@ static int context_save(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory " NETWORKD_UNIT_DIRECTORY ": %m");
 
-        HASHMAP_FOREACH(network, context->networks_by_name, i) {
+        HASHMAP_FOREACH(network, context->networks_by_name) {
                 k = network_save(network, p);
                 if (k < 0 && r >= 0)
                         r = k;
         }
 
-        HASHMAP_FOREACH(netdev, context->netdevs_by_name, i) {
+        HASHMAP_FOREACH(netdev, context->netdevs_by_name) {
                 k = netdev_save(netdev, p);
                 if (k < 0 && r >= 0)
                         r = k;
         }
 
-        HASHMAP_FOREACH(link, context->links_by_name, i) {
+        HASHMAP_FOREACH(link, context->links_by_name) {
                 k = link_save(link, p);
                 if (k < 0 && r >= 0)
                         r = k;

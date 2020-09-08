@@ -40,12 +40,11 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
 static int ndisc_address_callback(Address *address) {
         struct in6_addr router = {};
         NDiscAddress *n;
-        Iterator i;
 
         assert(address);
         assert(address->link);
 
-        SET_FOREACH(n, address->link->ndisc_addresses, i)
+        SET_FOREACH(n, address->link->ndisc_addresses)
                 if (n->address == address) {
                         router = n->router;
                         break;
@@ -61,7 +60,7 @@ static int ndisc_address_callback(Address *address) {
         }
 
         /* Make this called only once */
-        SET_FOREACH(n, address->link->ndisc_addresses, i)
+        SET_FOREACH(n, address->link->ndisc_addresses)
                 if (IN6_ARE_ADDR_EQUAL(&n->router, &router))
                         n->address->callback = NULL;
 
@@ -73,7 +72,6 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
         NDiscRoute *nr;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
-        Iterator i;
         int k, r = 0;
 
         assert(link);
@@ -85,21 +83,21 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
                 if (!link->ndisc_addresses_configured || !link->ndisc_routes_configured)
                         return 0;
 
-                SET_FOREACH(na, link->ndisc_addresses, i)
+                SET_FOREACH(na, link->ndisc_addresses)
                         if (!na->marked && IN6_ARE_ADDR_EQUAL(&na->router, router)) {
                                 set_callback = true;
                                 break;
                         }
 
                 if (set_callback)
-                        SET_FOREACH(na, link->ndisc_addresses, i)
+                        SET_FOREACH(na, link->ndisc_addresses)
                                 if (!na->marked && address_is_ready(na->address)) {
                                         set_callback = false;
                                         break;
                                 }
 
                 if (set_callback) {
-                        SET_FOREACH(na, link->ndisc_addresses, i)
+                        SET_FOREACH(na, link->ndisc_addresses)
                                 if (!na->marked && IN6_ARE_ADDR_EQUAL(&na->router, router))
                                         na->address->callback = ndisc_address_callback;
 
@@ -124,25 +122,25 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
 
         link_dirty(link);
 
-        SET_FOREACH(na, link->ndisc_addresses, i)
+        SET_FOREACH(na, link->ndisc_addresses)
                 if (na->marked && IN6_ARE_ADDR_EQUAL(&na->router, router)) {
                         k = address_remove(na->address, link, NULL);
                         if (k < 0)
                                 r = k;
                 }
 
-        SET_FOREACH(nr, link->ndisc_routes, i)
+        SET_FOREACH(nr, link->ndisc_routes)
                 if (nr->marked && IN6_ARE_ADDR_EQUAL(&nr->router, router)) {
                         k = route_remove(nr->route, link, NULL);
                         if (k < 0)
                                 r = k;
                 }
 
-        SET_FOREACH(rdnss, link->ndisc_rdnss, i)
+        SET_FOREACH(rdnss, link->ndisc_rdnss)
                 if (rdnss->marked && IN6_ARE_ADDR_EQUAL(&rdnss->router, router))
                         free(set_remove(link->ndisc_rdnss, rdnss));
 
-        SET_FOREACH(dnssl, link->ndisc_dnssl, i)
+        SET_FOREACH(dnssl, link->ndisc_dnssl)
                 if (dnssl->marked && IN6_ARE_ADDR_EQUAL(&dnssl->router, router))
                         free(set_remove(link->ndisc_dnssl, dnssl));
 
@@ -157,7 +155,6 @@ static int ndisc_remove_old(Link *link) {
         NDiscRoute *nr;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
-        Iterator i;
         int k, r;
 
         assert(link);
@@ -166,7 +163,7 @@ static int ndisc_remove_old(Link *link) {
         if (!routers)
                 return -ENOMEM;
 
-        SET_FOREACH(na, link->ndisc_addresses, i)
+        SET_FOREACH(na, link->ndisc_addresses)
                 if (!set_contains(routers, &na->router)) {
                         router = newdup(struct in6_addr, &na->router, 1);
                         if (!router)
@@ -180,7 +177,7 @@ static int ndisc_remove_old(Link *link) {
                         TAKE_PTR(router);
                 }
 
-        SET_FOREACH(nr, link->ndisc_routes, i)
+        SET_FOREACH(nr, link->ndisc_routes)
                 if (!set_contains(routers, &nr->router)) {
                         router = newdup(struct in6_addr, &nr->router, 1);
                         if (!router)
@@ -194,7 +191,7 @@ static int ndisc_remove_old(Link *link) {
                         TAKE_PTR(router);
                 }
 
-        SET_FOREACH(rdnss, link->ndisc_rdnss, i)
+        SET_FOREACH(rdnss, link->ndisc_rdnss)
                 if (!set_contains(routers, &rdnss->router)) {
                         router = newdup(struct in6_addr, &rdnss->router, 1);
                         if (!router)
@@ -208,7 +205,7 @@ static int ndisc_remove_old(Link *link) {
                         TAKE_PTR(router);
                 }
 
-        SET_FOREACH(dnssl, link->ndisc_dnssl, i)
+        SET_FOREACH(dnssl, link->ndisc_dnssl)
                 if (!set_contains(routers, &dnssl->router)) {
                         router = newdup(struct in6_addr, &dnssl->router, 1);
                         if (!router)
@@ -223,7 +220,7 @@ static int ndisc_remove_old(Link *link) {
                 }
 
         r = 0;
-        SET_FOREACH(a, routers, i) {
+        SET_FOREACH(a, routers) {
                 k = ndisc_remove_old_one(link, a, false);
                 if (k < 0)
                         r = k;
@@ -571,7 +568,6 @@ static int make_stableprivate_address(Link *link, const struct in6_addr *prefix,
 static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address, uint8_t prefixlen, Set **ret) {
         _cleanup_set_free_free_ Set *addresses = NULL;
         IPv6Token *j;
-        Iterator i;
         int r;
 
         assert(link);
@@ -582,7 +578,7 @@ static int ndisc_router_generate_addresses(Link *link, struct in6_addr *address,
         if (!addresses)
                 return log_oom();
 
-        ORDERED_SET_FOREACH(j, link->network->ipv6_tokens, i) {
+        ORDERED_SET_FOREACH(j, link->network->ipv6_tokens) {
                 _cleanup_free_ struct in6_addr *new_address = NULL;
 
                 if (j->address_generation_type == IPV6_TOKEN_ADDRESS_GENERATION_PREFIXSTABLE
@@ -650,7 +646,6 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         struct in6_addr addr, *a;
         unsigned prefixlen;
         usec_t time_now;
-        Iterator i;
         int r;
 
         assert(link);
@@ -693,7 +688,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         address->flags = IFA_F_NOPREFIXROUTE|IFA_F_MANAGETEMPADDR;
         address->cinfo.ifa_prefered = lifetime_preferred;
 
-        SET_FOREACH(a, addresses, i) {
+        SET_FOREACH(a, addresses) {
                 Address *existing_address;
 
                 /* see RFC4862 section 5.5.3.e */
@@ -847,7 +842,6 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         NDiscRDNSS *rdnss;
         usec_t time_now;
-        Iterator i;
         int n, r;
 
         assert(link);
@@ -869,7 +863,7 @@ static int ndisc_router_process_rdnss(Link *link, sd_ndisc_router *rt) {
         if (n < 0)
                 return log_link_error_errno(link, n, "Failed to get RDNSS addresses: %m");
 
-        SET_FOREACH(rdnss, link->ndisc_rdnss, i)
+        SET_FOREACH(rdnss, link->ndisc_rdnss)
                 if (IN6_ARE_ADDR_EQUAL(&rdnss->router, &router))
                         rdnss->marked = true;
 
@@ -935,7 +929,6 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         uint32_t lifetime;
         usec_t time_now;
         NDiscDNSSL *dnssl;
-        Iterator i;
         char **j;
         int r;
 
@@ -958,7 +951,7 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get DNSSL addresses: %m");
 
-        SET_FOREACH(dnssl, link->ndisc_dnssl, i)
+        SET_FOREACH(dnssl, link->ndisc_dnssl)
                 if (IN6_ARE_ADDR_EQUAL(&dnssl->router, &router))
                         dnssl->marked = true;
 
@@ -1087,7 +1080,6 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         uint64_t flags;
         NDiscAddress *na;
         NDiscRoute *nr;
-        Iterator i;
         int r;
 
         assert(link);
@@ -1104,11 +1096,11 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
 
-        SET_FOREACH(na, link->ndisc_addresses, i)
+        SET_FOREACH(na, link->ndisc_addresses)
                 if (IN6_ARE_ADDR_EQUAL(&na->router, &router))
                         na->marked = true;
 
-        SET_FOREACH(nr, link->ndisc_routes, i)
+        SET_FOREACH(nr, link->ndisc_routes)
                 if (IN6_ARE_ADDR_EQUAL(&nr->router, &router))
                         nr->marked = true;
 
@@ -1228,7 +1220,6 @@ int ndisc_configure(Link *link) {
 void ndisc_vacuum(Link *link) {
         NDiscRDNSS *r;
         NDiscDNSSL *d;
-        Iterator i;
         usec_t time_now;
         bool updated = false;
 
@@ -1238,13 +1229,13 @@ void ndisc_vacuum(Link *link) {
 
         time_now = now(clock_boottime_or_monotonic());
 
-        SET_FOREACH(r, link->ndisc_rdnss, i)
+        SET_FOREACH(r, link->ndisc_rdnss)
                 if (r->valid_until < time_now) {
                         free(set_remove(link->ndisc_rdnss, r));
                         updated = true;
                 }
 
-        SET_FOREACH(d, link->ndisc_dnssl, i)
+        SET_FOREACH(d, link->ndisc_dnssl)
                 if (d->valid_until < time_now) {
                         free(set_remove(link->ndisc_dnssl, d));
                         updated = true;

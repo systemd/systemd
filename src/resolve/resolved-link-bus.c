@@ -222,7 +222,6 @@ static int property_get_ntas(
 
         Link *l = userdata;
         const char *name;
-        Iterator i;
         int r;
 
         assert(reply);
@@ -232,7 +231,7 @@ static int property_get_ntas(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(name, l->dnssec_negative_trust_anchors, i) {
+        SET_FOREACH(name, l->dnssec_negative_trust_anchors) {
                 r = sd_bus_message_append(reply, "s", name);
                 if (r < 0)
                         return r;
@@ -746,7 +745,6 @@ static int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, c
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         Link *link;
-        Iterator i;
         unsigned c = 0;
 
         assert(bus);
@@ -758,7 +756,7 @@ static int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, c
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(link, m->links, i) {
+        HASHMAP_FOREACH(link, m->links) {
                 char *p;
 
                 p = link_bus_path(link);

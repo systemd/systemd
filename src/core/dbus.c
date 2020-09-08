@@ -457,14 +457,13 @@ static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, cha
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
-        Iterator i;
         Unit *u;
 
         l = new0(char*, hashmap_size(m->units)+1);
         if (!l)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(u, m->units, i) {
+        HASHMAP_FOREACH(u, m->units) {
                 l[k] = unit_dbus_path(u);
                 if (!l[k])
                         return -ENOMEM;
@@ -767,7 +766,6 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
 }
 
 static int bus_setup_api(Manager *m, sd_bus *bus) {
-        Iterator i;
         char *name;
         Unit *u;
         int r;
@@ -787,7 +785,7 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH_KEY(u, name, m->watch_bus, i) {
+        HASHMAP_FOREACH_KEY(u, name, m->watch_bus) {
                 r = unit_install_bus_match(u, bus, name);
                 if (r < 0)
                         log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal for '%s': %m", name);
@@ -976,7 +974,6 @@ int bus_init_private(Manager *m) {
 }
 
 static void destroy_bus(Manager *m, sd_bus **bus) {
-        Iterator i;
         Unit *u;
         Job *j;
 
@@ -987,7 +984,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
                 return;
 
         /* Make sure all bus slots watching names are released. */
-        HASHMAP_FOREACH(u, m->watch_bus, i) {
+        HASHMAP_FOREACH(u, m->watch_bus) {
                 if (u->match_bus_slot && sd_bus_slot_get_bus(u->match_bus_slot) == *bus)
                         u->match_bus_slot = sd_bus_slot_unref(u->match_bus_slot);
                 if (u->get_name_owner_slot && sd_bus_slot_get_bus(u->get_name_owner_slot) == *bus)
@@ -998,11 +995,11 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         if (m->subscribed && sd_bus_track_get_bus(m->subscribed) == *bus)
                 m->subscribed = sd_bus_track_unref(m->subscribed);
 
-        HASHMAP_FOREACH(j, m->jobs, i)
+        HASHMAP_FOREACH(j, m->jobs)
                 if (j->bus_track && sd_bus_track_get_bus(j->bus_track) == *bus)
                         j->bus_track = sd_bus_track_unref(j->bus_track);
 
-        HASHMAP_FOREACH(u, m->units, i) {
+        HASHMAP_FOREACH(u, m->units) {
                 if (u->bus_track && sd_bus_track_get_bus(u->bus_track) == *bus)
                         u->bus_track = sd_bus_track_unref(u->bus_track);
 
@@ -1060,7 +1057,6 @@ void bus_done(Manager *m) {
 }
 
 int bus_fdset_add_all(Manager *m, FDSet *fds) {
-        Iterator i;
         sd_bus *b;
         int fd;
 
@@ -1083,7 +1079,7 @@ int bus_fdset_add_all(Manager *m, FDSet *fds) {
                 }
         }
 
-        SET_FOREACH(b, m->private_buses, i) {
+        SET_FOREACH(b, m->private_buses) {
                 fd = sd_bus_get_fd(b);
                 if (fd >= 0) {
                         fd = fdset_put_dup(fds, fd);
@@ -1105,12 +1101,11 @@ int bus_foreach_bus(
                 int (*send_message)(sd_bus *bus, void *userdata),
                 void *userdata) {
 
-        Iterator i;
         sd_bus *b;
         int r, ret = 0;
 
         /* Send to all direct buses, unconditionally */
-        SET_FOREACH(b, m->private_buses, i) {
+        SET_FOREACH(b, m->private_buses) {
 
                 /* Don't bother with enqueuing these messages to clients that haven't started yet */
                 if (sd_bus_is_ready(b) <= 0)
@@ -1191,13 +1186,12 @@ int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_er
 
 uint64_t manager_bus_n_queued_write(Manager *m) {
         uint64_t c = 0;
-        Iterator i;
         sd_bus *b;
         int r;
 
         /* Returns the total number of messages queued for writing on all our direct and API buses. */
 
-        SET_FOREACH(b, m->private_buses, i) {
+        SET_FOREACH(b, m->private_buses) {
                 uint64_t k;
 
                 r = sd_bus_get_n_queued_write(b, &k);

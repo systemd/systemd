@@ -145,7 +145,6 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        Iterator iterator;
         char **i, *k;
         void *v;
         int r;
@@ -247,7 +246,7 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
 
         table_set_header(table, arg_legend);
 
-        HASHMAP_FOREACH_KEY(v, k, names, iterator) {
+        HASHMAP_FOREACH_KEY(v, k, names) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
                 if (v == NAME_IS_ACTIVATABLE) {
@@ -986,7 +985,6 @@ static int introspect(int argc, char **argv, void *userdata) {
         _cleanup_(member_set_freep) Set *members = NULL;
         unsigned name_width, type_width, signature_width, result_width, j, k = 0;
         Member *m, **sorted = NULL;
-        Iterator i;
         const char *xml;
         int r;
 
@@ -1022,7 +1020,7 @@ static int introspect(int argc, char **argv, void *userdata) {
                 return r;
 
         /* Second, find the current values for them */
-        SET_FOREACH(m, members, i) {
+        SET_FOREACH(m, members) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
 
                 if (!streq(m->type, "property"))
@@ -1105,7 +1103,7 @@ static int introspect(int argc, char **argv, void *userdata) {
 
         sorted = newa(Member*, set_size(members));
 
-        SET_FOREACH(m, members, i) {
+        SET_FOREACH(m, members) {
                 if (argv[3] && !streq(argv[3], m->interface))
                         continue;
 

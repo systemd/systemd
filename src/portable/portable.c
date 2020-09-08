@@ -103,7 +103,6 @@ static int compare_metadata(PortableMetadata *const *x, PortableMetadata *const 
 int portable_metadata_hashmap_to_sorted_array(Hashmap *unit_files, PortableMetadata ***ret) {
 
         _cleanup_free_ PortableMetadata **sorted = NULL;
-        Iterator iterator;
         PortableMetadata *item;
         size_t k = 0;
 
@@ -111,7 +110,7 @@ int portable_metadata_hashmap_to_sorted_array(Hashmap *unit_files, PortableMetad
         if (!sorted)
                 return -ENOMEM;
 
-        HASHMAP_FOREACH(item, unit_files, iterator)
+        HASHMAP_FOREACH(item, unit_files)
                 sorted[k++] = item;
 
         assert(k == hashmap_size(unit_files));
@@ -987,7 +986,6 @@ int portable_attach(
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(image_unrefp) Image *image = NULL;
         PortableMetadata *item;
-        Iterator iterator;
         int r;
 
         assert(name_or_path);
@@ -1004,7 +1002,7 @@ int portable_attach(
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(item, unit_files, iterator) {
+        HASHMAP_FOREACH(item, unit_files) {
                 r = unit_file_exists(UNIT_FILE_SYSTEM, &paths, item->name);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to determine whether unit '%s' exists on the host: %m", item->name);
@@ -1018,7 +1016,7 @@ int portable_attach(
                         return sd_bus_error_setf(error, BUS_ERROR_UNIT_EXISTS, "Unit file '%s' is active already, refusing.", item->name);
         }
 
-        HASHMAP_FOREACH(item, unit_files, iterator) {
+        HASHMAP_FOREACH(item, unit_files) {
                 r = attach_unit_file(&paths, image->path, image->type, item, profile, flags, changes, n_changes);
                 if (r < 0)
                         return r;
@@ -1140,7 +1138,6 @@ int portable_detach(
         _cleanup_set_free_ Set *unit_files = NULL, *markers = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *where, *item;
-        Iterator iterator;
         struct dirent *de;
         int ret = 0;
         int r;
@@ -1210,7 +1207,7 @@ int portable_detach(
         if (set_isempty(unit_files))
                 goto not_found;
 
-        SET_FOREACH(item, unit_files, iterator) {
+        SET_FOREACH(item, unit_files) {
                 _cleanup_free_ char *md = NULL;
                 const char *suffix;
 
@@ -1252,7 +1249,7 @@ int portable_detach(
         }
 
         /* Now, also drop any image symlink, for images outside of the sarch path */
-        SET_FOREACH(item, markers, iterator) {
+        SET_FOREACH(item, markers) {
                 _cleanup_free_ char *sl = NULL;
                 struct stat st;
 

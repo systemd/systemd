@@ -275,7 +275,6 @@ static int l2tp_acquire_local_address_one(L2tpTunnel *t, Address *a, union in_ad
 
 static int l2tp_acquire_local_address(L2tpTunnel *t, Link *link, union in_addr_union *ret) {
         Address *a;
-        Iterator i;
 
         assert(t);
         assert(link);
@@ -288,11 +287,11 @@ static int l2tp_acquire_local_address(L2tpTunnel *t, Link *link, union in_addr_u
                 return 0;
         }
 
-        SET_FOREACH(a, link->addresses, i)
+        SET_FOREACH(a, link->addresses)
                 if (l2tp_acquire_local_address_one(t, a, ret) >= 0)
                         return 1;
 
-        SET_FOREACH(a, link->addresses_foreign, i)
+        SET_FOREACH(a, link->addresses_foreign)
                 if (l2tp_acquire_local_address_one(t, a, ret) >= 0)
                         return 1;
 
@@ -348,7 +347,6 @@ static int l2tp_create_session(NetDev *netdev, L2tpSession *session) {
 static int l2tp_create_tunnel_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         L2tpSession *session;
         L2tpTunnel *t;
-        Iterator i;
         int r;
 
         assert(netdev);
@@ -370,7 +368,7 @@ static int l2tp_create_tunnel_handler(sd_netlink *rtnl, sd_netlink_message *m, N
 
         log_netdev_debug(netdev, "L2TP tunnel is created");
 
-        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section, i)
+        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
                 (void) l2tp_create_session(netdev, session);
 
         return 1;
@@ -677,7 +675,6 @@ static int l2tp_session_verify(L2tpSession *session) {
 static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
         L2tpTunnel *t;
         L2tpSession *session;
-        Iterator i;
 
         assert(netdev);
         assert(filename);
@@ -701,7 +698,7 @@ static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
                                               "%s: L2TP tunnel without tunnel IDs configured. Ignoring",
                                               filename);
 
-        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section, i)
+        ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
                 if (l2tp_session_verify(session) < 0)
                         l2tp_session_free(session);
 

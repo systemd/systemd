@@ -655,7 +655,6 @@ static int load_sysv(SysvStub *s) {
 
 static int fix_order(SysvStub *s, Hashmap *all_services) {
         SysvStub *other;
-        Iterator j;
         int r;
 
         assert(s);
@@ -666,7 +665,7 @@ static int fix_order(SysvStub *s, Hashmap *all_services) {
         if (s->sysv_start_priority < 0)
                 return 0;
 
-        HASHMAP_FOREACH(other, all_services, j) {
+        HASHMAP_FOREACH(other, all_services) {
                 if (s == other)
                         continue;
 
@@ -817,7 +816,6 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
         Set *runlevel_services[ELEMENTSOF(rcnd_table)] = {};
         _cleanup_strv_free_ char **sysvrcnd_path = NULL;
         SysvStub *service;
-        Iterator j;
         char **p;
         int r;
 
@@ -892,7 +890,7 @@ static int set_dependencies_from_rcnd(const LookupPaths *lp, Hashmap *all_servic
                 }
 
         for (unsigned i = 0; i < ELEMENTSOF(rcnd_table); i++)
-                SET_FOREACH(service, runlevel_services[i], j) {
+                SET_FOREACH(service, runlevel_services[i]) {
                         r = strv_extend(&service->before, rcnd_table[i].target);
                         if (r < 0) {
                                 log_oom();
@@ -918,7 +916,6 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         _cleanup_(free_sysvstub_hashmapp) Hashmap *all_services = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         SysvStub *service;
-        Iterator j;
         int r;
 
         assert_se(arg_dest = dest_late);
@@ -939,10 +936,10 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(service, all_services, j)
+        HASHMAP_FOREACH(service, all_services)
                 (void) load_sysv(service);
 
-        HASHMAP_FOREACH(service, all_services, j) {
+        HASHMAP_FOREACH(service, all_services) {
                 (void) fix_order(service, all_services);
                 (void) generate_unit_file(service);
         }

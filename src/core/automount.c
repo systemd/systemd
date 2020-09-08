@@ -850,7 +850,6 @@ static int automount_stop(Unit *u) {
 
 static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
         Automount *a = AUTOMOUNT(u);
-        Iterator i;
         void *p;
         int r;
 
@@ -862,9 +861,9 @@ static int automount_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "result", automount_result_to_string(a->result));
         (void) serialize_item_format(f, "dev-id", "%lu", (unsigned long) a->dev_id);
 
-        SET_FOREACH(p, a->tokens, i)
+        SET_FOREACH(p, a->tokens)
                 (void) serialize_item_format(f, "token", "%u", PTR_TO_UINT(p));
-        SET_FOREACH(p, a->expire_tokens, i)
+        SET_FOREACH(p, a->expire_tokens)
                 (void) serialize_item_format(f, "expire-token", "%u", PTR_TO_UINT(p));
 
         r = serialize_fd(f, fds, "pipe-fd", a->pipe_fd);

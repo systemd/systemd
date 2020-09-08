@@ -79,10 +79,9 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
         else if (p.user_name)
                 r = dynamic_user_lookup_name(m, p.user_name, &found_uid);
         else {
-                Iterator i;
                 DynamicUser *d;
 
-                HASHMAP_FOREACH(d, m->dynamic_users, i) {
+                HASHMAP_FOREACH(d, m->dynamic_users) {
                         r = dynamic_user_current(d, &uid);
                         if (r == -EAGAIN) /* not realized yet? */
                                 continue;
@@ -189,9 +188,8 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
                 r = dynamic_user_lookup_name(m, p.group_name, (uid_t*) &found_gid);
         else {
                 DynamicUser *d;
-                Iterator i;
 
-                HASHMAP_FOREACH(d, m->dynamic_users, i) {
+                HASHMAP_FOREACH(d, m->dynamic_users) {
                         uid_t uid;
 
                         r = dynamic_user_current(d, &uid);

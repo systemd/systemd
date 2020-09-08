@@ -105,7 +105,6 @@ int test_main(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *cmd, *key, *value;
         sigset_t mask, sigmask_orig;
-        Iterator i;
         void *val;
         int r;
 
@@ -149,7 +148,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         FOREACH_DEVICE_PROPERTY(dev, key, value)
                 printf("%s=%s\n", key, value);
 
-        ORDERED_HASHMAP_FOREACH_KEY(val, cmd, event->run_list, i) {
+        ORDERED_HASHMAP_FOREACH_KEY(val, cmd, event->run_list) {
                 char program[UTIL_PATH_SIZE];
 
                 (void) udev_event_apply_format(event, cmd, program, sizeof(program), false);

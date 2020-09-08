@@ -391,13 +391,12 @@ int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
         Session *s;
         bool idle_hint;
         dual_timestamp ts = DUAL_TIMESTAMP_NULL;
-        Iterator i;
 
         assert(m);
 
         idle_hint = !manager_is_inhibited(m, INHIBIT_IDLE, INHIBIT_BLOCK, t, false, false, 0, NULL);
 
-        HASHMAP_FOREACH(s, m->sessions, i) {
+        HASHMAP_FOREACH(s, m->sessions) {
                 dual_timestamp k;
                 int ih;
 
@@ -547,10 +546,9 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
 }
 
 bool manager_is_lid_closed(Manager *m) {
-        Iterator i;
         Button *b;
 
-        HASHMAP_FOREACH(b, m->buttons, i)
+        HASHMAP_FOREACH(b, m->buttons)
                 if (b->lid_closed)
                         return true;
 
@@ -558,10 +556,9 @@ bool manager_is_lid_closed(Manager *m) {
 }
 
 static bool manager_is_docked(Manager *m) {
-        Iterator i;
         Button *b;
 
-        HASHMAP_FOREACH(b, m->buttons, i)
+        HASHMAP_FOREACH(b, m->buttons)
                 if (b->docked)
                         return true;
 

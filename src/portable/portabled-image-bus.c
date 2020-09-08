@@ -704,7 +704,6 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
         size_t n_allocated = 0, n = 0;
         Manager *m = userdata;
         Image *image;
-        Iterator i;
         int r;
 
         assert(bus);
@@ -719,7 +718,7 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(image, images, i) {
+        HASHMAP_FOREACH(image, images) {
                 char *p;
 
                 r = bus_image_path(image, &p);

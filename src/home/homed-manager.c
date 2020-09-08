@@ -267,7 +267,6 @@ Manager* manager_free(Manager *m) {
 
 int manager_verify_user_record(Manager *m, UserRecord *hr) {
         EVP_PKEY *pkey;
-        Iterator i;
         int r;
 
         assert(m);
@@ -298,7 +297,7 @@ int manager_verify_user_record(Manager *m, UserRecord *hr) {
                 }
         }
 
-        HASHMAP_FOREACH(pkey, m->public_keys, i) {
+        HASHMAP_FOREACH(pkey, m->public_keys) {
                 r = user_record_verify(hr, pkey);
                 switch (r) {
 
@@ -1606,9 +1605,8 @@ int manager_gc_images(Manager *m) {
                 manager_revalidate_image(m, h);
         } else {
                 /* Gc all */
-                Iterator i;
 
-                HASHMAP_FOREACH(h, m->homes_by_name, i)
+                HASHMAP_FOREACH(h, m->homes_by_name)
                         manager_revalidate_image(m, h);
         }
 
