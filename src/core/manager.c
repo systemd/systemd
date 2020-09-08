@@ -671,19 +671,19 @@ static int manager_setup_prefix(Manager *m) {
         };
 
         static const struct table_entry paths_system[_EXEC_DIRECTORY_TYPE_MAX] = {
-                [EXEC_DIRECTORY_RUNTIME] = { SD_PATH_SYSTEM_RUNTIME, NULL },
-                [EXEC_DIRECTORY_STATE] = { SD_PATH_SYSTEM_STATE_PRIVATE, NULL },
-                [EXEC_DIRECTORY_CACHE] = { SD_PATH_SYSTEM_STATE_CACHE, NULL },
-                [EXEC_DIRECTORY_LOGS] = { SD_PATH_SYSTEM_STATE_LOGS, NULL },
+                [EXEC_DIRECTORY_RUNTIME] =       { SD_PATH_SYSTEM_RUNTIME,       NULL },
+                [EXEC_DIRECTORY_STATE] =         { SD_PATH_SYSTEM_STATE_PRIVATE, NULL },
+                [EXEC_DIRECTORY_CACHE] =         { SD_PATH_SYSTEM_STATE_CACHE,   NULL },
+                [EXEC_DIRECTORY_LOGS] =          { SD_PATH_SYSTEM_STATE_LOGS,    NULL },
                 [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_SYSTEM_CONFIGURATION, NULL },
         };
 
         static const struct table_entry paths_user[_EXEC_DIRECTORY_TYPE_MAX] = {
-                [EXEC_DIRECTORY_RUNTIME] = { SD_PATH_USER_RUNTIME, NULL },
-                [EXEC_DIRECTORY_STATE] = { SD_PATH_USER_CONFIGURATION, NULL },
-                [EXEC_DIRECTORY_CACHE] = { SD_PATH_USER_STATE_CACHE, NULL },
-                [EXEC_DIRECTORY_LOGS] = { SD_PATH_USER_CONFIGURATION, "log" },
-                [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_USER_CONFIGURATION, NULL },
+                [EXEC_DIRECTORY_RUNTIME] =       { SD_PATH_USER_RUNTIME,       NULL  },
+                [EXEC_DIRECTORY_STATE] =         { SD_PATH_USER_CONFIGURATION, NULL  },
+                [EXEC_DIRECTORY_CACHE] =         { SD_PATH_USER_STATE_CACHE,   NULL  },
+                [EXEC_DIRECTORY_LOGS] =          { SD_PATH_USER_CONFIGURATION, "log" },
+                [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_USER_CONFIGURATION, NULL  },
         };
 
         assert(m);
@@ -1877,7 +1877,6 @@ Unit *manager_get_unit(Manager *m, const char *name) {
 
 static int manager_dispatch_target_deps_queue(Manager *m) {
         Unit *u;
-        unsigned k;
         int r = 0;
 
         static const UnitDependency deps[] = {
@@ -1895,7 +1894,7 @@ static int manager_dispatch_target_deps_queue(Manager *m) {
                 LIST_REMOVE(target_deps_queue, u->manager->target_deps_queue, u);
                 u->in_target_deps_queue = false;
 
-                for (k = 0; k < ELEMENTSOF(deps); k++) {
+                for (size_t k = 0; k < ELEMENTSOF(deps); k++) {
                         Unit *target;
                         void *v;
 
@@ -2114,12 +2113,10 @@ void manager_dump_units(Manager *s, FILE *f, const char *prefix) {
 }
 
 void manager_dump(Manager *m, FILE *f, const char *prefix) {
-        ManagerTimestamp q;
-
         assert(m);
         assert(f);
 
-        for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
+        for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 const dual_timestamp *t = m->timestamps + q;
                 char buf[CONST_MAX(FORMAT_TIMESPAN_MAX, FORMAT_TIMESTAMP_MAX)];
 
@@ -3216,7 +3213,6 @@ int manager_serialize(
                 FDSet *fds,
                 bool switching_root) {
 
-        ManagerTimestamp q;
         const char *t;
         Unit *u;
         int r;
@@ -3251,7 +3247,7 @@ int manager_serialize(
         (void) serialize_usec(f, "reboot-watchdog-overridden", m->watchdog_overridden[WATCHDOG_REBOOT]);
         (void) serialize_usec(f, "kexec-watchdog-overridden", m->watchdog_overridden[WATCHDOG_KEXEC]);
 
-        for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
+        for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 _cleanup_free_ char *joined = NULL;
 
                 if (!manager_timestamp_shall_serialize(q))
@@ -4179,11 +4175,9 @@ int manager_get_effective_environment(Manager *m, char ***ret) {
 }
 
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
-        int i;
-
         assert(m);
 
-        for (i = 0; i < _RLIMIT_MAX; i++) {
+        for (unsigned i = 0; i < _RLIMIT_MAX; i++) {
                 m->rlimit[i] = mfree(m->rlimit[i]);
 
                 if (!default_rlimit[i])
