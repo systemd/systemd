@@ -547,9 +547,9 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         }
 
         if (rule->iif) {
-                r = sd_netlink_message_append_string(m, FRA_IFNAME, rule->iif);
+                r = sd_netlink_message_append_string(m, FRA_IIFNAME, rule->iif);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_IFNAME attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_IIFNAME attribute: %m");
         }
 
         if (rule->oif) {
