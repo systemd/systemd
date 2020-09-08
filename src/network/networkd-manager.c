@@ -1369,9 +1369,14 @@ static int manager_connect_rtnl(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
-        if (r < 0)
-                log_warning_errno(r, "Failed to increase receive buffer size for rtnl socket, ignoring: %m");
+        /* Bump receiver buffer, but only if we are not called via socket activation, as in that
+         * case systemd sets the receive buffer size for us, and the value in the .socket unit
+         * should take full effect. */
+        if (fd < 0) {
+                r = sd_netlink_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to increase receive buffer size for rtnl socket, ignoring: %m");
+        }
 
         r = sd_netlink_attach_event(m->rtnl, m->event, 0);
         if (r < 0)
