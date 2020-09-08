@@ -31,7 +31,7 @@ static int apply_timestamp(const char *path, struct timespec *ts) {
 
         r = write_string_file_atomic_label_ts(path, message, ts);
         if (r == -EROFS)
-                return log_debug("Cannot create \"%s\", file system is read-only.", path);
+                return log_debug_errno(r, "Cannot create \"%s\", file system is read-only.", path);
         if (r < 0)
                 return log_error_errno(r, "Failed to write \"%s\": %m", path);
         return 0;
