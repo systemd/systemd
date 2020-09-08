@@ -6240,8 +6240,13 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
 
                 n = strcspn(v, " ");
                 buf = strndupa(v, n);
-                if (safe_atoi(buf, &fdpair[0]) < 0 || !fdset_contains(fds, fdpair[0]))
-                        return log_debug("Unable to process exec-runtime netns fd specification.");
+
+                r = safe_atoi(buf, &fdpair[0]);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to parse exec-runtime specification netns-socket-0=%s: %m", buf);
+                if (!fdset_contains(fds, fdpair[0]))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                                               "exec-runtime specification netns-socket-0= refers to unknown fd %d: %m", fdpair[0]);
                 fdpair[0] = fdset_remove(fds, fdpair[0]);
                 if (v[n] != ' ')
                         goto finalize;
@@ -6254,8 +6259,12 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
 
                 n = strcspn(v, " ");
                 buf = strndupa(v, n);
-                if (safe_atoi(buf, &fdpair[1]) < 0 || !fdset_contains(fds, fdpair[1]))
-                        return log_debug("Unable to process exec-runtime netns fd specification.");
+                r = safe_atoi(buf, &fdpair[1]);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to parse exec-runtime specification netns-socket-1=%s: %m", buf);
+                if (!fdset_contains(fds, fdpair[0]))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                                               "exec-runtime specification netns-socket-1= refers to unknown fd %d: %m", fdpair[1]);
                 fdpair[1] = fdset_remove(fds, fdpair[1]);
         }
 

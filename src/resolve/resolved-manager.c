@@ -349,7 +349,8 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
 #if HAVE_LIBIDN2
         r = idn2_to_unicode_8z8z(label, &utf8, 0);
         if (r != IDN2_OK)
-                return log_error("Failed to undo IDNA: %s", idn2_strerror(r));
+                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                       "Failed to undo IDNA: %s", idn2_strerror(r));
         assert(utf8_is_valid(utf8));
 
         r = strlen(utf8);
