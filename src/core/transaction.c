@@ -1009,10 +1009,9 @@ int transaction_add_job_and_dependencies(
                         SET_FOREACH(dep, following, i) {
                                 r = transaction_add_job_and_dependencies(tr, type, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
-                                        log_unit_full(dep,
-                                                      r == -ERFKILL ? LOG_INFO : LOG_WARNING,
-                                                      r, "Cannot add dependency job, ignoring: %s",
-                                                      bus_error_message(e, r));
+                                        log_unit_full_errno(dep, r == -ERFKILL ? LOG_INFO : LOG_WARNING, r,
+                                                            "Cannot add dependency job, ignoring: %s",
+                                                            bus_error_message(e, r));
                                         sd_bus_error_free(e);
                                 }
                         }
@@ -1046,10 +1045,10 @@ int transaction_add_job_and_dependencies(
                                 r = transaction_add_job_and_dependencies(tr, JOB_START, dep, ret, false, false, false, ignore_order, e);
                                 if (r < 0) {
                                         /* unit masked, job type not applicable and unit not found are not considered as errors. */
-                                        log_unit_full(dep,
-                                                      IN_SET(r, -ERFKILL, -EBADR, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
-                                                      r, "Cannot add dependency job, ignoring: %s",
-                                                      bus_error_message(e, r));
+                                        log_unit_full_errno(dep,
+                                                            IN_SET(r, -ERFKILL, -EBADR, -ENOENT) ? LOG_DEBUG : LOG_WARNING,
+                                                            r, "Cannot add dependency job, ignoring: %s",
+                                                            bus_error_message(e, r));
                                         sd_bus_error_free(e);
                                 }
                         }

@@ -284,8 +284,8 @@ static int swap_load_devnode(Swap *s) {
 
         r = device_new_from_stat_rdev(&d, &st);
         if (r < 0) {
-                log_unit_full(UNIT(s), r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
-                              "Failed to allocate device for swap %s: %m", s->what);
+                log_unit_full_errno(UNIT(s), r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                    "Failed to allocate device for swap %s: %m", s->what);
                 return 0;
         }
 
