@@ -1347,7 +1347,7 @@ static int manager_connect_genl(Manager *m) {
 
         r = sd_netlink_inc_rcvbuf(m->genl, RCVBUF_SIZE);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to increase receive buffer size for general netlink socket, ignoring: %m");
 
         r = sd_netlink_attach_event(m->genl, m->event, 0);
         if (r < 0)
@@ -1371,7 +1371,7 @@ static int manager_connect_rtnl(Manager *m) {
 
         r = sd_netlink_inc_rcvbuf(m->rtnl, RCVBUF_SIZE);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to increase receive buffer size for rtnl socket, ignoring: %m");
 
         r = sd_netlink_attach_event(m->rtnl, m->event, 0);
         if (r < 0)
