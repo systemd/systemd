@@ -122,7 +122,7 @@ static int override_abs(sd_device *dev, int fd, unsigned evcode, const char *val
         next = parse_token(next, &absinfo.fuzz);
         next = parse_token(next, &absinfo.flat);
         if (!next)
-                return log_device_error(dev, "Failed to parse EV_ABS override '%s'", value);
+                return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Failed to parse EV_ABS override '%s'", value);
 
         log_device_debug(dev, "keyboard: %x overridden with %"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32,
                          evcode, absinfo.minimum, absinfo.maximum, absinfo.resolution, absinfo.fuzz, absinfo.flat);
