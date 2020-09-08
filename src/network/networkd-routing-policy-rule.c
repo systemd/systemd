@@ -655,30 +655,35 @@ int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
         return 0;
 }
 
-static int parse_fwmark_fwmask(const char *s, uint32_t *fwmark, uint32_t *fwmask) {
-        _cleanup_free_ char *f = NULL;
-        char *p;
+static int parse_fwmark_fwmask(const char *s, uint32_t *ret_fwmark, uint32_t *ret_fwmask) {
+        _cleanup_free_ char *fwmark_str = NULL;
+        uint32_t fwmark, fwmask = 0;
+        const char *slash;
         int r;
 
         assert(s);
+        assert(ret_fwmark);
+        assert(ret_fwmask);
 
-        f = strdup(s);
-        if (!f)
-                return -ENOMEM;
-
-        p = strchr(f, '/');
-        if (p)
-                *p++ = '\0';
-
-        r = safe_atou32(f, fwmark);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse RPDB rule firewall mark, ignoring: %s", f);
-
-        if (p) {
-                r = safe_atou32(p, fwmask);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse RPDB rule mask, ignoring: %s", f);
+        slash = strchr(s, '/');
+        if (slash) {
+                fwmark_str = strndup(s, slash - s);
+                if (!fwmark_str)
+                        return -ENOMEM;
         }
+
+        r = safe_atou32(fwmark_str ?: s, &fwmark);
+        if (r < 0)
+                return r;
+
+        if (slash) {
+                r = safe_atou32(slash + 1, &fwmask);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_fwmark = fwmark;
+        *ret_fwmask = fwmask;
 
         return 0;
 }
