@@ -15,10 +15,10 @@
 
 typedef struct Manager Manager;
 
-#include "resolved-conf.h"
 #include "resolved-dns-query.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dns-stub.h"
 #include "resolved-dns-trust-anchor.h"
 #include "resolved-link.h"
 
@@ -30,17 +30,6 @@ typedef struct EtcHosts {
         Hashmap *by_name;
         Set *no_address;
 } EtcHosts;
-
-typedef struct DnsStubListenerExtra {
-        DnsStubListenerMode mode;
-
-        int family;
-        union in_addr_union address;
-        uint16_t port;
-
-        sd_event_source *udp_event_source;
-        sd_event_source *tcp_event_source;
-} DnsStubListenerExtra;
 
 struct Manager {
         sd_event *event;

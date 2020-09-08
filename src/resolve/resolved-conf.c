@@ -21,51 +21,6 @@
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode, "Failed to parse DNS stub listener mode setting");
 
-static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MAX] = {
-        [DNS_STUB_LISTENER_NO] = "no",
-        [DNS_STUB_LISTENER_UDP] = "udp",
-        [DNS_STUB_LISTENER_TCP] = "tcp",
-        [DNS_STUB_LISTENER_YES] = "yes",
-};
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_stub_listener_mode, DnsStubListenerMode, DNS_STUB_LISTENER_YES);
-
-static void dns_stub_listener_extra_hash_func(const DnsStubListenerExtra *a, struct siphash *state) {
-        assert(a);
-
-        siphash24_compress(&a->mode, sizeof(a->mode), state);
-        siphash24_compress(&a->family, sizeof(a->family), state);
-        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
-        siphash24_compress(&a->port, sizeof(a->port), state);
-}
-
-static int dns_stub_listener_extra_compare_func(const DnsStubListenerExtra *a, const DnsStubListenerExtra *b) {
-        int r;
-
-        assert(a);
-        assert(b);
-
-        r = CMP(a->mode, b->mode);
-        if (r != 0)
-                return r;
-
-        r = CMP(a->family, b->family);
-        if (r != 0)
-                return r;
-
-        r = memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
-        if (r != 0)
-                return r;
-
-        return CMP(a->port, b->port);
-}
-
-DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-                dns_stub_listener_extra_hash_ops,
-                DnsStubListenerExtra,
-                dns_stub_listener_extra_hash_func,
-                dns_stub_listener_extra_compare_func,
-                dns_stub_listener_extra_free);
-
 static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
         _cleanup_free_ char *server_name = NULL;
         union in_addr_union address;

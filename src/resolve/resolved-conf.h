@@ -3,17 +3,6 @@
 
 #include "conf-parser.h"
 
-typedef enum DnsStubListenerMode DnsStubListenerMode;
-
-enum DnsStubListenerMode {
-        DNS_STUB_LISTENER_NO,
-        DNS_STUB_LISTENER_UDP = 1 << 0,
-        DNS_STUB_LISTENER_TCP = 1 << 1,
-        DNS_STUB_LISTENER_YES = DNS_STUB_LISTENER_UDP | DNS_STUB_LISTENER_TCP,
-        _DNS_STUB_LISTENER_MODE_MAX,
-        _DNS_STUB_LISTENER_MODE_INVALID = -1
-};
-
 #include "resolved-dns-server.h"
 
 int manager_parse_config_file(Manager *m);
@@ -31,6 +20,3 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_name);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_txt);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_extra);
-
-const char* dns_stub_listener_mode_to_string(DnsStubListenerMode p) _const_;
-DnsStubListenerMode dns_stub_listener_mode_from_string(const char *s) _pure_;

@@ -9,12 +9,51 @@
 #include "resolved-dns-stub.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
+#include "string-table.h"
 
 /* The MTU of the loopback device is 64K on Linux, advertise that as maximum datagram size, but subtract the Ethernet,
  * IP and UDP header sizes */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)
 
+static void dns_stub_listener_extra_hash_func(const DnsStubListenerExtra *a, struct siphash *state) {
+        assert(a);
+
+        siphash24_compress(&a->mode, sizeof(a->mode), state);
+        siphash24_compress(&a->family, sizeof(a->family), state);
+        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
+        siphash24_compress(&a->port, sizeof(a->port), state);
+}
+
+static int dns_stub_listener_extra_compare_func(const DnsStubListenerExtra *a, const DnsStubListenerExtra *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(a->mode, b->mode);
+        if (r != 0)
+                return r;
+
+        r = CMP(a->family, b->family);
+        if (r != 0)
+                return r;
+
+        r = memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
+        if (r != 0)
+                return r;
+
+        return CMP(a->port, b->port);
+}
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                dns_stub_listener_extra_hash_ops,
+                DnsStubListenerExtra,
+                dns_stub_listener_extra_hash_func,
+                dns_stub_listener_extra_compare_func,
+                dns_stub_listener_extra_free);
+
 int dns_stub_listener_extra_new(DnsStubListenerExtra **ret) {
+
         DnsStubListenerExtra *l;
 
         l = new0(DnsStubListenerExtra, 1);
@@ -794,3 +833,11 @@ void manager_dns_stub_stop(Manager *m) {
         m->dns_stub_udp_event_source = sd_event_source_unref(m->dns_stub_udp_event_source);
         m->dns_stub_tcp_event_source = sd_event_source_unref(m->dns_stub_tcp_event_source);
 }
+
+static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MAX] = {
+        [DNS_STUB_LISTENER_NO] = "no",
+        [DNS_STUB_LISTENER_UDP] = "udp",
+        [DNS_STUB_LISTENER_TCP] = "tcp",
+        [DNS_STUB_LISTENER_YES] = "yes",
+};
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_stub_listener_mode, DnsStubListenerMode, DNS_STUB_LISTENER_YES);
