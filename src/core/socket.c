@@ -1058,20 +1058,15 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->receive_buffer > 0) {
-                /* We first try with SO_RCVBUFFORCE, in case we have the perms for that */
-                if (setsockopt_int(fd, SOL_SOCKET, SO_RCVBUFFORCE, s->receive_buffer) < 0) {
-                        r = setsockopt_int(fd, SOL_SOCKET, SO_RCVBUF, s->receive_buffer);
-                        if (r < 0)
-                                log_unit_warning_errno(UNIT(s), r, "SO_RCVBUF failed: %m");
-                }
+                r = fd_set_rcvbuf(fd, s->receive_buffer, false);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "SO_RCVBUF/SO_RCVBUFFORCE failed: %m");
         }
 
         if (s->send_buffer > 0) {
-                if (setsockopt_int(fd, SOL_SOCKET, SO_SNDBUFFORCE, s->send_buffer) < 0) {
-                        r = setsockopt_int(fd, SOL_SOCKET, SO_SNDBUF, s->send_buffer);
-                        if (r < 0)
-                                log_unit_warning_errno(UNIT(s), r, "SO_SNDBUF failed: %m");
-                }
+                r = fd_set_sndbuf(fd, s->receive_buffer, false);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "SO_SNDBUF/SO_SNDBUFFORCE failed: %m");
         }
 
         if (s->mark >= 0) {
