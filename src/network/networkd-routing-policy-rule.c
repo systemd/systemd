@@ -473,8 +473,8 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                 (void) in_addr_to_string(rule->family, &rule->to, &to);
 
                 log_link_debug(link,
-                               "Configuring routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
-                               from, rule->from_prefixlen, to, rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
+                               "Configuring routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                               rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
         }
 
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);

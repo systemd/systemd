@@ -1182,11 +1182,11 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         switch (type) {
         case RTM_NEWRULE:
                 if (rule)
-                        log_debug("Received remembered routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
-                                  strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_debug("Received remembered routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
                 else {
-                        log_debug("Remembering foreign routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
-                                  strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_debug("Remembering foreign routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
                         r = routing_policy_rule_add_foreign(m, tmp, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
@@ -1196,12 +1196,12 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 break;
         case RTM_DELRULE:
                 if (rule) {
-                        log_debug("Forgetting routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
-                                  strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_debug("Forgetting routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
                         routing_policy_rule_free(rule);
                 } else
-                        log_debug("Kernel removed a routing policy rule we don't remember: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u, ignoring.",
-                                  strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_debug("Kernel removed a routing policy rule we don't remember: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32", ignoring.",
+                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
                 break;
 
         default:
