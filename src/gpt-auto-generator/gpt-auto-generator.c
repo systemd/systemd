@@ -729,10 +729,14 @@ static int add_mounts(void) {
         int r;
 
         r = get_block_device_harder("/", &devno);
+        if (r == -EUCLEAN)
+                return btrfs_log_dev_root(LOG_ERR, r, "root file system");
         if (r < 0)
                 return log_error_errno(r, "Failed to determine block device of root file system: %m");
-        if (r == 0) {
+        if (r == 0) { /* Not backed by block device */
                 r = get_block_device_harder("/usr", &devno);
+                if (r == -EUCLEAN)
+                        return btrfs_log_dev_root(LOG_ERR, r, "/usr");
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine block device of /usr file system: %m");
                 if (r == 0) {
