@@ -2936,6 +2936,9 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         assert(u);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
 
+        if (!cg_freezer_supported())
+                return 0;
+
         if (!u->cgroup_realized)
                 return -EBUSY;
 
