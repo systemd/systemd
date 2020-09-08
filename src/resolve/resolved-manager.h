@@ -31,7 +31,7 @@ typedef struct EtcHosts {
         Set *no_address;
 } EtcHosts;
 
-typedef struct DNSStubListenerExtra {
+typedef struct DnsStubListenerExtra {
         DnsStubListenerMode mode;
 
         int family;
@@ -40,7 +40,7 @@ typedef struct DNSStubListenerExtra {
 
         sd_event_source *udp_event_source;
         sd_event_source *tcp_event_source;
-} DNSStubListenerExtra;
+} DnsStubListenerExtra;
 
 struct Manager {
         sd_event *event;

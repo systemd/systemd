@@ -29,7 +29,7 @@ static const char* const dns_stub_listener_mode_table[_DNS_STUB_LISTENER_MODE_MA
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_stub_listener_mode, DnsStubListenerMode, DNS_STUB_LISTENER_YES);
 
-static void dns_stub_listener_extra_hash_func(const DNSStubListenerExtra *a, struct siphash *state) {
+static void dns_stub_listener_extra_hash_func(const DnsStubListenerExtra *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->mode, sizeof(a->mode), state);
@@ -38,7 +38,7 @@ static void dns_stub_listener_extra_hash_func(const DNSStubListenerExtra *a, str
         siphash24_compress(&a->port, sizeof(a->port), state);
 }
 
-static int dns_stub_listener_extra_compare_func(const DNSStubListenerExtra *a, const DNSStubListenerExtra *b) {
+static int dns_stub_listener_extra_compare_func(const DnsStubListenerExtra *a, const DnsStubListenerExtra *b) {
         int r;
 
         assert(a);
@@ -61,7 +61,7 @@ static int dns_stub_listener_extra_compare_func(const DNSStubListenerExtra *a, c
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 dns_stub_listener_extra_hash_ops,
-                DNSStubListenerExtra,
+                DnsStubListenerExtra,
                 dns_stub_listener_extra_hash_func,
                 dns_stub_listener_extra_compare_func,
                 dns_stub_listener_extra_free);
@@ -436,7 +436,7 @@ int config_parse_dns_stub_listener_extra(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ DNSStubListenerExtra *stub = NULL;
+        _cleanup_free_ DnsStubListenerExtra *stub = NULL;
         Manager *m = userdata;
         const char *p;
         int r;

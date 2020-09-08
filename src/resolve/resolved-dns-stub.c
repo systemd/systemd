@@ -14,10 +14,10 @@
  * IP and UDP header sizes */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)
 
-int dns_stub_listener_extra_new(DNSStubListenerExtra **ret) {
-        DNSStubListenerExtra *l;
+int dns_stub_listener_extra_new(DnsStubListenerExtra **ret) {
+        DnsStubListenerExtra *l;
 
-        l = new0(DNSStubListenerExtra, 1);
+        l = new0(DnsStubListenerExtra, 1);
         if (!l)
                 return -ENOMEM;
 
@@ -26,7 +26,7 @@ int dns_stub_listener_extra_new(DNSStubListenerExtra **ret) {
         return 0;
 }
 
-DNSStubListenerExtra *dns_stub_listener_extra_free(DNSStubListenerExtra *p) {
+DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p) {
         if (!p)
                 return NULL;
 
@@ -483,7 +483,7 @@ static int manager_dns_stub_udp_fd(Manager *m) {
         return TAKE_FD(fd);
 }
 
-static int manager_dns_stub_udp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
+static int manager_dns_stub_udp_fd_extra(Manager *m, DnsStubListenerExtra *l) {
         _cleanup_free_ char *pretty = NULL;
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa;
@@ -659,7 +659,7 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
         return TAKE_FD(fd);
 }
 
-static int manager_dns_stub_tcp_fd_extra(Manager *m, DNSStubListenerExtra *l) {
+static int manager_dns_stub_tcp_fd_extra(Manager *m, DnsStubListenerExtra *l) {
         _cleanup_free_ char *pretty = NULL;
         _cleanup_close_ int fd = -1;
         union sockaddr_union sa;
@@ -773,7 +773,7 @@ int manager_dns_stub_start(Manager *m) {
                 return log_error_errno(r, "Failed to listen on %s socket 127.0.0.53:53: %m", t);
 
         if (!ordered_set_isempty(m->dns_extra_stub_listeners)) {
-                DNSStubListenerExtra *l;
+                DnsStubListenerExtra *l;
 
                 log_debug("Creating extra stub listeners.");
 
