@@ -1082,9 +1082,6 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 assert_not_reached("Received rule message with unsupported address family");
         }
 
-        if (tmp->from_prefixlen == 0 && tmp->to_prefixlen == 0)
-                return 0;
-
         r = sd_rtnl_message_routing_policy_rule_get_flags(message, &flags);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: received rule message without valid flag, ignoring: %m");
