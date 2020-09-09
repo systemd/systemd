@@ -181,6 +181,47 @@ static int generate_keydev_mount(
         return 0;
 }
 
+static int generate_keydev_umount(const char *name,
+                                  const char *keydev_mount,
+                                  char **ret_umount_unit) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *u = NULL, *name_escaped = NULL, *mount = NULL;
+        int r;
+
+        assert(name);
+        assert(ret_umount_unit);
+
+        name_escaped = cescape(name);
+        if (!name_escaped)
+                return -ENOMEM;
+
+        u = strjoin("keydev-", name_escaped, "-umount.service");
+        if (!u)
+                return -ENOMEM;
+
+        r = unit_name_from_path(keydev_mount, ".mount", &mount);
+        if (r < 0)
+                return r;
+
+        r = generator_open_unit_file(arg_dest, NULL, u, &f);
+        if (r < 0)
+                return r;
+
+        fprintf(f,
+                "[Unit]\n"
+                "DefaultDependencies=no\n"
+                "After=%s\n\n"
+                "[Service]\n"
+                "ExecStart=-" UMOUNT_PATH " %s\n\n", mount, keydev_mount);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        *ret_umount_unit = TAKE_PTR(u);
+        return 0;
+}
+
 static int print_dependencies(FILE *f, const char* device_path) {
         int r;
 
@@ -314,11 +355,15 @@ static int create_disk(
                 fprintf(f, "Conflicts=umount.target\n");
 
         if (keydev) {
-                _cleanup_free_ char *unit = NULL;
+                _cleanup_free_ char *unit = NULL, *umount_unit = NULL;
 
                 r = generate_keydev_mount(name, keydev, keyfile_timeout_value, keyfile_can_timeout > 0, &unit, &keydev_mount);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate keydev mount unit: %m");
+
+                r = generate_keydev_umount(name, keydev_mount, &umount_unit);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate keydev umount unit: %m");
 
                 password_buffer = path_join(keydev_mount, password);
                 if (!password_buffer)
@@ -331,6 +376,15 @@ static int create_disk(
                         fprintf(f, "Wants=%s\n", unit);
                 else
                         fprintf(f, "Requires=%s\n", unit);
+
+                if (umount_unit) {
+                        fprintf(f,
+                                "Wants=%s\n"
+                                "Before=%s\n",
+                                umount_unit,
+                                umount_unit
+                        );
+                }
         }
 
         if (!nofail)
@@ -393,11 +447,6 @@ static int create_disk(
                 fprintf(f,
                         "ExecStartPost=" ROOTLIBEXECDIR "/systemd-makefs swap '/dev/mapper/%s'\n",
                         name_escaped);
-
-        if (keydev)
-                fprintf(f,
-                        "ExecStartPost=-" UMOUNT_PATH " %s\n\n",
-                        keydev_mount);
 
         r = fflush_and_check(f);
         if (r < 0)
