@@ -869,6 +869,49 @@ DeviceAllow=/dev/loop-control
           <xi:include href="supported-controllers.xml"  xpointer="controllers-text" />
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManagedOOMSwap=auto|kill</varname></term>
+        <term><varname>ManagedOOMMemoryPressure=auto|kill</varname></term>
+
+        <listitem>
+          <para>Specifies how
+          <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will act on this unit's cgroups. Defaults to <option>auto</option>.</para>
+
+          <para>When set to <option>kill</option>, <command>systemd-oomd</command> will actively monitor this unit's
+          cgroup metrics to decide whether it needs to act. If the cgroup passes the limits set by
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> or its
+          overrides, <command>systemd-oomd</command> will send a <constant>SIGKILL</constant> to all of the processes
+          under the chosen candidate cgroup. Note that only descendant cgroups can be eligible candidates for killing;
+          the unit that set its property to <option>kill</option> is not a candidate (unless one of its ancestors set
+          their property to <option>kill</option>). You can find more details on candidates and kill behavior at
+          <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Setting
+          either of these properties to <option>kill</option> will also automatically acquire
+          <varname>After=</varname> and <varname>Wants=</varname> dependencies on
+          <filename>systemd-oomd.service</filename> unless <varname>DefaultDependencies=no</varname>.
+        </para>
+
+          <para>When set to <option>auto</option>, <command>systemd-oomd</command> will not actively use this cgroup's
+          data for monitoring and detection. However, if an ancestor cgroup has one of these properties set to
+          <option>kill</option>, a unit with <option>auto</option> can still be an eligible candidate for
+          <command>systemd-oomd</command> to act on.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManagedOOMMemoryPressureLimitPercent=</varname></term>
+
+        <listitem>
+          <para>Overrides the default memory pressure limit set by
+          <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for this unit
+          (cgroup). Takes a percentage value between 0% and 100%, inclusive. This property is ignored unless
+          <varname>ManagedOOMMemoryPressure=</varname><option>kill</option>. Defaults to 0%, which means use the
+          default set by <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -1030,6 +1073,7 @@ DeviceAllow=/dev/loop-control
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       The documentation for control groups and specific controllers in the Linux kernel:
       <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html">Control Groups v2</ulink>.
     </para>
