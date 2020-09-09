@@ -10,6 +10,7 @@ typedef struct DnsServer DnsServer;
 typedef struct DnsStream DnsStream;
 typedef struct DnsTransaction DnsTransaction;
 typedef struct Manager Manager;
+typedef struct DnsStubListenerExtra DnsStubListenerExtra;
 
 #include "resolved-dns-packet.h"
 #include "resolved-dnstls.h"
@@ -74,6 +75,8 @@ struct DnsStream {
 
         /* used when DNS-over-TLS is enabled */
         bool encrypted:1;
+
+        DnsStubListenerExtra *stub_listener_extra;
 
         LIST_FIELDS(DnsStream, streams);
 };

@@ -789,7 +789,6 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
 
         p->size = (size_t) l;
 
-        p->fd = fd;
         p->family = sa.sa.sa_family;
         p->ipproto = IPPROTO_UDP;
         if (p->family == AF_INET) {

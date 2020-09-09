@@ -66,7 +66,6 @@ struct DnsPacket {
         DnsResourceRecord *opt;
 
         /* Packet reception metadata */
-        int fd; /* Used by UDP extra DNS stub listners */
         int ifindex;
         int family, ipproto;
         union in_addr_union sender, destination;

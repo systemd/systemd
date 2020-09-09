@@ -6,6 +6,7 @@
 #include "resolved-dnssd.h"
 #include "resolved-dns-rr.h"
 #include "resolved-manager.h"
+#include "resolved-conf.h"
 #include "specifier.h"
 #include "strv.h"
 

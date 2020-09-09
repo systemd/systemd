@@ -8,6 +8,7 @@
 
 typedef struct DnsQueryCandidate DnsQueryCandidate;
 typedef struct DnsQuery DnsQuery;
+typedef struct DnsStubListenerExtra DnsStubListenerExtra;
 
 #include "resolved-dns-answer.h"
 #include "resolved-dns-question.h"
@@ -82,6 +83,7 @@ struct DnsQuery {
         DnsPacket *request_dns_packet;
         DnsStream *request_dns_stream;
         DnsPacket *reply_dns_packet;
+        DnsStubListenerExtra *stub_listener_extra;
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);
