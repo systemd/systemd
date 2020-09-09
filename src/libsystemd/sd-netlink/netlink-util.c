@@ -11,7 +11,7 @@
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         _cleanup_strv_free_ char **alternative_names = NULL;
-        char old_name[IF_NAMESIZE + 1] = {};
+        char old_name[IFNAMSIZ + 1] = {};
         int r;
 
         assert(rtnl);
