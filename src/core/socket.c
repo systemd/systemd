@@ -1064,7 +1064,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->send_buffer > 0) {
-                r = fd_set_sndbuf(fd, s->receive_buffer, false);
+                r = fd_set_sndbuf(fd, s->send_buffer, false);
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "SO_SNDBUF/SO_SNDBUFFORCE failed: %m");
         }
