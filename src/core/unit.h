@@ -260,7 +260,10 @@ typedef struct Unit {
         nsec_t cpu_usage_base;
         nsec_t cpu_usage_last; /* the most recently read value */
 
-        /* The  current counter of the oom_kill field in the memory.events cgroup attribute */
+        /* The current counter of processes sent SIGKILL by systemd-oomd */
+        uint64_t managed_oom_kill_last;
+
+        /* The current counter of the oom_kill field in the memory.events cgroup attribute */
         uint64_t oom_kill_last;
 
         /* Where the io.stat data was at the time the unit was started */

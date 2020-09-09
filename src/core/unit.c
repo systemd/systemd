@@ -3571,6 +3571,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (u->cpu_usage_last != NSEC_INFINITY)
                 (void) serialize_item_format(f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
 
+        if (u->managed_oom_kill_last > 0)
+                (void) serialize_item_format(f, "managed-oom-kill-last", "%" PRIu64, u->managed_oom_kill_last);
+
         if (u->oom_kill_last > 0)
                 (void) serialize_item_format(f, "oom-kill-last", "%" PRIu64, u->oom_kill_last);
 
@@ -3813,6 +3816,14 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         r = safe_atou64(v, &u->cpu_usage_last);
                         if (r < 0)
                                 log_unit_debug(u, "Failed to read CPU usage last %s, ignoring.", v);
+
+                        continue;
+
+                } else if (streq(l, "managed-oom-kill-last")) {
+
+                        r = safe_atou64(v, &u->managed_oom_kill_last);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to read managed OOM kill last %s, ignoring.", v);
 
                         continue;
 

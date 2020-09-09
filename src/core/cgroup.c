@@ -2681,6 +2681,47 @@ static void unit_remove_from_cgroup_empty_queue(Unit *u) {
         u->in_cgroup_empty_queue = false;
 }
 
+int unit_check_oomd_kill(Unit *u) {
+        _cleanup_free_ char *value = NULL;
+        bool increased;
+        uint64_t n = 0;
+        int r;
+
+        if (!u->cgroup_path)
+                return 0;
+
+        r = cg_all_unified();
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Couldn't determine whether we are in all unified mode: %m");
+        else if (r == 0)
+                return 0;
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.systemd_oomd_kill", &value);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        if (!isempty(value)) {
+                 r = safe_atou64(value, &n);
+                 if (r < 0)
+                         return r;
+        }
+
+        increased = n > u->managed_oom_kill_last;
+        u->managed_oom_kill_last = n;
+
+        if (!increased)
+                return 0;
+
+        if (n > 0)
+                log_struct(LOG_NOTICE,
+                           "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
+                           LOG_UNIT_ID(u),
+                           LOG_UNIT_INVOCATION_ID(u),
+                           LOG_UNIT_MESSAGE(u, "systemd-oomd killed %"PRIu64" process(es) in this unit.", n));
+
+        return 1;
+}
+
 int unit_check_oom(Unit *u) {
         _cleanup_free_ char *oom_kill = NULL;
         bool increased;
