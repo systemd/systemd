@@ -943,7 +943,7 @@ int config_parse_channel(const char *unit,
         }
 
         if (k < 1) {
-                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid %s value, ignoring: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid %s value, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
