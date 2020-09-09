@@ -522,7 +522,7 @@ int inhibit_what_from_string(const char *s) {
                         what |= INHIBIT_HANDLE_HIBERNATE_KEY;
                 else if (streq(word, "handle-lid-switch"))
                         what |= INHIBIT_HANDLE_LID_SWITCH;
-                else if (l == 17 && strneq(word, "handle-reboot-key", l))
+                else if (streq(word, "handle-reboot-key"))
                         what |= INHIBIT_HANDLE_REBOOT_KEY;
                 else
                         return _INHIBIT_WHAT_INVALID;
