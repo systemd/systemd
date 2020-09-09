@@ -11,9 +11,6 @@
 #include "set.h"
 #include "strv.h"
 
-#define LINK_BRIDGE_PORT_PRIORITY_INVALID 128
-#define LINK_BRIDGE_PORT_PRIORITY_MAX 63
-
 char *link_get_type_string(unsigned short iftype, sd_device *device);
 bool net_match_config(Set *match_mac,
                       Set *match_permanent_mac,
@@ -43,7 +40,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_match_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_match_ifnames);
 CONFIG_PARSER_PROTOTYPE(config_parse_match_property);
 CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
-CONFIG_PARSER_PROTOTYPE(config_parse_bridge_port_priority);
 
 int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *result);
 const char *net_get_name_persistent(sd_device *device);

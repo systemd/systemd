@@ -619,44 +619,6 @@ int config_parse_hwaddrs(const char *unit,
         return 0;
 }
 
-int config_parse_bridge_port_priority(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint16_t i;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atou16(rvalue, &i);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to parse bridge port priority, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (i > LINK_BRIDGE_PORT_PRIORITY_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Bridge port priority is larger than maximum %u, ignoring: %s", LINK_BRIDGE_PORT_PRIORITY_MAX, rvalue);
-                return 0;
-        }
-
-        *((uint16_t *)data) = i;
-
-        return 0;
-}
-
 size_t serialize_in_addrs(FILE *f,
                           const struct in_addr *addresses,
                           size_t size,
