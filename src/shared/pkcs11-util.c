@@ -190,14 +190,16 @@ int pkcs11_token_login(
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Failed to log into security token '%s': %s", token_label, p11_kit_strerror(rv));
 
-                log_info("Successully logged into security token '%s' via protected authentication path.", token_label);
-                *ret_used_pin = NULL;
+                log_info("Successfully logged into security token '%s' via protected authentication path.", token_label);
+                if (ret_used_pin)
+                        *ret_used_pin = NULL;
                 return 0;
         }
 
         if (!FLAGS_SET(token_info->flags, CKF_LOGIN_REQUIRED)) {
                 log_info("No login into security token '%s' required.", token_label);
-                *ret_used_pin = NULL;
+                if (ret_used_pin)
+                        *ret_used_pin = NULL;
                 return 0;
         }
 
