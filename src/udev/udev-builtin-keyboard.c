@@ -87,7 +87,7 @@ static int map_keycode(sd_device *dev, int fd, int scancode, const char *keycode
         return 0;
 }
 
-static char* parse_token(const char *current, int32_t *val_out) {
+static const char* parse_token(const char *current, int32_t *val_out) {
         char *next;
         int32_t val;
 
@@ -109,7 +109,7 @@ static char* parse_token(const char *current, int32_t *val_out) {
 
 static int override_abs(sd_device *dev, int fd, unsigned evcode, const char *value) {
         struct input_absinfo absinfo;
-        char *next;
+        const char *next;
         int r;
 
         r = ioctl(fd, EVIOCGABS(evcode), &absinfo);
@@ -122,7 +122,7 @@ static int override_abs(sd_device *dev, int fd, unsigned evcode, const char *val
         next = parse_token(next, &absinfo.fuzz);
         next = parse_token(next, &absinfo.flat);
         if (!next)
-                return log_device_error(dev, "Failed to parse EV_ABS override '%s'", value);
+                return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Failed to parse EV_ABS override '%s'", value);
 
         log_device_debug(dev, "keyboard: %x overridden with %"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32"/%"PRIi32,
                          evcode, absinfo.minimum, absinfo.maximum, absinfo.resolution, absinfo.fuzz, absinfo.flat);

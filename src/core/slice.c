@@ -381,8 +381,10 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
         assert(s);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
 
-        if (!slice_freezer_action_supported_by_children(s))
-                return log_unit_warning(s, "Requested freezer operation is not supported by all children of the slice");
+        if (!slice_freezer_action_supported_by_children(s)) {
+                log_unit_warning(s, "Requested freezer operation is not supported by all children of the slice");
+                return 0;
+        }
 
         HASHMAP_FOREACH_KEY(v, member, s->dependencies[UNIT_BEFORE]) {
                 if (UNIT_DEREF(member->slice) != s)

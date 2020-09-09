@@ -182,43 +182,46 @@ struct UdevRules {
 
 /*** Logging helpers ***/
 
-#define log_rule_full(device, rules, level, error, fmt, ...)            \
+#define log_rule_full_errno(device, rules, level, error, fmt, ...)      \
         ({                                                              \
                 UdevRules *_r = (rules);                                \
                 UdevRuleFile *_f = _r ? _r->current_file : NULL;        \
                 UdevRuleLine *_l = _f ? _f->current_line : NULL;        \
                 const char *_n = _f ? _f->filename : NULL;              \
                                                                         \
-                log_device_full(device, level, error, "%s:%u " fmt,     \
-                                strna(_n), _l ? _l->line_number : 0,    \
-                                ##__VA_ARGS__);                         \
+                log_device_full_errno(device, level, error, "%s:%u " fmt, \
+                                      strna(_n), _l ? _l->line_number : 0, \
+                                      ##__VA_ARGS__);                   \
         })
 
-#define log_rule_debug(device, rules, ...)   log_rule_full(device, rules, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_rule_info(device, rules, ...)    log_rule_full(device, rules, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_rule_notice(device, rules, ...)  log_rule_full(device, rules, LOG_NOTICE, 0, ##__VA_ARGS__)
-#define log_rule_warning(device, rules, ...) log_rule_full(device, rules, LOG_WARNING, 0, ##__VA_ARGS__)
-#define log_rule_error(device, rules, ...)   log_rule_full(device, rules, LOG_ERR, 0, ##__VA_ARGS__)
+#define log_rule_full(device, rules, level, ...)   (void) log_rule_full_errno(device, rules, level, 0, __VA_ARGS__)
 
-#define log_rule_debug_errno(device, rules, error, ...)   log_rule_full(device, rules, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_rule_info_errno(device, rules, error, ...)    log_rule_full(device, rules, LOG_INFO, error, ##__VA_ARGS__)
-#define log_rule_notice_errno(device, rules, error, ...)  log_rule_full(device, rules, LOG_NOTICE, error, ##__VA_ARGS__)
-#define log_rule_warning_errno(device, rules, error, ...) log_rule_full(device, rules, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_rule_error_errno(device, rules, error, ...)   log_rule_full(device, rules, LOG_ERR, error, ##__VA_ARGS__)
+#define log_rule_debug(device, rules, ...)   log_rule_full_errno(device, rules, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_rule_info(device, rules, ...)    log_rule_full(device, rules, LOG_INFO, __VA_ARGS__)
+#define log_rule_notice(device, rules, ...)  log_rule_full(device, rules, LOG_NOTICE, __VA_ARGS__)
+#define log_rule_warning(device, rules, ...) log_rule_full(device, rules, LOG_WARNING, __VA_ARGS__)
+#define log_rule_error(device, rules, ...)   log_rule_full(device, rules, LOG_ERR, __VA_ARGS__)
 
-#define log_token_full(rules, ...) log_rule_full(NULL, rules, ##__VA_ARGS__)
+#define log_rule_debug_errno(device, rules, error, ...)   log_rule_full_errno(device, rules, LOG_DEBUG, error, __VA_ARGS__)
+#define log_rule_info_errno(device, rules, error, ...)    log_rule_full_errno(device, rules, LOG_INFO, error, __VA_ARGS__)
+#define log_rule_notice_errno(device, rules, error, ...)  log_rule_full_errno(device, rules, LOG_NOTICE, error, __VA_ARGS__)
+#define log_rule_warning_errno(device, rules, error, ...) log_rule_full_errno(device, rules, LOG_WARNING, error, __VA_ARGS__)
+#define log_rule_error_errno(device, rules, error, ...)   log_rule_full_errno(device, rules, LOG_ERR, error, __VA_ARGS__)
 
-#define log_token_debug(rules, ...)   log_token_full(rules, LOG_DEBUG, 0, ##__VA_ARGS__)
-#define log_token_info(rules, ...)    log_token_full(rules, LOG_INFO, 0, ##__VA_ARGS__)
-#define log_token_notice(rules, ...)  log_token_full(rules, LOG_NOTICE, 0, ##__VA_ARGS__)
-#define log_token_warning(rules, ...) log_token_full(rules, LOG_WARNING, 0, ##__VA_ARGS__)
-#define log_token_error(rules, ...)   log_token_full(rules, LOG_ERR, 0, ##__VA_ARGS__)
+#define log_token_full_errno(rules, level, error, ...) log_rule_full_errno(NULL, rules, level, error, __VA_ARGS__)
+#define log_token_full(rules, level, ...)  (void) log_token_full_errno(rules, level, 0, __VA_ARGS__)
 
-#define log_token_debug_errno(rules, error, ...)   log_token_full(rules, LOG_DEBUG, error, ##__VA_ARGS__)
-#define log_token_info_errno(rules, error, ...)    log_token_full(rules, LOG_INFO, error, ##__VA_ARGS__)
-#define log_token_notice_errno(rules, error, ...)  log_token_full(rules, LOG_NOTICE, error, ##__VA_ARGS__)
-#define log_token_warning_errno(rules, error, ...) log_token_full(rules, LOG_WARNING, error, ##__VA_ARGS__)
-#define log_token_error_errno(rules, error, ...)   log_token_full(rules, LOG_ERR, error, ##__VA_ARGS__)
+#define log_token_debug(rules, ...)   log_token_full_errno(rules, LOG_DEBUG, 0, __VA_ARGS__)
+#define log_token_info(rules, ...)    log_token_full(rules, LOG_INFO, __VA_ARGS__)
+#define log_token_notice(rules, ...)  log_token_full(rules, LOG_NOTICE, __VA_ARGS__)
+#define log_token_warning(rules, ...) log_token_full(rules, LOG_WARNING, __VA_ARGS__)
+#define log_token_error(rules, ...)   log_token_full(rules, LOG_ERR, __VA_ARGS__)
+
+#define log_token_debug_errno(rules, error, ...)   log_token_full_errno(rules, LOG_DEBUG, error, __VA_ARGS__)
+#define log_token_info_errno(rules, error, ...)    log_token_full_errno(rules, LOG_INFO, error, __VA_ARGS__)
+#define log_token_notice_errno(rules, error, ...)  log_token_full_errno(rules, LOG_NOTICE, error, __VA_ARGS__)
+#define log_token_warning_errno(rules, error, ...) log_token_full_errno(rules, LOG_WARNING, error, __VA_ARGS__)
+#define log_token_error_errno(rules, error, ...)   log_token_full_errno(rules, LOG_ERR, error, __VA_ARGS__)
 
 #define _log_token_invalid(rules, key, type)                      \
         log_token_error_errno(rules, SYNTHETIC_ERRNO(EINVAL),     \
