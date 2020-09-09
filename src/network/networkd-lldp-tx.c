@@ -267,7 +267,7 @@ static int lldp_send_packet(
 
         memcpy(sa.ll.sll_addr, address, ETH_ALEN);
 
-        fd = socket(PF_PACKET, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_RAW);
+        fd = socket(AF_PACKET, SOCK_RAW|SOCK_CLOEXEC, IPPROTO_RAW);
         if (fd < 0)
                 return -errno;
 

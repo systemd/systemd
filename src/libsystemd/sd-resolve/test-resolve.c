@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
         int r;
 
         struct addrinfo hints = {
-                .ai_family = PF_UNSPEC,
+                .ai_family = AF_UNSPEC,
                 .ai_socktype = SOCK_STREAM,
                 .ai_flags = AI_CANONNAME
         };

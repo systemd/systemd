@@ -124,7 +124,7 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         assert(fdb_entry);
 
         /* create new RTM message */
-        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, PF_BRIDGE);
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, AF_BRIDGE);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWNEIGH message: %m");
 

@@ -496,10 +496,10 @@ _public_ int sd_resolve_new(sd_resolve **ret) {
         for (i = 0; i < _FD_MAX; i++)
                 resolve->fds[i] = -1;
 
-        if (socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds + REQUEST_RECV_FD) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds + REQUEST_RECV_FD) < 0)
                 return -errno;
 
-        if (socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds + RESPONSE_RECV_FD) < 0)
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds + RESPONSE_RECV_FD) < 0)
                 return -errno;
 
         for (i = 0; i < _FD_MAX; i++)
