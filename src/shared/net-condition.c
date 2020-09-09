@@ -40,7 +40,7 @@ static bool net_condition_test_strv(char * const *patterns, const char *string) 
         return has_positive_rule ? match : true;
 }
 
-static bool net_condition_test_ifname(char * const *patterns, const char *ifname, char * const *alternative_names) {
+bool net_condition_test_ifname(char * const *patterns, const char *ifname, char * const *alternative_names) {
         if (net_condition_test_strv(patterns, ifname))
                 return true;
 

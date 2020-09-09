@@ -23,8 +23,8 @@
 #include "hostname-util.h"
 #include "io-util.h"
 #include "missing_network.h"
+#include "net-condition.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -46,19 +46,21 @@
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
 static bool interface_in_restricted_list(Manager *m, int ifindex) {
-        char ifname[IFNAMSIZ + 1], **p;
+        _cleanup_strv_free_ char **alternative_names = NULL;
+        char ifname[IFNAMSIZ + 1];
+        int r;
 
         assert(m);
         assert(ifindex > 0);
 
-        /* Empty list means all interfaces will be handled. */
-        if (strv_isempty(m->restrict_interfaces))
-                return true;
+        (void) format_ifname(ifindex, ifname);
 
-        if (format_ifname(ifindex, ifname))
-                STRV_FOREACH(p, m->restrict_interfaces)
-                        if (fnmatch(*p, ifname, 0) == 0)
-                                return true;
+        r = rtnl_get_link_alternative_names(&m->rtnl, ifindex, &alternative_names);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get alternative interface name for link %i, ignoring: %m", ifindex);
+
+        if (net_condition_test_ifname(m->restrict_interfaces, ifname, alternative_names))
+                return true;
 
         return false;
 }

@@ -9,6 +9,8 @@
 
 #include "set.h"
 
+bool net_condition_test_ifname(char * const *patterns, const char *ifname, char * const *alternative_names);
+
 bool net_match_config(Set *match_mac,
                       Set *match_permanent_mac,
                       char * const *match_paths,
