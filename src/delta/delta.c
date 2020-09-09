@@ -541,28 +541,33 @@ static int help(void) {
 }
 
 static int parse_flags(const char *flag_str, int flags) {
-        const char *word, *state;
-        size_t l;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                int r;
 
-        FOREACH_WORD_SEPARATOR(word, l, flag_str, ",", state) {
-                if (strneq("masked", word, l))
+                r = extract_first_word(&flag_str, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return flags;
+
+                if (streq(word, "masked"))
                         flags |= SHOW_MASKED;
-                else if (strneq ("equivalent", word, l))
+                else if (streq(word, "equivalent"))
                         flags |= SHOW_EQUIVALENT;
-                else if (strneq("redirected", word, l))
+                else if (streq(word, "redirected"))
                         flags |= SHOW_REDIRECTED;
-                else if (strneq("overridden", word, l))
+                else if (streq(word, "overridden"))
                         flags |= SHOW_OVERRIDDEN;
-                else if (strneq("unchanged", word, l))
+                else if (streq(word, "unchanged"))
                         flags |= SHOW_UNCHANGED;
-                else if (strneq("extended", word, l))
+                else if (streq(word, "extended"))
                         flags |= SHOW_EXTENDED;
-                else if (strneq("default", word, l))
+                else if (streq(word, "default"))
                         flags |= SHOW_DEFAULTS;
                 else
                         return -EINVAL;
         }
-        return flags;
 }
 
 static int parse_argv(int argc, char *argv[]) {

@@ -8,12 +8,14 @@
 
 #include "alloc-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
 #include "util.h"
@@ -108,83 +110,6 @@ char* first_word(const char *s, const char *word) {
 
         p += strspn(p, WHITESPACE);
         return (char*) p;
-}
-
-static size_t strcspn_escaped(const char *s, const char *reject) {
-        bool escaped = false;
-        int n;
-
-        for (n = 0; s[n] != '\0'; n++) {
-                if (escaped)
-                        escaped = false;
-                else if (s[n] == '\\')
-                        escaped = true;
-                else if (strchr(reject, s[n]))
-                        break;
-        }
-
-        return n;
-}
-
-/* Split a string into words. */
-const char* split(
-                const char **state,
-                size_t *l,
-                const char *separator,
-                SplitFlags flags) {
-
-        const char *current;
-
-        assert(state);
-        assert(l);
-
-        if (!separator)
-                separator = WHITESPACE;
-
-        current = *state;
-
-        if (*current == '\0') /* already at the end? */
-                return NULL;
-
-        current += strspn(current, separator); /* skip leading separators */
-        if (*current == '\0') { /* at the end now? */
-                *state = current;
-                return NULL;
-        }
-
-        if (FLAGS_SET(flags, SPLIT_QUOTES)) {
-
-                if (strchr(QUOTES, *current)) {
-                        /* We are looking at a quote */
-                        *l = strcspn_escaped(current + 1, CHAR_TO_STR(*current));
-                        if (current[*l + 1] != *current ||
-                            (current[*l + 2] != 0 && !strchr(separator, current[*l + 2]))) {
-                                /* right quote missing or garbage at the end */
-                                if (FLAGS_SET(flags, SPLIT_RELAX)) {
-                                        *state = current + *l + 1 + (current[*l + 1] != '\0');
-                                        return current + 1;
-                                }
-                                *state = current;
-                                return NULL;
-                        }
-                        *state = current++ + *l + 2;
-
-                } else {
-                        /* We are looking at a something that is not a quote */
-                        *l = strcspn_escaped(current, separator);
-                        if (current[*l] && !strchr(separator, current[*l]) && !FLAGS_SET(flags, SPLIT_RELAX)) {
-                                /* unfinished escape */
-                                *state = current;
-                                return NULL;
-                        }
-                        *state = current + *l;
-                }
-        } else {
-                *l = strcspn(current, separator);
-                *state = current + *l;
-        }
-
-        return current;
 }
 
 char *strnappend(const char *s, const char *suffix, size_t b) {
@@ -1206,4 +1131,31 @@ int string_extract_line(const char *s, size_t i, char **ret) {
                 p = q + 1;
                 c++;
         }
+}
+
+int string_contains_word_strv(const char *string, const char *separators, char **words, const char **ret_word) {
+        /* In the default mode with no separators specified, we split on whitespace and
+         * don't coalesce separators. */
+        const ExtractFlags flags = separators ? EXTRACT_DONT_COALESCE_SEPARATORS : 0;
+
+        const char *found = NULL;
+
+        for (const char *p = string;;) {
+                _cleanup_free_ char *w = NULL;
+                int r;
+
+                r = extract_first_word(&p, &w, separators, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                found = strv_find(words, w);
+                if (found)
+                        break;
+        }
+
+        if (ret_word)
+                *ret_word = found;
+        return !!found;
 }

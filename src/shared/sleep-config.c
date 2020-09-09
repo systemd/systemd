@@ -100,9 +100,8 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
 }
 
 int can_sleep_state(char **types) {
-        char **type;
+        _cleanup_free_ char *text = NULL;
         int r;
-        _cleanup_free_ char *p = NULL;
 
         if (strv_isempty(types))
                 return true;
@@ -113,34 +112,27 @@ int can_sleep_state(char **types) {
                 return false;
         }
 
-        r = read_one_line_file("/sys/power/state", &p);
+        r = read_one_line_file("/sys/power/state", &text);
         if (r < 0) {
                 log_debug_errno(r, "Failed to read /sys/power/state, cannot sleep: %m");
                 return false;
         }
 
-        STRV_FOREACH(type, types) {
-                const char *word, *state;
-                size_t l, k;
-
-                k = strlen(*type);
-                FOREACH_WORD_SEPARATOR(word, l, p, WHITESPACE, state)
-                        if (l == k && memcmp(word, *type, l) == 0) {
-                                log_debug("Sleep mode \"%s\" is supported by the kernel.", *type);
-                                return true;
-                        }
-        }
-
-        if (DEBUG_LOGGING) {
+        const char *found;
+        r = string_contains_word_strv(text, NULL, types, &found);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse /sys/power/state: %m");
+        if (r > 0)
+                log_debug("Sleep mode \"%s\" is supported by the kernel.", found);
+        else if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = strv_join(types, "/");
                 log_debug("Sleep mode %s not supported by the kernel, sorry.", strnull(t));
         }
-        return false;
+        return r;
 }
 
 int can_sleep_disk(char **types) {
-        _cleanup_free_ char *p = NULL;
-        char **type;
+        _cleanup_free_ char *text = NULL;
         int r;
 
         if (strv_isempty(types))
@@ -152,29 +144,38 @@ int can_sleep_disk(char **types) {
                 return false;
         }
 
-        r = read_one_line_file("/sys/power/disk", &p);
+        r = read_one_line_file("/sys/power/disk", &text);
         if (r < 0) {
                 log_debug_errno(r, "Couldn't read /sys/power/disk: %m");
                 return false;
         }
 
-        STRV_FOREACH(type, types) {
-                const char *word, *state;
-                size_t l, k;
+        for (const char *p = text;;) {
+                _cleanup_free_ char *word = NULL;
 
-                k = strlen(*type);
-                FOREACH_WORD_SEPARATOR(word, l, p, WHITESPACE, state) {
-                        if (l == k && memcmp(word, *type, l) == 0)
-                                return true;
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse /sys/power/disk: %m");
+                if (r == 0)
+                        break;
 
-                        if (l == k + 2 &&
-                            word[0] == '[' &&
-                            memcmp(word + 1, *type, l - 2) == 0 &&
-                            word[l-1] == ']')
-                                return true;
+                char *s = word;
+                size_t l = strlen(s);
+                if (s[0] == '[' && s[l-1] == ']') {
+                        s[l-1] = '\0';
+                        s++;
+                }
+
+                if (strv_contains(types, s)) {
+                        log_debug("Disk sleep mode \"%s\" is supported by the kernel.", s);
+                        return true;
                 }
         }
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *t = strv_join(types, "/");
+                log_debug("Disk sleep mode %s not supported by the kernel, sorry.", strnull(t));
+        }
         return false;
 }
 

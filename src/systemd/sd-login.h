@@ -180,7 +180,11 @@ int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 
 /* Return sessions and users on seat. Returns number of sessions.
  * If sessions is NULL, this returns only the number of sessions. */
-int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uid, unsigned *n_uids);
+int sd_seat_get_sessions(
+                const char *seat,
+                char ***ret_sessions,
+                uid_t **ret_uids,
+                unsigned *ret_n_uids);
 
 /* Return whether the seat is multi-session capable */
 int sd_seat_can_multi_session(const char *seat) _sd_deprecated_;
@@ -195,7 +199,7 @@ int sd_seat_can_graphical(const char *seat);
 int sd_machine_get_class(const char *machine, char **clazz);
 
 /* Return the list if host-side network interface indices of a machine */
-int sd_machine_get_ifindices(const char *machine, int **ifindices);
+int sd_machine_get_ifindices(const char *machine, int **ret_ifindices);
 
 /* Get all seats, store in *seats. Returns the number of seats. If
  * seats is NULL, this only returns the number of seats. */

@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "env-file.h"
+#include "errno-list.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -481,31 +482,39 @@ const char *inhibit_what_to_string(InhibitWhat w) {
         return buffer;
 }
 
-InhibitWhat inhibit_what_from_string(const char *s) {
+int inhibit_what_from_string(const char *s) {
         InhibitWhat what = 0;
-        const char *word, *state;
-        size_t l;
 
-        FOREACH_WORD_SEPARATOR(word, l, s, ":", state) {
-                if (l == 8 && strneq(word, "shutdown", l))
+        for (const char *p = s;;) {
+                _cleanup_free_ char *word = NULL;
+                int r;
+
+                /* A sanity check that our return values fit in an int */
+                assert_cc((int) _INHIBIT_WHAT_MAX == _INHIBIT_WHAT_MAX);
+
+                r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return what;
+
+                if (streq(word, "shutdown"))
                         what |= INHIBIT_SHUTDOWN;
-                else if (l == 5 && strneq(word, "sleep", l))
+                else if (streq(word, "sleep"))
                         what |= INHIBIT_SLEEP;
-                else if (l == 4 && strneq(word, "idle", l))
+                else if (streq(word, "idle"))
                         what |= INHIBIT_IDLE;
-                else if (l == 16 && strneq(word, "handle-power-key", l))
+                else if (streq(word, "handle-power-key"))
                         what |= INHIBIT_HANDLE_POWER_KEY;
-                else if (l == 18 && strneq(word, "handle-suspend-key", l))
+                else if (streq(word, "handle-suspend-key"))
                         what |= INHIBIT_HANDLE_SUSPEND_KEY;
-                else if (l == 20 && strneq(word, "handle-hibernate-key", l))
+                else if (streq(word, "handle-hibernate-key"))
                         what |= INHIBIT_HANDLE_HIBERNATE_KEY;
-                else if (l == 17 && strneq(word, "handle-lid-switch", l))
+                else if (streq(word, "handle-lid-switch"))
                         what |= INHIBIT_HANDLE_LID_SWITCH;
                 else
                         return _INHIBIT_WHAT_INVALID;
         }
-
-        return what;
 }
 
 static const char* const inhibit_mode_table[_INHIBIT_MODE_MAX] = {

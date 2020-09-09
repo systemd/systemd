@@ -12,6 +12,7 @@
 #include "dirent-util.h"
 #include "env-file.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -22,6 +23,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -331,35 +333,29 @@ static int file_of_seat(const char *seat, char **_p) {
 }
 
 _public_ int sd_uid_is_on_seat(uid_t uid, int require_active, const char *seat) {
-        _cleanup_free_ char *t = NULL, *s = NULL, *p = NULL;
-        size_t l;
+        _cleanup_free_ char *filename = NULL, *content = NULL;
         int r;
-        const char *word, *variable, *state;
 
         assert_return(uid_is_valid(uid), -EINVAL);
 
-        r = file_of_seat(seat, &p);
+        r = file_of_seat(seat, &filename);
         if (r < 0)
                 return r;
 
-        variable = require_active ? "ACTIVE_UID" : "UIDS";
-
-        r = parse_env_file(NULL, p, variable, &s);
+        r = parse_env_file(NULL, filename,
+                           require_active ? "ACTIVE_UID" : "UIDS",
+                           &content);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return r;
-        if (isempty(s))
+        if (isempty(content))
                 return 0;
 
-        if (asprintf(&t, UID_FMT, uid) < 0)
-                return -ENOMEM;
+        char t[DECIMAL_STR_MAX(uid_t)];
+        xsprintf(t, UID_FMT, uid);
 
-        FOREACH_WORD(word, l, s, state)
-                if (strneq(t, word, l))
-                        return 1;
-
-        return 0;
+        return string_contains_word(content, ",", t);
 }
 
 static int uid_get_array(uid_t uid, const char *variable, char ***array) {
@@ -382,7 +378,7 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
         if (r < 0)
                 return r;
 
-        a = strv_split(s, " ");
+        a = strv_split(s, NULL);
         if (!a)
                 return -ENOMEM;
 
@@ -654,73 +650,70 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
         return 0;
 }
 
-_public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uids, unsigned *n_uids) {
-        _cleanup_free_ char *p = NULL, *s = NULL, *t = NULL;
-        _cleanup_strv_free_ char **a = NULL;
-        _cleanup_free_ uid_t *b = NULL;
-        unsigned n = 0;
+_public_ int sd_seat_get_sessions(
+                const char *seat,
+                char ***ret_sessions,
+                uid_t **ret_uids,
+                unsigned *ret_n_uids) {
+
+        _cleanup_free_ char *fname = NULL, *session_line = NULL, *uid_line = NULL;
+        _cleanup_strv_free_ char **sessions = NULL;
+        _cleanup_free_ uid_t *uids = NULL;
+        unsigned n_sessions = 0;
         int r;
 
-        r = file_of_seat(seat, &p);
+        r = file_of_seat(seat, &fname);
         if (r < 0)
                 return r;
 
-        r = parse_env_file(NULL, p,
-                           "SESSIONS", &s,
-                           "UIDS", &t);
+        r = parse_env_file(NULL, fname,
+                           "SESSIONS", &session_line,
+                           "UIDS", &uid_line);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
                 return r;
 
-        if (s) {
-                a = strv_split(s, " ");
-                if (!a)
+        if (session_line) {
+                sessions = strv_split(session_line, NULL);
+                if (!sessions)
                         return -ENOMEM;
-        }
 
-        if (uids && t) {
-                const char *word, *state;
-                size_t l;
+                n_sessions = strv_length(sessions);
+        };
 
-                FOREACH_WORD(word, l, t, state)
-                        n++;
+        if (ret_uids && uid_line) {
+                uids = new(uid_t, n_sessions);
+                if (!uids)
+                        return -ENOMEM;
 
-                if (n > 0) {
-                        unsigned i = 0;
+                size_t n = 0;
+                for (const char *p = uid_line;;) {
+                        _cleanup_free_ char *word = NULL;
 
-                        b = new(uid_t, n);
-                        if (!b)
-                                return -ENOMEM;
+                        r = extract_first_word(&p, &word, NULL, 0);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
 
-                        FOREACH_WORD(word, l, t, state) {
-                                _cleanup_free_ char *k = NULL;
-
-                                k = strndup(word, l);
-                                if (!k)
-                                        return -ENOMEM;
-
-                                r = parse_uid(k, b + i);
-                                if (r < 0)
-                                        return r;
-
-                                i++;
-                        }
+                        r = parse_uid(word, &uids[n++]);
+                        if (r < 0)
+                                return r;
                 }
+
+                if (n != n_sessions)
+                        return -EUCLEAN;
         }
 
-        r = (int) strv_length(a);
+        if (ret_sessions)
+                *ret_sessions = TAKE_PTR(sessions);
+        if (ret_uids)
+                *ret_uids = TAKE_PTR(uids);
+        if (ret_n_uids)
+                *ret_n_uids = n_sessions;
 
-        if (sessions)
-                *sessions = TAKE_PTR(a);
-
-        if (uids)
-                *uids = TAKE_PTR(b);
-
-        if (n_uids)
-                *n_uids = n;
-
-        return r;
+        return n_sessions;
 }
 
 static int seat_get_can(const char *seat, const char *variable) {
@@ -901,47 +894,52 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         return 0;
 }
 
-_public_ int sd_machine_get_ifindices(const char *machine, int **ifindices) {
-        _cleanup_free_ char *netif = NULL;
-        size_t l, allocated = 0, nr = 0;
-        int *ni = NULL;
-        const char *p, *word, *state;
+_public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) {
+        _cleanup_free_ char *netif_line = NULL;
+        const char *p;
         int r;
 
         assert_return(machine_name_is_valid(machine), -EINVAL);
-        assert_return(ifindices, -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p, "NETIF", &netif);
+        r = parse_env_file(NULL, p, "NETIF", &netif_line);
         if (r == -ENOENT)
                 return -ENXIO;
         if (r < 0)
                 return r;
-        if (!netif) {
-                *ifindices = NULL;
+        if (!netif_line) {
+                *ret_ifindices = NULL;
                 return 0;
         }
 
-        FOREACH_WORD(word, l, netif, state) {
-                char buf[l+1];
-                int ifi;
+        _cleanup_strv_free_ char **tt = strv_split(netif_line, NULL);
+        if (!tt)
+                return -ENOMEM;
 
-                *(char*) (mempcpy(buf, word, l)) = 0;
-
-                ifi = parse_ifindex(buf);
-                if (ifi < 0)
-                        continue;
-
-                if (!GREEDY_REALLOC(ni, allocated, nr+1)) {
-                        free(ni);
+        size_t n = 0;
+        int *ifindices;
+        if (ret_ifindices) {
+                ifindices = new(int, strv_length(tt));
+                if (!ifindices)
                         return -ENOMEM;
-                }
-
-                ni[nr++] = ifi;
         }
 
-        *ifindices = ni;
-        return nr;
+        for (size_t i = 0; tt[i]; i++) {
+                int ind;
+
+                ind = parse_ifindex(tt[i]);
+                if (ind < 0)
+                        /* Return -EUCLEAN to distinguish from -EINVAL for invalid args */
+                        return ind == -EINVAL ? -EUCLEAN : ind;
+
+                if (ret_ifindices)
+                        ifindices[n] = ind;
+                n++;
+        }
+
+        if (ret_ifindices)
+                *ret_ifindices = ifindices;
+        return n;
 }
 
 static int MONITOR_TO_FD(sd_login_monitor *m) {

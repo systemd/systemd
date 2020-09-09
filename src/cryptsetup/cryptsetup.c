@@ -288,19 +288,19 @@ static int parse_one_option(const char *option) {
 }
 
 static int parse_options(const char *options) {
-        const char *word, *state;
-        size_t l;
-        int r;
-
         assert(options);
 
-        FOREACH_WORD_SEPARATOR(word, l, options, ",", state) {
-                _cleanup_free_ char *o;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                int r;
 
-                o = strndup(word, l);
-                if (!o)
-                        return -ENOMEM;
-                r = parse_one_option(o);
+                r = extract_first_word(&options, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse options: %m");
+                if (r == 0)
+                        break;
+
+                r = parse_one_option(word);
                 if (r < 0)
                         return r;
         }

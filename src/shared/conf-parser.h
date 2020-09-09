@@ -239,10 +239,10 @@ typedef enum Disabled {
 
 #define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)          \
         CONFIG_PARSER_PROTOTYPE(function) {                                    \
-                type **enums = data, x, *ys;                                   \
+                type **enums = data;                                           \
                 _cleanup_free_ type *xs = NULL;                                \
-                const char *word, *state;                                      \
-                size_t l, i = 0;                                               \
+                size_t i = 0;                                                  \
+                int r;                                                         \
                                                                                \
                 assert(filename);                                              \
                 assert(lvalue);                                                \
@@ -255,29 +255,32 @@ typedef enum Disabled {
                                                                                \
                 *xs = invalid;                                                 \
                                                                                \
-                FOREACH_WORD(word, l, rvalue, state) {                         \
+                for (const char *p = rvalue;;) {                               \
                         _cleanup_free_ char *en = NULL;                        \
-                        type *new_xs;                                          \
+                        type x, *new_xs;                                       \
                                                                                \
-                        en = strndup(word, l);                                 \
-                        if (!en)                                               \
+                        r = extract_first_word(&p, &en, NULL, 0);              \
+                        if (r == -ENOMEM)                                      \
                                 return log_oom();                              \
+                        if (r < 0)                                             \
+                                return log_syntax(unit, LOG_ERR, filename, line, 0,   \
+                                                  msg ": %s", en);             \
+                        if (r == 0)                                            \
+                                break;                                         \
                                                                                \
                         if ((x = name##_from_string(en)) < 0) {                \
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, \
+                                log_syntax(unit, LOG_WARNING, filename, line, 0,        \
                                            msg ", ignoring: %s", en);          \
                                 continue;                                      \
                         }                                                      \
                                                                                \
-                        for (ys = xs; x != invalid && *ys != invalid; ys++) {  \
-                                if (*ys == x) {                                \
-                                        log_syntax(unit, LOG_NOTICE, filename, \
-                                                   line, 0,                    \
-                                                   "Duplicate entry, ignoring: %s", \
+                        for (type *ys = xs; x != invalid && *ys != invalid; ys++)       \
+                                if (*ys == x) {                                         \
+                                        log_syntax(unit, LOG_NOTICE, filename, line, 0, \
+                                                   "Duplicate entry, ignoring: %s",     \
                                                    en);                        \
                                         x = invalid;                           \
                                 }                                              \
-                        }                                                      \
                                                                                \
                         if (x == invalid)                                      \
                                 continue;                                      \
@@ -292,6 +295,5 @@ typedef enum Disabled {
                         *(xs + i) = invalid;                                   \
                 }                                                              \
                                                                                \
-                free_and_replace(*enums, xs);                                  \
-                return 0;                                                      \
+                return free_and_replace(*enums, xs);                           \
         }

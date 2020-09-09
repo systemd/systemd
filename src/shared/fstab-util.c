@@ -81,50 +81,53 @@ int fstab_is_mount_point(const char *mount) {
 
 int fstab_filter_options(const char *opts, const char *names,
                          const char **ret_namefound, char **ret_value, char **ret_filtered) {
-        const char *name, *n = NULL, *x;
+        const char *name, *namefound = NULL, *x;
         _cleanup_strv_free_ char **stor = NULL;
         _cleanup_free_ char *v = NULL, **strv = NULL;
+        int r;
 
         assert(names && *names);
 
         if (!opts)
                 goto answer;
 
-        /* If !value and !filtered, this function is not allowed to fail. */
+        /* If !ret_value and !ret_filtered, this function is not allowed to fail. */
 
         if (!ret_filtered) {
-                const char *word, *state;
-                size_t l;
+                for (const char *word = opts;;) {
+                        const char *end = word + strcspn(word, ",");
 
-                FOREACH_WORD_SEPARATOR(word, l, opts, ",", state)
                         NULSTR_FOREACH(name, names) {
-                                if (l < strlen(name))
+                                if (end < word + strlen(name))
                                         continue;
                                 if (!strneq(word, name, strlen(name)))
                                         continue;
 
-                                /* we know that the string is NUL
-                                 * terminated, so *x is valid */
+                                /* We know that the string is NUL terminated, so *x is valid */
                                 x = word + strlen(name);
                                 if (IN_SET(*x, '\0', '=', ',')) {
-                                        n = name;
+                                        namefound = name;
                                         if (ret_value) {
-                                                free(v);
-                                                if (IN_SET(*x, '\0', ','))
-                                                        v = NULL;
-                                                else {
-                                                        assert(*x == '=');
-                                                        x++;
-                                                        v = strndup(x, l - strlen(name) - 1);
-                                                        if (!v)
-                                                                return -ENOMEM;
-                                                }
+                                                bool eq = *x == '=';
+                                                assert(eq || IN_SET(*x, ',', '\0'));
+
+                                                r = free_and_strndup(&v,
+                                                                     eq ? x + 1 : NULL,
+                                                                     eq ? end - x - 1 : 0);
+                                                if (r < 0)
+                                                        return r;
                                         }
+
+                                        break;
                                 }
                         }
-        } else {
-                char **t, **s;
 
+                        if (*end)
+                                word = end + 1;
+                        else
+                                break;
+                }
+        } else {
                 stor = strv_split(opts, ",");
                 if (!stor)
                         return -ENOMEM;
@@ -132,7 +135,8 @@ int fstab_filter_options(const char *opts, const char *names,
                 if (!strv)
                         return -ENOMEM;
 
-                for (s = t = strv; *s; s++) {
+                char **t = strv;
+                for (char **s = strv; *s; s++) {
                         NULSTR_FOREACH(name, names) {
                                 x = startswith(*s, name);
                                 if (x && IN_SET(*x, '\0', '='))
@@ -144,18 +148,12 @@ int fstab_filter_options(const char *opts, const char *names,
                         continue;
                 found:
                         /* Keep the last occurrence found */
-                        n = name;
+                        namefound = name;
                         if (ret_value) {
-                                free(v);
-                                if (*x == '\0')
-                                        v = NULL;
-                                else {
-                                        assert(*x == '=');
-                                        x++;
-                                        v = strdup(x);
-                                        if (!v)
-                                                return -ENOMEM;
-                                }
+                                assert(IN_SET(*x, '=', '\0'));
+                                r = free_and_strdup(&v, *x == '=' ? x + 1 : NULL);
+                                if (r < 0)
+                                        return r;
                         }
                 }
                 *t = NULL;
@@ -163,7 +161,7 @@ int fstab_filter_options(const char *opts, const char *names,
 
 answer:
         if (ret_namefound)
-                *ret_namefound = n;
+                *ret_namefound = namefound;
         if (ret_filtered) {
                 char *f;
 
@@ -176,7 +174,7 @@ answer:
         if (ret_value)
                 *ret_value = TAKE_PTR(v);
 
-        return !!n;
+        return !!namefound;
 }
 
 int fstab_extract_values(const char *opts, const char *name, char ***values) {

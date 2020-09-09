@@ -4438,15 +4438,13 @@ int config_parse_set_status(
                 void *data,
                 void *userdata) {
 
-        size_t l;
-        const char *word, *state;
-        int r;
         ExitStatusSet *status_set = data;
+        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(status_set);
 
         /* Empty assignment resets the list */
         if (isempty(rvalue)) {
@@ -4454,25 +4452,26 @@ int config_parse_set_status(
                 return 0;
         }
 
-        FOREACH_WORD(word, l, rvalue, state) {
-                _cleanup_free_ char *temp;
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
                 Bitmap *bitmap;
 
-                temp = strndup(word, l);
-                if (!temp)
-                        return log_oom();
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s: %m", lvalue);
+                if (r == 0)
+                        return 0;
 
                 /* We need to call exit_status_from_string() first, because we want
                  * to parse numbers as exit statuses, not signals. */
 
-                r = exit_status_from_string(temp);
+                r = exit_status_from_string(word);
                 if (r >= 0) {
                         assert(r >= 0 && r < 256);
                         bitmap = &status_set->status;
                 } else {
-                        r = signal_from_string(temp);
-
-                        if (r <= 0) {
+                        r = signal_from_string(word);
+                        if (r < 0) {
                                 log_syntax(unit, LOG_ERR, filename, line, 0,
                                            "Failed to parse value, ignoring: %s", word);
                                 continue;
@@ -4484,10 +4483,6 @@ int config_parse_set_status(
                 if (r < 0)
                         return log_error_errno(r, "Failed to set signal or status %s: %m", word);
         }
-        if (!isempty(state))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
-
-        return 0;
 }
 
 int config_parse_namespace_path_strv(

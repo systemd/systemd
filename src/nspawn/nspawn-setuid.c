@@ -88,13 +88,12 @@ int change_uid_gid_raw(
 
 int change_uid_gid(const char *user, char **_home) {
         char *x, *u, *g, *h;
-        const char *word, *state;
         _cleanup_free_ gid_t *gids = NULL;
         _cleanup_free_ char *home = NULL, *line = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
         unsigned n_gids = 0;
-        size_t sz = 0, l;
+        size_t sz = 0;
         uid_t uid;
         gid_t gid;
         pid_t pid;
@@ -208,16 +207,19 @@ int change_uid_gid(const char *user, char **_home) {
         x += strcspn(x, WHITESPACE);
         x += strspn(x, WHITESPACE);
 
-        FOREACH_WORD(word, l, x, state) {
-                char c[l+1];
+        for (const char *p = x;;) {
+               _cleanup_free_ char *word = NULL;
 
-                memcpy(c, word, l);
-                c[l] = 0;
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse group data from getent: %m");
+                if (r == 0)
+                        break;
 
                 if (!GREEDY_REALLOC(gids, sz, n_gids+1))
                         return log_oom();
 
-                r = parse_gid(c, &gids[n_gids++]);
+                r = parse_gid(word, &gids[n_gids++]);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse group data from getent: %m");
         }

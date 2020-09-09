@@ -66,7 +66,7 @@ InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm);
 bool manager_is_inhibited(Manager *m, InhibitWhat w, InhibitMode mm, dual_timestamp *since, bool ignore_inactive, bool ignore_uid, uid_t uid, Inhibitor **offending);
 
 const char *inhibit_what_to_string(InhibitWhat k);
-InhibitWhat inhibit_what_from_string(const char *s);
+int inhibit_what_from_string(const char *s);
 
 const char *inhibit_mode_to_string(InhibitMode k);
 InhibitMode inhibit_mode_from_string(const char *s);

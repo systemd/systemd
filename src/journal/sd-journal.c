@@ -950,74 +950,69 @@ _public_ int sd_journal_get_cursor(sd_journal *j, char **cursor) {
 }
 
 _public_ int sd_journal_seek_cursor(sd_journal *j, const char *cursor) {
-        const char *word, *state;
-        size_t l;
         unsigned long long seqnum, monotonic, realtime, xor_hash;
-        bool
-                seqnum_id_set = false,
-                seqnum_set = false,
-                boot_id_set = false,
-                monotonic_set = false,
-                realtime_set = false,
-                xor_hash_set = false;
+        bool seqnum_id_set = false,
+             seqnum_set = false,
+             boot_id_set = false,
+             monotonic_set = false,
+             realtime_set = false,
+             xor_hash_set = false;
         sd_id128_t seqnum_id, boot_id;
+        int r;
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
         assert_return(!isempty(cursor), -EINVAL);
 
-        FOREACH_WORD_SEPARATOR(word, l, cursor, ";", state) {
-                char *item;
-                int k = 0;
+        for (const char *p = cursor;;) {
+                _cleanup_free_ char *word = NULL;
 
-                if (l < 2 || word[1] != '=')
+                r = extract_first_word(&p, &word, ";", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (word[0] == '\0' || word[1] != '=')
                         return -EINVAL;
 
-                item = strndup(word, l);
-                if (!item)
-                        return -ENOMEM;
-
                 switch (word[0]) {
-
                 case 's':
                         seqnum_id_set = true;
-                        k = sd_id128_from_string(item+2, &seqnum_id);
+                        r = sd_id128_from_string(word + 2, &seqnum_id);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'i':
                         seqnum_set = true;
-                        if (sscanf(item+2, "%llx", &seqnum) != 1)
-                                k = -EINVAL;
+                        if (sscanf(word + 2, "%llx", &seqnum) != 1)
+                                return -EINVAL;
                         break;
 
                 case 'b':
                         boot_id_set = true;
-                        k = sd_id128_from_string(item+2, &boot_id);
+                        r = sd_id128_from_string(word + 2, &boot_id);
                         break;
 
                 case 'm':
                         monotonic_set = true;
-                        if (sscanf(item+2, "%llx", &monotonic) != 1)
-                                k = -EINVAL;
+                        if (sscanf(word + 2, "%llx", &monotonic) != 1)
+                                return -EINVAL;
                         break;
 
                 case 't':
                         realtime_set = true;
-                        if (sscanf(item+2, "%llx", &realtime) != 1)
-                                k = -EINVAL;
+                        if (sscanf(word + 2, "%llx", &realtime) != 1)
+                                return -EINVAL;
                         break;
 
                 case 'x':
                         xor_hash_set = true;
-                        if (sscanf(item+2, "%llx", &xor_hash) != 1)
-                                k = -EINVAL;
+                        if (sscanf(word + 2, "%llx", &xor_hash) != 1)
+                                return -EINVAL;
                         break;
                 }
-
-                free(item);
-
-                if (k < 0)
-                        return k;
         }
 
         if ((!seqnum_set || !seqnum_id_set) &&

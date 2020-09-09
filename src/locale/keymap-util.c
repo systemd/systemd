@@ -251,7 +251,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 if (in_section && first_word(l, "Option")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
+                        r = strv_split_full(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return r;
 
@@ -274,7 +274,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                 } else if (!in_section && first_word(l, "Section")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_extract(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
+                        r = strv_split_full(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return -ENOMEM;
 
@@ -489,7 +489,7 @@ static int read_next_mapping(const char* filename,
                 if (IN_SET(l[0], 0, '#'))
                         continue;
 
-                r = strv_split_extract(&b, l, WHITESPACE, EXTRACT_UNQUOTE);
+                r = strv_split_full(&b, l, WHITESPACE, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return r;
 
