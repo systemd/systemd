@@ -45,8 +45,7 @@ static int pkcs11_callback(
                 const CK_TOKEN_INFO *token_info,
                 P11KitUri *uri,
                 void *userdata) {
-        
-        _cleanup_(erase_and_freep) char *pin_used = NULL;
+
         struct pkcs11_callback_data *data = userdata;
         CK_OBJECT_HANDLE object;
         int r;
@@ -68,7 +67,7 @@ static int pkcs11_callback(
                         "drive-harddisk",
                         "pkcs11-pin",
                         data->until,
-                        &pin_used);
+                        NULL);
         if (r < 0)
                 return r;
 
