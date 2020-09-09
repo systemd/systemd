@@ -1118,11 +1118,9 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
          * reference paths in the abstract namespace that include NUL bytes in the name. */
 
         l = strlen(path);
-        if (l == 0)
+        if (l < 2)
                 return -EINVAL;
         if (!IN_SET(path[0], '/', '@'))
-                return -EINVAL;
-        if (path[1] == 0)
                 return -EINVAL;
 
         /* Don't allow paths larger than the space in sockaddr_un. Note that we are a tiny bit more restrictive than
