@@ -2,15 +2,19 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <linux/if.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "condition.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "env-util.h"
+#include "ether-addr-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1242,6 +1246,362 @@ int config_parse_vlanprotocol(const char* unit,
                            "Failed to parse VLAN protocol value, ignoring: %s", rvalue);
                 return 0;
         }
+
+        return 0;
+}
+
+int config_parse_net_condition(const char *unit,
+                               const char *filename,
+                               unsigned line,
+                               const char *section,
+                               unsigned section_line,
+                               const char *lvalue,
+                               int ltype,
+                               const char *rvalue,
+                               void *data,
+                               void *userdata) {
+
+        ConditionType cond = ltype;
+        Condition **list = data, *c;
+        bool negate;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *list = condition_free_list_type(*list, cond);
+                return 0;
+        }
+
+        negate = rvalue[0] == '!';
+        if (negate)
+                rvalue++;
+
+        c = condition_new(cond, rvalue, false, negate);
+        if (!c)
+                return log_oom();
+
+        /* Drop previous assignment. */
+        *list = condition_free_list_type(*list, cond);
+
+        LIST_PREPEND(conditions, *list, c);
+        return 0;
+}
+
+int config_parse_match_strv(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *p = rvalue;
+        char ***sv = data;
+        bool invert;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *sv = strv_free(*sv);
+                return 0;
+        }
+
+        invert = *p == '!';
+        p += invert;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (invert) {
+                        k = strjoin("!", word);
+                        if (!k)
+                                return log_oom();
+                } else
+                        k = TAKE_PTR(word);
+
+                r = strv_consume(sv, TAKE_PTR(k));
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_match_ifnames(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *p = rvalue;
+        char ***sv = data;
+        bool invert;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        invert = *p == '!';
+        p += invert;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Failed to parse interface name list: %s", rvalue);
+                        return 0;
+                }
+
+                if (!ifname_valid_full(word, ltype)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Interface name is not valid or too long, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                if (invert) {
+                        k = strjoin("!", word);
+                        if (!k)
+                                return log_oom();
+                } else
+                        k = TAKE_PTR(word);
+
+                r = strv_consume(sv, TAKE_PTR(k));
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_match_property(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const char *p = rvalue;
+        char ***sv = data;
+        bool invert;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        invert = *p == '!';
+        p += invert;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *k = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (!env_assignment_is_valid(word)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "Invalid property or value, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                if (invert) {
+                        k = strjoin("!", word);
+                        if (!k)
+                                return log_oom();
+                } else
+                        k = TAKE_PTR(word);
+
+                r = strv_consume(sv, TAKE_PTR(k));
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_ifalias(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
+
+        char **s = data;
+        _cleanup_free_ char *n = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        n = strdup(rvalue);
+        if (!n)
+                return log_oom();
+
+        if (!ascii_is_valid(n) || strlen(n) >= IFALIASZ) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface alias is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (isempty(n))
+                *s = mfree(*s);
+        else
+                free_and_replace(*s, n);
+
+        return 0;
+}
+
+int config_parse_hwaddr(const char *unit,
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata) {
+
+        _cleanup_free_ struct ether_addr *n = NULL;
+        struct ether_addr **hwaddr = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        n = new0(struct ether_addr, 1);
+        if (!n)
+                return log_oom();
+
+        r = ether_addr_from_string(rvalue, n);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Not a valid MAC address, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        free_and_replace(*hwaddr, n);
+
+        return 0;
+}
+
+int config_parse_hwaddrs(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
+
+        _cleanup_set_free_free_ Set *s = NULL;
+        const char *p = rvalue;
+        Set **hwaddrs = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *hwaddrs = set_free_free(*hwaddrs);
+                return 0;
+        }
+
+        s = set_new(&ether_addr_hash_ops);
+        if (!s)
+                return log_oom();
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ struct ether_addr *n = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                n = new(struct ether_addr, 1);
+                if (!n)
+                        return log_oom();
+
+                r = ether_addr_from_string(word, n);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring: %s", word);
+                        continue;
+                }
+
+                r = set_put(s, n);
+                if (r < 0)
+                        return log_oom();
+                if (r > 0)
+                        n = NULL; /* avoid cleanup */
+        }
+
+        r = set_ensure_allocated(hwaddrs, &ether_addr_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        r = set_move(*hwaddrs, s);
+        if (r < 0)
+                return log_oom();
 
         return 0;
 }

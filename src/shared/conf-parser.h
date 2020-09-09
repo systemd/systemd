@@ -147,6 +147,13 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
 CONFIG_PARSER_PROTOTYPE(config_parse_vlanprotocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_net_condition);
+CONFIG_PARSER_PROTOTYPE(config_parse_hwaddr);
+CONFIG_PARSER_PROTOTYPE(config_parse_hwaddrs);
+CONFIG_PARSER_PROTOTYPE(config_parse_match_strv);
+CONFIG_PARSER_PROTOTYPE(config_parse_match_ifnames);
+CONFIG_PARSER_PROTOTYPE(config_parse_match_property);
+CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,

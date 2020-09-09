@@ -3,10 +3,10 @@
 _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
+#include <sys/socket.h>
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "link-config.h"
-#include "network-internal.h"
 %}
 struct ConfigPerfItem;
 %null_strings
