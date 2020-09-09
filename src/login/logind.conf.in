@@ -18,6 +18,7 @@
 #KillOnlyUsers=
 #KillExcludeUsers=root
 #InhibitDelayMaxSec=5
+#UserStopDelaySec=10
 #HandlePowerKey=poweroff
 #HandleSuspendKey=suspend
 #HandleHibernateKey=hibernate
