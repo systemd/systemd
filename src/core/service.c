@@ -1628,8 +1628,9 @@ static int main_pid_good(Service *s) {
 
                 /* .. otherwise assume we'll get a SIGCHLD for it,
                  * which we really should wait for to collect exit
-                 * status and code */
-                return s->main_pid > 0;
+                 * status and code. Double check we didn't already
+                 * get it, if the main pid wasn't the last to die. */
+                return s->main_pid > 0 && !dual_timestamp_is_set(&s->main_exec_status.exit_timestamp);
         }
 
         /* We don't know the pid */
