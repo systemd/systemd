@@ -28,6 +28,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 #define CGROUP_CPU_QUOTA_DEFAULT_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)

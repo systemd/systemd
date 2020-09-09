@@ -14,7 +14,6 @@ typedef struct UnitFileInstallInfo UnitFileInstallInfo;
 #include "hashmap.h"
 #include "macro.h"
 #include "path-lookup.h"
-#include "strv.h"
 #include "unit-name.h"
 
 enum UnitFilePresetMode {

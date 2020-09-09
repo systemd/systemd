@@ -4,6 +4,7 @@
 #include "fs-util.h"
 #include "offline-passwd.h"
 #include "path-util.h"
+#include "strv.h"
 #include "user-util.h"
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(uid_gid_hash_ops, char, string_hash_func, string_compare_func, free);

@@ -18,12 +18,13 @@
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
 #include "io-util.h"
 #include "missing_network.h"
+#include "net-condition.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -40,15 +41,36 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)
 
+static bool interface_in_restricted_list(Manager *m, int ifindex) {
+        _cleanup_strv_free_ char **alternative_names = NULL;
+        char ifname[IFNAMSIZ + 1];
+        int r;
+
+        assert(m);
+        assert(ifindex > 0);
+
+        (void) format_ifname(ifindex, ifname);
+
+        r = rtnl_get_link_alternative_names(&m->rtnl, ifindex, &alternative_names);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get alternative interface name for link %i, ignoring: %m", ifindex);
+
+        if (net_condition_test_ifname(m->restrict_interfaces, ifname, alternative_names))
+                return true;
+
+        return false;
+}
+
 static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *userdata) {
         Manager *m = userdata;
+        int ifindex, r;
         uint16_t type;
         Link *l;
-        int ifindex, r;
 
         assert(rtnl);
         assert(m);
@@ -61,6 +83,9 @@ static int manager_process_link(sd_netlink *rtnl, sd_netlink_message *mm, void *
         r = sd_rtnl_message_link_get_ifindex(mm, &ifindex);
         if (r < 0)
                 goto fail;
+
+        if (!interface_in_restricted_list(m, ifindex))
+                return 0;
 
         l = hashmap_get(m->links, INT_TO_PTR(ifindex));
 
@@ -740,6 +765,8 @@ Manager *manager_free(Manager *m) {
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
+
+        strv_free(m->restrict_interfaces);
 
         return mfree(m);
 }

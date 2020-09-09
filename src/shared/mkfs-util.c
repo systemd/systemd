@@ -6,6 +6,7 @@
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 
 int mkfs_exists(const char *fstype) {
         const char *mkfs;

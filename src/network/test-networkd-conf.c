@@ -4,12 +4,11 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
-#include "set.h"
-#include "string-util.h"
-
-#include "network-internal.h"
 #include "networkd-conf.h"
 #include "networkd-network.h"
+#include "set.h"
+#include "string-util.h"
+#include "strv.h"
 
 static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected, usec_t expected_time) {
         DUID actual = {};

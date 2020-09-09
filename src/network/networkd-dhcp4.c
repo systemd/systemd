@@ -17,6 +17,7 @@
 #include "networkd-network.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sysctl-util.h"
 #include "web-util.h"
 

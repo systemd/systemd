@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <net/if.h>
+
 #include "format-util.h"
 #include "memory-util.h"
 #include "stdio-util.h"
 
-assert_cc(DECIMAL_STR_MAX(int) + 1 <= IF_NAMESIZE + 1);
-char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag) {
+assert_cc(DECIMAL_STR_MAX(int) + 1 <= IFNAMSIZ + 1);
+char *format_ifname_full(int ifindex, char buf[static IFNAMSIZ + 1], FormatIfnameFlag flag) {
         /* Buffer is always cleared */
-        memzero(buf, IF_NAMESIZE + 1);
+        memzero(buf, IFNAMSIZ + 1);
         if (if_indextoname(ifindex, buf))
                 return buf;
 
@@ -15,9 +17,9 @@ char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIf
                 return NULL;
 
         if (FLAGS_SET(flag, FORMAT_IFNAME_IFINDEX_WITH_PERCENT))
-                snprintf(buf, IF_NAMESIZE + 1, "%%%d", ifindex);
+                snprintf(buf, IFNAMSIZ + 1, "%%%d", ifindex);
         else
-                snprintf(buf, IF_NAMESIZE + 1, "%d", ifindex);
+                snprintf(buf, IFNAMSIZ + 1, "%d", ifindex);
 
         return buf;
 }

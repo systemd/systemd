@@ -44,6 +44,7 @@
 #include "main-func.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "network-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"

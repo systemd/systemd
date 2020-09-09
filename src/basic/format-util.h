@@ -2,7 +2,6 @@
 #pragma once
 
 #include <inttypes.h>
-#include <net/if.h>
 #include <stdbool.h>
 
 #include "cgroup-util.h"
@@ -61,8 +60,11 @@ typedef enum {
         FORMAT_IFNAME_IFINDEX_WITH_PERCENT = (1 << 1) | FORMAT_IFNAME_IFINDEX,
 } FormatIfnameFlag;
 
-char *format_ifname_full(int ifindex, char buf[static IF_NAMESIZE + 1], FormatIfnameFlag flag);
-static inline char *format_ifname(int ifindex, char buf[static IF_NAMESIZE + 1]) {
+#ifndef IFNAMSIZ
+#define IFNAMSIZ 16
+#endif
+char *format_ifname_full(int ifindex, char buf[static IFNAMSIZ + 1], FormatIfnameFlag flag);
+static inline char *format_ifname(int ifindex, char buf[static IFNAMSIZ + 1]) {
         return format_ifname_full(ifindex, buf, 0);
 }
 

@@ -21,6 +21,7 @@
 #include "path-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "strv.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = userdata;

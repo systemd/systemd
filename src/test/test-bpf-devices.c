@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "path-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void test_policy_closed(const char *cgroup_path, BPFProgram **installed_prog) {

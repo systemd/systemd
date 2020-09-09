@@ -386,6 +386,7 @@ DNSSEC=
 DNSSECNegativeTrustAnchors=
 DNSStubListener=
 DNSStubListenerExtra=
+RestrictInterfaces=
 DUIDRawData=
 DUIDType=
 DefaultLeaseTimeSec=

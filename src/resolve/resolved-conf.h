@@ -31,6 +31,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_name);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_txt);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_extra);
+CONFIG_PARSER_PROTOTYPE(config_parse_resolve_restrict_interfaces);
 
 const char* dns_stub_listener_mode_to_string(DnsStubListenerMode p) _const_;
 DnsStubListenerMode dns_stub_listener_mode_from_string(const char *s) _pure_;

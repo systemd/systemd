@@ -7,6 +7,7 @@
 #include "conf-parser.h"
 #include "load-fragment.h"
 #include "service.h"
+#include "strv.h"
 
 static int parse_condition(Unit *u, const char *line) {
         assert(u);

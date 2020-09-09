@@ -25,6 +25,7 @@
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "util.h"
 #include "web-util.h"
 

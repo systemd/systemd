@@ -36,6 +36,7 @@
 #include "sort-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "unit-def.h"
