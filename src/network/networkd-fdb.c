@@ -124,7 +124,7 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         assert(fdb_entry);
 
         /* create new RTM message */
-        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, PF_BRIDGE);
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, AF_BRIDGE);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWNEIGH message: %m");
 
@@ -292,10 +292,12 @@ int config_parse_fdb_destination(
                 return log_oom();
 
         r = in_addr_from_string_auto(rvalue, &fdb_entry->family, &fdb_entry->destination_addr);
-        if (r < 0)
-                return log_syntax(unit, LOG_WARNING, filename, line, r,
-                                  "FDB destination IP address is invalid, ignoring assignment: %s",
-                                  rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "FDB destination IP address is invalid, ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
 
         fdb_entry = NULL;
 

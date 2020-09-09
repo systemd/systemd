@@ -76,7 +76,7 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
 
         assert(ifindex > 0);
 
-        s = socket(PF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+        s = socket(AF_PACKET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (s < 0)
                 return -errno;
 

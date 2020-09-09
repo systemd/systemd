@@ -21,7 +21,7 @@ static void test_message_link_bridge(sd_netlink *rtnl) {
         uint32_t cost;
 
         assert_se(sd_rtnl_message_new_link(rtnl, &message, RTM_NEWLINK, 1) >= 0);
-        assert_se(sd_rtnl_message_link_set_family(message, PF_BRIDGE) >= 0);
+        assert_se(sd_rtnl_message_link_set_family(message, AF_BRIDGE) >= 0);
         assert_se(sd_netlink_message_open_container(message, IFLA_PROTINFO) >= 0);
         assert_se(sd_netlink_message_append_u32(message, IFLA_BRPORT_COST, 10) >= 0);
         assert_se(sd_netlink_message_close_container(message) >= 0);
