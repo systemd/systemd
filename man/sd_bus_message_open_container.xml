@@ -80,7 +80,7 @@
     <parameter>m</parameter> itself if there is no parent container.</para>
 
     <para><function>sd_bus_message_enter_container()</function> enters the next container of the message
-    <parameter>m</parameter>. It behaves mostly the same as
+    <parameter>m</parameter> for reading. It behaves mostly the same as
     <function>sd_bus_message_open_container()</function>. Entering a container allows reading its contents
     with
     <citerefentry><refentrytitle>sd_bus_message_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -89,7 +89,12 @@
 
     <para><function>sd_bus_message_exit_container()</function> exits the scope of the last container entered
     with <function>sd_bus_message_enter_container()</function>. It behaves mostly the same as
-    <function>sd_bus_message_close_container()</function>.</para>
+    <function>sd_bus_message_close_container()</function>. Note that
+    <function>sd_bus_message_exit_container()</function> may only be called after iterating through all
+    members of the container, i.e. reading or skipping them. Use
+    <citerefentry><refentrytitle>sd_bus_message_skip</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    to skip over felds of a container in order to be able to exit the container with
+    <function>sd_bus_message_exit_container()</function> without reading all members.</para>
   </refsect1>
 
   <refsect1>
@@ -128,6 +133,13 @@
 
           <listitem><para>Memory allocation failed.</para></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBUSY</constant></term>
+
+          <listitem><para><function>sd_bus_message_exit_container()</function> was called but there are
+          unread members left in the container.</para></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>
@@ -158,6 +170,7 @@
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_skip</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <ulink url="https://dbus.freedesktop.org/doc/dbus-specification.html">The D-Bus specification</ulink>
     </para>
   </refsect1>
