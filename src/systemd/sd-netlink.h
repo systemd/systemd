@@ -216,6 +216,8 @@ int sd_rtnl_message_new_tclass(sd_netlink *rtnl, sd_netlink_message **ret, uint1
 int sd_rtnl_message_set_tclass_parent(sd_netlink_message *m, uint32_t parent);
 int sd_rtnl_message_set_tclass_handle(sd_netlink_message *m, uint32_t handle);
 
+int sd_rtnl_message_new_mdb(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int mdb_ifindex);
+
 /* genl */
 int sd_genl_socket_open(sd_netlink **nl);
 int sd_genl_message_new(sd_netlink *nl, sd_genl_family family, uint8_t cmd, sd_netlink_message **m);

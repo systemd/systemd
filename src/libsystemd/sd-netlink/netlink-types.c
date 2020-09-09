@@ -968,6 +968,15 @@ static const NLTypeSystem rtnl_tca_type_system = {
         .types = rtnl_tca_types,
 };
 
+static const NLType mdb_types[] = {
+        [MDBA_SET_ENTRY]     = { .size = sizeof(struct br_port_msg) },
+};
+
+static const NLTypeSystem rtnl_mdb_type_system = {
+        .count = ELEMENTSOF(mdb_types),
+        .types = mdb_types,
+};
+
 static const NLType error_types[] = {
         [NLMSGERR_ATTR_MSG]  = { .type = NETLINK_TYPE_STRING },
         [NLMSGERR_ATTR_OFFS] = { .type = NETLINK_TYPE_U32 },
@@ -1012,6 +1021,9 @@ static const NLType rtnl_types[] = {
         [RTM_NEWTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
         [RTM_DELTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
         [RTM_GETTCLASS]    = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_type_system, .size = sizeof(struct tcmsg) },
+        [RTM_NEWMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
+        [RTM_DELMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
+        [RTM_GETMDB]       = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_mdb_type_system, .size = sizeof(struct br_port_msg) },
 };
 
 const NLTypeSystem rtnl_type_system_root = {

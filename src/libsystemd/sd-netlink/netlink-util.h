@@ -51,6 +51,10 @@ static inline bool rtnl_message_type_is_tclass(uint16_t type) {
         return IN_SET(type, RTM_NEWTCLASS, RTM_DELTCLASS, RTM_GETTCLASS);
 }
 
+static inline bool rtnl_message_type_is_mdb(uint16_t type) {
+        return IN_SET(type, RTM_NEWMDB, RTM_DELMDB, RTM_GETMDB);
+}
+
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name);
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias, const struct ether_addr *mac, uint32_t mtu);
 int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret);
