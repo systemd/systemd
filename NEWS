@@ -85,6 +85,22 @@ CHANGES WITH 247 in spe:
           this is not caused by systemd/udev changes, but result of a kernel
           behaviour change.
 
+        * Since PAM 1.2.0 (2015) configuration snippets may be placed in
+          /usr/lib/pam.d/ in addition to /etc/pam.d/. If a file exists in the
+          latter it takes precedence over the former, similar to how most of
+          systemd's own configuration is handled. Given that PAM stack
+          definitions are primarily put together by OS vendors/distributions
+          (though possibly overriden by users), this systemd release moves its
+          own PAM stack configuration for the "systemd-user" PAM service (i.e.
+          for the PAM session invoked by the per-user user@.service instance)
+          from /etc/pam.d/ to /usr/lib/pam.d/. We recommend moving all
+          packages' vendor versions of their PAM stack definitions from
+          /etc/pam.d/ to /usr/lib/pam.d/, but if such OS-wide migration is not
+          desired the location to which systemd installs its PAM stack
+          configuration file may be changed via the "pamconfdir" meson variable
+          at build time, optionally undoing ths change of default paths
+          introduced with systemd 247.
+
 CHANGES WITH 246:
 
         * The service manager gained basic support for cgroup v2 freezer. Units
