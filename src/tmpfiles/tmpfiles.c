@@ -765,6 +765,7 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
         struct stat stbuf;
         mode_t new_mode;
         bool do_chown;
+        int r;
 
         assert(i);
         assert(fd);
@@ -810,8 +811,9 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
                                 log_debug("\"%s\" matches temporary mode %o already.", path, m);
                         else {
                                 log_debug("Temporarily changing \"%s\" to mode %o.", path, m);
-                                if (fchmod_opath(fd, m) < 0)
-                                        return log_error_errno(errno, "fchmod() of %s failed: %m", path);
+                                r = fchmod_opath(fd, m);
+                                if (r < 0)
+                                        return log_error_errno(r, "fchmod() of %s failed: %m", path);
                         }
                 }
         }
@@ -842,8 +844,9 @@ static int fd_set_perms(Item *i, int fd, const char *path, const struct stat *st
                                 log_debug("\"%s\" matches mode %o already.", path, new_mode);
                         else {
                                 log_debug("Changing \"%s\" to mode %o.", path, new_mode);
-                                if (fchmod_opath(fd, new_mode) < 0)
-                                        return log_error_errno(errno, "fchmod() of %s failed: %m", path);
+                                r = fchmod_opath(fd, new_mode);
+                                if (r < 0)
+                                        return log_error_errno(r, "fchmod() of %s failed: %m", path);
                         }
                 }
         }

@@ -226,6 +226,7 @@ int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
 int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
         bool do_chown, do_chmod;
         struct stat st;
+        int r;
 
         /* Change ownership and access mode of the specified fd. Tries to do so safely, ensuring that at no
          * point in time the access mode is above the old access mode under the old ownership or the new
@@ -256,18 +257,22 @@ int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
         if (do_chown && do_chmod) {
                 mode_t minimal = st.st_mode & mode; /* the subset of the old and the new mask */
 
-                if (((minimal ^ st.st_mode) & 07777) != 0)
-                        if (fchmod_opath(fd, minimal & 07777) < 0)
-                                return -errno;
+                if (((minimal ^ st.st_mode) & 07777) != 0) {
+                        r = fchmod_opath(fd, minimal & 07777);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (do_chown)
                 if (fchownat(fd, "", uid, gid, AT_EMPTY_PATH) < 0)
                         return -errno;
 
-        if (do_chmod)
-                if (fchmod_opath(fd, mode & 07777) < 0)
-                        return -errno;
+        if (do_chmod) {
+                r = fchmod_opath(fd, mode & 07777);
+                if (r < 0)
+                        return r;
+        }
 
         return do_chown || do_chmod;
 }
