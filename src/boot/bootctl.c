@@ -1249,15 +1249,15 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("  Secure Boot: %sd\n", enable_disable(is_efi_secure_boot()));
                 printf("   Setup Mode: %s\n", is_efi_secure_boot_setup_mode() ? "setup" : "user");
 
-                r = efi_get_reboot_to_firmware();
-                if (r > 0)
+                k = efi_get_reboot_to_firmware();
+                if (k > 0)
                         printf(" Boot into FW: %sactive%s\n", ansi_highlight_yellow(), ansi_normal());
-                else if (r == 0)
+                else if (k == 0)
                         printf(" Boot into FW: supported\n");
-                else if (r == -EOPNOTSUPP)
+                else if (k == -EOPNOTSUPP)
                         printf(" Boot into FW: not supported\n");
                 else {
-                        errno = -r;
+                        errno = -k;
                         printf(" Boot into FW: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
                 }
                 printf("\n");
