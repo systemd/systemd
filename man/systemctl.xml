@@ -50,7 +50,7 @@
     <para>The following commands are understood:</para>
 
     <refsect2>
-      <title>Unit Commands</title>
+      <title>Unit Commands (Introspection and Modification)</title>
 
       <variablelist>
         <varlistentry>
@@ -150,6 +150,196 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             <para>Also see <option>--all</option> and <option>--state=</option>.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><command>is-active <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Check whether any of the specified units are active
+            (i.e. running). Returns an exit code
+            <constant>0</constant> if at least one is active, or
+            non-zero otherwise. Unless <option>--quiet</option> is
+            specified, this will also print the current unit state to
+            standard output.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>is-failed <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Check whether any of the specified units are in a
+            "failed" state. Returns an exit code
+            <constant>0</constant> if at least one has failed,
+            non-zero otherwise. Unless <option>--quiet</option> is
+            specified, this will also print the current unit state to
+            standard output.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>status</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…]</optional></term>
+
+          <listitem>
+            <para>Show terse runtime status information about one or
+            more units, followed by most recent log data from the
+            journal. If no units are specified, show system status. If
+            combined with <option>--all</option>, also show the status of
+            all units (subject to limitations specified with
+            <option>-t</option>). If a PID is passed, show information
+            about the unit the process belongs to.</para>
+
+            <para>This function is intended to generate human-readable
+            output. If you are looking for computer-parsable output,
+            use <command>show</command> instead. By default, this
+            function only shows 10 lines of output and ellipsizes
+            lines to fit in the terminal window. This can be changed
+            with <option>--lines</option> and <option>--full</option>,
+            see above. In addition, <command>journalctl
+            --unit=<replaceable>NAME</replaceable></command> or
+            <command>journalctl
+            --user-unit=<replaceable>NAME</replaceable></command> use
+            a similar filter for messages and might be more
+            convenient.
+            </para>
+
+            <para>systemd implicitly loads units as necessary, so just running the <command>status</command> will
+            attempt to load a file. The command is thus not useful for determining if something was already loaded or
+            not.  The units may possibly also be quickly unloaded after the operation is completed if there's no reason
+            to keep it in memory thereafter.
+            </para>
+
+            <example>
+              <title>Example output from systemctl status </title>
+
+              <programlisting>$ systemctl status bluetooth
+● bluetooth.service - Bluetooth service
+   Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; vendor preset: enabled)
+   Active: active (running) since Wed 2017-01-04 13:54:04 EST; 1 weeks 0 days ago
+     Docs: man:bluetoothd(8)
+ Main PID: 930 (bluetoothd)
+   Status: "Running"
+    Tasks: 1
+   Memory: 648.0K
+      CPU: 435ms
+   CGroup: /system.slice/bluetooth.service
+           └─930 /usr/lib/bluetooth/bluetoothd
+
+Jan 12 10:46:45 example.com bluetoothd[8900]: Not enough free handles to register service
+Jan 12 10:46:45 example.com bluetoothd[8900]: Current Time Service could not be registered
+Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
+</programlisting>
+
+            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. White
+            indicates an <literal>inactive</literal> or <literal>deactivating</literal> state. Red indicates a
+            <literal>failed</literal> or <literal>error</literal> state and green indicates an
+            <literal>active</literal>, <literal>reloading</literal> or <literal>activating</literal> state.
+            </para>
+
+            <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
+            memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
+            loading it, <literal>not-found</literal> if no unit file was found for this unit,
+            <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
+            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the unit file,
+            this line will also show the enablement state.  Enabled commands start at boot.  See the full table of
+            possible enablement states — including the definition of <literal>masked</literal> — in the documentation
+            for the <command>is-enabled</command> command.
+            </para>
+
+            <para>The "Active:" line shows active state.  The value is usually <literal>active</literal> or
+            <literal>inactive</literal>. Active could mean started, bound, plugged in, etc depending on the unit type.
+            The unit could also be in process of changing states, reporting a state of <literal>activating</literal> or
+            <literal>deactivating</literal>. A special <literal>failed</literal> state is entered when the service
+            failed in some way, such as a crash, exiting with an error code or timing out. If the failed state is
+            entered the cause will be logged for later reference.</para>
+            </example>
+
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>show</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>JOB</replaceable>…</optional></term>
+
+          <listitem>
+            <para>Show properties of one or more units, jobs, or the manager itself. If no argument is specified,
+            properties of the manager will be shown. If a unit name is specified, properties of the unit are shown, and
+            if a job ID is specified, properties of the job are shown. By default, empty properties are suppressed. Use
+            <option>--all</option> to show those too. To select specific properties to show, use
+            <option>--property=</option>. This command is intended to be used whenever computer-parsable output is
+            required. Use <command>status</command> if you are looking for formatted human-readable output.</para>
+
+            <para>Many properties shown by <command>systemctl show</command> map directly to configuration settings of
+            the system and service manager and its unit files. Note that the properties shown by the command are
+            generally more low-level, normalized versions of the original configuration settings and expose runtime
+            state in addition to configuration. For example, properties shown for service units include the service's
+            current main process identifier as <literal>MainPID</literal> (which is runtime state), and time settings
+            are always exposed as properties ending in the <literal>…USec</literal> suffix even if a matching
+            configuration options end in <literal>…Sec</literal>, because microseconds is the normalized time unit used
+            internally by the system and service manager.</para>
+
+            <para>For details about many of these properties, see the documentation of the D-Bus interface
+            backing these properties, see
+            <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>cat <replaceable>PATTERN</replaceable>…</command></term>
+
+          <listitem>
+            <para>Show backing files of one or more units. Prints the
+            "fragment" and "drop-ins" (source files) of units. Each
+            file is preceded by a comment which includes the file
+            name. Note that this shows the contents of the backing files
+            on disk, which may not match the system manager's
+            understanding of these units if any unit files were
+            updated on disk and the <command>daemon-reload</command>
+            command wasn't issued since.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><command>help <replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…</command></term>
+
+          <listitem>
+            <para>Show manual pages for one or more units, if
+            available. If a PID is given, the manual pages for the unit
+            the process belongs to are shown.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term>
+            <command>list-dependencies</command>
+            <optional><replaceable>UNIT</replaceable>...</optional>
+          </term>
+
+          <listitem>
+            <para>Shows units required and wanted by the specified
+            units. This recursively lists units following the
+            <varname>Requires=</varname>,
+            <varname>Requisite=</varname>,
+            <varname>ConsistsOf=</varname>,
+            <varname>Wants=</varname>, <varname>BindsTo=</varname>
+            dependencies. If no units are specified,
+            <filename>default.target</filename> is implied.</para>
+
+            <para>By default, only target units are recursively
+            expanded. When <option>--all</option> is passed, all other
+            units are recursively expanded as well.</para>
+
+            <para>Options <option>--reverse</option>,
+            <option>--after</option>, <option>--before</option>
+            may be used to change what types of dependencies
+            are shown.</para>
+
+            <para>Note that this command only lists units currently loaded into memory by the service manager. In
+            particular, this command is not suitable to get a comprehensive list at all reverse dependencies on a
+            specific unit, as it won't list the dependencies declared by units currently not loaded.</para>
+          </listitem>
+        </varlistentry>
+
+        <!-- Commands that modify unit state start here -->
 
         <varlistentry>
           <term><command>start <replaceable>PATTERN</replaceable>…</command></term>
@@ -326,148 +516,6 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>is-active <replaceable>PATTERN</replaceable>…</command></term>
-
-          <listitem>
-            <para>Check whether any of the specified units are active
-            (i.e. running). Returns an exit code
-            <constant>0</constant> if at least one is active, or
-            non-zero otherwise. Unless <option>--quiet</option> is
-            specified, this will also print the current unit state to
-            standard output.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><command>is-failed <replaceable>PATTERN</replaceable>…</command></term>
-
-          <listitem>
-            <para>Check whether any of the specified units are in a
-            "failed" state. Returns an exit code
-            <constant>0</constant> if at least one has failed,
-            non-zero otherwise. Unless <option>--quiet</option> is
-            specified, this will also print the current unit state to
-            standard output.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><command>status</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…]</optional></term>
-
-          <listitem>
-            <para>Show terse runtime status information about one or
-            more units, followed by most recent log data from the
-            journal. If no units are specified, show system status. If
-            combined with <option>--all</option>, also show the status of
-            all units (subject to limitations specified with
-            <option>-t</option>). If a PID is passed, show information
-            about the unit the process belongs to.</para>
-
-            <para>This function is intended to generate human-readable
-            output. If you are looking for computer-parsable output,
-            use <command>show</command> instead. By default, this
-            function only shows 10 lines of output and ellipsizes
-            lines to fit in the terminal window. This can be changed
-            with <option>--lines</option> and <option>--full</option>,
-            see above. In addition, <command>journalctl
-            --unit=<replaceable>NAME</replaceable></command> or
-            <command>journalctl
-            --user-unit=<replaceable>NAME</replaceable></command> use
-            a similar filter for messages and might be more
-            convenient.
-            </para>
-
-            <para>systemd implicitly loads units as necessary, so just running the <command>status</command> will
-            attempt to load a file. The command is thus not useful for determining if something was already loaded or
-            not.  The units may possibly also be quickly unloaded after the operation is completed if there's no reason
-            to keep it in memory thereafter.
-            </para>
-
-            <example>
-              <title>Example output from systemctl status </title>
-
-              <programlisting>$ systemctl status bluetooth
-● bluetooth.service - Bluetooth service
-   Loaded: loaded (/usr/lib/systemd/system/bluetooth.service; enabled; vendor preset: enabled)
-   Active: active (running) since Wed 2017-01-04 13:54:04 EST; 1 weeks 0 days ago
-     Docs: man:bluetoothd(8)
- Main PID: 930 (bluetoothd)
-   Status: "Running"
-    Tasks: 1
-   Memory: 648.0K
-      CPU: 435ms
-   CGroup: /system.slice/bluetooth.service
-           └─930 /usr/lib/bluetooth/bluetoothd
-
-Jan 12 10:46:45 example.com bluetoothd[8900]: Not enough free handles to register service
-Jan 12 10:46:45 example.com bluetoothd[8900]: Current Time Service could not be registered
-Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output error (5)
-</programlisting>
-
-            <para>The dot ("●") uses color on supported terminals to summarize the unit state at a glance. White
-            indicates an <literal>inactive</literal> or <literal>deactivating</literal> state. Red indicates a
-            <literal>failed</literal> or <literal>error</literal> state and green indicates an
-            <literal>active</literal>, <literal>reloading</literal> or <literal>activating</literal> state.
-            </para>
-
-            <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
-            memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
-            loading it, <literal>not-found</literal> if no unit file was found for this unit,
-            <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
-            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the unit file,
-            this line will also show the enablement state.  Enabled commands start at boot.  See the full table of
-            possible enablement states — including the definition of <literal>masked</literal> — in the documentation
-            for the <command>is-enabled</command> command.
-            </para>
-
-            <para>The "Active:" line shows active state.  The value is usually <literal>active</literal> or
-            <literal>inactive</literal>. Active could mean started, bound, plugged in, etc depending on the unit type.
-            The unit could also be in process of changing states, reporting a state of <literal>activating</literal> or
-            <literal>deactivating</literal>. A special <literal>failed</literal> state is entered when the service
-            failed in some way, such as a crash, exiting with an error code or timing out. If the failed state is
-            entered the cause will be logged for later reference.</para>
-            </example>
-
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><command>show</command> <optional><replaceable>PATTERN</replaceable>…|<replaceable>JOB</replaceable>…</optional></term>
-
-          <listitem>
-            <para>Show properties of one or more units, jobs, or the manager itself. If no argument is specified,
-            properties of the manager will be shown. If a unit name is specified, properties of the unit are shown, and
-            if a job ID is specified, properties of the job are shown. By default, empty properties are suppressed. Use
-            <option>--all</option> to show those too. To select specific properties to show, use
-            <option>--property=</option>. This command is intended to be used whenever computer-parsable output is
-            required. Use <command>status</command> if you are looking for formatted human-readable output.</para>
-
-            <para>Many properties shown by <command>systemctl show</command> map directly to configuration settings of
-            the system and service manager and its unit files. Note that the properties shown by the command are
-            generally more low-level, normalized versions of the original configuration settings and expose runtime
-            state in addition to configuration. For example, properties shown for service units include the service's
-            current main process identifier as <literal>MainPID</literal> (which is runtime state), and time settings
-            are always exposed as properties ending in the <literal>…USec</literal> suffix even if a matching
-            configuration options end in <literal>…Sec</literal>, because microseconds is the normalized time unit used
-            internally by the system and service manager.</para>
-
-            <para>For details about many of these properties, see the documentation of the D-Bus interface
-            backing these properties, see
-            <citerefentry><refentrytitle>org.freedesktop.systemd1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><command>cat <replaceable>PATTERN</replaceable>…</command></term>
-
-          <listitem>
-            <para>Show backing files of one or more units. Prints the
-            "fragment" and "drop-ins" (source files) of units. Each
-            file is preceded by a comment which includes the file
-            name. Note that this shows the contents of the backing files
-            on disk, which may not match the system manager's
-            understanding of these units if any unit files were
-            updated on disk and the <command>daemon-reload</command>
-            command wasn't issued since.</para>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
           <term><command>set-property <replaceable>UNIT</replaceable> <replaceable>PROPERTY</replaceable>=<replaceable>VALUE</replaceable>…</command></term>
 
           <listitem>
@@ -503,16 +551,6 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>help <replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…</command></term>
-
-          <listitem>
-            <para>Show manual pages for one or more units, if
-            available. If a PID is given, the manual pages for the unit
-            the process belongs to are shown.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
           <term><command>reset-failed [<replaceable>PATTERN</replaceable>…]</command></term>
 
           <listitem>
@@ -527,37 +565,6 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             counter of service units. Thus, if a unit's start limit (as configured with
             <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
             to be started again, use this command to make it startable again.</para>
-          </listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term>
-            <command>list-dependencies</command>
-            <optional><replaceable>UNIT</replaceable>...</optional>
-          </term>
-
-          <listitem>
-            <para>Shows units required and wanted by the specified
-            units. This recursively lists units following the
-            <varname>Requires=</varname>,
-            <varname>Requisite=</varname>,
-            <varname>ConsistsOf=</varname>,
-            <varname>Wants=</varname>, <varname>BindsTo=</varname>
-            dependencies. If no units are specified,
-            <filename>default.target</filename> is implied.</para>
-
-            <para>By default, only target units are recursively
-            expanded. When <option>--all</option> is passed, all other
-            units are recursively expanded as well.</para>
-
-            <para>Options <option>--reverse</option>,
-            <option>--after</option>, <option>--before</option>
-            may be used to change what types of dependencies
-            are shown.</para>
-
-            <para>Note that this command only lists units currently loaded into memory by the service manager. In
-            particular, this command is not suitable to get a comprehensive list at all reverse dependencies on a
-            specific unit, as it won't list the dependencies declared by units currently not loaded.</para>
           </listitem>
         </varlistentry>
       </variablelist>
