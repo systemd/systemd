@@ -417,6 +417,11 @@ static int varlink_test_disconnect(Varlink *v) {
         if (IN_SET(v->state, VARLINK_IDLE_CLIENT) && (v->write_disconnected || v->got_pollhup))
                 goto disconnect;
 
+        /* The server is still expecting to write more, but its write end is disconnected and it got a POLLHUP
+         * (i.e. from a disconnected client), so disconnect. */
+        if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE) && v->write_disconnected && v->got_pollhup)
+                goto disconnect;
+
         return 0;
 
 disconnect:
