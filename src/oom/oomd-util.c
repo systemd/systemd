@@ -385,3 +385,67 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
 
         return 0;
 }
+
+void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix) {
+        char swap[FORMAT_BYTES_MAX];
+
+        assert(ctx);
+        assert(f);
+
+        if (!empty_or_root(ctx->path))
+                fprintf(f,
+                        "%sPath: %s\n"
+                        "%s\tSwap Usage: %s\n",
+                        strempty(prefix), ctx->path,
+                        strempty(prefix), format_bytes(swap, sizeof(swap), ctx->swap_usage));
+        else
+                fprintf(f,
+                        "%sPath: %s\n"
+                        "%s\tSwap Usage: (see System Context)\n",
+                        strempty(prefix), ctx->path,
+                        strempty(prefix));
+}
+
+void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix) {
+        char tbuf[FORMAT_TIMESPAN_MAX], mem_use[FORMAT_BYTES_MAX];
+        char mem_min[FORMAT_BYTES_MAX], mem_low[FORMAT_BYTES_MAX];
+
+        assert(ctx);
+        assert(f);
+
+        fprintf(f,
+                "%sPath: %s\n"
+                "%s\tMemory Pressure Limit: %lu%%\n"
+                "%s\tPressure: Avg10: %lu.%02lu Avg60: %lu.%02lu Avg300: %lu.%02lu Total: %s\n"
+                "%s\tCurrent Memory Usage: %s\n",
+                strempty(prefix), ctx->path,
+                strempty(prefix), LOAD_INT(ctx->mem_pressure_limit),
+                strempty(prefix),
+                LOAD_INT(ctx->memory_pressure.avg10), LOAD_FRAC(ctx->memory_pressure.avg10),
+                LOAD_INT(ctx->memory_pressure.avg60), LOAD_FRAC(ctx->memory_pressure.avg60),
+                LOAD_INT(ctx->memory_pressure.avg300), LOAD_FRAC(ctx->memory_pressure.avg300),
+                format_timespan(tbuf, sizeof(tbuf), ctx->memory_pressure.total, USEC_PER_SEC),
+                strempty(prefix), format_bytes(mem_use, sizeof(mem_use), ctx->current_memory_usage));
+
+        if (!empty_or_root(ctx->path))
+                fprintf(f,
+                        "%s\tMemory Min: %s\n"
+                        "%s\tMemory Low: %s\n"
+                        "%s\tPgscan: %" PRIu64 "\n",
+                        strempty(prefix), format_bytes_cgroup_protection(mem_min, sizeof(mem_min), ctx->memory_min),
+                        strempty(prefix), format_bytes_cgroup_protection(mem_low, sizeof(mem_low), ctx->memory_low),
+                        strempty(prefix), ctx->pgscan);
+}
+
+void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char *prefix) {
+        char used[FORMAT_BYTES_MAX], total[FORMAT_BYTES_MAX];
+
+        assert(ctx);
+        assert(f);
+
+        fprintf(f,
+                "%sSwap: Used: %s Total: %s\n",
+                strempty(prefix),
+                format_bytes(used, sizeof(used), ctx->swap_used),
+                format_bytes(total, sizeof(total), ctx->swap_total));
+}

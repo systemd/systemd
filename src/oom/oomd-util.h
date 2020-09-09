@@ -106,3 +106,7 @@ int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *
  * `old_h` is used to get data used to calculate prior interval information. `old_h` can be NULL in which case there
  * was no prior data to reference. */
 int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path);
+
+void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
+void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
+void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char *prefix);

@@ -25,7 +25,10 @@
 typedef struct Manager Manager;
 
 struct Manager {
+        sd_bus *bus;
         sd_event *event;
+
+        Hashmap *polkit_registry;
 
         bool dry_run;
         unsigned swap_used_limit;
@@ -51,3 +54,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 int manager_new(Manager **ret);
 
 int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit);
+
+int manager_get_dump_string(Manager *m, char **ret);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_oomd_default);

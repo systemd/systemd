@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include "bus-log-control-api.h"
+#include "bus-util.h"
+#include "bus-polkit.h"
 #include "cgroup-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "oomd-manager-bus.h"
 #include "oomd-manager.h"
 #include "path-util.h"
 
@@ -396,6 +400,9 @@ void manager_free(Manager *m) {
         sd_event_source_unref(m->cgroup_context_event_source);
         sd_event_unref(m->event);
 
+        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        sd_bus_flush_close_unref(m->bus);
+
         hashmap_free(m->monitored_swap_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts);
 
@@ -438,6 +445,35 @@ int manager_new(Manager **ret) {
         return 0;
 }
 
+static int manager_connect_bus(Manager *m) {
+        int r;
+
+        assert(m);
+        assert(!m->bus);
+
+        r = bus_open_system_watch_bind_with_description(&m->bus, "bus-api-oom");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to bus: %m");
+
+        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/oom1", "org.freedesktop.oom1.Manager", manager_vtable, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add manager object vtable: %m");
+
+        r = bus_log_control_api_register(m->bus);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.oom1", 0, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request name: %m");
+
+        r = sd_bus_attach_event(m->bus, m->event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach bus to event loop: %m");
+
+        return 0;
+}
+
 int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressure_limit) {
         unsigned long l;
         int r;
@@ -454,6 +490,10 @@ int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressur
         if (r < 0)
                 return r;
 
+        r = manager_connect_bus(m);
+        if (r < 0)
+                return r;
+
         r = acquire_managed_oom_connect(m);
         if (r < 0)
                 return r;
@@ -462,5 +502,48 @@ int manager_start(Manager *m, bool dry_run, int swap_used_limit, int mem_pressur
         if (r < 0)
                 return r;
 
+        return 0;
+}
+
+int manager_get_dump_string(Manager *m, char **ret) {
+        _cleanup_free_ char *dump = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        OomdCGroupContext *c;
+        size_t size;
+        char *key;
+        int r;
+
+        assert(m);
+        assert(ret);
+
+        f = open_memstream_unlocked(&dump, &size);
+        if (!f)
+                return -errno;
+
+        fprintf(f,
+                "Dry Run: %s\n"
+                "Swap Used Limit: %u%%\n"
+                "Default Memory Pressure Limit: %lu%%\n"
+                "System Context:\n",
+                yes_no(m->dry_run),
+                m->swap_used_limit,
+                LOAD_INT(m->default_mem_pressure_limit));
+        oomd_dump_system_context(&m->system_context, f, "\t");
+
+        fprintf(f, "Swap Monitored CGroups:\n");
+        HASHMAP_FOREACH_KEY(c, key, m->monitored_swap_cgroup_contexts)
+                oomd_dump_swap_cgroup_context(c, f, "\t");
+
+        fprintf(f, "Memory Pressure Monitored CGroups:\n");
+        HASHMAP_FOREACH_KEY(c, key, m->monitored_mem_pressure_cgroup_contexts)
+                oomd_dump_memory_pressure_cgroup_context(c, f, "\t");
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        f = safe_fclose(f);
+
+        *ret = TAKE_PTR(dump);
         return 0;
 }
