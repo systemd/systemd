@@ -76,7 +76,7 @@ static void test_socket_address_parse(void) {
         test_socket_address_parse_one("[::1]:1234%xxxxasdf", -ENODEV, 0, NULL);
         test_socket_address_parse_one("192.168.1.254:8888", 0, AF_INET, NULL);
         test_socket_address_parse_one("/foo/bar", 0, AF_UNIX, NULL);
-        test_socket_address_parse_one("/", 0, AF_UNIX, NULL);
+        test_socket_address_parse_one("/", -EINVAL, 0, NULL);
         test_socket_address_parse_one("@abstract", 0, AF_UNIX, NULL);
 
         {

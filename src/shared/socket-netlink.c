@@ -62,37 +62,18 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         assert(a);
         assert(s);
 
-        if (*s == '/') {
+        if (IN_SET(*s, '/', '@')) {
                 /* AF_UNIX socket */
+                struct sockaddr_un un;
 
-                size_t l = strlen(s);
-                if (l >= sizeof(a->sockaddr.un.sun_path)) /* Note that we refuse non-NUL-terminated sockets when
-                                                           * parsing (the kernel itself is less strict here in what it
-                                                           * accepts) */
-                        return -EINVAL;
-
-                *a = (SocketAddress) {
-                        .sockaddr.un.sun_family = AF_UNIX,
-                        .size = offsetof(struct sockaddr_un, sun_path) + l + 1,
-                };
-                memcpy(a->sockaddr.un.sun_path, s, l);
-
-        } else if (*s == '@') {
-                /* Abstract AF_UNIX socket */
-
-                size_t l = strlen(s+1);
-                if (l >= sizeof(a->sockaddr.un.sun_path) - 1) /* Note that we refuse non-NUL-terminated sockets here
-                                                               * when parsing, even though abstract namespace sockets
-                                                               * explicitly allow embedded NUL bytes and don't consider
-                                                               * them special. But it's simply annoying to debug such
-                                                               * sockets. */
-                        return -EINVAL;
+                r = sockaddr_un_set_path(&un, s);
+                if (r < 0)
+                        return r;
 
                 *a = (SocketAddress) {
-                        .sockaddr.un.sun_family = AF_UNIX,
-                        .size = offsetof(struct sockaddr_un, sun_path) + 1 + l,
+                        .sockaddr.un = un,
+                        .size = r,
                 };
-                memcpy(a->sockaddr.un.sun_path+1, s+1, l);
 
         } else if (startswith(s, "vsock:")) {
                 /* AF_VSOCK socket in vsock:cid:port notation */
