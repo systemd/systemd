@@ -20,6 +20,7 @@
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-util.h"
 #include "udevadm-util.h"
 #include "udevadm.h"

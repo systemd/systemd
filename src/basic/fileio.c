@@ -25,6 +25,7 @@
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tmpfile-util.h"
 
 #define READ_FULL_BYTES_MAX (4U*1024U*1024U)

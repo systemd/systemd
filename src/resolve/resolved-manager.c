@@ -41,6 +41,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 
 #define SEND_TIMEOUT_USEC (200 * USEC_PER_MSEC)

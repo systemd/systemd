@@ -15,6 +15,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 #include "virt.h"
 

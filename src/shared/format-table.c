@@ -22,6 +22,7 @@
 #include "pretty-print.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"

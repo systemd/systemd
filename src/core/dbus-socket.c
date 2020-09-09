@@ -15,6 +15,7 @@
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, socket_result, SocketResult);

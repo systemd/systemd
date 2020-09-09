@@ -25,6 +25,7 @@
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "swap.h"
 #include "unit-name.h"
 #include "unit.h"

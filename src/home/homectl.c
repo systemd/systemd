@@ -30,6 +30,7 @@
 #include "pwquality-util.h"
 #include "rlimit-util.h"
 #include "spawn-polkit-agent.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "user-record-pwquality.h"
 #include "user-record-show.h"

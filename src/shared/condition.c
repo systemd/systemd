@@ -42,6 +42,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tomoyo-util.h"
 #include "user-util.h"
 #include "util.h"
