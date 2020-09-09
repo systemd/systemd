@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "sd-device.h"
 #include "sd-network.h"
 
 #include "macro.h"
@@ -58,3 +59,5 @@ typedef struct LinkOperationalStateRange {
                                                                    LINK_OPERSTATE_ROUTABLE }
 
 int parse_operational_state_range(const char *str, LinkOperationalStateRange *out);
+
+char *link_get_type_string(unsigned short iftype, sd_device *device);

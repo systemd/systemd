@@ -8,7 +8,6 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
-#include "arphrd-list.h"
 #include "condition.h"
 #include "device-util.h"
 #include "dhcp-lease-internal.h"
@@ -17,6 +16,7 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "network-internal.h"
+#include "network-util.h"
 #include "parse-util.h"
 #include "siphash24.h"
 #include "socket-util.h"
@@ -165,27 +165,6 @@ static const char *const wifi_iftype_table[NL80211_IFTYPE_MAX+1] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wifi_iftype, enum nl80211_iftype);
-
-char *link_get_type_string(unsigned short iftype, sd_device *device) {
-        const char *t, *devtype;
-        char *p;
-
-        if (device &&
-            sd_device_get_devtype(device, &devtype) >= 0 &&
-            !isempty(devtype))
-                return strdup(devtype);
-
-        t = arphrd_to_name(iftype);
-        if (!t)
-                return NULL;
-
-        p = strdup(t);
-        if (!p)
-                return NULL;
-
-        ascii_strlower(p);
-        return p;
-}
 
 bool net_match_config(Set *match_mac,
                       Set *match_permanent_mac,

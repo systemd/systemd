@@ -11,7 +11,6 @@
 #include "set.h"
 #include "strv.h"
 
-char *link_get_type_string(unsigned short iftype, sd_device *device);
 bool net_match_config(Set *match_mac,
                       Set *match_permanent_mac,
                       char * const *match_paths,
