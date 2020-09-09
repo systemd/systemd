@@ -201,7 +201,7 @@ endif
 
 pamconfdir = get_option('pamconfdir')
 if pamconfdir == ''
-        pamconfdir = join_paths(sysconfdir, 'pam.d')
+        pamconfdir = join_paths(prefixdir, 'lib/pam.d')
 endif
 
 memory_accounting_default = get_option('memory-accounting-default')
