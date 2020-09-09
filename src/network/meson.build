@@ -87,6 +87,8 @@ sources = files('''
         networkd-manager-bus.h
         networkd-manager.c
         networkd-manager.h
+        networkd-mdb.c
+        networkd-mdb.h
         networkd-ndisc.c
         networkd-ndisc.h
         networkd-neighbor.c

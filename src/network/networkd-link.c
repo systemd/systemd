@@ -1254,6 +1254,30 @@ static int link_set_bridge_fdb(Link *link) {
         return 0;
 }
 
+static int link_set_bridge_mdb(Link *link) {
+        MdbEntry *mdb_entry;
+        int r;
+
+        if (!link->network)
+                return 0;
+
+        if (LIST_IS_EMPTY(link->network->static_mdb_entries))
+                return 0;
+
+        if (!link->network->bridge) {
+                log_link_error(link, "Cannot configure MDB entries on non-bridge port");
+                return 0;
+        }
+
+        LIST_FOREACH(static_mdb_entries, mdb_entry, link->network->static_mdb_entries) {
+                r = mdb_entry_configure(link, mdb_entry);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to add entry to multicast group database: %m");
+        }
+
+        return 0;
+}
+
 static int static_address_ready_callback(Address *address) {
         Address *a;
         Link *link;
@@ -3904,6 +3928,10 @@ static int link_carrier_gained(Link *link) {
         }
 
         r = link_handle_bound_by_list(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_bridge_mdb(link);
         if (r < 0)
                 return r;
 
