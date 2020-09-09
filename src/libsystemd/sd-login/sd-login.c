@@ -916,14 +916,14 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) 
         if (!tt)
                 return -ENOMEM;
 
-        size_t n = 0;
-        int *ifindices;
+        _cleanup_free_ int *ifindices = NULL;
         if (ret_ifindices) {
                 ifindices = new(int, strv_length(tt));
                 if (!ifindices)
                         return -ENOMEM;
         }
 
+        size_t n = 0;
         for (size_t i = 0; tt[i]; i++) {
                 int ind;
 
@@ -938,7 +938,8 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) 
         }
 
         if (ret_ifindices)
-                *ret_ifindices = ifindices;
+                *ret_ifindices = TAKE_PTR(ifindices);
+
         return n;
 }
 
