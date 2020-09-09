@@ -852,10 +852,12 @@ int config_parse_macsec_key_id(
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse KeyId \"%s\": %m", rvalue);
                 return 0;
         }
-        if (l > MACSEC_KEYID_LEN)
-                return log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                  "Specified KeyId is larger then the allowed maximum (%zu > %u), ignoring: %s",
-                                  l, MACSEC_KEYID_LEN, rvalue);
+        if (l > MACSEC_KEYID_LEN) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified KeyId is larger then the allowed maximum (%zu > %u), ignoring: %s",
+                           l, MACSEC_KEYID_LEN, rvalue);
+                return 0;
+        }
 
         dest = a ? a->sa.key_id : b->sa.key_id;
         memcpy_safe(dest, p, l);

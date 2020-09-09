@@ -493,13 +493,17 @@ static int wireguard_decode_key_and_warn(
                 (void) warn_file_is_world_accessible(filename, NULL, unit, line);
 
         r = unbase64mem_full(rvalue, strlen(rvalue), true, &key, &len);
-        if (r < 0)
-                return log_syntax(unit, LOG_WARNING, filename, line, r,
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to decode wireguard key provided by %s=, ignoring assignment: %m", lvalue);
-        if (len != WG_KEY_LEN)
-                return log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                return 0;
+        }
+        if (len != WG_KEY_LEN) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Wireguard key provided by %s= has invalid length (%zu bytes), ignoring assignment.",
                            lvalue, len);
+                return 0;
+        }
 
         memcpy(ret, key, WG_KEY_LEN);
         return 0;
