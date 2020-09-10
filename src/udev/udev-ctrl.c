@@ -58,7 +58,6 @@ struct udev_ctrl {
 int udev_ctrl_new_from_fd(struct udev_ctrl **ret, int fd) {
         _cleanup_close_ int sock = -1;
         struct udev_ctrl *uctrl;
-        int r;
 
         assert(ret);
 
@@ -78,14 +77,6 @@ int udev_ctrl_new_from_fd(struct udev_ctrl **ret, int fd) {
                 .sock_connect = -1,
                 .bound = fd >= 0,
         };
-
-        /*
-         * FIXME: remove it as soon as we can depend on this:
-         *   http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=90c6bd34f884cd9cee21f1d152baf6c18bcac949
-         */
-        r = setsockopt_int(uctrl->sock, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set SO_PASSCRED: %m");
 
         uctrl->saddr.un = (struct sockaddr_un) {
                 .sun_family = AF_UNIX,
