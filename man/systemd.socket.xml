@@ -568,26 +568,23 @@
 
       <varlistentry>
         <term><varname>IPTOS=</varname></term>
-        <listitem><para>Takes an integer argument controlling the IP
-        Type-Of-Service field for packets generated from this socket.
-        This controls the IP_TOS socket option (see
-        <citerefentry project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details.). Either a numeric string or one of
-        <option>low-delay</option>, <option>throughput</option>,
-        <option>reliability</option> or <option>low-cost</option> may
-        be specified.</para></listitem>
+        <listitem><para>Takes an integer argument controlling the IP Type-Of-Service field for packets
+        generated from this socket.  This controls the <constant>IP_TOS</constant> socket option (see
+        <citerefentry
+        project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.). Either a numeric string or one of <option>low-delay</option>, <option>throughput</option>,
+        <option>reliability</option> or <option>low-cost</option> may be specified.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>IPTTL=</varname></term>
-        <listitem><para>Takes an integer argument controlling the IPv4
-        Time-To-Live/IPv6 Hop-Count field for packets generated from
-        this socket. This sets the IP_TTL/IPV6_UNICAST_HOPS socket
-        options (see
-        <citerefentry project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        and
-        <citerefentry project='die-net'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details.)</para></listitem>
+        <listitem><para>Takes an integer argument controlling the IPv4 Time-To-Live/IPv6 Hop-Count field for
+        packets generated from this socket. This sets the
+        <constant>IP_TTL</constant>/<constant>IPV6_UNICAST_HOPS</constant> socket options (see <citerefentry
+        project='die-net'><refentrytitle>ip</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+        <citerefentry
+        project='die-net'><refentrytitle>ipv6</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -662,20 +659,18 @@
 
       <varlistentry>
         <term><varname>FreeBind=</varname></term>
-        <listitem><para>Takes a boolean value. Controls whether the
-        socket can be bound to non-local IP addresses. This is useful
-        to configure sockets listening on specific IP addresses before
-        those IP addresses are successfully configured on a network
-        interface. This sets the IP_FREEBIND socket option. For
-        robustness reasons it is recommended to use this option
-        whenever you bind a socket to a specific IP address. Defaults
-        to <option>false</option>.</para></listitem>
+        <listitem><para>Takes a boolean value. Controls whether the socket can be bound to non-local IP
+        addresses. This is useful to configure sockets listening on specific IP addresses before those IP
+        addresses are successfully configured on a network interface. This sets the
+        <constant>IP_FREEBIND</constant>/<constant>IPV6_FREEBIND</constant> socket option. For robustness
+        reasons it is recommended to use this option whenever you bind a socket to a specific IP
+        address. Defaults to <option>false</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>Transparent=</varname></term>
         <listitem><para>Takes a boolean value. Controls the
-        IP_TRANSPARENT socket option. Defaults to
+        <constant>IP_TRANSPARENT</constant>/<constant>IPV6_TRANSPARENT</constant> socket option. Defaults to
         <option>false</option>.</para></listitem>
       </varlistentry>
 
