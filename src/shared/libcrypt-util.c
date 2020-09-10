@@ -31,12 +31,12 @@
 
 int make_salt(char **ret) {
 
-#ifdef XCRYPT_VERSION_MAJOR
+#if HAVE_CRYPT_GENSALT_RA
         const char *e;
         char *salt;
 
-        /* If we have libxcrypt we default to the "preferred method" (i.e. usually yescrypt), and generate it
-         * with crypt_gensalt_ra(). */
+        /* If we have crypt_gensalt_ra() we default to the "preferred method" (i.e. usually yescrypt).
+         * crypt_gensalt_ra() is usually provided by libxcrypt. */
 
         e = secure_getenv("SYSTEMD_CRYPT_PREFIX");
         if (!e)
@@ -51,8 +51,7 @@ int make_salt(char **ret) {
         *ret = salt;
         return 0;
 #else
-        /* If libxcrypt is not used, we use SHA512 and generate the salt on our own since crypt_gensalt_ra()
-         * is not available. */
+        /* If crypt_gensalt_ra() is not available, we use SHA512 and generate the salt on our own. */
 
         static const char table[] =
                 "abcdefghijklmnopqrstuvwxyz"
