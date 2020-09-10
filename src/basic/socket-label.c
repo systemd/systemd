@@ -80,15 +80,15 @@ int socket_address_listen(
                 }
 
                 if (free_bind) {
-                        r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
+                        r = socket_set_freebind(fd, socket_address_family(a), true);
                         if (r < 0)
-                                log_warning_errno(r, "IP_FREEBIND failed: %m");
+                                log_warning_errno(r, "IP_FREEBIND/IPV6_FREEBIND failed: %m");
                 }
 
                 if (transparent) {
-                        r = setsockopt_int(fd, IPPROTO_IP, IP_TRANSPARENT, true);
+                        r = socket_set_transparent(fd, socket_address_family(a), true);
                         if (r < 0)
-                                log_warning_errno(r, "IP_TRANSPARENT failed: %m");
+                                log_warning_errno(r, "IP_TRANSPARENT/IPV6_TRANSPARENT failed: %m");
                 }
         }
 

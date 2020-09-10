@@ -979,10 +979,11 @@ static void socket_close_fds(Socket *s) {
                         (void) unlink(*i);
 }
 
-static void socket_apply_socket_options(Socket *s, int fd) {
+static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         int r;
 
         assert(s);
+        assert(p);
         assert(fd >= 0);
 
         if (s->keep_alive) {
@@ -1046,7 +1047,7 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->pass_pktinfo) {
-                r = socket_pass_pktinfo(fd, true);
+                r = socket_set_recvpktinfo(fd, socket_address_family(&p->address), true);
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to enable packet info socket option: %m");
         }
@@ -1082,16 +1083,8 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         }
 
         if (s->ip_ttl >= 0) {
-                int x;
-
-                r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, s->ip_ttl);
-
-                if (socket_ipv6_is_supported())
-                        x = setsockopt_int(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, s->ip_ttl);
-                else
-                        x = -EAFNOSUPPORT;
-
-                if (r < 0 && x < 0)
+                r = socket_set_ttl(fd, socket_address_family(&p->address), s->ip_ttl);
+                if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "IP_TTL/IPV6_UNICAST_HOPS failed: %m");
         }
 
@@ -1664,7 +1657,7 @@ static int socket_open_fds(Socket *_s) {
                         if (p->fd < 0)
                                 return p->fd;
 
-                        socket_apply_socket_options(s, p->fd);
+                        socket_apply_socket_options(s, p, p->fd);
                         socket_symlink(s);
                         break;
 
@@ -3004,7 +2997,7 @@ static int socket_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 if (cfd < 0)
                         goto fail;
 
-                socket_apply_socket_options(p->socket, cfd);
+                socket_apply_socket_options(p->socket, p, cfd);
         }
 
         socket_enter_running(p->socket, cfd);
