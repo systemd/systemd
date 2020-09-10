@@ -220,8 +220,8 @@ WireGuard.PrivateKey,                     config_parse_wireguard_private_key,   
 WireGuard.PrivateKeyFile,                 config_parse_wireguard_private_key_file,   0,                             0
 WireGuardPeer.AllowedIPs,                 config_parse_wireguard_allowed_ips,        0,                             0
 WireGuardPeer.Endpoint,                   config_parse_wireguard_endpoint,           0,                             0
-WireGuardPeer.PublicKey,                  config_parse_wireguard_public_key,         0,                             0
-WireGuardPeer.PresharedKey,               config_parse_wireguard_preshared_key,      0,                             0
+WireGuardPeer.PublicKey,                  config_parse_wireguard_peer_key,           0,                             0
+WireGuardPeer.PresharedKey,               config_parse_wireguard_peer_key,           0,                             0
 WireGuardPeer.PresharedKeyFile,           config_parse_wireguard_preshared_key_file, 0,                             0
 WireGuardPeer.PersistentKeepalive,        config_parse_wireguard_keepalive,          0,                             0
 Xfrm.InterfaceId,                         config_parse_uint32,                       0,                             offsetof(Xfrm, if_id)
