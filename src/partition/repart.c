@@ -947,7 +947,7 @@ static int config_parse_label(
 
         r = specifier_printf(rvalue, specifier_table, NULL, &resolved);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to expand specifiers in Label=, ignoring: %s", rvalue);
                 return 0;
         }
