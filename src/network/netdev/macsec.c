@@ -847,6 +847,8 @@ int config_parse_macsec_key_id(
                 return log_oom();
 
         r = unhexmem(rvalue, strlen(rvalue), &p, &l);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse KeyId \"%s\": %m", rvalue);
                 return 0;
