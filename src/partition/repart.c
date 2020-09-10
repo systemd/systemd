@@ -2609,9 +2609,17 @@ static int do_copy_files(Partition *p, const char *fs) {
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
-                                r = copy_tree_at(sfd, ".", pfd, basename(*target), UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT);
+                                r = copy_tree_at(
+                                                sfd, ".",
+                                                pfd, basename(*target),
+                                                UID_INVALID, GID_INVALID,
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                         } else
-                                r = copy_tree_at(sfd, ".", tfd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT);
+                                r = copy_tree_at(
+                                                sfd, ".",
+                                                tfd, ".",
+                                                UID_INVALID, GID_INVALID,
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy %s%s to %s: %m", strempty(arg_root), *source, *target);
                 } else {

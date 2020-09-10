@@ -1654,7 +1654,10 @@ int btrfs_subvol_snapshot_fd_full(
                 } else if (r < 0)
                         return r;
 
-                r = copy_directory_fd_full(old_fd, new_path, COPY_MERGE|COPY_REFLINK|COPY_SAME_MOUNT|(FLAGS_SET(flags, BTRFS_SNAPSHOT_SIGINT) ? COPY_SIGINT : 0), progress_path, progress_bytes, userdata);
+                r = copy_directory_fd_full(
+                                old_fd, new_path,
+                                COPY_MERGE|COPY_REFLINK|COPY_SAME_MOUNT|COPY_HARDLINKS|(FLAGS_SET(flags, BTRFS_SNAPSHOT_SIGINT) ? COPY_SIGINT : 0),
+                                progress_path, progress_bytes, userdata);
                 if (r < 0)
                         goto fallback_fail;
 

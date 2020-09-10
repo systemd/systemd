@@ -17,6 +17,7 @@ typedef enum CopyFlags {
         COPY_CRTIME      = 1 << 5, /* Generate a user.crtime_usec xattr off the source crtime if there is one, on copying */
         COPY_SIGINT      = 1 << 6, /* Check for SIGINT regularly and return EINTR if seen (caller needs to block SIGINT) */
         COPY_MAC_CREATE  = 1 << 7, /* Create files with the correct MAC label (currently SELinux only) */
+        COPY_HARDLINKS   = 1 << 8, /* Try to reproduce hard links */
 } CopyFlags;
 
 typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
