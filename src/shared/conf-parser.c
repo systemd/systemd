@@ -188,7 +188,7 @@ static int parse_line(
 
                 n = strndup(l+1, k-2);
                 if (!n)
-                        return -ENOMEM;
+                        return log_oom();
 
                 if (sections && !nulstr_contains(sections, n)) {
                         bool ignore = flags & CONFIG_PARSE_RELAXED;
