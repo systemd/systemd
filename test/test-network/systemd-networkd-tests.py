@@ -1735,9 +1735,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-vrf.network',
         '26-link-local-addressing-ipv6.network',
         'routing-policy-rule-dummy98.network',
-        'routing-policy-rule-test1.network']
+        'routing-policy-rule-test1.network',
+        'routing-policy-rule-reconfigure.network',
+    ]
 
-    routing_policy_rule_tables = ['7', '8', '9']
+    routing_policy_rule_tables = ['7', '8', '9', '1011']
     routes = [['blackhole', '202.54.1.2'], ['unreachable', '202.54.1.3'], ['prohibit', '202.54.1.4']]
 
     def setUp(self):
@@ -1970,32 +1972,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'iif test1')
         self.assertRegex(output, 'lookup 8')
 
-        output = check_output('ip -6 rule list iif test1 priority 101')
-        print(output)
-        self.assertRegex(output, '101:')
-        self.assertRegex(output, 'from all')
-        self.assertRegex(output, 'iif test1')
-        self.assertRegex(output, 'lookup 9')
-
-        run('ip rule delete iif test1 priority 111')
-
-        output = check_output('ip rule list iif test1 priority 111')
-        print(output)
-        self.assertEqual(output, '')
-
-        run(*networkctl_cmd, 'reconfigure', 'test1', env=env)
-
-        self.wait_online(['test1:degraded'])
-
-        output = check_output('ip rule list iif test1 priority 111')
-        print(output)
-        self.assertRegex(output, '111:')
-        self.assertRegex(output, 'from 192.168.100.18')
-        self.assertRegex(output, r'tos (0x08|throughput)\s')
-        self.assertRegex(output, 'iif test1')
-        self.assertRegex(output, 'oif test1')
-        self.assertRegex(output, 'lookup 7')
-
     def test_routing_policy_rule_issue_11280(self):
         copy_unit_to_networkd_unit_path('routing-policy-rule-test1.network', '11-dummy.netdev',
                                         'routing-policy-rule-dummy98.network', '12-dummy.netdev')
@@ -2015,6 +1991,39 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             self.assertRegex(output, '112:	from 192.168.101.18 tos (0x08|throughput) iif dummy98 oif dummy98 lookup 8')
 
             stop_networkd(remove_state_files=False)
+
+    def test_routing_policy_rule_reconfigure(self):
+        copy_unit_to_networkd_unit_path('routing-policy-rule-reconfigure.network', '11-dummy.netdev')
+        start_networkd()
+        self.wait_online(['test1:degraded'])
+
+        output = check_output('ip rule list table 1011')
+        print(output)
+        self.assertRegex(output, '10111:	from all fwmark 0x3f3 lookup 1011')
+        self.assertRegex(output, '10112:	from all oif test1 lookup 1011')
+        self.assertRegex(output, '10113:	from all iif test1 lookup 1011')
+        self.assertRegex(output, '10114:	from 192.168.8.254 lookup 1011')
+
+        run('ip rule delete priority 10111')
+        run('ip rule delete priority 10112')
+        run('ip rule delete priority 10113')
+        run('ip rule delete priority 10114')
+        run('ip rule delete priority 10115')
+
+        output = check_output('ip rule list table 1011')
+        print(output)
+        self.assertEqual(output, '')
+
+        run(*networkctl_cmd, 'reconfigure', 'test1', env=env)
+
+        self.wait_online(['test1:degraded'])
+
+        output = check_output('ip rule list table 1011')
+        print(output)
+        self.assertRegex(output, '10111:	from all fwmark 0x3f3 lookup 1011')
+        self.assertRegex(output, '10112:	from all oif test1 lookup 1011')
+        self.assertRegex(output, '10113:	from all iif test1 lookup 1011')
+        self.assertRegex(output, '10114:	from 192.168.8.254 lookup 1011')
 
     @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):

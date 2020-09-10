@@ -333,37 +333,48 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
         return 1;
 }
 
-int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *link, link_netlink_message_handler_t callback) {
+int routing_policy_rule_remove(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        assert(routing_policy_rule);
+        assert(rule);
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
         assert(link->ifindex > 0);
-        assert(IN_SET(routing_policy_rule->family, AF_INET, AF_INET6));
+        assert(IN_SET(rule->family, AF_INET, AF_INET6));
 
-        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_DELRULE, routing_policy_rule->family);
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *from = NULL, *to = NULL;
+
+                (void) in_addr_to_string(rule->family, &rule->from, &from);
+                (void) in_addr_to_string(rule->family, &rule->to, &to);
+
+                log_link_debug(link,
+                               "Removing routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                               rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
+        }
+
+        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_DELRULE, rule->family);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_DELRULE message: %m");
 
-        if (in_addr_is_null(routing_policy_rule->family, &routing_policy_rule->from) == 0) {
-                r = netlink_message_append_in_addr_union(m, FRA_SRC, routing_policy_rule->family, &routing_policy_rule->from);
+        if (in_addr_is_null(rule->family, &rule->from) == 0) {
+                r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_SRC attribute: %m");
 
-                r = sd_rtnl_message_routing_policy_rule_set_rtm_src_prefixlen(m, routing_policy_rule->from_prefixlen);
+                r = sd_rtnl_message_routing_policy_rule_set_rtm_src_prefixlen(m, rule->from_prefixlen);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set source prefix length: %m");
         }
 
-        if (in_addr_is_null(routing_policy_rule->family, &routing_policy_rule->to) == 0) {
-                r = netlink_message_append_in_addr_union(m, FRA_DST, routing_policy_rule->family, &routing_policy_rule->to);
+        if (in_addr_is_null(rule->family, &rule->to) == 0) {
+                r = netlink_message_append_in_addr_union(m, FRA_DST, rule->family, &rule->to);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_DST attribute: %m");
 
-                r = sd_rtnl_message_routing_policy_rule_set_rtm_dst_prefixlen(m, routing_policy_rule->to_prefixlen);
+                r = sd_rtnl_message_routing_policy_rule_set_rtm_dst_prefixlen(m, rule->to_prefixlen);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
         }
@@ -473,8 +484,8 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                 (void) in_addr_to_string(rule->family, &rule->to, &to);
 
                 log_link_debug(link,
-                               "Configuring routing policy rule: %s/%u -> %s/%u, iif: %s, oif: %s, table: %u",
-                               from, rule->from_prefixlen, to, rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
+                               "Configuring routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                               rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
         }
 
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);
@@ -529,18 +540,16 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
                 r = sd_netlink_message_append_u32(m, FRA_FWMARK, rule->fwmark);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_FWMARK attribute: %m");
-        }
 
-        if (rule->fwmask > 0) {
                 r = sd_netlink_message_append_u32(m, FRA_FWMASK, rule->fwmask);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_FWMASK attribute: %m");
         }
 
         if (rule->iif) {
-                r = sd_netlink_message_append_string(m, FRA_IFNAME, rule->iif);
+                r = sd_netlink_message_append_string(m, FRA_IIFNAME, rule->iif);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append FRA_IFNAME attribute: %m");
+                        return log_link_error_errno(link, r, "Could not append FRA_IIFNAME attribute: %m");
         }
 
         if (rule->oif) {
@@ -644,30 +653,38 @@ int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
         return 0;
 }
 
-static int parse_fwmark_fwmask(const char *s, uint32_t *fwmark, uint32_t *fwmask) {
-        _cleanup_free_ char *f = NULL;
-        char *p;
+static int parse_fwmark_fwmask(const char *s, uint32_t *ret_fwmark, uint32_t *ret_fwmask) {
+        _cleanup_free_ char *fwmark_str = NULL;
+        uint32_t fwmark, fwmask = 0;
+        const char *slash;
         int r;
 
         assert(s);
+        assert(ret_fwmark);
+        assert(ret_fwmask);
 
-        f = strdup(s);
-        if (!f)
-                return -ENOMEM;
-
-        p = strchr(f, '/');
-        if (p)
-                *p++ = '\0';
-
-        r = safe_atou32(f, fwmark);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse RPDB rule firewall mark, ignoring: %s", f);
-
-        if (p) {
-                r = safe_atou32(p, fwmask);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse RPDB rule mask, ignoring: %s", f);
+        slash = strchr(s, '/');
+        if (slash) {
+                fwmark_str = strndup(s, slash - s);
+                if (!fwmark_str)
+                        return -ENOMEM;
         }
+
+        r = safe_atou32(fwmark_str ?: s, &fwmark);
+        if (r < 0)
+                return r;
+
+        if (fwmark > 0) {
+                if (slash) {
+                        r = safe_atou32(slash + 1, &fwmask);
+                        if (r < 0)
+                                return r;
+                } else
+                        fwmask = UINT32_MAX;
+        }
+
+        *ret_fwmark = fwmark;
+        *ret_fwmask = fwmask;
 
         return 0;
 }
@@ -1223,9 +1240,11 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                 }
 
                 if (rule->fwmark != 0) {
-                        fprintf(f, "%sfwmark=%"PRIu32"/%"PRIu32,
+                        fprintf(f, "%sfwmark=%"PRIu32,
                                 space ? " " : "",
-                                rule->fwmark, rule->fwmask);
+                                rule->fwmark);
+                        if (rule->fwmask != UINT32_MAX)
+                                fprintf(f, "/%"PRIu32, rule->fwmask);
                         space = true;
                 }
 
