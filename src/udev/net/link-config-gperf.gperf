@@ -7,6 +7,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "ethtool-util.h"
 #include "link-config.h"
 #include "network-internal.h"
+#include "socket-util.h"
 %}
 struct ConfigPerfItem;
 %null_strings
@@ -36,7 +37,7 @@ Link.MACAddressPolicy,           config_parse_mac_address_policy,       0,      
 Link.MACAddress,                 config_parse_hwaddr,                   0,                             offsetof(link_config, mac)
 Link.NamePolicy,                 config_parse_name_policy,              0,                             offsetof(link_config, name_policy)
 Link.Name,                       config_parse_ifname,                   0,                             offsetof(link_config, name)
-Link.AlternativeName,            config_parse_ifnames,                  1,                             offsetof(link_config, alternative_names)
+Link.AlternativeName,            config_parse_ifnames,                  IFNAME_VALID_ALTERNATIVE,      offsetof(link_config, alternative_names)
 Link.AlternativeNamesPolicy,     config_parse_alternative_names_policy, 0,                             offsetof(link_config, alternative_names_policy)
 Link.Alias,                      config_parse_ifalias,                  0,                             offsetof(link_config, alias)
 Link.MTUBytes,                   config_parse_mtu,                      AF_UNSPEC,                     offsetof(link_config, mtu)

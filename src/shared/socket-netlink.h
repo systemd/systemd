@@ -33,7 +33,6 @@ static inline int in_addr_ifindex_name_from_string_auto(const char *s, int *fami
 static inline int in_addr_ifindex_from_string_auto(const char *s, int *family, union in_addr_union *ret, int *ifindex) {
         return in_addr_ifindex_name_from_string_auto(s, family, ret, ifindex, NULL);
 }
-int in_addr_port_from_string_auto(const char *s, int *ret_family, union in_addr_union *ret_address, uint16_t *ret_port);
 
 struct in_addr_full {
         int family;

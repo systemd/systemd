@@ -200,22 +200,24 @@
         </para>
 
         <para>If the address string is a string in the format
-        v.w.x.y:z, it is read as IPv4 specifier for listening on an
-        address v.w.x.y on a port z.</para>
-
-        <para>If the address string is a string in the format [x]:y,
-        it is read as IPv6 address x on a port y. Note that this might
-        make the service available via IPv4, too, depending on the
-        <varname>BindIPv6Only=</varname> setting (see below).
-        </para>
+        <literal><replaceable>v.w.x.y</replaceable>:<replaceable>z</replaceable></literal>, it is interpeted
+        as IPv4 address <replaceable>v.w.x.y</replaceable> and port <replaceable>z</replaceable>.</para>
 
         <para>If the address string is a string in the format
-        <literal>vsock:x:y</literal>, it is read as CID <literal>x</literal> on
-        a port <literal>y</literal> address in the
-        <constant>AF_VSOCK</constant> family.  The CID is a unique 32-bit
-        integer identifier in <constant>AF_VSOCK</constant> analogous to an IP
-        address.  Specifying the CID is optional, and may be set to the empty
-        string.</para>
+        <literal>[<replaceable>x</replaceable>]:<replaceable>y</replaceable></literal>, it is interpreted as
+        IPv6 address <replaceable>x</replaceable> and port <replaceable>y</replaceable>. An optional
+        interface scope (interface name or number) may be specifed after a <literal>%</literal> symbol:
+        <literal>[<replaceable>x</replaceable>]:<replaceable>y</replaceable>%<replaceable>dev</replaceable></literal>.
+        Interface scopes are only useful with link-local addresses, because the kernel ignores them in other
+        cases. Note that if an address is specified as IPv6, it might still make the service available via
+        IPv4 too, depending on the <varname>BindIPv6Only=</varname> setting (see below).</para>
+
+        <para>If the address string is a string in the format
+        <literal>vsock:<replaceable>x</replaceable>:<replaceable>y</replaceable></literal>, it is read as CID
+        <replaceable>x</replaceable> on a port <replaceable>y</replaceable> address in the
+        <constant>AF_VSOCK</constant> family.  The CID is a unique 32-bit integer identifier in
+        <constant>AF_VSOCK</constant> analogous to an IP address.  Specifying the CID is optional, and may be
+        set to the empty string.</para>
 
         <para>Note that <constant>SOCK_SEQPACKET</constant> (i.e.
         <varname>ListenSequentialPacket=</varname>) is only available

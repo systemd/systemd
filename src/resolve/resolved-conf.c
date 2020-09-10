@@ -35,9 +35,6 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         if (r < 0)
                 return r;
 
-        if (IN_SET(port, 53, 853))
-                port = 0;
-
         /* Silently filter out 0.0.0.0 and 127.0.0.53 (our own stub DNS listener) */
         if (!dns_server_address_valid(family, &address))
                 return 0;
@@ -50,12 +47,8 @@ static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, cons
         /* Filter out duplicates */
         s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name);
         if (s) {
-                /*
-                 * Drop the marker. This is used to find the servers
-                 * that ceased to exist, see
-                 * manager_mark_dns_servers() and
-                 * manager_flush_marked_dns_servers().
-                 */
+                /* Drop the marker. This is used to find the servers that ceased to exist, see
+                 * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
                 dns_server_move_back_and_unmark(s);
                 return 0;
         }
@@ -447,7 +440,7 @@ int config_parse_dns_stub_listener_extra(
                 }
         }
 
-        r = in_addr_port_from_string_auto(p, &stub->family, &stub->address, &stub->port);
+        r = in_addr_port_ifindex_name_from_string_auto(p, &stub->family, &stub->address, &stub->port, NULL, NULL);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse address in %s=%s, ignoring assignment: %m",

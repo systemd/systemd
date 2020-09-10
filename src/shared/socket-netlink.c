@@ -62,75 +62,23 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         assert(a);
         assert(s);
 
-        *a = (SocketAddress) {
-                .type = SOCK_STREAM,
-        };
+        if (IN_SET(*s, '/', '@')) {
+                /* AF_UNIX socket */
+                struct sockaddr_un un;
 
-        if (*s == '[') {
-                uint16_t port;
-
-                /* IPv6 in [x:.....:z]:p notation */
-
-                e = strchr(s+1, ']');
-                if (!e)
-                        return -EINVAL;
-
-                n = strndup(s+1, e-s-1);
-                if (!n)
-                        return -ENOMEM;
-
-                errno = 0;
-                if (inet_pton(AF_INET6, n, &a->sockaddr.in6.sin6_addr) <= 0)
-                        return errno_or_else(EINVAL);
-
-                e++;
-                if (*e != ':')
-                        return -EINVAL;
-
-                e++;
-                r = parse_ip_port(e, &port);
+                r = sockaddr_un_set_path(&un, s);
                 if (r < 0)
                         return r;
 
-                a->sockaddr.in6.sin6_family = AF_INET6;
-                a->sockaddr.in6.sin6_port = htobe16(port);
-                a->size = sizeof(struct sockaddr_in6);
-
-        } else if (*s == '/') {
-                /* AF_UNIX socket */
-
-                size_t l;
-
-                l = strlen(s);
-                if (l >= sizeof(a->sockaddr.un.sun_path)) /* Note that we refuse non-NUL-terminated sockets when
-                                                           * parsing (the kernel itself is less strict here in what it
-                                                           * accepts) */
-                        return -EINVAL;
-
-                a->sockaddr.un.sun_family = AF_UNIX;
-                memcpy(a->sockaddr.un.sun_path, s, l);
-                a->size = offsetof(struct sockaddr_un, sun_path) + l + 1;
-
-        } else if (*s == '@') {
-                /* Abstract AF_UNIX socket */
-                size_t l;
-
-                l = strlen(s+1);
-                if (l >= sizeof(a->sockaddr.un.sun_path) - 1) /* Note that we refuse non-NUL-terminated sockets here
-                                                               * when parsing, even though abstract namespace sockets
-                                                               * explicitly allow embedded NUL bytes and don't consider
-                                                               * them special. But it's simply annoying to debug such
-                                                               * sockets. */
-                        return -EINVAL;
-
-                a->sockaddr.un.sun_family = AF_UNIX;
-                memcpy(a->sockaddr.un.sun_path+1, s+1, l);
-                a->size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
+                *a = (SocketAddress) {
+                        .sockaddr.un = un,
+                        .size = r,
+                };
 
         } else if (startswith(s, "vsock:")) {
                 /* AF_VSOCK socket in vsock:cid:port notation */
                 const char *cid_start = s + STRLEN("vsock:");
-                unsigned port;
+                unsigned port, cid;
 
                 e = strchr(cid_start, ':');
                 if (!e)
@@ -144,72 +92,82 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 if (!n)
                         return -ENOMEM;
 
-                if (!isempty(n)) {
-                        r = safe_atou(n, &a->sockaddr.vm.svm_cid);
+                if (isempty(n))
+                        cid = VMADDR_CID_ANY;
+                else {
+                        r = safe_atou(n, &cid);
                         if (r < 0)
                                 return r;
-                } else
-                        a->sockaddr.vm.svm_cid = VMADDR_CID_ANY;
+                }
 
-                a->sockaddr.vm.svm_family = AF_VSOCK;
-                a->sockaddr.vm.svm_port = port;
-                a->size = sizeof(struct sockaddr_vm);
+                *a = (SocketAddress) {
+                        .sockaddr.vm = {
+                                .svm_cid = cid,
+                                .svm_family = AF_VSOCK,
+                                .svm_port = port,
+                        },
+                        .size = sizeof(struct sockaddr_vm),
+                };
 
         } else {
                 uint16_t port;
 
-                e = strchr(s, ':');
-                if (e) {
-                        r = parse_ip_port(e + 1, &port);
-                        if (r < 0)
-                                return r;
-
-                        n = strndup(s, e-s);
-                        if (!n)
-                                return -ENOMEM;
-
-                        /* IPv4 in w.x.y.z:p notation? */
-                        r = inet_pton(AF_INET, n, &a->sockaddr.in.sin_addr);
-                        if (r < 0)
-                                return -errno;
-
-                        if (r > 0) {
-                                /* Gotcha, it's a traditional IPv4 address */
-                                a->sockaddr.in.sin_family = AF_INET;
-                                a->sockaddr.in.sin_port = htobe16(port);
-                                a->size = sizeof(struct sockaddr_in);
-                        } else {
-                                int idx;
-
-                                /* Uh, our last resort, an interface name */
-                                idx = resolve_ifname(NULL, n);
-                                if (idx < 0)
-                                        return idx;
-
-                                a->sockaddr.in6.sin6_family = AF_INET6;
-                                a->sockaddr.in6.sin6_port = htobe16(port);
-                                a->sockaddr.in6.sin6_scope_id = idx;
-                                a->sockaddr.in6.sin6_addr = in6addr_any;
-                                a->size = sizeof(struct sockaddr_in6);
-                        }
-                } else {
-
+                r = parse_ip_port(s, &port);
+                if (r == -ERANGE)
+                        return r; /* Valid port syntax, but the numerical value is wrong for a port. */
+                if (r >= 0) {
                         /* Just a port */
-                        r = parse_ip_port(s, &port);
+                        if (socket_ipv6_is_supported())
+                                *a = (SocketAddress) {
+                                        .sockaddr.in6 = {
+                                                .sin6_family = AF_INET6,
+                                                .sin6_port = htobe16(port),
+                                                .sin6_addr = in6addr_any,
+                                        },
+                                        .size = sizeof(struct sockaddr_in6),
+                                };
+                        else
+                                *a = (SocketAddress) {
+                                        .sockaddr.in = {
+                                                .sin_family = AF_INET,
+                                                .sin_port = htobe16(port),
+                                                .sin_addr.s_addr = INADDR_ANY,
+                                        },
+                                        .size = sizeof(struct sockaddr_in),
+                                };
+
+                } else {
+                        union in_addr_union address;
+                        int family, ifindex;
+
+                        r = in_addr_port_ifindex_name_from_string_auto(s, &family, &address, &port, &ifindex, NULL);
                         if (r < 0)
                                 return r;
 
-                        if (socket_ipv6_is_supported()) {
-                                a->sockaddr.in6.sin6_family = AF_INET6;
-                                a->sockaddr.in6.sin6_port = htobe16(port);
-                                a->sockaddr.in6.sin6_addr = in6addr_any;
-                                a->size = sizeof(struct sockaddr_in6);
-                        } else {
-                                a->sockaddr.in.sin_family = AF_INET;
-                                a->sockaddr.in.sin_port = htobe16(port);
-                                a->sockaddr.in.sin_addr.s_addr = INADDR_ANY;
-                                a->size = sizeof(struct sockaddr_in);
-                        }
+                        if (port == 0) /* No port, no go. */
+                                return -EINVAL;
+
+                        if (family == AF_INET)
+                                *a = (SocketAddress) {
+                                        .sockaddr.in = {
+                                                .sin_family = AF_INET,
+                                                .sin_addr = address.in,
+                                                .sin_port = htobe16(port),
+                                        },
+                                        .size = sizeof(struct sockaddr_in),
+                                };
+                        else if (family == AF_INET6)
+                                *a = (SocketAddress) {
+                                        .sockaddr.in6 = {
+                                                .sin6_family = AF_INET6,
+                                                .sin6_addr = address.in6,
+                                                .sin6_port = htobe16(port),
+                                                .sin6_scope_id = ifindex,
+                                        },
+                                        .size = sizeof(struct sockaddr_in6),
+                                };
+                        else
+                                assert_not_reached("Family quarrel");
                 }
         }
 
@@ -243,10 +201,6 @@ int socket_address_parse_netlink(SocketAddress *a, const char *s) {
         assert(a);
         assert(s);
 
-        *a = (SocketAddress) {
-                .type = SOCK_RAW,
-        };
-
         r = extract_first_word(&s, &word, NULL, 0);
         if (r < 0)
                 return r;
@@ -263,12 +217,13 @@ int socket_address_parse_netlink(SocketAddress *a, const char *s) {
                         return r;
         }
 
-        a->sockaddr.nl.nl_family = AF_NETLINK;
-        a->sockaddr.nl.nl_groups = group;
-
-        a->type = SOCK_RAW;
-        a->size = sizeof(struct sockaddr_nl);
-        a->protocol = family;
+        *a = (SocketAddress) {
+                .type = SOCK_RAW,
+                .sockaddr.nl.nl_family = AF_NETLINK,
+                .sockaddr.nl.nl_groups = group,
+                .protocol = family,
+                .size = sizeof(struct sockaddr_nl),
+        };
 
         return 0;
 }
@@ -345,10 +300,14 @@ int in_addr_port_ifindex_name_from_string_auto(
 
         /* This accepts the following:
          * 192.168.0.1:53#example.com
-         * [2001:4860:4860::8888]:53%eth0#example.com */
-
-        /* if ret_port is NULL, then strings with port cannot be specified.
-         * Also, if ret_server_name is NULL, then server_name cannot be specified. */
+         * [2001:4860:4860::8888]:53%eth0#example.com
+         *
+         * If ret_port is NULL, then the port cannot be specified.
+         * If ret_ifindex is NULL, then the interface index cannot be specified.
+         * If ret_server_name is NULL, then server_name cannot be specified.
+         *
+         * ret_family is always AF_INET or AF_INET6.
+         */
 
         m = strchr(s, '#');
         if (m) {
@@ -369,15 +328,19 @@ int in_addr_port_ifindex_name_from_string_auto(
 
         m = strchr(s, '%');
         if (m) {
+                if (!ret_ifindex)
+                        return -EINVAL;
+
                 if (isempty(m + 1))
                         return -EINVAL;
 
-                if (ret_ifindex) {
-                        /* If we shall return the interface index, try to parse it */
-                        ifindex = resolve_interface(NULL, m + 1);
-                        if (ifindex < 0)
-                                return ifindex;
-                }
+                if (!ifname_valid_full(m + 1, IFNAME_VALID_ALTERNATIVE | IFNAME_VALID_NUMERIC))
+                        return -EINVAL; /* We want to return -EINVAL for syntactically invalid names,
+                                         * and -ENODEV for valid but nonexistent interfaces. */
+
+                ifindex = resolve_interface(NULL, m + 1);
+                if (ifindex < 0)
+                        return ifindex;
 
                 s = buf2 = strndup(s, m - s);
                 if (!buf2)
@@ -451,36 +414,6 @@ int in_addr_port_ifindex_name_from_string_auto(
                 *ret_ifindex = ifindex;
         if (ret_server_name)
                 *ret_server_name = TAKE_PTR(name);
-
-        return r;
-}
-
-int in_addr_port_from_string_auto(
-                const char *s,
-                int *ret_family,
-                union in_addr_union *ret_address,
-                uint16_t *ret_port) {
-
-        union in_addr_union addr;
-        int family, ifindex, r;
-        uint16_t port;
-
-        assert(s);
-
-        r = in_addr_port_ifindex_name_from_string_auto(s, &family, &addr, &port, &ifindex, NULL);
-        if (r < 0)
-                return r;
-
-        /* This does not accept interface specified. */
-        if (ifindex != 0)
-                return -EINVAL;
-
-        if (ret_family)
-                *ret_family = family;
-        if (ret_address)
-                *ret_address = addr;
-        if (ret_port)
-                *ret_port = port;
 
         return r;
 }
