@@ -183,10 +183,8 @@ static int parse_line(
                 k = strlen(l);
                 assert(k > 0);
 
-                if (l[k-1] != ']') {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid section header '%s'", l);
-                        return -EBADMSG;
-                }
+                if (l[k-1] != ']')
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EBADMSG), "Invalid section header '%s'", l);
 
                 n = strndup(l+1, k-2);
                 if (!n)
