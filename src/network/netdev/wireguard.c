@@ -796,7 +796,7 @@ int config_parse_wireguard_keepalive(
                 void *data,
                 void *userdata) {
 
-        WireguardPeer *peer;
+        _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
         uint16_t keepalive = 0;
         Wireguard *w;
         int r;
@@ -824,6 +824,8 @@ int config_parse_wireguard_keepalive(
         }
 
         peer->persistent_keepalive_interval = keepalive;
+
+        TAKE_PTR(peer);
         return 0;
 }
 
