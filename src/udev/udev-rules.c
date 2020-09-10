@@ -480,7 +480,7 @@ static int rule_line_add_token(UdevRuleLine *rule_line, UdevRuleTokenType type, 
                 if (len > 0 && !isspace(value[len - 1]))
                         remove_trailing_whitespace = true;
 
-                subst_type = rule_get_substitution_type((const char*) data);
+                subst_type = rule_get_substitution_type(data);
         }
 
         token = new(UdevRuleToken, 1);
@@ -1386,7 +1386,7 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
         assert(dev);
         assert(event);
 
-        name = (const char*) token->data;
+        name = token->data;
 
         switch (token->attr_subst_type) {
         case SUBST_TYPE_FORMAT:
@@ -1585,7 +1585,7 @@ static int udev_rule_apply_token_to_event(
         case TK_M_NAME:
                 return token_match_string(token, event->name);
         case TK_M_ENV:
-                if (sd_device_get_property_value(dev, (const char*) token->data, &val) < 0)
+                if (sd_device_get_property_value(dev, token->data, &val) < 0)
                         val = hashmap_get(properties_list, token->data);
 
                 return token_match_string(token, val);
@@ -1630,7 +1630,7 @@ static int udev_rule_apply_token_to_event(
         case TK_M_SYSCTL: {
                 _cleanup_free_ char *value = NULL;
 
-                (void) udev_event_apply_format(event, (const char*) token->data, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false);
                 r = sysctl_read(sysctl_normalize(buf), &value);
                 if (r < 0 && r != -ENOENT)
                         return log_rule_error_errno(dev, rules, r, "Failed to read sysctl '%s': %m", buf);
@@ -1957,7 +1957,7 @@ static int udev_rule_apply_token_to_event(
                 _cleanup_free_ char *name = NULL, *label = NULL;
                 char label_str[UTIL_LINE_SIZE] = {};
 
-                name = strdup((const char*) token->data);
+                name = strdup(token->data);
                 if (!name)
                         return log_oom();
 
@@ -1984,7 +1984,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_ENV: {
-                const char *name = (const char*) token->data;
+                const char *name = token->data;
                 char value_new[UTIL_NAME_SIZE], *p = value_new;
                 size_t l = sizeof(value_new);
 
@@ -2097,7 +2097,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_ATTR: {
-                const char *key_name = (const char*) token->data;
+                const char *key_name = token->data;
                 char value[UTIL_NAME_SIZE];
 
                 if (util_resolve_subsys_kernel(key_name, buf, sizeof(buf), false) < 0 &&
@@ -2120,7 +2120,7 @@ static int udev_rule_apply_token_to_event(
         case TK_A_SYSCTL: {
                 char value[UTIL_NAME_SIZE];
 
-                (void) udev_event_apply_format(event, (const char*) token->data, buf, sizeof(buf), false);
+                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false);
                 (void) udev_event_apply_format(event, token->value, value, sizeof(value), false);
                 sysctl_normalize(buf);
                 log_rule_debug(dev, rules, "SYSCTL '%s' writing '%s'", buf, value);
