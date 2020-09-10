@@ -938,12 +938,13 @@ int config_parse_channel(const char *unit,
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse channel value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse channel value for %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
-
         if (k < 1) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid %s value, ignoring: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid %s= value, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -998,24 +999,24 @@ int config_parse_advertise(const char *unit,
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to split advertise modes '%s', ignoring: %m", rvalue);
-                        break;
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to split advertise modes '%s', ignoring assignment: %m", rvalue);
+                        return 0;
                 }
                 if (r == 0)
-                        break;
+                        return 0;
 
                 mode = ethtool_link_mode_bit_from_string(w);
                 /* We reuse the kernel provided enum which does not contain negative value. So, the cast
                  * below is mandatory. Otherwise, the check below always passes and access an invalid address. */
                 if ((int) mode < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse advertise mode, ignoring: %s", w);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Failed to parse advertise mode, ignoring: %s", w);
                         continue;
                 }
 
                 advertise[mode / 32] |= 1UL << (mode % 32);
         }
-
-        return 0;
 }
 
 int config_parse_nic_buffer_size(const char *unit,
@@ -1040,12 +1041,13 @@ int config_parse_nic_buffer_size(const char *unit,
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse interface buffer value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse interface buffer value, ignoring: %s", rvalue);
                 return 0;
         }
-
         if (k < 1) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid %s value, ignoring: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid %s= value, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
