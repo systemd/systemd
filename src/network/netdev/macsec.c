@@ -850,12 +850,13 @@ int config_parse_macsec_key_id(
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse KeyId \"%s\": %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse KeyId=%s, ignoring assignment: %m", rvalue);
                 return 0;
         }
         if (l > MACSEC_KEYID_LEN) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Specified KeyId is larger then the allowed maximum (%zu > %u), ignoring: %s",
+                           "Specified KeyId= is larger then the allowed maximum (%zu > %u), ignoring: %s",
                            l, MACSEC_KEYID_LEN, rvalue);
                 return 0;
         }
