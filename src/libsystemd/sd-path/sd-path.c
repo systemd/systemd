@@ -364,8 +364,6 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 *ret = ROOTPREFIX_NOSLASH "/lib/systemd/system-shutdown";
                 return 0;
 
-        /* FIXME: systemd.pc uses ${prefix}, but CONF_PATHS_NULSTR doesn't.
-         *        Should ${prefix} use in systemd.pc be removed? */
         case SD_PATH_TMPFILES:
                 *ret = "/usr/lib/tmpfiles.d";
                 return 0;
