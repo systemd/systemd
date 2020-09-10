@@ -166,7 +166,7 @@ static int xdg_config_parse_string(
 
         /* XDG does not allow duplicate definitions. */
         if (*out) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Key %s was defined multiple times, ignoring.", lvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Key %s was defined multiple times, ignoring.", lvalue);
                 return 0;
         }
 
@@ -238,7 +238,7 @@ static int xdg_config_parse_strv(
 
         /* XDG does not allow duplicate definitions. */
         if (*ret_sv) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Key %s was already defined, ignoring.", lvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Key %s was already defined, ignoring.", lvalue);
                 return 0;
         }
 
@@ -256,7 +256,7 @@ static int xdg_config_parse_strv(
                         /* Move forward, and ensure it is a valid escape. */
                         end++;
                         if (!strchr("sntr\\;", *end)) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Undefined escape sequence \\%c.", *end);
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Undefined escape sequence \\%c.", *end);
                                 return 0;
                         }
                         continue;

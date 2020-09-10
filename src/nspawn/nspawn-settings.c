@@ -233,14 +233,10 @@ int config_parse_expose_port(
         assert(rvalue);
 
         r = expose_port_parse(&s->expose_ports, rvalue);
-        if (r == -EEXIST) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Duplicate port specification, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse host port %s: %m", rvalue);
-                return 0;
-        }
+        if (r == -EEXIST)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Duplicate port specification, ignoring: %s", rvalue);
+        else if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse host port %s: %m", rvalue);
 
         return 0;
 }
@@ -268,8 +264,10 @@ int config_parse_capability(
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&rvalue, &word, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract capability string, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to extract capability string, ignoring: %s", rvalue);
                         return 0;
                 }
                 if (r == 0)
@@ -280,7 +278,7 @@ int config_parse_capability(
                 else {
                         r = capability_from_name(word);
                         if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse capability, ignoring: %s", word);
+                                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse capability, ignoring: %s", word);
                                 continue;
                         }
 
@@ -315,10 +313,8 @@ int config_parse_pivot_root(
         assert(rvalue);
 
         r = pivot_root_parse(&settings->pivot_root_new, &settings->pivot_root_old, rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid pivot root mount specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid pivot root mount specification %s: %m", rvalue);
 
         return 0;
 }
@@ -343,10 +339,8 @@ int config_parse_bind(
         assert(rvalue);
 
         r = bind_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue, ltype);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid bind mount specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid bind mount specification %s: %m", rvalue);
 
         return 0;
 }
@@ -371,10 +365,8 @@ int config_parse_tmpfs(
         assert(rvalue);
 
         r = tmpfs_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid temporary file system specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid temporary file system specification %s: %m", rvalue);
 
         return 0;
 }
@@ -399,10 +391,8 @@ int config_parse_inaccessible(
         assert(rvalue);
 
         r = inaccessible_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid inaccessible file system specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid inaccessible file system specification %s: %m", rvalue);
 
         return 0;
 }
@@ -428,7 +418,7 @@ int config_parse_overlay(
 
         r = overlay_mount_parse(&settings->custom_mounts, &settings->n_custom_mounts, rvalue, ltype);
         if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid overlay file system specification %s, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid overlay file system specification %s, ignoring: %m", rvalue);
 
         return 0;
 }
@@ -453,10 +443,8 @@ int config_parse_veth_extra(
         assert(rvalue);
 
         r = veth_extra_parse(&settings->network_veth_extra, rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid extra virtual Ethernet link specification %s: %m", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid extra virtual Ethernet link specification %s: %m", rvalue);
 
         return 0;
 }
@@ -482,13 +470,11 @@ int config_parse_network_zone(
 
         j = strjoin("vz-", rvalue);
         if (!ifname_valid(j)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid network zone name, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid network zone name, ignoring: %s", rvalue);
                 return 0;
         }
 
-        free_and_replace(settings->network_zone, j);
-
-        return 0;
+        return free_and_replace(settings->network_zone, j);
 }
 
 int config_parse_boot(
@@ -512,11 +498,11 @@ int config_parse_boot(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Boot= parameter %s, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse Boot= parameter %s, ignoring: %m", rvalue);
                 return 0;
         }
 
-        if (r > 0) {
+        if (r) {
                 if (settings->start_mode == START_PID2)
                         goto conflict;
 
@@ -532,7 +518,7 @@ int config_parse_boot(
         return 0;
 
 conflict:
-        log_syntax(unit, LOG_ERR, filename, line, r, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
+        log_syntax(unit, LOG_WARNING, filename, line, 0, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
         return 0;
 }
 
@@ -557,11 +543,11 @@ int config_parse_pid2(
 
         r = parse_boolean(rvalue);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse ProcessTwo= parameter %s, ignoring: %m", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse ProcessTwo= parameter %s, ignoring: %m", rvalue);
                 return 0;
         }
 
-        if (r > 0) {
+        if (r) {
                 if (settings->start_mode == START_BOOT)
                         goto conflict;
 
@@ -577,7 +563,7 @@ int config_parse_pid2(
         return 0;
 
 conflict:
-        log_syntax(unit, LOG_ERR, filename, line, r, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
+        log_syntax(unit, LOG_WARNING, filename, line, 0, "Conflicting Boot= or ProcessTwo= setting found. Ignoring.");
         return 0;
 }
 
@@ -629,7 +615,7 @@ int config_parse_private_users(
 
                         r = safe_atou32(range, &rn);
                         if (r < 0 || rn <= 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID range invalid, ignoring: %s", range);
+                                log_syntax(unit, LOG_WARNING, filename, line, r, "UID/GID range invalid, ignoring: %s", range);
                                 return 0;
                         }
                 } else {
@@ -639,7 +625,7 @@ int config_parse_private_users(
 
                 r = parse_uid(shift, &sh);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "UID/GID shift invalid, ignoring: %s", range);
                         return 0;
                 }
 
@@ -680,11 +666,12 @@ int config_parse_syscall_filter(
 
                 r = extract_first_word(&items, &word, NULL, 0);
                 if (r == 0)
-                        break;
+                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse SystemCallFilter= parameter %s, ignoring: %m", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse SystemCallFilter= parameter %s, ignoring: %m", rvalue);
                         return 0;
                 }
 
@@ -695,8 +682,6 @@ int config_parse_syscall_filter(
                 if (r < 0)
                         return log_oom();
         }
-
-        return 0;
 }
 
 int config_parse_hostname(
@@ -717,7 +702,7 @@ int config_parse_hostname(
         assert(s);
 
         if (!hostname_is_valid(rvalue, false)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid hostname, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid hostname, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -752,11 +737,11 @@ int config_parse_oom_score_adjust(
 
         r = parse_oom_score_adjust(rvalue, &oa);
         if (r == -ERANGE) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
                 return 0;
         }
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -863,10 +848,8 @@ int config_parse_link_journal(
         assert(settings);
 
         r = parse_link_journal(rvalue, &settings->link_journal, &settings->link_journal_try);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse link journal mode, ignoring: %s", rvalue);
-                return 0;
-        }
+        if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse link journal mode, ignoring: %s", rvalue);
 
         return 0;
 }

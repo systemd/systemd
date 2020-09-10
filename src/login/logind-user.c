@@ -919,7 +919,7 @@ int config_parse_tmpfs_size(
                 if (r >= 0 && (k <= 0 || (uint64_t) (size_t) k != k))
                         r = -ERANGE;
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
                         return 0;
                 }
 

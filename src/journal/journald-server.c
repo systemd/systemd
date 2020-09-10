@@ -2551,7 +2551,7 @@ int config_parse_line_max(
 
                 r = parse_size(rvalue, 1024, &v);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse LineMax= value, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse LineMax= value, ignoring: %s", rvalue);
                         return 0;
                 }
 
@@ -2606,7 +2606,7 @@ int config_parse_compress(
                 if (r < 0) {
                         r = parse_size(rvalue, 1024, &compress->threshold_bytes);
                         if (r < 0)
-                                log_syntax(unit, LOG_ERR, filename, line, r,
+                                log_syntax(unit, LOG_WARNING, filename, line, r,
                                            "Failed to parse Compress= value, ignoring: %s", rvalue);
                         else
                                 compress->enabled = true;

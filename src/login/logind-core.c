@@ -466,12 +466,14 @@ int config_parse_n_autovts(
 
         r = safe_atou(rvalue, &o);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse number of autovts, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse number of autovts, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (o > 15) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "A maximum of 15 autovts are supported, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "A maximum of 15 autovts are supported, ignoring: %s", rvalue);
                 return 0;
         }
 

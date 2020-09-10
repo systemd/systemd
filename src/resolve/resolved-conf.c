@@ -168,7 +168,8 @@ int config_parse_dns_servers(
                 /* Otherwise, add to the list */
                 r = manager_parse_dns_server_string_and_warn(m, ltype, rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse DNS server string '%s'. Ignoring.", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse DNS server string '%s', ignoring.", rvalue);
                         return 0;
                 }
         }
@@ -210,7 +211,8 @@ int config_parse_search_domains(
                 /* Otherwise, add to the list */
                 r = manager_parse_search_domains_and_warn(m, rvalue);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse search domains string '%s'. Ignoring.", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse search domains string '%s', ignoring.", rvalue);
                         return 0;
                 }
         }
@@ -222,21 +224,19 @@ int config_parse_search_domains(
         return 0;
 }
 
-int config_parse_dnssd_service_name(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
-        static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id,      NULL },
-                { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_host_name,       NULL },
-                { 'v', specifier_kernel_release,  NULL },
-                { 'a', specifier_architecture,    NULL },
-                { 'o', specifier_os_id,           NULL },
-                { 'w', specifier_os_version_id,   NULL },
-                { 'B', specifier_os_build_id,     NULL },
-                { 'W', specifier_os_variant_id,   NULL },
-                {}
-        };
+int config_parse_dnssd_service_name(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         DnssdService *s = userdata;
-        _cleanup_free_ char *name = NULL;
         int r;
 
         assert(filename);
@@ -245,27 +245,38 @@ int config_parse_dnssd_service_name(const char *unit, const char *filename, unsi
         assert(s);
 
         if (isempty(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name can't be empty. Ignoring.");
-                return -EINVAL;
+                s->name_template = mfree(s->name_template);
+                return 0;
+        }
+
+        r = dnssd_render_instance_name(rvalue, NULL);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid service instance name template '%s', ignoring: %m", rvalue);
+                return 0;
         }
 
         r = free_and_strdup(&s->name_template, rvalue);
         if (r < 0)
                 return log_oom();
 
-        r = specifier_printf(s->name_template, specifier_table, NULL, &name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to replace specifiers: %m");
-
-        if (!dns_service_name_is_valid(name)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name template renders to invalid name '%s'. Ignoring.", name);
-                return -EINVAL;
-        }
-
         return 0;
 }
 
-int config_parse_dnssd_service_type(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+int config_parse_dnssd_service_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         DnssdService *s = userdata;
         int r;
 
@@ -275,13 +286,13 @@ int config_parse_dnssd_service_type(const char *unit, const char *filename, unsi
         assert(s);
 
         if (isempty(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service type can't be empty. Ignoring.");
-                return -EINVAL;
+                s->type = mfree(s->type);
+                return 0;
         }
 
         if (!dnssd_srv_type_is_valid(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service type is invalid. Ignoring.");
-                return -EINVAL;
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Service type is invalid. Ignoring.");
+                return 0;
         }
 
         r = free_and_strdup(&s->type, rvalue);
@@ -291,7 +302,18 @@ int config_parse_dnssd_service_type(const char *unit, const char *filename, unsi
         return 0;
 }
 
-int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
+int config_parse_dnssd_txt(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
         DnssdService *s = userdata;
         DnsTxtItem *last = NULL;
@@ -312,9 +334,7 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                 return log_oom();
 
         for (;;) {
-                _cleanup_free_ char *word = NULL;
-                _cleanup_free_ char *key = NULL;
-                _cleanup_free_ char *value = NULL;
+                _cleanup_free_ char *word = NULL, *key = NULL, *value = NULL;
                 _cleanup_free_ void *decoded = NULL;
                 size_t length = 0;
                 DnsTxtItem *i;
@@ -326,8 +346,10 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                         break;
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r < 0)
-                        return log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
 
                 r = split_pair(word, "=", &key, &value);
                 if (r == -ENOMEM)
@@ -336,8 +358,8 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                         key = TAKE_PTR(word);
 
                 if (!ascii_is_valid(key)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid syntax, ignoring: %s", key);
-                        return -EINVAL;
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid key, ignoring: %s", key);
+                        continue;
                 }
 
                 switch (ltype) {
@@ -347,9 +369,11 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                                 r = unbase64mem(value, strlen(value), &decoded, &length);
                                 if (r == -ENOMEM)
                                         return log_oom();
-                                if (r < 0)
-                                        return log_syntax(unit, LOG_ERR, filename, line, r,
-                                                          "Invalid base64 encoding, ignoring: %s", value);
+                                if (r < 0) {
+                                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                                   "Invalid base64 encoding, ignoring: %s", value);
+                                        continue;
+                                }
                         }
 
                         r = dnssd_txt_item_new_from_data(key, decoded, length, &i);
@@ -373,7 +397,7 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
 
         if (!LIST_IS_EMPTY(txt_data->txt)) {
                 LIST_PREPEND(items, s->txt_data_items, txt_data);
-                txt_data = NULL;
+                TAKE_PTR(txt_data);
         }
 
         return 0;
