@@ -335,18 +335,14 @@
       <varlistentry>
         <term><varname>RemainAfterElapse=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, an elapsed
-        timer will stay loaded, and its state remains queryable. If
-        false, an elapsed timer unit that cannot elapse anymore is
-        unloaded. Turning this off is particularly useful for
-        transient timer units that shall disappear after they first
-        elapse. Note that this setting has an effect on repeatedly
-        starting a timer unit that only elapses once: if
-        <varname>RemainAfterElapse=</varname> is on, it will not be
-        started again, and is guaranteed to elapse only once. However,
-        if <varname>RemainAfterElapse=</varname> is off, it might be
-        started again if it is already elapsed, and thus be triggered
-        multiple times. Defaults to
+        <listitem><para>Takes a boolean argument. If true, a timer will stay loaded, and its state remains
+        queryable even after it elapsed and the associated unit (as configured with <varname>Unit=</varname>,
+        see above) deactivated again. If false, an elapsed timer unit that cannot elapse anymore is unloaded
+        once its associated unit deactivated again. Turning this off is particularly useful for transient
+        timer units. Note that this setting has an effect when repeatedly starting a timer unit: if
+        <varname>RemainAfterElapse=</varname> is on, starting the timer a second time has no effect. However,
+        if <varname>RemainAfterElapse=</varname> is off and the timer unit was already unloaded, it can be
+        started again, and thus the service can be triggered multiple times. Defaults to
         <varname>yes</varname>.</para></listitem>
       </varlistentry>
     </variablelist>
