@@ -31,6 +31,7 @@ typedef struct CGroupIODeviceLimit CGroupIODeviceLimit;
 typedef struct CGroupIODeviceLatency CGroupIODeviceLatency;
 typedef struct CGroupBlockIODeviceWeight CGroupBlockIODeviceWeight;
 typedef struct CGroupBlockIODeviceBandwidth CGroupBlockIODeviceBandwidth;
+typedef struct CGroupBPFFsProgram CGroupBPFFsProgram;
 
 typedef enum CGroupDevicePolicy {
         /* When devices listed, will allow those, plus built-in ones, if none are listed will allow
@@ -142,6 +143,7 @@ struct CGroupContext {
 
         char **ip_filters_ingress;
         char **ip_filters_egress;
+        LIST_HEAD(CGroupBPFFsProgram, bpffs_programs);
 
         /* For legacy hierarchies */
         uint64_t cpu_shares;

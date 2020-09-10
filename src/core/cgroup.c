@@ -10,6 +10,7 @@
 #include "bpf-firewall.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
+#include "cgroup-bpf-ctx.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
@@ -214,6 +215,9 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
         c->ip_filters_egress = strv_free(c->ip_filters_egress);
+
+        while (c->bpffs_programs)
+                cgroup_context_free_bpffs_program(c, c->bpffs_programs);
 
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
