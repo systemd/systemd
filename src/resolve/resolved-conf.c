@@ -222,21 +222,19 @@ int config_parse_search_domains(
         return 0;
 }
 
-int config_parse_dnssd_service_name(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
-        static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id,      NULL },
-                { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_host_name,       NULL },
-                { 'v', specifier_kernel_release,  NULL },
-                { 'a', specifier_architecture,    NULL },
-                { 'o', specifier_os_id,           NULL },
-                { 'w', specifier_os_version_id,   NULL },
-                { 'B', specifier_os_build_id,     NULL },
-                { 'W', specifier_os_variant_id,   NULL },
-                {}
-        };
+int config_parse_dnssd_service_name(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         DnssdService *s = userdata;
-        _cleanup_free_ char *name = NULL;
         int r;
 
         assert(filename);
@@ -245,22 +243,22 @@ int config_parse_dnssd_service_name(const char *unit, const char *filename, unsi
         assert(s);
 
         if (isempty(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name can't be empty. Ignoring.");
-                return -EINVAL;
+                s->name_template = mfree(s->name_template);
+                return 0;
+        }
+
+        r = dnssd_render_instance_name(rvalue, NULL);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid service instance name template '%s', ignoring: %m", rvalue);
+                return 0;
         }
 
         r = free_and_strdup(&s->name_template, rvalue);
         if (r < 0)
                 return log_oom();
-
-        r = specifier_printf(s->name_template, specifier_table, NULL, &name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to replace specifiers: %m");
-
-        if (!dns_service_name_is_valid(name)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name template renders to invalid name '%s'. Ignoring.", name);
-                return -EINVAL;
-        }
 
         return 0;
 }
