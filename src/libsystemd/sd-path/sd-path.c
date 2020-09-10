@@ -321,7 +321,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return from_user_dir("XDG_DESKTOP_DIR", buffer, ret);
 
         case SD_PATH_SYSTEMD_UTIL:
-                *ret = ROOTPREFIX "/lib/systemd";
+                *ret = ROOTPREFIX_NOSLASH "/lib/systemd";
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_UNIT:
@@ -329,7 +329,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_PRESET:
-                *ret = ROOTPREFIX "/lib/systemd/system-preset";
+                *ret = ROOTPREFIX_NOSLASH "/lib/systemd/system-preset";
                 return 0;
 
         case SD_PATH_SYSTEMD_USER_UNIT:
@@ -337,7 +337,7 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSTEMD_USER_PRESET:
-                *ret = ROOTPREFIX "/lib/systemd/user-preset";
+                *ret = ROOTPREFIX_NOSLASH "/lib/systemd/user-preset";
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_CONF:
@@ -357,11 +357,11 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSTEMD_SLEEP:
-                *ret = ROOTPREFIX "/lib/systemd/system-sleep";
+                *ret = ROOTPREFIX_NOSLASH "/lib/systemd/system-sleep";
                 return 0;
 
         case SD_PATH_SYSTEMD_SHUTDOWN:
-                *ret = ROOTPREFIX "/lib/systemd/system-shutdown";
+                *ret = ROOTPREFIX_NOSLASH "/lib/systemd/system-shutdown";
                 return 0;
 
         /* FIXME: systemd.pc uses ${prefix}, but CONF_PATHS_NULSTR doesn't.
@@ -371,19 +371,19 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 return 0;
 
         case SD_PATH_SYSUSERS:
-                *ret = ROOTPREFIX "/lib/sysusers.d";
+                *ret = ROOTPREFIX_NOSLASH "/lib/sysusers.d";
                 return 0;
 
         case SD_PATH_SYSCTL:
-                *ret = ROOTPREFIX "/lib/sysctl.d";
+                *ret = ROOTPREFIX_NOSLASH "/lib/sysctl.d";
                 return 0;
 
         case SD_PATH_BINFMT:
-                *ret = ROOTPREFIX "/lib/binfmt.d";
+                *ret = ROOTPREFIX_NOSLASH "/lib/binfmt.d";
                 return 0;
 
         case SD_PATH_MODULES_LOAD:
-                *ret = ROOTPREFIX "/lib/modules-load.d";
+                *ret = ROOTPREFIX_NOSLASH "/lib/modules-load.d";
                 return 0;
 
         case SD_PATH_CATALOG:
