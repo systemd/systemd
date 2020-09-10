@@ -492,6 +492,8 @@ static int wireguard_decode_key_and_warn(
                 (void) warn_file_is_world_accessible(filename, NULL, unit, line);
 
         r = unbase64mem_full(rvalue, strlen(rvalue), true, &key, &len);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to decode wireguard key provided by %s=, ignoring assignment: %m", lvalue);
@@ -526,8 +528,7 @@ int config_parse_wireguard_private_key(
         w = WIREGUARD(data);
         assert(w);
 
-        (void) wireguard_decode_key_and_warn(rvalue, w->private_key, unit, filename, line, lvalue);
-        return 0;
+        return wireguard_decode_key_and_warn(rvalue, w->private_key, unit, filename, line, lvalue);
 }
 
 int config_parse_wireguard_private_key_file(
