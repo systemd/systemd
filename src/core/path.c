@@ -748,11 +748,10 @@ static void path_trigger_notify(Unit *u, Unit *other) {
         assert(u);
         assert(other);
 
-        /* Invoked whenever the unit we trigger changes state or gains
-         * or loses a job */
+        /* Invoked whenever the unit we trigger changes state or gains or loses a job */
 
-        if (other->load_state != UNIT_LOADED)
-                return;
+        /* Filter out invocations with bogus state */
+        assert(UNIT_IS_LOAD_COMPLETE(other->load_state));
 
         if (p->state == PATH_RUNNING &&
             UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
