@@ -151,6 +151,18 @@ static void test_parse_env_file(void) {
         assert_se(r >= 0);
 }
 
+static void test_one_shell_var(const char *file, const char *variable, const char *value) {
+        _cleanup_free_ char *cmd = NULL, *from_shell = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t sz;
+
+        assert_se(cmd = strjoin(". ", file, " && /bin/echo -n \"$", variable, "\""));
+        assert_se(f = popen(cmd, "re"));
+        assert_se(read_full_stream(f, &from_shell, &sz) >= 0);
+        assert_se(sz == strlen(value));
+        assert_se(streq(from_shell, value));
+}
+
 static void test_parse_multiline_env_file(void) {
         _cleanup_(unlink_tempfilep) char
                 t[] = "/tmp/test-fileio-in-XXXXXX",
@@ -175,6 +187,10 @@ static void test_parse_multiline_env_file(void) {
 
         assert_se(fflush_and_check(f) >= 0);
         fclose(f);
+
+        test_one_shell_var(t, "one", "BAR    VAR\tGAR");
+        test_one_shell_var(t, "two", "bar    var\tgar");
+        test_one_shell_var(t, "tri", "bar     var \tgar ");
 
         r = load_env_file(NULL, t, &a);
         assert_se(r >= 0);
