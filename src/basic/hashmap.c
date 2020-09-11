@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <errno.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -19,7 +20,6 @@
 #include "strv.h"
 
 #if ENABLE_DEBUG_HASHMAP
-#include <pthread.h>
 #include "list.h"
 #endif
 
@@ -194,7 +194,6 @@ assert_cc(DIRECT_BUCKETS(struct set_entry) < (1 << 3));
  * a handful of directly stored entries in a hashmap. When a hashmap
  * outgrows direct storage, it gets its own key for indirect storage. */
 static uint8_t shared_hash_key[HASH_KEY_SIZE];
-static bool shared_hash_key_initialized;
 
 /* Fields that all hashmap/set types must have */
 struct HashmapBase {
@@ -770,6 +769,10 @@ static void reset_direct_storage(HashmapBase *h) {
         memset(p, DIB_RAW_INIT, sizeof(dib_raw_t) * hi->n_direct_buckets);
 }
 
+static void shared_hash_key_initialize(void) {
+        random_bytes(shared_hash_key, sizeof(shared_hash_key));
+}
+
 static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type HASHMAP_DEBUG_PARAMS) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
@@ -792,10 +795,8 @@ static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enu
 
         reset_direct_storage(h);
 
-        if (!shared_hash_key_initialized) {
-                random_bytes(shared_hash_key, sizeof(shared_hash_key));
-                shared_hash_key_initialized= true;
-        }
+        static pthread_once_t once = PTHREAD_ONCE_INIT;
+        assert_se(pthread_once(&once, shared_hash_key_initialize) == 0);
 
 #if ENABLE_DEBUG_HASHMAP
         h->debug.func = func;
