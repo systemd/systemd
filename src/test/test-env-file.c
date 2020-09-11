@@ -2,6 +2,7 @@
 
 #include "env-file.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "strv.h"
@@ -132,6 +133,46 @@ static void test_load_env_file_5(void) {
         assert_se(data[2] == NULL);
 }
 
+static void test_write_and_load_env_file(void) {
+        const char *v;
+
+        /* Make sure that our writer, parser and the shell agree on what our env var files mean */
+
+        FOREACH_STRING(v,
+                       "obbardc-laptop",
+                       "obbardc\\-laptop",
+                       "obbardc-lap\\top",
+                       "obbardc-lap\\top",
+                       "obbardc-lap\\\\top",
+                       "double\"quote",
+                       "single\'quote",
+                       "dollar$dollar",
+                       "newline\nnewline") {
+                _cleanup_(unlink_and_freep) char *p = NULL;
+                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free_ char *j = NULL, *w = NULL, *cmd = NULL, *from_shell = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                size_t sz;
+
+                assert_se(tempfn_random_child(NULL, NULL, &p) >= 0);
+
+                assert_se(j = strjoin("TEST=", v));
+                assert_se(write_env_file(p, STRV_MAKE(j)) >= 0);
+
+                assert_se(cmd = strjoin(". ", p, " && /bin/echo -n \"$TEST\""));
+                assert_se(f = popen(cmd, "re"));
+                assert_se(read_full_stream(f, &from_shell, &sz) >= 0);
+                assert_se(sz == strlen(v));
+                assert_se(streq(from_shell, v));
+
+                assert_se(load_env_file(NULL, p, &l) >= 0);
+                assert_se(strv_equal(l, STRV_MAKE(j)));
+
+                assert_se(parse_env_file(NULL, p, "TEST", &w) >= 0);
+                assert_se(streq_ptr(w, v));
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -140,4 +181,8 @@ int main(int argc, char *argv[]) {
         test_load_env_file_3();
         test_load_env_file_4();
         test_load_env_file_5();
+
+        test_write_and_load_env_file();
+
+        return 0;
 }
