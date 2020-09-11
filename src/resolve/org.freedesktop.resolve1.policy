@@ -42,7 +42,7 @@
 
         <action id="org.freedesktop.resolve1.set-dns-servers">
                 <description gettext-domain="systemd">Set DNS servers</description>
-                <message gettext-domain="systemd">Authentication is required to set DNS servers.</message>
+                <message gettext-domain="systemd">设置DNS服务器时需要认证</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -53,7 +53,7 @@
 
         <action id="org.freedesktop.resolve1.set-domains">
                 <description gettext-domain="systemd">Set domains</description>
-                <message gettext-domain="systemd">Authentication is required to set domains.</message>
+                <message gettext-domain="systemd">设置域时需要认证</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -64,7 +64,7 @@
 
         <action id="org.freedesktop.resolve1.set-default-route">
                 <description gettext-domain="systemd">Set default route</description>
-                <message gettext-domain="systemd">Authentication is required to set default route.</message>
+                <message gettext-domain="systemd">设置默认路由时需要认证</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -75,7 +75,7 @@
 
         <action id="org.freedesktop.resolve1.set-llmnr">
                 <description gettext-domain="systemd">Enable/disable LLMNR</description>
-                <message gettext-domain="systemd">Authentication is required to enable or disable LLMNR.</message>
+                <message gettext-domain="systemd">使能LLMNR时需要认证</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -86,7 +86,7 @@
 
         <action id="org.freedesktop.resolve1.set-mdns">
                 <description gettext-domain="systemd">Enable/disable multicast DNS</description>
-                <message gettext-domain="systemd">Authentication is required to enable or disable multicast DNS.</message>
+                <message gettext-domain="systemd">使能组播DNS时需要认证</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -97,7 +97,7 @@
 
         <action id="org.freedesktop.resolve1.set-dns-over-tls">
                 <description gettext-domain="systemd">Enable/disable DNS over TLS</description>
-                <message gettext-domain="systemd">Authentication is required to enable or disable DNS over TLS.</message>
+                <message gettext-domain="systemd">使能基于TLS的DNS时需要认证</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -108,7 +108,7 @@
 
         <action id="org.freedesktop.resolve1.set-dnssec">
                 <description gettext-domain="systemd">Enable/disable DNSSEC</description>
-                <message gettext-domain="systemd">Authentication is required to enable or disable DNSSEC.</message>
+                <message gettext-domain="systemd">使能DNSSEC时需要认证</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -119,7 +119,7 @@
 
         <action id="org.freedesktop.resolve1.set-dnssec-negative-trust-anchors">
                 <description gettext-domain="systemd">Set DNSSEC Negative Trust Anchors</description>
-                <message gettext-domain="systemd">Authentication is required to set DNSSEC Negative Trust Anchors.</message>
+                <message gettext-domain="systemd">设置DNSSEC负面信任锚时需要认证</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -130,7 +130,7 @@
 
         <action id="org.freedesktop.resolve1.revert">
                 <description gettext-domain="systemd">Revert name resolution settings</description>
-                <message gettext-domain="systemd">Authentication is required to reset name resolution settings.</message>
+                <message gettext-domain="systemd">设置反向域名解析时需要认证</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
