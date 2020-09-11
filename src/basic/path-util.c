@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <ftw.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,10 +14,13 @@
 #undef basename
 
 #include "alloc-util.h"
+#include "dirent-util.h"
+#include "env-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "list.h"
 #include "log.h"
 #include "macro.h"
 #include "nulstr-util.h"
@@ -1158,4 +1162,123 @@ bool credential_name_valid(const char *s) {
         /* We want that credential names are both valid in filenames (since that's our primary way to pass
          * them around) and as fdnames (which is how we might want to pass them around eventually) */
         return filename_is_valid(s) && fdname_is_valid(s);
+}
+
+typedef struct dir_to_visit {
+        int dir_fd;
+        LIST_FIELDS(struct dir_to_visit, list);
+} DirToVisit;
+
+static void dir_to_visit_free_all(DirToVisit *list) {
+        DirToVisit *m;
+
+        while ((m = list)) {
+                LIST_REMOVE(list, list, m);
+                (void) safe_close(m->dir_fd);
+                free(m);
+        }
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(DirToVisit*, dir_to_visit_free_all);
+
+int path_breadth_first_visit(const char *root, path_visit_hook_callback_t callback, void *userdata) {
+        _cleanup_(dir_to_visit_free_allp) DirToVisit *head = NULL;
+        DirToVisit *current;
+        struct dirent *de;
+        int r;
+
+        assert(root);
+        assert(callback);
+
+        current = new(DirToVisit, 1);
+        if (!current)
+                return -ENOMEM;
+
+        *current = (DirToVisit) {
+                .dir_fd = openat(-1, root, O_NOFOLLOW|O_CLOEXEC),
+        };
+        if (current->dir_fd < 0 && errno == ENOENT)
+                return 0; /* Shortcut: nothing to do. */
+        if (current->dir_fd < 0)
+                return log_debug_errno(errno, "Failed to openat() top of hierarchy %s: %m", root);
+
+        LIST_APPEND(list, head, TAKE_PTR(current));
+
+        LIST_FOREACH(list, current, head) {
+                _cleanup_closedir_ DIR *dir = NULL;
+                int dir_fd_reopen;
+
+                /* First, give the caller a chance to do something before we visit the content
+                 * of a directory, as they might decide to skip it. */
+                r = callback(PATH_VISIT_HOOK_ENTER, current->dir_fd, userdata);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+                if (r == 1)
+                        continue;
+
+                /* The directory stream interface will take ownership of the file descriptor, so
+                 * we cannot use it anymore after fdopendir. Reopen a new one. Note that DUP'ing
+                 * the FD is not enough, as the internal pointer will be the same. */
+                dir_fd_reopen = fd_reopen(current->dir_fd, O_CLOEXEC);
+                if (dir_fd_reopen < 0)
+                        return log_debug_errno(dir_fd_reopen, "Failed to reopen directory FD: %m");
+                dir = fdopendir(dir_fd_reopen);
+                if (!dir)
+                        return log_debug_errno(errno, "Failed to open directory stream from FD: %m");
+
+                FOREACH_DIRENT_ALL(de, dir, break) {
+                        struct stat st;
+
+                        if (dot_or_dot_dot(de->d_name))
+                                continue;
+
+                        if (fstatat(current->dir_fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                                if (errno != ENOENT)
+                                        return log_debug_errno(errno, "Failed to stat() %s: %m", de->d_name);
+                                continue;
+                        }
+
+                        if (S_ISDIR(st.st_mode)) {
+                                _cleanup_(dir_to_visit_free_allp) DirToVisit *new = NULL;
+
+                                new = new(DirToVisit, 1);
+                                if (!new)
+                                        return -ENOMEM;
+                                *new = (DirToVisit) {
+                                        .dir_fd = openat(current->dir_fd, de->d_name, O_NOFOLLOW|O_CLOEXEC),
+                                };
+                                if (new->dir_fd < 0)
+                                        return log_debug_errno(errno, "openat() failed on %s: %m", de->d_name);
+
+                                /* The caller might decide they don't want to process this directory, so we
+                                 * append it to the visiting list if they return r > 1. */
+                                r = callback(PATH_VISIT_HOOK_DIR, new->dir_fd, userdata);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+                                if (r == 1)
+                                        continue;
+
+                                LIST_APPEND(list, head, TAKE_PTR(new));
+                        } else {
+                                _cleanup_close_ int file_fd = -1;
+
+                                file_fd = openat(current->dir_fd, de->d_name, O_NOFOLLOW|O_CLOEXEC);
+                                if (file_fd < 0)
+                                        return log_debug_errno(errno, "openat() failed on %s: %m", de->d_name);
+
+                                r = callback(PATH_VISIT_HOOK_FILE, file_fd, userdata);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+                                if (r == 1)
+                                        continue;
+                        }
+                }
+        }
+
+        return 0;
 }
