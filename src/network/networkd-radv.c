@@ -681,7 +681,9 @@ int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_le
         int r;
 
         assert(link);
-        assert(link->radv);
+
+        if (!link->radv)
+                return 0;
 
         r = sd_radv_prefix_new(&p);
         if (r < 0)
