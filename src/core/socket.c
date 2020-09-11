@@ -1061,13 +1061,15 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (s->receive_buffer > 0) {
                 r = fd_set_rcvbuf(fd, s->receive_buffer, false);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_RCVBUF/SO_RCVBUFFORCE failed: %m");
+                        log_unit_full_errno(UNIT(s), ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            "SO_RCVBUF/SO_RCVBUFFORCE failed: %m");
         }
 
         if (s->send_buffer > 0) {
                 r = fd_set_sndbuf(fd, s->send_buffer, false);
                 if (r < 0)
-                        log_unit_warning_errno(UNIT(s), r, "SO_SNDBUF/SO_SNDBUFFORCE failed: %m");
+                        log_unit_full_errno(UNIT(s), ERRNO_IS_PRIVILEGE(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                            "SO_SNDBUF/SO_SNDBUFFORCE failed: %m");
         }
 
         if (s->mark >= 0) {
