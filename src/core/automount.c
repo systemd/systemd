@@ -507,8 +507,8 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
         assert(other);
 
         /* Filter out invocations with bogus state */
-        if (other->load_state != UNIT_LOADED || other->type != UNIT_MOUNT)
-                return;
+        assert(UNIT_IS_LOAD_COMPLETE(other->load_state));
+        assert(other->type == UNIT_MOUNT);
 
         /* Don't propagate state changes from the mount if we are already down */
         if (!IN_SET(a->state, AUTOMOUNT_WAITING, AUTOMOUNT_RUNNING))

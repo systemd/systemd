@@ -744,8 +744,8 @@ static void timer_trigger_notify(Unit *u, Unit *other) {
         assert(u);
         assert(other);
 
-        if (other->load_state != UNIT_LOADED)
-                return;
+        /* Filter out invocations with bogus state */
+        assert(UNIT_IS_LOAD_COMPLETE(other->load_state));
 
         /* Reenable all timers that depend on unit state */
         LIST_FOREACH(value, v, t->values)
