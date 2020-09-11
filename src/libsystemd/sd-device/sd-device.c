@@ -1979,3 +1979,26 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         return 0;
 }
+
+_public_ int sd_device_set_sysattr_valuef(sd_device *device, const char *sysattr, const char *format, ...) {
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(device, -EINVAL);
+        assert_return(sysattr, -EINVAL);
+
+        if (!format) {
+                device_remove_sysattr_value(device, sysattr);
+                return 0;
+        }
+
+        va_start(ap, format);
+        r = vasprintf(&value, format, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return sd_device_set_sysattr_value(device, sysattr, value);
+}

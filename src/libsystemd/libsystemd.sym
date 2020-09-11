@@ -732,4 +732,5 @@ global:
         sd_device_get_current_tag_first;
         sd_device_get_current_tag_next;
         sd_device_has_current_tag;
+        sd_device_set_sysattr_valuef;
 } LIBSYSTEMD_246;
