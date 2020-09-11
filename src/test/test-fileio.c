@@ -162,8 +162,8 @@ static void test_parse_multiline_env_file(void) {
 
         assert_se(fmkostemp_safe(t, "w", &f) == 0);
         fputs("one=BAR\\\n"
-              "    VAR\\\n"
-              "\tGAR\n"
+              "\\ \\ \\ \\ VAR\\\n"
+              "\\\tGAR\n"
               "#comment\n"
               "two=\"bar\\\n"
               "    var\\\n"
@@ -173,7 +173,7 @@ static void test_parse_multiline_env_file(void) {
               "    var \\\n"
               "\tgar \"\n", f);
 
-        fflush(f);
+        assert_se(fflush_and_check(f) >= 0);
         fclose(f);
 
         r = load_env_file(NULL, t, &a);
