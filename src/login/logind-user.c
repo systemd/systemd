@@ -475,7 +475,7 @@ int user_start(User *u) {
         return 0;
 }
 
-static void user_stop_service(User *u) {
+static void user_stop_service(User *u, bool force) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -487,7 +487,7 @@ static void user_stop_service(User *u) {
 
         u->service_job = mfree(u->service_job);
 
-        r = manager_stop_unit(u->manager, u->service, &error, &u->service_job);
+        r = manager_stop_unit(u->manager, u->service, force ? "replace" : "fail", &error, &u->service_job);
         if (r < 0)
                 log_warning_errno(r, "Failed to stop user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
 }
@@ -518,7 +518,7 @@ int user_stop(User *u, bool force) {
                         r = k;
         }
 
-        user_stop_service(u);
+        user_stop_service(u, force);
 
         u->stopping = true;
 
