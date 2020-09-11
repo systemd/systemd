@@ -13,16 +13,20 @@
 #undef basename
 
 #include "alloc-util.h"
+#include "dirent-util.h"
+#include "env-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "list.h"
 #include "log.h"
 #include "macro.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -1158,4 +1162,134 @@ bool credential_name_valid(const char *s) {
         /* We want that credential names are both valid in filenames (since that's our primary way to pass
          * them around) and as fdnames (which is how we might want to pass them around eventually) */
         return filename_is_valid(s) && fdname_is_valid(s);
+}
+
+typedef struct dir_to_visit {
+        int dir_fd;
+        LIST_FIELDS(struct dir_to_visit, list);
+} DirToVisit;
+
+static void dir_to_visit_free_all(DirToVisit *list) {
+        DirToVisit *m;
+
+        while ((m = list)) {
+                LIST_REMOVE(list, list, m);
+                (void) safe_close(m->dir_fd);
+                free(m);
+        }
+}
+DEFINE_TRIVIAL_CLEANUP_FUNC(DirToVisit*, dir_to_visit_free_all);
+
+typedef struct dirent_array {
+        struct dirent **de_list;
+        int n_dir;
+} DirentArray;
+
+/* scandir() allocates a list of struct dirent and an array of pointers to store them,
+ * so we need a custom cleanup function to free them. */
+static void dirent_free_all(DirentArray *dirent_array) {
+        for (int i = 0; i < dirent_array->n_dir; ++i)
+                free(dirent_array->de_list[i]);
+        free(dirent_array->de_list);
+}
+
+int path_breadth_first_visit(const char *root, path_visit_hook_callback_t callback, void *userdata) {
+        _cleanup_(dir_to_visit_free_allp) DirToVisit *head = NULL;
+        DirToVisit *current;
+        int r;
+
+        assert(root);
+        assert(callback);
+
+        head = new(DirToVisit, 1);
+        if (!head)
+                return -ENOMEM;
+
+        *head = (DirToVisit) {
+                .dir_fd = openat(-1, root, O_NOFOLLOW|O_CLOEXEC),
+        };
+        if (head->dir_fd < 0 && errno == ENOENT)
+                return 0; /* Shortcut: nothing to do. */
+        if (head->dir_fd < 0)
+                return log_debug_errno(errno, "Failed to openat() top of hierarchy %s: %m", root);
+
+        LIST_FOREACH(list, current, head) {
+                char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+                _cleanup_(dirent_free_all) DirentArray dirent_array = {};
+                struct dirent *de = NULL;
+                int i;
+
+                /* First, give the caller a chance to do something before we visit the content
+                 * of a directory, as they might decide to skip it. */
+                r = callback(PATH_VISIT_HOOK_ENTER, current->dir_fd, userdata);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+                if (r == 1)
+                        continue;
+
+                /* In order to guarantee stable results, independently of filesystem implementations,
+                 * employ a lexicographic-sorted traversal. */
+                xsprintf(procfs_path, "/proc/self/fd/%i", current->dir_fd);
+                dirent_array.n_dir = scandir(procfs_path, &dirent_array.de_list, NULL, alphasort);
+                if (dirent_array.n_dir < 0 && errno == ENOENT)
+                        continue;
+                if (dirent_array.n_dir < 0)
+                        return log_debug_errno(errno, "scandir() failed on directory (by FD) %s: %m", procfs_path);
+
+                for (i = 0, de = dirent_array.de_list[i]; i < dirent_array.n_dir; de = dirent_array.de_list[++i]) {
+                        struct stat st;
+
+                        if (dot_or_dot_dot(de->d_name))
+                                continue;
+
+                        if (fstatat(current->dir_fd, de->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+                                if (errno != ENOENT)
+                                        return log_debug_errno(errno, "Failed to stat() %s: %m", de->d_name);
+                                continue;
+                        }
+
+                        if (S_ISDIR(st.st_mode)) {
+                                _cleanup_(dir_to_visit_free_allp) DirToVisit *new = NULL;
+
+                                new = new(DirToVisit, 1);
+                                if (!new)
+                                        return -ENOMEM;
+                                *new = (DirToVisit) {
+                                        .dir_fd = openat(current->dir_fd, de->d_name, O_NOFOLLOW|O_CLOEXEC),
+                                };
+                                if (new->dir_fd < 0)
+                                        return log_debug_errno(errno, "openat() failed on %s: %m", de->d_name);
+
+                                /* The caller might decide they don't want to process this directory, so we
+                                 * append it to the visiting list if they return r > 1. */
+                                r = callback(PATH_VISIT_HOOK_DIR, new->dir_fd, userdata);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+                                if (r == 1)
+                                        continue;
+
+                                LIST_APPEND(list, head, TAKE_PTR(new));
+                        } else {
+                                _cleanup_close_ int file_fd = -1;
+
+                                file_fd = openat(current->dir_fd, de->d_name, O_NOFOLLOW|O_CLOEXEC);
+                                if (file_fd < 0)
+                                        return log_debug_errno(errno, "openat() failed on %s: %m", de->d_name);
+
+                                r = callback(PATH_VISIT_HOOK_FILE, file_fd, userdata);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+                                if (r == 1)
+                                        continue;
+                        }
+                }
+        }
+
+        return 0;
 }
