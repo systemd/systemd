@@ -386,54 +386,27 @@ static int dns_scope_socket(
         }
 
         if (s->link) {
-                be32_t ifindex_be = htobe32(ifindex);
-
-                if (sa.sa.sa_family == AF_INET) {
-                        r = setsockopt(fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex_be, sizeof(ifindex_be));
-                        if (r < 0)
-                                return -errno;
-                } else if (sa.sa.sa_family == AF_INET6) {
-                        r = setsockopt(fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex_be, sizeof(ifindex_be));
-                        if (r < 0)
-                                return -errno;
-                }
+                r = socket_set_unicast_if(fd, sa.sa.sa_family, ifindex);
+                if (r < 0)
+                        return r;
         }
 
         if (s->protocol == DNS_PROTOCOL_LLMNR) {
                 /* RFC 4795, section 2.5 requires the TTL to be set to 1 */
-
-                if (sa.sa.sa_family == AF_INET) {
-                        r = setsockopt_int(fd, IPPROTO_IP, IP_TTL, 1);
-                        if (r < 0)
-                                return r;
-                } else if (sa.sa.sa_family == AF_INET6) {
-                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 1);
-                        if (r < 0)
-                                return r;
-                }
+                r = socket_set_ttl(fd, sa.sa.sa_family, 1);
+                if (r < 0)
+                        return r;
         }
 
         if (type == SOCK_DGRAM) {
                 /* Set IP_RECVERR or IPV6_RECVERR to get ICMP error feedback. See discussion in #10345. */
+                r = socket_set_recverr(fd, sa.sa.sa_family, true);
+                if (r < 0)
+                        return r;
 
-                if (sa.sa.sa_family == AF_INET) {
-                        r = setsockopt_int(fd, IPPROTO_IP, IP_RECVERR, true);
-                        if (r < 0)
-                                return r;
-
-                        r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
-                        if (r < 0)
-                                return r;
-
-                } else if (sa.sa.sa_family == AF_INET6) {
-                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVERR, true);
-                        if (r < 0)
-                                return r;
-
-                        r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
-                        if (r < 0)
-                                return r;
-                }
+                r = socket_set_recvpktinfo(fd, sa.sa.sa_family, true);
+                if (r < 0)
+                        return r;
         }
 
         if (ret_socket_address)

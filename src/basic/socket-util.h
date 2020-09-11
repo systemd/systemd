@@ -261,4 +261,11 @@ int socket_bind_to_ifindex(int fd, int ifindex);
 
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
 
-int socket_pass_pktinfo(int fd, bool b);
+int socket_get_family(int fd, int *ret);
+int socket_set_recvpktinfo(int fd, int af, bool b);
+int socket_set_recverr(int fd, int af, bool b);
+int socket_set_recvttl(int fd, int af, bool b);
+int socket_set_ttl(int fd, int af, int ttl);
+int socket_set_unicast_if(int fd, int af, int ifi);
+int socket_set_freebind(int fd, int af, bool b);
+int socket_set_transparent(int fd, int af, bool b);

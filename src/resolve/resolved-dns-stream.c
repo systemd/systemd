@@ -190,18 +190,10 @@ static int dns_stream_identify(DnsStream *s) {
                 s->ifindex = manager_find_ifindex(s->manager, s->local.sa.sa_family, s->local.sa.sa_family == AF_INET ? (union in_addr_union*) &s->local.in.sin_addr : (union in_addr_union*)  &s->local.in6.sin6_addr);
 
         if (s->protocol == DNS_PROTOCOL_LLMNR && s->ifindex > 0) {
-                be32_t ifindex = htobe32(s->ifindex);
-
                 /* Make sure all packets for this connection are sent on the same interface */
-                if (s->local.sa.sa_family == AF_INET) {
-                        r = setsockopt(s->fd, IPPROTO_IP, IP_UNICAST_IF, &ifindex, sizeof(ifindex));
-                        if (r < 0)
-                                log_debug_errno(errno, "Failed to invoke IP_UNICAST_IF: %m");
-                } else if (s->local.sa.sa_family == AF_INET6) {
-                        r = setsockopt(s->fd, IPPROTO_IPV6, IPV6_UNICAST_IF, &ifindex, sizeof(ifindex));
-                        if (r < 0)
-                                log_debug_errno(errno, "Failed to invoke IPV6_UNICAST_IF: %m");
-                }
+                r = socket_set_unicast_if(s->fd, s->local.sa.sa_family, s->ifindex);
+                if (r < 0)
+                        log_debug_errno(errno, "Failed to invoke IP_UNICAST_IF/IPV6_UNICAST_IF: %m");
         }
 
         s->identified = true;

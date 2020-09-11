@@ -6,6 +6,11 @@
 #define IPV6_UNICAST_IF 76
 #endif
 
+/* linux/in6.h or netinet/in.h */
+#ifndef IPV6_TRANSPARENT
+#define IPV6_TRANSPARENT 75
+#endif
+
 /* Not exposed but defined at include/net/ip.h */
 #ifndef IPV4_MIN_MTU
 #define IPV4_MIN_MTU 68

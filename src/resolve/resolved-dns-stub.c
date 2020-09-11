@@ -543,23 +543,13 @@ static int set_dns_stub_common_socket_options(int fd, int family) {
         if (r < 0)
                 return r;
 
-        if (family == AF_INET) {
-                r = setsockopt_int(fd, IPPROTO_IP, IP_PKTINFO, true);
-                if (r < 0)
-                        return r;
+        r = socket_set_recvpktinfo(fd, family, true);
+        if (r < 0)
+                return r;
 
-                r = setsockopt_int(fd, IPPROTO_IP, IP_RECVTTL, true);
-                if (r < 0)
-                        return r;
-        } else {
-                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
-                if (r < 0)
-                        return r;
-
-                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
-                if (r < 0)
-                        return r;
-        }
+        r = socket_set_recvttl(fd, family, true);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -661,10 +651,7 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
         /* Do not set IP_TTL for extra DNS stub listners, as the address may not be local and in that case
          * people may want ttl > 1. */
 
-        if (l->family == AF_INET)
-                r = setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, true);
-        else
-                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_FREEBIND, true);
+        r = socket_set_freebind(fd, l->family, true);
         if (r < 0)
                 goto fail;
 
