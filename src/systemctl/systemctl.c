@@ -6298,33 +6298,49 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int log_level(int argc, char *argv[], void *userdata) {
-        sd_bus *bus;
+static int log_setting_internal(sd_bus *bus, const BusLocator* bloc, const char *verb, const char *value) {
+        assert(bus);
+        assert(STR_IN_SET(verb, "log-level", "log-target", "service-log-level", "service-log-target"));
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool level = endswith(verb, "log-level");
         int r;
+
+        if (value) {
+                r = bus_set_property(bus, bloc,
+                                     level ? "LogLevel" : "LogTarget",
+                                     &error, "s", value);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set log %s of %s to %s: %s",
+                                               level ? "level" : "target",
+                                               bloc->destination, value, bus_error_message(&error, r));
+        } else {
+                _cleanup_free_ char *t = NULL;
+
+                r = bus_get_property_string(bus, bloc,
+                                            level ? "LogLevel" : "LogTarget",
+                                            &error, &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get log %s of %s: %s",
+                                               level ? "level" : "target",
+                                               bloc->destination, bus_error_message(&error, r));
+                puts(t);
+        }
+
+        return 0;
+}
+
+static int log_setting(int argc, char *argv[], void *userdata) {
+        sd_bus *bus;
+        int r;
+
+        assert(argc >= 1 && argc <= 2);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
 
-        if (argc == 1) {
-                _cleanup_free_ char *level = NULL;
-
-                r = bus_get_property_string(bus, bus_systemd_mgr, "LogLevel", &error, &level);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get log level: %s", bus_error_message(&error, r));
-
-                puts(level);
-
-        } else {
-                assert(argc == 2);
-
-                r = bus_set_property(bus, bus_systemd_mgr, "LogLevel", &error, "s", argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set log level: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return log_setting_internal(bus, bus_systemd_mgr, argv[0], argv[1]);
 }
 
 static int service_name_to_dbus(sd_bus *bus, const char *name, char **ret_dbus_name) {
@@ -6359,12 +6375,10 @@ static int service_name_to_dbus(sd_bus *bus, const char *name, char **ret_dbus_n
 
 static int service_log_setting(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *unit = NULL, *dbus_name = NULL;
         int r;
 
-        assert(STR_IN_SET(argv[0], "service-log-level", "service-log-target"));
-        bool level = streq(argv[0], "service-log-level");
+        assert(argc >= 2 && argc <= 3);
 
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
@@ -6380,72 +6394,13 @@ static int service_log_setting(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (argc == 2) {
-                _cleanup_free_ char *value = NULL;
+        const BusLocator bloc = {
+                .destination = dbus_name,
+                .path = "/org/freedesktop/LogControl1",
+                .interface = "org.freedesktop.LogControl1",
+        };
 
-                r = sd_bus_get_property_string(
-                                bus,
-                                dbus_name,
-                                "/org/freedesktop/LogControl1",
-                                "org.freedesktop.LogControl1",
-                                level ? "LogLevel" : "LogTarget",
-                                &error,
-                                &value);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get log %s of service %s: %s",
-                                               level ? "level" : "target",
-                                               dbus_name, bus_error_message(&error, r));
-
-                puts(value);
-
-        } else {
-                assert(argc == 3);
-
-                r = sd_bus_set_property(
-                                bus,
-                                dbus_name,
-                                "/org/freedesktop/LogControl1",
-                                "org.freedesktop.LogControl1",
-                                level ? "LogLevel" : "LogTarget",
-                                &error,
-                                "s",
-                                argv[2]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set log %s of service %s to %s: %s",
-                                               level ? "level" : "target",
-                                               dbus_name, argv[2], bus_error_message(&error, r));
-        }
-
-        return 0;
-}
-
-static int log_target(int argc, char *argv[], void *userdata) {
-        sd_bus *bus;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-
-        r = acquire_bus(BUS_MANAGER, &bus);
-        if (r < 0)
-                return r;
-
-        if (argc == 1) {
-                _cleanup_free_ char *target = NULL;
-
-                r = bus_get_property_string(bus, bus_systemd_mgr, "LogTarget", &error, &target);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get log target: %s", bus_error_message(&error, r));
-
-                puts(target);
-
-        } else {
-                assert(argc == 2);
-
-                r = bus_set_property(bus, bus_systemd_mgr, "LogTarget", &error, "s", argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set log target: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return log_setting_internal(bus, &bloc, argv[0], argv[2]);
 }
 
 static int service_watchdogs(int argc, char *argv[], void *userdata) {
@@ -9126,8 +9081,8 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "help",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                    },
                 { "daemon-reload",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload           },
                 { "daemon-reexec",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload           },
-                { "log-level",             VERB_ANY, 2,        VERB_ONLINE_ONLY, log_level               },
-                { "log-target",            VERB_ANY, 2,        VERB_ONLINE_ONLY, log_target              },
+                { "log-level",             VERB_ANY, 2,        VERB_ONLINE_ONLY, log_setting             },
+                { "log-target",            VERB_ANY, 2,        VERB_ONLINE_ONLY, log_setting             },
                 { "service-log-level",     2,        3,        VERB_ONLINE_ONLY, service_log_setting     },
                 { "service-log-target",    2,        3,        VERB_ONLINE_ONLY, service_log_setting     },
                 { "service-watchdogs",     VERB_ANY, 2,        VERB_ONLINE_ONLY, service_watchdogs       },
