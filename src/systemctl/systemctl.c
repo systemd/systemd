@@ -81,6 +81,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "sysv-compat.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -6307,6 +6308,12 @@ static int log_setting_internal(sd_bus *bus, const BusLocator* bloc, const char 
         int r;
 
         if (value) {
+                if (level) {
+                        if (log_level_from_string(value) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "\"%s\" is not a valid log level.", value);
+                }
+
                 r = bus_set_property(bus, bloc,
                                      level ? "LogLevel" : "LogTarget",
                                      &error, "s", value);
