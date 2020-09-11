@@ -6299,6 +6299,18 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static void give_log_control1_hint(const char *name) {
+        _cleanup_free_ char *link = NULL;
+
+        if (arg_quiet)
+                return;
+
+        (void) terminal_urlify_man("org.freedesktop.LogControl1", "5", &link);
+
+        log_notice("Hint: the service must declare BusName= and implement the appropriate D-Bus interface.\n"
+                   "      See the %s for details.", link ?: "org.freedesktop.LogControl1(5) man page");
+}
+
 static int log_setting_internal(sd_bus *bus, const BusLocator* bloc, const char *verb, const char *value) {
         assert(bus);
         assert(STR_IN_SET(verb, "log-level", "log-target", "service-log-level", "service-log-target"));
@@ -6317,24 +6329,34 @@ static int log_setting_internal(sd_bus *bus, const BusLocator* bloc, const char 
                 r = bus_set_property(bus, bloc,
                                      level ? "LogLevel" : "LogTarget",
                                      &error, "s", value);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set log %s of %s to %s: %s",
-                                               level ? "level" : "target",
-                                               bloc->destination, value, bus_error_message(&error, r));
+                if (r >= 0)
+                        return 0;
+
+                log_error_errno(r, "Failed to set log %s of %s to %s: %s",
+                                level ? "level" : "target",
+                                bloc->destination, value, bus_error_message(&error, r));
         } else {
                 _cleanup_free_ char *t = NULL;
 
                 r = bus_get_property_string(bus, bloc,
                                             level ? "LogLevel" : "LogTarget",
                                             &error, &t);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get log %s of %s: %s",
-                                               level ? "level" : "target",
-                                               bloc->destination, bus_error_message(&error, r));
-                puts(t);
+                if (r >= 0) {
+                        puts(t);
+                        return 0;
+                }
+
+                log_error_errno(r, "Failed to get log %s of %s: %s",
+                                level ? "level" : "target",
+                                bloc->destination, bus_error_message(&error, r));
         }
 
-        return 0;
+        if (sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_METHOD,
+                                           SD_BUS_ERROR_UNKNOWN_OBJECT,
+                                           SD_BUS_ERROR_UNKNOWN_INTERFACE,
+                                           SD_BUS_ERROR_UNKNOWN_PROPERTY))
+                give_log_control1_hint(bloc->destination);
+        return r;
 }
 
 static int log_setting(int argc, char *argv[], void *userdata) {
@@ -6372,9 +6394,11 @@ static int service_name_to_dbus(sd_bus *bus, const char *name, char **ret_dbus_n
                 return log_error_errno(r, "Failed to obtain BusName= property of %s: %s",
                                        name, bus_error_message(&error, r));
 
-        if (isempty(bus_name))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOLINK),
-                                       "Unit %s doesn't declare BusName=.", name);
+        if (isempty(bus_name)) {
+                log_error("Unit %s doesn't declare BusName=.", name);
+                give_log_control1_hint(name);
+                return -ENOLINK;
+        }
 
         *ret_dbus_name = TAKE_PTR(bus_name);
         return 0;
