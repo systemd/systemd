@@ -182,8 +182,12 @@ int test_password_one(const char *hashed_password, const char *password) {
 
         errno = 0;
         k = crypt_ra(password, hashed_password, &cd_data, &cd_size);
-        if (!k)
-                return errno_or_else(EINVAL);
+        if (!k) {
+                if (errno == ENOMEM)
+                        return -ENOMEM;
+                /* Unknown or unavailable hashing method or string too short */
+                return 0;
+        }
 
         return streq(k, hashed_password);
 }

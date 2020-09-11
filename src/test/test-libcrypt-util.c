@@ -40,7 +40,15 @@ static void test_hash_password_full(void) {
                                                                hashed,
                                                                "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
                                                      i) == true);
+                        assert_se(test_password_many(STRV_MAKE("$W$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH", /* no such method exists... */
+                                                               hashed,
+                                                               "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
+                                                     i) == true);
                         assert_se(test_password_many(STRV_MAKE("$y$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH",
+                                                               hashed,
+                                                               "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
+                                                     "") == false);
+                        assert_se(test_password_many(STRV_MAKE("$W$j9T$dlCXwkX0GC5L6B8Gf.4PN/$VCyEH", /* no such method exists... */
                                                                hashed,
                                                                "$y$j9T$SAayASazWZIQeJd9AS02m/$"),
                                                      "") == false);
