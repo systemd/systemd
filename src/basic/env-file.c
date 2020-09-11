@@ -209,17 +209,21 @@ static int parse_env_file_internal(
                 case DOUBLE_QUOTE_VALUE_ESCAPE:
                         state = DOUBLE_QUOTE_VALUE;
 
-                        if (c == '"') {
+                        if (strchr(SHELL_NEED_ESCAPE, c)) {
+                                /* If this is a char that needs escaping, just unescape it. */
                                 if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
                                         return -ENOMEM;
-                                value[n_value++] = '"';
-                        } else if (!strchr(NEWLINE, c)) {
+                                value[n_value++] = c;
+                        } else if (c != '\n') {
+                                /* If other char than what needs escaping, keep the "\" in place, like the
+                                 * real shell does. */
                                 if (!GREEDY_REALLOC(value, value_alloc, n_value+3))
                                         return -ENOMEM;
                                 value[n_value++] = '\\';
                                 value[n_value++] = c;
                         }
 
+                        /* Escaped newlines (aka "continuation lines") are eaten up entirely */
                         break;
 
                 case COMMENT:
