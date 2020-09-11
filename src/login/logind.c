@@ -912,7 +912,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 seat->in_gc_queue = false;
 
                 if (seat_may_gc(seat, drop_not_started)) {
-                        seat_stop(seat, false);
+                        seat_stop(seat, /* force = */ false);
                         seat_free(seat);
                 }
         }
@@ -924,7 +924,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 /* First, if we are not closing yet, initiate stopping */
                 if (session_may_gc(session, drop_not_started) &&
                     session_get_state(session) != SESSION_CLOSING)
-                        (void) session_stop(session, false);
+                        (void) session_stop(session, /* force = */ false);
 
                 /* Normally, this should make the session referenced
                  * again, if it doesn't then let's get rid of it
