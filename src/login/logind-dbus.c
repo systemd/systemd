@@ -4072,13 +4072,13 @@ int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, 
         return strdup_job(reply, job);
 }
 
-int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
+int manager_stop_unit(Manager *manager, const char *unit, const char *job_mode, sd_bus_error *error, char **ret_job) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
         assert(unit);
-        assert(job);
+        assert(ret_job);
 
         r = bus_call_method(
                         manager->bus,
@@ -4086,12 +4086,12 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
                         "StopUnit",
                         error,
                         &reply,
-                        "ss", unit, "fail");
+                        "ss", unit, job_mode ?: "fail");
         if (r < 0) {
                 if (sd_bus_error_has_names(error, BUS_ERROR_NO_SUCH_UNIT,
                                                   BUS_ERROR_LOAD_FAILED)) {
 
-                        *job = NULL;
+                        *ret_job = NULL;
                         sd_bus_error_free(error);
                         return 0;
                 }
@@ -4099,7 +4099,7 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
                 return r;
         }
 
-        return strdup_job(reply, job);
+        return strdup_job(reply, ret_job);
 }
 
 int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *ret_error) {

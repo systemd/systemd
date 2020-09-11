@@ -735,10 +735,9 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         /* Send signals */
         session_send_signal(s, true);
         user_send_changed(s->user, "Display", NULL);
-        if (s->seat) {
-                if (s->seat->active == s)
-                        seat_send_changed(s->seat, "ActiveSession", NULL);
-        }
+
+        if (s->seat && s->seat->active == s)
+                seat_send_changed(s->seat, "ActiveSession", NULL);
 
         return 0;
 }
@@ -769,7 +768,7 @@ static int session_stop_scope(Session *s, bool force) {
              (s->user->user_record->kill_processes > 0 ||
               manager_shall_kill(s->manager, s->user->user_record->user_name)))) {
 
-                r = manager_stop_unit(s->manager, s->scope, &error, &s->scope_job);
+                r = manager_stop_unit(s->manager, s->scope, force ? "replace" : "fail", &error, &s->scope_job);
                 if (r < 0) {
                         if (force)
                                 return log_error_errno(r, "Failed to stop session scope: %s", bus_error_message(&error, r));
@@ -882,7 +881,7 @@ static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *us
         assert(es);
         assert(s);
 
-        session_stop(s, false);
+        session_stop(s, /* force = */ false);
         return 0;
 }
 
@@ -1054,7 +1053,7 @@ static int session_dispatch_fifo(sd_event_source *es, int fd, uint32_t revents, 
         /* EOF on the FIFO means the session died abnormally. */
 
         session_remove_fifo(s);
-        session_stop(s, false);
+        session_stop(s, /* force = */ false);
 
         return 1;
 }
