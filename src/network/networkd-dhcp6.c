@@ -158,7 +158,8 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
                 if (k < 0)
                         r = k;
 
-                (void) sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
+                if (link->radv)
+                        (void) sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
                 dhcp6_pd_free(hashmap_get(link->manager->dhcp6_prefixes, &route->dst.in6));
         }
 
@@ -198,7 +199,8 @@ int dhcp6_pd_remove(Link *link) {
                 if (k < 0)
                         r = k;
 
-                (void) sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
+                if (link->radv)
+                        (void) sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
                 dhcp6_pd_free(hashmap_get(link->manager->dhcp6_prefixes, &route->dst.in6));
         }
 
