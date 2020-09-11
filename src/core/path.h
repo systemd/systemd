@@ -45,6 +45,7 @@ typedef enum PathResult {
         PATH_SUCCESS,
         PATH_FAILURE_RESOURCES,
         PATH_FAILURE_START_LIMIT_HIT,
+        PATH_FAILURE_UNIT_START_LIMIT_HIT,
         _PATH_RESULT_MAX,
         _PATH_RESULT_INVALID = -1
 } PathResult;
