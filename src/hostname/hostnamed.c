@@ -189,19 +189,25 @@ static const char* fallback_chassis(void) {
         int v, r;
 
         v = detect_virtualization();
-        if (VIRTUALIZATION_IS_VM(v))
+        if (v < 0)
+                log_debug_errno(v, "Failed to detect virtualization, ignoring: %m");
+        else if (VIRTUALIZATION_IS_VM(v))
                 return "vm";
-        if (VIRTUALIZATION_IS_CONTAINER(v))
+        else if (VIRTUALIZATION_IS_CONTAINER(v))
                 return "container";
 
         r = read_one_line_file("/sys/class/dmi/id/chassis_type", &type);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(v, "Failed to read DMI chassis type, ignoring: %m");
                 goto try_acpi;
+        }
 
         r = safe_atou(type, &t);
         free(type);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(v, "Failed to parse DMI chassis type, ignoring: %m");
                 goto try_acpi;
+        }
 
         /* We only list the really obvious cases here. The DMI data is unreliable enough, so let's not do any
            additional guesswork on top of that.
@@ -240,17 +246,24 @@ static const char* fallback_chassis(void) {
         case 0x1F: /* Convertible */
         case 0x20: /* Detachable */
                 return "convertible";
+
+        default:
+                log_debug("Unhandled DMI chassis type 0x%02x, ignoring.", t);
         }
 
 try_acpi:
         r = read_one_line_file("/sys/firmware/acpi/pm_profile", &type);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(v, "Failed read ACPI PM profile, ignoring: %m");
                 return NULL;
+        }
 
         r = safe_atou(type, &t);
         free(type);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(v, "Failed parse ACPI PM profile, ignoring: %m");
                 return NULL;
+        }
 
         /* We only list the really obvious cases here as the ACPI data is not really super reliable.
          *
@@ -276,6 +289,9 @@ try_acpi:
 
         case 8: /* Tablet */
                 return "tablet";
+
+        default:
+                log_debug("Unhandled ACPI PM profile 0x%02x, ignoring.", t);
         }
 
         return NULL;
@@ -911,13 +927,13 @@ static const BusObjectImplementation manager_object = {
         .vtables = BUS_VTABLES(hostname_vtable),
 };
 
-static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
+static int connect_bus(Context *c, sd_event *event, sd_bus **ret) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(c);
         assert(event);
-        assert(_bus);
+        assert(ret);
 
         r = sd_bus_default_system(&bus);
         if (r < 0)
@@ -939,8 +955,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        *_bus = TAKE_PTR(bus);
-
+        *ret = TAKE_PTR(bus);
         return 0;
 }
 
