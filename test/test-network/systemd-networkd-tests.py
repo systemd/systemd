@@ -1764,6 +1764,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98')
         self.assertRegex(output, 'inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98')
 
+        # test for ENOBUFS issue #17012
+        for i in range(1,254):
+            self.assertRegex(output, f'inet 10.3.3.{i}/16 brd 10.3.255.255')
+
         # invalid sections
         self.assertNotRegex(output, '10.10.0.1/16')
         self.assertNotRegex(output, '10.10.0.2/16')
@@ -1788,6 +1792,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet6 2001:db8:0:f102::16/64 scope global')
         self.assertRegex(output, 'inet6 2001:db8:0:f103::20 peer 2001:db8:0:f103::10/128 scope global')
         self.assertRegex(output, 'inet6 fd[0-9a-f:]*1/64 scope global')
+
+        restart_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        # test for ENOBUFS issue #17012
+        output = check_output('ip -4 address show dev dummy98')
+        for i in range(1,254):
+            self.assertRegex(output, f'inet 10.3.3.{i}/16 brd 10.3.255.255')
 
     def test_address_preferred_lifetime_zero_ipv6(self):
         copy_unit_to_networkd_unit_path('25-address-preferred-lifetime-zero.network', '12-dummy.netdev')
