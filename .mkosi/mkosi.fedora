@@ -38,6 +38,7 @@ BuildPackages=
         libcap-devel
         libcurl-devel
         libfdisk-devel
+        libfido2-devel
         libgcrypt-devel
         libidn2-devel
         libmicrohttpd-devel
