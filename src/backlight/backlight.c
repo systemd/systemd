@@ -284,7 +284,8 @@ static bool shall_clamp(sd_device *d) {
 
         r = sd_device_get_property_value(d, "ID_BACKLIGHT_CLAMP", &s);
         if (r < 0) {
-                log_device_debug_errno(d, r, "Failed to get ID_BACKLIGHT_CLAMP property, ignoring: %m");
+                if (r != -ENOENT)
+                        log_device_debug_errno(d, r, "Failed to get ID_BACKLIGHT_CLAMP property, ignoring: %m");
                 return true;
         }
 
