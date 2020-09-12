@@ -684,7 +684,7 @@ static int service_setup_bus_name(Service *s) {
 
         assert(s);
 
-        if (!s->bus_name)
+        if (s->type != SERVICE_DBUS)
                 return 0;
 
         r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
