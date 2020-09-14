@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <stdbool.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -78,32 +77,38 @@ static Service *service_for_path(Manager *m, Path *path, const char *service_nam
         return SERVICE(service_unit);
 }
 
-static void check_states(Manager *m, Path *path, Service *service, PathState path_state, ServiceState service_state) {
+static void _check_states(unsigned line,
+                          Manager *m, Path *path, Service *service, PathState path_state, ServiceState service_state) {
         assert_se(m);
         assert_se(service);
 
         usec_t end = now(CLOCK_MONOTONIC) + 30 * USEC_PER_SEC;
 
-        while (path->result != PATH_SUCCESS || service->result != SERVICE_SUCCESS ||
-               path->state != path_state || service->state != service_state) {
+        while (path->state != path_state || service->state != service_state ||
+               path->result != PATH_SUCCESS || service->result != SERVICE_SUCCESS) {
 
                 assert_se(sd_event_run(m->event, 100 * USEC_PER_MSEC) >= 0);
 
-                printf("%s: state = %s; result = %s \n",
-                                UNIT(path)->id,
-                                path_state_to_string(path->state),
-                                path_result_to_string(path->result));
-                printf("%s: state = %s; result = %s \n",
-                                UNIT(service)->id,
-                                service_state_to_string(service->state),
-                                service_result_to_string(service->result));
+                usec_t n = now(CLOCK_MONOTONIC);
+                log_info("line %u: %s: state = %s; result = %s (left: %" PRIi64 ")",
+                         line,
+                         UNIT(path)->id,
+                         path_state_to_string(path->state),
+                         path_result_to_string(path->result),
+                         end - n);
+                log_info("line %u: %s: state = %s; result = %s",
+                         line,
+                         UNIT(service)->id,
+                         service_state_to_string(service->state),
+                         service_result_to_string(service->result));
 
-                if (now(CLOCK_MONOTONIC) >= end) {
+                if (n >= end) {
                         log_error("Test timeout when testing %s", UNIT(path)->id);
                         exit(EXIT_FAILURE);
                 }
         }
 }
+#define check_states(...) _check_states(__LINE__, __VA_ARGS__)
 
 static void test_path_exists(Manager *m) {
         const char *test_path = "/tmp/test-path_exists";
