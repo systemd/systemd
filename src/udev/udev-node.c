@@ -273,9 +273,10 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
                                   mode_t mode, uid_t uid, gid_t gid,
                                   OrderedHashmap *seclabel_list) {
         const char *devnode, *subsystem, *id_filename = NULL;
+        bool apply_mode, apply_uid, apply_gid;
+        _cleanup_close_ int node_fd = -1;
         struct stat stats;
         dev_t devnum;
-        bool apply_mode, apply_uid, apply_gid;
         int r;
 
         assert(dev);
@@ -296,16 +297,25 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
         else
                 mode |= S_IFCHR;
 
-        if (lstat(devnode, &stats) < 0) {
-                if (errno == ENOENT)
-                        return 0; /* this is necessarily racey, so ignore missing the device */
-                return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
+        node_fd = open(devnode, O_PATH|O_NOFOLLOW|O_CLOEXEC);
+        if (node_fd < 0) {
+                if (errno == ENOENT) {
+                        log_device_debug_errno(dev, errno, "Device node %s is missing, skipping handling.", devnode);
+                        return 0; /* This is necessarily racey, so ignore missing the device */
+                }
+
+                return log_device_debug_errno(dev, errno, "Cannot open node %s: %m", devnode);
         }
 
-        if ((mode != MODE_INVALID && (stats.st_mode & S_IFMT) != (mode & S_IFMT)) || stats.st_rdev != devnum)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
-                                              "Found node '%s' with non-matching devnum %s, skip handling",
-                                              devnode, id_filename);
+        if (fstat(node_fd, &stats) < 0)
+                return log_device_debug_errno(dev, errno, "cannot stat() node %s: %m", devnode);
+
+        if ((mode != MODE_INVALID && (stats.st_mode & S_IFMT) != (mode & S_IFMT)) || stats.st_rdev != devnum) {
+                log_device_debug(dev, "Found node '%s' with non-matching devnum %s, skipping handling.",
+                                 devnode, id_filename);
+                return 0; /* We might process a device that already got replaced by the time we have a look
+                           * at it, handle this gracefully and step away. */
+        }
 
         apply_mode = mode != MODE_INVALID && (stats.st_mode & 0777) != (mode & 0777);
         apply_uid = uid_is_valid(uid) && stats.st_uid != uid;
@@ -322,7 +332,7 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
                                          gid_is_valid(gid) ? gid : stats.st_gid,
                                          mode != MODE_INVALID ? mode & 0777 : stats.st_mode & 0777);
 
-                        r = chmod_and_chown(devnode, mode, uid, gid);
+                        r = fchmod_and_chown(node_fd, mode, uid, gid);
                         if (r < 0)
                                 log_device_full_errno(dev, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
                                                       "Failed to set owner/mode of %s to uid=" UID_FMT
@@ -345,7 +355,7 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
                         if (streq(name, "selinux")) {
                                 selinux = true;
 
-                                q = mac_selinux_apply(devnode, label);
+                                q = mac_selinux_apply_fd(node_fd, devnode, label);
                                 if (q < 0)
                                         log_device_full_errno(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
                                                               "SECLABEL: failed to set SELinux label '%s': %m", label);
@@ -355,7 +365,7 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
                         } else if (streq(name, "smack")) {
                                 smack = true;
 
-                                q = mac_smack_apply(devnode, SMACK_ATTR_ACCESS, label);
+                                q = mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, label);
                                 if (q < 0)
                                         log_device_full_errno(dev, q == -ENOENT ? LOG_DEBUG : LOG_ERR, q,
                                                               "SECLABEL: failed to set SMACK label '%s': %m", label);
@@ -368,13 +378,15 @@ static int node_permissions_apply(sd_device *dev, bool apply_mac,
 
                 /* set the defaults */
                 if (!selinux)
-                        (void) mac_selinux_fix(devnode, LABEL_IGNORE_ENOENT);
+                        (void) mac_selinux_fix_fd(node_fd, devnode, LABEL_IGNORE_ENOENT);
                 if (!smack)
-                        (void) mac_smack_apply(devnode, SMACK_ATTR_ACCESS, NULL);
+                        (void) mac_smack_apply_fd(node_fd, SMACK_ATTR_ACCESS, NULL);
         }
 
         /* always update timestamp when we re-use the node, like on media change events */
-        (void) utimensat(AT_FDCWD, devnode, NULL, 0);
+        r = futimens_opath(node_fd, NULL);
+        if (r < 0)
+                log_device_debug_errno(dev, r, "Failed to adjust timestamp of node %s: %m", devnode);
 
         return r;
 }
