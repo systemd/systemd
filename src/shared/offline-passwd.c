@@ -36,7 +36,7 @@ static int populate_uid_cache(const char *root, Hashmap **ret) {
         if (!cache)
                 return -ENOMEM;
 
-        /* The directory list is harcoded here: /etc is the standard, and rpm-ostree uses /usr/lib. This
+        /* The directory list is hardcoded here: /etc is the standard, and rpm-ostree uses /usr/lib. This
          * could be made configurable, but I don't see the point right now. */
 
         const char *fname;

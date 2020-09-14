@@ -528,7 +528,7 @@ static int dir_cleanup(
                         continue;
 
                 /* If statx() is supported, use it. It's preferable over fstatat() since it tells us
-                 * explicitly where we are looking at a mount point, for free as side information. Determing
+                 * explicitly where we are looking at a mount point, for free as side information. Determining
                  * the same information without statx() is hard, see the complexity of path_is_mount_point(),
                  * and also much slower as it requires a number of syscalls instead of just one. Hence, when
                  * we have modern statx() we use it instead of fstat() and do proper mount point checks,

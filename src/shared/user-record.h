@@ -210,7 +210,7 @@ typedef struct RecoveryKey {
         /* The type of recovery key, must be "modhex64" right now */
         char *type;
 
-        /* A UNIX pasword hash of the normalized form of modhex64 */
+        /* A UNIX password hash of the normalized form of modhex64 */
         char *hashed_password;
 } RecoveryKey;
 

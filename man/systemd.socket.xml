@@ -200,13 +200,13 @@
         </para>
 
         <para>If the address string is a string in the format
-        <literal><replaceable>v.w.x.y</replaceable>:<replaceable>z</replaceable></literal>, it is interpeted
+        <literal><replaceable>v.w.x.y</replaceable>:<replaceable>z</replaceable></literal>, it is interpreted
         as IPv4 address <replaceable>v.w.x.y</replaceable> and port <replaceable>z</replaceable>.</para>
 
         <para>If the address string is a string in the format
         <literal>[<replaceable>x</replaceable>]:<replaceable>y</replaceable></literal>, it is interpreted as
         IPv6 address <replaceable>x</replaceable> and port <replaceable>y</replaceable>. An optional
-        interface scope (interface name or number) may be specifed after a <literal>%</literal> symbol:
+        interface scope (interface name or number) may be specified after a <literal>%</literal> symbol:
         <literal>[<replaceable>x</replaceable>]:<replaceable>y</replaceable>%<replaceable>dev</replaceable></literal>.
         Interface scopes are only useful with link-local addresses, because the kernel ignores them in other
         cases. Note that if an address is specified as IPv6, it might still make the service available via

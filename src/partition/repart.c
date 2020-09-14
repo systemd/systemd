@@ -66,7 +66,7 @@
 /* Hard lower limit for new partition sizes */
 #define HARD_MIN_SIZE 4096
 
-/* libfdisk takes off sightly more than 1M of the disk size when creating a GPT disk label */
+/* libfdisk takes off slightly more than 1M of the disk size when creating a GPT disk label */
 #define GPT_METADATA_SIZE (1044*1024)
 
 /* LUKS2 takes off 16M of the partition size with its metadata by default */

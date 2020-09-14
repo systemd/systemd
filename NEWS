@@ -90,7 +90,7 @@ CHANGES WITH 247 in spe:
           latter it takes precedence over the former, similar to how most of
           systemd's own configuration is handled. Given that PAM stack
           definitions are primarily put together by OS vendors/distributions
-          (though possibly overriden by users), this systemd release moves its
+          (though possibly overridden by users), this systemd release moves its
           own PAM stack configuration for the "systemd-user" PAM service (i.e.
           for the PAM session invoked by the per-user user@.service instance)
           from /etc/pam.d/ to /usr/lib/pam.d/. We recommend moving all
@@ -98,7 +98,7 @@ CHANGES WITH 247 in spe:
           /etc/pam.d/ to /usr/lib/pam.d/, but if such OS-wide migration is not
           desired the location to which systemd installs its PAM stack
           configuration file may be changed via the "pamconfdir" meson variable
-          at build time, optionally undoing ths change of default paths
+          at build time, optionally undoing this change of default paths
           introduced with systemd 247.
 
 CHANGES WITH 246:
@@ -260,7 +260,7 @@ CHANGES WITH 246:
           generation for collection with systemd-pstore.
 
         * We provide a set of udev rules to enable auto-suspend on PCI and USB
-          devices that were tested to currectly support it. Previously, this
+          devices that were tested to correctly support it. Previously, this
           was distributed as a set of udev rules, but has now been replaced by
           by a set of hwdb entries (and a much shorter udev rule to take action
           if the device modalias matches one of the new hwdb entries).
