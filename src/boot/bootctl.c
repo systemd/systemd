@@ -1451,7 +1451,9 @@ static int install_random_seed(const char *esp) {
         }
 
         r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderSystemToken", NULL, NULL, &token_size);
-        if (r < 0) {
+        if (r == -ENODATA)
+                log_debug_errno(r, "LoaderSystemToken EFI variable is invalid (too short?), replacing.");
+        else if (r < 0) {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to test system token validity: %m");
         } else {
