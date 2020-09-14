@@ -940,15 +940,8 @@ static void event_execute_rules_on_remove(
                 (void) udev_node_remove(dev);
 }
 
-static int udev_event_on_move(UdevEvent *event) {
-        sd_device *dev = event->dev;
+static int udev_event_on_move(sd_device *dev) {
         int r;
-
-        if (sd_device_get_devnum(dev, NULL) < 0) {
-                r = device_copy_properties(dev, event->dev_db_clone);
-                if (r < 0)
-                        log_device_debug_errno(dev, r, "Failed to copy properties from cloned sd_device object, ignoring: %m");
-        }
 
         /* Drop previously added property */
         r = device_add_property(dev, "ID_RENAMING", NULL);
@@ -1017,7 +1010,7 @@ int udev_event_execute_rules(UdevEvent *event,
                 (void) udev_watch_end(event->dev_db_clone);
 
         if (action == DEVICE_ACTION_MOVE) {
-                r = udev_event_on_move(event);
+                r = udev_event_on_move(event->dev);
                 if (r < 0)
                         return r;
         }
