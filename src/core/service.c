@@ -2313,7 +2313,7 @@ static void service_enter_restart(Service *s) {
         return;
 
 fail:
-        log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", bus_error_message(&error, -r));
+        log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", bus_error_message(&error, r));
         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 }
 
@@ -2329,7 +2329,7 @@ static void service_enter_reload_by_notify(Service *s) {
         /* service_enter_reload_by_notify is never called during a reload, thus no loops are possible. */
         r = manager_propagate_reload(UNIT(s)->manager, UNIT(s), JOB_FAIL, &error);
         if (r < 0)
-                log_unit_warning(UNIT(s), "Failed to schedule propagation of reload: %s", bus_error_message(&error, -r));
+                log_unit_warning(UNIT(s), "Failed to schedule propagation of reload: %s", bus_error_message(&error, r));
 }
 
 static void service_enter_reload(Service *s) {
