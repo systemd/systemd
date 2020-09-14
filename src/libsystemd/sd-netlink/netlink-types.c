@@ -351,6 +351,12 @@ static const NLType rtnl_link_info_data_xfrm_types[] = {
         [IFLA_XFRM_IF_ID]        = { .type = NETLINK_TYPE_U32 }
 };
 
+static const NLType rtnl_link_info_data_bareudp_types[] = {
+        [IFLA_BAREUDP_PORT]            = { .type = NETLINK_TYPE_U16 },
+        [IFLA_BAREUDP_ETHERTYPE]       = { .type = NETLINK_TYPE_U16 },
+        [IFLA_BAREUDP_SRCPORT_MIN]     = { .type = NETLINK_TYPE_U16 },
+        [IFLA_BAREUDP_MULTIPROTO_MODE] = { .type = NETLINK_TYPE_FLAG },
+};
 /* these strings must match the .kind entries in the kernel */
 static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_BOND] = "bond",
@@ -384,6 +390,7 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_NLMON] = "nlmon",
         [NL_UNION_LINK_INFO_DATA_XFRM] = "xfrm",
         [NL_UNION_LINK_INFO_DATA_IFB] = "ifb",
+        [NL_UNION_LINK_INFO_DATA_BAREUDP] = "bareudp",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -439,6 +446,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[] = {
                                                        .types = rtnl_link_info_data_macsec_types },
         [NL_UNION_LINK_INFO_DATA_XFRM] =             { .count = ELEMENTSOF(rtnl_link_info_data_xfrm_types),
                                                        .types = rtnl_link_info_data_xfrm_types },
+        [NL_UNION_LINK_INFO_DATA_BAREUDP] =          { .count = ELEMENTSOF(rtnl_link_info_data_bareudp_types),
+                                                       .types = rtnl_link_info_data_bareudp_types },
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
