@@ -242,6 +242,7 @@ bool link_config_should_reload(link_config_ctx *ctx) {
 }
 
 int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) {
+        unsigned name_assign_type = NET_NAME_UNKNOWN;
         struct ether_addr permanent_mac = {};
         unsigned short iftype = 0;
         link_config *link;
@@ -268,30 +269,18 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         if (r < 0)
                 log_device_debug_errno(device, r, "Failed to get permanent MAC address, ignoring: %m");
 
+        (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
+
         LIST_FOREACH(links, link, ctx->links) {
                 if (net_match_config(link->match_mac, link->match_permanent_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name, link->match_property, NULL, NULL, NULL,
                                      device, NULL, &permanent_mac, NULL, iftype, NULL, NULL, 0, NULL, NULL)) {
-                        if (link->match_name && !strv_contains(link->match_name, "*")) {
-                                unsigned name_assign_type = NET_NAME_UNKNOWN;
 
-                                (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
-
-                                if (name_assign_type == NET_NAME_ENUM) {
-                                        log_device_warning(device, "Config file %s applies to device based on potentially unpredictable interface name",
-                                                           link->filename);
-                                        *ret = link;
-
-                                        return 0;
-                                } else if (name_assign_type == NET_NAME_RENAMED) {
-                                        log_device_warning(device, "Config file %s matches device based on renamed interface name, ignoring",
-                                                           link->filename);
-
-                                        continue;
-                                }
-                        }
-
-                        log_device_debug(device, "Config file %s is applied", link->filename);
+                        if (link->match_name && !strv_contains(link->match_name, "*") && name_assign_type == NET_NAME_ENUM)
+                                log_device_warning(device, "Config file %s is applied to device based on potentially unpredictable interface name.",
+                                                   link->filename);
+                        else
+                                log_device_debug(device, "Config file %s is applied", link->filename);
 
                         *ret = link;
                         return 0;
