@@ -534,6 +534,7 @@ finish:
         fido_dev_info_free(&di, di_size);
         return r;
 #else
-        return log_error_errno(EOPNOTSUPP, "FIDO2 tokens not supported on this build.");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "FIDO2 tokens not supported on this build.");
 #endif
 }

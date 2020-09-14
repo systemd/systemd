@@ -475,6 +475,7 @@ int find_pkcs11_token_auto(char **ret) {
 
         return 0;
 #else
-        return log_error_errno(EOPNOTSUPP, "PKCS#11 tokens not supported on this build.");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "PKCS#11 tokens not supported on this build.");
 #endif
 }
