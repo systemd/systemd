@@ -635,6 +635,7 @@ int fd_set_sndbuf(int fd, size_t n, bool increase) {
 
         /* SO_SNDBUF above may set to the kernel limit, instead of the requested size.
          * So, we need to check the actual buffer size here. */
+        l = sizeof(value);
         r = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &value, &l);
         if (r >= 0 && l == sizeof(value) && increase ? (size_t) value >= n*2 : (size_t) value == n*2)
                 return 1;
@@ -665,6 +666,7 @@ int fd_set_rcvbuf(int fd, size_t n, bool increase) {
 
         /* SO_RCVBUF above may set to the kernel limit, instead of the requested size.
          * So, we need to check the actual buffer size here. */
+        l = sizeof(value);
         r = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, &l);
         if (r >= 0 && l == sizeof(value) && increase ? (size_t) value >= n*2 : (size_t) value == n*2)
                 return 1;
