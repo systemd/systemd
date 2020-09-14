@@ -49,6 +49,10 @@ static inline bool UNIT_IS_INACTIVE_OR_FAILED(UnitActiveState t) {
         return IN_SET(t, UNIT_INACTIVE, UNIT_FAILED);
 }
 
+static inline bool UNIT_IS_LOAD_COMPLETE(UnitLoadState t) {
+        return t >= 0 && t < _UNIT_LOAD_STATE_MAX && t != UNIT_STUB && t != UNIT_MERGED;
+}
+
 /* Stores the 'reason' a dependency was created as a bit mask, i.e. due to which configuration source it came to be. We
  * use this so that we can selectively flush out parts of dependencies again. Note that the same dependency might be
  * created as a result of multiple "reasons", hence the bitmask. */

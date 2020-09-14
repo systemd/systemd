@@ -748,10 +748,23 @@ static void path_trigger_notify(Unit *u, Unit *other) {
         assert(u);
         assert(other);
 
-        /* Invoked whenever the unit we trigger changes state or gains
-         * or loses a job */
+        /* Invoked whenever the unit we trigger changes state or gains or loses a job */
 
-        if (other->load_state != UNIT_LOADED)
+        /* Filter out invocations with bogus state */
+        assert(UNIT_IS_LOAD_COMPLETE(other->load_state));
+
+        /* Don't propagate state changes from the triggered unit if we are already down */
+        if (!IN_SET(p->state, PATH_WAITING, PATH_RUNNING))
+                return;
+
+        /* Propagate start limit hit state */
+        if (other->start_limit_hit) {
+                path_enter_dead(p, PATH_FAILURE_UNIT_START_LIMIT_HIT);
+                return;
+        }
+
+        /* Don't propagate anything if there's still a job queued */
+        if (other->job)
                 return;
 
         if (p->state == PATH_RUNNING &&
@@ -790,6 +803,7 @@ static const char* const path_result_table[_PATH_RESULT_MAX] = {
         [PATH_SUCCESS] = "success",
         [PATH_FAILURE_RESOURCES] = "resources",
         [PATH_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
+        [PATH_FAILURE_UNIT_START_LIMIT_HIT] = "unit-start-limit-hit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(path_result, PathResult);

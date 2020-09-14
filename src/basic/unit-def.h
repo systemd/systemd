@@ -9,7 +9,7 @@
  * when other criteria (cpu weight, nice level) are identical.
  * In this case service units have the highest priority. */
 typedef enum UnitType {
-        UNIT_SERVICE = 0,
+        UNIT_SERVICE,
         UNIT_MOUNT,
         UNIT_SWAP,
         UNIT_SOCKET,
@@ -25,7 +25,7 @@ typedef enum UnitType {
 } UnitType;
 
 typedef enum UnitLoadState {
-        UNIT_STUB = 0,
+        UNIT_STUB,
         UNIT_LOADED,
         UNIT_NOT_FOUND,    /* error condition #1: unit file not found */
         UNIT_BAD_SETTING,  /* error condition #2: we couldn't parse some essential unit file setting */
