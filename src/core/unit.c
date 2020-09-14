@@ -209,11 +209,7 @@ static int unit_add_alias(Unit *u, char *donated_name) {
 
         /* Make sure that u->names is allocated. We may leave u->names
          * empty if we fail later, but this is not a problem. */
-        r = set_ensure_allocated(&u->aliases, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = set_put(u->aliases, donated_name);
+        r = set_ensure_put(&u->aliases, &string_hash_ops, donated_name);
         if (r < 0)
                 return r;
         assert(r > 0);
