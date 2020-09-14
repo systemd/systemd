@@ -432,7 +432,7 @@ static int hardlink_context_setup(
          * bottleneck we can certainly place an in-memory hash table in front of this, but for the beginning,
          * let's keep things simple, and just use the disk as lookup table for inodes.
          *
-         * Note that this should have zero performace impact as long as .n_link of all files copied remains
+         * Note that this should have zero performance impact as long as .n_link of all files copied remains
          * <= 0, because in that case we will not actually allocate the hardlink inode lookup table directory
          * on disk (we do so lazily, when the first candidate with .n_link > 1 is seen). This means, in the
          * common case where hardlinks are not used at all or only for few files the fact that we store the

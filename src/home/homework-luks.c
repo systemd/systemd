@@ -2183,7 +2183,7 @@ int home_create_luks(
         if (disk_uuid_path)
                 (void) ioctl(image_fd, BLKRRPART, 0);
         else {
-                /* If we operate on a file, sync the contaning directory too. */
+                /* If we operate on a file, sync the containing directory too. */
                 r = fsync_directory_of_file(image_fd);
                 if (r < 0) {
                         log_error_errno(r, "Failed to synchronize directory of image file to disk: %m");

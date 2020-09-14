@@ -704,7 +704,7 @@ static int dhcp4_address_ready_callback(Address *address) {
 
         r = dhcp4_start_acd(link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to start IPv4ACD for DHCP4 adddress: %m");
+                return log_link_error_errno(link, r, "Failed to start IPv4ACD for DHCP4 address: %m");
 
         dhcp4_check_ready(link);
         return 0;

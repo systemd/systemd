@@ -2484,7 +2484,7 @@ static int acquire_credentials(
         if (dfd < 0)
                 return -errno;
 
-        /* First we use the literally specified credentials. Note that they might be overriden again below,
+        /* First we use the literally specified credentials. Note that they might be overridden again below,
          * and thus act as a "default" if the same credential is specified multiple times */
         HASHMAP_FOREACH(sc, context->set_credentials) {
                 size_t add;
@@ -2804,7 +2804,7 @@ static int setup_credentials(
                  * Yes it's nasty playing games with /dev/ and /dev/shm/ like this, since it does not exist
                  * for this purpose, but there are few other candidates that work equally well for us, and
                  * given that the we do this in a privately namespaced short-lived single-threaded process
-                 * that noone else sees this should be OK to do.*/
+                 * that no one else sees this should be OK to do.*/
 
                 if (mount(NULL, "/dev", NULL, MS_SLAVE|MS_REC, NULL) < 0) /* Turn off propagation from our namespace to host */
                         goto child_fail;
@@ -4340,7 +4340,7 @@ static int exec_child(
                  * we'll try not to call PR_SET_SECUREBITS unless necessary. Setting securebits requires
                  * CAP_SETPCAP. */
                 if (prctl(PR_GET_SECUREBITS) != secure_bits) {
-                        /* CAP_SETPCAP is required to set securebits. This capabilitiy is raised into the
+                        /* CAP_SETPCAP is required to set securebits. This capability is raised into the
                          * effective set here.
                          * The effective set is overwritten during execve  with the following  values:
                          * - ambient set (for non-root processes)

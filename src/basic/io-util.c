@@ -153,10 +153,8 @@ int pipe_eof(int fd) {
         int r;
 
         r = fd_wait_for_event(fd, POLLIN, 0);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         return !!(r & POLLHUP);
 }

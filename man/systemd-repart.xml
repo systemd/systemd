@@ -213,7 +213,7 @@
         specifies the initial size of the loopback file to create.</para>
 
         <para>The <option>--size=auto</option> option takes the sizes of pre-existing partitions into
-        account. However, it does not accomodate for partition tables that are not tightly packed: the
+        account. However, it does not accommodate for partition tables that are not tightly packed: the
         configured partitions might still not fit into the backing device if empty space exists between
         pre-existing partitions (or before the first partition) that cannot be fully filled by partitions to
         grow or create.</para>
