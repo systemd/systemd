@@ -287,7 +287,6 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
                 }
         }
 
-        *ret = NULL;
         return -ENOENT;
 }
 
