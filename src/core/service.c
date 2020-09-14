@@ -589,9 +589,6 @@ static int service_verify(Service *s) {
                 return -ENOEXEC;
         }
 
-        if (s->bus_name && s->type != SERVICE_DBUS)
-                log_unit_warning(UNIT(s), "Service has a D-Bus service name specified, but is not of type dbus. Ignoring.");
-
         if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED)) {
                 log_unit_error(UNIT(s), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
                 return -ENOEXEC;
@@ -687,7 +684,7 @@ static int service_setup_bus_name(Service *s) {
 
         assert(s);
 
-        if (!s->bus_name)
+        if (s->type != SERVICE_DBUS)
                 return 0;
 
         r = unit_add_dependency_by_name(UNIT(s), UNIT_REQUIRES, SPECIAL_DBUS_SOCKET, true, UNIT_DEPENDENCY_FILE);
