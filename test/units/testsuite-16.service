@@ -13,7 +13,7 @@ StopWhenUnneeded=yes
 
 [Service]
 ExecStartPre=rm -f /failed /testok
-Type=simple
+Type=exec
 TimeoutStartSec=infinity
 ExecStartPre=/usr/lib/systemd/tests/testdata/units/%N.sh
 ExecStart=true
