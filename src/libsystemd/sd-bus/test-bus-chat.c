@@ -373,7 +373,7 @@ static void* client2(void *p) {
 
         r = sd_bus_send(bus, m, NULL);
         if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -392,7 +392,7 @@ static void* client2(void *p) {
 
         r = sd_bus_send(bus, m, NULL);
         if (r < 0) {
-                log_error("Failed to issue signal: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue signal: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -412,7 +412,7 @@ static void* client2(void *p) {
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
-                log_error("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_error("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
         }
 
@@ -442,7 +442,7 @@ static void* client2(void *p) {
 
         r = sd_bus_call(bus, m, 200 * USEC_PER_MSEC, &error, &reply);
         if (r < 0)
-                log_info("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_info("Failed to issue method call: %s", bus_error_message(&error, r));
         else
                 log_info("Slow call succeed.");
 
@@ -462,7 +462,7 @@ static void* client2(void *p) {
 
         r = sd_bus_call_async(bus, NULL, m, quit_callback, &quit, 200 * USEC_PER_MSEC);
         if (r < 0) {
-                log_info("Failed to issue method call: %s", bus_error_message(&error, -r));
+                log_info("Failed to issue method call: %s", bus_error_message(&error, r));
                 goto finish;
         }
 

@@ -1022,7 +1022,7 @@ static int kill_session(int argc, char *argv[], void *userdata) {
                                 &error, NULL,
                                 "ssi", argv[i], arg_kill_who, arg_signal);
                 if (r < 0)
-                        return log_error_errno(r, "Could not kill session: %s", bus_error_message(&error, -r));
+                        return log_error_errno(r, "Could not kill session: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -1071,7 +1071,7 @@ static int enable_linger(int argc, char *argv[], void *userdata) {
                                 &error, NULL,
                                 "ubb", (uint32_t) uid, b, true);
                 if (r < 0)
-                        return log_error_errno(r, "Could not enable linger: %s", bus_error_message(&error, -r));
+                        return log_error_errno(r, "Could not enable linger: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -1096,7 +1096,7 @@ static int terminate_user(int argc, char *argv[], void *userdata) {
 
                 r = bus_call_method(bus, bus_login_mgr, "TerminateUser", &error, NULL, "u", (uint32_t) uid);
                 if (r < 0)
-                        return log_error_errno(r, "Could not terminate user: %s", bus_error_message(&error, -r));
+                        return log_error_errno(r, "Could not terminate user: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -1129,7 +1129,7 @@ static int kill_user(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "ui", (uint32_t) uid, arg_signal);
                 if (r < 0)
-                        return log_error_errno(r, "Could not kill user: %s", bus_error_message(&error, -r));
+                        return log_error_errno(r, "Could not kill user: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -1154,7 +1154,7 @@ static int attach(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         "ssb", argv[1], argv[i], true);
                 if (r < 0)
-                        return log_error_errno(r, "Could not attach device: %s", bus_error_message(&error, -r));
+                        return log_error_errno(r, "Could not attach device: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -1172,7 +1172,7 @@ static int flush_devices(int argc, char *argv[], void *userdata) {
 
         r = bus_call_method(bus, bus_login_mgr, "FlushDevices", &error, NULL, "b", true);
         if (r < 0)
-                return log_error_errno(r, "Could not flush devices: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Could not flush devices: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1194,7 +1194,7 @@ static int lock_sessions(int argc, char *argv[], void *userdata) {
                         &error, NULL,
                         NULL);
         if (r < 0)
-                return log_error_errno(r, "Could not lock sessions: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Could not lock sessions: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1213,7 +1213,7 @@ static int terminate_seat(int argc, char *argv[], void *userdata) {
 
                 r = bus_call_method(bus, bus_login_mgr, "TerminateSeat", &error, NULL, "s", argv[i]);
                 if (r < 0)
-                        return log_error_errno(r, "Could not terminate seat: %s", bus_error_message(&error, -r));
+                        return log_error_errno(r, "Could not terminate seat: %s", bus_error_message(&error, r));
         }
 
         return 0;

@@ -115,7 +115,7 @@ static int change_runlevel(Server *s, int runlevel) {
                         NULL,
                         "ss", target, mode);
         if (r < 0)
-                return log_error_errno(r, "Failed to change runlevel: %s", bus_error_message(&error, -r));
+                return log_error_errno(r, "Failed to change runlevel: %s", bus_error_message(&error, r));
 
         return 0;
 }
