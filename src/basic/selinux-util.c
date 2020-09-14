@@ -205,14 +205,11 @@ static int mac_selinux_reload(int seqno) {
 
 int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFixFlags flags) {
 
-#if HAVE_SELINUX
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-        _cleanup_freecon_ char* fcon = NULL;
-        _cleanup_close_ int fd = -1;
-        struct stat st;
-        int r;
-
         assert(path);
+        assert(inside_path);
+
+#if HAVE_SELINUX
+        _cleanup_close_ int fd = -1;
 
         /* if mac_selinux_init() wasn't called before we are a NOOP */
         if (!label_hnd)
@@ -227,6 +224,27 @@ int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFi
                 return -errno;
         }
 
+        return mac_selinux_fix_container_fd(fd, path, inside_path, flags);
+#endif
+
+        return 0;
+}
+
+int mac_selinux_fix_container_fd(int fd, const char *path, const char *inside_path, LabelFixFlags flags) {
+
+        assert(fd >= 0);
+        assert(inside_path);
+
+#if HAVE_SELINUX
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_freecon_ char* fcon = NULL;
+        struct stat st;
+        int r;
+
+        /* if mac_selinux_init() wasn't called before we are a NOOP */
+        if (!label_hnd)
+                return 0;
+
         if (fstat(fd, &st) < 0)
                 return -errno;
 
@@ -234,12 +252,11 @@ int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFi
         mac_selinux_maybe_reload();
 
         if (selabel_lookup_raw(label_hnd, &fcon, inside_path, st.st_mode) < 0) {
-                r = -errno;
-
                 /* If there's no label to set, then exit without warning */
-                if (r == -ENOENT)
+                if (errno == ENOENT)
                         return 0;
 
+                r = -errno;
                 goto fail;
         }
 
@@ -247,15 +264,15 @@ int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFi
         if (setfilecon_raw(procfs_path, fcon) < 0) {
                 _cleanup_freecon_ char *oldcon = NULL;
 
-                r = -errno;
-
                 /* If the FS doesn't support labels, then exit without warning */
-                if (r == -EOPNOTSUPP)
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
                         return 0;
 
                 /* It the FS is read-only and we were told to ignore failures caused by that, suppress error */
-                if (r == -EROFS && (flags & LABEL_IGNORE_EROFS))
+                if (errno == EROFS && (flags & LABEL_IGNORE_EROFS))
                         return 0;
+
+                r = -errno;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
                 if (getfilecon_raw(procfs_path, &oldcon) >= 0 && streq(fcon, oldcon))
@@ -267,7 +284,7 @@ int mac_selinux_fix_container(const char *path, const char *inside_path, LabelFi
         return 0;
 
 fail:
-        return log_enforcing_errno(r, "Unable to fix SELinux security context of %s (%s): %m", path, inside_path);
+        return log_enforcing_errno(r, "Unable to fix SELinux security context of %s (%s): %m", strna(path), strna(inside_path));
 #endif
 
         return 0;
@@ -275,15 +292,32 @@ fail:
 
 int mac_selinux_apply(const char *path, const char *label) {
 
+        assert(path);
+
 #if HAVE_SELINUX
         if (!mac_selinux_use())
                 return 0;
 
-        assert(path);
         assert(label);
 
         if (setfilecon(path, label) < 0)
                 return log_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, path);
+#endif
+        return 0;
+}
+
+int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
+
+        assert(fd >= 0);
+
+#if HAVE_SELINUX
+        if (!mac_selinux_use())
+                return 0;
+
+        assert(label);
+
+        if (fsetfilecon(fd, label) < 0)
+                return log_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, strna(path));
 #endif
         return 0;
 }
