@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 sources = files('''
+        netdev/bareudp.c
+        netdev/bareudp.h
         netdev/bond.c
         netdev/bond.h
         netdev/bridge.c
