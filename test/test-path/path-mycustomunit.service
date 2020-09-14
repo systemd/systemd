@@ -3,5 +3,5 @@ Description=Service Test Path Unit
 
 [Service]
 ExecStart=/bin/true
-Type=simple
+Type=exec
 RemainAfterExit=true
