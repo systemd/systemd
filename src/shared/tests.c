@@ -14,7 +14,13 @@
 #include <libgen.h>
 #undef basename
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
+#include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-util.h"
+#include "bus-wait-for-jobs.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "env-file.h"
@@ -23,6 +29,7 @@
 #include "log.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -174,10 +181,87 @@ bool can_memlock(void) {
         return b;
 }
 
+static int allocate_scope(void) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *scope = NULL;
+        const char *object;
+        int r;
+
+        /* Let's try to run this test in a scope of its own, with delegation turned on, so that PID 1 doesn't
+         * interfere with our cgroup management. */
+
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
+
+        r = bus_wait_for_jobs_new(bus, &w);
+        if (r < 0)
+                return log_oom();
+
+        if (asprintf(&scope, "%s-%" PRIx64 ".scope", program_invocation_short_name, random_u64()) < 0)
+                return log_oom();
+
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Name and Mode */
+        r = sd_bus_message_append(m, "ss", scope, "fail");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Properties */
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, (uint32_t) getpid_cached());
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "(sv)", "Delegate", "b", 1);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "(sv)", "CollectMode", "s", "inactive-or-failed");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Auxiliary units */
+        r = sd_bus_message_append(m, "a(sa(sv))", 0);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "o", &object);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = bus_wait_for_jobs_one(w, object, false);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int enter_cgroup_subroot(char **ret_cgroup) {
         _cleanup_free_ char *cgroup_root = NULL, *cgroup_subroot = NULL;
         CGroupMask supported;
         int r;
+
+        r = allocate_scope();
+        if (r < 0)
+                log_warning_errno(r, "Couldn't allocate a scope unit for this test, proceeding without.");
 
         r = cg_pid_get_path(NULL, 0, &cgroup_root);
         if (r == -ENOMEDIUM)
@@ -200,5 +284,6 @@ int enter_cgroup_subroot(char **ret_cgroup) {
 
         if (ret_cgroup)
                 *ret_cgroup = TAKE_PTR(cgroup_subroot);
+
         return 0;
 }
