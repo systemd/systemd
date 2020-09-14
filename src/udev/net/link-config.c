@@ -11,6 +11,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
@@ -605,12 +606,27 @@ static int link_config_apply_alternative_names(sd_netlink **rtnl, const link_con
 
 int link_config_apply(link_config_ctx *ctx, const link_config *config, sd_device *device, const char **ret_name) {
         const char *new_name;
+        DeviceAction a;
         int r;
 
         assert(ctx);
         assert(config);
         assert(device);
         assert(ret_name);
+
+        r = device_get_action(device, &a);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to get ACTION= property: %m");
+
+        if (!IN_SET(a, DEVICE_ACTION_ADD, DEVICE_ACTION_BIND, DEVICE_ACTION_MOVE)) {
+                log_device_debug(device, "Skipping to apply .link settings on '%s' uevent.", device_action_to_string(a));
+
+                r = sd_device_get_sysname(device, ret_name);
+                if (r < 0)
+                        return log_device_error_errno(device, r, "Failed to get sysname: %m");
+
+                return 0;
+        }
 
         r = link_config_apply_ethtool_settings(&ctx->ethtool_fd, config, device);
         if (r < 0)
@@ -620,9 +636,17 @@ int link_config_apply(link_config_ctx *ctx, const link_config *config, sd_device
         if (r < 0)
                 return r;
 
-        r = link_config_generate_new_name(ctx, config, device, &new_name);
-        if (r < 0)
-                return r;
+        if (a == DEVICE_ACTION_MOVE) {
+                log_device_debug(device, "Skipping to apply Name= and NamePolicy= on '%s' uevent.", device_action_to_string(a));
+
+                r = sd_device_get_sysname(device, &new_name);
+                if (r < 0)
+                        return log_device_error_errno(device, r, "Failed to get sysname: %m");
+        } else {
+                r = link_config_generate_new_name(ctx, config, device, &new_name);
+                if (r < 0)
+                        return r;
+        }
 
         r = link_config_apply_alternative_names(&ctx->rtnl, config, device, new_name);
         if (r < 0)

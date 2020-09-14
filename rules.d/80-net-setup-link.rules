@@ -4,7 +4,7 @@ SUBSYSTEM!="net", GOTO="net_setup_link_end"
 
 IMPORT{builtin}="path_id"
 
-ACTION!="add", GOTO="net_setup_link_end"
+ACTION=="remove", GOTO="net_setup_link_end"
 
 IMPORT{builtin}="net_setup_link"
 
