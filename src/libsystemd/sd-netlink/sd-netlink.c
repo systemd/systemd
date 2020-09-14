@@ -495,10 +495,8 @@ static int rtnl_poll(sd_netlink *rtnl, bool need_more, uint64_t timeout_usec) {
                 m = timeout_usec;
 
         r = fd_wait_for_event(rtnl->fd, e, m);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         return 1;
 }
