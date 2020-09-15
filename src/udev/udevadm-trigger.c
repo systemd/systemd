@@ -25,7 +25,7 @@ static bool arg_dry_run = false;
 
 static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_set) {
         sd_device *d;
-        int r, ret = 0;
+        int r, ret = 0, is_root = -1;
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d) {
                 _cleanup_free_ char *filename = NULL;
@@ -45,14 +45,24 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_s
 
                 r = write_string_file(filename, action, WRITE_STRING_FILE_DISABLE_BUFFER);
                 if (r < 0) {
-                        bool ignore = IN_SET(r, -ENOENT, -EACCES, -ENODEV, -EROFS);
+                        bool skip = IN_SET(r, -EACCES, -ENODEV, -EROFS);
+                        bool enoent = r == -ENOENT;
 
-                        log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                                       "Failed to write '%s' to '%s'%s: %m",
-                                       action, filename, ignore ? ", ignoring" : "");
-                        if (r == -EROFS)
-                                return 0; /* Read only filesystem. Return earlier. */
-                        if (ret == 0 && !ignore)
+                        if (is_root < 0)
+                                is_root = geteuid() == 0;
+
+                        log_full_errno(enoent ? LOG_DEBUG : LOG_ERR, r,
+                                       "Failed to write '%s' to '%s'%s.%s: %m",
+                                       action, filename,
+                                       enoent || (skip && is_root) ? ", ignoring" : "",
+                                       skip ? " Skipping consequet devices" : "");
+                        if (!is_root)
+                                /* Invoked by non-root user. Return earlier and propagte error. */
+                                return r;
+                        if (skip)
+                                /* Read only filesystem, run in container. Return earlier. */
+                                return 0;
+                        if (ret == 0 && !enoent)
                                 ret = r;
                         continue;
                 }
