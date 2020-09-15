@@ -54,6 +54,9 @@ MACAddress=
 Destination=
 VNI=
 AssociatedWith=
+[BridgeMDB]
+MulticastGroupAddress=
+VLANId=
 [DHCP]
 UseDomains=
 UseRoutes=

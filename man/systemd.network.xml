@@ -2538,6 +2538,26 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
       </variablelist>
   </refsect1>
+  <refsect1>
+    <title>[BridgeMDB] Section Options</title>
+      <para>The [BridgeMDB] section manages the multicast membership entries forwarding database table of a port and accepts the following
+      keys. Specify several [BridgeMDB] sections to configure several permanent multicast membership entries.</para>
+
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>MulticastGroupAddress=</varname></term>
+          <listitem>
+            <para>Specifies the IPv4 or IPv6 multicast group address to add. This setting is mandatory.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>VLANId=</varname></term>
+          <listitem>
+            <para>The VLAN ID for the new entry. Valid ranges are 0 (no VLAN) to 4094. Optional, defaults to 0.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
 
   <refsect1>
     <title>[LLDP] Section Options</title>

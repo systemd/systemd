@@ -157,6 +157,7 @@ int network_verify(Network *network) {
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
         FdbEntry *fdb, *fdb_next;
+        MdbEntry *mdb, *mdb_next;
         TrafficControl *tc;
         SRIOV *sr_iov;
 
@@ -304,6 +305,10 @@ int network_verify(Network *network) {
         LIST_FOREACH_SAFE(static_fdb_entries, fdb, fdb_next, network->static_fdb_entries)
                 if (section_is_invalid(fdb->section))
                         fdb_entry_free(fdb);
+
+        LIST_FOREACH_SAFE(static_mdb_entries, mdb, mdb_next, network->static_mdb_entries)
+                if (mdb_entry_verify(mdb) < 0)
+                        mdb_entry_free(mdb);
 
         LIST_FOREACH_SAFE(neighbors, neighbor, neighbor_next, network->neighbors)
                 if (neighbor_section_verify(neighbor) < 0)
@@ -508,6 +513,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "IPv6NDPProxyAddress\0"
                         "Bridge\0"
                         "BridgeFDB\0"
+                        "BridgeMDB\0"
                         "BridgeVLAN\0"
                         "IPv6PrefixDelegation\0"
                         "IPv6Prefix\0"
@@ -642,6 +648,7 @@ static Network *network_free(Network *network) {
         RoutingPolicyRule *rule;
         AddressLabel *label;
         FdbEntry *fdb_entry;
+        MdbEntry *mdb_entry;
         Neighbor *neighbor;
         Address *address;
         NextHop *nexthop;
@@ -715,6 +722,9 @@ static Network *network_free(Network *network) {
         while ((fdb_entry = network->static_fdb_entries))
                 fdb_entry_free(fdb_entry);
 
+        while ((mdb_entry = network->static_mdb_entries))
+                mdb_entry_free(mdb_entry);
+
         while ((ipv6_proxy_ndp_address = network->ipv6_proxy_ndp_addresses))
                 ipv6_proxy_ndp_address_free(ipv6_proxy_ndp_address);
 
@@ -737,6 +747,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->routes_by_section);
         hashmap_free(network->nexthops_by_section);
         hashmap_free(network->fdb_entries_by_section);
+        hashmap_free(network->mdb_entries_by_section);
         hashmap_free(network->neighbors_by_section);
         hashmap_free(network->address_labels_by_section);
         hashmap_free(network->prefixes_by_section);
@@ -849,6 +860,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
         Address *address;
         Route *route;
         FdbEntry *fdb;
+        MdbEntry *mdb;
         Neighbor *neighbor;
 
         assert(network);
@@ -863,6 +875,10 @@ bool network_has_static_ipv6_configurations(Network *network) {
 
         LIST_FOREACH(static_fdb_entries, fdb, network->static_fdb_entries)
                 if (fdb->family == AF_INET6)
+                        return true;
+
+        LIST_FOREACH(static_mdb_entries, mdb, network->static_mdb_entries)
+                if (mdb->family == AF_INET6)
                         return true;
 
         LIST_FOREACH(neighbors, neighbor, network->neighbors)
