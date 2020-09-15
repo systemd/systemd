@@ -1,7 +1,9 @@
-<?xml version="1.0"?>
-<!--*-nxml-*-->
+<?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 <refentry id="systemd-rc-local-generator">
 
@@ -17,7 +19,7 @@
 
   <refnamediv>
     <refname>systemd-rc-local-generator</refname>
-    <refpurpose>Compatibility generator for starting <filename>/etc/rc.local</filename> during boot</refpurpose>
+    <refpurpose>Compatibility generator for starting <filename>&RC_LOCAL_PATH;</filename> during boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -28,17 +30,17 @@
     <title>Description</title>
 
     <para><filename>systemd-rc-local-generator</filename> is a generator that checks whether
-    <filename>/etc/rc.local</filename> exists and is executable, and if it is pulls the
-    <filename>rc-local.service</filename> unit into the boot process. This unit is responsible for running this script
-    during late boot. Note that the script will be run with slightly different semantics than the original System V
-    version, which was run "last" in the boot process, which is a concept that does not translate to systemd. The
-    script is run after <filename>network.target</filename>, but in parallel with most other regular system
-    services.</para>
+    <filename>&RC_LOCAL_PATH;</filename> exists and is executable, and if it is pulls the
+    <filename>rc-local.service</filename> unit into the boot process. This unit is responsible for running
+    this script during late boot. Note that the script will be run with slightly different semantics than the
+    original System V version, which was run "last" in the boot process, which is a concept that does not
+    translate to systemd. The script is run after <filename>network.target</filename>, but in parallel with
+    most other regular system services.</para>
 
-    <para>Support for <filename>/etc/rc.local</filename> is provided
-    for compatibility with specific System V systems only. However, it is strongly recommended to avoid making use of
-    this script today, and instead provide proper unit files with appropriate dependencies for any scripts to run
-    during the boot process.</para>
+    <para>Support for <filename>&RC_LOCAL_PATH;</filename> is provided for compatibility with specific System
+    V systems only. However, it is strongly recommended to avoid making use of this script today, and instead
+    provide proper unit files with appropriate dependencies for any scripts to run during the boot process.
+    Note that the path to the script is set a compile time and varies between distributions.</para>
 
     <para><filename>systemd-rc-local-generator</filename> implements
     <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
