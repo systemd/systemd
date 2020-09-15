@@ -5,6 +5,7 @@
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "networkd-mdb.h"
+#include "string-util.h"
 #include "vlan-util.h"
 
 #define STATIC_MDB_ENTRIES_PER_NETWORK_MAX 1024U
@@ -126,6 +127,14 @@ static int mdb_entry_configure(Link *link, MdbEntry *mdb_entry) {
         assert(link->network);
         assert(link->manager);
         assert(mdb_entry);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *a = NULL;
+
+                (void) in_addr_to_string(mdb_entry->family, &mdb_entry->group_addr, &a);
+                log_link_debug(link, "Configuring bridge MDB entry: MulticastGroupAddress=%s, VLANId=%u",
+                               strna(a), mdb_entry->vlan_id);
+        }
 
         entry = (struct br_mdb_entry) {
                 .state = MDB_PERMANENT,
