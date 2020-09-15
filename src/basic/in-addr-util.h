@@ -27,6 +27,7 @@ int in_addr_is_multicast(int family, const union in_addr_union *u);
 
 bool in4_addr_is_link_local(const struct in_addr *a);
 int in_addr_is_link_local(int family, const union in_addr_union *u);
+bool in6_addr_is_link_local_all_nodes(const struct in6_addr *a);
 
 bool in4_addr_is_localhost(const struct in_addr *a);
 int in_addr_is_localhost(int family, const union in_addr_union *u);

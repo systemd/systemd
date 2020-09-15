@@ -54,6 +54,16 @@ int in_addr_is_link_local(int family, const union in_addr_union *u) {
         return -EAFNOSUPPORT;
 }
 
+bool in6_addr_is_link_local_all_nodes(const struct in6_addr *a) {
+        assert(a);
+
+        /* ff02::1 */
+        return be32toh(a->s6_addr32[0]) == UINT32_C(0xff020000) &&
+                a->s6_addr32[1] == 0 &&
+                a->s6_addr32[2] == 0 &&
+                be32toh(a->s6_addr32[3]) == UINT32_C(0x00000001);
+}
+
 int in_addr_is_multicast(int family, const union in_addr_union *u) {
         assert(u);
 
