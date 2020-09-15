@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include <linux/if_bridge.h>
-#include <net/ethernet.h>
 #include <net/if.h>
 
-#include "alloc-util.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "networkd-mdb.h"
-#include "util.h"
 #include "vlan-util.h"
 
 #define STATIC_MDB_ENTRIES_PER_NETWORK_MAX 1024U
