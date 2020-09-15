@@ -10,6 +10,37 @@
 #include "tests.h"
 #include "libcrypt-util.h"
 
+static int test_hash_password(void) {
+        log_info("/* %s */", __func__);
+
+        /* As a warmup exercise, check if we can hash passwords. */
+
+        bool have_sane_hash = false;
+        const char *hash;
+
+        FOREACH_STRING(hash,
+                       "ew3bU1.hoKk4o",
+                       "$1$gc5rWpTB$wK1aul1PyBn9AX1z93stk1",
+                       "$2b$12$BlqcGkB/7BFvNMXKGxDea.5/8D6FTny.cbNcHW/tqcrcyo6ZJd8u2",
+                       "$5$lGhDrcrao9zb5oIK$05KlOVG3ocknx/ThreqXE/gk.XzFFBMTksc4t2CPDUD",
+                       "$6$c7wB/3GiRk0VHf7e$zXJ7hN0aLZapE.iO4mn/oHu6.prsXTUG/5k1AxpgR85ELolyAcaIGRgzfwJs3isTChMDBjnthZyaMCfCNxo9I.",
+                       "$y$j9T$$9cKOWsAm4m97WiYk61lPPibZpy3oaGPIbsL4koRe/XD") {
+                int b;
+
+                b = test_password_one(hash, "ppp");
+                log_info("%s: %s", hash, yes_no(b));
+#if defined(XCRYPT_VERSION_MAJOR)
+                /* xcrypt is supposed to always implement all methods. */
+                assert_se(b);
+#endif
+
+                if (b && IN_SET(hash[1], '6', 'y'))
+                        have_sane_hash = true;
+        }
+
+        return have_sane_hash;
+}
+
 static void test_hash_password_full(void) {
         log_info("/* %s */", __func__);
 
@@ -61,6 +92,9 @@ int main(int argc, char *argv[]) {
 #if defined(__powerpc__) && !defined(XCRYPT_VERSION_MAJOR)
         return log_tests_skipped("crypt_r() causes a buffer overflow on ppc64el, see https://github.com/systemd/systemd/pull/16981#issuecomment-691203787");
 #endif
+
+        if (!test_hash_password())
+                return log_tests_skipped("crypt doesn't support yescrypt or sha512crypt");
 
         test_hash_password_full();
 
