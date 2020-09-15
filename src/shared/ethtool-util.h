@@ -101,12 +101,12 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
 int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct ether_addr *ret);
 int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duplex duplex);
 int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol);
-int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, netdev_ring_param *ring);
-int ethtool_set_features(int *ethtool_fd, const char *ifname, int *features);
+int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring);
+int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *features);
 int ethtool_set_glinksettings(int *ethtool_fd, const char *ifname,
-                              int autonegotiation, uint32_t advertise[static N_ADVERTISE],
+                              int autonegotiation, const uint32_t advertise[static N_ADVERTISE],
                               uint64_t speed, Duplex duplex, NetDevPort port);
-int ethtool_set_channels(int *ethtool_fd, const char *ifname, netdev_channels *channels);
+int ethtool_set_channels(int *ethtool_fd, const char *ifname, const netdev_channels *channels);
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg);
 
 const char *duplex_to_string(Duplex d) _const_;

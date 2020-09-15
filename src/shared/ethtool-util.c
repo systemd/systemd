@@ -414,7 +414,7 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         return 0;
 }
 
-int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, netdev_ring_param *ring) {
+int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring) {
         struct ethtool_ringparam ecmd = {
                 .cmd = ETHTOOL_GRINGPARAM
         };
@@ -543,7 +543,7 @@ static int set_features_bit(
         return found ? 0 : -ENODATA;
 }
 
-int ethtool_set_features(int *ethtool_fd, const char *ifname, int *features) {
+int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *features) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct ethtool_sfeatures *sfeatures;
         struct ifreq ifr = {};
@@ -754,7 +754,7 @@ int ethtool_set_glinksettings(
                 int *fd,
                 const char *ifname,
                 int autonegotiation,
-                uint32_t advertise[static N_ADVERTISE],
+                const uint32_t advertise[static N_ADVERTISE],
                 uint64_t speed,
                 Duplex duplex,
                 NetDevPort port) {
@@ -813,7 +813,7 @@ int ethtool_set_glinksettings(
         return r;
 }
 
-int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels) {
+int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *channels) {
         struct ethtool_channels ecmd = {
                 .cmd = ETHTOOL_GCHANNELS
         };
