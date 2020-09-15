@@ -77,8 +77,8 @@ int link_load_one(link_config_ctx *ctx, const char *filename);
 int link_config_load(link_config_ctx *ctx);
 bool link_config_should_reload(link_config_ctx *ctx);
 
-int link_config_get(link_config_ctx *ctx, sd_device *device, struct link_config **ret);
-int link_config_apply(link_config_ctx *ctx, struct link_config *config, sd_device *device, const char **name);
+int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret);
+int link_config_apply(link_config_ctx *ctx, const link_config *config, sd_device *device, const char **ret_name);
 int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret);
 
 const char *name_policy_to_string(NamePolicy p) _const_;

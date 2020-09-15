@@ -301,6 +301,70 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         return -ENOENT;
 }
 
+static int link_config_apply_ethtool_settings(int *ethtool_fd, const link_config *config, sd_device *device) {
+        const char *name;
+        int r;
+
+        assert(ethtool_fd);
+        assert(config);
+        assert(device);
+
+        r = sd_device_get_sysname(device, &name);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to get sysname: %m");
+
+        r = ethtool_set_glinksettings(ethtool_fd, name,
+                                      config->autonegotiation, config->advertise,
+                                      config->speed, config->duplex, config->port);
+        if (r < 0) {
+                if (config->port != _NET_DEV_PORT_INVALID)
+                        log_device_warning_errno(device, r, "Could not set port '%s', ignoring: %m", port_to_string(config->port));
+
+                if (!eqzero(config->advertise))
+                        log_device_warning_errno(device, r, "Could not set advertise mode, ignoring: %m"); /* TODO: include modes in the log message. */
+
+                if (config->speed) {
+                        unsigned speed = DIV_ROUND_UP(config->speed, 1000000);
+                        if (r == -EOPNOTSUPP) {
+                                r = ethtool_set_speed(ethtool_fd, name, speed, config->duplex);
+                                if (r < 0)
+                                        log_device_warning_errno(device, r, "Could not set speed to %uMbps, ignoring: %m", speed);
+                        }
+                }
+
+                if (config->duplex != _DUP_INVALID)
+                        log_device_warning_errno(device, r, "Could not set duplex to %s, ignoring: %m", duplex_to_string(config->duplex));
+        }
+
+        r = ethtool_set_wol(ethtool_fd, name, config->wol);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set WakeOnLan to %s, ignoring: %m", wol_to_string(config->wol));
+
+        r = ethtool_set_features(ethtool_fd, name, config->features);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set offload features, ignoring: %m");
+
+        if (config->channels.rx_count_set || config->channels.tx_count_set || config->channels.other_count_set || config->channels.combined_count_set) {
+                r = ethtool_set_channels(ethtool_fd, name, &config->channels);
+                if (r < 0)
+                        log_device_warning_errno(device, r, "Could not set channels, ignoring: %m");
+        }
+
+        if (config->ring.rx_pending_set || config->ring.rx_mini_pending_set || config->ring.rx_jumbo_pending_set || config->ring.tx_pending_set) {
+                r = ethtool_set_nic_buffer_size(ethtool_fd, name, &config->ring);
+                if (r < 0)
+                        log_device_warning_errno(device, r, "Could not set ring buffer, ignoring: %m");
+        }
+
+        if (config->rx_flow_control >= 0 || config->tx_flow_control >= 0 || config->autoneg_flow_control >= 0) {
+                r = ethtool_set_flow_control(ethtool_fd, name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
+                if (r < 0)
+                        log_device_warning_errno(device, r, "Could not set flow control, ignoring: %m");
+        }
+
+        return 0;
+}
+
 static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr *mac) {
         unsigned addr_type;
         bool want_random = policy == MAC_ADDRESS_POLICY_RANDOM;
@@ -357,80 +421,41 @@ static int get_mac(sd_device *device, MACAddressPolicy policy, struct ether_addr
         return 1;
 }
 
-int link_config_apply(link_config_ctx *ctx, link_config *config,
-                      sd_device *device, const char **name) {
-        _cleanup_strv_free_ char **altnames = NULL, **current_altnames = NULL;
-        struct ether_addr generated_mac;
-        struct ether_addr *mac = NULL;
+static int link_config_apply_rtnl_settings(sd_netlink **rtnl, const link_config *config, sd_device *device) {
+        struct ether_addr generated_mac, *mac = NULL;
+        int ifindex, r;
+
+        assert(rtnl);
+        assert(config);
+        assert(device);
+
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Could not find ifindex: %m");
+
+        if (IN_SET(config->mac_address_policy, MAC_ADDRESS_POLICY_PERSISTENT, MAC_ADDRESS_POLICY_RANDOM)) {
+                if (get_mac(device, config->mac_address_policy, &generated_mac) > 0)
+                        mac = &generated_mac;
+        } else
+                mac = config->mac;
+
+        r = rtnl_set_link_properties(rtnl, ifindex, config->alias, mac, config->mtu);
+        if (r < 0)
+                log_device_warning_errno(device, r, "Could not set Alias=, MACAddress= or MTU=, ignoring: %m");
+
+        return 0;
+}
+
+static int link_config_generate_new_name(const link_config_ctx *ctx, const link_config *config, sd_device *device, const char **ret_name) {
+        unsigned name_type = NET_NAME_UNKNOWN;
         const char *new_name = NULL;
-        const char *old_name;
-        unsigned speed, name_type = NET_NAME_UNKNOWN;
         NamePolicy policy;
-        int r, ifindex;
+        int r;
 
         assert(ctx);
         assert(config);
         assert(device);
-        assert(name);
-
-        r = sd_device_get_sysname(device, &old_name);
-        if (r < 0)
-                return r;
-
-        r = ethtool_set_glinksettings(&ctx->ethtool_fd, old_name,
-                                      config->autonegotiation, config->advertise,
-                                      config->speed, config->duplex, config->port);
-        if (r < 0) {
-
-                if (config->port != _NET_DEV_PORT_INVALID)
-                        log_warning_errno(r, "Could not set port (%s) of %s: %m", port_to_string(config->port), old_name);
-
-                if (!eqzero(config->advertise))
-                        log_warning_errno(r, "Could not set advertise mode: %m"); /* TODO: include modes in the log message. */
-
-                if (config->speed) {
-                        speed = DIV_ROUND_UP(config->speed, 1000000);
-                        if (r == -EOPNOTSUPP) {
-                                r = ethtool_set_speed(&ctx->ethtool_fd, old_name, speed, config->duplex);
-                                if (r < 0)
-                                        log_warning_errno(r, "Could not set speed of %s to %u Mbps: %m", old_name, speed);
-                        }
-                }
-
-                if (config->duplex != _DUP_INVALID)
-                        log_warning_errno(r, "Could not set duplex of %s to %s: %m", old_name, duplex_to_string(config->duplex));
-        }
-
-        r = ethtool_set_wol(&ctx->ethtool_fd, old_name, config->wol);
-        if (r < 0)
-                log_warning_errno(r, "Could not set WakeOnLan of %s to %s: %m",
-                                  old_name, wol_to_string(config->wol));
-
-        r = ethtool_set_features(&ctx->ethtool_fd, old_name, config->features);
-        if (r < 0)
-                log_warning_errno(r, "Could not set offload features of %s: %m", old_name);
-
-        if (config->channels.rx_count_set || config->channels.tx_count_set || config->channels.other_count_set || config->channels.combined_count_set) {
-                r = ethtool_set_channels(&ctx->ethtool_fd, old_name, &config->channels);
-                if (r < 0)
-                        log_warning_errno(r, "Could not set channels of %s: %m", old_name);
-        }
-
-        if (config->ring.rx_pending_set || config->ring.rx_mini_pending_set || config->ring.rx_jumbo_pending_set || config->ring.tx_pending_set) {
-                r = ethtool_set_nic_buffer_size(&ctx->ethtool_fd, old_name, &config->ring);
-                if (r < 0)
-                        log_warning_errno(r, "Could not set ring buffer of %s: %m", old_name);
-        }
-
-        if (config->rx_flow_control >= 0 || config->tx_flow_control >= 0 || config->autoneg_flow_control >= 0) {
-                r = ethtool_set_flow_control(&ctx->ethtool_fd, old_name, config->rx_flow_control, config->tx_flow_control, config->autoneg_flow_control);
-                if (r < 0)
-                        log_warning_errno(r, "Could not set flow control of %s: %m", old_name);
-        }
-
-        r = sd_device_get_ifindex(device, &ifindex);
-        if (r < 0)
-                return log_device_warning_errno(device, r, "Could not find ifindex: %m");
+        assert(ret_name);
 
         (void) link_unsigned_attribute(device, "name_assign_type", &name_type);
 
@@ -482,24 +507,43 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
                                 break;
                 }
 
-        if (new_name)
+        if (new_name) {
                 log_device_debug(device, "Policy *%s* yields \"%s\".", name_policy_to_string(policy), new_name);
-        else if (config->name) {
-                new_name = config->name;
-                log_device_debug(device, "Policies didn't yield a name, using specified Name=%s.", new_name);
-        } else
-                log_device_debug(device, "Policies didn't yield a name and Name= is not given, not renaming.");
- no_rename:
+                *ret_name = new_name;
+                return 0;
+        }
 
-        if (IN_SET(config->mac_address_policy, MAC_ADDRESS_POLICY_PERSISTENT, MAC_ADDRESS_POLICY_RANDOM)) {
-                if (get_mac(device, config->mac_address_policy, &generated_mac) > 0)
-                        mac = &generated_mac;
-        } else
-                mac = config->mac;
+        if (config->name) {
+                log_device_debug(device, "Policies didn't yield a name, using specified Name=%s.", config->name);
+                *ret_name = config->name;
+                return 0;
+        }
 
-        r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac, config->mtu);
+        log_device_debug(device, "Policies didn't yield a name and Name= is not given, not renaming.");
+no_rename:
+        r = sd_device_get_sysname(device, ret_name);
         if (r < 0)
-                return log_warning_errno(r, "Could not set Alias=, MACAddress= or MTU= on %s: %m", old_name);
+                return log_device_error_errno(device, r, "Failed to get sysname: %m");
+
+        return 0;
+}
+
+static int link_config_apply_alternative_names(sd_netlink **rtnl, const link_config *config, sd_device *device, const char *new_name) {
+        _cleanup_strv_free_ char **altnames = NULL, **current_altnames = NULL;
+        const char *current_name;
+        int ifindex, r;
+
+        assert(rtnl);
+        assert(config);
+        assert(device);
+
+        r = sd_device_get_sysname(device, &current_name);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to get sysname: %m");
+
+        r = sd_device_get_ifindex(device, &ifindex);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Could not find ifindex: %m");
 
         if (config->alternative_names) {
                 altnames = strv_copy(config->alternative_names);
@@ -539,11 +583,11 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
         if (new_name)
                 strv_remove(altnames, new_name);
-        strv_remove(altnames, old_name);
+        strv_remove(altnames, current_name);
 
-        r = rtnl_get_link_alternative_names(&ctx->rtnl, ifindex, &current_altnames);
+        r = rtnl_get_link_alternative_names(rtnl, ifindex, &current_altnames);
         if (r < 0)
-                log_debug_errno(r, "Failed to get alternative names on %s, ignoring: %m", old_name);
+                log_device_debug_errno(device, r, "Failed to get alternative names, ignoring: %m");
 
         char **p;
         STRV_FOREACH(p, current_altnames)
@@ -551,14 +595,40 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
         strv_uniq(altnames);
         strv_sort(altnames);
-        r = rtnl_set_link_alternative_names(&ctx->rtnl, ifindex, altnames);
-        if (r == -EOPNOTSUPP)
-                log_debug_errno(r, "Could not set AlternativeName= or apply AlternativeNamesPolicy= on %s, ignoring: %m", old_name);
-        else if (r < 0)
-                return log_warning_errno(r, "Could not set AlternativeName= or apply AlternativeNamesPolicy= on %s: %m", old_name);
+        r = rtnl_set_link_alternative_names(rtnl, ifindex, altnames);
+        if (r < 0)
+                log_device_full_errno(device, r == -EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Could not set AlternativeName= or apply AlternativeNamesPolicy=, ignoring: %m");
 
-        *name = new_name;
+        return 0;
+}
 
+int link_config_apply(link_config_ctx *ctx, const link_config *config, sd_device *device, const char **ret_name) {
+        const char *new_name;
+        int r;
+
+        assert(ctx);
+        assert(config);
+        assert(device);
+        assert(ret_name);
+
+        r = link_config_apply_ethtool_settings(&ctx->ethtool_fd, config, device);
+        if (r < 0)
+                return r;
+
+        r = link_config_apply_rtnl_settings(&ctx->rtnl, config, device);
+        if (r < 0)
+                return r;
+
+        r = link_config_generate_new_name(ctx, config, device, &new_name);
+        if (r < 0)
+                return r;
+
+        r = link_config_apply_alternative_names(&ctx->rtnl, config, device, new_name);
+        if (r < 0)
+                return r;
+
+        *ret_name = new_name;
         return 0;
 }
 
