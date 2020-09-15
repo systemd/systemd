@@ -468,6 +468,10 @@ static int automount_send_ready(Automount *a, Set *tokens, int status) {
         if (set_isempty(tokens))
                 return 0;
 
+        r = open_dev_autofs(UNIT(a)->manager);
+        if (r < 0)
+                return r;
+
         ioctl_fd = open_ioctl_fd(UNIT(a)->manager->dev_autofs_fd, a->where, a->dev_id);
         if (ioctl_fd < 0)
                 return ioctl_fd;
