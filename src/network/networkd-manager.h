@@ -9,6 +9,7 @@
 #include "sd-resolve.h"
 
 #include "dhcp-identifier.h"
+#include "firewall-util.h"
 #include "hashmap.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
@@ -74,6 +75,8 @@ struct Manager {
 
         bool dhcp4_prefix_root_cannot_set_table:1;
         bool bridge_mdb_on_master_not_supported:1;
+
+        FirewallContext *fw_ctx;
 };
 
 int manager_new(Manager **ret);

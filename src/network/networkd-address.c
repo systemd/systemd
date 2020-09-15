@@ -282,7 +282,7 @@ static int address_set_masquerade(Address *address, bool add) {
         if (r < 0)
                 return r;
 
-        r = fw_add_masquerade(add, AF_INET, &masked, address->prefixlen);
+        r = fw_add_masquerade(&address->link->manager->fw_ctx, add, AF_INET, &masked, address->prefixlen);
         if (r < 0)
                 return r;
 

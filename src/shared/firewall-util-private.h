@@ -6,6 +6,17 @@
 
 #include "in-addr-util.h"
 
+enum FirewallBackend {
+        FW_BACKEND_NONE,
+#if HAVE_LIBIPTC
+        FW_BACKEND_IPTABLES,
+#endif
+};
+
+struct FirewallContext {
+        enum FirewallBackend firewall_backend;
+};
+
 #if HAVE_LIBIPTC
 
 int fw_iptables_add_masquerade(
