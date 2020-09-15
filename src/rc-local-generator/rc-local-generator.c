@@ -59,7 +59,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         assert_se(arg_dest = dest);
 
-        if (check_executable(RC_LOCAL_SCRIPT_PATH_START) >= 0) {
+        if (check_executable(RC_LOCAL_PATH) >= 0) {
                 log_debug("Automatically adding rc-local.service.");
 
                 r = add_symlink("rc-local.service", "multi-user.target");
