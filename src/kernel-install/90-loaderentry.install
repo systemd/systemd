@@ -42,9 +42,10 @@ elif [[ -f /usr/lib/os-release ]]; then
     . /usr/lib/os-release
 fi
 
-if ! [[ $PRETTY_NAME ]]; then
-    PRETTY_NAME="Linux $KERNEL_VERSION"
+if [[ $PRETTY_NAME ]]; then
+    PRETTY_NAME="$PRETTY_NAME with "
 fi
+PRETTY_NAME="${PRETTY_NAME}Linux $KERNEL_VERSION"
 
 if [[ -f /etc/kernel/cmdline ]]; then
     read -r -d '' -a BOOT_OPTIONS < /etc/kernel/cmdline
