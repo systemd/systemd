@@ -76,6 +76,12 @@ int in_addr_is_multicast(int family, const union in_addr_union *u) {
         return -EAFNOSUPPORT;
 }
 
+bool in4_addr_is_local_multicast(const struct in_addr *a) {
+        assert(a);
+
+        return (be32toh(a->s_addr) & UINT32_C(0xffffff00)) == UINT32_C(0xe0000000);
+}
+
 bool in4_addr_is_localhost(const struct in_addr *a) {
         assert(a);
 
