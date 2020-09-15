@@ -537,6 +537,9 @@ static void test_filename_is_valid(void) {
         assert_se(!filename_is_valid("/"));
         assert_se(!filename_is_valid("."));
         assert_se(!filename_is_valid(".."));
+        assert_se(!filename_is_valid("bar/foo"));
+        assert_se(!filename_is_valid("bar/foo/"));
+        assert_se(!filename_is_valid("bar//"));
 
         for (i=0; i<FILENAME_MAX+1; i++)
                 foo[i] = 'a';
