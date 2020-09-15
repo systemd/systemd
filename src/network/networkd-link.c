@@ -1261,14 +1261,6 @@ static int link_set_bridge_mdb(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (LIST_IS_EMPTY(link->network->static_mdb_entries))
-                return 0;
-
-        if (!link->network->bridge) {
-                log_link_error(link, "Cannot configure MDB entries on non-bridge port");
-                return 0;
-        }
-
         LIST_FOREACH(static_mdb_entries, mdb_entry, link->network->static_mdb_entries) {
                 r = mdb_entry_configure(link, mdb_entry);
                 if (r < 0)

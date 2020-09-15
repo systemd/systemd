@@ -306,6 +306,14 @@ int network_verify(Network *network) {
                 if (section_is_invalid(fdb->section))
                         fdb_entry_free(fdb);
 
+        if (!LIST_IS_EMPTY(network->static_mdb_entries) && !network->bridge) {
+                log_warning("%s: Cannot configure MDB entries on non-bridge port, ignoring [BridgeMDB] sections.",
+                            network->filename);
+
+                while ((mdb = network->static_mdb_entries))
+                        mdb_entry_free(mdb);
+        }
+
         LIST_FOREACH_SAFE(static_mdb_entries, mdb, mdb_next, network->static_mdb_entries)
                 if (mdb_entry_verify(mdb) < 0)
                         mdb_entry_free(mdb);
