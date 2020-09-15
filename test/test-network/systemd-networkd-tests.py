@@ -2870,6 +2870,8 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         '12-dummy.netdev',
         '26-bridge.netdev',
         '26-bridge-configure-without-carrier.network',
+        '26-bridge-mdb-master.network',
+        '26-bridge-mdb-slave.network',
         '26-bridge-slave-interface-1.network',
         '26-bridge-slave-interface-2.network',
         '26-bridge-vlan-master.network',
@@ -2909,6 +2911,17 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         for i in range(4060, 4095):
             self.assertRegex(output, f'{i}')
         self.assertNotRegex(output, '4095')
+
+    def test_bridge_mdb(self):
+        copy_unit_to_networkd_unit_path('11-dummy.netdev', '26-bridge-mdb-slave.network',
+                                        '26-bridge.netdev', '26-bridge-mdb-master.network')
+        start_networkd()
+        self.wait_online(['test1:enslaved', 'bridge99:degraded'])
+
+        output = check_output('bridge mdb show dev bridge99')
+        print(output)
+        self.assertRegex(output, 'dev bridge99 port test1 grp ff02:aaaa:fee5::1:3 permanent *vid 4064')
+        self.assertRegex(output, 'dev bridge99 port test1 grp 224.0.1.1 permanent *vid 4065')
 
     def test_bridge_property(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
