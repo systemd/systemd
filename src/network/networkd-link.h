@@ -85,6 +85,7 @@ typedef struct Link {
         unsigned tc_messages;
         unsigned sr_iov_messages;
         unsigned enslaving;
+        unsigned bridge_mdb_messages;
 
         Set *addresses;
         Set *addresses_foreign;
@@ -124,6 +125,7 @@ typedef struct Link {
         bool setting_mtu:1;
         bool setting_genmode:1;
         bool ipv6_mtu_set:1;
+        bool bridge_mdb_configured:1;
 
         LIST_HEAD(Address, pool_addresses);
 

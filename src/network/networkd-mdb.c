@@ -94,6 +94,9 @@ static int set_mdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         int r;
 
         assert(link);
+        assert(link->bridge_mdb_messages > 0);
+
+        link->bridge_mdb_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -105,11 +108,16 @@ static int set_mdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
                 return 1;
         }
 
+        if (link->bridge_mdb_messages == 0) {
+                link->bridge_mdb_configured = true;
+                link_check_ready(link);
+        }
+
         return 1;
 }
 
 /* send a request to the kernel to add an MDB entry */
-int mdb_entry_configure(Link *link, MdbEntry *mdb_entry) {
+static int mdb_entry_configure(Link *link, MdbEntry *mdb_entry) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         struct br_mdb_entry entry;
         int r;
@@ -157,6 +165,49 @@ int mdb_entry_configure(Link *link, MdbEntry *mdb_entry) {
         link_ref(link);
 
         return 1;
+}
+
+int link_set_bridge_mdb(Link *link) {
+        MdbEntry *mdb_entry;
+        Link *master;
+        int r;
+
+        assert(link);
+
+        link->bridge_mdb_configured = false;
+
+        if (!link->network)
+                return 0;
+
+        if (!link->network->bridge) {
+                link->bridge_mdb_configured = true;
+                return 0;
+        }
+
+        if (!link_has_carrier(link))
+                return log_link_debug(link, "Link does not have carrier yet, setting MDB entries later.");
+
+        r = link_get(link->manager, link->network->bridge->ifindex, &master);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get Link object for Bridge=%s", link->network->bridge->ifname);
+
+        if (!link_has_carrier(master))
+                return log_link_debug(link, "Bridge interface %s does not have carrier yet, setting MDB entries later.", link->network->bridge->ifname);
+
+        LIST_FOREACH(static_mdb_entries, mdb_entry, link->network->static_mdb_entries) {
+                r = mdb_entry_configure(link, mdb_entry);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to add MDB entry to multicast group database: %m");
+
+                link->bridge_mdb_messages++;
+        }
+
+        if (link->bridge_mdb_messages == 0) {
+                link->bridge_mdb_configured = true;
+                link_check_ready(link);
+        }
+
+        return 0;
 }
 
 /* parse the VLAN Id from config files. */
