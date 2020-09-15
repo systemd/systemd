@@ -75,82 +75,6 @@ static int mdb_entry_new_static(
         return 0;
 }
 
-/* parse the VLAN Id from config files. */
-int config_parse_mdb_vlan_id(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(mdb_entry_free_or_set_invalidp) MdbEntry *mdb_entry = NULL;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = mdb_entry_new_static(network, filename, section_line, &mdb_entry);
-        if (r < 0)
-                return log_oom();
-
-        r = config_parse_vlanid(unit, filename, line, section,
-                                section_line, lvalue, ltype,
-                                rvalue, &mdb_entry->vlan_id, userdata);
-        if (r < 0)
-                return r;
-
-        mdb_entry = NULL;
-
-        return 0;
-}
-
-/* parse the multicast group from config files. */
-int config_parse_mdb_group_address(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(mdb_entry_free_or_set_invalidp) MdbEntry *mdb_entry = NULL;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = mdb_entry_new_static(network, filename, section_line, &mdb_entry);
-        if (r < 0)
-                return log_oom();
-
-        r = in_addr_from_string_auto(rvalue, &mdb_entry->family, &mdb_entry->group_addr);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Cannot parse multicast group address: %m");
-                return 0;
-        }
-
-        mdb_entry = NULL;
-
-        return 0;
-}
-
 /* remove and MDB entry. */
 MdbEntry *mdb_entry_free(MdbEntry *mdb_entry) {
         if (!mdb_entry)
@@ -186,18 +110,6 @@ static int set_mdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         }
 
         return 1;
-}
-
-int mdb_entry_verify(MdbEntry *mdb_entry) {
-        if (section_is_invalid(mdb_entry->section))
-                return -EINVAL;
-
-        if (in_addr_is_multicast(mdb_entry->family, &mdb_entry->group_addr) <= 0) {
-                log_error("No valid MulticastGroupAddress= assignment in this section");
-                return -EINVAL;
-        }
-
-        return 0;
 }
 
 /* send a request to the kernel to add an MDB entry */
@@ -249,4 +161,92 @@ int mdb_entry_configure(Link *link, MdbEntry *mdb_entry) {
         link_ref(link);
 
         return 1;
+}
+
+/* parse the VLAN Id from config files. */
+int config_parse_mdb_vlan_id(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(mdb_entry_free_or_set_invalidp) MdbEntry *mdb_entry = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = mdb_entry_new_static(network, filename, section_line, &mdb_entry);
+        if (r < 0)
+                return log_oom();
+
+        r = config_parse_vlanid(unit, filename, line, section,
+                                section_line, lvalue, ltype,
+                                rvalue, &mdb_entry->vlan_id, userdata);
+        if (r < 0)
+                return r;
+
+        mdb_entry = NULL;
+
+        return 0;
+}
+
+/* parse the multicast group from config files. */
+int config_parse_mdb_group_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(mdb_entry_free_or_set_invalidp) MdbEntry *mdb_entry = NULL;
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = mdb_entry_new_static(network, filename, section_line, &mdb_entry);
+        if (r < 0)
+                return log_oom();
+
+        r = in_addr_from_string_auto(rvalue, &mdb_entry->family, &mdb_entry->group_addr);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Cannot parse multicast group address: %m");
+                return 0;
+        }
+
+        mdb_entry = NULL;
+
+        return 0;
+}
+
+int mdb_entry_verify(MdbEntry *mdb_entry) {
+        if (section_is_invalid(mdb_entry->section))
+                return -EINVAL;
+
+        if (in_addr_is_multicast(mdb_entry->family, &mdb_entry->group_addr) <= 0) {
+                log_error("No valid MulticastGroupAddress= assignment in this section");
+                return -EINVAL;
+        }
+
+        return 0;
 }
