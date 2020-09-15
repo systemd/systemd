@@ -27,7 +27,7 @@ struct DissectedPartition {
         char *mount_options;
 };
 
-enum  {
+typedef enum PartitionDesignator {
         PARTITION_ROOT,
         PARTITION_ROOT_SECONDARY,  /* Secondary architecture */
         PARTITION_HOME,
@@ -41,9 +41,9 @@ enum  {
         PARTITION_VAR,
         _PARTITION_DESIGNATOR_MAX,
         _PARTITION_DESIGNATOR_INVALID = -1
-};
+} PartitionDesignator;
 
-static inline int PARTITION_VERITY_OF(int p) {
+static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
         if (p == PARTITION_ROOT)
                 return PARTITION_ROOT_VERITY;
         if (p == PARTITION_ROOT_SECONDARY)
@@ -87,14 +87,14 @@ struct DissectedImage {
 };
 
 struct MountOptions {
-        int partition_designator;
+        PartitionDesignator partition_designator;
         char *options;
         LIST_FIELDS(MountOptions, mount_options);
 };
 
 MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
-const char* mount_options_from_designator(const MountOptions *options, int designator);
+const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
 
 int probe_filesystem(const char *node, char **ret_fstype);
 int dissect_image(int fd, const void *root_hash, size_t root_hash_size, const char *verity_data, const MountOptions *mount_options, DissectImageFlags flags, DissectedImage **ret);
@@ -114,11 +114,11 @@ DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 int decrypted_image_relinquish(DecryptedImage *d);
 
-const char* partition_designator_to_string(int i) _const_;
-int partition_designator_from_string(const char *name) _pure_;
+const char* partition_designator_to_string(PartitionDesignator d) _const_;
+PartitionDesignator partition_designator_from_string(const char *name) _pure_;
 
 int verity_metadata_load(const char *image, const char *root_hash_path, void **ret_roothash, size_t *ret_roothash_size, char **ret_verity_data, char **ret_roothashsig);
-bool dissected_image_can_do_verity(const DissectedImage *image, unsigned partition_designator);
-bool dissected_image_has_verity(const DissectedImage *image, unsigned partition_designator);
+bool dissected_image_can_do_verity(const DissectedImage *image, PartitionDesignator d);
+bool dissected_image_has_verity(const DissectedImage *image, PartitionDesignator d);
 
 int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image);

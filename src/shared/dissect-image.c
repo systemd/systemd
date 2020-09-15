@@ -325,7 +325,6 @@ int dissect_image(
         int r, generic_nr;
         struct stat st;
         sd_device *q;
-        unsigned i;
 
         assert(fd >= 0);
         assert(ret);
@@ -504,7 +503,8 @@ int dissect_image(
                         continue;
 
                 if (is_gpt) {
-                        int designator = _PARTITION_DESIGNATOR_INVALID, architecture = _ARCHITECTURE_INVALID;
+                        PartitionDesignator designator = _PARTITION_DESIGNATOR_INVALID;
+                        int architecture = _ARCHITECTURE_INVALID;
                         const char *stype, *sid, *fstype = NULL;
                         sd_id128_t type_id, id;
                         bool rw = true;
@@ -866,7 +866,7 @@ int dissect_image(
         b = NULL;
 
         /* Fill in file system types if we don't know them yet. */
-        for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
 
                 if (!p->found)
@@ -894,12 +894,10 @@ int dissect_image(
 }
 
 DissectedImage* dissected_image_unref(DissectedImage *m) {
-        unsigned i;
-
         if (!m)
                 return NULL;
 
-        for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 free(m->partitions[i].fstype);
                 free(m->partitions[i].node);
                 free(m->partitions[i].decrypted_fstype);
@@ -1557,7 +1555,6 @@ int dissected_image_decrypt(
 
 #if HAVE_LIBCRYPTSETUP
         _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
-        unsigned i;
         int r;
 #endif
 
@@ -1585,7 +1582,7 @@ int dissected_image_decrypt(
         if (!d)
                 return -ENOMEM;
 
-        for (i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
                 int k;
 
@@ -2039,14 +2036,14 @@ int dissect_image_and_warn(
         }
 }
 
-bool dissected_image_can_do_verity(const DissectedImage *image, unsigned partition_designator) {
+bool dissected_image_can_do_verity(const DissectedImage *image, PartitionDesignator partition_designator) {
         if (image->single_file_system)
                 return partition_designator == PARTITION_ROOT && image->can_verity;
 
         return PARTITION_VERITY_OF(partition_designator) >= 0;
 }
 
-bool dissected_image_has_verity(const DissectedImage *image, unsigned partition_designator) {
+bool dissected_image_has_verity(const DissectedImage *image, PartitionDesignator partition_designator) {
         int k;
 
         if (image->single_file_system)
@@ -2068,7 +2065,7 @@ MountOptions* mount_options_free_all(MountOptions *options) {
         return NULL;
 }
 
-const char* mount_options_from_designator(const MountOptions *options, int designator) {
+const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator) {
         const MountOptions *m;
 
         LIST_FOREACH(mount_options, m, options)
@@ -2164,4 +2161,4 @@ static const char *const partition_designator_table[] = {
         [PARTITION_VAR] = "var",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(partition_designator, int);
+DEFINE_STRING_TABLE_LOOKUP(partition_designator, PartitionDesignator);

@@ -456,7 +456,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         (void) table_set_empty_string(t, "-");
         (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
 
-        for (unsigned i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
 
                 if (!p->found)
