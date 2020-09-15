@@ -942,32 +942,51 @@ static int mount_images(const MountEntry *m) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_free_ void *root_hash_decoded = NULL;
-        _cleanup_free_ char *verity_data = NULL, *hash_sig = NULL;
-        DissectImageFlags dissect_image_flags = m->read_only ? DISSECT_IMAGE_READ_ONLY : 0;
-        size_t root_hash_size = 0;
+        _cleanup_(verity_settings_done) VeritySettings verity = {};
+        DissectImageFlags dissect_image_flags;
         int r;
 
-        r = verity_metadata_load(mount_entry_source(m), NULL, &root_hash_decoded, &root_hash_size, &verity_data, &hash_sig);
+        assert(m);
+
+        r = verity_settings_load(&verity, mount_entry_source(m), NULL, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to load root hash: %m");
-        dissect_image_flags |= verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
 
-        r = loop_device_make_by_path(mount_entry_source(m),
-                                     m->read_only ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
-                                     verity_data ? 0 : LO_FLAGS_PARTSCAN,
-                                     &loop_device);
+        dissect_image_flags =
+                (m->read_only ? DISSECT_IMAGE_READ_ONLY : 0) |
+                (verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0);
+
+        r = loop_device_make_by_path(
+                        mount_entry_source(m),
+                        m->read_only ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
+                        verity.data_path ? 0 : LO_FLAGS_PARTSCAN,
+                        &loop_device);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create loop device for image: %m");
 
-        r = dissect_image(loop_device->fd, root_hash_decoded, root_hash_size, verity_data, m->image_options, dissect_image_flags, &dissected_image);
+        r = dissect_image(
+                        loop_device->fd,
+                        &verity,
+                        m->image_options,
+                        dissect_image_flags,
+                        &dissected_image);
         /* No partition table? Might be a single-filesystem image, try again */
-        if (!verity_data && r < 0 && r == -ENOPKG)
-                 r = dissect_image(loop_device->fd, root_hash_decoded, root_hash_size, verity_data, m->image_options, dissect_image_flags|DISSECT_IMAGE_NO_PARTITION_TABLE, &dissected_image);
+        if (!verity.data_path && r == -ENOPKG)
+                 r = dissect_image(
+                                 loop_device->fd,
+                                 &verity,
+                                 m->image_options,
+                                 dissect_image_flags|DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                 &dissected_image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to dissect image: %m");
 
-        r = dissected_image_decrypt(dissected_image, NULL, root_hash_decoded, root_hash_size, verity_data, hash_sig, NULL, 0, dissect_image_flags, &decrypted_image);
+        r = dissected_image_decrypt(
+                        dissected_image,
+                        NULL,
+                        &verity,
+                        dissect_image_flags,
+                        &decrypted_image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
 
@@ -1374,6 +1393,60 @@ static bool home_read_only(
         return false;
 }
 
+static int verity_settings_prepare(
+                VeritySettings *verity,
+                const char *root_image,
+                const void *root_hash,
+                size_t root_hash_size,
+                const char *root_hash_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
+                const char *root_hash_sig_path,
+                const char *verity_data_path) {
+
+        int r;
+
+        assert(verity);
+
+        if (root_hash) {
+                void *d;
+
+                d = memdup(root_hash, root_hash_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash, d);
+                verity->root_hash_size = root_hash_size;
+        }
+
+        if (root_hash_sig) {
+                void *d;
+
+                d = memdup(root_hash_sig, root_hash_sig_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash_sig, d);
+                verity->root_hash_sig_size = root_hash_sig_size;
+        }
+
+        if (verity_data_path) {
+                r = free_and_strdup(&verity->data_path, verity_data_path);
+                if (r < 0)
+                        return r;
+        }
+
+        r = verity_settings_load(
+                        verity,
+                        root_image,
+                        root_hash_path,
+                        root_hash_sig_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load root hash: %m");
+
+        return 0;
+}
+
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
@@ -1400,20 +1473,19 @@ int setup_namespace(
                 const void *root_hash_sig,
                 size_t root_hash_sig_size,
                 const char *root_hash_sig_path,
-                const char *root_verity,
+                const char *verity_data_path,
                 DissectImageFlags dissect_image_flags,
                 char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_free_ void *root_hash_decoded = NULL;
-        _cleanup_free_ char *verity_data = NULL, *hash_sig_path = NULL;
+        _cleanup_(verity_settings_done) VeritySettings verity = {};
         MountEntry *m = NULL, *mounts = NULL;
-        size_t n_mounts;
         bool require_prefix = false;
         const char *root;
-        int r = 0;
+        size_t n_mounts;
+        int r;
 
         assert(ns_info);
 
@@ -1432,43 +1504,40 @@ int setup_namespace(
                     strv_isempty(read_write_paths))
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
-                r = loop_device_make_by_path(root_image,
-                                             FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
-                                             LO_FLAGS_PARTSCAN,
-                                             &loop_device);
+                r = verity_settings_prepare(
+                                &verity,
+                                root_image,
+                                root_hash, root_hash_size, root_hash_path,
+                                root_hash_sig, root_hash_sig_size, root_hash_sig_path,
+                                verity_data_path);
+                if (r < 0)
+                        return r;
+
+                SET_FLAG(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE, verity.data_path);
+
+                r = loop_device_make_by_path(
+                                root_image,
+                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
+                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                &loop_device);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
-                r = verity_metadata_load(root_image,
-                                         root_hash_path,
-                                         root_hash ? NULL : &root_hash_decoded,
-                                         root_hash ? NULL : &root_hash_size,
-                                         root_verity ? NULL : &verity_data,
-                                         root_hash_sig || root_hash_sig_path ? NULL : &hash_sig_path);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to load root hash: %m");
-                dissect_image_flags |= root_verity || verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
-
-                r = dissect_image(loop_device->fd,
-                                  root_hash ?: root_hash_decoded,
-                                  root_hash_size,
-                                  root_verity ?: verity_data,
-                                  root_image_options,
-                                  dissect_image_flags,
-                                  &dissected_image);
+                r = dissect_image(
+                                loop_device->fd,
+                                &verity,
+                                root_image_options,
+                                dissect_image_flags,
+                                &dissected_image);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to dissect image: %m");
 
-                r = dissected_image_decrypt(dissected_image,
-                                            NULL,
-                                            root_hash ?: root_hash_decoded,
-                                            root_hash_size,
-                                            root_verity ?: verity_data,
-                                            root_hash_sig_path ?: hash_sig_path,
-                                            root_hash_sig,
-                                            root_hash_sig_size,
-                                            dissect_image_flags,
-                                            &decrypted_image);
+                r = dissected_image_decrypt(
+                                dissected_image,
+                                NULL,
+                                &verity,
+                                dissect_image_flags,
+                                &decrypted_image);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decrypt dissected image: %m");
         }

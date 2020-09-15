@@ -199,12 +199,7 @@ static bool arg_notify_ready = false;
 static bool arg_use_cgns = true;
 static unsigned long arg_clone_ns_flags = CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS;
 static MountSettingsMask arg_mount_settings = MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_TMPFS_TMP;
-static void *arg_root_hash = NULL;
-static char *arg_verity_data = NULL;
-static char *arg_root_hash_sig_path = NULL;
-static void *arg_root_hash_sig = NULL;
-static size_t arg_root_hash_sig_size = 0;
-static size_t arg_root_hash_size = 0;
+static VeritySettings arg_verity_settings = {};
 static char **arg_syscall_allow_list = NULL;
 static char **arg_syscall_deny_list = NULL;
 #if HAVE_SECCOMP
@@ -248,10 +243,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_oci_bundle, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property_message, sd_bus_message_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_verity_data, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_root_hash_sig_path, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_root_hash_sig, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 STATIC_DESTRUCTOR_REGISTER(arg_syscall_allow_list, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_syscall_deny_list, strv_freep);
 #if HAVE_SECCOMP
@@ -672,6 +664,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PRIVATE_USERS_CHOWN,
                 ARG_NOTIFY_READY,
                 ARG_ROOT_HASH,
+                ARG_ROOT_HASH_SIG,
+                ARG_VERITY_DATA,
                 ARG_SYSTEM_CALL_FILTER,
                 ARG_RLIMIT,
                 ARG_HOSTNAME,
@@ -684,8 +678,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PIPE,
                 ARG_OCI_BUNDLE,
                 ARG_NO_PAGER,
-                ARG_VERITY_DATA,
-                ARG_ROOT_HASH_SIG,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
         };
@@ -743,6 +735,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pivot-root",             required_argument, NULL, ARG_PIVOT_ROOT             },
                 { "notify-ready",           required_argument, NULL, ARG_NOTIFY_READY           },
                 { "root-hash",              required_argument, NULL, ARG_ROOT_HASH              },
+                { "root-hash-sig",          required_argument, NULL, ARG_ROOT_HASH_SIG          },
+                { "verity-data",            required_argument, NULL, ARG_VERITY_DATA            },
                 { "system-call-filter",     required_argument, NULL, ARG_SYSTEM_CALL_FILTER     },
                 { "rlimit",                 required_argument, NULL, ARG_RLIMIT                 },
                 { "oom-score-adjust",       required_argument, NULL, ARG_OOM_SCORE_ADJUST       },
@@ -753,8 +747,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pipe",                   no_argument,       NULL, ARG_PIPE                   },
                 { "oci-bundle",             required_argument, NULL, ARG_OCI_BUNDLE             },
                 { "no-pager",               no_argument,       NULL, ARG_NO_PAGER               },
-                { "verity-data",            required_argument, NULL, ARG_VERITY_DATA            },
-                { "root-hash-sig",          required_argument, NULL, ARG_ROOT_HASH_SIG          },
                 { "set-credential",         required_argument, NULL, ARG_SET_CREDENTIAL         },
                 { "load-credential",        required_argument, NULL, ARG_LOAD_CREDENTIAL        },
                 {}
@@ -1328,53 +1320,46 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_HASH: {
-                        void *k;
+                        _cleanup_free_ void *k = NULL;
                         size_t l;
 
                         r = unhexmem(optarg, strlen(optarg), &k, &l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash: %s", optarg);
-                        if (l < sizeof(sd_id128_t)) {
-                                free(k);
+                        if (l < sizeof(sd_id128_t))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash must be at least 128bit long: %s", optarg);
-                        }
 
-                        free(arg_root_hash);
-                        arg_root_hash = k;
-                        arg_root_hash_size = l;
+                        free_and_replace(arg_verity_settings.root_hash, k);
+                        arg_verity_settings.root_hash_size = l;
                         break;
                 }
 
-                case ARG_VERITY_DATA:
-                        r = parse_path_argument_and_warn(optarg, false, &arg_verity_data);
-                        if (r < 0)
-                                return r;
-                        break;
-
                 case ARG_ROOT_HASH_SIG: {
                         char *value;
+                        size_t l;
+                        void *p;
 
                         if ((value = startswith(optarg, "base64:"))) {
-                                void *p;
-                                size_t l;
-
                                 r = unbase64mem(value, strlen(value), &p, &l);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
 
-                                free_and_replace(arg_root_hash_sig, p);
-                                arg_root_hash_sig_size = l;
-                                arg_root_hash_sig_path = mfree(arg_root_hash_sig_path);
                         } else {
-                                r = parse_path_argument_and_warn(optarg, false, &arg_root_hash_sig_path);
+                                r = read_full_file(optarg, (char**) &p, &l);
                                 if (r < 0)
-                                        return r;
-                                arg_root_hash_sig = mfree(arg_root_hash_sig);
-                                arg_root_hash_sig_size = 0;
+                                        return log_error_errno(r, "Failed parse root hash signature file '%s': %m", optarg);
                         }
 
+                        free_and_replace(arg_verity_settings.root_hash_sig, p);
+                        arg_verity_settings.root_hash_sig_size = l;
                         break;
                 }
+
+                case ARG_VERITY_DATA:
+                        r = parse_path_argument_and_warn(optarg, false, &arg_verity_settings.data_path);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_SYSTEM_CALL_FILTER: {
                         bool negative;
@@ -5375,14 +5360,16 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        r = verity_metadata_load(arg_image, NULL, arg_root_hash ? NULL : &arg_root_hash, &arg_root_hash_size,
-                                        arg_verity_data ? NULL : &arg_verity_data,
-                                        arg_root_hash_sig_path || arg_root_hash_sig ? NULL : &arg_root_hash_sig_path);
+                        r = verity_settings_load(
+                                        &arg_verity_settings,
+                                        arg_image, NULL, NULL);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to read verity artefacts for %s: %m", arg_image);
                                 goto finish;
                         }
-                        dissect_image_flags |= arg_verity_data ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0;
+
+                        if (arg_verity_settings.data_path)
+                                dissect_image_flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
                 }
 
                 if (!mkdtemp(tmprootdir)) {
@@ -5398,7 +5385,11 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = loop_device_make_by_path(arg_image, arg_read_only ? O_RDONLY : O_RDWR, LO_FLAGS_PARTSCAN, &loop);
+                r = loop_device_make_by_path(
+                                arg_image,
+                                arg_read_only ? O_RDONLY : O_RDWR,
+                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                &loop);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set up loopback block device: %m");
                         goto finish;
@@ -5407,8 +5398,7 @@ static int run(int argc, char *argv[]) {
                 r = dissect_image_and_warn(
                                 loop->fd,
                                 arg_image,
-                                arg_root_hash, arg_root_hash_size,
-                                arg_verity_data,
+                                &arg_verity_settings,
                                 NULL,
                                 dissect_image_flags,
                                 &dissected_image);
@@ -5425,10 +5415,15 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                if (!arg_root_hash && dissected_image->can_verity)
+                if (!arg_verity_settings.root_hash && dissected_image->can_verity)
                         log_notice("Note: image %s contains verity information, but no root hash specified! Proceeding without integrity checking.", arg_image);
 
-                r = dissected_image_decrypt_interactively(dissected_image, NULL, arg_root_hash, arg_root_hash_size, arg_verity_data, arg_root_hash_sig_path, arg_root_hash_sig, arg_root_hash_sig_size, 0, &decrypted_image);
+                r = dissected_image_decrypt_interactively(
+                                dissected_image,
+                                NULL,
+                                &arg_verity_settings,
+                                0,
+                                &decrypted_image);
                 if (r < 0)
                         goto finish;
 
