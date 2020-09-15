@@ -58,6 +58,10 @@ static void test_hash_password_full(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
+#if defined(__powerpc__) && !defined(XCRYPT_VERSION_MAJOR)
+        return log_tests_skipped("crypt_r() causes a buffer overflow on ppc64el, see https://github.com/systemd/systemd/pull/16981#issuecomment-691203787");
+#endif
+
         test_hash_password_full();
 
         return 0;
