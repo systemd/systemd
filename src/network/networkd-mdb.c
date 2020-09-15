@@ -239,9 +239,30 @@ int mdb_entry_verify(MdbEntry *mdb_entry) {
         if (section_is_invalid(mdb_entry->section))
                 return -EINVAL;
 
-        if (in_addr_is_multicast(mdb_entry->family, &mdb_entry->group_addr) <= 0) {
-                log_error("No valid MulticastGroupAddress= assignment in this section");
-                return -EINVAL;
+        if (mdb_entry->family == AF_UNSPEC)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: [BridgeMDB] section without MulticastGroupAddress= field configured. "
+                                         "Ignoring [BridgeMDB] section from line %u.",
+                                         mdb_entry->section->filename, mdb_entry->section->line);
+
+        if (!in_addr_is_multicast(mdb_entry->family, &mdb_entry->group_addr))
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: MulticastGroupAddress= is not a multicast address. "
+                                         "Ignoring [BridgeMDB] section from line %u.",
+                                         mdb_entry->section->filename, mdb_entry->section->line);
+
+        if (mdb_entry->family == AF_INET) {
+                if (in4_addr_is_local_multicast(&mdb_entry->group_addr.in))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: MulticastGroupAddress= is a local multicast address. "
+                                                 "Ignoring [BridgeMDB] section from line %u.",
+                                                 mdb_entry->section->filename, mdb_entry->section->line);
+        } else {
+                if (in6_addr_is_link_local_all_nodes(&mdb_entry->group_addr.in6))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: MulticastGroupAddress= is the multicast all nodes address. "
+                                                 "Ignoring [BridgeMDB] section from line %u.",
+                                                 mdb_entry->section->filename, mdb_entry->section->line);
         }
 
         return 0;
