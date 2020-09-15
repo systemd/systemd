@@ -304,9 +304,7 @@ static void check_partition_flags(
 
 int dissect_image(
                 int fd,
-                const void *root_hash,
-                size_t root_hash_size,
-                const char *verity_data,
+                const VeritySettings *verity,
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
@@ -328,7 +326,7 @@ int dissect_image(
 
         assert(fd >= 0);
         assert(ret);
-        assert(root_hash || root_hash_size == 0);
+        assert(!verity || verity->root_hash || verity->root_hash_size == 0);
         assert(!((flags & DISSECT_IMAGE_GPT_ONLY) && (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)));
 
         /* Probes a disk image, and returns information about what it found in *ret.
@@ -336,16 +334,16 @@ int dissect_image(
          * Returns -ENOPKG if no suitable partition table or file system could be found.
          * Returns -EADDRNOTAVAIL if a root hash was specified but no matching root/verity partitions found. */
 
-        if (root_hash) {
+        if (verity && verity->root_hash) {
                 /* If a root hash is supplied, then we use the root partition that has a UUID that match the first
                  * 128bit of the root hash. And we use the verity partition that has a UUID that match the final
                  * 128bit. */
 
-                if (root_hash_size < sizeof(sd_id128_t))
+                if (verity->root_hash_size < sizeof(sd_id128_t))
                         return -EINVAL;
 
-                memcpy(&root_uuid, root_hash, sizeof(sd_id128_t));
-                memcpy(&verity_uuid, (const uint8_t*) root_hash + root_hash_size - sizeof(sd_id128_t), sizeof(sd_id128_t));
+                memcpy(&root_uuid, verity->root_hash, sizeof(sd_id128_t));
+                memcpy(&verity_uuid, (const uint8_t*) verity->root_hash + verity->root_hash_size - sizeof(sd_id128_t), sizeof(sd_id128_t));
 
                 if (sd_id128_is_null(root_uuid))
                         return -EINVAL;
@@ -416,8 +414,8 @@ int dissect_image(
                                 return r;
 
                         m->single_file_system = true;
-                        m->verity = root_hash && verity_data;
-                        m->can_verity = !!verity_data;
+                        m->verity = verity && verity->root_hash && verity->data_path;
+                        m->can_verity = verity && verity->data_path;
 
                         options = mount_options_from_designator(mount_options, PARTITION_ROOT);
                         if (options) {
@@ -815,7 +813,7 @@ int dissect_image(
 
                         /* If the root hash was set, then we won't fall back to a generic node, because the
                          * root hash decides. */
-                        if (root_hash)
+                        if (verity && verity->root_hash)
                                 return -EADDRNOTAVAIL;
 
                         /* If we didn't find a generic node, then we can't fix this up either */
@@ -846,7 +844,7 @@ int dissect_image(
                 }
         }
 
-        if (root_hash) {
+        if (verity && verity->root_hash) {
                 if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
                         return -EADDRNOTAVAIL;
 
@@ -1333,14 +1331,20 @@ static int decrypt_partition(
         return 0;
 }
 
-static int verity_can_reuse(const void *root_hash, size_t root_hash_size, bool has_sig, const char *name, struct crypt_device **ret_cd) {
+static int verity_can_reuse(
+                const VeritySettings *verity,
+                const char *name,
+                struct crypt_device **ret_cd) {
+
         /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
         _cleanup_free_ char *root_hash_existing = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         struct crypt_params_verity crypt_params = {};
-        size_t root_hash_existing_size = root_hash_size;
+        size_t root_hash_existing_size;
         int r;
 
+        assert(verity);
+        assert(name);
         assert(ret_cd);
 
         r = sym_crypt_init_by_name(&cd, name);
@@ -1351,20 +1355,23 @@ static int verity_can_reuse(const void *root_hash, size_t root_hash_size, bool h
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
 
-        root_hash_existing = malloc0(root_hash_size);
+        root_hash_existing_size = verity->root_hash_size;
+        root_hash_existing = malloc0(root_hash_existing_size);
         if (!root_hash_existing)
                 return -ENOMEM;
 
         r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing, &root_hash_existing_size, NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_volume_key_get failed: %m");
-        if (root_hash_size != root_hash_existing_size || memcmp(root_hash_existing, root_hash, root_hash_size) != 0)
+        if (verity->root_hash_size != root_hash_existing_size ||
+            memcmp(root_hash_existing, verity->root_hash, verity->root_hash_size) != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
+
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-        /* Ensure that, if signatures are supported, we only reuse the device if the previous mount
-         * used the same settings, so that a previous unsigned mount will not be reused if the user
-         * asks to use signing for the new one, and viceversa. */
-        if (has_sig != !!(crypt_params.flags & CRYPT_VERITY_ROOT_HASH_SIGNATURE))
+        /* Ensure that, if signatures are supported, we only reuse the device if the previous mount used the
+         * same settings, so that a previous unsigned mount will not be reused if the user asks to use
+         * signing for the new one, and viceversa. */
+        if (!!verity->root_hash_sig != !!(crypt_params.flags & CRYPT_VERITY_ROOT_HASH_SIGNATURE))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
 #endif
 
@@ -1384,29 +1391,24 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
 static int verity_partition(
                 DissectedPartition *m,
                 DissectedPartition *v,
-                const void *root_hash,
-                size_t root_hash_size,
-                const char *verity_data,
-                const char *root_hash_sig_path,
-                const void *root_hash_sig,
-                size_t root_hash_sig_size,
+                const VeritySettings *verity,
                 DissectImageFlags flags,
                 DecryptedImage *d) {
 
-        _cleanup_free_ char *node = NULL, *name = NULL, *hash_sig_from_file = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
+        _cleanup_free_ char *node = NULL, *name = NULL;
         int r;
 
         assert(m);
-        assert(v || verity_data);
+        assert(v || (verity && verity->data_path));
 
-        if (!root_hash)
+        if (!verity || !verity->root_hash)
                 return 0;
 
         if (!m->found || !m->node || !m->fstype)
                 return 0;
-        if (!verity_data) {
+        if (!verity->data_path) {
                 if (!v->found || !v->node || !v->fstype)
                         return 0;
 
@@ -1422,7 +1424,7 @@ static int verity_partition(
                 /* Use the roothash, which is unique per volume, as the device node name, so that it can be reused */
                 _cleanup_free_ char *root_hash_encoded = NULL;
 
-                root_hash_encoded = hexmem(root_hash, root_hash_size);
+                root_hash_encoded = hexmem(verity->root_hash, verity->root_hash_size);
                 if (!root_hash_encoded)
 
                         return -ENOMEM;
@@ -1432,13 +1434,7 @@ static int verity_partition(
         if (r < 0)
                 return r;
 
-        if (!root_hash_sig && root_hash_sig_path) {
-                r = read_full_file_full(AT_FDCWD, root_hash_sig_path, 0, &hash_sig_from_file, &root_hash_sig_size);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sym_crypt_init(&cd, verity_data ?: v->node);
+        r = sym_crypt_init(&cd, verity->data_path ?: v->node);
         if (r < 0)
                 return r;
 
@@ -1459,20 +1455,33 @@ static int verity_partition(
          * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
-                if (root_hash_sig || hash_sig_from_file) {
+                if (verity->root_hash_sig) {
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-                        r = sym_crypt_activate_by_signed_key(cd, name, root_hash, root_hash_size, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, CRYPT_ACTIVATE_READONLY);
+                        r = sym_crypt_activate_by_signed_key(
+                                        cd,
+                                        name,
+                                        verity->root_hash,
+                                        verity->root_hash_size,
+                                        verity->root_hash_sig,
+                                        verity->root_hash_sig_size,
+                                        CRYPT_ACTIVATE_READONLY);
 #else
                         r = log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()");
 #endif
                 } else
-                        r = sym_crypt_activate_by_volume_key(cd, name, root_hash, root_hash_size, CRYPT_ACTIVATE_READONLY);
+                        r = sym_crypt_activate_by_volume_key(
+                                        cd,
+                                        name,
+                                        verity->root_hash,
+                                        verity->root_hash_size,
+                                        CRYPT_ACTIVATE_READONLY);
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
-                 * Improvements in libcrypsetup can ensure this never happens: https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
+                 * Improvements in libcrypsetup can ensure this never happens:
+                 * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                        return verity_partition(m, v, root_hash, root_hash_size, verity_data, NULL, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                        return verity_partition(m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
                 if (!IN_SET(r,
                             0, /* Success */
                             -EEXIST, /* Volume is already open and ready to be used */
@@ -1495,10 +1504,10 @@ static int verity_partition(
                                 }
                         }
 
-                        r = verity_can_reuse(root_hash, root_hash_size, !!root_hash_sig || !!hash_sig_from_file, name, &existing_cd);
+                        r = verity_can_reuse(verity, name, &existing_cd);
                         /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                         if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                                return verity_partition(m, v, root_hash, root_hash_size, verity_data, NULL, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                                return verity_partition(m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
                         if (!IN_SET(r, 0, -ENODEV, -ENOENT, -EBUSY))
                                 return log_debug_errno(r, "Checking whether existing verity device %s can be reused failed: %m", node);
                         if (r == 0) {
@@ -1526,7 +1535,7 @@ static int verity_partition(
         /* An existing verity device was reported by libcryptsetup/libdevmapper, but we can't use it at this time.
          * Fall back to activating it with a unique device name. */
         if (r != 0 && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
-                return verity_partition(m, v, root_hash, root_hash_size, verity_data, NULL, root_hash_sig ?: hash_sig_from_file, root_hash_sig_size, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                return verity_partition(m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
 
         /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
         restore_deferred_remove = mfree(restore_deferred_remove);
@@ -1544,12 +1553,7 @@ static int verity_partition(
 int dissected_image_decrypt(
                 DissectedImage *m,
                 const char *passphrase,
-                const void *root_hash,
-                size_t root_hash_size,
-                const char *verity_data,
-                const char *root_hash_sig_path,
-                const void *root_hash_sig,
-                size_t root_hash_sig_size,
+                const VeritySettings *verity,
                 DissectImageFlags flags,
                 DecryptedImage **ret) {
 
@@ -1559,7 +1563,7 @@ int dissected_image_decrypt(
 #endif
 
         assert(m);
-        assert(root_hash || root_hash_size == 0);
+        assert(!verity || verity->root_hash || verity->root_hash_size == 0);
 
         /* Returns:
          *
@@ -1569,7 +1573,7 @@ int dissected_image_decrypt(
          *      -EKEYREJECTED → Passed key was not correct
          */
 
-        if (root_hash && root_hash_size < sizeof(sd_id128_t))
+        if (verity && verity->root_hash && verity->root_hash_size < sizeof(sd_id128_t))
                 return -EINVAL;
 
         if (!m->encrypted && !m->verity) {
@@ -1595,7 +1599,7 @@ int dissected_image_decrypt(
 
                 k = PARTITION_VERITY_OF(i);
                 if (k >= 0) {
-                        r = verity_partition(p, m->partitions + k, root_hash, root_hash_size, verity_data, root_hash_sig_path, root_hash_sig, root_hash_sig_size, flags | DISSECT_IMAGE_VERITY_SHARE, d);
+                        r = verity_partition(p, m->partitions + k, verity, flags | DISSECT_IMAGE_VERITY_SHARE, d);
                         if (r < 0)
                                 return r;
                 }
@@ -1618,12 +1622,7 @@ int dissected_image_decrypt(
 int dissected_image_decrypt_interactively(
                 DissectedImage *m,
                 const char *passphrase,
-                const void *root_hash,
-                size_t root_hash_size,
-                const char *verity_data,
-                const char *root_hash_sig_path,
-                const void *root_hash_sig,
-                size_t root_hash_sig_size,
+                const VeritySettings *verity,
                 DissectImageFlags flags,
                 DecryptedImage **ret) {
 
@@ -1634,7 +1633,7 @@ int dissected_image_decrypt_interactively(
                 n--;
 
         for (;;) {
-                r = dissected_image_decrypt(m, passphrase, root_hash, root_hash_size, verity_data, root_hash_sig_path, root_hash_sig, root_hash_sig_size, flags, ret);
+                r = dissected_image_decrypt(m, passphrase, verity, flags, ret);
                 if (r >= 0)
                         return r;
                 if (r == -EKEYREJECTED)
@@ -1686,126 +1685,138 @@ int decrypted_image_relinquish(DecryptedImage *d) {
         return 0;
 }
 
-int verity_metadata_load(
-                const char *image,
-                const char *root_hash_path,
-                void **ret_roothash,
-                size_t *ret_roothash_size,
-                char **ret_verity_data,
-                char **ret_roothashsig) {
-
-        _cleanup_free_ char *verity_filename = NULL, *roothashsig_filename = NULL;
-        _cleanup_free_ void *roothash_decoded = NULL;
-        size_t roothash_decoded_size = 0;
-        int r;
+static char *build_auxiliary_path(const char *image, const char *suffix) {
+        const char *e;
+        char *n;
 
         assert(image);
+        assert(suffix);
 
-        if (is_device_path(image)) {
-                /* If we are asked to load the root hash for a device node, exit early */
-                if (ret_roothash)
-                        *ret_roothash = NULL;
-                if (ret_roothash_size)
-                        *ret_roothash_size = 0;
-                if (ret_verity_data)
-                        *ret_verity_data = NULL;
-                if (ret_roothashsig)
-                        *ret_roothashsig = NULL;
+        e = endswith(image, ".raw");
+        if (!e)
+                return strjoin(e, suffix);
+
+        n = new(char, e - image + strlen(suffix) + 1);
+        if (!n)
+                return NULL;
+
+        strcpy(mempcpy(n, image, e - image), suffix);
+        return n;
+}
+
+void verity_settings_done(VeritySettings *v) {
+        assert(v);
+
+        v->root_hash = mfree(v->root_hash);
+        v->root_hash_size = 0;
+
+        v->root_hash_sig = mfree(v->root_hash_sig);
+        v->root_hash_sig_size = 0;
+
+        v->data_path = mfree(v->data_path);
+}
+
+int verity_settings_load(
+                VeritySettings *verity,
+                const char *image,
+                const char *root_hash_path,
+                const char *root_hash_sig_path) {
+
+        _cleanup_free_ void *root_hash = NULL, *root_hash_sig = NULL;
+        size_t root_hash_size = 0, root_hash_sig_size = 0;
+        _cleanup_free_ char *verity_data_path = NULL;
+        int r;
+
+        assert(verity);
+        assert(image);
+
+        /* If we are asked to load the root hash for a device node, exit early */
+        if (is_device_path(image))
                 return 0;
-        }
 
-        if (ret_verity_data) {
-                char *e;
+        /* We only fill in what isn't already filled in */
 
-                verity_filename = new(char, strlen(image) + STRLEN(".verity") + 1);
-                if (!verity_filename)
-                        return -ENOMEM;
-                strcpy(verity_filename, image);
-                e = endswith(verity_filename, ".raw");
-                if (e)
-                        strcpy(e, ".verity");
-                else
-                        strcat(verity_filename, ".verity");
-
-                r = access(verity_filename, F_OK);
-                if (r < 0) {
-                        if (errno != ENOENT)
-                                return -errno;
-                        verity_filename = mfree(verity_filename);
-                }
-        }
-
-        if (ret_roothashsig) {
-                char *e;
-
-                /* Follow naming convention recommended by the relevant RFC:
-                 * https://tools.ietf.org/html/rfc5751#section-3.2.1 */
-                roothashsig_filename = new(char, strlen(image) + STRLEN(".roothash.p7s") + 1);
-                if (!roothashsig_filename)
-                        return -ENOMEM;
-                strcpy(roothashsig_filename, image);
-                e = endswith(roothashsig_filename, ".raw");
-                if (e)
-                        strcpy(e, ".roothash.p7s");
-                else
-                        strcat(roothashsig_filename, ".roothash.p7s");
-
-                r = access(roothashsig_filename, R_OK);
-                if (r < 0) {
-                        if (errno != ENOENT)
-                                return -errno;
-                        roothashsig_filename = mfree(roothashsig_filename);
-                }
-        }
-
-        if (ret_roothash) {
+        if (!verity->root_hash) {
                 _cleanup_free_ char *text = NULL;
-                assert(ret_roothash_size);
 
                 if (root_hash_path) {
-                        /* We have the path to a roothash to load and decode, eg: RootHash=/foo/bar.roothash */
                         r = read_one_line_file(root_hash_path, &text);
                         if (r < 0)
                                 return r;
                 } else {
                         r = getxattr_malloc(image, "user.verity.roothash", &text, true);
                         if (r < 0) {
-                                char *fn, *e, *n;
+                                _cleanup_free_ char *p = NULL;
 
-                                if (!IN_SET(r, -ENODATA, -EOPNOTSUPP, -ENOENT))
+                                if (!IN_SET(r, -ENODATA, -ENOENT) && !ERRNO_IS_NOT_SUPPORTED(r))
                                         return r;
 
-                                fn = newa(char, strlen(image) + STRLEN(".roothash") + 1);
-                                n = stpcpy(fn, image);
-                                e = endswith(fn, ".raw");
-                                if (e)
-                                        n = e;
+                                p = build_auxiliary_path(image, ".roothash");
+                                if (!p)
+                                        return -ENOMEM;
 
-                                strcpy(n, ".roothash");
-
-                                r = read_one_line_file(fn, &text);
+                                r = read_one_line_file(p, &text);
                                 if (r < 0 && r != -ENOENT)
                                         return r;
                         }
                 }
 
                 if (text) {
-                        r = unhexmem(text, strlen(text), &roothash_decoded, &roothash_decoded_size);
+                        r = unhexmem(text, strlen(text), &root_hash, &root_hash_size);
                         if (r < 0)
                                 return r;
-                        if (roothash_decoded_size < sizeof(sd_id128_t))
+                        if (root_hash_size < sizeof(sd_id128_t))
                                 return -EINVAL;
                 }
         }
 
-        if (ret_roothash) {
-                *ret_roothash = TAKE_PTR(roothash_decoded);
-                *ret_roothash_size = roothash_decoded_size;
+        if (!verity->root_hash_sig) {
+                _cleanup_free_ char *p = NULL;
+
+                if (!root_hash_sig_path) {
+                        /* Follow naming convention recommended by the relevant RFC:
+                         * https://tools.ietf.org/html/rfc5751#section-3.2.1 */
+                        p = build_auxiliary_path(image, ".roothash.p7s");
+                        if (!p)
+                                return -ENOMEM;
+
+                        root_hash_sig_path = p;
+                }
+
+                r = read_full_file_full(AT_FDCWD, root_hash_sig_path, 0, (char**) &root_hash_sig, &root_hash_sig_size);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                return r;
+                } else if (root_hash_sig_size == 0) /* refuse empty size signatures */
+                        return -EINVAL;
         }
-        if (ret_verity_data)
-                *ret_verity_data = TAKE_PTR(verity_filename);
-        if (roothashsig_filename)
-                *ret_roothashsig = TAKE_PTR(roothashsig_filename);
+
+        if (!verity->data_path) {
+                _cleanup_free_ char *p = NULL;
+
+                p = build_auxiliary_path(image, ".verity");
+                if (!p)
+                        return -ENOMEM;
+
+                if (access(p, F_OK) < 0) {
+                        if (errno != ENOENT)
+                                return -errno;
+                } else
+                        verity_data_path = TAKE_PTR(p);
+        }
+
+        if (root_hash) {
+                verity->root_hash = TAKE_PTR(root_hash);
+                verity->root_hash_size = root_hash_size;
+        }
+
+        if (root_hash_sig) {
+                verity->root_hash_sig = TAKE_PTR(root_hash_sig);
+                verity->root_hash_sig_size = root_hash_sig_size;
+        }
+
+        if (verity_data_path)
+                verity->data_path = TAKE_PTR(verity_data_path);
 
         return 1;
 }
@@ -1988,9 +1999,7 @@ finish:
 int dissect_image_and_warn(
                 int fd,
                 const char *name,
-                const void *root_hash,
-                size_t root_hash_size,
-                const char *verity_data,
+                const VeritySettings *verity,
                 const MountOptions *mount_options,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
@@ -2006,7 +2015,7 @@ int dissect_image_and_warn(
                 name = buffer;
         }
 
-        r = dissect_image(fd, root_hash, root_hash_size, verity_data, mount_options, flags, ret);
+        r = dissect_image(fd, verity, mount_options, flags, ret);
 
         switch (r) {
 
@@ -2110,11 +2119,11 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return log_error_errno(r, "Failed to set up loopback device: %m");
 
-        r = dissect_image_and_warn(d->fd, image, NULL, 0, NULL, NULL, flags, &dissected_image);
+        r = dissect_image_and_warn(d->fd, image, NULL, NULL, flags, &dissected_image);
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, NULL, 0, NULL, NULL, NULL, 0, flags, &decrypted_image);
+        r = dissected_image_decrypt_interactively(dissected_image, NULL, NULL, flags, &decrypted_image);
         if (r < 0)
                 return r;
 
