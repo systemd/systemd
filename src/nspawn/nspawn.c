@@ -3222,8 +3222,13 @@ static int inner_child(
         if (r < 0)
                 return r;
 
-        if (setsid() < 0)
-                return log_error_errno(errno, "setsid() failed: %m");
+        // Avoid creating a session with `--console=pipe --as-pid2` because
+        // this mode is meant to be "POSIX-transparent". We are not starting
+        // an init system, but just running a namespaced, chrooted subprocess.
+        if (arg_console_mode != CONSOLE_PIPE || arg_start_mode != START_PID2) {
+                if (setsid() < 0)
+                        return log_error_errno(errno, "setsid() failed: %m");
+        }
 
         if (arg_private_network)
                 (void) loopback_setup();
@@ -3389,7 +3394,7 @@ static int inner_child(
                         return log_error_errno(errno, "Failed to change to specified working directory %s: %m", arg_chdir);
 
         if (arg_start_mode == START_PID2) {
-                r = stub_pid1(arg_uuid);
+                r = stub_pid1(arg_uuid, arg_console_mode);
                 if (r < 0)
                         return r;
         }

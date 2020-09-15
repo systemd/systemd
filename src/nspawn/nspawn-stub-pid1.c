@@ -30,7 +30,7 @@ static int reset_environ(const char *new_environment, size_t length) {
         return 0;
 }
 
-int stub_pid1(sd_id128_t uuid) {
+int stub_pid1(sd_id128_t uuid, ConsoleMode console_mode) {
         enum {
                 STATE_RUNNING,
                 STATE_REBOOT,
@@ -55,10 +55,11 @@ int stub_pid1(sd_id128_t uuid) {
 
         /* Surrender the terminal this stub may control so that child processes can have a controlling terminal
          * without resorting to setsid hacks. */
-        r = ioctl(STDIN_FILENO, TIOCNOTTY);
-        if (r < 0 && errno != ENOTTY)
-                return log_error_errno(errno, "Failed to surrender controlling terminal: %m");
-
+        if (console_mode != CONSOLE_PIPE) {
+                r = ioctl(STDIN_FILENO, TIOCNOTTY);
+                if (r < 0 && errno != ENOTTY)
+                        return log_error_errno(errno, "Failed to surrender controlling terminal: %m");
+        }
         pid = fork();
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork child pid: %m");
@@ -66,7 +67,8 @@ int stub_pid1(sd_id128_t uuid) {
         if (pid == 0) {
                 /* Return in the child */
                 assert_se(sigprocmask(SIG_SETMASK, &oldmask, NULL) >= 0);
-                setsid();
+                if (console_mode != CONSOLE_PIPE)
+                        (void)setsid();
                 return 0;
         }
 

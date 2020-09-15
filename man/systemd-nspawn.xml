@@ -458,8 +458,12 @@
         signals. It is recommended to use this mode to invoke arbitrary commands in containers, unless they have been
         modified to run correctly as PID 1. Or in other words: this switch should be used for pretty much all commands,
         except when the command refers to an init or shell implementation, as these are generally capable of running
-        correctly as PID 1. This option may not be combined with <option>--boot</option>.</para>
-        </listitem>
+        correctly as PID 1. This option may not be combined with <option>--boot</option>. When combined with
+        <option>--console=pipe</option>, this option causes <command>systemd-nspawn</command> not to create any new
+        sessions, in effect making it act as a POSIXly-transparent command wrapper like <citerefentry project='man-pages'>
+        <refentrytitle>time</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para>
+	</listitem>
       </varlistentry>
 
       <varlistentry>
