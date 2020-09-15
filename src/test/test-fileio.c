@@ -153,7 +153,7 @@ static void test_parse_env_file(void) {
 
 static void test_one_shell_var(const char *file, const char *variable, const char *value) {
         _cleanup_free_ char *cmd = NULL, *from_shell = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_pclose_ FILE *f = NULL;
         size_t sz;
 
         assert_se(cmd = strjoin(". ", file, " && /bin/echo -n \"$", variable, "\""));

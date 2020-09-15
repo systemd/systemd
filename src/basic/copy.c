@@ -482,7 +482,7 @@ static int hardlink_context_realize(HardlinkContext *c) {
         c->dir_fd = openat(c->parent_fd, c->subdir, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         if (c->dir_fd < 0) {
                 r = -errno;
-                unlinkat(c->parent_fd, c->subdir, AT_REMOVEDIR);
+                (void) unlinkat(c->parent_fd, c->subdir, AT_REMOVEDIR);
                 return r;
         }
 

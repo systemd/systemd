@@ -151,7 +151,7 @@ static void test_write_and_load_env_file(void) {
                 _cleanup_(unlink_and_freep) char *p = NULL;
                 _cleanup_strv_free_ char **l = NULL;
                 _cleanup_free_ char *j = NULL, *w = NULL, *cmd = NULL, *from_shell = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_pclose_ FILE *f = NULL;
                 size_t sz;
 
                 assert_se(tempfn_random_child(NULL, NULL, &p) >= 0);
