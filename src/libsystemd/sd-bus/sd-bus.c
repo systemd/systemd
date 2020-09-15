@@ -784,7 +784,6 @@ static int parse_tcp_address(sd_bus *b, const char **p, char **guid) {
         int r;
         struct addrinfo *result, hints = {
                 .ai_socktype = SOCK_STREAM,
-                .ai_flags = AI_ADDRCONFIG,
         };
 
         assert(b);

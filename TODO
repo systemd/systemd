@@ -427,6 +427,9 @@ Features:
 * sd-bus: add vtable flag, that may be used to request client creds implicitly
   and asynchronously before dispatching the operation
 
+* sd-bus: parse addresses given in sd_bus_set_addresses immediately and not
+  only when used. Add unit tests.
+
 * make use of ethtool veth peer info in machined, for automatically finding out
   host-side interface pointing to the container.
 
