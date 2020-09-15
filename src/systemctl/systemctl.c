@@ -81,6 +81,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "syslog-util.h"
 #include "sysv-compat.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -6298,62 +6299,139 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int log_level(int argc, char *argv[], void *userdata) {
-        sd_bus *bus;
+static void give_log_control1_hint(const char *name) {
+        _cleanup_free_ char *link = NULL;
+
+        if (arg_quiet)
+                return;
+
+        (void) terminal_urlify_man("org.freedesktop.LogControl1", "5", &link);
+
+        log_notice("Hint: the service must declare BusName= and implement the appropriate D-Bus interface.\n"
+                   "      See the %s for details.", link ?: "org.freedesktop.LogControl1(5) man page");
+}
+
+static int log_setting_internal(sd_bus *bus, const BusLocator* bloc, const char *verb, const char *value) {
+        assert(bus);
+        assert(STR_IN_SET(verb, "log-level", "log-target", "service-log-level", "service-log-target"));
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        bool level = endswith(verb, "log-level");
         int r;
+
+        if (value) {
+                if (level) {
+                        if (log_level_from_string(value) < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "\"%s\" is not a valid log level.", value);
+                }
+
+                r = bus_set_property(bus, bloc,
+                                     level ? "LogLevel" : "LogTarget",
+                                     &error, "s", value);
+                if (r >= 0)
+                        return 0;
+
+                log_error_errno(r, "Failed to set log %s of %s to %s: %s",
+                                level ? "level" : "target",
+                                bloc->destination, value, bus_error_message(&error, r));
+        } else {
+                _cleanup_free_ char *t = NULL;
+
+                r = bus_get_property_string(bus, bloc,
+                                            level ? "LogLevel" : "LogTarget",
+                                            &error, &t);
+                if (r >= 0) {
+                        puts(t);
+                        return 0;
+                }
+
+                log_error_errno(r, "Failed to get log %s of %s: %s",
+                                level ? "level" : "target",
+                                bloc->destination, bus_error_message(&error, r));
+        }
+
+        if (sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_METHOD,
+                                           SD_BUS_ERROR_UNKNOWN_OBJECT,
+                                           SD_BUS_ERROR_UNKNOWN_INTERFACE,
+                                           SD_BUS_ERROR_UNKNOWN_PROPERTY))
+                give_log_control1_hint(bloc->destination);
+        return r;
+}
+
+static int log_setting(int argc, char *argv[], void *userdata) {
+        sd_bus *bus;
+        int r;
+
+        assert(argc >= 1 && argc <= 2);
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
 
-        if (argc == 1) {
-                _cleanup_free_ char *level = NULL;
+        return log_setting_internal(bus, bus_systemd_mgr, argv[0], argv[1]);
+}
 
-                r = bus_get_property_string(bus, bus_systemd_mgr, "LogLevel", &error, &level);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get log level: %s", bus_error_message(&error, r));
+static int service_name_to_dbus(sd_bus *bus, const char *name, char **ret_dbus_name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *bus_name = NULL;
+        int r;
 
-                puts(level);
+        /* First, look for the BusName= property */
+        _cleanup_free_ char *dbus_path = unit_dbus_path_from_name(name);
+        if (!dbus_path)
+                return log_oom();
 
-        } else {
-                assert(argc == 2);
+        r = sd_bus_get_property_string(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                dbus_path,
+                                "org.freedesktop.systemd1.Service",
+                                "BusName",
+                                &error,
+                                &bus_name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to obtain BusName= property of %s: %s",
+                                       name, bus_error_message(&error, r));
 
-                r = bus_set_property(bus, bus_systemd_mgr, "LogLevel", &error, "s", argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set log level: %s", bus_error_message(&error, r));
+        if (isempty(bus_name)) {
+                log_error("Unit %s doesn't declare BusName=.", name);
+                give_log_control1_hint(name);
+                return -ENOLINK;
         }
 
+        *ret_dbus_name = TAKE_PTR(bus_name);
         return 0;
 }
 
-static int log_target(int argc, char *argv[], void *userdata) {
+static int service_log_setting(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *unit = NULL, *dbus_name = NULL;
         int r;
 
-        r = acquire_bus(BUS_MANAGER, &bus);
+        assert(argc >= 2 && argc <= 3);
+
+        r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
 
-        if (argc == 1) {
-                _cleanup_free_ char *target = NULL;
+        r = unit_name_mangle_with_suffix(argv[1], argv[0],
+                                         arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                         ".service", &unit);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name: %m");
 
-                r = bus_get_property_string(bus, bus_systemd_mgr, "LogTarget", &error, &target);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get log target: %s", bus_error_message(&error, r));
+        r = service_name_to_dbus(bus, unit, &dbus_name);
+        if (r < 0)
+                return r;
 
-                puts(target);
+        const BusLocator bloc = {
+                .destination = dbus_name,
+                .path = "/org/freedesktop/LogControl1",
+                .interface = "org.freedesktop.LogControl1",
+        };
 
-        } else {
-                assert(argc == 2);
-
-                r = bus_set_property(bus, bus_systemd_mgr, "LogTarget", &error, "s", argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set log target: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return log_setting_internal(bus, &bloc, argv[0], argv[2]);
 }
 
 static int service_watchdogs(int argc, char *argv[], void *userdata) {
@@ -7708,6 +7786,16 @@ static int systemctl_help(void) {
                "                                      ordered by address\n"
                "  list-timers [PATTERN...]            List timer units currently in memory,\n"
                "                                      ordered by next elapse\n"
+               "  is-active PATTERN...                Check whether units are active\n"
+               "  is-failed PATTERN...                Check whether units are failed\n"
+               "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
+               "  show [PATTERN...|JOB...]            Show properties of one or more\n"
+               "                                      units/jobs or the manager\n"
+               "  cat PATTERN...                      Show files and drop-ins of specified units\n"
+               "  help PATTERN...|PID...              Show manual for one or more units\n"
+               "  list-dependencies [UNIT...]         Recursively show units which are required\n"
+               "                                      or wanted by the units or by which those\n"
+               "                                      units are required or wanted\n"
                "  start UNIT...                       Start (activate) one or more units\n"
                "  stop UNIT...                        Stop (deactivate) one or more units\n"
                "  reload UNIT...                      Reload one or more units\n"
@@ -7723,19 +7811,11 @@ static int systemctl_help(void) {
                "                                      configuration of unit\n"
                "  freeze PATTERN...                   Freeze execution of unit processes\n"
                "  thaw PATTERN...                     Resume execution of a frozen unit\n"
-               "  is-active PATTERN...                Check whether units are active\n"
-               "  is-failed PATTERN...                Check whether units are failed\n"
-               "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
-               "  show [PATTERN...|JOB...]            Show properties of one or more\n"
-               "                                      units/jobs or the manager\n"
-               "  cat PATTERN...                      Show files and drop-ins of specified units\n"
                "  set-property UNIT PROPERTY=VALUE... Sets one or more properties of a unit\n"
-               "  help PATTERN...|PID...              Show manual for one or more units\n"
+               "  service-log-level SERVICE [LEVEL]   Get/set logging threshold for service\n"
+               "  service-log-target SERVICE [TARGET] Get/set logging target for service\n"
                "  reset-failed [PATTERN...]           Reset failed state for all, one, or more\n"
-               "                                      units\n"
-               "  list-dependencies [UNIT...]         Recursively show units which are required\n"
-               "                                      or wanted by the units or by which those\n"
-               "                                      units are required or wanted"
+               "                                      units"
                "\n%3$sUnit File Commands:%4$s\n"
                "  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
@@ -9032,8 +9112,10 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "help",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                    },
                 { "daemon-reload",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload           },
                 { "daemon-reexec",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload           },
-                { "log-level",             VERB_ANY, 2,        VERB_ONLINE_ONLY, log_level               },
-                { "log-target",            VERB_ANY, 2,        VERB_ONLINE_ONLY, log_target              },
+                { "log-level",             VERB_ANY, 2,        VERB_ONLINE_ONLY, log_setting             },
+                { "log-target",            VERB_ANY, 2,        VERB_ONLINE_ONLY, log_setting             },
+                { "service-log-level",     2,        3,        VERB_ONLINE_ONLY, service_log_setting     },
+                { "service-log-target",    2,        3,        VERB_ONLINE_ONLY, service_log_setting     },
                 { "service-watchdogs",     VERB_ANY, 2,        VERB_ONLINE_ONLY, service_watchdogs       },
                 { "show-environment",      VERB_ANY, 1,        VERB_ONLINE_ONLY, show_environment        },
                 { "set-environment",       2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment         },
