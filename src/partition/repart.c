@@ -3142,7 +3142,7 @@ static int find_root(char **ret, int *ret_fd) {
                         if (!s)
                                 return log_oom();
 
-                        fd = open(arg_node, O_RDONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, 0777);
+                        fd = open(arg_node, O_RDONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, 0666);
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to create '%s': %m", arg_node);
 
