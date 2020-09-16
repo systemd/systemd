@@ -56,6 +56,7 @@ struct VxLan {
         bool group_policy;
         bool generic_protocol_extension;
         bool inherit;
+        bool independent;
 
         struct ifla_vxlan_port_range port_range;
 };

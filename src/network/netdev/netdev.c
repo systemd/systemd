@@ -823,6 +823,9 @@ int netdev_load_one(Manager *manager, const char *filename) {
         case NETDEV_KIND_XFRM:
                 independent = XFRM(netdev)->independent;
                 break;
+        case NETDEV_KIND_VXLAN:
+                independent = VXLAN(netdev)->independent;
+                break;
         default:
                 break;
         }
