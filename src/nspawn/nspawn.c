@@ -2172,7 +2172,7 @@ static int setup_pts(const char *dest) {
 }
 
 static int setup_stdio_as_dev_console(void) {
-        int terminal;
+        _cleanup_close_ int terminal = -1;
         int r;
 
         terminal = open_terminal("/dev/console", O_RDWR);
@@ -2187,6 +2187,7 @@ static int setup_stdio_as_dev_console(void) {
 
         /* invalidates 'terminal' on success and failure */
         r = rearrange_stdio(terminal, terminal, terminal);
+        TAKE_FD(terminal);
         if (r < 0)
                 return log_error_errno(r, "Failed to move console to stdin/stdout/stderr: %m");
 
