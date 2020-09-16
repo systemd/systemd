@@ -417,7 +417,6 @@ static int resolve_remote(Connection *c) {
         static const struct addrinfo hints = {
                 .ai_family = AF_UNSPEC,
                 .ai_socktype = SOCK_STREAM,
-                .ai_flags = AI_ADDRCONFIG
         };
 
         const char *node, *service;
