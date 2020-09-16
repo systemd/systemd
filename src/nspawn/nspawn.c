@@ -267,9 +267,15 @@ static int handle_arg_console(const char *arg) {
                 arg_console_mode = CONSOLE_READ_ONLY;
         else if (streq(arg, "passive"))
                 arg_console_mode = CONSOLE_PASSIVE;
-        else if (streq(arg, "pipe"))
+        else if (streq(arg, "pipe")) {
+                if (isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0)
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE,
+                                 "Console mode 'pipe' selected, but standard input/output are connected to an interactive TTY. "
+                                 "Most likely you want to use 'interactive' console mode for proper interactivity and shell job control. "
+                                 "Proceeding anyway.");
+
                 arg_console_mode = CONSOLE_PIPE;
-        else
+        } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown console mode: %s", optarg);
 
         arg_settings_mask |= SETTING_CONSOLE_MODE;
