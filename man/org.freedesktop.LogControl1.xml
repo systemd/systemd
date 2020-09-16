@@ -123,7 +123,7 @@ node /org/freedesktop/LogControl1 {
       <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry project="man-pages"><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

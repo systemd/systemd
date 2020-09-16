@@ -3904,6 +3904,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b Accept = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b FlushPending = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b Writable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b KeepAlive = ...;
@@ -3975,8 +3977,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly u NAccepted = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u NRefused = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
-      readonly u FlushPending = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s FileDescriptorName = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -4985,6 +4985,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="Accept"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="FlushPending"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="Writable"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KeepAlive"/>
@@ -5058,8 +5060,6 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="NAccepted"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NRefused"/>
-
-    <variablelist class="dbus-property" generated="True" extra-ref="FlushPending"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FileDescriptorName"/>
 
