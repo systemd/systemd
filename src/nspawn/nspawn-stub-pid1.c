@@ -66,7 +66,10 @@ int stub_pid1(sd_id128_t uuid) {
         if (pid == 0) {
                 /* Return in the child */
                 assert_se(sigprocmask(SIG_SETMASK, &oldmask, NULL) >= 0);
-                setsid();
+
+                if (setsid() < 0)
+                        return log_error_errno(errno, "Failed to become session leader in payload process: %m");
+
                 return 0;
         }
 
