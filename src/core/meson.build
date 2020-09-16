@@ -11,6 +11,8 @@ libcore_sources = '''
         bpf-devices.h
         bpf-firewall.c
         bpf-firewall.h
+        bpf-foreign.c
+        bpf-foreign.h
         cgroup.c
         cgroup.h
         core-varlink.c
