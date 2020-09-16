@@ -4217,8 +4217,7 @@ static int exec_child(
                                 return log_unit_error_errno(unit, errno, "Couldn't move exec fd up: %m");
                         }
 
-                        safe_close(exec_fd);
-                        exec_fd = moved_fd;
+                        CLOSE_AND_REPLACE(exec_fd, moved_fd);
                 } else {
                         /* This fd should be FD_CLOEXEC already, but let's make sure. */
                         r = fd_cloexec(exec_fd, true);

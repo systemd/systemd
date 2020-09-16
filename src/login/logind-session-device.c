@@ -195,8 +195,7 @@ static int session_device_start(SessionDevice *sd) {
 
                 /* For evdev devices, the file descriptor might be left uninitialized. This might happen while resuming
                  * into a session and logind has been restarted right before. */
-                safe_close(sd->fd);
-                sd->fd = r;
+                CLOSE_AND_REPLACE(sd->fd, r);
                 break;
 
         case DEVICE_TYPE_UNKNOWN:
