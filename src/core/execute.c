@@ -1407,6 +1407,13 @@ static bool context_has_syscall_filters(const ExecContext *c) {
                 !hashmap_isempty(c->syscall_filter);
 }
 
+static bool context_has_syscall_logs(const ExecContext *c) {
+        assert(c);
+
+        return c->syscall_log_allow_list ||
+                !hashmap_isempty(c->syscall_log);
+}
+
 static bool context_has_no_new_privileges(const ExecContext *c) {
         assert(c);
 
@@ -1428,6 +1435,7 @@ static bool context_has_no_new_privileges(const ExecContext *c) {
                 c->protect_kernel_logs ||
                 c->private_devices ||
                 context_has_syscall_filters(c) ||
+                context_has_syscall_logs(c) ||
                 !set_isempty(c->syscall_archs) ||
                 c->lock_personality ||
                 c->protect_hostname;
@@ -1465,7 +1473,7 @@ static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_
         if (skip_seccomp_unavailable(u, "SystemCallFilter="))
                 return 0;
 
-        negative_action = c->syscall_errno == 0 ? scmp_act_kill_process() : SCMP_ACT_ERRNO(c->syscall_errno);
+        negative_action = c->syscall_errno == SECCOMP_ERROR_NUMBER_KILL ? scmp_act_kill_process() : SCMP_ACT_ERRNO(c->syscall_errno);
 
         if (c->syscall_allow_list) {
                 default_action = negative_action;
@@ -1482,6 +1490,39 @@ static int apply_syscall_filter(const Unit* u, const ExecContext *c, bool needs_
         }
 
         return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_filter, action, false);
+}
+
+static int apply_syscall_log(const Unit* u, const ExecContext *c) {
+#ifdef SCMP_ACT_LOG
+        uint32_t default_action, action;
+#endif
+
+        assert(u);
+        assert(c);
+
+        if (!context_has_syscall_logs(c))
+                return 0;
+
+#ifdef SCMP_ACT_LOG
+        if (skip_seccomp_unavailable(u, "SystemCallLog="))
+                return 0;
+
+        if (c->syscall_log_allow_list) {
+                /* Log nothing but the ones listed */
+                default_action = SCMP_ACT_ALLOW;
+                action = SCMP_ACT_LOG;
+        } else {
+                /* Log everything but the ones listed */
+                default_action = SCMP_ACT_LOG;
+                action = SCMP_ACT_ALLOW;
+        }
+
+        return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_log, action, false);
+#else
+        /* old libseccomp */
+        log_unit_debug(u, "SECCOMP feature SCMP_ACT_LOG not available, skipping SystemCallLog=");
+        return 0;
+#endif
 }
 
 static int apply_syscall_archs(const Unit *u, const ExecContext *c) {
@@ -4438,6 +4479,12 @@ static int exec_child(
                         return log_unit_error_errno(unit, r, "Failed to lock personalities: %m");
                 }
 
+                r = apply_syscall_log(unit, context);
+                if (r < 0) {
+                        *exit_status = EXIT_SECCOMP;
+                        return log_unit_error_errno(unit, r, "Failed to apply system call log filters: %m");
+                }
+
                 /* This really should remain the last step before the execve(), to make sure our own code is unaffected
                  * by the filter as little as possible. */
                 r = apply_syscall_filter(unit, context, needs_ambient_hack);
@@ -4675,6 +4722,9 @@ void exec_context_init(ExecContext *c) {
         assert_cc(NAMESPACE_FLAGS_INITIAL != NAMESPACE_FLAGS_ALL);
         c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
         c->log_level_max = -1;
+#if HAVE_SECCOMP
+        c->syscall_errno = SECCOMP_ERROR_NUMBER_KILL;
+#endif
         numa_policy_reset(&c->numa_policy);
 }
 
@@ -5474,7 +5524,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fputs(strna(name), f);
 
                         if (num >= 0) {
-                                errno_name = errno_to_name(num);
+                                errno_name = seccomp_errno_or_action_to_string(num);
                                 if (errno_name)
                                         fprintf(f, ":%s", errno_name);
                                 else
@@ -5517,15 +5567,20 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         prefix, c->network_namespace_path);
 
         if (c->syscall_errno > 0) {
+#if HAVE_SECCOMP
                 const char *errno_name;
+#endif
 
                 fprintf(f, "%sSystemCallErrorNumber: ", prefix);
 
-                errno_name = errno_to_name(c->syscall_errno);
+#if HAVE_SECCOMP
+                errno_name = seccomp_errno_or_action_to_string(c->syscall_errno);
                 if (errno_name)
-                        fprintf(f, "%s\n", errno_name);
+                        fputs(errno_name, f);
                 else
-                        fprintf(f, "%d\n", c->syscall_errno);
+                        fprintf(f, "%d", c->syscall_errno);
+#endif
+                fputc('\n', f);
         }
 
         for (size_t i = 0; i < c->n_mount_images; i++) {

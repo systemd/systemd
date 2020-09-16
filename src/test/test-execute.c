@@ -434,6 +434,8 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(__func__, m, "exec-systemcallfilter-with-errno-name.service", errno_from_name("EILSEQ"), CLD_EXITED);
         test(__func__, m, "exec-systemcallfilter-with-errno-number.service", 255, CLD_EXITED);
         test(__func__, m, "exec-systemcallfilter-with-errno-multi.service", errno_from_name("EILSEQ"), CLD_EXITED);
+        test(__func__, m, "exec-systemcallfilter-override-error-action.service", SIGSYS, CLD_KILLED);
+        test(__func__, m, "exec-systemcallfilter-override-error-action2.service", errno_from_name("EILSEQ"), CLD_EXITED);
 #endif
 }
 

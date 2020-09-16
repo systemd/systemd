@@ -5,7 +5,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "errno-list.h"
+#include "parse-util.h"
 #include "set.h"
+#include "string-util.h"
 
 const char* seccomp_arch_to_string(uint32_t c);
 int seccomp_arch_from_string(const char *n, uint32_t *ret);
@@ -115,3 +118,25 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(scmp_filter_ctx, seccomp_release);
 int parse_syscall_archs(char **l, Set **ret_archs);
 
 uint32_t scmp_act_kill_process(void);
+
+/* This is a special value to be used where syscall filters otherwise expect errno numbers, will be
+   replaced with real seccomp action. */
+enum {
+        SECCOMP_ERROR_NUMBER_KILL = INT_MAX - 1,
+};
+
+static inline bool seccomp_errno_or_action_is_valid(int n) {
+        return n == SECCOMP_ERROR_NUMBER_KILL || errno_is_valid(n);
+}
+
+static inline int seccomp_parse_errno_or_action(const char *p) {
+        if (streq_ptr(p, "kill"))
+                return SECCOMP_ERROR_NUMBER_KILL;
+        return parse_errno(p);
+}
+
+static inline const char *seccomp_errno_or_action_to_string(int num) {
+        if (num == SECCOMP_ERROR_NUMBER_KILL)
+                return "kill";
+        return errno_to_name(num);
+}
