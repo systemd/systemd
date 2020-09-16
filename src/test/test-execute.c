@@ -578,10 +578,14 @@ static void test_exec_dynamicuser(Manager *m) {
         test(__func__, m, "exec-dynamicuser-supplementarygroups.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         test(__func__, m, "exec-dynamicuser-statedir.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
 
+        (void) rm_rf("/var/lib/quux", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/waldo", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/quux", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/waldo", REMOVE_ROOT|REMOVE_PHYSICAL);
 
         test(__func__, m, "exec-dynamicuser-statedir-migrate-step1.service", 0, CLD_EXITED);
         test(__func__, m, "exec-dynamicuser-statedir-migrate-step2.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
