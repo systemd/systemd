@@ -1483,7 +1483,7 @@ int config_parse_root_image_options(
                 MountOptions *o = NULL;
                 _cleanup_free_ char *mount_options_resolved = NULL;
                 const char *mount_options = NULL, *partition = "root";
-                int partition_designator;
+                PartitionDesignator partition_designator;
 
                 /* Format is either 'root:foo' or 'foo' (root is implied) */
                 if (!isempty(*second)) {
@@ -4946,7 +4946,7 @@ int config_parse_mount_images(
                 for (;;) {
                         _cleanup_free_ char *partition = NULL, *mount_options = NULL, *mount_options_resolved = NULL;
                         MountOptions *o = NULL;
-                        int partition_designator;
+                        PartitionDesignator partition_designator;
 
                         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options, NULL);
                         if (r == -ENOMEM)

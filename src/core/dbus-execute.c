@@ -1513,7 +1513,7 @@ static int read_mount_options(sd_bus_message *message, sd_bus_error *error, Moun
         while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
                 _cleanup_free_ char *previous = NULL, *escaped = NULL;
                 _cleanup_free_ MountOptions *o = NULL;
-                int partition_designator;
+                PartitionDesignator partition_designator;
 
                 if (chars_intersect(mount_options, WHITESPACE))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,

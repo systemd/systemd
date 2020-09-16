@@ -421,11 +421,6 @@ tests += [
          [],
          '', 'manual'],
 
-        [['src/test/test-dissect-image.c'],
-         [],
-         [libblkid],
-         '', 'manual'],
-
         [['src/test/test-signal-util.c'],
          [],
          []],
