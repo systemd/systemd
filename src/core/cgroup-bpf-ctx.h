@@ -14,6 +14,9 @@ struct CGroupBPFFsProgram {
         char *bpffs_path;
 };
 
+int bpffs_program_from_string(const char *str, enum bpf_attach_type *ret_attach_type, char **ret_bpffs_path);
+int bpffs_program_to_string(enum bpf_attach_type attach_type, const char *bpffs_path, char **ret_str);
+
 int cgroup_add_bpffs_program(CGroupContext *c, enum bpf_attach_type attach_type, const char *bpffs_path);
 bool cgroup_contains_bpffs_program(
                 CGroupContext *c,

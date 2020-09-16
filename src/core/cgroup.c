@@ -365,6 +365,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         CGroupDeviceAllow *a;
         CGroupContext *c;
         IPAddressAccessItem *iaai;
+        CGroupBPFFsProgram *pp;
         char **path;
         char q[FORMAT_TIMESPAN_MAX];
         char v[FORMAT_TIMESPAN_MAX];
@@ -544,6 +545,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         STRV_FOREACH(path, c->ip_filters_egress)
                 fprintf(f, "%sIPEgressFilterPath: %s\n", prefix, *path);
+
+        LIST_FOREACH(prog, pp, c->bpffs_programs)
+                fprintf(f, "%sBPFProgram: %s\n", prefix, pp->bpffs_path);
 }
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {

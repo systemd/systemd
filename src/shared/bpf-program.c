@@ -11,6 +11,30 @@
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "path-util.h"
+#include "string-table.h"
+
+static const char *const bpf_cgroup_attach_type_table[__MAX_BPF_ATTACH_TYPE] = {
+        [BPF_CGROUP_INET_INGRESS] = "ingress",
+        [BPF_CGROUP_INET_EGRESS] = "egress",
+        [BPF_CGROUP_INET_SOCK_CREATE] = "sock_create",
+        [BPF_CGROUP_SOCK_OPS] = "sock_ops",
+        [BPF_CGROUP_DEVICE] = "device",
+        [BPF_CGROUP_INET4_BIND] = "bind4",
+        [BPF_CGROUP_INET6_BIND] = "bind6",
+        [BPF_CGROUP_INET4_CONNECT] = "connect4",
+        [BPF_CGROUP_INET6_CONNECT] = "connect6",
+        [BPF_CGROUP_INET4_POST_BIND] = "post_bind4",
+        [BPF_CGROUP_INET6_POST_BIND] = "post_bind6",
+        [BPF_CGROUP_UDP4_SENDMSG] = "sendmsg4",
+        [BPF_CGROUP_UDP6_SENDMSG] = "sendmsg6",
+        [BPF_CGROUP_SYSCTL] = "sysctl",
+        [BPF_CGROUP_UDP4_RECVMSG] = "recvmsg4",
+        [BPF_CGROUP_UDP6_RECVMSG] = "recvmsg6",
+        [BPF_CGROUP_GETSOCKOPT] = "getsockopt",
+        [BPF_CGROUP_SETSOCKOPT] = "setsockopt",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(bpf_cgroup_attach_type, int);
 
 static int bpf_program_get_info_by_fd(int prog_fd, struct bpf_prog_info *info, uint32_t info_len) {
         union bpf_attr attr;
@@ -25,7 +49,6 @@ static int bpf_program_get_info_by_fd(int prog_fd, struct bpf_prog_info *info, u
 
         return 0;
 }
-
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
 
