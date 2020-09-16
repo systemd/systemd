@@ -1247,8 +1247,8 @@ static int setup_pam(
                  * termination */
                 barrier_set_role(&barrier, BARRIER_CHILD);
 
-                /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only those fds
-                 * are open here that have been opened by PAM. */
+                /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only
+                 * those fds are open here that have been opened by PAM. */
                 (void) close_many(fds, n_fds);
 
                 /* Drop privileges - we don't need any to pam_close_session
@@ -3407,7 +3407,6 @@ static int close_remaining_fds(
                 const DynamicCreds *dcreds,
                 int user_lookup_fd,
                 int socket_fd,
-                int exec_fd,
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
@@ -3424,8 +3423,6 @@ static int close_remaining_fds(
 
         if (socket_fd >= 0)
                 dont_close[n_dont_close++] = socket_fd;
-        if (exec_fd >= 0)
-                dont_close[n_dont_close++] = exec_fd;
         if (n_fds > 0) {
                 memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
                 n_dont_close += n_fds;
@@ -3602,6 +3599,35 @@ bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c) {
         return c->cpu_affinity_from_numa;
 }
 
+static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int *ret_fd) {
+        int r;
+
+        assert(fds);
+        assert(n_fds);
+        assert(*n_fds < fds_size);
+        assert(ret_fd);
+
+        if (fd < 0) {
+                *ret_fd = -1;
+                return 0;
+        }
+
+        if (fd < 3 + (int) *n_fds) {
+                /* Let's move the fd up, so that it's outside of the fd range we will use to store
+                 * the fds we pass to the process (or which are closed only during execve). */
+
+                r = fcntl(fd, F_DUPFD_CLOEXEC, 3 + (int) *n_fds);
+                if (r < 0)
+                        return -errno;
+
+                CLOSE_AND_REPLACE(fd, r);
+        }
+
+        *ret_fd = fds[*n_fds] = fd;
+        (*n_fds) ++;
+        return 1;
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -3619,7 +3645,7 @@ static int exec_child(
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **replaced_argv = NULL;
-        int *fds_with_exec_fd, n_fds_with_exec_fd, r, ngids = 0, exec_fd = -1;
+        int r, ngids = 0, exec_fd;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL;
@@ -3646,7 +3672,8 @@ static int exec_child(
         gid_t saved_gid = getgid();
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
-        size_t n_fds;
+        size_t n_fds = n_socket_fds + n_storage_fds, /* fds to pass to the child */
+               n_keep_fds; /* total number of fds not to close */
         int secure_bits;
         _cleanup_free_ gid_t *gids_after_pam = NULL;
         int ngids_after_pam = 0;
@@ -3690,8 +3717,17 @@ static int exec_child(
         /* In case anything used libc syslog(), close this here, too */
         closelog();
 
-        n_fds = n_socket_fds + n_storage_fds;
-        r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, params->exec_fd, fds, n_fds);
+        int keep_fds[n_fds + 1];
+        memcpy_safe(keep_fds, fds, n_fds * sizeof(int));
+        n_keep_fds = n_fds;
+
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, params->exec_fd, &exec_fd);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_unit_error_errno(unit, r, "Failed to shift fd and set FD_CLOEXEC: %m");
+        }
+
+        r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, keep_fds, n_keep_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_unit_error_errno(unit, r, "Failed to close unwanted file descriptors: %m");
@@ -4086,6 +4122,7 @@ static int exec_child(
                 /* Let's call into PAM after we set up our own idea of resource limits to that pam_limits
                  * wins here. (See above.) */
 
+                /* All fds passed in the fds array will be closed in the pam child process. */
                 r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
@@ -4230,41 +4267,7 @@ static int exec_child(
          * more aggressive this time since socket_fd and the netns fds we don't need anymore. We do keep the exec_fd
          * however if we have it as we want to keep it open until the final execve(). */
 
-        if (params->exec_fd >= 0) {
-                exec_fd = params->exec_fd;
-
-                if (exec_fd < 3 + (int) n_fds) {
-                        int moved_fd;
-
-                        /* Let's move the exec fd far up, so that it's outside of the fd range we want to pass to the
-                         * process we are about to execute. */
-
-                        moved_fd = fcntl(exec_fd, F_DUPFD_CLOEXEC, 3 + (int) n_fds);
-                        if (moved_fd < 0) {
-                                *exit_status = EXIT_FDS;
-                                return log_unit_error_errno(unit, errno, "Couldn't move exec fd up: %m");
-                        }
-
-                        CLOSE_AND_REPLACE(exec_fd, moved_fd);
-                } else {
-                        /* This fd should be FD_CLOEXEC already, but let's make sure. */
-                        r = fd_cloexec(exec_fd, true);
-                        if (r < 0) {
-                                *exit_status = EXIT_FDS;
-                                return log_unit_error_errno(unit, r, "Failed to make exec fd FD_CLOEXEC: %m");
-                        }
-                }
-
-                fds_with_exec_fd = newa(int, n_fds + 1);
-                memcpy_safe(fds_with_exec_fd, fds, n_fds * sizeof(int));
-                fds_with_exec_fd[n_fds] = exec_fd;
-                n_fds_with_exec_fd = n_fds + 1;
-        } else {
-                fds_with_exec_fd = fds;
-                n_fds_with_exec_fd = n_fds;
-        }
-
-        r = close_all_fds(fds_with_exec_fd, n_fds_with_exec_fd);
+        r = close_all_fds(keep_fds, n_keep_fds);
         if (r >= 0)
                 r = shift_fds(fds, n_fds);
         if (r >= 0)
