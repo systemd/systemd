@@ -2,6 +2,7 @@
 #pragma once
 
 #include <linux/bpf.h>
+
 #include <stdint.h>
 #include <sys/syscall.h>
 
@@ -26,8 +27,9 @@ struct BPFProgram {
 };
 
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret);
-BPFProgram *bpf_program_unref(BPFProgram *p);
+int bpf_program_new_from_bpffs_path(const char *path, enum bpf_attach_type attach_type, BPFProgram **ret);
 BPFProgram *bpf_program_ref(BPFProgram *p);
+BPFProgram *bpf_program_unref(BPFProgram *p);
 
 int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *insn, size_t count);
 int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size);
@@ -35,6 +37,7 @@ int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path);
 
 int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_t flags);
 int bpf_program_cgroup_detach(BPFProgram *p);
+int bpf_program_pin(int prog_fd, const char *bpffs_path);
 
 int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size_t max_entries, uint32_t flags);
 int bpf_map_update_element(int fd, const void *key, void *value);
