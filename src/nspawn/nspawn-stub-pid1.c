@@ -53,12 +53,6 @@ int stub_pid1(sd_id128_t uuid) {
         assert_se(sigfillset(&fullmask) >= 0);
         assert_se(sigprocmask(SIG_BLOCK, &fullmask, &oldmask) >= 0);
 
-        /* Surrender the terminal this stub may control so that child processes can have a controlling terminal
-         * without resorting to setsid hacks. */
-        r = ioctl(STDIN_FILENO, TIOCNOTTY);
-        if (r < 0 && errno != ENOTTY)
-                return log_error_errno(errno, "Failed to surrender controlling terminal: %m");
-
         pid = fork();
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork child pid: %m");
@@ -78,6 +72,12 @@ int stub_pid1(sd_id128_t uuid) {
         log_close();
         (void) close_all_fds(NULL, 0);
         log_open();
+
+        if (ioctl(STDIN_FILENO, TIOCNOTTY) < 0) {
+                if (errno != ENOTTY)
+                        log_warning_errno(errno, "Unexpected error from TIOCNOTTY ioctl in init stub process, ignoring: %m");
+        } else
+                log_warning("Expected TIOCNOTTY to fail, but it succeeded in init stub process, ignoring.");
 
         /* Flush out /proc/self/environ, so that we don't leak the environment from the host into the container. Also,
          * set $container= and $container_uuid= so that clients in the container that query it from /proc/1/environ
