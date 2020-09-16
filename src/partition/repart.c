@@ -73,14 +73,9 @@
 #define LUKS2_METADATA_SIZE (16*1024*1024)
 
 #if !HAVE_LIBCRYPTSETUP
-        struct crypt_device {
-
-        };
-        static inline void sym_crypt_free(struct crypt_device* cd) {
-            if (cd)
-                    free(cd);
-        }
-        DEFINE_TRIVIAL_CLEANUP_FUNC(struct crypt_device *, sym_crypt_free);
+struct crypt_device;
+static inline void sym_crypt_free(struct crypt_device* cd) {}
+static inline void sym_crypt_freep(struct crypt_device** cd) {}
 #endif
 
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
@@ -2477,7 +2472,7 @@ static int partition_encrypt(
 
         return 0;
 #else
-        return log_error_errno(-ENOENT, "libcryptsetup not found, cannot encrypt: %m");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libcryptsetup is not supported, cannot encrypt: %m");
 #endif
 }
 
