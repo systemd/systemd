@@ -808,7 +808,7 @@ int config_parse_exec(
                                 if (!fullpath)
                                         return log_oom();
 
-                                if (access(fullpath, F_OK) >= 0) {
+                                if (access(fullpath, X_OK) >= 0) {
                                         free_and_replace(path, fullpath);
                                         found = true;
                                         break;
