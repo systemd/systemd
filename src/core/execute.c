@@ -2873,12 +2873,11 @@ static int setup_credentials(
 #if ENABLE_SMACK
 static int setup_smack(
                 const ExecContext *context,
-                const ExecCommand *command) {
-
+                const char *executable) {
         int r;
 
         assert(context);
-        assert(command);
+        assert(executable);
 
         if (context->smack_process_label) {
                 r = mac_smack_apply_pid(0, context->smack_process_label);
@@ -2889,7 +2888,7 @@ static int setup_smack(
         else {
                 _cleanup_free_ char *exec_label = NULL;
 
-                r = mac_smack_read(command->path, SMACK_ATTR_EXEC, &exec_label);
+                r = mac_smack_read(executable, SMACK_ATTR_EXEC, &exec_label);
                 if (r < 0 && !IN_SET(r, -ENODATA, -EOPNOTSUPP))
                         return r;
 
@@ -3084,7 +3083,7 @@ static bool insist_on_sandboxing(
 
 static int apply_mount_namespace(
                 const Unit *u,
-                const ExecCommand *command,
+                ExecCommandFlags command_flags,
                 const ExecContext *context,
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
@@ -3113,7 +3112,7 @@ static int apply_mount_namespace(
         if (r < 0)
                 return r;
 
-        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
+        needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command_flags & EXEC_COMMAND_FULLY_PRIVILEGED);
         if (needs_sandboxing) {
                 /* The runtime struct only contains the parent of the private /tmp,
                  * which is non-accessible to world users. Inside of it there's a /tmp
@@ -4098,16 +4097,6 @@ static int exec_child(
         }
 
         if (needs_sandboxing) {
-#if HAVE_SELINUX
-                if (use_selinux && params->selinux_context_net && socket_fd >= 0) {
-                        r = mac_selinux_get_child_mls_label(socket_fd, command->path, context->selinux_context, &mac_selinux_context_net);
-                        if (r < 0) {
-                                *exit_status = EXIT_SELINUX_CONTEXT;
-                                return log_unit_error_errno(unit, r, "Failed to determine SELinux context: %m");
-                        }
-                }
-#endif
-
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up the all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
@@ -4144,7 +4133,7 @@ static int exec_child(
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
-                r = apply_mount_namespace(unit, command, context, params, runtime, &error_path);
+                r = apply_mount_namespace(unit, command->flags, context, params, runtime, &error_path);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing%s%s: %m",
@@ -4197,6 +4186,43 @@ static int exec_child(
                         return log_unit_error_errno(unit, r, "Failed to set up user namespacing: %m");
                 }
         }
+
+        /* Now that the mount namespace has been set up and privileges adjusted, let's look for the thing we
+         * shall execute. */
+
+        _cleanup_free_ char *executable = NULL;
+        r = find_executable_full(command->path, false, &executable);
+        if (r < 0) {
+                if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
+                        log_struct_errno(LOG_INFO, r,
+                                         "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                         LOG_UNIT_ID(unit),
+                                         LOG_UNIT_INVOCATION_ID(unit),
+                                         LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
+                                                          command->path),
+                                         "EXECUTABLE=%s", command->path);
+                        return 0;
+                }
+
+                *exit_status = EXIT_EXEC;
+                return log_struct_errno(LOG_INFO, r,
+                                        "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                        LOG_UNIT_ID(unit),
+                                        LOG_UNIT_INVOCATION_ID(unit),
+                                        LOG_UNIT_MESSAGE(unit, "Failed to locate executable %s: %m",
+                                                         command->path),
+                                        "EXECUTABLE=%s", command->path);
+        }
+
+#if HAVE_SELINUX
+        if (needs_sandboxing && use_selinux && params->selinux_context_net && socket_fd >= 0) {
+                r = mac_selinux_get_child_mls_label(socket_fd, executable, context->selinux_context, &mac_selinux_context_net);
+                if (r < 0) {
+                        *exit_status = EXIT_SELINUX_CONTEXT;
+                        return log_unit_error_errno(unit, r, "Failed to determine SELinux context: %m");
+                }
+        }
+#endif
 
         /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that we are
          * more aggressive this time since socket_fd and the netns fds we don't need anymore. We do keep the exec_fd
@@ -4270,7 +4296,7 @@ static int exec_child(
                 /* LSM Smack needs the capability CAP_MAC_ADMIN to change the current execution security context of the
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
                 if (use_smack) {
-                        r = setup_smack(context, command);
+                        r = setup_smack(context, executable);
                         if (r < 0) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return log_unit_error_errno(unit, r, "Failed to set SMACK process label: %m");
@@ -4522,7 +4548,7 @@ static int exec_child(
                 line = exec_command_line(final_argv);
                 if (line)
                         log_struct(LOG_DEBUG,
-                                   "EXECUTABLE=%s", command->path,
+                                   "EXECUTABLE=%s", executable,
                                    LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
                                    LOG_UNIT_ID(unit),
                                    LOG_UNIT_INVOCATION_ID(unit));
@@ -4540,7 +4566,7 @@ static int exec_child(
                 }
         }
 
-        execve(command->path, final_argv, accum_env);
+        execve(executable, final_argv, accum_env);
         r = -errno;
 
         if (exec_fd >= 0) {
@@ -4555,19 +4581,8 @@ static int exec_child(
                 }
         }
 
-        if (r == -ENOENT && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
-                log_struct_errno(LOG_INFO, r,
-                                 "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                 LOG_UNIT_ID(unit),
-                                 LOG_UNIT_INVOCATION_ID(unit),
-                                 LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
-                                                  command->path),
-                                 "EXECUTABLE=%s", command->path);
-                return 0;
-        }
-
         *exit_status = EXIT_EXEC;
-        return log_unit_error_errno(unit, r, "Failed to execute command: %m");
+        return log_unit_error_errno(unit, r, "Failed to execute %s: %m", executable);
 }
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
@@ -4629,13 +4644,16 @@ int exec_spawn(Unit *unit,
         if (!line)
                 return log_oom();
 
-        /* fork with up-to-date SELinux label database, so the child inherits the up-to-date db
-           and, until the next SELinux policy changes, we safe further reloads in future children */
+        /* Fork with up-to-date SELinux label database, so the child inherits the up-to-date db
+           and, until the next SELinux policy changes, we save further reloads in future children. */
         mac_selinux_maybe_reload();
 
         log_struct(LOG_DEBUG,
-                   LOG_UNIT_MESSAGE(unit, "About to execute: %s", line),
-                   "EXECUTABLE=%s", command->path,
+                   LOG_UNIT_MESSAGE(unit, "About to execute %s", line),
+                   "EXECUTABLE=%s", command->path, /* We won't know the real executable path until we create
+                                                      the mount namespace in the child, but we want to log
+                                                      from the parent, so we need to use the (possibly
+                                                      inaccurate) path here. */
                    LOG_UNIT_ID(unit),
                    LOG_UNIT_INVOCATION_ID(unit));
 

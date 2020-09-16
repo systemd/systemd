@@ -789,38 +789,11 @@ int config_parse_exec(
                         return ignore ? 0 : -ENOEXEC;
                 }
 
-                if (!path_is_absolute(path)) {
-                        const char *prefix;
-                        bool found = false;
-
-                        if (!filename_is_valid(path)) {
-                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                           "Neither a valid executable name nor an absolute path%s: %s",
-                                           ignore ? ", ignoring" : "", path);
-                                return ignore ? 0 : -ENOEXEC;
-                        }
-
-                        /* Resolve a single-component name to a full path */
-                        NULSTR_FOREACH(prefix, DEFAULT_PATH_NULSTR) {
-                                _cleanup_free_ char *fullpath = NULL;
-
-                                fullpath = path_join(prefix, path);
-                                if (!fullpath)
-                                        return log_oom();
-
-                                if (access(fullpath, X_OK) >= 0) {
-                                        free_and_replace(path, fullpath);
-                                        found = true;
-                                        break;
-                                }
-                        }
-
-                        if (!found) {
-                                log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
-                                           "Executable \"%s\" not found in path \"%s\"%s",
-                                           path, DEFAULT_PATH, ignore ? ", ignoring" : "");
-                                return ignore ? 0 : -ENOEXEC;
-                        }
+                if (!path_is_absolute(path) && !filename_is_valid(path)) {
+                        log_syntax(unit, ignore ? LOG_WARNING : LOG_ERR, filename, line, 0,
+                                   "Neither a valid executable name nor an absolute path%s: %s",
+                                   ignore ? ", ignoring" : "", path);
+                        return ignore ? 0 : -ENOEXEC;
                 }
 
                 if (!separate_argv0) {
