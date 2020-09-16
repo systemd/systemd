@@ -721,6 +721,12 @@ int config_parse_exec(
                 if (r <= 0)
                         return 0;
 
+                /* A lone ";" is a separator. Let's make sure we don't treat it as an executable name. */
+                if (streq(firstword, ";")) {
+                        semicolon = true;
+                        continue;
+                }
+
                 f = firstword;
                 for (;;) {
                         /* We accept an absolute path as first argument.  If it's prefixed with - and the path doesn't
