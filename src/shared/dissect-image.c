@@ -1033,7 +1033,7 @@ static int mount_partition(
         /* If requested, turn on discard support. */
         if (fstype_can_discard(fstype) &&
             ((flags & DISSECT_IMAGE_DISCARD) ||
-             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node)))) {
+             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node) > 0))) {
                 options = strdup("discard");
                 if (!options)
                         return -ENOMEM;
