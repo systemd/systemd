@@ -870,6 +870,10 @@ static const NLType rtnl_tca_option_data_fq_codel_types[] = {
         [TCA_FQ_CODEL_MEMORY_LIMIT]    = { .type = NETLINK_TYPE_U32 },
 };
 
+static const NLType rtnl_tca_option_data_fq_pie_types[] = {
+        [TCA_FQ_PIE_LIMIT]   = { .type = NETLINK_TYPE_U32 },
+};
+
 static const NLType rtnl_tca_option_data_gred_types[] = {
         [TCA_GRED_DPS] = { .size = sizeof(struct tc_gred_sopt) },
 };
@@ -917,6 +921,7 @@ static const char* const nl_union_tca_option_data_table[] = {
         [NL_UNION_TCA_OPTION_DATA_ETS] = "ets",
         [NL_UNION_TCA_OPTION_DATA_FQ] = "fq",
         [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] = "fq_codel",
+        [NL_UNION_TCA_OPTION_DATA_FQ_PIE] = "fq_pie",
         [NL_UNION_TCA_OPTION_DATA_GRED] = "gred",
         [NL_UNION_TCA_OPTION_DATA_HHF] = "hhf",
         [NL_UNION_TCA_OPTION_DATA_HTB] = "htb",
@@ -941,6 +946,8 @@ static const NLTypeSystem rtnl_tca_option_data_type_systems[] = {
                                                    .types = rtnl_tca_option_data_fq_types },
         [NL_UNION_TCA_OPTION_DATA_FQ_CODEL] =    { .count = ELEMENTSOF(rtnl_tca_option_data_fq_codel_types),
                                                    .types = rtnl_tca_option_data_fq_codel_types },
+        [NL_UNION_TCA_OPTION_DATA_FQ_PIE] =      { .count = ELEMENTSOF(rtnl_tca_option_data_fq_pie_types),
+                                                   .types = rtnl_tca_option_data_fq_pie_types },
         [NL_UNION_TCA_OPTION_DATA_GRED] =        { .count = ELEMENTSOF(rtnl_tca_option_data_gred_types),
                                                    .types = rtnl_tca_option_data_gred_types },
         [NL_UNION_TCA_OPTION_DATA_HHF] =         { .count = ELEMENTSOF(rtnl_tca_option_data_hhf_types),

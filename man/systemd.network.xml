@@ -2824,6 +2824,25 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
   </refsect1>
 
   <refsect1>
+    <title>[FlowQueuePIE] Section Options</title>
+    <para>The <literal>[FlowQueuePIE]</literal> section manages the queueing discipline
+    (qdisc) of Flow Queue Proportional Integral controller-Enhanced (fq_pie).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+
+      <varlistentry>
+        <term><varname>PacketLimit=</varname></term>
+        <listitem>
+          <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached, incoming packets are
+          dropped. An unsigned integer ranges 1 to 4294967294. Defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[StochasticFairBlue] Section Options</title>
     <para>The [StochasticFairBlue] section manages the queueing discipline (qdisc) of stochastic fair blue
     (sfb).</para>

@@ -23,6 +23,7 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_ETS] = &ets_vtable,
         [QDISC_KIND_FQ] = &fq_vtable,
         [QDISC_KIND_FQ_CODEL] = &fq_codel_vtable,
+        [QDISC_KIND_FQ_PIE] = &fq_pie_vtable,
         [QDISC_KIND_GRED] = &gred_vtable,
         [QDISC_KIND_HHF] = &hhf_vtable,
         [QDISC_KIND_HTB] = &htb_vtable,

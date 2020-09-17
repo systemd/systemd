@@ -233,6 +233,18 @@ def expectedFailureIfETSIsNotAvailable():
 
     return f
 
+def expectedFailureIfFQPIEIsNotAvailable():
+    def f(func):
+        call('ip link add dummy98 type dummy', stderr=subprocess.DEVNULL)
+        rc = call('tc qdisc add dev dummy98 parent root fq_pie', stderr=subprocess.DEVNULL)
+        call('ip link del dummy98', stderr=subprocess.DEVNULL)
+        if rc == 0:
+            return func
+        else:
+            return unittest.expectedFailure(func)
+
+    return f
+
 def setUpModule():
     global running_units
 
@@ -1734,6 +1746,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-qdisc-clsact-and-htb.network',
         '25-qdisc-drr.network',
         '25-qdisc-ets.network',
+        '25-qdisc-fq_pie.network',
         '25-qdisc-hhf.network',
         '25-qdisc-ingress-netem-compat.network',
         '25-qdisc-pie.network',
@@ -2667,10 +2680,23 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
+
         self.assertRegex(output, 'qdisc ets 3a: root')
         self.assertRegex(output, 'bands 10 strict 3')
         self.assertRegex(output, 'quanta 1 2 3 4 5')
         self.assertRegex(output, 'priomap 3 4 5 6 7')
+
+    @expectedFailureIfFQPIEIsNotAvailable()
+    def test_qdisc_fq_pie(self):
+        copy_unit_to_networkd_unit_path('25-qdisc-fq_pie.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online(['dummy98:routable'])
+
+        output = check_output('tc qdisc show dev dummy98')
+        print(output)
+
+        self.assertRegex(output, 'qdisc fq_pie 3a: root')
+        self.assertRegex(output, 'limit 200000p')
 
     @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
     def test_sriov(self):
