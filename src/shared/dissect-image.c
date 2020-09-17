@@ -793,7 +793,12 @@ int dissect_image(
                 }
         }
 
-        if (!m->partitions[PARTITION_ROOT].found) {
+        if (m->partitions[PARTITION_ROOT].found) {
+                /* If we found the primary arch, then invalidate the secondary arch to avoid any ambiguities,
+                 * since we never want to mount the secondary arch in this case. */
+                m->partitions[PARTITION_ROOT_SECONDARY].found = false;
+                m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found = false;
+        } else {
                 /* No root partition found? Then let's see if ther's one for the secondary architecture. And if not
                  * either, then check if there's a single generic one, and use that. */
 
@@ -847,12 +852,6 @@ int dissect_image(
         if (verity && verity->root_hash) {
                 if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
                         return -EADDRNOTAVAIL;
-
-                /* If we found the primary root with the hash, then we definitely want to suppress any secondary root
-                 * (which would be weird, after all the root hash should only be assigned to one pair of
-                 * partitions... */
-                m->partitions[PARTITION_ROOT_SECONDARY].found = false;
-                m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found = false;
 
                 /* If we found a verity setup, then the root partition is necessarily read-only. */
                 m->partitions[PARTITION_ROOT].rw = false;
