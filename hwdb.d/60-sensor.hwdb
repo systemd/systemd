@@ -262,7 +262,7 @@ sensor:modalias:acpi:*KIOX000A*:dmi:*svn*CytrixTechnology:*pn*Complex11t*
 #########################################
 # Dell
 #########################################
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:pnVostro5581:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*
  ACCEL_LOCATION=base
 
 # Dell Venue 8 Pro 3845
