@@ -103,7 +103,13 @@ static int set_mdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
+        if (r == -EINVAL && streq_ptr(link->kind, "bridge") && (!link->network || !link->network->bridge)) {
+                /* To configure bridge MDB entries on bridge master, 1bc844ee0faa1b92e3ede00bdd948021c78d7088 (v5.4) is required. */
+                if (!link->manager->bridge_mdb_on_master_not_supported) {
+                        log_link_warning_errno(link, r, "Kernel seems not to support configuring bridge MDB entries on bridge master, ignoring: %m");
+                        link->manager->bridge_mdb_on_master_not_supported = true;
+                }
+        } else if (r < 0 && r != -EEXIST) {
                 log_link_message_warning_errno(link, m, r, "Could not add MDB entry");
                 link_enter_failed(link);
                 return 1;
@@ -199,6 +205,7 @@ int link_set_bridge_mdb(Link *link) {
         int r;
 
         assert(link);
+        assert(link->manager);
 
         link->bridge_mdb_configured = false;
 
@@ -223,6 +230,9 @@ int link_set_bridge_mdb(Link *link) {
 
         } else if (!streq_ptr(link->kind, "bridge")) {
                 log_link_warning(link, "Link is neither a bridge master nor a bridge port, ignoring [BridgeMDB] sections.");
+                goto finish;
+        } else if (link->manager->bridge_mdb_on_master_not_supported) {
+                log_link_debug(link, "Kernel seems not to support configuring bridge MDB entries on bridge master, ignoring [BridgeMDB] sections.");
                 goto finish;
         }
 
