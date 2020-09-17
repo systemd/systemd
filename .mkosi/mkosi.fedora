@@ -53,6 +53,7 @@ BuildPackages=
         lz4-devel
         m4
         meson
+        ninja-build
         openssl-devel
         p11-kit-devel
         pam-devel
