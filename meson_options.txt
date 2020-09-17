@@ -4,7 +4,7 @@
 option('version-tag', type : 'string',
        description : 'override the git version string')
 
-option('mode', type : 'combo', choices : ['default', 'developer'],
+option('mode', type : 'combo', choices : ['developer', 'release'],
        description : 'enable additional checks suitable for systemd development')
 
 option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],

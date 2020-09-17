@@ -99,6 +99,13 @@ And after that, head over to your repo on GitHub and click "Compare & pull reque
 Happy hacking!
 
 
+## Developer and release modes
+
+In the default meson configuration (`-Dmode=developer`), certain checks are
+enabled that are suitable when hacking on systemd (such as internal
+documentation consistency checks). Those are not useful when compiling for code
+for distribution and can be disabled by setting `-Dmode=release`.
+
 ## Fuzzers
 
 systemd includes fuzzers in `src/fuzz/` that use libFuzzer and are automatically

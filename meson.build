@@ -3503,6 +3503,7 @@ watchdog_opt = service_watchdog == '' ? 'disabled' : service_watchdog
 status = [
         '@0@ @1@'.format(meson.project_name(), meson.project_version()),
 
+        'build mode:                        @0@'.format(get_option('mode')),
         'split /usr:                        @0@'.format(split_usr),
         'split bin-sbin:                    @0@'.format(split_bin),
         'prefix directory:                  @0@'.format(prefixdir),
