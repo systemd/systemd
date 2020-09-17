@@ -8,6 +8,7 @@
 #include "macro.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -169,12 +170,12 @@ static void test_find_executable_full(void) {
 
         log_info("/* %s */", __func__);
 
-        assert_se(find_executable_full("sh", true, &p) == 0);
+        assert_se(find_executable_full("sh", true, &p, NULL) == 0);
         puts(p);
         assert_se(streq(basename(p), "sh"));
         free(p);
 
-        assert_se(find_executable_full("sh", false, &p) == 0);
+        assert_se(find_executable_full("sh", false, &p, NULL) == 0);
         puts(p);
         assert_se(streq(basename(p), "sh"));
         free(p);
@@ -186,12 +187,12 @@ static void test_find_executable_full(void) {
 
         assert_se(unsetenv("PATH") >= 0);
 
-        assert_se(find_executable_full("sh", true, &p) == 0);
+        assert_se(find_executable_full("sh", true, &p, NULL) == 0);
         puts(p);
         assert_se(streq(basename(p), "sh"));
         free(p);
 
-        assert_se(find_executable_full("sh", false, &p) == 0);
+        assert_se(find_executable_full("sh", false, &p, NULL) == 0);
         puts(p);
         assert_se(streq(basename(p), "sh"));
         free(p);
@@ -234,6 +235,39 @@ static void test_find_executable(const char *self) {
         assert_se(find_executable("xxxx-xxxx", &p) == -ENOENT);
         assert_se(find_executable("/some/dir/xxxx-xxxx", &p) == -ENOENT);
         assert_se(find_executable("/proc/filesystems", &p) == -EACCES);
+}
+
+static void test_find_executable_exec_one(const char *path) {
+        _cleanup_free_ char *t = NULL;
+        _cleanup_close_ int fd = -1;
+        pid_t pid;
+        int r;
+
+        r = find_executable_full(path, false, &t, &fd);
+
+        log_info_errno(r, "%s: %s → %s: %d/%m", __func__, path, t ?: "-", fd);
+
+        assert_se(fd > STDERR_FILENO);
+        assert_se(path_is_absolute(t));
+        if (path_is_absolute(path))
+                assert_se(streq(t, path));
+
+        pid = fork();
+        assert_se(pid >= 0);
+        if (pid == 0) {
+                fexecve(fd, STRV_MAKE(t, "--version"), STRV_MAKE(NULL));
+                log_error_errno(errno, "fexecve: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        assert_se(wait_for_terminate_and_check(t, pid, WAIT_LOG) == 0);
+}
+
+static void test_find_executable_exec(void) {
+        log_info("/* %s */", __func__);
+
+        test_find_executable_exec_one("touch");
+        test_find_executable_exec_one("/bin/touch");
 }
 
 static void test_prefixes(void) {
@@ -717,6 +751,7 @@ int main(int argc, char **argv) {
         test_path_equal_root();
         test_find_executable_full();
         test_find_executable(argv[0]);
+        test_find_executable_exec();
         test_prefixes();
         test_path_join();
         test_fsck_exists();
