@@ -42,9 +42,17 @@
 #  define DEFAULT_USER_PATH DEFAULT_PATH
 #endif
 
-bool is_path(const char *p) _pure_;
+static inline bool is_path(const char *p) {
+        assert(p);
+        return strchr(p, '/');
+}
+
+static inline bool path_is_absolute(const char *p) {
+        assert(p);
+        return p[0] == '/';
+}
+
 int path_split_and_make_absolute(const char *p, char ***ret);
-bool path_is_absolute(const char *p) _pure_;
 char* path_make_absolute(const char *p, const char *prefix);
 int safe_getcwd(char **ret);
 int path_make_absolute_cwd(const char *p, char **ret);

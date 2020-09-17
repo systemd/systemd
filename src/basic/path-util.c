@@ -28,14 +28,6 @@
 #include "time-util.h"
 #include "utf8.h"
 
-bool path_is_absolute(const char *p) {
-        return p[0] == '/';
-}
-
-bool is_path(const char *p) {
-        return !!strchr(p, '/');
-}
-
 int path_split_and_make_absolute(const char *p, char ***ret) {
         char **l;
         int r;
