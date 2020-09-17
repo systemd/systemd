@@ -2728,7 +2728,6 @@ finish:
                 m = manager_free(m);
         }
 
-        reset_arguments();
         mac_selinux_finish();
 
         if (reexecute)
@@ -2755,6 +2754,7 @@ finish:
                  * in become_shutdown() so normally we cannot free them yet. */
                 watchdog_free_device();
                 arg_watchdog_device = mfree(arg_watchdog_device);
+                reset_arguments();
                 return retval;
         }
 #endif
@@ -2780,5 +2780,6 @@ finish:
                 freeze_or_exit_or_reboot();
         }
 
+        reset_arguments();
         return retval;
 }
