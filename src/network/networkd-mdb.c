@@ -117,11 +117,23 @@ static int set_mdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
+static int link_get_bridge_master_ifindex(Link *link) {
+        assert(link);
+
+        if (link->network && link->network->bridge)
+                return link->network->bridge->ifindex;
+
+        if (streq_ptr(link->kind, "bridge"))
+                return link->ifindex;
+
+        return 0;
+}
+
 /* send a request to the kernel to add an MDB entry */
 static int mdb_entry_configure(Link *link, MdbEntry *mdb_entry) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         struct br_mdb_entry entry;
-        int r;
+        int master, r;
 
         assert(link);
         assert(link->network);
@@ -136,14 +148,20 @@ static int mdb_entry_configure(Link *link, MdbEntry *mdb_entry) {
                                strna(a), mdb_entry->vlan_id);
         }
 
+        master = link_get_bridge_master_ifindex(link);
+        if (master <= 0)
+                return log_link_error_errno(link, SYNTHETIC_ERRNO(EINVAL), "Invalid bridge master ifindex %i", master);
+
         entry = (struct br_mdb_entry) {
-                .state = MDB_PERMANENT,
+                /* If MDB entry is added on bridge master, then the state must be MDB_TEMPORARY.
+                 * See br_mdb_add_group() in net/bridge/br_mdb.c of kernel. */
+                .state = master == link->ifindex ? MDB_TEMPORARY : MDB_PERMANENT,
                 .ifindex = link->ifindex,
                 .vid = mdb_entry->vlan_id,
         };
 
         /* create new RTM message */
-        r = sd_rtnl_message_new_mdb(link->manager->rtnl, &req, RTM_NEWMDB, link->network->bridge->ifindex);
+        r = sd_rtnl_message_new_mdb(link->manager->rtnl, &req, RTM_NEWMDB, master);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWMDB message: %m");
 
@@ -178,7 +196,6 @@ static int mdb_entry_configure(Link *link, MdbEntry *mdb_entry) {
 
 int link_set_bridge_mdb(Link *link) {
         MdbEntry *mdb_entry;
-        Link *master;
         int r;
 
         assert(link);
@@ -188,20 +205,26 @@ int link_set_bridge_mdb(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (!link->network->bridge) {
-                link->bridge_mdb_configured = true;
-                return 0;
-        }
+        if (LIST_IS_EMPTY(link->network->static_mdb_entries))
+                goto finish;
 
         if (!link_has_carrier(link))
                 return log_link_debug(link, "Link does not have carrier yet, setting MDB entries later.");
 
-        r = link_get(link->manager, link->network->bridge->ifindex, &master);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get Link object for Bridge=%s", link->network->bridge->ifname);
+        if (link->network->bridge) {
+                Link *master;
 
-        if (!link_has_carrier(master))
-                return log_link_debug(link, "Bridge interface %s does not have carrier yet, setting MDB entries later.", link->network->bridge->ifname);
+                r = link_get(link->manager, link->network->bridge->ifindex, &master);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to get Link object for Bridge=%s", link->network->bridge->ifname);
+
+                if (!link_has_carrier(master))
+                        return log_link_debug(link, "Bridge interface %s does not have carrier yet, setting MDB entries later.", link->network->bridge->ifname);
+
+        } else if (!streq_ptr(link->kind, "bridge")) {
+                log_link_warning(link, "Link is neither a bridge master nor a bridge port, ignoring [BridgeMDB] sections.");
+                goto finish;
+        }
 
         LIST_FOREACH(static_mdb_entries, mdb_entry, link->network->static_mdb_entries) {
                 r = mdb_entry_configure(link, mdb_entry);
@@ -211,6 +234,7 @@ int link_set_bridge_mdb(Link *link) {
                 link->bridge_mdb_messages++;
         }
 
+finish:
         if (link->bridge_mdb_messages == 0) {
                 link->bridge_mdb_configured = true;
                 link_check_ready(link);
