@@ -197,6 +197,76 @@
                 <entry><constant>root-ia64-verity</constant></entry>
                 <entry>Verity data for the ia64 root file system partition</entry>
               </row>
+
+              <row>
+                <entry><constant>usr</constant></entry>
+                <entry><filename>/usr/</filename> file system partition type appropriate for the local architecture (an alias for an architecture <filename>/usr/</filename> file system partition type listed below, e.g. <constant>usr-x86-64</constant>)</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-verity</constant></entry>
+                <entry>Verity data for the <filename>/usr/</filename> file system partition for the local architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-secondary</constant></entry>
+                <entry><filename>/usr/</filename> file system partition of the secondary architecture of the local architecture (usually the matching 32bit architecture for the local 64bit architecture)</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-secondary-verity</constant></entry>
+                <entry>Verity data for the <filename>/usr/</filename> file system partition of the secondary architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-x86</constant></entry>
+                <entry><filename>/usr/</filename> file system partition for the x86 (32bit, aka i386) architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-x86-verity</constant></entry>
+                <entry>Verity data for the x86 (32bit) <filename>/usr/</filename> file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-x86-64</constant></entry>
+                <entry><filename>/usr/</filename> file system partition for the x86_64 (64bit, aka amd64) architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-x86-64-verity</constant></entry>
+                <entry>Verity data for the x86_64 (64bit) <filename>/usr/</filename> file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-arm</constant></entry>
+                <entry><filename>/usr/</filename> file system partition for the ARM (32bit) architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-arm-verity</constant></entry>
+                <entry>Verity data for the ARM (32bit) <filename>/usr/</filename> file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-arm64</constant></entry>
+                <entry><filename>/usr/</filename> file system partition for the ARM (64bit, aka aarch64) architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-arm64-verity</constant></entry>
+                <entry>Verity data for the ARM (64bit, aka aarch64) <filename>/usr/</filename> file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-ia64</constant></entry>
+                <entry><filename>/usr/</filename> file system partition for the ia64 architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-ia64-verity</constant></entry>
+                <entry>Verity data for the ia64 <filename>/usr/</filename> file system partition</entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
