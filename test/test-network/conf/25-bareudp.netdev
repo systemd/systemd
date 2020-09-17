@@ -1,0 +1,7 @@
+[NetDev]
+Kind=bareudp
+Name=bareudp99
+
+[BareUDP]
+DestinationPort=1000
+EtherType=ipv4

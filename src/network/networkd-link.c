@@ -146,7 +146,7 @@ bool link_ipv4ll_enabled(Link *link, AddressFamily mask) {
 
         if (STRPTR_IN_SET(link->kind,
                           "vrf", "wireguard", "ipip", "gre", "ip6gre","ip6tnl", "sit", "vti",
-                          "vti6", "nlmon", "xfrm"))
+                          "vti6", "nlmon", "xfrm", "bareudp"))
                 return false;
 
         /* L3 or L3S mode do not support ARP. */

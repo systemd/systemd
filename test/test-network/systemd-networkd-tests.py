@@ -732,6 +732,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     links = [
         '6rdtun99',
+        'bareudp99',
         'bond99',
         'bridge99',
         'dropin-test',
@@ -806,6 +807,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '21-vlan.netdev',
         '21-vlan.network',
         '25-6rd-tunnel.netdev',
+        '25-bareudp.netdev',
         '25-bond.netdev',
         '25-bond-balanced-tlb.netdev',
         '25-bridge.netdev',
@@ -951,6 +953,18 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_operstate('bridge99', '(off|no-carrier)', setup_state='configuring')
         self.wait_operstate('test1', 'degraded')
+
+    @expectedFailureIfModuleIsNotAvailable('bareudp')
+    def test_bareudp(self):
+        copy_unit_to_networkd_unit_path('25-bareudp.netdev', 'netdev-link-local-addressing-yes.network')
+        start_networkd()
+
+        self.wait_online(['bareudp99:degraded'])
+
+        output = check_output('ip -d link show bareudp99')
+        print(output)
+        self.assertRegex(output, 'dstport 1000 ')
+        self.assertRegex(output, 'ethertype ip ')
 
     def test_bridge(self):
         copy_unit_to_networkd_unit_path('25-bridge.netdev', '25-bridge-configure-without-carrier.network')

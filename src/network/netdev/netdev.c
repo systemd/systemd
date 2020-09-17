@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bareudp.h"
 #include "bond.h"
 #include "bridge.h"
 #include "conf-files.h"
@@ -77,9 +78,11 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_NLMON] = &nlmon_vtable,
         [NETDEV_KIND_XFRM] = &xfrm_vtable,
         [NETDEV_KIND_IFB] = &ifb_vtable,
+        [NETDEV_KIND_BAREUDP] = &bare_udp_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
+        [NETDEV_KIND_BAREUDP] = "bareudp",
         [NETDEV_KIND_BRIDGE] = "bridge",
         [NETDEV_KIND_BOND] = "bond",
         [NETDEV_KIND_VLAN] = "vlan",

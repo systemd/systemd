@@ -183,6 +183,8 @@
           <row><entry><varname>ifb</varname></entry>
           <entry> The Intermediate Functional Block (ifb) pseudo network interface acts as a QoS concentrator for multiple different sources of traffic.</entry></row>
 
+          <row><entry><varname>bareudp</varname></entry>
+          <entry> Bare UDP tunnels provide a generic L3 encapsulation support for tunnelling different L3 protocols like MPLS, IP etc. inside of an UDP tunnel.</entry></row>
         </tbody>
       </tgroup>
     </table>
@@ -824,6 +826,31 @@
         <listitem>
           <para>Takes a boolean. When true, the vxlan interface is created without underlying interfaces.
           Defaults to <literal>false</literal>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[BareUDP] Section Options</title>
+
+    <para>The [BareUDP] section only applies for
+    netdevs of kind <literal>bareudp</literal>, and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>DestinationPort=</varname></term>
+        <listitem>
+          <para>Specifies the destination UDP port (in range 1…65535). This is mandatory.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EtherType=</varname></term>
+        <listitem>
+          <para>Specifies the L3 protocol. Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>mpls-uc</literal>
+          or <literal>mpls-mc</literal>. This is mandatory.</para>
         </listitem>
       </varlistentry>
     </variablelist>

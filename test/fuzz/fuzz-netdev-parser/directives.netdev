@@ -216,3 +216,6 @@ Activate=
 [Xfrm]
 Independent=
 InterfaceId=
+[BareUDP]
+DestinationPort=
+EtherType=
