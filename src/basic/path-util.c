@@ -585,9 +585,9 @@ char* path_join_internal(const char *first, ...) {
         return joined;
 }
 
-int find_executable(const char *name, char **ret) {
+int find_executable_full(const char *name, bool use_path_envvar, char **ret) {
         int last_error, r;
-        const char *p;
+        const char *p = NULL;
 
         assert(name);
 
@@ -604,8 +604,10 @@ int find_executable(const char *name, char **ret) {
                 return 0;
         }
 
-        /* Plain getenv, not secure_getenv, because we want to actually allow the user to pick the binary. */
-        p = getenv("PATH");
+        if (use_path_envvar)
+                /* Plain getenv, not secure_getenv, because we want to actually allow the user to pick the
+                 * binary. */
+                p = getenv("PATH");
         if (!p)
                 p = DEFAULT_PATH;
 

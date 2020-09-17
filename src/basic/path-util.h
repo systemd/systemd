@@ -88,7 +88,10 @@ int path_strv_make_absolute_cwd(char **l);
 char** path_strv_resolve(char **l, const char *root);
 char** path_strv_resolve_uniq(char **l, const char *root);
 
-int find_executable(const char *name, char **filename);
+int find_executable_full(const char *name, bool use_path_envvar, char **ret);
+static inline int find_executable(const char *name, char **ret) {
+        return find_executable_full(name, true, ret);
+}
 
 bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
 
