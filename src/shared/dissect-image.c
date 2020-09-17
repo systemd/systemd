@@ -1321,9 +1321,10 @@ static int decrypt_partition(
                 return r == -EPERM ? -EKEYREJECTED : r;
         }
 
-        d->decrypted[d->n_decrypted].name = TAKE_PTR(name);
-        d->decrypted[d->n_decrypted].device = TAKE_PTR(cd);
-        d->n_decrypted++;
+        d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
+                .name = TAKE_PTR(name),
+                .device = TAKE_PTR(cd),
+        };
 
         m->decrypted_node = TAKE_PTR(node);
 
@@ -1540,9 +1541,10 @@ static int verity_partition(
         /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
         restore_deferred_remove = mfree(restore_deferred_remove);
 
-        d->decrypted[d->n_decrypted].name = TAKE_PTR(name);
-        d->decrypted[d->n_decrypted].device = TAKE_PTR(cd);
-        d->n_decrypted++;
+        d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
+                .name = TAKE_PTR(name),
+                .device = TAKE_PTR(cd),
+        };
 
         m->decrypted_node = TAKE_PTR(node);
 
