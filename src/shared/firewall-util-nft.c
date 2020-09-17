@@ -9,6 +9,7 @@
 #include <linux/netfilter/nf_nat.h>
 #include <linux/netfilter_ipv4.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 
 #include "sd-netlink.h"
 
@@ -17,6 +18,7 @@
 #include "firewall-util-private.h"
 #include "in-addr-util.h"
 #include "macro.h"
+#include "memory-util.h"
 #include "socket-util.h"
 #include "time-util.h"
 
@@ -329,9 +331,13 @@ static int sd_nfnl_message_new_masq_rule(sd_netlink *nfnl, sd_netlink_message **
         if (r < 0)
                 return r;
 
-        /* 1st statement: ip saddr @masq_saddr. Place iph->saddr in reg1. */
-        r = nfnl_add_expr_payload(m, NFT_PAYLOAD_NETWORK_HEADER, offsetof(struct iphdr, saddr),
-                                  sizeof(uint32_t), NFT_REG32_01);
+        /* 1st statement: ip saddr @masq_saddr. Place iph->saddr in reg1, resp. ipv6 in reg1..reg4. */
+        if (family == AF_INET)
+                r = nfnl_add_expr_payload(m, NFT_PAYLOAD_NETWORK_HEADER, offsetof(struct iphdr, saddr),
+                                          sizeof(uint32_t), NFT_REG32_01);
+        else
+                r = nfnl_add_expr_payload(m, NFT_PAYLOAD_NETWORK_HEADER, offsetof(struct ip6_hdr, ip6_src.s6_addr),
+                                          sizeof(struct in6_addr), NFT_REG32_01);
         if (r < 0)
                 return r;
 
@@ -397,7 +403,7 @@ static int sd_nfnl_message_new_dnat_rule_pre(sd_netlink *nfnl, sd_netlink_messag
         if (r < 0)
                 return r;
 
-        proto_reg = NFT_REG32_02;
+        proto_reg = family == AF_INET ? NFT_REG32_02 : NFT_REG32_05;
         r = nfnl_add_expr_dnat(m, family, NFT_REG32_01, proto_reg);
         if (r < 0)
                 return r;
@@ -411,9 +417,8 @@ static int sd_nfnl_message_new_dnat_rule_pre(sd_netlink *nfnl, sd_netlink_messag
 
 static int sd_nfnl_message_new_dnat_rule_out(sd_netlink *nfnl, sd_netlink_message **ret,
                                              int family, const char *chain) {
-        static const uint32_t zero, one = 1;
+        static const uint32_t zero = 0, one = 1;
 
-        uint32_t lonet = htobe32(0x7F000000), lomask = htobe32(0xff000000);
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         enum nft_registers proto_reg;
         int r;
@@ -426,19 +431,31 @@ static int sd_nfnl_message_new_dnat_rule_out(sd_netlink *nfnl, sd_netlink_messag
         if (r < 0)
                 return r;
 
-        /* 1st statement: exclude 127.0.0.1/8: ip daddr != 127.0.0.1/8 */
-        r = nfnl_add_expr_payload(m, NFT_PAYLOAD_NETWORK_HEADER, offsetof(struct iphdr, daddr),
-                                  sizeof(uint32_t), NFT_REG32_01);
-        if (r < 0)
-                return r;
+        /* 1st statement: exclude 127.0.0.1/8: ip daddr != 127.0.0.1/8, resp. avoid ::1 */
+        if (family == AF_INET) {
+                uint32_t lonet = htobe32(UINT32_C(0x7F000000)), lomask = htobe32(UINT32_C(0xff000000));
 
-        /* 1st statement (cont.): bitops/prefix */
-        r = nfnl_add_expr_bitwise(m, NFT_REG32_01, NFT_REG32_01, &lomask, &zero, sizeof(lomask));
-        if (r < 0)
-                return r;
+                r = nfnl_add_expr_payload(m, NFT_PAYLOAD_NETWORK_HEADER, offsetof(struct iphdr, daddr),
+                                          sizeof(lonet), NFT_REG32_01);
+                if (r < 0)
+                        return r;
+                /* 1st statement (cont.): bitops/prefix */
+                r = nfnl_add_expr_bitwise(m, NFT_REG32_01, NFT_REG32_01, &lomask, &zero, sizeof(lomask));
+                if (r < 0)
+                        return r;
 
-        /* 1st statement (cont.): compare reg1 with 127/8 */
-        r = nfnl_add_expr_cmp(m, NFT_CMP_NEQ, NFT_REG32_01, &lonet, sizeof(lonet));
+                /* 1st statement (cont.): compare reg1 with 127/8 */
+                r = nfnl_add_expr_cmp(m, NFT_CMP_NEQ, NFT_REG32_01, &lonet, sizeof(lonet));
+        } else {
+                struct in6_addr loaddr = IN6ADDR_LOOPBACK_INIT;
+
+                r = nfnl_add_expr_payload(m, NFT_PAYLOAD_NETWORK_HEADER, offsetof(struct ip6_hdr, ip6_dst.s6_addr),
+                                          sizeof(loaddr), NFT_REG32_01);
+                if (r < 0)
+                        return r;
+
+                r = nfnl_add_expr_cmp(m, NFT_CMP_NEQ, NFT_REG32_01, &loaddr, sizeof(loaddr));
+        }
         if (r < 0)
                 return r;
 
@@ -475,7 +492,7 @@ static int sd_nfnl_message_new_dnat_rule_out(sd_netlink *nfnl, sd_netlink_messag
 
         /* 4th statement: dnat connection to address/port retrieved by the
          * preceding expression. */
-        proto_reg = NFT_REG32_02;
+        proto_reg = family == AF_INET ? NFT_REG32_02 : NFT_REG32_05;
         r = nfnl_add_expr_dnat(m, family, NFT_REG32_01, proto_reg);
         if (r < 0)
                 return r;
@@ -620,10 +637,11 @@ static uint32_t concat_types2(enum nft_key_types a, enum nft_key_types b) {
 #define NFT_INIT_MSGS 16
 static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         sd_netlink_message *batch[NFT_INIT_MSGS] = {};
-        size_t ip_type_size = sizeof(uint32_t);
-        int ip_type = TYPE_IPADDR, r;
-        size_t msgcnt = 0, i;
+        size_t msgcnt = 0, i, ip_type_size;
         uint32_t set_id = 0;
+        int ip_type, r;
+
+        assert(IN_SET(family, AF_INET, AF_INET6));
 
         r = sd_nfnl_message_batch_begin(nfnl, &batch[msgcnt]);
         if (r < 0)
@@ -661,6 +679,14 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         if (r < 0)
                 goto out_unref;
 
+        if (family == AF_INET) {
+                ip_type_size = sizeof(uint32_t);
+                ip_type = TYPE_IPADDR;
+        } else {
+                assert(family == AF_INET6);
+                ip_type_size = sizeof(struct in6_addr);
+                ip_type = TYPE_IP6ADDR;
+        }
         msgcnt++;
         assert(msgcnt < NFT_INIT_MSGS);
         /* set to store ip address ranges we should masquerade for */
@@ -730,6 +756,10 @@ int fw_nftables_init(FirewallContext *ctx) {
         r = fw_nftables_init_family(nfnl, AF_INET);
         if (r < 0)
                 return r;
+
+        r = fw_nftables_init_family(nfnl, AF_INET6);
+        if (r < 0)
+                log_debug_errno(r, "Failed to init ipv6 NAT: %m");
 
         ctx->nfnl = TAKE_PTR(nfnl);
         return 0;
@@ -815,6 +845,74 @@ static int fw_nftables_recreate_table(sd_netlink *nfnl, int af, sd_netlink_messa
         return 0;
 }
 
+static void nft_in6addr_to_range(const union in_addr_union *source, unsigned int prefixlen,
+                                 struct in6_addr *start, struct in6_addr *end)
+{
+        uint8_t carry = 0;
+        int i, j;
+
+        assert(prefixlen <= 128);
+
+        for (i = 0, j = 15; i < 16; i++) {
+                uint8_t nm;
+
+                nm = 0xFF;
+                if (prefixlen < 8)
+                        nm = 0xFF << (8 - prefixlen);
+
+                start->s6_addr[i] = source->in6.s6_addr[i] & nm;
+                if (prefixlen <= 8 && j == 15) {
+                         carry = 1u << (8 - prefixlen);
+                         j = i;
+                }
+
+                if (prefixlen >= 8)
+                         prefixlen -= 8;
+                else
+                         prefixlen = 0;
+        }
+        *end = *start;
+
+        for (; j >= 0; j--) {
+                uint16_t overflow = end->s6_addr[j] + carry;
+
+                end->s6_addr[j] = overflow;
+                if (overflow <= 0xff)
+                        break;
+                carry = 1;
+        }
+
+        if (memcmp(start, end, sizeof(*start)) > 0)
+                zero(end);
+}
+
+static int nft_message_add_setelem_ip6range(sd_netlink_message *m,
+                                            const union in_addr_union *source,
+                                            unsigned int prefixlen) {
+        struct in6_addr start, end;
+        int r;
+
+        nft_in6addr_to_range(source, prefixlen, &start, &end);
+
+        r = sd_nfnl_nft_message_add_setelem(m, 0, &start, sizeof(start), NULL, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_nft_message_add_setelem_end(m);
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_nft_message_add_setelem(m, 1, &end, sizeof(end), NULL, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_append_u32(m, NFTA_SET_ELEM_FLAGS, htobe32(NFT_SET_ELEM_INTERVAL_END));
+        if (r < 0)
+                return r;
+
+        return sd_nfnl_nft_message_add_setelem_end(m);
+}
+
 #define NFT_MASQ_MSGS   3
 
 int fw_nftables_add_masquerade(
@@ -831,6 +929,8 @@ int fw_nftables_add_masquerade(
         if (!source || source_prefixlen == 0)
                 return -EINVAL;
 
+        if (af == AF_INET6 && source_prefixlen < 8)
+                return -EINVAL;
 again:
         r = sd_nfnl_message_batch_begin(ctx->nfnl, &transaction[0]);
         if (r < 0)
@@ -844,7 +944,11 @@ again:
         if (r < 0)
                 goto out_unref;
 
-        r = nft_message_add_setelem_iprange(transaction[tsize], source, source_prefixlen);
+        if (af == AF_INET)
+                 r = nft_message_add_setelem_iprange(transaction[tsize], source, source_prefixlen);
+        else
+                 r = nft_message_add_setelem_ip6range(transaction[tsize], source, source_prefixlen);
+
         if (r < 0)
                 goto out_unref;
 
@@ -881,16 +985,13 @@ int fw_nftables_add_local_dnat(
                 const union in_addr_union *remote,
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote) {
-        uint32_t data[2], key[2];
+        uint32_t data[5], key[2], dlen;
         sd_netlink_message *transaction[NFT_DNAT_MSGS] = {};
         bool retry = true;
         size_t tsize;
         int r;
 
         assert(add || !previous_remote);
-
-        if (af != AF_INET)
-                return -EAFNOSUPPORT;
 
         if (!IN_SET(protocol, IPPROTO_TCP, IPPROTO_UDP))
                 return -EPROTONOSUPPORT;
@@ -908,7 +1009,14 @@ again:
         if (remote_port <= 0)
                 return -EINVAL;
 
-        data[1] = htobe16(remote_port);
+        if (af == AF_INET) {
+                dlen = 8;
+                data[1] = htobe16(remote_port);
+        } else {
+                assert(af == AF_INET6);
+                dlen = sizeof(data);
+                data[4] = htobe16(remote_port);
+        }
 
         r = sd_nfnl_message_batch_begin(ctx->nfnl, &transaction[0]);
         if (r < 0)
@@ -916,23 +1024,29 @@ again:
 
         tsize = 1;
         /* If a previous remote is set, remove its entry */
-        if (add && previous_remote && previous_remote->in.s_addr != remote->in.s_addr) {
-                data[0] = previous_remote->in.s_addr;
+        if (add && previous_remote && !in_addr_equal(af, previous_remote, remote)) {
+                if (af == AF_INET)
+                        data[0] = previous_remote->in.s_addr;
+                else
+                        memcpy(data, &previous_remote->in6, sizeof(previous_remote->in6));
 
-                r = nft_del_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, sizeof(data));
+                r = nft_del_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
                 if (r < 0)
                         goto out_unref;
 
                 tsize++;
         }
 
-        data[0] = remote->in.s_addr;
+        if (af == AF_INET)
+                data[0] = remote->in.s_addr;
+        else
+                memcpy(data, &remote->in6, sizeof(remote->in6));
 
         assert(tsize < NFT_DNAT_MSGS);
         if (add)
-                nft_add_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, sizeof(data));
+                nft_add_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
         else
-                nft_del_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, sizeof(data));
+                nft_del_element(ctx->nfnl, &transaction[tsize], af, NFT_SYSTEMD_DNAT_MAP_NAME, key, sizeof(key), data, dlen);
 
         tsize++;
         assert(tsize < NFT_DNAT_MSGS);
