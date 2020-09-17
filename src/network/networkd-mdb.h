@@ -24,7 +24,7 @@ struct MdbEntry {
 
 int mdb_entry_verify(MdbEntry *mdb_entry);
 MdbEntry *mdb_entry_free(MdbEntry *mdb_entry);
-int mdb_entry_configure(Link *link, MdbEntry *mdb_entry);
+int link_set_bridge_mdb(Link *link);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(MdbEntry, mdb_entry_free);
 

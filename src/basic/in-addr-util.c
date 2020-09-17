@@ -54,6 +54,16 @@ int in_addr_is_link_local(int family, const union in_addr_union *u) {
         return -EAFNOSUPPORT;
 }
 
+bool in6_addr_is_link_local_all_nodes(const struct in6_addr *a) {
+        assert(a);
+
+        /* ff02::1 */
+        return be32toh(a->s6_addr32[0]) == UINT32_C(0xff020000) &&
+                a->s6_addr32[1] == 0 &&
+                a->s6_addr32[2] == 0 &&
+                be32toh(a->s6_addr32[3]) == UINT32_C(0x00000001);
+}
+
 int in_addr_is_multicast(int family, const union in_addr_union *u) {
         assert(u);
 
@@ -64,6 +74,12 @@ int in_addr_is_multicast(int family, const union in_addr_union *u) {
                 return IN6_IS_ADDR_MULTICAST(&u->in6);
 
         return -EAFNOSUPPORT;
+}
+
+bool in4_addr_is_local_multicast(const struct in_addr *a) {
+        assert(a);
+
+        return (be32toh(a->s_addr) & UINT32_C(0xffffff00)) == UINT32_C(0xe0000000);
 }
 
 bool in4_addr_is_localhost(const struct in_addr *a) {
