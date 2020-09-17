@@ -45,7 +45,6 @@ BuildPackages=
         libmount-devel
         libseccomp-devel
         libselinux-devel
-        libtool
         libxkbcommon-devel
         libxslt
         lz4
