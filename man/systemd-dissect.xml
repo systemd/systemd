@@ -74,6 +74,15 @@
     <option>--image=</option> switch, and be used as root file system for system service using the
     <varname>RootImage=</varname> unit file setting, see
     <citerefentry><refentrytitle>system.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>Note that the partition table shown when invoked without command switch (as listed below) does not
+    necessarily show all partitions included in the image, but just the partitions that are understood and
+    considered part of an OS disk image. Specifically, partitions of unknown types are ignored, as well as
+    duplicate partitions (i.e. more than one per partition type), as are root and <filename>/usr/</filename>
+    partitions of architectures not compatible with the local system. In other words: this tool will display
+    what it operates with when mounting the image. To display the complete list of partitions use a tool such
+    as <citerefentry
+    project='man-pages'><refentrytitle>fdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
   </refsect1>
 
   <refsect1>
@@ -246,7 +255,8 @@
       <citerefentry><refentrytitle>system-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>system.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>,
-      <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>fdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
