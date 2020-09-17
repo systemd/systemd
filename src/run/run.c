@@ -1720,11 +1720,15 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        if (!strv_isempty(arg_cmdline) && arg_transport == BUS_TRANSPORT_LOCAL) {
+        if (!strv_isempty(arg_cmdline) &&
+            arg_transport == BUS_TRANSPORT_LOCAL &&
+            !strv_find_startswith(arg_property, "RootDirectory=") &&
+            !strv_find_startswith(arg_property, "RootImage=")) {
+                /* Patch in an absolute path to fail early for user convenience, but only when we can do it
+                 * (i.e. we will be running from the same file system). This also uses the user's $PATH,
+                 * while we use a fixed search path in the manager. */
+
                 _cleanup_free_ char *command = NULL;
-
-                /* Patch in an absolute path */
-
                 r = find_executable(arg_cmdline[0], &command);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find executable %s: %m", arg_cmdline[0]);
