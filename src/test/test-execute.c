@@ -328,7 +328,7 @@ static void test_exec_privatedevices(Manager *m) {
 
         /* We use capsh to test if the capabilities are
          * properly set, so be sure that it exists */
-        r = find_binary("capsh", NULL);
+        r = find_executable("capsh", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
                 return;
@@ -361,7 +361,7 @@ static void test_exec_protectkernelmodules(Manager *m) {
                 return;
         }
 
-        r = find_binary("capsh", NULL);
+        r = find_executable("capsh", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
@@ -435,7 +435,7 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-failing.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-failing2.service", SIGSYS, CLD_KILLED);
 
-        r = find_binary("python3", NULL);
+        r = find_executable("python3", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping remaining tests in %s, could not find python3 binary: %m", __func__);
                 return;
@@ -458,7 +458,7 @@ static void test_exec_systemcallerrornumber(Manager *m) {
                 return;
         }
 
-        r = find_binary("python3", NULL);
+        r = find_executable("python3", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find python3 binary: %m", __func__);
                 return;
@@ -694,7 +694,7 @@ static void test_exec_runtimedirectory(Manager *m) {
 static void test_exec_capabilityboundingset(Manager *m) {
         int r;
 
-        r = find_binary("capsh", NULL);
+        r = find_executable("capsh", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
@@ -756,7 +756,7 @@ static void test_exec_ambientcapabilities(Manager *m) {
 static void test_exec_privatenetwork(Manager *m) {
         int r;
 
-        r = find_binary("ip", NULL);
+        r = find_executable("ip", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
                 return;

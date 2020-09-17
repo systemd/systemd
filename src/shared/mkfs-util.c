@@ -20,7 +20,7 @@ int mkfs_exists(const char *fstype) {
         if (!filename_is_valid(mkfs)) /* refuse file system types with slashes and similar */
                 return -EINVAL;
 
-        r = find_binary(mkfs, NULL);
+        r = find_executable(mkfs, NULL);
         if (r == -ENOENT)
                 return false;
         if (r < 0)
@@ -44,7 +44,7 @@ int make_filesystem(
         assert(label);
 
         if (streq(fstype, "swap")) {
-                r = find_binary("mkswap", &mkfs);
+                r = find_executable("mkswap", &mkfs);
                 if (r == -ENOENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mkswap binary not available.");
                 if (r < 0)
