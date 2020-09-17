@@ -52,6 +52,7 @@ int config_parse_fq_pie_packet_limit(
         _cleanup_(qdisc_free_or_set_invalidp) QDisc *qdisc = NULL;
         FlowQueuePIE *fq_pie;
         Network *network = data;
+        uint32_t val;
         int r;
 
         assert(filename);
@@ -75,14 +76,21 @@ int config_parse_fq_pie_packet_limit(
                 return 0;
         }
 
-        r = safe_atou32(rvalue, &fq_pie->packet_limit);
+        r = safe_atou32(rvalue, &val);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
                 return 0;
         }
+        if (val == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
 
+        fq_pie->packet_limit = val;
         qdisc = NULL;
 
         return 0;
