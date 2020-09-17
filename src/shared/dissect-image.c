@@ -1466,7 +1466,8 @@ static int verity_partition(
                                         verity->root_hash_sig_size,
                                         CRYPT_ACTIVATE_READONLY);
 #else
-                        r = log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()");
+                        r = log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                            "Activation of verity device with signature requested, but not supported by %s due to missing crypt_activate_by_signed_key().", program_invocation_short_name);
 #endif
                 } else
                         r = sym_crypt_activate_by_volume_key(
@@ -1483,10 +1484,10 @@ static int verity_partition(
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         return verity_partition(m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
                 if (!IN_SET(r,
-                            0, /* Success */
+                            0,       /* Success */
                             -EEXIST, /* Volume is already open and ready to be used */
-                            -EBUSY, /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
-                            -ENODEV /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
+                            -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
+                            -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
                         return r;
                 if (IN_SET(r, -EEXIST, -EBUSY)) {
                         struct crypt_device *existing_cd = NULL;
@@ -1588,7 +1589,7 @@ int dissected_image_decrypt(
 
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
-                int k;
+                PartitionDesignator k;
 
                 if (!p->found)
                         continue;
