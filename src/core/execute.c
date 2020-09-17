@@ -3691,11 +3691,11 @@ static int exec_child(
                 return log_unit_error_errno(unit, r, "Failed to close unwanted file descriptors: %m");
         }
 
-        if (!context->same_pgrp)
-                if (setsid() < 0) {
-                        *exit_status = EXIT_SETSID;
-                        return log_unit_error_errno(unit, errno, "Failed to create new process session: %m");
-                }
+        if (!context->same_pgrp &&
+            setsid() < 0) {
+                *exit_status = EXIT_SETSID;
+                return log_unit_error_errno(unit, errno, "Failed to create new process session: %m");
+        }
 
         exec_context_tty_reset(context, params);
 
@@ -3716,8 +3716,8 @@ static int exec_child(
                                 return 0;
                         }
                         *exit_status = EXIT_CONFIRM;
-                        log_unit_error(unit, "Execution cancelled by the user");
-                        return -ECANCELED;
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(ECANCELED),
+                                                    "Execution cancelled by the user");
                 }
         }
 
@@ -4076,37 +4076,33 @@ static int exec_child(
                 }
         }
 
-        if (needs_setuid) {
-
+        if (needs_setuid && context->pam_name && username) {
                 /* Let's call into PAM after we set up our own idea of resource limits to that pam_limits
                  * wins here. (See above.) */
 
-                if (context->pam_name && username) {
-                        r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
-                        if (r < 0) {
-                                *exit_status = EXIT_PAM;
-                                return log_unit_error_errno(unit, r, "Failed to set up PAM session: %m");
-                        }
+                r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
+                if (r < 0) {
+                        *exit_status = EXIT_PAM;
+                        return log_unit_error_errno(unit, r, "Failed to set up PAM session: %m");
+                }
 
-                        ngids_after_pam = getgroups_alloc(&gids_after_pam);
-                        if (ngids_after_pam < 0) {
-                                *exit_status = EXIT_MEMORY;
-                                return log_unit_error_errno(unit, ngids_after_pam, "Failed to obtain groups after setting up PAM: %m");
-                        }
+                ngids_after_pam = getgroups_alloc(&gids_after_pam);
+                if (ngids_after_pam < 0) {
+                        *exit_status = EXIT_MEMORY;
+                        return log_unit_error_errno(unit, ngids_after_pam, "Failed to obtain groups after setting up PAM: %m");
                 }
         }
 
-        if (needs_sandboxing) {
+        if (needs_sandboxing && context->private_users && !have_effective_cap(CAP_SYS_ADMIN)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up the all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
-                if (context->private_users && !have_effective_cap(CAP_SYS_ADMIN)) {
-                        userns_set_up = true;
-                        r = setup_private_users(saved_uid, saved_gid, uid, gid);
-                        if (r < 0) {
-                                *exit_status = EXIT_USER;
-                                return log_unit_error_errno(unit, r, "Failed to set up user namespacing for unprivileged user: %m");
-                        }
+
+                userns_set_up = true;
+                r = setup_private_users(saved_uid, saved_gid, uid, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return log_unit_error_errno(unit, r, "Failed to set up user namespacing for unprivileged user: %m");
                 }
         }
 
