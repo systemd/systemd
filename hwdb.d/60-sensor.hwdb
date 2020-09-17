@@ -191,6 +191,8 @@ sensor:modalias:acpi:MXC6655*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X:*
 
 # Chuwi Hi12
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnP02BD6_HI-122LP:*
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnDefaultstring:pnDefaultstring:*
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnE4D6_HI-122LP:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Chuwi Hi13
