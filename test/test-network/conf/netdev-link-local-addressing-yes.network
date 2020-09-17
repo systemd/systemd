@@ -14,6 +14,7 @@ Name=ifb99
 Name=ipiptun99
 Name=nlmon99
 Name=xfrm99
+Name=vxlan98
 Name=hogehogehogehogehogehoge
 
 [Network]
