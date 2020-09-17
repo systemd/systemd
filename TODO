@@ -841,9 +841,6 @@ Features:
 
 * add new gpt type for btrfs volumes
 
-* support empty /etc boots nicely:
-  - nspawn/gpt-generator: introduce new gpt partition type for /usr
-
 * generator that automatically discovers btrfs subvolumes, identifies their purpose based on some xattr on them.
 
 * a way for container managers to turn off getty starting via $container_headless= or so...
