@@ -134,6 +134,7 @@ VXLAN.PortRange,                          config_parse_port_range,              
 VXLAN.DestinationPort,                    config_parse_ip_port,                      0,                             offsetof(VxLan, dest_port)
 VXLAN.FlowLabel,                          config_parse_flow_label,                   0,                             0
 VXLAN.IPDoNotFragment,                    config_parse_df,                           0,                             offsetof(VxLan, df)
+VXLAN.Independent,                        config_parse_bool,                         0,                             offsetof(VxLan, independent)
 GENEVE.Id,                                config_parse_geneve_vni,                   0,                             offsetof(Geneve, id)
 GENEVE.Remote,                            config_parse_geneve_address,               0,                             offsetof(Geneve, remote)
 GENEVE.TOS,                               config_parse_uint8,                        0,                             offsetof(Geneve, tos)

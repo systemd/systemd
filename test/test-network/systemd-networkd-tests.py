@@ -785,6 +785,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         'vtitun98',
         'vtitun99',
         'vxcan99',
+        'vxlan98',
         'vxlan99',
         'wg97',
         'wg98',
@@ -870,6 +871,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-vti-tunnel-remote-any.netdev',
         '25-vti-tunnel.netdev',
         '25-vxcan.netdev',
+        '25-vxlan-independent.netdev',
         '25-vxlan.netdev',
         '25-wireguard-23-peers.netdev',
         '25-wireguard-23-peers.network',
@@ -1516,10 +1518,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     def test_vxlan(self):
         copy_unit_to_networkd_unit_path('25-vxlan.netdev', 'vxlan.network',
+                                        '25-vxlan-independent.netdev', 'netdev-link-local-addressing-yes.network',
                                         '11-dummy.netdev', 'vxlan-test1.network')
         start_networkd()
 
-        self.wait_online(['test1:degraded', 'vxlan99:degraded'])
+        self.wait_online(['test1:degraded', 'vxlan99:degraded', 'vxlan98:degraded'])
 
         output = check_output('ip -d link show vxlan99')
         print(output)
@@ -1545,6 +1548,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'VNI: 999')
         self.assertRegex(output, 'Destination Port: 5555')
         self.assertRegex(output, 'Underlying Device: test1')
+
+        output = check_output('ip -d link show vxlan98')
+        print(output)
 
     def test_macsec(self):
         copy_unit_to_networkd_unit_path('25-macsec.netdev', '25-macsec.network', '25-macsec.key',

@@ -116,6 +116,7 @@ PortRange=
 UDPChecksum=
 UDP6ZeroCheckSumTx=
 IPDoNotFragment=
+Independent=
 [VXCAN]
 Peer=
 [Bond]

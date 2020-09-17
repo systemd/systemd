@@ -25,7 +25,6 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
         int r;
 
         assert(netdev);
-        assert(link);
         assert(m);
 
         v = VXLAN(netdev);
@@ -63,7 +62,7 @@ static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netli
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LOCAL attribute: %m");
         }
 
-        r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LINK, link->ifindex);
+        r = sd_netlink_message_append_u32(m, IFLA_VXLAN_LINK, link ? link->ifindex : 0);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VXLAN_LINK attribute: %m");
 

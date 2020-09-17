@@ -819,6 +819,13 @@
           <para>Accepts the same key in [VXLAN] section.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>Independent=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the vxlan interface is created without underlying interfaces.
+          Defaults to <literal>false</literal>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
