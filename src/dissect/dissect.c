@@ -369,11 +369,11 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         r = dissected_image_acquire_metadata(m);
         if (r == -ENXIO)
                 return log_error_errno(r, "No root partition discovered.");
-        if (r == -EMEDIUMTYPE)
-                return log_error_errno(r, "Not a valid OS image, no os-release file included.");
         if (r == -EUCLEAN)
                 return log_error_errno(r, "File system check of image failed.");
-        if (r == -EUNATCH)
+        if (r == -EMEDIUMTYPE)
+                log_warning_errno(r, "Not a valid OS image, no os-release file included. Proceeding anyway.");
+        else if (r == -EUNATCH)
                 log_warning_errno(r, "OS image is encrypted, proceeding without showing OS image metadata.");
         else if (r == -EBUSY)
                 log_warning_errno(r, "OS image is currently in use, proceeding without showing OS image metadata.");
@@ -403,9 +403,13 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                        p == m->os_release ? "OS Release:" : "           ",
                                        *p, *q);
                 }
-        }
 
-        if (arg_json) {
+                if (m->hostname ||
+                    !sd_id128_is_null(m->machine_id) ||
+                    !strv_isempty(m->machine_info) ||
+                    !strv_isempty(m->os_release))
+                        putc('\n', stdout);
+        } else {
                 _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL;
 
                 if (!strv_isempty(m->machine_info)) {
@@ -430,9 +434,6 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 if (r < 0)
                         return log_oom();
         }
-
-        if (!arg_json)
-                putc('\n', stdout);
 
         t = table_new("rw", "designator", "partition uuid", "fstype", "architecture", "verity", "node", "partno");
         if (!t)
