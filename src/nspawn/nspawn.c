@@ -256,10 +256,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 
 static int handle_arg_console(const char *arg) {
         if (streq(arg, "help")) {
-                puts("interactive\n"
-                     "read-only\n"
+                puts("autopipe\n"
+                     "interactive\n"
                      "passive\n"
-                     "pipe");
+                     "pipe\n"
+                     "read-only");
                 return 0;
         }
 
@@ -277,6 +278,11 @@ static int handle_arg_console(const char *arg) {
                                  "Proceeding anyway.");
 
                 arg_console_mode = CONSOLE_PIPE;
+        } else if (streq(arg, "autopipe")) {
+                if (isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0)
+                        arg_console_mode = CONSOLE_INTERACTIVE;
+                else
+                        arg_console_mode = CONSOLE_PIPE;
         } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown console mode: %s", optarg);
 
