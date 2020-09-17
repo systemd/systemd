@@ -2881,11 +2881,11 @@ static int setup_credentials(
 #if ENABLE_SMACK
 static int setup_smack(
                 const ExecContext *context,
-                const char *executable) {
+                int executable_fd) {
         int r;
 
         assert(context);
-        assert(executable);
+        assert(executable_fd >= 0);
 
         if (context->smack_process_label) {
                 r = mac_smack_apply_pid(0, context->smack_process_label);
@@ -2896,7 +2896,7 @@ static int setup_smack(
         else {
                 _cleanup_free_ char *exec_label = NULL;
 
-                r = mac_smack_read(executable, SMACK_ATTR_EXEC, &exec_label);
+                r = mac_smack_read_fd(executable_fd, SMACK_ATTR_EXEC, &exec_label);
                 if (r < 0 && !IN_SET(r, -ENODATA, -EOPNOTSUPP))
                         return r;
 
@@ -3717,7 +3717,7 @@ static int exec_child(
         /* In case anything used libc syslog(), close this here, too */
         closelog();
 
-        int keep_fds[n_fds + 1];
+        int keep_fds[n_fds + 2];
         memcpy_safe(keep_fds, fds, n_fds * sizeof(int));
         n_keep_fds = n_fds;
 
@@ -4230,7 +4230,8 @@ static int exec_child(
          * shall execute. */
 
         _cleanup_free_ char *executable = NULL;
-        r = find_executable_full(command->path, false, &executable, NULL);
+        _cleanup_close_ int executable_fd = -1;
+        r = find_executable_full(command->path, false, &executable, &executable_fd);
         if (r < 0) {
                 if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
                         log_struct_errno(LOG_INFO, r,
@@ -4251,6 +4252,12 @@ static int exec_child(
                                         LOG_UNIT_MESSAGE(unit, "Failed to locate executable %s: %m",
                                                          command->path),
                                         "EXECUTABLE=%s", command->path);
+        }
+
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, executable_fd, &executable_fd);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_unit_error_errno(unit, r, "Failed to shift fd and set FD_CLOEXEC: %m");
         }
 
 #if HAVE_SELINUX
@@ -4301,7 +4308,7 @@ static int exec_child(
                 /* LSM Smack needs the capability CAP_MAC_ADMIN to change the current execution security context of the
                  * process. This is the latest place before dropping capabilities. Other MAC context are set later. */
                 if (use_smack) {
-                        r = setup_smack(context, executable);
+                        r = setup_smack(context, executable_fd);
                         if (r < 0) {
                                 *exit_status = EXIT_SMACK_PROCESS_LABEL;
                                 return log_unit_error_errno(unit, r, "Failed to set SMACK process label: %m");
@@ -4571,7 +4578,7 @@ static int exec_child(
                 }
         }
 
-        execve(executable, final_argv, accum_env);
+        fexecve(executable_fd, final_argv, accum_env);
         r = -errno;
 
         if (exec_fd >= 0) {
