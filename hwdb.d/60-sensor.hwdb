@@ -254,7 +254,7 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnCube:pnI15-TC:*
 # Cube iWork 11 Stylus
 sensor:modalias:acpi:KIOX000A*:dmi:*:svncube:pni8-T:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
- 
+
 # Cube KNote 5
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnALLDOCUBE:pni1102:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
