@@ -1,11 +1,14 @@
 # Puts together an nspawn container and runs networkd-test.py in it, inside a
-# network namespace and everything. Run this with "mkosi
-# --default=mkosi.default.networkd-test boot". This will start the test and
-# eventually exit with success in case the test succeeded.
+# network namespace and everything. Run this with
+#
+#   mkosi -C test --default=mkosi.default.networkd-test boot
+#
+# This will start the test and eventually exit with success in case the test
+# succeeded.
 
 [Distribution]
 Distribution=fedora
-Release=29
+Release=32
 
 [Output]
 Format=raw_btrfs
@@ -45,13 +48,13 @@ BuildPackages=
         libmount-devel
         libseccomp-devel
         libselinux-devel
-        libtool
         libxkbcommon-devel
         libxslt
         lz4
         lz4-devel
         m4
         meson
+        ninja-build
         pam-devel
         pcre2-devel
         pkgconfig
@@ -59,7 +62,6 @@ BuildPackages=
         python3-lxml
         qrencode-devel
         tree
-        xz-devel
 
 Packages=
         dnsmasq
@@ -69,8 +71,8 @@ Packages=
         python3
 
 # Share caches with the top-level mkosi
-BuildDirectory=../mkosi.builddir
-Cache=../mkosi.cache
+BuildDirectory=../mkosi/mkosi.builddir
+Cache=../mkosi/mkosi.cache
 
 # Run our own script
 BuildScript=mkosi.build.networkd-test

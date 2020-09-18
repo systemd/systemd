@@ -48,7 +48,6 @@ BuildPackages=
         libqrencode-dev
         libseccomp-dev
         libsmartcols-dev
-        libtool
         libxkbcommon-dev
         libzstd-dev
         m4

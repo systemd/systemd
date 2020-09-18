@@ -39,7 +39,6 @@ BuildPackages=
         libidn2
         libmicrohttpd
         libseccomp
-        libtool
         libutil-linux
         libxkbcommon
         libxslt
