@@ -1280,15 +1280,22 @@ int home_create(Home *h, UserRecord *secret, sd_bus_error *error) {
         assert(h);
 
         switch (home_get_state(h)) {
-        case HOME_INACTIVE:
+        case HOME_INACTIVE: {
+                int t;
+
                 if (h->record->storage < 0)
                         break; /* if no storage is defined we don't know what precisely to look for, hence
                                 * HOME_INACTIVE is OK in that case too. */
 
-                if (IN_SET(user_record_test_image_path(h->record), USER_TEST_MAYBE, USER_TEST_UNDEFINED))
+                t = user_record_test_image_path(h->record);
+                if (IN_SET(t, USER_TEST_MAYBE, USER_TEST_UNDEFINED))
                         break; /* And if the image path test isn't conclusive, let's also go on */
 
-                _fallthrough_;
+                if (IN_SET(t, -EBADFD, -ENOTDIR))
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_EXISTS, "Selected home image of user %s already exists or has wrong inode type.", h->user_name);
+
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_EXISTS, "Selected home image of user %s already exists.", h->user_name);
+        }
         case HOME_UNFIXATED:
         case HOME_DIRTY:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_EXISTS, "Home of user %s already exists.", h->user_name);
