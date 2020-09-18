@@ -164,5 +164,7 @@ int home_auto_login(Home *h, char ***ret_seats);
 
 int home_set_current_message(Home *h, sd_bus_message *m);
 
+int home_wait_for_worker(Home *h);
+
 const char *home_state_to_string(HomeState state);
 HomeState home_state_from_string(const char *s);
