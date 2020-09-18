@@ -725,6 +725,8 @@ void unit_free(Unit *u) {
         set_free(u->ip_bpf_custom_ingress_installed);
         set_free(u->ip_bpf_custom_egress_installed);
 
+        set_free(u->bpf_custom_installed);
+
         bpf_program_unref(u->bpf_device_control_installed);
 
         condition_free_list(u->conditions);

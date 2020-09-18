@@ -8,6 +8,7 @@
 #include "blockdev-util.h"
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
+#include "bpffs-program.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
 #include "cgroup-bpf-ctx.h"
@@ -1065,6 +1066,12 @@ static int cgroup_apply_devices(Unit *u) {
         return r;
 }
 
+static void cgroup_apply_bpffs_program(Unit *u) {
+        assert(u);
+
+        (void) bpffs_program_install(u);
+}
+
 static void cgroup_context_apply(
                 Unit *u,
                 CGroupMask apply_mask,
@@ -1392,6 +1399,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
+
+        if (apply_mask & CGROUP_MASK_BPFFS_PROGRAM)
+                cgroup_apply_bpffs_program(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1422,6 +1432,17 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
         }
 
         return false;
+}
+
+static bool unit_get_needs_bpffs_program(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return !LIST_IS_EMPTY(c->bpffs_programs);
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1474,6 +1495,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_firewall(u))
                 mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        if (unit_get_needs_bpffs_program(u))
+                mask |= CGROUP_MASK_BPFFS_PROGRAM;
 
         return mask;
 }
@@ -2970,6 +2994,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_devices_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
+
+        /* BPF pinned prog */
+        r = cg_all_unified();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPFFS_PROGRAM;
 
         *ret = mask;
         return 0;
