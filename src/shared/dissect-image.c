@@ -793,7 +793,12 @@ int dissect_image(
                 }
         }
 
-        if (!m->partitions[PARTITION_ROOT].found) {
+        if (m->partitions[PARTITION_ROOT].found) {
+                /* If we found the primary arch, then invalidate the secondary arch to avoid any ambiguities,
+                 * since we never want to mount the secondary arch in this case. */
+                m->partitions[PARTITION_ROOT_SECONDARY].found = false;
+                m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found = false;
+        } else {
                 /* No root partition found? Then let's see if ther's one for the secondary architecture. And if not
                  * either, then check if there's a single generic one, and use that. */
 
@@ -847,12 +852,6 @@ int dissect_image(
         if (verity && verity->root_hash) {
                 if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
                         return -EADDRNOTAVAIL;
-
-                /* If we found the primary root with the hash, then we definitely want to suppress any secondary root
-                 * (which would be weird, after all the root hash should only be assigned to one pair of
-                 * partitions... */
-                m->partitions[PARTITION_ROOT_SECONDARY].found = false;
-                m->partitions[PARTITION_ROOT_SECONDARY_VERITY].found = false;
 
                 /* If we found a verity setup, then the root partition is necessarily read-only. */
                 m->partitions[PARTITION_ROOT].rw = false;
@@ -1034,7 +1033,7 @@ static int mount_partition(
         /* If requested, turn on discard support. */
         if (fstype_can_discard(fstype) &&
             ((flags & DISSECT_IMAGE_DISCARD) ||
-             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node)))) {
+             ((flags & DISSECT_IMAGE_DISCARD_ON_LOOP) && is_loop_device(m->node) > 0))) {
                 options = strdup("discard");
                 if (!options)
                         return -ENOMEM;
@@ -1322,9 +1321,10 @@ static int decrypt_partition(
                 return r == -EPERM ? -EKEYREJECTED : r;
         }
 
-        d->decrypted[d->n_decrypted].name = TAKE_PTR(name);
-        d->decrypted[d->n_decrypted].device = TAKE_PTR(cd);
-        d->n_decrypted++;
+        d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
+                .name = TAKE_PTR(name),
+                .device = TAKE_PTR(cd),
+        };
 
         m->decrypted_node = TAKE_PTR(node);
 
@@ -1466,7 +1466,8 @@ static int verity_partition(
                                         verity->root_hash_sig_size,
                                         CRYPT_ACTIVATE_READONLY);
 #else
-                        r = log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "activation of verity device with signature requested, but not supported by cryptsetup due to missing crypt_activate_by_signed_key()");
+                        r = log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                            "Activation of verity device with signature requested, but not supported by %s due to missing crypt_activate_by_signed_key().", program_invocation_short_name);
 #endif
                 } else
                         r = sym_crypt_activate_by_volume_key(
@@ -1483,10 +1484,10 @@ static int verity_partition(
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         return verity_partition(m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
                 if (!IN_SET(r,
-                            0, /* Success */
+                            0,       /* Success */
                             -EEXIST, /* Volume is already open and ready to be used */
-                            -EBUSY, /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
-                            -ENODEV /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
+                            -EBUSY,  /* Volume is being opened but not ready, crypt_init_by_name can fetch details */
+                            -ENODEV  /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */))
                         return r;
                 if (IN_SET(r, -EEXIST, -EBUSY)) {
                         struct crypt_device *existing_cd = NULL;
@@ -1540,9 +1541,10 @@ static int verity_partition(
         /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
         restore_deferred_remove = mfree(restore_deferred_remove);
 
-        d->decrypted[d->n_decrypted].name = TAKE_PTR(name);
-        d->decrypted[d->n_decrypted].device = TAKE_PTR(cd);
-        d->n_decrypted++;
+        d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
+                .name = TAKE_PTR(name),
+                .device = TAKE_PTR(cd),
+        };
 
         m->decrypted_node = TAKE_PTR(node);
 
@@ -1588,7 +1590,7 @@ int dissected_image_decrypt(
 
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
-                int k;
+                PartitionDesignator k;
 
                 if (!p->found)
                         continue;
