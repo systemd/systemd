@@ -3,6 +3,7 @@
 #include "bus-common-errors.h"
 #include "errno-util.h"
 #include "home-util.h"
+#include "libcrypt-util.h"
 #include "pwquality-util.h"
 #include "strv.h"
 #include "user-record-pwquality.h"

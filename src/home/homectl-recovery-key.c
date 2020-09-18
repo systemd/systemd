@@ -183,9 +183,7 @@ static int print_qr_code(const char *secret) {
 }
 
 int identity_add_recovery_key(JsonVariant **v) {
-        _cleanup_(erase_and_freep) char *unix_salt = NULL, *password = NULL;
-        struct crypt_data cd = {};
-        char *k;
+        _cleanup_(erase_and_freep) char *password = NULL, *hashed = NULL;
         int r;
 
         assert(v);
@@ -196,17 +194,12 @@ int identity_add_recovery_key(JsonVariant **v) {
                 return r;
 
         /* Let's UNIX hash it */
-        r = make_salt(&unix_salt);
+        r = hash_password(password, &hashed);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate salt: %m");
-
-        errno = 0;
-        k = crypt_r(password, unix_salt, &cd);
-        if (!k)
                 return log_error_errno(errno_or_else(EINVAL), "Failed to UNIX hash secret key: %m");
 
         /* Let's now add the "privileged" version of the recovery key */
-        r = add_privileged(v, k);
+        r = add_privileged(v, hashed);
         if (r < 0)
                 return r;
 

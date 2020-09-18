@@ -806,20 +806,13 @@ int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) 
         }
 
         STRV_FOREACH(i, secret) {
-                _cleanup_free_ char *salt = NULL;
-                struct crypt_data cd = {};
-                char *k;
+                _cleanup_(erase_and_freep) char *hashed = NULL;
 
-                r = make_salt(&salt);
+                r = hash_password(*i, &hashed);
                 if (r < 0)
                         return r;
 
-                errno = 0;
-                k = crypt_r(*i, salt, &cd);
-                if (!k)
-                        return errno_or_else(EINVAL);
-
-                r = strv_extend(&np, k);
+                r = strv_consume(&np, TAKE_PTR(hashed));
                 if (r < 0)
                         return r;
         }

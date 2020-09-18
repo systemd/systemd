@@ -17,6 +17,7 @@
 #include "homework-mount.h"
 #include "homework-pkcs11.h"
 #include "homework.h"
+#include "libcrypt-util.h"
 #include "main-func.h"
 #include "memory-util.h"
 #include "missing_magic.h"
