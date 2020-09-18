@@ -232,7 +232,13 @@ int manager_new(Manager **ret) {
 }
 
 Manager* manager_free(Manager *m) {
+        Home *h;
+        Iterator i;
+
         assert(m);
+
+        HASHMAP_FOREACH(h, m->homes_by_worker_pid, i)
+                (void) home_wait_for_worker(h);
 
         hashmap_free(m->homes_by_uid);
         hashmap_free(m->homes_by_name);
