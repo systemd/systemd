@@ -4578,8 +4578,7 @@ static int exec_child(
                 }
         }
 
-        fexecve(executable_fd, final_argv, accum_env);
-        r = -errno;
+        r = fexecve_or_execve(executable_fd, executable, final_argv, accum_env);
 
         if (exec_fd >= 0) {
                 uint8_t hot = 0;

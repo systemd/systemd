@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "exec-util.h"
 #include "fd-util.h"
 #include "macro.h"
 #include "mountpoint-util.h"
@@ -255,8 +256,8 @@ static void test_find_executable_exec_one(const char *path) {
         pid = fork();
         assert_se(pid >= 0);
         if (pid == 0) {
-                fexecve(fd, STRV_MAKE(t, "--version"), STRV_MAKE(NULL));
-                log_error_errno(errno, "fexecve: %m");
+                r = fexecve_or_execve(fd, t, STRV_MAKE(t, "--version"), STRV_MAKE(NULL));
+                log_error_errno(r, "[f]execve: %m");
                 _exit(EXIT_FAILURE);
         }
 
@@ -268,6 +269,10 @@ static void test_find_executable_exec(void) {
 
         test_find_executable_exec_one("touch");
         test_find_executable_exec_one("/bin/touch");
+
+        _cleanup_free_ char *script = NULL;
+        assert_se(get_testdata_dir("test-path-util/script.sh", &script) >= 0);
+        test_find_executable_exec_one(script);
 }
 
 static void test_prefixes(void) {
