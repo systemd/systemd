@@ -514,10 +514,13 @@
 
         <listitem><para>Takes a file system path. Configures where to place the user's home directory. When
         LUKS2 storage is used refers to the path to the loopback file, otherwise to the path to the home
-        directory. When unspecified defaults to <filename>/home/$USER.home</filename> when LUKS storage is
-        used and <filename>/home/$USER.homedir</filename> for the other storage mechanisms. Not defined for
-        the <literal>cifs</literal> storage mechanism. To use LUKS2 storage on a regular block device (for
-        example a USB stick) pass the path to the block device here.</para></listitem>
+        directory (which may be in <filename>/home/</filename> or any other accessible filesystem). When
+        unspecified defaults to <filename>/home/$USER.home</filename> when LUKS storage is used and
+        <filename>/home/$USER.homedir</filename> for the other storage mechanisms. Not defined for the
+        <literal>cifs</literal> storage mechanism. To use LUKS2 storage on a regular block device (for
+        example a USB stick) pass the path to the block device here. Specifying the path to a directory here
+        when using LUKS2 storage is not allowed. Similar, specifying the path to a regular file or device
+        node is not allowed if any of the other storage backends are used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
