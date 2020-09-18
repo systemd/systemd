@@ -74,6 +74,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_identity_filter_rlimits, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
 
+static const BusLocator *bus_mgr;
+
 static bool identity_properties_specified(void) {
         return
                 arg_identity ||
@@ -117,7 +119,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_home_mgr, "ListHomes", &error, &reply, NULL);
+        r = bus_call_method(bus, bus_mgr, "ListHomes", &error, &reply, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to list homes: %s", bus_error_message(&error, r));
 
@@ -392,7 +394,7 @@ static int activate_home(int argc, char *argv[], void *userdata) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                        r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ActivateHome");
+                        r = bus_message_new_method_call(bus, &m, bus_mgr, "ActivateHome");
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -434,7 +436,7 @@ static int deactivate_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "DeactivateHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "DeactivateHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -541,9 +543,9 @@ static int inspect_home(int argc, char *argv[], void *userdata) {
                                 continue;
                         }
 
-                        r = bus_call_method(bus, bus_home_mgr, "GetUserRecordByName", &error, &reply, "s", *i);
+                        r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", *i);
                 } else
-                        r = bus_call_method(bus, bus_home_mgr, "GetUserRecordByUID", &error, &reply, "u", (uint32_t) uid);
+                        r = bus_call_method(bus, bus_mgr, "GetUserRecordByUID", &error, &reply, "u", (uint32_t) uid);
 
                 if (r < 0) {
                         log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
@@ -617,7 +619,7 @@ static int authenticate_home(int argc, char *argv[], void *userdata) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                        r = bus_message_new_method_call(bus, &m, bus_home_mgr, "AuthenticateHome");
+                        r = bus_message_new_method_call(bus, &m, bus_mgr, "AuthenticateHome");
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -1139,7 +1141,7 @@ static int create_home(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to format user record: %m");
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "CreateHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "CreateHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1191,7 +1193,7 @@ static int remove_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "RemoveHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "RemoveHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1254,7 +1256,7 @@ static int acquire_updated_home_record(
                 if (!identity_properties_specified())
                         return log_error_errno(SYNTHETIC_ERRNO(EALREADY), "No field to change specified.");
 
-                r = bus_call_method(bus, bus_home_mgr, "GetUserRecordByName", &error, &reply, "s", username);
+                r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", username);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire user home record: %s", bus_error_message(&error, r));
 
@@ -1372,7 +1374,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_free_ char *formatted = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "UpdateHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "UpdateHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1412,7 +1414,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ResizeHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "ResizeHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1448,7 +1450,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ChangePasswordHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "ChangePasswordHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1522,7 +1524,7 @@ static int passwd_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ChangePasswordHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "ChangePasswordHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1601,7 +1603,7 @@ static int resize_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ResizeHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "ResizeHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1638,7 +1640,7 @@ static int lock_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "LockHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "LockHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1677,7 +1679,7 @@ static int unlock_home(int argc, char *argv[], void *userdata) {
                         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
 
-                        r = bus_message_new_method_call(bus, &m, bus_home_mgr, "UnlockHome");
+                        r = bus_message_new_method_call(bus, &m, bus_mgr, "UnlockHome");
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -1740,7 +1742,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (;;) {
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, "AcquireHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "AcquireHome");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1780,7 +1782,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        r = bus_call_method(bus, bus_home_mgr, "GetHomeByName", &error, &reply, "s", argv[1]);
+        r = bus_call_method(bus, bus_mgr, "GetHomeByName", &error, &reply, "s", argv[1]);
         if (r < 0)
                 return log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
 
@@ -1807,7 +1809,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
         /* Close the fd that pings the home now. */
         acquired_fd = safe_close(acquired_fd);
 
-        r = bus_message_new_method_call(bus, &m, bus_home_mgr, "ReleaseHome");
+        r = bus_message_new_method_call(bus, &m, bus_mgr, "ReleaseHome");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1836,7 +1838,7 @@ static int lock_all_homes(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_message_new_method_call(bus, &m, bus_home_mgr, "LockAllHomes");
+        r = bus_message_new_method_call(bus, &m, bus_mgr, "LockAllHomes");
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -3294,6 +3296,36 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int redirect_bus_mgr(void) {
+        const char *suffix;
+
+        /* Talk to a different service if that's requested. (The same env var is also understood by homed, so
+         * that it is relatively easily possible to invoke a second instance of homed for debug purposes and
+         * have homectl talk to it, without colliding with the host version. This is handy when operating
+         * from a homed-managed account.) */
+
+        suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
+        if (suffix) {
+                static BusLocator locator = {
+                        .path = "/org/freedesktop/home1",
+                        .interface = "org.freedesktop.home1.Manager",
+                };
+
+                /* Yes, we leak this memory, but there's little point to collect this, given that we only do
+                 * this in a debug environment, do it only once, and the string shall live for out entire
+                 * process runtime. */
+
+                locator.destination = strjoin("org.freedesktop.home1.", suffix);
+                if (!locator.destination)
+                        return log_oom();
+
+                bus_mgr = &locator;
+        } else
+                bus_mgr = bus_home_mgr;
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",         VERB_ANY, VERB_ANY, 0,            help                },
@@ -3317,6 +3349,10 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup_cli();
+
+        r = redirect_bus_mgr();
+        if (r < 0)
+                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)

@@ -1011,11 +1011,17 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char *homework;
+                const char *homework, *suffix, *unix_path;
 
                 /* Child */
 
-                if (setenv("NOTIFY_SOCKET", "/run/systemd/home/notify", 1) < 0) {
+                suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
+                if (suffix)
+                        unix_path = strjoina("/run/systemd/home/notify.", suffix);
+                else
+                        unix_path = "/run/systemd/home/notify";
+
+                if (setenv("NOTIFY_SOCKET", unix_path, 1) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_FAILURE);
                 }

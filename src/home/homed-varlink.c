@@ -95,7 +95,7 @@ int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMet
         if (r < 0)
                 return r;
 
-        if (!streq_ptr(p.service, "io.systemd.Home"))
+        if (!streq_ptr(p.service, m->userdb_service))
                 return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (uid_is_valid(p.uid))
@@ -210,7 +210,7 @@ int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMe
         if (r < 0)
                 return r;
 
-        if (!streq_ptr(p.service, "io.systemd.Home"))
+        if (!streq_ptr(p.service, m->userdb_service))
                 return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (gid_is_valid(p.gid))
@@ -277,7 +277,7 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
         if (r < 0)
                 return r;
 
-        if (!streq_ptr(p.service, "io.systemd.Home"))
+        if (!streq_ptr(p.service, m->userdb_service))
                 return varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
         if (p.user_name) {
