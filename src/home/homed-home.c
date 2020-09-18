@@ -2739,6 +2739,19 @@ int home_set_current_message(Home *h, sd_bus_message *m) {
         return 1;
 }
 
+int home_wait_for_worker(Home *h) {
+        assert(h);
+
+        if (h->worker_pid <= 0)
+                return 0;
+
+        log_info("Worker process for home %s is still running while exiting. Waiting for it to finish.", h->user_name);
+        (void) wait_for_terminate(h->worker_pid, NULL);
+        (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);
+        h->worker_pid = 0;
+        return 1;
+}
+
 static const char* const home_state_table[_HOME_STATE_MAX] = {
         [HOME_UNFIXATED]                   = "unfixated",
         [HOME_ABSENT]                      = "absent",
