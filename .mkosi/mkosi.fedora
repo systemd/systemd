@@ -68,7 +68,8 @@ BuildPackages=
         zstd
 
 Packages=
-        # libzstd can be dropped once the Fedora RPM gets a dependency on it
+        # libfido2 + libzstd can be dropped once the Fedora RPM gets a dependency on them
+        libfido2
         libzstd
         # procps-ng provides a set of useful utilies (ps, free, etc)
         procps-ng
