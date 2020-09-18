@@ -11,10 +11,12 @@
 #endif
 #include <stdlib.h>
 #include <sys/file.h>
+#include <sys/ioctl.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -254,10 +256,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 
 static int handle_arg_console(const char *arg) {
         if (streq(arg, "help")) {
-                puts("interactive\n"
-                     "read-only\n"
+                puts("autopipe\n"
+                     "interactive\n"
                      "passive\n"
-                     "pipe");
+                     "pipe\n"
+                     "read-only");
                 return 0;
         }
 
@@ -267,9 +270,20 @@ static int handle_arg_console(const char *arg) {
                 arg_console_mode = CONSOLE_READ_ONLY;
         else if (streq(arg, "passive"))
                 arg_console_mode = CONSOLE_PASSIVE;
-        else if (streq(arg, "pipe"))
+        else if (streq(arg, "pipe")) {
+                if (isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0)
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE,
+                                 "Console mode 'pipe' selected, but standard input/output are connected to an interactive TTY. "
+                                 "Most likely you want to use 'interactive' console mode for proper interactivity and shell job control. "
+                                 "Proceeding anyway.");
+
                 arg_console_mode = CONSOLE_PIPE;
-        else
+        } else if (streq(arg, "autopipe")) {
+                if (isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0)
+                        arg_console_mode = CONSOLE_INTERACTIVE;
+                else
+                        arg_console_mode = CONSOLE_PIPE;
+        } else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown console mode: %s", optarg);
 
         arg_settings_mask |= SETTING_CONSOLE_MODE;
@@ -2269,10 +2283,12 @@ static int setup_pts(const char *dest) {
 }
 
 static int setup_stdio_as_dev_console(void) {
-        int terminal;
+        _cleanup_close_ int terminal = -1;
         int r;
 
-        terminal = open_terminal("/dev/console", O_RDWR);
+        /* We open the TTY in O_NOCTTY mode, so that we do not become controller yet. We'll do that later
+         * explicitly, if we are configured to. */
+        terminal = open_terminal("/dev/console", O_RDWR|O_NOCTTY);
         if (terminal < 0)
                 return log_error_errno(terminal, "Failed to open console: %m");
 
@@ -2284,6 +2300,7 @@ static int setup_stdio_as_dev_console(void) {
 
         /* invalidates 'terminal' on success and failure */
         r = rearrange_stdio(terminal, terminal, terminal);
+        TAKE_FD(terminal);
         if (r < 0)
                 return log_error_errno(r, "Failed to move console to stdin/stdout/stderr: %m");
 
@@ -3366,8 +3383,7 @@ static int inner_child(
          * wait until the parent is ready with the
          * setup, too... */
         if (!barrier_place_and_sync(barrier)) /* #5 */
-                return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
-                                       "Parent died too early");
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Parent died too early");
 
         if (arg_chdir)
                 if (chdir(arg_chdir) < 0)
@@ -3377,6 +3393,13 @@ static int inner_child(
                 r = stub_pid1(arg_uuid);
                 if (r < 0)
                         return r;
+        }
+
+        if (arg_console_mode != CONSOLE_PIPE) {
+                /* So far our pty wasn't controlled by any process. Finally, it's time to change that, if we
+                 * are configured for that. Acquire it as controlling tty. */
+                if (ioctl(STDIN_FILENO, TIOCSCTTY) < 0)
+                        return log_error_errno(errno, "Failed to acquire controlling TTY: %m");
         }
 
         log_debug("Inner child completed, invoking payload.");
