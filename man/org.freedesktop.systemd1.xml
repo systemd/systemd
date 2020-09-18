@@ -5524,12 +5524,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       <para>In addition to these properties there are the following:</para>
 
       <para><varname>NAccepted</varname> contains the accumulated number of connections ever accepted on this
-      socket. This only applies to sockets with <varname>Accept</varname> set to <literal>true</literal>,
+      socket. This only applies to sockets with <varname>Accept</varname> set to <literal>yes</literal>,
       i.e. those where systemd is responsible for accepted connections. </para>
 
       <para>Similarly <varname>NConnections</varname> contains the number of currently open connections on
       this socket. It only applies only to socket units with <varname>Accept</varname> set to
-      <literal>true</literal>.</para>
+      <literal>yes</literal>.</para>
 
       <para><varname>Result</varname> encodes the reason why a socket unit failed if it is in the
       <literal>failed</literal> state (see <varname>ActiveState</varname> above). The values

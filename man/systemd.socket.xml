@@ -389,14 +389,14 @@
 
       <varlistentry>
         <term><varname>Accept=</varname></term>
-        <listitem><para>Takes a boolean argument. If true, a service
+        <listitem><para>Takes a boolean argument. If yes, a service
         instance is spawned for each incoming connection and only the
-        connection socket is passed to it. If false, all listening
+        connection socket is passed to it. If no, all listening
         sockets themselves are passed to the started service unit, and
         only one service unit is spawned for all connections (also see
         above). This value is ignored for datagram sockets and FIFOs
         where a single service unit unconditionally handles all
-        incoming traffic. Defaults to <option>false</option>. For
+        incoming traffic. Defaults to <option>no</option>. For
         performance reasons, it is recommended to write new daemons
         only in a way that is suitable for
         <option>Accept=no</option>. A daemon listening on an
@@ -632,7 +632,7 @@
          the value of the <varname>SELinuxContext=</varname> option.
          This configuration option only affects sockets with
          <varname>Accept=</varname> mode set to
-         <literal>true</literal>. Also note that this option is useful
+         <literal>yes</literal>. Also note that this option is useful
          only when MLS/MCS SELinux policy is deployed. Defaults to
          <literal>false</literal>. </para></listitem>
       </varlistentry>
