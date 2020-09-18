@@ -2969,6 +2969,11 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'dev bridge99 port test1 grp ff02:aaaa:fee5::1:3 permanent *vid 4064')
         self.assertRegex(output, 'dev bridge99 port test1 grp 224.0.1.1 permanent *vid 4065')
 
+        # Old kernel may not support bridge MDB entries on bridge master
+        if call('bridge mdb add dev bridge99 port bridge99 grp 224.0.1.3 temp vid 4068', stderr=subprocess.DEVNULL) == 0:
+            self.assertRegex(output, 'dev bridge99 port bridge99 grp ff02:aaaa:fee5::1:4 temp *vid 4066')
+            self.assertRegex(output, 'dev bridge99 port bridge99 grp 224.0.1.2 temp *vid 4067')
+
     def test_bridge_property(self):
         copy_unit_to_networkd_unit_path('11-dummy.netdev', '12-dummy.netdev', '26-bridge.netdev',
                                         '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
