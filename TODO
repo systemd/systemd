@@ -20,11 +20,23 @@ Janitorial Clean-ups:
 
 Features:
 
-* nss-systemd: also synthesize shadow records for users/groups
+* add wrapper for mount() that uses O_PATH on the destination and than mounts
+  to /proc/self/fd/xxx so that we basically have a mount() with O_NOFOLLOW like
+  behaviour. (in case of bind mounts do it on both source and target)
 
-* nspawn: move "incoming mount" directory to /run/host, move "inaccessible"
-  nodes to /run/host, move notify socket (for sd_notify() between payload and
-  container manager)
+* add root=tmpfs that mounts a tmpfs to /sysroot (to be used in combination
+  with usr=…, for a similar effect as systemd.volatile=yes but without the
+  "hide-out" effect). Also, add root=gpt-auto-late support or so, that is like
+  root=gpt-auto but initially mounts a tmpfs to /sysroot, and then revisits
+  later after systemd-repart ran. Usecase: let's ship images with only /usr
+  partition, then on first boot create the root partition. In this case we want
+  to read the repart data from /usr before the root partition exists. Add
+  usr=gpt-auto that automatically finds a /usr partition.
+
+* homed: keep an fd to the homedir open at all times, to keep the fs pinned
+  (autofs and such) while user is loged in.
+
+* nss-systemd: also synthesize shadow records for users/groups
 
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
@@ -64,9 +76,6 @@ Features:
 * add "throttling" to sd-event event sources: optionally, when we wake up too
   often for one, let's turn it off entirely for a while. Use that for the
   /proc/self/mountinfo logic.
-
-* move our systemd-user PAM snippet to /usr/, which PAM appears to support
-  these days
 
 * nspawn: support time namespaces
 
