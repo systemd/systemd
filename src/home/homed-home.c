@@ -1011,11 +1011,17 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char *homework;
+                const char *homework, *suffix, *unix_path;
 
                 /* Child */
 
-                if (setenv("NOTIFY_SOCKET", "/run/systemd/home/notify", 1) < 0) {
+                suffix = getenv("SYSTEMD_HOME_DEBUG_SUFFIX");
+                if (suffix)
+                        unix_path = strjoina("/run/systemd/home/notify.", suffix);
+                else
+                        unix_path = "/run/systemd/home/notify";
+
+                if (setenv("NOTIFY_SOCKET", unix_path, 1) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -1274,15 +1280,22 @@ int home_create(Home *h, UserRecord *secret, sd_bus_error *error) {
         assert(h);
 
         switch (home_get_state(h)) {
-        case HOME_INACTIVE:
+        case HOME_INACTIVE: {
+                int t;
+
                 if (h->record->storage < 0)
                         break; /* if no storage is defined we don't know what precisely to look for, hence
                                 * HOME_INACTIVE is OK in that case too. */
 
-                if (IN_SET(user_record_test_image_path(h->record), USER_TEST_MAYBE, USER_TEST_UNDEFINED))
+                t = user_record_test_image_path(h->record);
+                if (IN_SET(t, USER_TEST_MAYBE, USER_TEST_UNDEFINED))
                         break; /* And if the image path test isn't conclusive, let's also go on */
 
-                _fallthrough_;
+                if (IN_SET(t, -EBADFD, -ENOTDIR))
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_EXISTS, "Selected home image of user %s already exists or has wrong inode type.", h->user_name);
+
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_EXISTS, "Selected home image of user %s already exists.", h->user_name);
+        }
         case HOME_UNFIXATED:
         case HOME_DIRTY:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_EXISTS, "Home of user %s already exists.", h->user_name);
@@ -2730,6 +2743,19 @@ int home_set_current_message(Home *h, sd_bus_message *m) {
         if (!h->current_operation)
                 return -ENOMEM;
 
+        return 1;
+}
+
+int home_wait_for_worker(Home *h) {
+        assert(h);
+
+        if (h->worker_pid <= 0)
+                return 0;
+
+        log_info("Worker process for home %s is still running while exiting. Waiting for it to finish.", h->user_name);
+        (void) wait_for_terminate(h->worker_pid, NULL);
+        (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);
+        h->worker_pid = 0;
         return 1;
 }
 

@@ -29,9 +29,6 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (setenv("SYSTEMD_BYPASS_USERDB", "io.systemd.Home", 1) < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to set $SYSTEMD_BYPASS_USERDB: %m");
-
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, -1) >= 0);
 
         r = manager_new(&m);
