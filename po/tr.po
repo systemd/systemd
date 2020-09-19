@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2020-08-24 07:29+0000\n"
+"PO-Revision-Date: 2020-09-18 23:03+0000\n"
 "Last-Translator: Oğuz Ersen <oguzersen@protonmail.com>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "master/tr/>\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.2.1\n"
+"X-Generator: Weblate 4.2.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -32,34 +32,34 @@ msgstr "Sisteme parolayı geri göndermek kimlik doğrulaması gerektiriyor."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr "Sistem servislerini veya diğer birimlerini yönet"
+msgstr "Sistem hizmetlerini veya diğer birimlerini yönet"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
-"Sistem servislerini veya diğer birimlerini yönetmek kimlik doğrulaması "
+"Sistem hizmetlerini veya diğer birimlerini yönetmek kimlik doğrulaması "
 "gerektiriyor."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr "Sistem servislerini veya birim dosyalarını yönet"
+msgstr "Sistem hizmetlerini veya birim dosyalarını yönet"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
-"Sistem servislerini veya birim dosyalarını yönetmek kimlik doğrulaması "
+"Sistem hizmetlerini veya birim dosyalarını yönetmek kimlik doğrulaması "
 "gerektiriyor."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr "Sistem ve servis yöneticisi ortam değişkenlerini ayarla ya da kaldır"
+msgstr "Sistem ve hizmet yöneticisi ortam değişkenlerini ayarla ya da kaldır"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
-"Sistem ve servis yöneticisi ortam değişkenlerini ayarlamak ya da kaldırmak "
+"Sistem ve hizmet yöneticisi ortam değişkenlerini ayarlamak ya da kaldırmak "
 "kimlik doğrulaması gerektiriyor."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
