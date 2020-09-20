@@ -15,6 +15,8 @@ int loopback_detach_all(bool *changed, int umount_log_level);
 
 int dm_detach_all(bool *changed, int umount_log_level);
 
+int md_detach_all(bool *changed, int umount_log_level);
+
 /* This is exported just for testing */
 typedef struct MountPoint {
         char *path;
