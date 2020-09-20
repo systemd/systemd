@@ -5,7 +5,6 @@ import argparse
 import collections
 import sys
 import os
-import shlex
 import subprocess
 import io
 
@@ -13,6 +12,11 @@ try:
     from lxml import etree
 except ModuleNotFoundError as e:
     etree = e
+
+try:
+    from shlex import join as shlex_join
+except ImportError as e:
+    shlex_join = e
 
 class NoCommand(Exception):
     pass
@@ -183,7 +187,7 @@ def subst_output(document, programlisting, stats):
     interface = programlisting.get('interface')
 
     argv = [f'{opts.build_dir}/{executable}', f'--bus-introspect={interface}']
-    print(f'COMMAND: {shlex.join(argv)}')
+    print(f'COMMAND: {shlex_join(argv)}')
 
     try:
         out = subprocess.check_output(argv, text=True)
@@ -293,9 +297,10 @@ def parse_args():
 if __name__ == '__main__':
     opts = parse_args()
 
-    if isinstance(etree, Exception):
-        print(etree, file=sys.stderr)
-        exit(77 if opts.test else 1)
+    for item in (etree, shlex_join):
+        if isinstance(item, Exception):
+            print(item, file=sys.stderr)
+            exit(77 if opts.test else 1)
 
     if not os.path.exists(f'{opts.build_dir}/systemd'):
         exit(f"{opts.build_dir}/systemd doesn't exist. Use --build-dir=.")
