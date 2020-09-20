@@ -6,6 +6,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/dm-ioctl.h>
+#include <linux/major.h>
+#include <linux/raid/md_u.h>
 #include <linux/loop.h>
 #include <sys/mount.h>
 #include <sys/swap.h>
@@ -326,6 +328,58 @@ static int dm_list_get(MountPoint **head) {
         return 0;
 }
 
+static int md_list_get(MountPoint **head) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *d;
+        int r;
+
+        assert(head);
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_subsystem(e, "block", true);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_sysname(e, "md*");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                _cleanup_free_ char *p = NULL;
+                const char *dn;
+                MountPoint *m;
+                dev_t devnum;
+
+                if (sd_device_get_devnum(d, &devnum) < 0 ||
+                    sd_device_get_devname(d, &dn) < 0)
+                        continue;
+
+                p = strdup(dn);
+                if (!p)
+                        return -ENOMEM;
+
+                m = new(MountPoint, 1);
+                if (!m)
+                        return -ENOMEM;
+
+                *m = (MountPoint) {
+                        .path = TAKE_PTR(p),
+                        .devnum = devnum,
+                };
+
+                LIST_PREPEND(mount_point, *head, m);
+        }
+
+        return 0;
+}
+
 static int delete_loopback(const char *device) {
         _cleanup_close_ int fd = -1;
         struct loop_info64 info;
@@ -407,6 +461,23 @@ static int delete_dm(dev_t devnum) {
                 return -errno;
 
         if (ioctl(fd, DM_DEV_REMOVE, &dm) < 0)
+                return -errno;
+
+        return 0;
+}
+
+static int delete_md(MountPoint *m) {
+
+        _cleanup_close_ int fd = -1;
+
+        assert(major(m->devnum) != 0);
+        assert(m->path != 0);
+
+        fd = open(m->path, O_RDONLY|O_CLOEXEC|O_EXCL);
+        if (fd < 0)
+                return -errno;
+
+        if (ioctl(fd, STOP_ARRAY, NULL) < 0)
                 return -errno;
 
         return 0;
@@ -635,6 +706,37 @@ static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_lo
         return n_failed;
 }
 
+static int md_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
+        MountPoint *m, *n;
+        int n_failed = 0, r;
+        dev_t rootdev = 0;
+
+        assert(head);
+        assert(changed);
+
+        (void) get_block_device("/", &rootdev);
+
+        LIST_FOREACH_SAFE(mount_point, m, n, *head) {
+                if (major(rootdev) != 0 && rootdev == m->devnum) {
+                        n_failed ++;
+                        continue;
+                }
+
+                log_info("Stopping MD %s (%u:%u).", m->path, major(m->devnum), minor(m->devnum));
+                r = delete_md(m);
+                if (r < 0) {
+                        log_full_errno(umount_log_level, r, "Could not stop MD %s: %m", m->path);
+                        n_failed++;
+                        continue;
+                }
+
+                *changed = true;
+                mount_point_free(head, m);
+        }
+
+        return n_failed;
+}
+
 static int umount_all_once(bool *changed, int umount_log_level) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         int r;
@@ -712,4 +814,19 @@ int dm_detach_all(bool *changed, int umount_log_level) {
                 return r;
 
         return dm_points_list_detach(&dm_list_head, changed, umount_log_level);
+}
+
+int md_detach_all(bool *changed, int umount_log_level) {
+        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, md_list_head);
+        int r;
+
+        assert(changed);
+
+        LIST_HEAD_INIT(md_list_head);
+
+        r = md_list_get(&md_list_head);
+        if (r < 0)
+                return r;
+
+        return md_points_list_detach(&md_list_head, changed, umount_log_level);
 }
