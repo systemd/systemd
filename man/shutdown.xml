@@ -43,7 +43,9 @@
 
     <para>The time string may either be in the format
     <literal>hh:mm</literal> for hour/minutes specifying the time to
-    execute the shutdown at, specified in 24h clock format.
+    execute the shutdown at, specified in 24h clock format, or as
+    <literal>+hh:mm</literal> for specifying hours/minutes from now.
+    For time relative to now, the hours field can be up to 99999.
     Alternatively it may be in the syntax <literal>+m</literal>
     referring to the specified number of minutes m from now.
     <literal>now</literal> is an alias for <literal>+0</literal>, i.e.

@@ -65,38 +65,65 @@ int parse_shutdown_time_spec(const char *t, usec_t *ret) {
 
                 *ret = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
         } else {
-                char *e = NULL;
-                long hour, minute;
+                char *hour_s;
+                char *min_s;
+                char *colon_position;
+                unsigned long hour, minute;
                 struct tm tm = {};
                 time_t s;
                 usec_t n;
+                bool relative = false;
+                int r;
 
-                errno = 0;
-                hour = strtol(t, &e, 10);
-                if (errno > 0 || *e != ':' || hour < 0 || hour > 23)
+                if (t[0] == '+') {
+                        relative = true;
+                        t++;
+                }
+
+                colon_position = strchr(t,':');
+                if (colon_position == NULL)
                         return -EINVAL;
 
-                minute = strtol(e+1, &e, 10);
-                if (errno > 0 || *e != 0 || minute < 0 || minute > 59)
+                hour_s = strndup(t, colon_position - t);
+                min_s = strndup(colon_position + 1, 2);
+
+                r = safe_atolu(hour_s, &hour);
+                if (r != 0 || hour > 99999)
                         return -EINVAL;
+
+                r = safe_atolu(min_s, &minute);
+                if (r != 0 || minute > 59)
+                        return -EINVAL;
+
+                free(hour_s);
+                free(min_s);
 
                 n = now(CLOCK_REALTIME);
-                s = (time_t) (n / USEC_PER_SEC);
 
-                assert_se(localtime_r(&s, &tm));
+                if (relative) {
+                        usec_t us = USEC_PER_HOUR * hour + USEC_PER_MINUTE * minute;
+                        assert(us >= 0);
+                        *ret = n + us;
+                } else {
+                        if (hour > 23)
+                                return -EINVAL;
 
-                tm.tm_hour = (int) hour;
-                tm.tm_min = (int) minute;
-                tm.tm_sec = 0;
+                        s = (time_t) (n / USEC_PER_SEC);
 
-                s = mktime(&tm);
-                assert(s >= 0);
+                        assert_se(localtime_r(&s, &tm));
 
-                *ret = (usec_t) s * USEC_PER_SEC;
+                        tm.tm_hour = (int) hour;
+                        tm.tm_min = (int) minute;
+                        tm.tm_sec = 0;
 
-                while (*ret <= n)
-                        *ret += USEC_PER_DAY;
+                        s = mktime(&tm);
+                        assert(s >= 0);
+
+                        *ret = (usec_t) s * USEC_PER_SEC;
+
+                        while (*ret <= n)
+                                *ret += USEC_PER_DAY;
+                }
         }
-
         return 0;
 }
