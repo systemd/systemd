@@ -396,7 +396,15 @@
         is not supported by the underlying file system), but a file with the <filename>.roothash</filename> suffix is
         found next to the image file, bearing otherwise the same name (except if the image has the
         <filename>.raw</filename> suffix, in which case the root hash file must not have it in its name), the root hash
-        is read from it and automatically used, also as formatted hexadecimal characters.</para></listitem>
+        is read from it and automatically used, also as formatted hexadecimal characters.</para>
+
+        <para>Note that this configures the root hash for the root file system. Disk images may also contain
+        separate file systems for the <filename>/usr/</filename> hierarchy, which may be Verity protected as
+        well. The root hash for this protection may be configured via the
+        <literal>user.verity.usrhash</literal> extended file attribute or via a <filename>.usrhash</filename>
+        file adjacent to the disk image, following the same format and logic as for the root hash for the
+        root file system described here. Note that there's currently no switch to configure the root hash for
+        the <filename>/usr/</filename> from the command line.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -408,7 +416,12 @@
         string is valid and done by a public key present in the kernel keyring. If this option is not specified, but a
         file with the <filename>.roothash.p7s</filename> suffix is found next to the image file, bearing otherwise the
         same name (except if the image has the <filename>.raw</filename> suffix, in which case the signature file must
-        not have it in its name), the signature is read from it and automatically used.</para></listitem>
+        not have it in its name), the signature is read from it and automatically used.</para>
+
+        <para>The root hash for the <filename>/usr/</filename> file system included in a disk image may be
+        configured via a <filename>.usrhash.p7s</filename> file adjacent to the disk image. There's currently
+        no switch to configure the signature of the root hash of the <filename>/usr/</filename> file system
+        from the command line.</para></listitem>
       </varlistentry>
 
       <varlistentry>

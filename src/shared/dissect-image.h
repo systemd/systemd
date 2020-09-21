@@ -31,6 +31,8 @@ struct DissectedPartition {
 typedef enum PartitionDesignator {
         PARTITION_ROOT,
         PARTITION_ROOT_SECONDARY,  /* Secondary architecture */
+        PARTITION_USR,
+        PARTITION_USR_SECONDARY,
         PARTITION_HOME,
         PARTITION_SRV,
         PARTITION_ESP,
@@ -38,6 +40,8 @@ typedef enum PartitionDesignator {
         PARTITION_SWAP,
         PARTITION_ROOT_VERITY, /* verity data for the PARTITION_ROOT partition */
         PARTITION_ROOT_SECONDARY_VERITY, /* verity data for the PARTITION_ROOT_SECONDARY partition */
+        PARTITION_USR_VERITY,
+        PARTITION_USR_SECONDARY_VERITY,
         PARTITION_TMP,
         PARTITION_VAR,
         _PARTITION_DESIGNATOR_MAX,
@@ -45,11 +49,23 @@ typedef enum PartitionDesignator {
 } PartitionDesignator;
 
 static inline PartitionDesignator PARTITION_VERITY_OF(PartitionDesignator p) {
-        if (p == PARTITION_ROOT)
+        switch (p) {
+
+        case PARTITION_ROOT:
                 return PARTITION_ROOT_VERITY;
-        if (p == PARTITION_ROOT_SECONDARY)
+
+        case PARTITION_ROOT_SECONDARY:
                 return PARTITION_ROOT_SECONDARY_VERITY;
-        return _PARTITION_DESIGNATOR_INVALID;
+
+        case PARTITION_USR:
+                return PARTITION_USR_VERITY;
+
+        case PARTITION_USR_SECONDARY:
+                return PARTITION_USR_SECONDARY_VERITY;
+
+        default:
+                return _PARTITION_DESIGNATOR_INVALID;
+        }
 }
 
 typedef enum DissectImageFlags {
@@ -61,9 +77,9 @@ typedef enum DissectImageFlags {
                                     DISSECT_IMAGE_DISCARD |
                                     DISSECT_IMAGE_DISCARD_ON_CRYPTO,
         DISSECT_IMAGE_GPT_ONLY            = 1 << 4,  /* Only recognize images with GPT partition tables */
-        DISSECT_IMAGE_REQUIRE_ROOT        = 1 << 5,  /* Don't accept disks without root partition */
-        DISSECT_IMAGE_MOUNT_ROOT_ONLY     = 1 << 6,  /* Mount only the root partition */
-        DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY = 1 << 7,  /* Mount only non-root partitions */
+        DISSECT_IMAGE_REQUIRE_ROOT        = 1 << 5,  /* Don't accept disks without root partition (and if no partition table or only single generic partition, assume it's root) */
+        DISSECT_IMAGE_MOUNT_ROOT_ONLY     = 1 << 6,  /* Mount only the root and /usr partitions */
+        DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY = 1 << 7,  /* Mount only the non-root and non-/usr partitions */
         DISSECT_IMAGE_VALIDATE_OS         = 1 << 8,  /* Refuse mounting images that aren't identifiable as OS images */
         DISSECT_IMAGE_NO_UDEV             = 1 << 9,  /* Don't wait for udev initializing things */
         DISSECT_IMAGE_RELAX_VAR_CHECK     = 1 << 10, /* Don't insist that the UUID of /var is hashed from /etc/machine-id */
@@ -104,7 +120,14 @@ struct VeritySettings {
 
         /* Path to the verity data file, if stored externally */
         char *data_path;
+
+        /* PARTITION_ROOT or PARTITION_USR, depending on what these Verity settings are for */
+        PartitionDesignator designator;
 };
+
+#define VERITY_SETTINGS_DEFAULT {                               \
+                .designator = _PARTITION_DESIGNATOR_INVALID     \
+        }
 
 MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);

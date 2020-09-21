@@ -51,6 +51,16 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | `7386cdf2-203c-47a9-a498-f2ecce45a2d6` | _Root Verity Partition (32-bit ARM)_ | ditto | ditto |
 | `df3300ce-d69f-4c92-978c-9bfb0f38d820` | _Root Verity Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `86ed10d5-b607-45bb-8957-d350f23d0571` | _Root Verity Partition (Itanium/IA-64)_  | ditto | ditto |
+| `75250d76-8cc6-458e-bd66-bd47cc81a812` | _`/usr/` Partition (x86)_ | Any native, optionally in LUKS | Similar semantics to root partition, but just the `/usr/` partition. |
+| `8484680c-9521-48c6-9c11-b0720656f69e` | _`/usr/` Partition (x86-64)_ | ditto | ditto |
+| `7d0359a3-02b3-4f0a-865c-654403e70625` | _`/usr/` Partition (32-bit ARM)_ | ditto | ditto |
+| `b0e01050-ee5f-4390-949a-9101b17104e9` | _`/usr/` Partition (64-bit ARM/AArch64)_ | ditto | ditto |
+| `4301d2a6-4e3b-4b2a-bb94-9e0b2c4225ea` | _`/usr/` Partition (Itanium/IA-64)_ | ditto | ditto |
+| `8f461b0d-14ee-4e81-9aa9-049b6fb97abd` | _`/usr/` Verity Partition (x86)_ | Any native, optionally in LUKS | Similar semantics to root Verity partition, but just for the `/usr/` partition. |
+| `77ff5f63-e7b6-4633-acf4-1565b864c0e6` | _`/usr/` Verity Partition (x86-64)_ | ditto | ditto |
+| `c215d751-7bcd-4649-be90-6627490a4c05` | _`/usr/` Verity Partition (32-bit ARM)_ | ditto | ditto |
+| `6e11a4e7-fbca-4ded-b9e9-e1a512bb664e` | _`/usr/` Verity Partition (64-bit ARM/AArch64)_ | ditto | ditto |
+| `6a491e03-3be7-4545-8e38-83320e0ea880` | _`/usr/` Verity Partition (Itanium/IA-64)_ | ditto | ditto |
 | `933ac7e1-2eb4-4f13-b844-0e14e2aef915` | _Home Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/home/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/home`. |
 | `3b8f8425-20e0-4f3b-907f-1a25a76f98e8` | _Server Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/srv/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/srv`. |
 | `4d21b016-b534-45c2-a9fb-5c16e091fd2d` | _Variable Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/var/` — under the condition that its partition UUID matches the first 128 bit of `HMAC-SHA256(machine-id, 0x4d21b016b53445c2a9fb5c16e091fd2d)` (i.e. the SHA256 HMAC hash of the binary type UUID keyed by the machine ID as read from [`/etc/machine-id`](https://www.freedesktop.org/software/systemd/man/machine-id.html). This special requirement is made because `/var/` (unlike the other partition types listed here) is inherently private to a specific installation and cannot possibly be shared between multiple OS installations on the same disk, and thus should be bound to a specific instance of the OS, identified by its machine ID. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/var`. |
@@ -76,21 +86,21 @@ localized.
 
 ## Partition Flags
 
-For the root, server data, home, variable data, temporary data and swap
+For the root, `/usr/`, server data, home, variable data, temporary data and swap
 partitions, the partition flag bit 63 ("*no-auto*") may be used to turn off
 auto-discovery for the specific partition.  If set, the partition will not be
 automatically mounted or enabled.
 
-For the root, server data, home, variable data and temporary data partitions,
-the partition flag bit 60 ("*read-only*") may be used to mark a partition for
-read-only mounts only.  If set, the partition will be mounted read-only instead
-of read-write. Note that the variable data partition and the temporary data
-partition will generally not be able to serve their purpose if marked
-read-only, since by their very definition they are supposed to be mutable. (The
-home and server data partitions are generally assumed to be mutable as well,
-but the requirement for them is not equally strong.) Because of that, while the
-read-only flag is defined and supported, it's almost never a good idea to
-actually use it for these partitions.
+For the root, `/usr/` server data, home, variable data and temporary data
+partitions, the partition flag bit 60 ("*read-only*") may be used to mark a
+partition for read-only mounts only.  If set, the partition will be mounted
+read-only instead of read-write. Note that the variable data partition and the
+temporary data partition will generally not be able to serve their purpose if
+marked read-only, since by their very definition they are supposed to be
+mutable. (The home and server data partitions are generally assumed to be
+mutable as well, but the requirement for them is not equally strong.) Because
+of that, while the read-only flag is defined and supported, it's almost never a
+good idea to actually use it for these partitions.
 
 Note that these two flag definitions happen to map nicely to the ones used by
 Microsoft Basic Data Partitions.
@@ -104,8 +114,8 @@ An *installer* which supports a "manual partitioning" interface _may_ choose to
 pre-populate the interface with swap, `/home/`, `/srv/`, `/var/tmp/` partitions
 of pre-existing Linux installations, identified with the GPT type UUIDs
 above. The installer should not pre-populate such an interface with any
-identified root or `/var/` partition unless the intention is to overwrite an
-existing operating system that might be installed.
+identified root, `/usr` or `/var/` partition unless the intention is to
+overwrite an existing operating system that might be installed.
 
 An *installer* _may_ omit creating entries in `/etc/fstab` for root, `/home/`,
 `/srv/`, `/var/`, `/var/tmp` and for the swap partitions if they use these UUID
@@ -119,17 +129,17 @@ in `/etc/fstab`.  The `root=` parameter passed to the kernel by the boot loader
 may be omitted if the root partition is the first one on the disk of its type.
 If the root partition is not the first one on the disk, the `root=` parameter
 _must_ be passed to the kernel by the boot loader.  An installer that mounts a
-root, `/home/`, `/srv/`, `/var/`, or `/var/tmp/` file system with the partition
-types defined as above which contains a LUKS header _must_ call the device
-mapper device "root", "home", "srv", "var" or "tmp", respectively.  This is
-necessary to ensure that the automatic discovery will never result in different
-device mapper names than any static configuration by the installer, thus
-eliminating possible naming conflicts and ambiguities.
+root, `/usr/`, `/home/`, `/srv/`, `/var/`, or `/var/tmp/` file system with the
+partition types defined as above which contains a LUKS header _must_ call the
+device mapper device "root", "usr", "home", "srv", "var" or "tmp",
+respectively.  This is necessary to ensure that the automatic discovery will
+never result in different device mapper names than any static configuration by
+the installer, thus eliminating possible naming conflicts and ambiguities.
 
 An *operating* *system* _should_ automatically discover and mount the first
 root partition that does not have the no-auto flag set (as described above) by
 scanning the disk containing the currently used EFI ESP.  It _should_
-automatically discover and mount the first `/home/`, `/srv/`, `/var/`,
+automatically discover and mount the first `/usr/`, `/home/`, `/srv/`, `/var/`,
 `/var/tmp/` and swap partitions that do not have the no-auto flag set by
 scanning the disk containing the discovered root partition.  It should
 automatically discover and mount the partition containing the currently used
@@ -138,19 +148,19 @@ and mount the partition containing the currently used Extended Boot Loader
 Partition to `/boot/`. It _should not_ discover or automatically mount
 partitions with other UUID partition types, or partitions located on other
 disks, or partitions with the no-auto flag set.  User configuration shall
-always override automatic discovery and mounting.  If a root, `/home/`,
-`/srv/`, `/boot/`, `/var/`, `/var/tmp/`, `/efi/`, `/boot/` or swap partition is
-listed in `/etc/fstab` or with `root=` on the kernel command line, it _must_
-take precedence over automatically discovered partitions.  If a `/home/`,
-`/srv/`, `/boot/`, `/var/`, `/var/tmp/`, `/efi/` or `/boot/` directory is found
-to be populated already in the root partition, the automatic discovery _must
-not_ mount any discovered file system over it.
+always override automatic discovery and mounting.  If a root, `/usr/`,
+`/home/`, `/srv/`, `/boot/`, `/var/`, `/var/tmp/`, `/efi/`, `/boot/` or swap
+partition is listed in `/etc/fstab` or with `root=` on the kernel command line,
+it _must_ take precedence over automatically discovered partitions.  If a
+`/home/`, `/usr/`, `/srv/`, `/boot/`, `/var/`, `/var/tmp/`, `/efi/` or `/boot/`
+directory is found to be populated already in the root partition, the automatic
+discovery _must not_ mount any discovered file system over it.
 
 A *container* *manager* should automatically discover and mount the root,
-`/home/`, `/srv/`, `/var/`, `/var/tmp/` partitions inside a container disk
-image.  It may choose to mount any discovered ESP and/or XBOOOTLDR partition to
-`/efi/` or `/boot/`. It should ignore any swap should they be included in a
-container disk image.
+`/usr/`, `/home/`, `/srv/`, `/var/`, `/var/tmp/` partitions inside a container
+disk image.  It may choose to mount any discovered ESP and/or XBOOOTLDR
+partition to `/efi/` or `/boot/`. It should ignore any swap should they be
+included in a container disk image.
 
 If a btrfs file system is automatically discovered and mounted by the operating
 system/container manager it will be mounted with its *default* subvolume.  The
@@ -161,8 +171,8 @@ subvolume set-default".
 
 If two Linux-based operating systems are installed on the same disk, the scheme
 above suggests that they may share the swap, `/home/`, `/srv/`, `/var/tmp/`,
-ESP, XBOOTLDR. However, they should each have their own root and `/var/`
-partition.
+ESP, XBOOTLDR. However, they should each have their own root, `/usr/` and
+`/var/` partition.
 
 ## Frequently Asked Questions
 

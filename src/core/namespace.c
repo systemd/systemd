@@ -942,7 +942,7 @@ static int mount_images(const MountEntry *m) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_(verity_settings_done) VeritySettings verity = {};
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         DissectImageFlags dissect_image_flags;
         int r;
 
@@ -1417,6 +1417,7 @@ static int verity_settings_prepare(
 
                 free_and_replace(verity->root_hash, d);
                 verity->root_hash_size = root_hash_size;
+                verity->designator = PARTITION_ROOT;
         }
 
         if (root_hash_sig) {
@@ -1428,6 +1429,7 @@ static int verity_settings_prepare(
 
                 free_and_replace(verity->root_hash_sig, d);
                 verity->root_hash_sig_size = root_hash_sig_size;
+                verity->designator = PARTITION_ROOT;
         }
 
         if (verity_data_path) {
@@ -1480,7 +1482,7 @@ int setup_namespace(
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_(verity_settings_done) VeritySettings verity = {};
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         MountEntry *m = NULL, *mounts = NULL;
         bool require_prefix = false;
         const char *root;

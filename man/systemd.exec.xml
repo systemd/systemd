@@ -193,6 +193,9 @@
               <row>
                 <entry>var</entry>
               </row>
+              <row>
+                <entry>usr</entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
@@ -216,6 +219,12 @@
         <filename>.raw</filename> suffix, in which case the root hash file must not have it in its name), the root hash
         is read from it and automatically used, also as formatted hexadecimal characters.</para>
 
+        <para>If the disk image contains a separate <filename>/usr/</filename> partition it may also be
+        Verity protected, in which case the root hash may configured via an extended attribute
+        <literal>user.verity.usrhash</literal> or a <filename>.usrhash</filename> file adjacent to the disk
+        image. There's currently no option to configure the root hash for the <filename>/usr/</filename> file
+        system via the unit file directly.</para>
+
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
@@ -229,6 +238,12 @@
         but a file with the <filename>.roothash.p7s</filename> suffix is found next to the image file, bearing otherwise
         the same name (except if the image has the <filename>.raw</filename> suffix, in which case the signature file
         must not have it in its name), the signature is read from it and automatically used.</para>
+
+        <para>If the disk image contains a separate <filename>/usr/</filename> partition it may also be
+        Verity protected, in which case the signature for the root hash may configured via a
+        <filename>.usrhash.p7s</filename> file adjacent to the disk image. There's currently no option to
+        configure the root hash signature for the <filename>/usr/</filename> via the unit file
+        directly.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
       </varlistentry>

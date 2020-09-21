@@ -44,7 +44,7 @@ static const char *arg_path = NULL;
 static const char *arg_source = NULL;
 static const char *arg_target = NULL;
 static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK;
-static VeritySettings arg_verity_settings = {};
+static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static bool arg_json = false;
 static JsonFormatFlags arg_json_format_flags = 0;
 
