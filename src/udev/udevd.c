@@ -1050,7 +1050,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
 
         switch (type) {
         case UDEV_CTRL_SET_LOG_LEVEL:
-                log_debug("Received udev control message (SET_LOG_LEVEL), setting log_priority=%i", value->intval);
+                log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
                 log_set_max_level_realm(LOG_REALM_UDEV, value->intval);
                 log_set_max_level_realm(LOG_REALM_SYSTEMD, value->intval);
                 manager_kill_workers(manager);
@@ -1467,7 +1467,7 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
 
 /*
  * read the kernel command line, in case we need to get into debug mode
- *   udev.log_priority=<level>                 syslog priority
+ *   udev.log_level=<level>                    syslog priority
  *   udev.children_max=<number of workers>     events are fully serialized if set to 1
  *   udev.exec_delay=<number of seconds>       delay execution of every executed program
  *   udev.event_timeout=<number of seconds>    seconds to wait before terminating an event
@@ -1478,7 +1478,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         assert(key);
 
-        if (proc_cmdline_key_streq(key, "udev.log_priority")) {
+        if (proc_cmdline_key_streq(key, "udev.log_level") ||
+            proc_cmdline_key_streq(key, "udev.log_priority")) { /* kept for backward compatibility */
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;

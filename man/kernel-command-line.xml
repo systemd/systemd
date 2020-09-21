@@ -263,8 +263,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>udev.log_priority=</varname></term>
-        <term><varname>rd.udev.log_priority=</varname></term>
+        <term><varname>udev.log_level=</varname></term>
+        <term><varname>rd.udev.log_level=</varname></term>
         <term><varname>udev.children_max=</varname></term>
         <term><varname>rd.udev.children_max=</varname></term>
         <term><varname>udev.exec_delay=</varname></term>
