@@ -1791,7 +1791,7 @@ int home_create_luks(
 
         fstype = user_record_file_system_type(h);
         if (!supported_fstype(fstype))
-                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Unsupported file system type: %s", h->file_system_type);
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Unsupported file system type: %s", fstype);
 
         if (sd_id128_is_null(h->partition_uuid)) {
                 r = sd_id128_randomize(&partition_uuid);
@@ -1870,7 +1870,8 @@ int home_create_luks(
                         host_size = DISK_SIZE_ROUND_DOWN(h->disk_size);
 
                 if (!supported_fs_size(fstype, host_size))
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Selected file system size too small for %s.", h->file_system_type);
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE),
+                                               "Selected file system size too small for %s.", fstype);
 
                 /* After creation we should reference this partition by its UUID instead of the block
                  * device. That's preferable since the user might have specified a device node such as
@@ -1901,7 +1902,7 @@ int home_create_luks(
                         return r;
 
                 if (!supported_fs_size(fstype, host_size))
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Selected file system size too small for %s.", h->file_system_type);
+                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Selected file system size too small for %s.", fstype);
 
                 r = tempfn_random(ip, "homework", &temporary_image_path);
                 if (r < 0)
