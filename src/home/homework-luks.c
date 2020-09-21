@@ -1793,6 +1793,23 @@ int home_create_luks(
         if (!supported_fstype(fstype))
                 return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Unsupported file system type: %s", fstype);
 
+        r = mkfs_exists(fstype);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if mkfs binary for %s exists: %m", fstype);
+        if (r == 0) {
+                if (h->file_system_type || streq(fstype, "ext4") || !supported_fstype("ext4"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "mkfs binary for file system type %s does not exist.", fstype);
+
+                /* If the record does not explicitly declare a file system to use, and the compiled-in
+                 * default does not actually exist, than do an automatic fallback onto ext4, as the baseline
+                 * fs of Linux. We won't search for a working fs type here beyond ext4, i.e. nothing fancier
+                 * than a single, conservative fallback to baseline. This should be useful in minimal
+                 * environments where mkfs.btrfs or so are not made available, but mkfs.ext4 as Linux' most
+                 * boring, most basic fs is. */
+                log_info("Formatting tool for compiled-in default file system %s not available, falling back to ext4 instead.", fstype);
+                fstype = "ext4";
+        }
+
         if (sd_id128_is_null(h->partition_uuid)) {
                 r = sd_id128_randomize(&partition_uuid);
                 if (r < 0)
