@@ -820,6 +820,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>deactivate-all</command></term>
+
+        <listitem><para>Execute the <command>deactivate</command> command on all active home directories at
+        once. This operation is generally executed on system shut down (i.e. by <command>systemctl
+        poweroff</command> and related commands), to ensure all active user's home directories are fully
+        deactivated before <filename>/home/</filename> and related file systems are unmounted.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>with</command> <replaceable>USER</replaceable> <replaceable>COMMAND…</replaceable></term>
 
         <listitem><para>Activate the specified user's home directory, run the specified command (under the

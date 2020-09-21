@@ -102,6 +102,7 @@ units = [
         ['systemd-firstboot.service',           'ENABLE_FIRSTBOOT',
          'sysinit.target.wants/'],
         ['systemd-halt.service',                ''],
+        ['systemd-homed-activate.service',      'ENABLE_HOMED'],
         ['systemd-initctl.socket',              'HAVE_SYSV_COMPAT',
          'sockets.target.wants/'],
         ['systemd-journal-catalog-update.service', '',

@@ -2482,6 +2482,50 @@ static int home_dispatch_lock_all(Home *h, Operation *o) {
         return 1;
 }
 
+static int home_dispatch_deactivate_all(Home *h, Operation *o) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(h);
+        assert(o);
+        assert(o->type == OPERATION_DEACTIVATE_ALL);
+
+        switch (home_get_state(h)) {
+
+        case HOME_UNFIXATED:
+        case HOME_ABSENT:
+        case HOME_INACTIVE:
+        case HOME_DIRTY:
+                log_info("Home %s is already deactivated.", h->user_name);
+                r = 1; /* done */
+                break;
+
+        case HOME_LOCKED:
+                log_info("Home %s is currently locked, not deactivating.", h->user_name);
+                r = 1; /* done */
+                break;
+
+        case HOME_ACTIVE:
+                log_info("Deactivating home %s.", h->user_name);
+                r = home_deactivate_internal(h, false, &error);
+                break;
+
+        default:
+                /* All other cases means we are currently executing an operation, which means the job remains
+                 * pending. */
+                return 0;
+        }
+
+        assert(!h->current_operation);
+
+        if (r != 0) /* failure or completed */
+                operation_result(o, r, &error);
+        else /* ongoing */
+                h->current_operation = operation_ref(o);
+
+        return 1;
+}
+
 static int home_dispatch_pipe_eof(Home *h, Operation *o) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -2579,6 +2623,7 @@ static int on_pending(sd_event_source *s, void *userdata) {
                         [OPERATION_ACQUIRE]          = home_dispatch_acquire,
                         [OPERATION_RELEASE]          = home_dispatch_release,
                         [OPERATION_LOCK_ALL]         = home_dispatch_lock_all,
+                        [OPERATION_DEACTIVATE_ALL]   = home_dispatch_deactivate_all,
                         [OPERATION_PIPE_EOF]         = home_dispatch_pipe_eof,
                         [OPERATION_DEACTIVATE_FORCE] = home_dispatch_deactivate_force,
                 };
