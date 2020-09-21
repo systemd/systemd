@@ -1844,7 +1844,28 @@ static int lock_all_homes(int argc, char *argv[], void *userdata) {
 
         r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to lock home: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to lock all homes: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int deactivate_all_homes(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_message_new_method_call(bus, &m, bus_mgr, "DeactivateAllHomes");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to deactivate all homes: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1902,6 +1923,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  lock USER…                  Temporarily lock an active home area\n"
                "  unlock USER…                Unlock a temporarily locked home area\n"
                "  lock-all                    Lock all suitable home areas\n"
+               "  deactivate-all              Deactivate all active home areas\n"
                "  with USER [COMMAND…]        Run shell or command with access to a home area\n"
                "\n%4$sOptions:%5$s\n"
                "  -h --help                   Show this help\n"
@@ -3328,21 +3350,22 @@ static int redirect_bus_mgr(void) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",         VERB_ANY, VERB_ANY, 0,            help                },
-                { "list",         VERB_ANY, 1,        VERB_DEFAULT, list_homes          },
-                { "activate",     2,        VERB_ANY, 0,            activate_home       },
-                { "deactivate",   2,        VERB_ANY, 0,            deactivate_home     },
-                { "inspect",      VERB_ANY, VERB_ANY, 0,            inspect_home        },
-                { "authenticate", VERB_ANY, VERB_ANY, 0,            authenticate_home   },
-                { "create",       VERB_ANY, 2,        0,            create_home         },
-                { "remove",       2,        VERB_ANY, 0,            remove_home         },
-                { "update",       VERB_ANY, 2,        0,            update_home         },
-                { "passwd",       VERB_ANY, 2,        0,            passwd_home         },
-                { "resize",       2,        3,        0,            resize_home         },
-                { "lock",         2,        VERB_ANY, 0,            lock_home           },
-                { "unlock",       2,        VERB_ANY, 0,            unlock_home         },
-                { "with",         2,        VERB_ANY, 0,            with_home           },
-                { "lock-all",     VERB_ANY, 1,        0,            lock_all_homes      },
+                { "help",           VERB_ANY, VERB_ANY, 0,            help                 },
+                { "list",           VERB_ANY, 1,        VERB_DEFAULT, list_homes           },
+                { "activate",       2,        VERB_ANY, 0,            activate_home        },
+                { "deactivate",     2,        VERB_ANY, 0,            deactivate_home      },
+                { "inspect",        VERB_ANY, VERB_ANY, 0,            inspect_home         },
+                { "authenticate",   VERB_ANY, VERB_ANY, 0,            authenticate_home    },
+                { "create",         VERB_ANY, 2,        0,            create_home          },
+                { "remove",         2,        VERB_ANY, 0,            remove_home          },
+                { "update",         VERB_ANY, 2,        0,            update_home          },
+                { "passwd",         VERB_ANY, 2,        0,            passwd_home          },
+                { "resize",         2,        3,        0,            resize_home          },
+                { "lock",           2,        VERB_ANY, 0,            lock_home            },
+                { "unlock",         2,        VERB_ANY, 0,            unlock_home          },
+                { "with",           2,        VERB_ANY, 0,            with_home            },
+                { "lock-all",       VERB_ANY, 1,        0,            lock_all_homes       },
+                { "deactivate-all", VERB_ANY, 1,        0,            deactivate_all_homes },
                 {}
         };
 
