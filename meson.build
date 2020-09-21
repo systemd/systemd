@@ -882,8 +882,7 @@ libm = cc.find_library('m')
 libdl = cc.find_library('dl')
 libcrypt = cc.find_library('crypt')
 
-crypt_header = conf.get('HAVE_CRYPT_H') == 1 ? \
-               '''#include <crypt.h>''' : '''#include <unistd.h>'''
+crypt_header = conf.get('HAVE_CRYPT_H') == 1 ? '''#include <crypt.h>''' : '''#include <unistd.h>'''
 foreach ident : [
         ['crypt_ra',          crypt_header],
         ['crypt_gensalt_ra',  crypt_header]]
