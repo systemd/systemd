@@ -1752,7 +1752,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *load_state = NULL;
-        bool delayed;
+        bool delayed, blocked;
         int r;
 
         assert(m);
@@ -1769,6 +1769,13 @@ int bus_manager_shutdown_or_sleep_now_or_later(
                 return log_notice_errno(SYNTHETIC_ERRNO(EACCES),
                                         "Unit %s is %s, refusing operation.",
                                         unit_name, load_state);
+
+        /* Don't perform the action if there is an blocking inhibitor */
+        blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, false, 0, NULL);
+        if (blocked) {
+                return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                        "Operation inhibited by at least one blocking inhibitor.");
+        }
 
         /* Tell everybody to prepare for shutdown/sleep */
         (void) send_prepare_for(m, w, true);
