@@ -9,6 +9,8 @@ TEST_INSTALL_VERITY_MINIMAL=1
 
 . $TEST_BASE_DIR/test-functions
 
+command -v mksquashfs >/dev/null 2>&1 || exit 0
+command -v veritysetup >/dev/null 2>&1 || exit 0
 command -v sfdisk >/dev/null 2>&1 || exit 0
 
 # Need loop devices for systemd-dissect
@@ -17,6 +19,7 @@ test_append_files() {
         instmods loop =block
         instmods squashfs =squashfs
         instmods dm_verity =md
+        instmods overlay =overlayfs
         install_dmevent
         generate_module_dependencies
         inst_binary losetup
