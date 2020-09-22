@@ -474,11 +474,11 @@ static int delete_dm(dev_t devnum) {
 }
 
 static int delete_md(MountPoint *m) {
-
         _cleanup_close_ int fd = -1;
 
+        assert(m);
         assert(major(m->devnum) != 0);
-        assert(m->path != 0);
+        assert(m->path);
 
         fd = open(m->path, O_RDONLY|O_CLOEXEC|O_EXCL);
         if (fd < 0)
