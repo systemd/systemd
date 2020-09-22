@@ -79,7 +79,7 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
 
         } else if (streq(subsystem, "pci") &&
                    sd_device_get_sysattr_value(parent, "class", &value) >= 0) {
-                unsigned long class = 0;
+                unsigned long class;
 
                 r = safe_atolu(value, &class);
                 if (r < 0)

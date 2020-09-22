@@ -199,7 +199,6 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
                                 return log_error_errno(errno, "Failed to dup connection: %m");
 
                         safe_close(start_fd);
-                        start_fd = SD_LISTEN_FDS_START;
                 }
 
                 if (asprintf((char **) (envp + n_env++), "LISTEN_FDS=%zu", n_fds) < 0)
