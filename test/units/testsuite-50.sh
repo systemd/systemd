@@ -227,6 +227,27 @@ done
 
 systemctl is-active testservice-50d.service
 
+# ExtensionImages will set up an overlay
+systemd-run -t --property ExtensionImages=/usr/share/app0.raw --property RootImage=${image}.raw cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -t --property ExtensionImages=/usr/share/app0.raw --property RootImage=${image}.raw cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage=${image}.raw cat /opt/script0.sh | grep -q -F "extension-release.app0"
+systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage=${image}.raw cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage=${image}.raw cat /opt/script1.sh | grep -q -F "extension-release.app1"
+systemd-run -t --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage=${image}.raw cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
+cat >/run/systemd/system/testservice-50e.service <<EOF
+[Service]
+MountAPIVFS=yes
+TemporaryFileSystem=/run
+RootImage=${image}.raw
+ExtensionImages=/usr/share/app0.raw /usr/share/app1.raw:nosuid
+ExecStart=/bin/bash -c '/opt/script0.sh | grep ID'
+ExecStart=/bin/bash -c '/opt/script1.sh | grep ID'
+Type=oneshot
+RemainAfterExit=yes
+EOF
+systemctl start testservice-50e.service
+systemctl is-active testservice-50e.service
+
 echo OK >/testok
 
 exit 0
