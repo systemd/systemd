@@ -129,14 +129,18 @@ static int get_mount_flags(
                 struct libmnt_table *table,
                 const char *path,
                 unsigned long *ret) {
+
+        _cleanup_close_ int fd = -1;
         struct libmnt_fs *fs;
         struct statvfs buf;
         const char *opts;
-        int r = 0;
+        int r;
 
         /* Get the mount flags for the mountpoint at "path" from "table". We have a fallback using statvfs()
          * in place (which provides us with mostly the same info), but it's just a fallback, since using it
-         * means triggering autofs or NFS mounts, which we'd rather avoid needlessly. */
+         * means triggering autofs or NFS mounts, which we'd rather avoid needlessly.
+         *
+         * This generally doesn't follow symlinks. */
 
         fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
         if (!fs) {
@@ -161,7 +165,11 @@ static int get_mount_flags(
         return 0;
 
 fallback:
-        if (statvfs(path, &buf) < 0)
+        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0)
+                return -errno;
+
+        if (fstatvfs(fd, &buf) < 0)
                 return -errno;
 
         /* The statvfs() flags and the mount flags mostly have the same values, but for some cases do
