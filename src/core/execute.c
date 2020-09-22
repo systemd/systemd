@@ -2027,7 +2027,7 @@ static bool exec_needs_mount_namespace(
                 return true;
 
         if (context->root_directory) {
-                if (context->mount_apivfs)
+                if (exec_context_get_effective_mount_apivfs(context))
                         return true;
 
                 for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
@@ -3147,7 +3147,7 @@ static int apply_mount_namespace(
                         .protect_kernel_modules = context->protect_kernel_modules,
                         .protect_kernel_logs = context->protect_kernel_logs,
                         .protect_hostname = context->protect_hostname,
-                        .mount_apivfs = context->mount_apivfs,
+                        .mount_apivfs = exec_context_get_effective_mount_apivfs(context),
                         .private_mounts = context->private_mounts,
                         .protect_home = context->protect_home,
                         .protect_system = context->protect_system,
@@ -5185,7 +5185,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, yes_no(c->private_users),
                 prefix, protect_home_to_string(c->protect_home),
                 prefix, protect_system_to_string(c->protect_system),
-                prefix, yes_no(c->mount_apivfs),
+                prefix, yes_no(exec_context_get_effective_mount_apivfs(c)),
                 prefix, yes_no(c->ignore_sigpipe),
                 prefix, yes_no(c->memory_deny_write_execute),
                 prefix, yes_no(c->restrict_realtime),
@@ -5648,6 +5648,15 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
                 return IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 4);
 
         return p;
+}
+
+bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
+        assert(c);
+
+        if (c->mount_apivfs_set)
+                return c->mount_apivfs;
+
+        return false;
 }
 
 void exec_context_free_log_extra_fields(ExecContext *c) {

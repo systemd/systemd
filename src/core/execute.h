@@ -174,6 +174,7 @@ struct ExecContext {
         bool nice_set:1;
         bool ioprio_set:1;
         bool cpu_sched_set:1;
+        bool mount_apivfs_set:1;
 
         /* This is not exposed to the user but available internally. We need it to make sure that whenever we
          * spawn /usr/bin/mount it is run in the same process group as us so that the autofs logic detects
@@ -409,6 +410,7 @@ bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
 
 int exec_context_get_effective_ioprio(const ExecContext *c);
+bool exec_context_get_effective_mount_apivfs(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
