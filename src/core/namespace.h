@@ -64,15 +64,15 @@ typedef enum ProcSubset {
 } ProcSubset;
 
 struct NamespaceInfo {
-        bool ignore_protect_paths:1;
-        bool private_dev:1;
-        bool private_mounts:1;
-        bool protect_control_groups:1;
-        bool protect_kernel_tunables:1;
-        bool protect_kernel_modules:1;
-        bool protect_kernel_logs:1;
-        bool mount_apivfs:1;
-        bool protect_hostname:1;
+        bool ignore_protect_paths;
+        bool private_dev;
+        bool private_mounts;
+        bool protect_control_groups;
+        bool protect_kernel_tunables;
+        bool protect_kernel_modules;
+        bool protect_kernel_logs;
+        bool mount_apivfs;
+        bool protect_hostname;
         ProtectHome protect_home;
         ProtectSystem protect_system;
         ProtectProc protect_proc;
@@ -82,10 +82,10 @@ struct NamespaceInfo {
 struct BindMount {
         char *source;
         char *destination;
-        bool read_only:1;
-        bool nosuid:1;
-        bool recursive:1;
-        bool ignore_enoent:1;
+        bool read_only;
+        bool nosuid;
+        bool recursive;
+        bool ignore_enoent;
 };
 
 struct TemporaryFileSystem {
