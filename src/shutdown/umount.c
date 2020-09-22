@@ -23,6 +23,7 @@
 #include "device-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
 #include "mount-setup.h"
@@ -447,27 +448,31 @@ static int delete_loopback(const char *device) {
         return -EBUSY; /* Nothing changed, the device is still attached, hence it apparently is still busy */
 }
 
-static int delete_dm(dev_t devnum) {
-
-        struct dm_ioctl dm = {
-                .version = {
-                        DM_VERSION_MAJOR,
-                        DM_VERSION_MINOR,
-                        DM_VERSION_PATCHLEVEL
-                },
-                .data_size = sizeof(dm),
-                .dev = devnum,
-        };
-
+static int delete_dm(MountPoint *m) {
         _cleanup_close_ int fd = -1;
+        int r;
 
-        assert(major(devnum) != 0);
+        assert(m);
+        assert(major(m->devnum) != 0);
+        assert(m->path);
 
         fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
-        if (ioctl(fd, DM_DEV_REMOVE, &dm) < 0)
+        r = fsync_path_at(AT_FDCWD, m->path);
+        if (r < 0)
+                log_debug_errno(r, "Failed to sync DM block device %s, ignoring: %m", m->path);
+
+        if (ioctl(fd, DM_DEV_REMOVE, &(struct dm_ioctl) {
+                .version = {
+                        DM_VERSION_MAJOR,
+                        DM_VERSION_MINOR,
+                        DM_VERSION_PATCHLEVEL
+                },
+                .data_size = sizeof(struct dm_ioctl),
+                .dev = m->devnum,
+        }) < 0)
                 return -errno;
 
         return 0;
@@ -702,7 +707,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_lo
                 }
 
                 log_info("Detaching DM %s (%u:%u).", m->path, major(m->devnum), minor(m->devnum));
-                r = delete_dm(m->devnum);
+                r = delete_dm(m);
                 if (r < 0) {
                         log_full_errno(umount_log_level, r, "Could not detach DM %s: %m", m->path);
                         n_failed++;
