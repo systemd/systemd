@@ -3195,7 +3195,6 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         _cleanup_free_ char *id = NULL;
         _cleanup_close_ int fifo_fd = -1;
         Manager *m = userdata;
-        Inhibitor *i = NULL;
         InhibitMode mm;
         InhibitWhat w;
         pid_t pid;
@@ -3278,6 +3277,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
 
         } while (hashmap_get(m->inhibitors, id));
 
+        _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
         r = manager_add_inhibitor(m, id, &i);
         if (r < 0)
                 return r;
@@ -3289,28 +3289,18 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         i->why = strdup(why);
         i->who = strdup(who);
 
-        if (!i->why || !i->who) {
-                r = -ENOMEM;
-                goto fail;
-        }
+        if (!i->why || !i->who)
+                return -ENOMEM;
 
         fifo_fd = inhibitor_create_fifo(i);
-        if (fifo_fd < 0) {
-                r = fifo_fd;
-                goto fail;
-        }
+        if (fifo_fd < 0)
+                return fifo_fd;
 
         r = inhibitor_start(i);
         if (r < 0)
-                goto fail;
+                return r;
 
         return sd_bus_reply_method_return(message, "h", fifo_fd);
-
-fail:
-        if (i)
-                inhibitor_free(i);
-
-        return r;
 }
 
 static const sd_bus_vtable manager_vtable[] = {
