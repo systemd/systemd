@@ -282,7 +282,10 @@ int bind_remount_recursive_with_mountinfo(
                         r = path_is_mount_point(x, NULL, 0);
                         if (IN_SET(r, 0, -ENOENT))
                                 continue;
-                        if (IN_SET(r, -EACCES, -EPERM)) {
+                        if (r < 0) {
+                                if (!ERRNO_IS_PRIVILEGE(r))
+                                        return r;
+
                                 /* Even if root user invoke this, submounts under private FUSE or NFS mount points
                                  * may not be acceessed. E.g.,
                                  *
@@ -294,8 +297,6 @@ int bind_remount_recursive_with_mountinfo(
                                 log_debug_errno(r, "Failed to determine '%s' is mount point or not, ignoring: %m", x);
                                 continue;
                         }
-                        if (r < 0)
-                                return r;
 
                         /* Try to reuse the original flag set */
                         orig_flags = 0;
