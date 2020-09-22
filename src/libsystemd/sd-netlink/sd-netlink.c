@@ -135,8 +135,7 @@ int netlink_open_family(sd_netlink **ret, int family) {
         r = sd_netlink_open_fd(ret, fd);
         if (r < 0)
                 return r;
-
-        fd = -1;
+        TAKE_FD(fd);
 
         return 0;
 }

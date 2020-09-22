@@ -373,19 +373,13 @@ _public_ int sd_network_monitor_new(sd_network_monitor **m, const char *category
         if (!good)
                 return -EINVAL;
 
-        *m = FD_TO_MONITOR(fd);
-        fd = -1;
-
+        *m = FD_TO_MONITOR(TAKE_FD(fd));
         return 0;
 }
 
 _public_ sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m) {
-        int fd;
-
-        if (m) {
-                fd = MONITOR_TO_FD(m);
-                close_nointr(fd);
-        }
+        if (m)
+                close_nointr(MONITOR_TO_FD(m));
 
         return NULL;
 }
