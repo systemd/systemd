@@ -46,13 +46,35 @@ int mount_move_root(const char *path);
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
 
-int mount_verbose(
+int mount_verbose_full(
                 int error_log_level,
                 const char *what,
                 const char *where,
                 const char *type,
                 unsigned long flags,
-                const char *options);
+                const char *options,
+                bool follow_symlink);
+
+static inline int mount_follow_verbose(
+                int error_log_level,
+                const char *what,
+                const char *where,
+                const char *type,
+                unsigned long flags,
+                const char *options) {
+        return mount_verbose_full(error_log_level, what, where, type, flags, options, true);
+}
+
+static inline int mount_nofollow_verbose(
+                int error_log_level,
+                const char *what,
+                const char *where,
+                const char *type,
+                unsigned long flags,
+                const char *options) {
+        return mount_verbose_full(error_log_level, what, where, type, flags, options, false);
+}
+
 int umount_verbose(const char *where);
 
 int mount_option_mangle(

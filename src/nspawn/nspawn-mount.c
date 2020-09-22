@@ -40,7 +40,9 @@ CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
         ret = *l + *n;
         (*n)++;
 
-        *ret = (CustomMount) { .type = t };
+        *ret = (CustomMount) {
+                .type = t
+        };
 
         return ret;
 }
@@ -442,8 +444,8 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         if (FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_RO))
                 extra_flags |= MS_RDONLY;
 
-        r = mount_verbose(LOG_ERR, "sysfs", full, "sysfs",
-                          MS_NOSUID|MS_NOEXEC|MS_NODEV|extra_flags, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, "sysfs", full, "sysfs",
+                                   MS_NOSUID|MS_NOEXEC|MS_NODEV|extra_flags, NULL);
         if (r < 0)
                 return r;
 
@@ -460,12 +462,12 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
 
                 (void) mkdir(to, 0755);
 
-                r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
                 if (r < 0)
                         return r;
 
-                r = mount_verbose(LOG_ERR, NULL, to, NULL,
-                                  MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, NULL, to, NULL,
+                                           MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
                 if (r < 0)
                         return r;
         }
@@ -483,8 +485,8 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         x = prefix_roota(top, "/fs/cgroup");
         (void) mkdir_p(x, 0755);
 
-        return mount_verbose(LOG_ERR, NULL, top, NULL,
-                             MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
+        return mount_nofollow_verbose(LOG_ERR, NULL, top, NULL,
+                                      MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
 }
 
 int mount_all(const char *dest,
@@ -516,7 +518,7 @@ int mount_all(const char *dest,
         static const MountPoint mount_table[] = {
                 /* First we list inner child mounts (i.e. mounts applied *after* entering user namespacing) */
                 { "proc",            "/proc",           "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                  MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_MKDIR },
+                  MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_MKDIR|MOUNT_FOLLOW_SYMLINKS }, /* we follow symlinks here since not following them requires /proc/ already being mounted, which we don't have here. */
 
                 { "/proc/sys",       "/proc/sys",       NULL,    NULL,        MS_BIND,
                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
@@ -670,12 +672,14 @@ int mount_all(const char *dest,
                                 return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, mount_table[k].what);
                 }
 
-                r = mount_verbose(fatal ? LOG_ERR : LOG_DEBUG,
-                                  prefixed ?: mount_table[k].what,
-                                  where,
-                                  mount_table[k].type,
-                                  mount_table[k].flags,
-                                  o);
+                r = mount_verbose_full(
+                                fatal ? LOG_ERR : LOG_DEBUG,
+                                prefixed ?: mount_table[k].what,
+                                where,
+                                mount_table[k].type,
+                                mount_table[k].flags,
+                                o,
+                                FLAGS_SET(mount_table[k].mount_settings, MOUNT_FOLLOW_SYMLINKS));
                 if (r < 0 && fatal)
                         return r;
         }
@@ -771,7 +775,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
                         return log_error_errno(r, "Failed to create mount point %s: %m", where);
         }
 
-        r = mount_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
+        r = mount_nofollow_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
         if (r < 0)
                 return r;
 
@@ -807,7 +811,7 @@ static int mount_tmpfs(const char *dest, CustomMount *m, uid_t uid_shift, const 
                 return log_oom();
         options = r > 0 ? buf : m->options;
 
-        return mount_verbose(LOG_ERR, "tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, options);
+        return mount_nofollow_verbose(LOG_ERR, "tmpfs", where, "tmpfs", MS_NODEV|MS_STRICTATIME, options);
 }
 
 static char *joined_and_escaped_lower_dirs(char **lower) {
@@ -864,7 +868,7 @@ static int mount_overlay(const char *dest, CustomMount *m) {
                 options = strjoina("lowerdir=", lower, ",upperdir=", escaped_source, ",workdir=", escaped_work_dir);
         }
 
-        return mount_verbose(LOG_ERR, "overlay", where, "overlay", m->read_only ? MS_RDONLY : 0, options);
+        return mount_nofollow_verbose(LOG_ERR, "overlay", where, "overlay", m->read_only ? MS_RDONLY : 0, options);
 }
 
 static int mount_inaccessible(const char *dest, CustomMount *m) {
@@ -885,11 +889,11 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
         if (r < 0)
                 return m->graceful ? 0 : r;
 
-        r = mount_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, source, where, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, source, where, NULL, MS_BIND, NULL);
         if (r < 0)
                 return m->graceful ? 0 : r;
 
-        r = mount_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, NULL, where, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
+        r = mount_nofollow_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, NULL, where, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
         if (r < 0) {
                 (void) umount_verbose(where);
                 return m->graceful ? 0 : r;
@@ -914,7 +918,7 @@ static int mount_arbitrary(const char *dest, CustomMount *m) {
                         return log_error_errno(r, "Creating mount point for mount %s failed: %m", where);
         }
 
-        return mount_verbose(LOG_ERR, m->source, where, m->type_argument, 0, m->options);
+        return mount_nofollow_verbose(LOG_ERR, m->source, where, m->type_argument, 0, m->options);
 }
 
 int mount_custom(
@@ -1013,7 +1017,7 @@ static int setup_volatile_state(const char *directory, uid_t uid_shift, const ch
         if (r > 0)
                 options = buf;
 
-        return mount_verbose(LOG_ERR, "tmpfs", p, "tmpfs", MS_STRICTATIME, options);
+        return mount_nofollow_verbose(LOG_ERR, "tmpfs", p, "tmpfs", MS_STRICTATIME, options);
 }
 
 static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
@@ -1058,7 +1062,7 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
         if (r > 0)
                 options = buf;
 
-        r = mount_verbose(LOG_ERR, "tmpfs", template, "tmpfs", MS_STRICTATIME, options);
+        r = mount_nofollow_verbose(LOG_ERR, "tmpfs", template, "tmpfs", MS_STRICTATIME, options);
         if (r < 0)
                 goto fail;
 
@@ -1073,7 +1077,7 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
                 goto fail;
         }
 
-        r = mount_verbose(LOG_ERR, f, t, NULL, MS_BIND|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, f, t, NULL, MS_BIND|MS_REC, NULL);
         if (r < 0)
                 goto fail;
 
@@ -1085,7 +1089,7 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
                 goto fail;
         }
 
-        r = mount_verbose(LOG_ERR, template, directory, NULL, MS_MOVE, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, template, directory, NULL, MS_MOVE, NULL);
         if (r < 0)
                 goto fail;
 
@@ -1125,7 +1129,7 @@ static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const 
         if (r > 0)
                 options = buf;
 
-        r = mount_verbose(LOG_ERR, "tmpfs", template, "tmpfs", MS_STRICTATIME, options);
+        r = mount_nofollow_verbose(LOG_ERR, "tmpfs", template, "tmpfs", MS_STRICTATIME, options);
         if (r < 0)
                 goto finish;
 
@@ -1155,7 +1159,7 @@ static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const 
         }
 
         options = strjoina("lowerdir=", escaped_directory, ",upperdir=", escaped_upper, ",workdir=", escaped_work);
-        r = mount_verbose(LOG_ERR, "overlay", directory, "overlay", 0, options);
+        r = mount_nofollow_verbose(LOG_ERR, "overlay", directory, "overlay", 0, options);
 
 finish:
         if (tmpfs_mounted)
@@ -1265,7 +1269,7 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
                 return log_oom();
 
         /* Remount directory_pivot_root_new to make it movable. */
-        r = mount_verbose(LOG_ERR, directory_pivot_root_new, directory_pivot_root_new, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, directory_pivot_root_new, directory_pivot_root_new, NULL, MS_BIND, NULL);
         if (r < 0)
                 goto done;
 
@@ -1282,19 +1286,19 @@ int setup_pivot_root(const char *directory, const char *pivot_root_new, const ch
                         goto done;
                 }
 
-                r = mount_verbose(LOG_ERR, directory_pivot_root_new, pivot_tmp, NULL, MS_MOVE, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, directory_pivot_root_new, pivot_tmp, NULL, MS_MOVE, NULL);
                 if (r < 0)
                         goto done;
 
-                r = mount_verbose(LOG_ERR, directory, pivot_tmp_pivot_root_old, NULL, MS_MOVE, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, directory, pivot_tmp_pivot_root_old, NULL, MS_MOVE, NULL);
                 if (r < 0)
                         goto done;
 
-                r = mount_verbose(LOG_ERR, pivot_tmp, directory, NULL, MS_MOVE, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, pivot_tmp, directory, NULL, MS_MOVE, NULL);
                 if (r < 0)
                         goto done;
         } else {
-                r = mount_verbose(LOG_ERR, directory_pivot_root_new, directory, NULL, MS_MOVE, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, directory_pivot_root_new, directory, NULL, MS_MOVE, NULL);
                 if (r < 0)
                         goto done;
         }

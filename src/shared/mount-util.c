@@ -312,14 +312,16 @@ int bind_remount_recursive_with_mountinfo(
                 if (!set_contains(done, simplified) &&
                     !set_contains(todo, simplified)) {
                         /* The prefix directory itself is not yet a mount, make it one. */
-                        if (mount(simplified, simplified, NULL, MS_BIND|MS_REC, NULL) < 0)
-                                return -errno;
+                        r = mount_nofollow(simplified, simplified, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
+                                return r;
 
                         orig_flags = 0;
                         (void) get_mount_flags(table, simplified, &orig_flags);
 
-                        if (mount(NULL, simplified, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
-                                return -errno;
+                        r = mount_nofollow(NULL, simplified, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
+                        if (r < 0)
+                                return r;
 
                         log_debug("Made top-level directory %s a mount point.", prefix);
 
@@ -360,8 +362,9 @@ int bind_remount_recursive_with_mountinfo(
                         orig_flags = 0;
                         (void) get_mount_flags(table, x, &orig_flags);
 
-                        if (mount(NULL, x, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
-                                return -errno;
+                        r = mount_nofollow(NULL, x, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
+                        if (r < 0)
+                                return r;
 
                         log_debug("Remounted %s read-only.", x);
                 }
@@ -410,8 +413,9 @@ int bind_remount_one_with_mountinfo(
         /* Try to reuse the original flag set */
         (void) get_mount_flags(table, path, &orig_flags);
 
-        if (mount(NULL, path, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL) < 0)
-                return -errno;
+        r = mount_nofollow(NULL, path, NULL, (orig_flags & ~flags_mask)|MS_BIND|MS_REMOUNT|new_flags, NULL);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -606,13 +610,14 @@ static char* mount_flags_to_string(long unsigned flags) {
         return x;
 }
 
-int mount_verbose(
+int mount_verbose_full(
                 int error_log_level,
                 const char *what,
                 const char *where,
                 const char *type,
                 unsigned long flags,
-                const char *options) {
+                const char *options,
+                bool follow_symlink) {
 
         _cleanup_free_ char *fl = NULL, *o = NULL;
         unsigned long f;
@@ -641,8 +646,13 @@ int mount_verbose(
         else
                 log_debug("Mounting %s on %s (%s \"%s\")...",
                           strna(type), where, strnull(fl), strempty(o));
-        if (mount(what, where, type, f, o) < 0)
-                return log_full_errno(error_log_level, errno,
+
+        if (follow_symlink)
+                r = mount(what, where, type, f, o) < 0 ? -errno : 0;
+        else
+                r = mount_nofollow(what, where, type, f, o);
+        if (r < 0)
+                return log_full_errno(error_log_level, r,
                                       "Failed to mount %s (type %s) on %s (%s \"%s\"): %m",
                                       strna(what), strna(type), where, strnull(fl), strempty(o));
         return 0;

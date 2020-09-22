@@ -5,6 +5,7 @@
 #include <poll.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/xattr.h>
 
 #include "blkid-util.h"
