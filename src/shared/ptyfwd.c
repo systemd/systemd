@@ -16,6 +16,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -195,7 +196,7 @@ static int shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN)
                                         f->stdin_readable = false;
-                                else if (IN_SET(errno, EIO, EPIPE, ECONNRESET)) {
+                                else if (errno == EIO || ERRNO_IS_DISCONNECT(errno)) {
                                         f->stdin_readable = false;
                                         f->stdin_hangup = true;
 
@@ -279,7 +280,7 @@ static int shovel(PTYForward *f) {
 
                                 if (errno == EAGAIN)
                                         f->stdout_writable = false;
-                                else if (IN_SET(errno, EIO, EPIPE, ECONNRESET)) {
+                                else if (errno == EIO || ERRNO_IS_DISCONNECT(errno)) {
                                         f->stdout_writable = false;
                                         f->stdout_hangup = true;
                                         f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
