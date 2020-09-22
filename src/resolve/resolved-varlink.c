@@ -205,6 +205,8 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
                 if (r < 0)
                         goto finish;
 
+                manager_check_dns_reply(q, rr);
+
                 if (!canonical)
                         canonical = dns_resource_record_ref(rr);
 
@@ -274,6 +276,45 @@ static int parse_as_address(Varlink *link, LookupParameters *p) {
                                                                             SD_RESOLVED_SYNTHETIC))));
 }
 
+static int vl_check_dns_access(Manager *m, Varlink *link, const char *hostname, char **ret_unit) {
+        int r = 0;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *pid_creds = NULL;
+        const char *unit = NULL;
+        pid_t pid;
+
+        assert(hostname);
+
+        /* Get client pid from link */
+        r = varlink_get_peer_pid(link, &pid);
+        if (r < 0) {
+                log_debug("Couldn't query sender PID");
+                return 0;
+        }
+
+        /* Get creds from sender's PID */
+        r = sd_bus_creds_new_from_pid(&pid_creds, pid, SD_BUS_CREDS_UNIT);
+        if (r < 0) {
+                log_debug("Couldn't query creds from sender's PID");
+                return 0;
+        }
+
+        r = sd_bus_creds_get_unit(pid_creds, &unit);
+        if (r < 0 || !unit) {
+                log_debug("Couldn't get unit for pid %d", pid);
+                return 0;
+        }
+
+        r = manager_check_dns_access(m, hostname, unit);
+        if (r < 0)
+                return r;
+
+        *ret_unit = strdup(unit);
+        if (!*ret_unit)
+                return log_oom();
+
+        return 0;
+}
+
 static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         static const JsonDispatch dispatch_table[] = {
                 { "ifindex", JSON_VARIANT_UNSIGNED, json_dispatch_int,    offsetof(LookupParameters, ifindex), 0              },
@@ -290,6 +331,7 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
         Manager *m;
         int r;
+        _cleanup_free_ char *unit = NULL;
 
         assert(link);
 
@@ -322,6 +364,12 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         if (r != 0)
                 return r;
 
+        log_debug("Got varlink query packet for %s", p.name);
+
+        r = vl_check_dns_access(m, link, p.name, &unit);
+        if (r < 0)
+                return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("name"));
+
         r = dns_question_new_address(&question_utf8, p.family, p.name, false);
         if (r < 0)
                 return r;
@@ -338,6 +386,7 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         varlink_set_userdata(link, q);
         q->request_family = p.family;
         q->complete = vl_method_resolve_hostname_complete;
+        q->unit = TAKE_PTR(unit);
 
         r = dns_query_go(q);
         if (r < 0)
