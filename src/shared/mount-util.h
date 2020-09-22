@@ -32,6 +32,9 @@
 #define TMPFS_LIMITS_ROOTFS          TMPFS_LIMITS_VAR
 #define TMPFS_LIMITS_VOLATILE_STATE  TMPFS_LIMITS_VAR
 
+int mount_fd(const char *source, int target_fd, const char *filesystemtype, unsigned long mountflags, const void *data);
+int mount_nofollow(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data);
+
 int repeat_unmount(const char *path, int flags);
 int umount_recursive(const char *target, int flags);
 int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list);
