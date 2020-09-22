@@ -70,7 +70,7 @@ static int server_init(sd_bus **_bus) {
                 goto fail;
         }
 
-        r = sd_bus_get_description(bus, &desc);
+        assert_se(sd_bus_get_description(bus, &desc) >= 0);
         assert_se(streq(desc, "my bus!"));
 
         log_info("Peer ID is " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(id));
