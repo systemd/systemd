@@ -2543,6 +2543,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootVerity = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sba(ss)) ExtensionImages = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssba(ss)) MountImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i OOMScoreAdjust = ...;
@@ -3046,23 +3048,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property WorkingDirectory is not documented!-->
 
-    <!--property RootDirectory is not documented!-->
-
-    <!--property RootImage is not documented!-->
-
-    <!--property RootImageOptions is not documented!-->
-
-    <!--property RootHash is not documented!-->
-
     <!--property RootHashPath is not documented!-->
 
-    <!--property RootHashSignature is not documented!-->
-
     <!--property RootHashSignaturePath is not documented!-->
-
-    <!--property RootVerity is not documented!-->
-
-    <!--property MountImages is not documented!-->
 
     <!--property OOMScoreAdjust is not documented!-->
 
@@ -3630,6 +3618,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImages"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OOMScoreAdjust"/>
@@ -3952,6 +3942,17 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>ControlGroup</varname> indicates the control group path the processes of this service
       unit are placed in.</para>
+
+      <para>The following properties map 1:1 to corresponding settings in the unit file:
+      <varname>RootDirectory</varname>
+      <varname>RootImage</varname>
+      <varname>RootImageOptions</varname>
+      <varname>RootVerity</varname>
+      <varname>RootHash</varname>
+      <varname>RootHashSignature</varname>
+      <varname>MountImages</varname>
+      <varname>ExtensionImages</varname>
+      see systemd.exec(5) for their meaning.</para>
     </refsect2>
   </refsect1>
 
@@ -4296,6 +4297,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s RootHashSignaturePath = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootVerity = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sba(ss)) ExtensionImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssba(ss)) MountImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -4828,23 +4831,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property WorkingDirectory is not documented!-->
 
-    <!--property RootDirectory is not documented!-->
-
-    <!--property RootImage is not documented!-->
-
-    <!--property RootImageOptions is not documented!-->
-
-    <!--property RootHash is not documented!-->
-
     <!--property RootHashPath is not documented!-->
 
-    <!--property RootHashSignature is not documented!-->
-
     <!--property RootHashSignaturePath is not documented!-->
-
-    <!--property RootVerity is not documented!-->
-
-    <!--property MountImages is not documented!-->
 
     <!--property OOMScoreAdjust is not documented!-->
 
@@ -5409,6 +5398,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignaturePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
 
@@ -5990,6 +5981,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootVerity = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sba(ss)) ExtensionImages = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssba(ss)) MountImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i OOMScoreAdjust = ...;
@@ -6449,23 +6442,9 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property WorkingDirectory is not documented!-->
 
-    <!--property RootDirectory is not documented!-->
-
-    <!--property RootImage is not documented!-->
-
-    <!--property RootImageOptions is not documented!-->
-
-    <!--property RootHash is not documented!-->
-
     <!--property RootHashPath is not documented!-->
 
-    <!--property RootHashSignature is not documented!-->
-
     <!--property RootHashSignaturePath is not documented!-->
-
-    <!--property RootVerity is not documented!-->
-
-    <!--property MountImages is not documented!-->
 
     <!--property OOMScoreAdjust is not documented!-->
 
@@ -6948,6 +6927,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignaturePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
 
@@ -7650,6 +7631,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RootVerity = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly a(sba(ss)) ExtensionImages = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ssba(ss)) MountImages = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i OOMScoreAdjust = ...;
@@ -8095,23 +8078,9 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property WorkingDirectory is not documented!-->
 
-    <!--property RootDirectory is not documented!-->
-
-    <!--property RootImage is not documented!-->
-
-    <!--property RootImageOptions is not documented!-->
-
-    <!--property RootHash is not documented!-->
-
     <!--property RootHashPath is not documented!-->
 
-    <!--property RootHashSignature is not documented!-->
-
     <!--property RootHashSignaturePath is not documented!-->
-
-    <!--property RootVerity is not documented!-->
-
-    <!--property MountImages is not documented!-->
 
     <!--property OOMScoreAdjust is not documented!-->
 
@@ -8580,6 +8549,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="RootHashSignaturePath"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RootVerity"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtensionImages"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MountImages"/>
 
