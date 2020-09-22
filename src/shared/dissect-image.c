@@ -956,7 +956,7 @@ int dissect_image(
                 return -EADDRNOTAVAIL;
 
         /* Combinations of verity /usr with verity-less root is OK, but the reverse is not */
-        if (m->partitions[PARTITION_ROOT_VERITY].found && !m->partitions[PARTITION_USR_VERITY].found)
+        if (m->partitions[PARTITION_ROOT_VERITY].found && m->partitions[PARTITION_USR].found && !m->partitions[PARTITION_USR_VERITY].found)
                 return -EADDRNOTAVAIL;
 
         if (verity && verity->root_hash) {
