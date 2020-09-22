@@ -5,15 +5,18 @@ import argparse
 import collections
 import sys
 import os
-import shlex
 import subprocess
 import io
-from lxml import etree
 
-PARSER = etree.XMLParser(no_network=True,
-                         remove_comments=False,
-                         strip_cdata=False,
-                         resolve_entities=False)
+try:
+    from lxml import etree
+except ModuleNotFoundError as e:
+    etree = e
+
+try:
+    from shlex import join as shlex_join
+except ImportError as e:
+    shlex_join = e
 
 class NoCommand(Exception):
     pass
@@ -23,6 +26,12 @@ BORING_INTERFACES = [
     'org.freedesktop.DBus.Introspectable',
     'org.freedesktop.DBus.Properties',
 ]
+
+def xml_parser():
+    return etree.XMLParser(no_network=True,
+                           remove_comments=False,
+                           strip_cdata=False,
+                           resolve_entities=False)
 
 def print_method(declarations, elem, *, prefix, file, is_signal=False):
     name = elem.get('name')
@@ -178,7 +187,7 @@ def subst_output(document, programlisting, stats):
     interface = programlisting.get('interface')
 
     argv = [f'{opts.build_dir}/{executable}', f'--bus-introspect={interface}']
-    print(f'COMMAND: {shlex.join(argv)}')
+    print(f'COMMAND: {shlex_join(argv)}')
 
     try:
         out = subprocess.check_output(argv, text=True)
@@ -186,7 +195,7 @@ def subst_output(document, programlisting, stats):
         print(f'{executable} not found, ignoring', file=sys.stderr)
         return
 
-    xml = etree.fromstring(out, parser=PARSER)
+    xml = etree.fromstring(out, parser=xml_parser())
 
     new_text, declarations, interfaces = xml_to_text(node, xml, only_interface=interface)
     programlisting.text = '\n' + new_text + '    '
@@ -250,7 +259,7 @@ def subst_output(document, programlisting, stats):
 
 def process(page):
     src = open(page).read()
-    xml = etree.fromstring(src, parser=PARSER)
+    xml = etree.fromstring(src, parser=xml_parser())
 
     # print('parsing {}'.format(name), file=sys.stderr)
     if xml.tag != 'refentry':
@@ -287,6 +296,11 @@ def parse_args():
 
 if __name__ == '__main__':
     opts = parse_args()
+
+    for item in (etree, shlex_join):
+        if isinstance(item, Exception):
+            print(item, file=sys.stderr)
+            exit(77 if opts.test else 1)
 
     if not os.path.exists(f'{opts.build_dir}/systemd'):
         exit(f"{opts.build_dir}/systemd doesn't exist. Use --build-dir=.")
