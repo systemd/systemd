@@ -307,7 +307,7 @@ static void test_protect_sysctl(void) {
         if (pid == 0) {
 #if defined __NR__sysctl && __NR__sysctl >= 0
                 assert_se(syscall(__NR__sysctl, NULL) < 0);
-                assert_se(errno == EFAULT);
+                assert_se(IN_SET(errno, EFAULT, ENOSYS));
 #endif
 
                 assert_se(seccomp_protect_sysctl() >= 0);
