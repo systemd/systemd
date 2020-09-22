@@ -483,15 +483,50 @@ setup_basic_environment() {
             )
             oldinitdir=$initdir
             export initdir=$TESTDIR/minimal
-            mkdir -p $initdir/usr/lib $initdir/etc
+            mkdir -p $initdir/usr/lib $initdir/etc $initdir/var/tmp $initdir/opt
             setup_basic_dirs
             install_basic_tools
             cp $os_release $initdir/usr/lib/os-release
             ln -s ../usr/lib/os-release $initdir/etc/os-release
             echo MARKER=1 >> $initdir/usr/lib/os-release
+            touch $initdir/etc/machine-id
+            touch $initdir/etc/resolv.conf
+            touch $initdir/opt/some_file
             mksquashfs $initdir $oldinitdir/usr/share/minimal.raw
             veritysetup format $oldinitdir/usr/share/minimal.raw $oldinitdir/usr/share/minimal.verity | \
                 grep '^Root hash:' | cut -f2 | tr -d '\n' > $oldinitdir/usr/share/minimal.roothash
+
+            export initdir=$TESTDIR/app0
+            mkdir -p $initdir/usr/lib/systemd/system $initdir/opt
+            cat <<EOF > $initdir/usr/lib/systemd/system/app0.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/script0.sh
+EOF
+            cat <<EOF > $initdir/opt/script0.sh
+#!/bin/bash
+cat /etc/os-release
+EOF
+            chmod +x $initdir/opt/script0.sh
+            echo MARKER=1 > $initdir/usr/lib/systemd/system/some_file
+            mksquashfs $initdir $oldinitdir/usr/share/app0.raw
+
+            export initdir=$TESTDIR/app1
+            mkdir -p $initdir/usr/lib/systemd/system $initdir/opt
+            cat <<EOF > $initdir/usr/lib/systemd/system/app1.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/script1.sh
+EOF
+            cat <<EOF > $initdir/opt/script1.sh
+#!/bin/bash
+cat /etc/os-release
+EOF
+            chmod +x $initdir/opt/script1.sh
+            echo MARKER=1 > $initdir/usr/lib/systemd/system/other_file
+            mksquashfs $initdir $oldinitdir/usr/share/app1.raw
         )
     fi
 }
