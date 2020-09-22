@@ -472,7 +472,7 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
                         return r;
         }
 
-        r = umount_verbose(full);
+        r = umount_verbose(LOG_ERR, full, UMOUNT_NOFOLLOW);
         if (r < 0)
                 return r;
 
@@ -895,7 +895,7 @@ static int mount_inaccessible(const char *dest, CustomMount *m) {
 
         r = mount_nofollow_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, NULL, where, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
         if (r < 0) {
-                (void) umount_verbose(where);
+                (void) umount_verbose(m->graceful ? LOG_DEBUG : LOG_ERR, where, UMOUNT_NOFOLLOW);
                 return m->graceful ? 0 : r;
         }
 
@@ -1099,10 +1099,11 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
 
 fail:
         if (bind_mounted)
-                (void) umount_verbose(t);
+                (void) umount_verbose(LOG_ERR, t, UMOUNT_NOFOLLOW);
 
         if (tmpfs_mounted)
-                (void) umount_verbose(template);
+                (void) umount_verbose(LOG_ERR, template, UMOUNT_NOFOLLOW);
+
         (void) rmdir(template);
         return r;
 }
@@ -1163,7 +1164,7 @@ static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const 
 
 finish:
         if (tmpfs_mounted)
-                (void) umount_verbose(template);
+                (void) umount_verbose(LOG_ERR, template, UMOUNT_NOFOLLOW);
 
         (void) rmdir(template);
         return r;

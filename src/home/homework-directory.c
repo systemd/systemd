@@ -67,7 +67,7 @@ int home_activate_directory(
 
         r = mount_nofollow_verbose(LOG_ERR, NULL, hd, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
         if (r < 0) {
-                (void) umount_verbose(hd);
+                (void) umount_verbose(LOG_ERR, hd, UMOUNT_NOFOLLOW);
                 return r;
         }
 

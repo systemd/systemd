@@ -658,10 +658,19 @@ int mount_verbose_full(
         return 0;
 }
 
-int umount_verbose(const char *what) {
+int umount_verbose(
+                int error_log_level,
+                const char *what,
+                int flags) {
+
+        assert(what);
+
         log_debug("Umounting %s...", what);
-        if (umount(what) < 0)
-                return log_error_errno(errno, "Failed to unmount %s: %m", what);
+
+        if (umount2(what, flags) < 0)
+                return log_full_errno(error_log_level, errno,
+                                      "Failed to unmount %s: %m", what);
+
         return 0;
 }
 

@@ -75,7 +75,10 @@ static inline int mount_nofollow_verbose(
         return mount_verbose_full(error_log_level, what, where, type, flags, options, false);
 }
 
-int umount_verbose(const char *where);
+int umount_verbose(
+                int error_log_level,
+                const char *where,
+                int flags);
 
 int mount_option_mangle(
                 const char *options,

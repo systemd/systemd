@@ -87,7 +87,7 @@ int home_move_mount(const char *user_name_and_realm, const char *target) {
         if (r < 0)
                 return r;
 
-        r = umount_verbose("/run/systemd/user-home-mount");
+        r = umount_verbose(LOG_ERR, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
         if (r < 0)
                 return r;
 

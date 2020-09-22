@@ -136,7 +136,7 @@ int sync_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
                 log_error_errno(r, "Failed to chown() cgroup %s: %m", fn);
 finish:
         if (undo_mount)
-                (void) umount_verbose(tree);
+                (void) umount_verbose(LOG_ERR, tree, UMOUNT_NOFOLLOW);
 
         (void) rmdir(tree);
         return r;

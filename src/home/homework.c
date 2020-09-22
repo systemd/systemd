@@ -291,7 +291,7 @@ int home_setup_undo(HomeSetup *setup) {
         }
 
         if (setup->undo_mount) {
-                q = umount_verbose("/run/systemd/user-home-mount");
+                q = umount_verbose(LOG_DEBUG, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
                 if (q < 0)
                         r = q;
         }

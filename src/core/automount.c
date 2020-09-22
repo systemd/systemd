@@ -94,7 +94,7 @@ static void unmount_autofs(Automount *a) {
                 automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
 
                 if (a->where) {
-                        r = repeat_unmount(a->where, MNT_DETACH);
+                        r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
                         if (r < 0)
                                 log_error_errno(r, "Failed to unmount: %m");
                 }
@@ -647,7 +647,7 @@ fail:
         safe_close_pair(p);
 
         if (mounted) {
-                r = repeat_unmount(a->where, MNT_DETACH);
+                r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         log_error_errno(r, "Failed to unmount, ignoring: %m");
         }

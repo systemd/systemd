@@ -107,7 +107,7 @@ static int make_overlay(const char *path) {
 
 finish:
         if (tmpfs_mounted)
-                (void) umount_verbose("/run/systemd/overlay-sysroot");
+                (void) umount_verbose(LOG_ERR, "/run/systemd/overlay-sysroot", UMOUNT_NOFOLLOW);
 
         (void) rmdir("/run/systemd/overlay-sysroot");
         return r;
