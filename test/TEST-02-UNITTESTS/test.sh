@@ -60,4 +60,4 @@ check_result_qemu() {
     return $_ret
 }
 
-do_test "$@" 24
+do_test "$@" 02

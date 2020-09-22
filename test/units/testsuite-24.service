@@ -1,7 +1,8 @@
 [Unit]
-Description=TEST-24-UNIT-TESTS
+Description=TEST-24-CRYPTSETUP
+After=multi-user.target
 
 [Service]
 ExecStartPre=rm -f /failed /testok
-ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+ExecStart=sh -x -e -c 'mountpoint /var; systemctl --state=failed --no-legend --no-pager >/failed; echo OK >/testok'
 Type=oneshot
