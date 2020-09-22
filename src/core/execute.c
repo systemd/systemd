@@ -1997,6 +1997,9 @@ bool exec_needs_mount_namespace(
         if (context->root_image)
                 return true;
 
+        if (!strv_isempty(context->extension_images))
+                return true;
+
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
             !strv_isempty(context->inaccessible_paths))
@@ -3221,6 +3224,7 @@ static int apply_mount_namespace(
                             context->root_hash, context->root_hash_size, context->root_hash_path,
                             context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
                             context->root_verity,
+                            context->extension_images,
                             propagate_dir,
                             incoming_dir,
                             root_dir || root_image ? params->notify_socket : NULL,
@@ -4803,6 +4807,7 @@ void exec_context_done(ExecContext *c) {
         c->root_hash_sig_size = 0;
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
+        c->extension_images = strv_free(c->extension_images);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -5261,6 +5266,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->root_verity)
                 fprintf(f, "%sRootVerity: %s\n", prefix, c->root_verity);
+
+        if (!strv_isempty(c->extension_images)) {
+                fprintf(f, "%sExtensionImages:", prefix);
+                strv_fprintf(f, c->extension_images);
+                fputs("\n", f);
+        }
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);
