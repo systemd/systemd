@@ -484,6 +484,9 @@ static int delete_md(MountPoint *m) {
         if (fd < 0)
                 return -errno;
 
+        if (fsync(fd) < 0)
+                log_debug_errno(errno, "Failed to sync MD block device %s, ignoring: %m", m->path);
+
         if (ioctl(fd, STOP_ARRAY, NULL) < 0)
                 return -errno;
 
