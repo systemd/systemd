@@ -143,8 +143,8 @@
       <para>Parameters prefixed with "rd." will be read when <command>systemd-udevd</command> is used in an
       initrd, those without will be processed both in the initrd and on the host.</para>
       <varlistentry>
-        <term><varname>udev.log_priority=</varname></term>
-        <term><varname>rd.udev.log_priority=</varname></term>
+        <term><varname>udev.log_level=</varname></term>
+        <term><varname>rd.udev.log_level=</varname></term>
         <listitem>
           <para>Set the log level.</para>
         </listitem>
