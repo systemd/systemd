@@ -60,11 +60,12 @@ fi
 umount ${image_dir}/mount
 umount ${image_dir}/mount2
 
-systemd-run -t --property RootImage=${image}.raw /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p RootImage=${image}.raw cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv ${image}.verity ${image}.fooverity
 mv ${image}.roothash ${image}.foohash
-systemd-run -t --property RootImage=${image}.raw --property RootHash=${image}.foohash --property RootVerity=${image}.fooverity /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -t --property RootImage=${image}.raw --property RootHash=${roothash} --property RootVerity=${image}.fooverity /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p RootImage=${image}.raw -p RootHash=${image}.foohash -p RootVerity=${image}.fooverity cat /usr/lib/os-release | grep -q -F "MARKER=1"
+# Let's use the long option name just here as a test
+systemd-run -t --property RootImage=${image}.raw --property RootHash=${roothash} --property RootVerity=${image}.fooverity cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv ${image}.fooverity ${image}.verity
 mv ${image}.foohash ${image}.roothash
 
@@ -128,19 +129,19 @@ cat ${image_dir}/mount/etc/os-release | grep -q -F -f $os_release
 cat ${image_dir}/mount/usr/lib/os-release | grep -q -F "MARKER=1"
 umount ${image_dir}/mount
 
-systemd-run -t --property RootImage=${image}.gpt --property RootHash=${roothash} /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
+# add explicit -p MountAPIVFS=yes once to test the parser
+systemd-run -t -p RootImage=${image}.gpt -p RootHash=${roothash} -p MountAPIVFS=yes cat /usr/lib/os-release | grep -q -F "MARKER=1"
 
-systemd-run -t --property RootImage=${image}.raw --property RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" --property MountAPIVFS=yes mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -t --property RootImage=${image}.gpt --property RootImageOptions="root:ro,noatime root:ro,dev" --property MountAPIVFS=yes mount | grep -F "squashfs" | grep -q -F "noatime"
+systemd-run -t -p RootImage=${image}.raw -p RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -t -p RootImage=${image}.gpt -p RootImageOptions="root:ro,noatime root:ro,dev" mount | grep -F "squashfs" | grep -q -F "noatime"
 
 mkdir -p mkdir -p ${image_dir}/result
-cat > /run/systemd/system/testservice-50a.service <<EOF
+cat >/run/systemd/system/testservice-50a.service <<EOF
 [Service]
 Type=oneshot
-ExecStart=bash -c "mount > /run/result/a"
+ExecStart=bash -c "mount >/run/result/a"
 BindPaths=${image_dir}/result:/run/result
 TemporaryFileSystem=/run
-MountAPIVFS=yes
 RootImage=${image}.raw
 RootImageOptions=root:ro,noatime home:ro,dev relatime,dev
 RootImageOptions=nosuid,dev
@@ -149,33 +150,34 @@ systemctl start testservice-50a.service
 grep -F "squashfs" ${image_dir}/result/a | grep -q -F "noatime"
 grep -F "squashfs" ${image_dir}/result/a | grep -q -F -v "nosuid"
 
-cat > /run/systemd/system/testservice-50b.service <<EOF
+cat >/run/systemd/system/testservice-50b.service <<EOF
 [Service]
 Type=oneshot
-ExecStart=bash -c "mount > /run/result/b"
+ExecStart=bash -c "mount >/run/result/b"
 BindPaths=${image_dir}/result:/run/result
 TemporaryFileSystem=/run
-MountAPIVFS=yes
 RootImage=${image}.gpt
 RootImageOptions=root:ro,noatime,nosuid home:ro,dev nosuid,dev
 RootImageOptions=home:ro,dev nosuid,dev,%%foo
+# this is the default, but let's specify once to test the parser
+MountAPIVFS=yes
 EOF
 systemctl start testservice-50b.service
 grep -F "squashfs" ${image_dir}/result/b | grep -q -F "noatime"
 
-# Check that specifier escape is applied %%foo -> %foo
+# Check that specifier escape is applied %%foo → %foo
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/testservice_2d50b_2eservice org.freedesktop.systemd1.Service RootImageOptions | grep -F "nosuid,dev,%foo"
 
 # Now do some checks with MountImages, both by itself, with options and in combination with RootImage, and as single FS or GPT image
-systemd-run -t --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -t --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -t --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2:nosuid,dev" --property MountAPIVFS=yes mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -t --property MountImages="${image}.gpt:/run/img1:root:nosuid ${image}.raw:/run/img2:home:suid" --property MountAPIVFS=yes mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -t --property MountImages="${image}.raw:/run/img2\:3" /usr/bin/cat /run/img2:3/usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -t --property MountImages="${image}.raw:/run/img2\:3:nosuid" --property MountAPIVFS=yes mount | grep -F "squashfs" | grep -q -F "nosuid"
-systemd-run -t --property TemporaryFileSystem=/run --property RootImage=${image}.raw --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -t --property TemporaryFileSystem=/run --property RootImage=${image}.raw --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
-systemd-run -t --property TemporaryFileSystem=/run --property RootImage=${image}.gpt --property RootHash=${roothash} --property MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" /usr/bin/cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2:nosuid,dev" mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -t -p MountImages="${image}.gpt:/run/img1:root:nosuid ${image}.raw:/run/img2:home:suid" mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -t -p MountImages="${image}.raw:/run/img2\:3" cat /run/img2:3/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p MountImages="${image}.raw:/run/img2\:3:nosuid" mount | grep -F "squashfs" | grep -q -F "nosuid"
+systemd-run -t -p TemporaryFileSystem=/run -p RootImage=${image}.raw -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p TemporaryFileSystem=/run -p RootImage=${image}.raw -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
+systemd-run -t -p TemporaryFileSystem=/run -p RootImage=${image}.gpt -p RootHash=${roothash} -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
 cat >/run/systemd/system/testservice-50c.service <<EOF
 [Service]
 MountAPIVFS=yes
@@ -183,9 +185,9 @@ TemporaryFileSystem=/run
 RootImage=${image}.raw
 MountImages=${image}.gpt:/run/img1:root:noatime:home:relatime
 MountImages=${image}.raw:/run/img2\:3:nosuid
-ExecStart=bash -c "cat /run/img1/usr/lib/os-release > /run/result/c"
-ExecStart=bash -c "cat /run/img2:3/usr/lib/os-release >> /run/result/c"
-ExecStart=bash -c "mount >> /run/result/c"
+ExecStart=bash -c "cat /run/img1/usr/lib/os-release >/run/result/c"
+ExecStart=bash -c "cat /run/img2:3/usr/lib/os-release >>/run/result/c"
+ExecStart=bash -c "mount >>/run/result/c"
 BindPaths=${image_dir}/result:/run/result
 Type=oneshot
 EOF
@@ -194,6 +196,6 @@ grep -q -F "MARKER=1" ${image_dir}/result/c
 grep -F "squashfs" ${image_dir}/result/c | grep -q -F "noatime"
 grep -F "squashfs" ${image_dir}/result/c | grep -q -F -v "nosuid"
 
-echo OK > /testok
+echo OK >/testok
 
 exit 0
