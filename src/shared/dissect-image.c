@@ -1964,7 +1964,7 @@ int verity_settings_load(
                                 if (!p)
                                         return -ENOMEM;
 
-                                r = read_full_file_full(AT_FDCWD, root_hash_sig_path, 0, (char**) &root_hash_sig, &root_hash_sig_size);
+                                r = read_full_file_full(AT_FDCWD, p, 0, (char**) &root_hash_sig, &root_hash_sig_size);
                                 if (r < 0 && r != -ENOENT)
                                         return r;
                                 if (r >= 0)
@@ -1978,7 +1978,7 @@ int verity_settings_load(
                                 if (!p)
                                         return -ENOMEM;
 
-                                r = read_full_file_full(AT_FDCWD, root_hash_sig_path, 0, (char**) &root_hash_sig, &root_hash_sig_size);
+                                r = read_full_file_full(AT_FDCWD, p, 0, (char**) &root_hash_sig, &root_hash_sig_size);
                                 if (r < 0 && r != -ENOENT)
                                         return r;
                                 if (r >= 0)
