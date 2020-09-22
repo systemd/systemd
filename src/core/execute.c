@@ -5653,8 +5653,13 @@ int exec_context_get_effective_ioprio(const ExecContext *c) {
 bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
         assert(c);
 
+        /* Explicit setting wins */
         if (c->mount_apivfs_set)
                 return c->mount_apivfs;
+
+        /* Default to "yes" if root directory or image are specified */
+        if (c->root_image || !empty_or_root(c->root_directory))
+                return true;
 
         return false;
 }
