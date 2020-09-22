@@ -122,7 +122,6 @@ static int open_sockets(int *epoll_fd, bool accept) {
 }
 
 static int exec_process(const char *name, char **argv, char **env, int start_fd, size_t n_fds) {
-
         _cleanup_strv_free_ char **envp = NULL;
         _cleanup_free_ char *joined = NULL;
         size_t n_env = 0, length;
@@ -215,15 +214,13 @@ static int exec_process(const char *name, char **argv, char **env, int start_fd,
                         char *e;
 
                         len = strv_length(arg_fdnames);
-                        if (len == 1) {
-                                size_t i;
-
-                                for (i = 1; i < n_fds; i++) {
+                        if (len == 1)
+                                for (size_t i = 1; i < n_fds; i++) {
                                         r = strv_extend(&arg_fdnames, arg_fdnames[0]);
                                         if (r < 0)
-                                                return log_error_errno(r, "Failed to extend strv: %m");
+                                                return log_oom();
                                 }
-                        } else if (len != n_fds)
+                        else if (len != n_fds)
                                 log_warning("The number of fd names is different than number of fds: %zu vs %zu", len, n_fds);
 
                         names = strv_join(arg_fdnames, ":");
