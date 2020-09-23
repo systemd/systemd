@@ -533,6 +533,7 @@ foreach ident : [
                                  #include <signal.h>
                                  #include <sys/wait.h>'''],
         ['mallinfo',          '''#include <malloc.h>'''],
+        ['execveat',          '''#include <unistd.h>'''],
         ['close_range',       '''#include <unistd.h>'''],
 ]
 

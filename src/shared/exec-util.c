@@ -16,6 +16,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "missing_syscall.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "serialize.h"
@@ -445,9 +446,9 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
 }
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
-        fexecve(executable_fd, argv, envp);
-        if (errno == ENOENT)
-                /* A script? Let's fall back to execve().
+        execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
+        if (IN_SET(errno, ENOSYS, ENOENT))
+                /* Old kernel or a script? Let's fall back to execve().
                  *
                  * fexecve(3): "If fd refers to a script (i.e., it is an executable text file that names a
                  * script interpreter with a first line that begins with the characters #!) and the
