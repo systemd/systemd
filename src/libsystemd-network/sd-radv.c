@@ -689,7 +689,6 @@ _public_ int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p, int 
         LIST_APPEND(prefix, ra->route_prefixes, p);
         ra->n_route_prefixes++;
 
-        cur = p;
         if (!dynamic) {
                 log_radv("Added prefix %s/%u", strempty(pretty), p->opt.prefixlen);
                 return 0;

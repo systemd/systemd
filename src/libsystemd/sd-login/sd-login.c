@@ -997,20 +997,13 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
         if (!good)
                 return -EINVAL;
 
-        *m = FD_TO_MONITOR(fd);
-        fd = -1;
-
+        *m = FD_TO_MONITOR(TAKE_FD(fd));
         return 0;
 }
 
 _public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
-        int fd;
-
-        if (!m)
-                return NULL;
-
-        fd = MONITOR_TO_FD(m);
-        close_nointr(fd);
+        if (m)
+                close_nointr(MONITOR_TO_FD(m));
 
         return NULL;
 }
