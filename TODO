@@ -33,6 +33,13 @@ Features:
   to read the repart data from /usr before the root partition exists. Add
   usr=gpt-auto that automatically finds a /usr partition.
 
+* change SwitchRoot() implementation in PID 1 to use pivot_root(".", "."), as
+  documented in the pivot_root(2) man page, so that we can drop the /oldroot
+  temporary dir.
+
+* special case some calls of chase_symlinks() to use openat2() internally, so
+  that the kernel does what we otherwise do.
+
 * homed: keep an fd to the homedir open at all times, to keep the fs pinned
   (autofs and such) while user is loged in.
 
@@ -55,8 +62,6 @@ Features:
 * complement root=, rootflags=, rootfstype= with rootsubdir= which allows
   mounting a subdir of the root fs as actual root. This can be used as
   fstype-agnostic version of btrfs' rootflags=subvol=foobar.
-
-* Support ProtectProc= or so, using: https://patchwork.kernel.org/cover/11310197/
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
 
@@ -209,8 +214,6 @@ Features:
   - port importd over from libgcrypt
   - when that's done: kill khash.c
   - when that's done: kill gnutls support in resolved
-
-* kill zenata, all hail weblate?
 
 * when we resize disks (homed?) always round up to 4K sectors, not 512K
 
@@ -653,11 +656,6 @@ Features:
   yogas can be recognized as "convertible" too, even if they predate the DMI
   "convertible" form factor
 
-* Maybe add PrivatePIDs= as new unit setting, and do minimal PID namespacing
-  after all. Be strict however, only support the equivalent of nspawn's
-  --as-pid2 switch, and sanely proxy sd_notify() messages dropping stuff such
-  as MAINPID.
-
 * Add ExecMonitor= setting. May be used multiple times. Forks off a process in
   the service cgroup, which is supposed to monitor the service, and when it
   exits the service is considered failed by its monitor.
@@ -865,13 +863,6 @@ Features:
 * implement Distribute= in socket units to allow running multiple
   service instances processing the listening socket, and open this up
   for ReusePort=
-
-* introduce bus call FreezeUnit(s, b), as well as "systemctl freeze
-  $UNIT" and "systemctl thaw $UNIT" as wrappers around this. The calls
-  should SIGSTOP all unit processes in a loop until all processes of
-  it are fully stopped. This can later be used for app management by
-  desktop UIs such as gnome-shell to freeze apps that are not visible
-  on screen, not unlike how job control works on the shell
 
 * cgroups:
   - implement per-slice CPUFairScheduling=1 switch
