@@ -233,7 +233,8 @@ static int create_disk(
                 const char *device,
                 const char *password,
                 const char *keydev,
-                const char *options) {
+                const char *options,
+                const char *source) {
 
         _cleanup_free_ char *n = NULL, *d = NULL, *u = NULL, *e = NULL,
                 *keydev_mount = NULL, *keyfile_timeout_value = NULL,
@@ -302,7 +303,7 @@ static int create_disk(
         if (r < 0)
                 return r;
 
-        r = generator_write_cryptsetup_unit_section(f, arg_crypttab);
+        r = generator_write_cryptsetup_unit_section(f, source);
         if (r < 0)
                 return r;
 
@@ -631,7 +632,7 @@ static int add_crypttab_devices(void) {
                 if (r < 0)
                         return r;
 
-                r = create_disk(name, device, keyfile, keydev, (d && d->options) ? d->options : options);
+                r = create_disk(name, device, keyfile, keydev, (d && d->options) ? d->options : options, arg_crypttab);
                 if (r < 0)
                         return r;
 
@@ -667,7 +668,8 @@ static int add_proc_cmdline_devices(void) {
                                 device,
                                 d->keyfile ?: arg_default_keyfile,
                                 d->keydev,
-                                d->options ?: arg_default_options);
+                                d->options ?: arg_default_options,
+                                "/proc/cmdline");
                 if (r < 0)
                         return r;
         }
