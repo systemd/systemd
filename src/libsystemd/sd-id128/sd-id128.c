@@ -89,8 +89,11 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
 
         if (sd_id128_is_null(saved_machine_id)) {
                 r = id128_read("/etc/machine-id", ID128_PLAIN, &saved_machine_id);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        r = id128_read("/run/machine-id", ID128_PLAIN, &saved_machine_id);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (sd_id128_is_null(saved_machine_id))
                         return -ENOMEDIUM;
