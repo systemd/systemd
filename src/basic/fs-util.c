@@ -1441,9 +1441,9 @@ int fsync_directory_of_file(int fd) {
         if (r < 0) {
                 log_debug_errno(r, "Failed to query /proc/self/fd/%d%s: %m",
                                 fd,
-                                r == -EOPNOTSUPP ? ", ignoring" : "");
+                                r == -ENOSYS ? ", ignoring" : "");
 
-                if (r == -EOPNOTSUPP)
+                if (r == -ENOSYS)
                         /* If /proc is not available, we're most likely running in some
                          * chroot environment, and syncing the directory is not very
                          * important in that case. Let's just silently do nothing. */
