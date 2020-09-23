@@ -21,6 +21,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -116,6 +117,15 @@ int rdrand(unsigned long *ret) {
 #endif
 
                 have_rdrand = !!(ecx & bit_RDRND);
+
+                if (have_rdrand > 0) {
+                        /* Allow disabling use of RDRAND with SYSTEMD_RDRAND=0
+                           If it is unset getenv_bool_secure will return a negative value. */
+                        if (getenv_bool_secure("SYSTEMD_RDRAND") == 0) {
+                                have_rdrand = false;
+                                return -EOPNOTSUPP;
+                        }
+                }
         }
 
         if (have_rdrand == 0)
