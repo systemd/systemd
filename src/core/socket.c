@@ -526,8 +526,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         assert(fd >= 0);
         assert(s);
 
-        r = getpeername(fd, &sa.peer.sa, &salen);
-        if (r < 0)
+        if (getpeername(fd, &sa.peer.sa, &salen) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "getpeername failed: %m");
 
         if (!IN_SET(sa.peer.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
