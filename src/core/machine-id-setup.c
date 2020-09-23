@@ -15,6 +15,7 @@
 #include "machine-id-setup.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
@@ -160,16 +161,18 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
         }
 
         /* And now, let's mount it over */
-        if (mount(run_machine_id, etc_machine_id, NULL, MS_BIND, NULL) < 0) {
-                (void) unlink_noerrno(run_machine_id);
-                return log_error_errno(errno, "Failed to mount %s: %m", etc_machine_id);
+        r = mount_follow_verbose(LOG_ERR, run_machine_id, etc_machine_id, NULL, MS_BIND, NULL);
+        if (r < 0) {
+                (void) unlink(run_machine_id);
+                return r;
         }
 
         log_info("Installed transient %s file.", etc_machine_id);
 
         /* Mark the mount read-only */
-        if (mount(NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL) < 0)
-                log_warning_errno(errno, "Failed to make transient %s read-only, ignoring: %m", etc_machine_id);
+        r = mount_follow_verbose(LOG_WARNING, NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
+        if (r < 0)
+                return r;
 
 finish:
         if (ret)
@@ -227,8 +230,9 @@ int machine_id_commit(const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up new mount namespace: %m");
 
-        if (umount(etc_machine_id) < 0)
-                return log_error_errno(errno, "Failed to unmount transient %s file in our private namespace: %m", etc_machine_id);
+        r = umount_verbose(LOG_ERR, etc_machine_id, 0);
+        if (r < 0)
+                return r;
 
         /* Update a persistent version of etc_machine_id */
         r = id128_write(etc_machine_id, ID128_PLAIN, id, true);

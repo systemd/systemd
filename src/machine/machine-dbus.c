@@ -31,6 +31,7 @@
 #include "machine.h"
 #include "missing_capability.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "namespace-util.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -891,15 +892,17 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         mount_slave_created = true;
 
-        if (mount(mount_slave, mount_slave, NULL, MS_BIND, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to make bind mount %s: %m", mount_slave);
+        r = mount_nofollow_verbose(LOG_DEBUG, mount_slave, mount_slave, NULL, MS_BIND, NULL);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to make bind mount %s: %m", mount_slave);
                 goto finish;
         }
 
         mount_slave_mounted = true;
 
-        if (mount(NULL, mount_slave, NULL, MS_SLAVE, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to remount slave %s: %m", mount_slave);
+        r = mount_nofollow_verbose(LOG_DEBUG, NULL, mount_slave, NULL, MS_SLAVE, NULL);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to remount slave %s: %m", mount_slave);
                 goto finish;
         }
 
@@ -916,19 +919,22 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         mount_tmp_created = true;
 
-        if (mount(chased_src, mount_tmp, NULL, MS_BIND, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to mount %s: %m", chased_src);
+        r = mount_nofollow_verbose(LOG_DEBUG, chased_src, mount_tmp, NULL, MS_BIND, NULL);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to mount %s: %m", chased_src);
                 goto finish;
         }
 
         mount_tmp_mounted = true;
 
         /* Third, we remount the new bind mount read-only if requested. */
-        if (read_only)
-                if (mount(NULL, mount_tmp, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL) < 0) {
-                        r = sd_bus_error_set_errnof(error, errno, "Failed to remount read-only %s: %m", mount_tmp);
+        if (read_only) {
+                r = mount_nofollow_verbose(LOG_DEBUG, NULL, mount_tmp, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+                if (r < 0) {
+                        sd_bus_error_set_errnof(error, r, "Failed to remount read-only %s: %m", mount_tmp);
                         goto finish;
                 }
+        }
 
         /* Fourth, we move the new bind mount into the propagation directory. This way it will appear there read-only
          * right-away. */
@@ -947,8 +953,9 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         mount_outside_created = true;
 
-        if (mount(mount_tmp, mount_outside, NULL, MS_MOVE, NULL) < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to move %s to %s: %m", mount_tmp, mount_outside);
+        r = mount_nofollow_verbose(LOG_DEBUG, mount_tmp, mount_outside, NULL, MS_MOVE, NULL);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to move %s to %s: %m", mount_tmp, mount_outside);
                 goto finish;
         }
 
@@ -1005,10 +1012,9 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 }
 
                 mount_inside = strjoina("/run/host/incoming/", basename(mount_outside));
-                if (mount(mount_inside, dest, NULL, MS_MOVE, NULL) < 0) {
-                        r = log_error_errno(errno, "Failed to mount: %m");
+                r = mount_nofollow_verbose(LOG_ERR, mount_inside, dest, NULL, MS_MOVE, NULL);
+                if (r < 0)
                         goto child_fail;
-                }
 
                 _exit(EXIT_SUCCESS);
 

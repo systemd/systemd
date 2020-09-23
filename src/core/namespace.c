@@ -657,13 +657,12 @@ static int clone_device_node(
         if (r < 0 && errno != EEXIST)
                 return log_debug_errno(errno, "mknod() fallback failed for '%s': %m", d);
 
-        /* Fallback to bind-mounting:
-         * The assumption here is that all used device nodes carry standard
-         * properties. Specifically, the devices nodes we bind-mount should
-         * either be owned by root:root or root:tty (e.g. /dev/tty, /dev/ptmx)
-         * and should not carry ACLs. */
-        if (mount(d, dn, NULL, MS_BIND, NULL) < 0)
-                return log_debug_errno(errno, "Bind mounting failed for '%s': %m", d);
+        /* Fallback to bind-mounting: The assumption here is that all used device nodes carry standard
+         * properties. Specifically, the devices nodes we bind-mount should either be owned by root:root or
+         * root:tty (e.g. /dev/tty, /dev/ptmx) and should not carry ACLs. */
+        r = mount_nofollow_verbose(LOG_DEBUG, d, dn, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
 
 add_symlink:
         bn = path_startswith(d, "/dev/");
@@ -710,10 +709,10 @@ static int mount_private_dev(MountEntry *m) {
 
         dev = strjoina(temporary_mount, "/dev");
         (void) mkdir(dev, 0755);
-        if (mount("tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=755" TMPFS_LIMITS_DEV) < 0) {
-                r = log_debug_errno(errno, "Failed to mount tmpfs on '%s': %m", dev);
+        r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", dev, "tmpfs", DEV_MOUNT_OPTIONS, "mode=755" TMPFS_LIMITS_DEV);
+        if (r < 0)
                 goto fail;
-        }
+
         r = label_fix_container(dev, "/dev", 0);
         if (r < 0) {
                 log_debug_errno(errno, "Failed to fix label of '%s' as /dev: %m", dev);
@@ -722,10 +721,9 @@ static int mount_private_dev(MountEntry *m) {
 
         devpts = strjoina(temporary_mount, "/dev/pts");
         (void) mkdir(devpts, 0755);
-        if (mount("/dev/pts", devpts, NULL, MS_BIND, NULL) < 0) {
-                r = log_debug_errno(errno, "Failed to bind mount /dev/pts on '%s': %m", devpts);
+        r = mount_nofollow_verbose(LOG_DEBUG, "/dev/pts", devpts, NULL, MS_BIND, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         /* /dev/ptmx can either be a device node or a symlink to /dev/pts/ptmx.
          * When /dev/ptmx a device node, /dev/pts/ptmx has 000 permissions making it inaccessible.
@@ -749,21 +747,17 @@ static int mount_private_dev(MountEntry *m) {
 
         devshm = strjoina(temporary_mount, "/dev/shm");
         (void) mkdir(devshm, 0755);
-        r = mount("/dev/shm", devshm, NULL, MS_BIND, NULL);
-        if (r < 0) {
-                r = log_debug_errno(errno, "Failed to bind mount /dev/shm on '%s': %m", devshm);
+        r = mount_nofollow_verbose(LOG_DEBUG, "/dev/shm", devshm, NULL, MS_BIND, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         devmqueue = strjoina(temporary_mount, "/dev/mqueue");
         (void) mkdir(devmqueue, 0755);
-        if (mount("/dev/mqueue", devmqueue, NULL, MS_BIND, NULL) < 0)
-                log_debug_errno(errno, "Failed to bind mount /dev/mqueue on '%s', ignoring: %m", devmqueue);
+        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/mqueue", devmqueue, NULL, MS_BIND, NULL);
 
         devhugepages = strjoina(temporary_mount, "/dev/hugepages");
         (void) mkdir(devhugepages, 0755);
-        if (mount("/dev/hugepages", devhugepages, NULL, MS_BIND, NULL) < 0)
-                log_debug_errno(errno, "Failed to bind mount /dev/hugepages on '%s', ignoring: %m", devhugepages);
+        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/hugepages", devhugepages, NULL, MS_BIND, NULL);
 
         devlog = strjoina(temporary_mount, "/dev/log");
         if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
@@ -791,10 +785,9 @@ static int mount_private_dev(MountEntry *m) {
         if (r < 0)
                 log_debug_errno(r, "Failed to unmount directories below '%s', ignoring: %m", mount_entry_path(m));
 
-        if (mount(dev, mount_entry_path(m), NULL, MS_MOVE, NULL) < 0) {
-                r = log_debug_errno(errno, "Failed to move mount point '%s' to '%s': %m", dev, mount_entry_path(m));
+        r = mount_nofollow_verbose(LOG_DEBUG, dev, mount_entry_path(m), NULL, MS_MOVE, NULL);
+        if (r < 0)
                 goto fail;
-        }
 
         (void) rmdir(dev);
         (void) rmdir(temporary_mount);
@@ -803,18 +796,18 @@ static int mount_private_dev(MountEntry *m) {
 
 fail:
         if (devpts)
-                (void) umount(devpts);
+                (void) umount_verbose(LOG_DEBUG, devpts, UMOUNT_NOFOLLOW);
 
         if (devshm)
-                (void) umount(devshm);
+                (void) umount_verbose(LOG_DEBUG, devshm, UMOUNT_NOFOLLOW);
 
         if (devhugepages)
-                (void) umount(devhugepages);
+                (void) umount_verbose(LOG_DEBUG, devhugepages, UMOUNT_NOFOLLOW);
 
         if (devmqueue)
-                (void) umount(devmqueue);
+                (void) umount_verbose(LOG_DEBUG, devmqueue, UMOUNT_NOFOLLOW);
 
-        (void) umount(dev);
+        (void) umount_verbose(LOG_DEBUG, dev, UMOUNT_NOFOLLOW);
         (void) rmdir(dev);
         (void) rmdir(temporary_mount);
 
@@ -837,8 +830,9 @@ static int mount_bind_dev(const MountEntry *m) {
         if (r > 0) /* make this a NOP if /dev is already a mount point */
                 return 0;
 
-        if (mount("/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL) < 0)
-                return log_debug_errno(errno, "Failed to bind mount %s: %m", mount_entry_path(m));
+        r = mount_nofollow_verbose(LOG_DEBUG, "/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -857,14 +851,16 @@ static int mount_sysfs(const MountEntry *m) {
                 return 0;
 
         /* Bind mount the host's version so that we get all child mounts of it, too. */
-        if (mount("/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL) < 0)
-                return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
+        r = mount_nofollow_verbose(LOG_DEBUG, "/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return r;
 
         return 1;
 }
 
 static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
         const char *entry_path;
+        int r;
 
         assert(m);
         assert(ns_info);
@@ -896,9 +892,10 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                 if (!opts)
                         return -ENOMEM;
 
-                if (mount("proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts) < 0) {
-                        if (errno != EINVAL)
-                                return log_debug_errno(errno, "Failed to mount %s (options=%s): %m", mount_entry_path(m), opts);
+                r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+                if (r < 0) {
+                        if (r != -EINVAL)
+                                return r;
 
                         /* If this failed with EINVAL then this likely means the textual hidepid= stuff is
                          * not supported by the kernel, and thus the per-instance hidepid= neither, which
@@ -908,8 +905,9 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                         return 1;
         }
 
-        if (mount("proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL) < 0)
-                return log_debug_errno(errno, "Failed to mount %s (no options): %m", mount_entry_path(m));
+        r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -928,8 +926,9 @@ static int mount_tmpfs(const MountEntry *m) {
         (void) mkdir_p_label(entry_path, 0755);
         (void) umount_recursive(entry_path, 0);
 
-        if (mount("tmpfs", entry_path, "tmpfs", m->flags, mount_entry_options(m)) < 0)
-                return log_debug_errno(errno, "Failed to mount %s: %m", entry_path);
+        r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", entry_path, "tmpfs", m->flags, mount_entry_options(m));
+        if (r < 0)
+                return r;
 
         r = label_fix_container(entry_path, inner_path, 0);
         if (r < 0)
@@ -1172,9 +1171,9 @@ static int apply_mount(
 
         assert(what);
 
-        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0) {
+        r = mount_nofollow_verbose(LOG_DEBUG, what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL);
+        if (r < 0) {
                 bool try_again = false;
-                r = -errno;
 
                 if (r == -ENOENT && make) {
                         struct stat st;
@@ -1202,13 +1201,8 @@ static int apply_mount(
                         }
                 }
 
-                if (try_again) {
-                        if (mount(what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL) < 0)
-                                r = -errno;
-                        else
-                                r = 0;
-                }
-
+                if (try_again)
+                        r = mount_nofollow_verbose(LOG_DEBUG, what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
         }
@@ -1798,19 +1792,16 @@ int setup_namespace(
                         goto finish;
                 }
                 if (r == 0) {
-                        if (mount(root, root, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                                r = log_debug_errno(errno, "Failed to bind mount '%s': %m", root);
+                        r = mount_nofollow_verbose(LOG_DEBUG, root, root, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
                                 goto finish;
-                        }
                 }
 
         } else {
-
                 /* Let's mount the main root directory to the root directory to use */
-                if (mount("/", root, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                        r = log_debug_errno(errno, "Failed to bind mount '/' on '%s': %m", root);
+                r = mount_nofollow_verbose(LOG_DEBUG, "/", root, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
                         goto finish;
-                }
         }
 
         /* Try to set up the new root directory before mounting anything else there. */
