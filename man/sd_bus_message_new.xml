@@ -118,7 +118,7 @@
     for an example how to use the cleanup attribute.</para>
 
     <para><function>sd_bus_message_ref()</function> and <function>sd_bus_message_unref()</function>
-    execute no operation if the passed in bus object address is
+    execute no operation if the passed in bus message object address is
     <constant>NULL</constant>. <function>sd_bus_message_unrefp()</function> will first dereference
     its argument, which must not be <constant>NULL</constant>, and will execute no operation if
     <emphasis>that</emphasis> is <constant>NULL</constant>.
