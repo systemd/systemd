@@ -765,7 +765,7 @@ static int log_unsafe_transition(int a, int b, const char *path, unsigned flags)
 
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
                                  "Detected unsafe path transition %s %s %s during canonicalization of %s.",
-                                 n1, special_glyph(SPECIAL_GLYPH_ARROW), n2, path);
+                                 strna(n1), special_glyph(SPECIAL_GLYPH_ARROW), strna(n2), path);
 }
 
 static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
@@ -778,7 +778,7 @@ static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
 
         return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE),
                                  "Detected autofs mount point %s during canonicalization of %s.",
-                                 n1, path);
+                                 strna(n1), path);
 }
 
 int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret_path, int *ret_fd) {
