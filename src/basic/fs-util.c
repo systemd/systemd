@@ -1298,16 +1298,25 @@ int chase_symlinks_and_stat(
 
 int access_fd(int fd, int mode) {
         char p[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
-        int r;
 
         /* Like access() but operates on an already open fd */
 
         xsprintf(p, "/proc/self/fd/%i", fd);
-        r = access(p, mode);
-        if (r < 0)
-                return -errno;
+        if (access(p, mode) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
 
-        return r;
+                /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's
+                 * make things debuggable and distinguish the two. */
+
+                if (proc_mounted() == 0)
+                        return -ENOSYS;  /* /proc is not available or not set up properly, we're most likely in some chroot
+                                          * environment. */
+
+                return -EBADF; /* The directory exists, hence it's the fd that doesn't. */
+        }
+
+        return 0;
 }
 
 void unlink_tempfilep(char (*p)[]) {
