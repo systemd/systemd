@@ -916,7 +916,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         else
                 r = touch(mount_tmp);
         if (r < 0) {
-                sd_bus_error_set_errnof(error, errno, "Failed to create temporary mount point %s: %m", mount_tmp);
+                sd_bus_error_set_errnof(error, r, "Failed to create temporary mount point %s: %m", mount_tmp);
                 goto finish;
         }
 
@@ -947,7 +947,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 safe_close(r);
         }
         if (r < 0) {
-                sd_bus_error_set_errnof(error, errno, "Cannot create propagation file or directory %s: %m", mount_outside);
+                sd_bus_error_set_errnof(error, r, "Cannot create propagation file or directory %s: %m", mount_outside);
                 goto finish;
         }
 
