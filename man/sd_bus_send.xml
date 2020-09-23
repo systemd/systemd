@@ -68,6 +68,14 @@
     single receiver). It's behavior is similar to calling
     <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     followed by calling <function>sd_bus_send()</function>.</para>
+
+    <para><function>sd_bus_send()</function>/<function>sd_bus_send_to()</function> will write the message
+    directly to the underlying transport (e.g. kernel socket buffer) if possible. If the connection is not
+    set up fully yet the message is queued locally. If the transport buffers are congested any unwritten
+    message data is queued locally, too. If the connection has been closed or is currently being closed the
+    call fails.
+    <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry> should
+    be invoked to write out any queued message data to the transport.</para>
   </refsect1>
 
   <refsect1>
@@ -142,7 +150,8 @@
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_reply_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_reply_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 
