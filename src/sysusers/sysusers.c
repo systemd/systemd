@@ -201,13 +201,15 @@ static int load_group_database(void) {
 }
 
 static int make_backup(const char *target, const char *x) {
-        _cleanup_close_ int src = -1;
+        _cleanup_(unlink_and_freep) char *dst_tmp = NULL;
         _cleanup_fclose_ FILE *dst = NULL;
-        _cleanup_free_ char *dst_tmp = NULL;
-        char *backup;
-        struct timespec ts[2];
+        _cleanup_close_ int src = -1;
+        const char *backup;
         struct stat st;
         int r;
+
+        assert(target);
+        assert(x);
 
         src = open(x, O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (src < 0) {
@@ -220,43 +222,38 @@ static int make_backup(const char *target, const char *x) {
         if (fstat(src, &st) < 0)
                 return -errno;
 
-        r = fopen_temporary_label(target, x, &dst, &dst_tmp);
+        r = fopen_temporary_label(
+                        target,   /* The path for which to the lookup the label */
+                        x,        /* Where we want the file actually to end up */
+                        &dst,
+                        &dst_tmp  /* The temporary file we write to */);
         if (r < 0)
                 return r;
 
         r = copy_bytes(src, fileno(dst), (uint64_t) -1, COPY_REFLINK);
         if (r < 0)
-                goto fail;
-
-        /* Don't fail on chmod() or chown(). If it stays owned by us
-         * and/or unreadable by others, then it isn't too bad... */
+                return r;
 
         backup = strjoina(x, "-");
 
-        /* Copy over the access mask */
-        r = chmod_and_chown_unsafe(dst_tmp, st.st_mode & 07777, st.st_uid, st.st_gid);
+        /* Copy over the access mask. Don't fail on chmod() or chown(). If it stays owned by us and/or
+         * unreadable by others, then it isn't too bad... */
+        r = fchmod_and_chown(fileno(dst), st.st_mode & 07777, st.st_uid, st.st_gid);
         if (r < 0)
                 log_warning_errno(r, "Failed to change access mode or ownership of %s: %m", backup);
 
-        ts[0] = st.st_atim;
-        ts[1] = st.st_mtim;
-        if (futimens(fileno(dst), ts) < 0)
+        if (futimens(fileno(dst), (const struct timespec[2]) { st.st_atim, st.st_mtim }) < 0)
                 log_warning_errno(errno, "Failed to fix access and modification time of %s: %m", backup);
 
-        r = fflush_sync_and_check(dst);
+        r = fsync_full(fileno(dst));
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (rename(dst_tmp, backup) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (rename(dst_tmp, backup) < 0)
+                return errno;
 
+        dst_tmp = mfree(dst_tmp); /* disable the unlink_and_freep() hook now that the file has been renamed*/
         return 0;
-
-fail:
-        (void) unlink(dst_tmp);
-        return r;
 }
 
 static int putgrent_with_members(const struct group *gr, FILE *group) {
