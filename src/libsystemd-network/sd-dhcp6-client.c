@@ -728,7 +728,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                 if (r < 0)
                         return r;
 
-                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_NA)) {
+                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_NA) && client->lease->ia.addresses) {
                         r = dhcp6_option_append_ia(&opt, &optlen,
                                                    &client->lease->ia);
                         if (r < 0)
@@ -767,7 +767,7 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
-                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD)) {
+                if (FLAGS_SET(client->request, DHCP6_REQUEST_IA_PD) && client->lease->pd.addresses) {
                         r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd, NULL);
                         if (r < 0)
                                 return r;
