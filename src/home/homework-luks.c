@@ -5,6 +5,7 @@
 #include <poll.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/xattr.h>
 
 #include "blkid-util.h"
@@ -1258,7 +1259,7 @@ int home_prepare_luks(
 
 fail:
         if (mounted)
-                (void) umount_verbose("/run/systemd/user-home-mount");
+                (void) umount_verbose(LOG_ERR, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
 
         if (dm_activated)
                 (void) crypt_deactivate(cd, setup->dm_name);
@@ -2167,7 +2168,7 @@ int home_create_luks(
 
         root_fd = safe_close(root_fd);
 
-        r = umount_verbose("/run/systemd/user-home-mount");
+        r = umount_verbose(LOG_ERR, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
         if (r < 0)
                 goto fail;
 
@@ -2237,7 +2238,7 @@ fail:
         root_fd = safe_close(root_fd);
 
         if (mounted)
-                (void) umount_verbose("/run/systemd/user-home-mount");
+                (void) umount_verbose(LOG_WARNING, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
 
         if (dm_activated)
                 (void) crypt_deactivate(cd, dm_name);
@@ -2339,7 +2340,7 @@ static int ext4_offline_resize_fs(HomeSetup *setup, uint64_t new_size, bool disc
         }
 
         if (setup->undo_mount) {
-                r = umount_verbose("/run/systemd/user-home-mount");
+                r = umount_verbose(LOG_ERR, "/run/systemd/user-home-mount", UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
 

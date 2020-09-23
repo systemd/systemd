@@ -61,13 +61,13 @@ int home_activate_directory(
         /* Create a mount point (even if the directory is already placed correctly), as a way to indicate
          * this mount point is now "activated". Moreover, we want to set per-user
          * MS_NOSUID/MS_NOEXEC/MS_NODEV. */
-        r = mount_verbose(LOG_ERR, ip, hd, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, ip, hd, NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
 
-        r = mount_verbose(LOG_ERR, NULL, hd, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
+        r = mount_nofollow_verbose(LOG_ERR, NULL, hd, NULL, MS_BIND|MS_REMOUNT|user_record_mount_flags(h), NULL);
         if (r < 0) {
-                (void) umount_verbose(hd);
+                (void) umount_verbose(LOG_ERR, hd, UMOUNT_NOFOLLOW);
                 return r;
         }
 

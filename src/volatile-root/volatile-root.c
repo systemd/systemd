@@ -29,7 +29,7 @@ static int make_volatile(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Couldn't generate volatile sysroot directory: %m");
 
-        r = mount_verbose(LOG_ERR, "tmpfs", "/run/systemd/volatile-sysroot", "tmpfs", MS_STRICTATIME, "mode=755" TMPFS_LIMITS_ROOTFS);
+        r = mount_nofollow_verbose(LOG_ERR, "tmpfs", "/run/systemd/volatile-sysroot", "tmpfs", MS_STRICTATIME, "mode=755" TMPFS_LIMITS_ROOTFS);
         if (r < 0)
                 goto finish_rmdir;
 
@@ -38,7 +38,7 @@ static int make_volatile(const char *path) {
                 goto finish_umount;
         }
 
-        r = mount_verbose(LOG_ERR, old_usr, "/run/systemd/volatile-sysroot/usr", NULL, MS_BIND|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, old_usr, "/run/systemd/volatile-sysroot/usr", NULL, MS_BIND|MS_REC, NULL);
         if (r < 0)
                 goto finish_umount;
 
@@ -57,7 +57,7 @@ static int make_volatile(const char *path) {
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
                 log_warning_errno(errno, "Failed to remount %s MS_SLAVE|MS_REC, ignoring: %m", path);
 
-        r = mount_verbose(LOG_ERR, "/run/systemd/volatile-sysroot", path, NULL, MS_MOVE, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, "/run/systemd/volatile-sysroot", path, NULL, MS_MOVE, NULL);
 
 finish_umount:
         (void) umount_recursive("/run/systemd/volatile-sysroot", 0);
@@ -80,7 +80,7 @@ static int make_overlay(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Couldn't create overlay sysroot directory: %m");
 
-        r = mount_verbose(LOG_ERR, "tmpfs", "/run/systemd/overlay-sysroot", "tmpfs", MS_STRICTATIME, "mode=755" TMPFS_LIMITS_ROOTFS);
+        r = mount_nofollow_verbose(LOG_ERR, "tmpfs", "/run/systemd/overlay-sysroot", "tmpfs", MS_STRICTATIME, "mode=755" TMPFS_LIMITS_ROOTFS);
         if (r < 0)
                 goto finish;
 
@@ -103,11 +103,11 @@ static int make_overlay(const char *path) {
         }
 
         options = strjoina("lowerdir=", escaped_path, ",upperdir=/run/systemd/overlay-sysroot/upper,workdir=/run/systemd/overlay-sysroot/work");
-        r = mount_verbose(LOG_ERR, "overlay", path, "overlay", 0, options);
+        r = mount_nofollow_verbose(LOG_ERR, "overlay", path, "overlay", 0, options);
 
 finish:
         if (tmpfs_mounted)
-                (void) umount_verbose("/run/systemd/overlay-sysroot");
+                (void) umount_verbose(LOG_ERR, "/run/systemd/overlay-sysroot", UMOUNT_NOFOLLOW);
 
         (void) rmdir("/run/systemd/overlay-sysroot");
         return r;

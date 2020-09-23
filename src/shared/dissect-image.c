@@ -1177,7 +1177,7 @@ static int mount_partition(
                         return r;
         }
 
-        r = mount_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
+        r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, MS_NODEV|(rw ? 0 : MS_RDONLY), options);
         if (r < 0)
                 return r;
 

@@ -1918,9 +1918,9 @@ static int setup_timezone(const char *dest) {
                 if (found == 0) /* missing? */
                         (void) touch(resolved);
 
-                r = mount_verbose(LOG_WARNING, "/etc/localtime", resolved, NULL, MS_BIND, NULL);
+                r = mount_nofollow_verbose(LOG_WARNING, "/etc/localtime", resolved, NULL, MS_BIND, NULL);
                 if (r >= 0)
-                        return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+                        return mount_nofollow_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
 
                 _fallthrough_;
         }
@@ -2053,9 +2053,9 @@ static int setup_resolv_conf(const char *dest) {
                 if (found == 0) /* missing? */
                         (void) touch(resolved);
 
-                r = mount_verbose(LOG_WARNING, what, resolved, NULL, MS_BIND, NULL);
+                r = mount_nofollow_verbose(LOG_WARNING, what, resolved, NULL, MS_BIND, NULL);
                 if (r >= 0)
-                        return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+                        return mount_nofollow_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
 
                 /* If that didn't work, let's copy the file */
         }
@@ -2107,11 +2107,11 @@ static int setup_boot_id(void) {
         from = TAKE_PTR(path);
         to = "/proc/sys/kernel/random/boot_id";
 
-        r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
 
-        return mount_verbose(LOG_ERR, NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        return mount_nofollow_verbose(LOG_ERR, NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
 static int copy_devnodes(const char *dest) {
@@ -2170,7 +2170,7 @@ static int copy_devnodes(const char *dest) {
                                 r = touch(to);
                                 if (r < 0)
                                         return log_error_errno(r, "touch (%s) failed: %m", to);
-                                r = mount_verbose(LOG_DEBUG, from, to, NULL, MS_BIND, NULL);
+                                r = mount_nofollow_verbose(LOG_DEBUG, from, to, NULL, MS_BIND, NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Both mknod and bind mount (%s) failed: %m", to);
                         }
@@ -2258,7 +2258,7 @@ static int setup_pts(const char *dest) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create /dev/pts: %m");
 
-        r = mount_verbose(LOG_ERR, "devpts", p, "devpts", MS_NOSUID|MS_NOEXEC, options);
+        r = mount_nofollow_verbose(LOG_ERR, "devpts", p, "devpts", MS_NOSUID|MS_NOEXEC, options);
         if (r < 0)
                 return r;
         r = userns_lchown(p, 0, 0);
@@ -2360,7 +2360,7 @@ static int setup_credentials(const char *root) {
                 return log_error_errno(r, "Failed to create /run/host/credentials: %m");
 
         q = prefix_roota(root, "/run/host/credentials");
-        r = mount_verbose(LOG_ERR, NULL, q, "ramfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0700");
+        r = mount_nofollow_verbose(LOG_ERR, NULL, q, "ramfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0700");
         if (r < 0)
                 return r;
 
@@ -2397,11 +2397,11 @@ static int setup_credentials(const char *root) {
                 return r;
 
         /* Make both mount and superblock read-only now */
-        r = mount_verbose(LOG_ERR, NULL, q, NULL, MS_REMOUNT|MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_REMOUNT|MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
         if (r < 0)
                 return r;
 
-        return mount_verbose(LOG_ERR, NULL, q, NULL, MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0500");
+        return mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0500");
 }
 
 static int setup_kmsg(int kmsg_socket) {
@@ -2429,7 +2429,7 @@ static int setup_kmsg(int kmsg_socket) {
 
         from = TAKE_PTR(fifo);
 
-        r = mount_verbose(LOG_ERR, from, "/proc/kmsg", NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, from, "/proc/kmsg", NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
 
@@ -2595,7 +2595,7 @@ static int setup_journal(const char *directory) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s: %m", q);
 
-        r = mount_verbose(LOG_DEBUG, p, q, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, p, q, NULL, MS_BIND, NULL);
         if (r < 0)
                 return log_error_errno(errno, "Failed to bind mount journal from host into guest: %m");
 
@@ -2700,16 +2700,16 @@ static int setup_propagate(const char *root) {
                 return log_error_errno(r, "Failed to create /run/host/incoming: %m");
 
         q = prefix_roota(root, "/run/host/incoming");
-        r = mount_verbose(LOG_ERR, p, q, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, p, q, NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
 
-        r = mount_verbose(LOG_ERR, NULL, q, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY, NULL);
         if (r < 0)
                 return r;
 
         /* machined will MS_MOVE into that directory, and that's only supported for non-shared mounts. */
-        return mount_verbose(LOG_ERR, NULL, q, NULL, MS_SLAVE, NULL);
+        return mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_SLAVE, NULL);
 }
 
 static int setup_machine_id(const char *directory) {
@@ -3157,7 +3157,7 @@ static int inner_child(
                 /* Creating a new user namespace means all MS_SHARED mounts become MS_SLAVE. Let's put them
                  * back to MS_SHARED here, since that's what we want as defaults. (This will not reconnect
                  * propagation, but simply create new peer groups for all our mounts). */
-                r = mount_verbose(LOG_ERR, NULL, "/", NULL, MS_SHARED|MS_REC, NULL);
+                r = mount_follow_verbose(LOG_ERR, NULL, "/", NULL, MS_SHARED|MS_REC, NULL);
                 if (r < 0)
                         return r;
         }
@@ -3542,7 +3542,7 @@ static int outer_child(
 
         /* Mark everything as slave, so that we still receive mounts from the real root, but don't propagate
          * mounts to the real root. */
-        r = mount_verbose(LOG_ERR, NULL, "/", NULL, MS_SLAVE|MS_REC, NULL);
+        r = mount_follow_verbose(LOG_ERR, NULL, "/", NULL, MS_SLAVE|MS_REC, NULL);
         if (r < 0)
                 return r;
 
@@ -3600,7 +3600,7 @@ static int outer_child(
                  * already, and thus don't need to be afraid of colliding with anyone else's mounts).*/
                 (void) mkdir_p("/run/systemd/nspawn-root", 0755);
 
-                r = mount_verbose(LOG_ERR, "/", "/run/systemd/nspawn-root", NULL, MS_BIND|MS_REC, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, "/", "/run/systemd/nspawn-root", NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         return r;
 
@@ -3634,7 +3634,7 @@ static int outer_child(
 
         /* Make sure we always have a mount that we can move to root later on. */
         if (!path_is_mount_point(directory, NULL, 0)) {
-                r = mount_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, directory, directory, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0)
                         return r;
         }
@@ -3677,7 +3677,7 @@ static int outer_child(
          * enable moving the root directory mount to root later on.
          * https://github.com/systemd/systemd/issues/3847#issuecomment-562735251
          */
-        r = mount_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, NULL, directory, NULL, MS_SHARED|MS_REC, NULL);
         if (r < 0)
                 return r;
 

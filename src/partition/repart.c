@@ -2691,7 +2691,7 @@ static int partition_copy_files(Partition *p, const char *node) {
                         _exit(EXIT_FAILURE);
                 }
 
-                if (mount_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
+                if (mount_nofollow_verbose(LOG_ERR, node, fs, p->format, MS_NOATIME|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
                 if (do_copy_files(p, fs) < 0)

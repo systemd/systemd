@@ -94,7 +94,7 @@ static void unmount_autofs(Automount *a) {
                 automount_send_ready(a, a->expire_tokens, -EHOSTDOWN);
 
                 if (a->where) {
-                        r = repeat_unmount(a->where, MNT_DETACH);
+                        r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
                         if (r < 0)
                                 log_error_errno(r, "Failed to unmount: %m");
                 }
@@ -601,10 +601,9 @@ static void automount_enter_waiting(Automount *a) {
 
         xsprintf(options, "fd=%i,pgrp="PID_FMT",minproto=5,maxproto=5,direct", p[1], getpgrp());
         xsprintf(name, "systemd-"PID_FMT, getpid_cached());
-        if (mount(name, a->where, "autofs", 0, options) < 0) {
-                r = -errno;
+        r = mount_nofollow(name, a->where, "autofs", 0, options);
+        if (r < 0)
                 goto fail;
-        }
 
         mounted = true;
 
@@ -648,7 +647,7 @@ fail:
         safe_close_pair(p);
 
         if (mounted) {
-                r = repeat_unmount(a->where, MNT_DETACH);
+                r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         log_error_errno(r, "Failed to unmount, ignoring: %m");
         }

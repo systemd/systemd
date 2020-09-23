@@ -38,6 +38,7 @@ typedef enum MountMode {
         MNT_FATAL          = 1 << 0,
         MNT_IN_CONTAINER   = 1 << 1,
         MNT_CHECK_WRITABLE = 1 << 2,
+        MNT_FOLLOW_SYMLINK = 1 << 3,
 } MountMode;
 
 typedef struct MountPoint {
@@ -61,9 +62,9 @@ typedef struct MountPoint {
 #endif
 
 static const MountPoint mount_table[] = {
-        { "sysfs",       "/sys",                      "sysfs",      NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
         { "proc",        "/proc",                     "proc",       NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
+          NULL,          MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK },
+        { "sysfs",       "/sys",                      "sysfs",      NULL,                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
         { "devtmpfs",    "/dev",                      "devtmpfs",   "mode=755" TMPFS_LIMITS_DEV,               MS_NOSUID|MS_NOEXEC|MS_STRICTATIME,
           NULL,          MNT_FATAL|MNT_IN_CONTAINER },
@@ -184,13 +185,13 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->type,
                   strna(p->options));
 
-        if (mount(p->what,
-                  p->where,
-                  p->type,
-                  p->flags,
-                  p->options) < 0) {
-                log_full_errno(priority, errno, "Failed to mount %s at %s: %m", p->type, p->where);
-                return (p->mode & MNT_FATAL) ? -errno : 0;
+        if (FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK))
+                r = mount(p->what, p->where, p->type, p->flags, p->options) < 0 ? -errno : 0;
+        else
+                r = mount_nofollow(p->what, p->where, p->type, p->flags, p->options);
+        if (r < 0) {
+                log_full_errno(priority, r, "Failed to mount %s at %s: %m", p->type, p->where);
+                return (p->mode & MNT_FATAL) ? r : 0;
         }
 
         /* Relabel again, since we now mounted something fresh here */
@@ -201,7 +202,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                 if (access(p->where, W_OK) < 0) {
                         r = -errno;
 
-                        (void) umount(p->where);
+                        (void) umount2(p->where, UMOUNT_NOFOLLOW);
                         (void) rmdir(p->where);
 
                         log_full_errno(priority, r, "Mount point %s not writable after mounting: %m", p->where);
@@ -355,7 +356,7 @@ int mount_cgroup_controllers(void) {
         }
 
         /* Now that we mounted everything, let's make the tmpfs the cgroup file systems are mounted into read-only. */
-        (void) mount("tmpfs", "/sys/fs/cgroup", "tmpfs", MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755" TMPFS_LIMITS_SYS_FS_CGROUP);
+        (void) mount_nofollow("tmpfs", "/sys/fs/cgroup", "tmpfs", MS_REMOUNT|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME|MS_RDONLY, "mode=755" TMPFS_LIMITS_SYS_FS_CGROUP);
 
         return 0;
 }
@@ -397,13 +398,13 @@ static int relabel_cgroup_filesystems(void) {
                         return log_error_errno(errno, "Failed to determine mount flags for /sys/fs/cgroup: %m");
 
                 if (st.f_flags & ST_RDONLY)
-                        (void) mount(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT, NULL);
+                        (void) mount_nofollow(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT, NULL);
 
                 (void) label_fix("/sys/fs/cgroup", 0);
                 (void) nftw("/sys/fs/cgroup", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
                 if (st.f_flags & ST_RDONLY)
-                        (void) mount(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT|MS_RDONLY, NULL);
+                        (void) mount_nofollow(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT|MS_RDONLY, NULL);
 
         } else if (r < 0)
                 return log_error_errno(r, "Failed to determine whether we are in all unified mode: %m");

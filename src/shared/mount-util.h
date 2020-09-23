@@ -32,6 +32,9 @@
 #define TMPFS_LIMITS_ROOTFS          TMPFS_LIMITS_VAR
 #define TMPFS_LIMITS_VOLATILE_STATE  TMPFS_LIMITS_VAR
 
+int mount_fd(const char *source, int target_fd, const char *filesystemtype, unsigned long mountflags, const void *data);
+int mount_nofollow(const char *source, const char *target, const char *filesystemtype, unsigned long mountflags, const void *data);
+
 int repeat_unmount(const char *path, int flags);
 int umount_recursive(const char *target, int flags);
 int bind_remount_recursive(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list);
@@ -43,14 +46,39 @@ int mount_move_root(const char *path);
 DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, endmntent);
 #define _cleanup_endmntent_ _cleanup_(endmntentp)
 
-int mount_verbose(
+int mount_verbose_full(
                 int error_log_level,
                 const char *what,
                 const char *where,
                 const char *type,
                 unsigned long flags,
-                const char *options);
-int umount_verbose(const char *where);
+                const char *options,
+                bool follow_symlink);
+
+static inline int mount_follow_verbose(
+                int error_log_level,
+                const char *what,
+                const char *where,
+                const char *type,
+                unsigned long flags,
+                const char *options) {
+        return mount_verbose_full(error_log_level, what, where, type, flags, options, true);
+}
+
+static inline int mount_nofollow_verbose(
+                int error_log_level,
+                const char *what,
+                const char *where,
+                const char *type,
+                unsigned long flags,
+                const char *options) {
+        return mount_verbose_full(error_log_level, what, where, type, flags, options, false);
+}
+
+int umount_verbose(
+                int error_log_level,
+                const char *where,
+                int flags);
 
 int mount_option_mangle(
                 const char *options,

@@ -20,10 +20,6 @@ Janitorial Clean-ups:
 
 Features:
 
-* add wrapper for mount() that uses O_PATH on the destination and than mounts
-  to /proc/self/fd/xxx so that we basically have a mount() with O_NOFOLLOW like
-  behaviour. (in case of bind mounts do it on both source and target)
-
 * add root=tmpfs that mounts a tmpfs to /sysroot (to be used in combination
   with usr=…, for a similar effect as systemd.volatile=yes but without the
   "hide-out" effect). Also, add root=gpt-auto-late support or so, that is like

@@ -67,6 +67,7 @@
 #include "memory-util.h"
 #include "missing_fs.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
 #include "parse-util.h"
@@ -2652,11 +2653,13 @@ static int setup_credentials_internal(
                          * the final version to the workspace, and make it writable, so that we can make
                          * changes */
 
-                        if (mount(final, workspace, NULL, MS_BIND|MS_REC, NULL) < 0)
-                                return -errno;
+                        r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
+                                return r;
 
-                        if (mount(NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
-                                return -errno;
+                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
+                        if (r < 0)
+                                return r;
 
                         workspace_mounted = true;
                 }
@@ -2669,7 +2672,8 @@ static int setup_credentials_internal(
 
                         if (try == 0) {
                                 /* Try "ramfs" first, since it's not swap backed */
-                                if (mount("ramfs", workspace, "ramfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, "mode=0700") >= 0) {
+                                r = mount_nofollow_verbose(LOG_DEBUG, "ramfs", workspace, "ramfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, "mode=0700");
+                                if (r >= 0) {
                                         workspace_mounted = true;
                                         break;
                                 }
@@ -2681,20 +2685,22 @@ static int setup_credentials_internal(
                                         return -ENOMEM;
 
                                 /* Fall back to "tmpfs" otherwise */
-                                if (mount("tmpfs", workspace, "tmpfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, opts) >= 0) {
+                                r = mount_nofollow_verbose(LOG_DEBUG, "tmpfs", workspace, "tmpfs", MS_NODEV|MS_NOEXEC|MS_NOSUID, opts);
+                                if (r >= 0) {
                                         workspace_mounted = true;
                                         break;
                                 }
 
                         } else {
                                 /* If that didn't work, try to make a bind mount from the final to the workspace, so that we can make it writable there. */
-                                if (mount(final, workspace, NULL, MS_BIND|MS_REC, NULL) < 0) {
-                                        if (!ERRNO_IS_PRIVILEGE(errno)) /* Propagate anything that isn't a permission problem */
-                                                return -errno;
+                                r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
+                                if (r < 0) {
+                                        if (!ERRNO_IS_PRIVILEGE(r)) /* Propagate anything that isn't a permission problem */
+                                                return r;
 
                                         if (must_mount) /* If we it's not OK to use the plain directory
                                                          * fallback, propagate all errors too */
-                                                return -errno;
+                                                return r;
 
                                         /* If we lack privileges to bind mount stuff, then let's gracefully
                                          * proceed for compat with container envs, and just use the final dir
@@ -2705,8 +2711,9 @@ static int setup_credentials_internal(
                                 }
 
                                 /* Make the new bind mount writable (i.e. drop MS_RDONLY) */
-                                if (mount(NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
-                                        return -errno;
+                                r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
+                                if (r < 0)
+                                        return r;
 
                                 workspace_mounted = true;
                                 break;
@@ -2723,17 +2730,17 @@ static int setup_credentials_internal(
 
         if (workspace_mounted) {
                 /* Make workspace read-only now, so that any bind mount we make from it defaults to read-only too */
-                if (mount(NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL) < 0)
-                        return -errno;
+                r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID, NULL);
+                if (r < 0)
+                        return r;
 
                 /* And mount it to the final place, read-only */
-                if (final_mounted) {
-                        if (umount2(workspace, MNT_DETACH|UMOUNT_NOFOLLOW) < 0)
-                                return -errno;
-                } else {
-                        if (mount(workspace, final, NULL, MS_MOVE, NULL) < 0)
-                                return -errno;
-                }
+                if (final_mounted)
+                        r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
+                else
+                        r = mount_nofollow_verbose(LOG_DEBUG, workspace, final, NULL, MS_MOVE, NULL);
+                if (r < 0)
+                        return r;
         } else {
                 _cleanup_free_ char *parent = NULL;
 
@@ -2847,7 +2854,8 @@ static int setup_credentials(
                  * given that the we do this in a privately namespaced short-lived single-threaded process
                  * that no one else sees this should be OK to do.*/
 
-                if (mount(NULL, "/dev", NULL, MS_SLAVE|MS_REC, NULL) < 0) /* Turn off propagation from our namespace to host */
+                r = mount_nofollow_verbose(LOG_DEBUG, NULL, "/dev", NULL, MS_SLAVE|MS_REC, NULL); /* Turn off propagation from our namespace to host */
+                if (r < 0)
                         goto child_fail;
 
                 r = setup_credentials_internal(
