@@ -17,6 +17,7 @@ if zshcompletiondir != 'no'
                  ['_systemd-delta',            ''],
                  ['_systemd-nspawn',           ''],
                  ['_systemd',                  ''],
+                 ['_systemd-path',             ''],
                  ['_systemd-run',              ''],
                  ['_udevadm',                  ''],
                  ['_kernel-install',           ''],
