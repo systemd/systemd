@@ -968,7 +968,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 (void) unlink(mount_tmp);
         mount_tmp_created = false;
 
-        (void) umount(mount_slave);
+        (void) umount_verbose(LOG_DEBUG, mount_slave, UMOUNT_NOFOLLOW);
         mount_slave_mounted = false;
 
         (void) rmdir(mount_slave);
@@ -1044,7 +1044,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
 finish:
         if (mount_outside_mounted)
-                (void) umount(mount_outside);
+                (void) umount_verbose(LOG_DEBUG, mount_outside, UMOUNT_NOFOLLOW);
         if (mount_outside_created) {
                 if (S_ISDIR(st.st_mode))
                         (void) rmdir(mount_outside);
@@ -1053,7 +1053,7 @@ finish:
         }
 
         if (mount_tmp_mounted)
-                (void) umount(mount_tmp);
+                (void) umount_verbose(LOG_DEBUG, mount_tmp, UMOUNT_NOFOLLOW);
         if (mount_tmp_created) {
                 if (S_ISDIR(st.st_mode))
                         (void) rmdir(mount_tmp);
@@ -1062,7 +1062,7 @@ finish:
         }
 
         if (mount_slave_mounted)
-                (void) umount(mount_slave);
+                (void) umount_verbose(LOG_DEBUG, mount_slave, UMOUNT_NOFOLLOW);
         if (mount_slave_created)
                 (void) rmdir(mount_slave);
 
