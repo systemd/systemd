@@ -4845,9 +4845,12 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = must_be_root();
-        if (r < 0)
+        if (geteuid() != 0) {
+                r = log_warning_errno(SYNTHETIC_ERRNO(EPERM),
+                                      argc >= 2 ? "Need to be root." :
+                                      "Need to be root (and some arguments are usually required).\nHint: try --help");
                 goto finish;
+        }
 
         r = initialize_rlimits();
         if (r < 0)
