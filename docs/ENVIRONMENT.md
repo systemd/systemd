@@ -80,6 +80,9 @@ All tools:
   honoured on systems built with libxcrypt and is ignored on systems using
   glibc's original, internal crypt() implementation.)
 
+* `$SYSTEMD_RDRAND=0` — if set, the RDRAND instruction will never be used,
+  even if the CPU supports it.
+
 systemctl:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus
