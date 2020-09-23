@@ -541,7 +541,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                d = get_crypto_device(startswith(value, "luks-") ? value+5 : value);
+                d = get_crypto_device(startswith(value, "luks-") ?: value);
                 if (!d)
                         return log_oom();
 
