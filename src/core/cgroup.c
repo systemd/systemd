@@ -1977,7 +1977,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                 if (q < 0) {
                         log_unit_debug_errno(u, q, "Couldn't move process " PID_FMT " to requested cgroup '%s': %m", pid, p);
 
-                        if (MANAGER_IS_USER(u->manager) && IN_SET(q, -EPERM, -EACCES)) {
+                        if (MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(q)) {
                                 int z;
 
                                 /* If we are in a user instance, and we can't move the process ourselves due to

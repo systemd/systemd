@@ -2335,7 +2335,7 @@ static int setup_keyring(void) {
         if (keyring == -1) {
                 if (errno == ENOSYS)
                         log_debug_errno(errno, "Kernel keyring not supported, ignoring.");
-                else if (IN_SET(errno, EACCES, EPERM))
+                else if (ERRNO_IS_PRIVILEGE(errno))
                         log_debug_errno(errno, "Kernel keyring access prohibited, ignoring.");
                 else
                         return log_error_errno(errno, "Setting up kernel keyring failed: %m");

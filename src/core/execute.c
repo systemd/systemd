@@ -3324,7 +3324,7 @@ static int setup_keyring(
         if (keyring == -1) {
                 if (errno == ENOSYS)
                         log_unit_debug_errno(u, errno, "Kernel keyring not supported, ignoring.");
-                else if (IN_SET(errno, EACCES, EPERM))
+                else if (ERRNO_IS_PRIVILEGE(errno))
                         log_unit_debug_errno(u, errno, "Kernel keyring access prohibited, ignoring.");
                 else if (errno == EDQUOT)
                         log_unit_debug_errno(u, errno, "Out of kernel keyrings to allocate, ignoring.");
@@ -3863,7 +3863,7 @@ static int exec_child(
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces
                  * prohibit write access to this file, and we shouldn't trip up over that. */
                 r = set_oom_score_adjust(context->oom_score_adjust);
-                if (IN_SET(r, -EPERM, -EACCES))
+                if (ERRNO_IS_PRIVILEGE(r))
                         log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
                 else if (r < 0) {
                         *exit_status = EXIT_OOM_ADJUST;
