@@ -1973,10 +1973,9 @@ int manager_load_unit_prepare(
         assert(m);
         assert(_ret);
 
-        /* This will prepare the unit for loading, but not actually
-         * load anything from disk. */
+        /* This will prepare the unit for loading, but not actually load anything from disk. */
 
-        if (path && !is_path(path))
+        if (path && !path_is_absolute(path))
                 return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
 
         if (!name) {

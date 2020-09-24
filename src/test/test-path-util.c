@@ -164,31 +164,76 @@ static void test_path_equal_root(void) {
         assert_se(!path_equal_or_files_same("/", "/.../", AT_SYMLINK_NOFOLLOW));
 }
 
-static void test_find_binary(const char *self) {
+static void test_find_executable_full(void) {
         char *p;
 
         log_info("/* %s */", __func__);
 
-        assert_se(find_binary("/bin/sh", &p) == 0);
+        assert_se(find_executable_full("sh", true, &p) == 0);
+        puts(p);
+        assert_se(streq(basename(p), "sh"));
+        free(p);
+
+        assert_se(find_executable_full("sh", false, &p) == 0);
+        puts(p);
+        assert_se(streq(basename(p), "sh"));
+        free(p);
+
+        _cleanup_free_ char *oldpath = NULL;
+        p = getenv("PATH");
+        if (p)
+                assert_se(oldpath = strdup(p));
+
+        assert_se(unsetenv("PATH") >= 0);
+
+        assert_se(find_executable_full("sh", true, &p) == 0);
+        puts(p);
+        assert_se(streq(basename(p), "sh"));
+        free(p);
+
+        assert_se(find_executable_full("sh", false, &p) == 0);
+        puts(p);
+        assert_se(streq(basename(p), "sh"));
+        free(p);
+
+        if (oldpath)
+                assert_se(setenv("PATH", oldpath, true) >= 0);
+}
+
+static void test_find_executable(const char *self) {
+        char *p;
+
+        log_info("/* %s */", __func__);
+
+        assert_se(find_executable("/bin/sh", &p) == 0);
         puts(p);
         assert_se(path_equal(p, "/bin/sh"));
         free(p);
 
-        assert_se(find_binary(self, &p) == 0);
+        assert_se(find_executable(self, &p) == 0);
         puts(p);
-        /* libtool might prefix the binary name with "lt-" */
-        assert_se(endswith(p, "/lt-test-path-util") || endswith(p, "/test-path-util"));
+        assert_se(endswith(p, "/test-path-util"));
         assert_se(path_is_absolute(p));
         free(p);
 
-        assert_se(find_binary("sh", &p) == 0);
+        assert_se(find_executable("sh", &p) == 0);
         puts(p);
         assert_se(endswith(p, "/sh"));
         assert_se(path_is_absolute(p));
         free(p);
 
-        assert_se(find_binary("xxxx-xxxx", &p) == -ENOENT);
-        assert_se(find_binary("/some/dir/xxxx-xxxx", &p) == -ENOENT);
+        assert_se(find_executable("/bin/touch", &p) == 0);
+        assert_se(streq(p, "/bin/touch"));
+        free(p);
+
+        assert_se(find_executable("touch", &p) == 0);
+        assert_se(path_is_absolute(p));
+        assert_se(streq(basename(p), "touch"));
+        free(p);
+
+        assert_se(find_executable("xxxx-xxxx", &p) == -ENOENT);
+        assert_se(find_executable("/some/dir/xxxx-xxxx", &p) == -ENOENT);
+        assert_se(find_executable("/proc/filesystems", &p) == -EACCES);
 }
 
 static void test_prefixes(void) {
@@ -537,6 +582,9 @@ static void test_filename_is_valid(void) {
         assert_se(!filename_is_valid("/"));
         assert_se(!filename_is_valid("."));
         assert_se(!filename_is_valid(".."));
+        assert_se(!filename_is_valid("bar/foo"));
+        assert_se(!filename_is_valid("bar/foo/"));
+        assert_se(!filename_is_valid("bar//"));
 
         for (i=0; i<FILENAME_MAX+1; i++)
                 foo[i] = 'a';
@@ -667,7 +715,8 @@ int main(int argc, char **argv) {
         test_print_paths();
         test_path();
         test_path_equal_root();
-        test_find_binary(argv[0]);
+        test_find_executable_full();
+        test_find_executable(argv[0]);
         test_prefixes();
         test_path_join();
         test_fsck_exists();

@@ -471,8 +471,7 @@ int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts) {
         if (r < 0)
                 return r;
 
-        safe_close(acd->fd);
-        acd->fd = r;
+        CLOSE_AND_REPLACE(acd->fd, r);
         acd->defend_window = 0;
 
         if (reset_conflicts)

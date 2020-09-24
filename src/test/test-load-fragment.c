@@ -202,12 +202,11 @@ static void test_config_parse_exec(void) {
                               "-@/RValue argv0 r1 ; ; "
                               "/goo/goo boo",
                               &c, u);
-        assert_se(r == -ENOEXEC);
+        assert_se(r >= 0);
         c1 = c1->command_next;
         check_execcommand(c1, "/RValue", "argv0", "r1", NULL, true);
-
-        /* second command fails because the executable name is ";" */
-        assert_se(c1->command_next == NULL);
+        c1 = c1->command_next;
+        check_execcommand(c1, "/goo/goo", "/goo/goo", "boo", NULL, false);
 
         log_info("/* trailing semicolon */");
         r = config_parse_exec(NULL, "fake", 5, "section", 1,

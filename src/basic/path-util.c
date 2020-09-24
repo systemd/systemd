@@ -28,14 +28,6 @@
 #include "time-util.h"
 #include "utf8.h"
 
-bool path_is_absolute(const char *p) {
-        return p[0] == '/';
-}
-
-bool is_path(const char *p) {
-        return !!strchr(p, '/');
-}
-
 int path_split_and_make_absolute(const char *p, char ***ret) {
         char **l;
         int r;
@@ -593,9 +585,9 @@ char* path_join_internal(const char *first, ...) {
         return joined;
 }
 
-int find_binary(const char *name, char **ret) {
+int find_executable_full(const char *name, bool use_path_envvar, char **ret) {
         int last_error, r;
-        const char *p;
+        const char *p = NULL;
 
         assert(name);
 
@@ -612,11 +604,10 @@ int find_binary(const char *name, char **ret) {
                 return 0;
         }
 
-        /**
-         * Plain getenv, not secure_getenv, because we want
-         * to actually allow the user to pick the binary.
-         */
-        p = getenv("PATH");
+        if (use_path_envvar)
+                /* Plain getenv, not secure_getenv, because we want to actually allow the user to pick the
+                 * binary. */
+                p = getenv("PATH");
         if (!p)
                 p = DEFAULT_PATH;
 
@@ -649,9 +640,7 @@ int find_binary(const char *name, char **ret) {
                         if (access(with_dash, X_OK) >= 0)
                                 continue;
 
-                        /**
-                         * We can't just `continue` inverting this case, since we need to update last_error.
-                         */
+                        /* We can't just `continue` inverting this case, since we need to update last_error. */
                         if (errno == ENOTDIR) {
                                 /* Found it! */
                                 if (ret)
@@ -704,18 +693,17 @@ bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool upd
         return changed;
 }
 
-static int binary_is_good(const char *binary) {
+static int executable_is_good(const char *executable) {
         _cleanup_free_ char *p = NULL, *d = NULL;
         int r;
 
-        r = find_binary(binary, &p);
+        r = find_executable(executable, &p);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return r;
 
-        /* An fsck that is linked to /bin/true is a non-existent
-         * fsck */
+        /* An fsck that is linked to /bin/true is a non-existent fsck */
 
         r = readlink_malloc(p, &d);
         if (r == -EINVAL) /* not a symlink */
@@ -738,7 +726,7 @@ int fsck_exists(const char *fstype) {
                 return -EINVAL;
 
         checker = strjoina("fsck.", fstype);
-        return binary_is_good(checker);
+        return executable_is_good(checker);
 }
 
 int parse_path_argument_and_warn(const char *path, bool suppress_root, char **arg) {

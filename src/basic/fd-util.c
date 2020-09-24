@@ -729,8 +729,7 @@ int fd_duplicate_data_fd(int fd) {
                 if (f != 0)
                         return -errno;
 
-                safe_close(copy_fd);
-                copy_fd = TAKE_FD(tmp_fd);
+                CLOSE_AND_REPLACE(copy_fd, tmp_fd);
 
                 remains = mfree(remains);
                 remains_size = 0;
@@ -863,8 +862,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
                                 goto finish;
                         }
 
-                        safe_close(null_fd);
-                        null_fd = copy;
+                        CLOSE_AND_REPLACE(null_fd, copy);
                 }
         }
 
