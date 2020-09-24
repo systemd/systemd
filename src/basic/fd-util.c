@@ -385,11 +385,9 @@ int fd_get_path(int fd, char **ret) {
                 /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's make
                  * things debuggable and distinguish the two. */
 
-                if (access("/proc/self/fd/", F_OK) < 0)
-                        /* /proc is not available or not set up properly, we're most likely in some chroot
-                         * environment. */
-                        return errno == ENOENT ? -EOPNOTSUPP : -errno;
-
+                if (proc_mounted() == 0)
+                        return -ENOSYS;  /* /proc is not available or not set up properly, we're most likely in some chroot
+                                          * environment. */
                 return -EBADF; /* The directory exists, hence it's the fd that doesn't. */
         }
 

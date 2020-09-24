@@ -765,7 +765,7 @@ static int log_unsafe_transition(int a, int b, const char *path, unsigned flags)
 
         return log_warning_errno(SYNTHETIC_ERRNO(ENOLINK),
                                  "Detected unsafe path transition %s %s %s during canonicalization of %s.",
-                                 n1, special_glyph(SPECIAL_GLYPH_ARROW), n2, path);
+                                 strna(n1), special_glyph(SPECIAL_GLYPH_ARROW), strna(n2), path);
 }
 
 static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
@@ -778,7 +778,7 @@ static int log_autofs_mount_point(int fd, const char *path, unsigned flags) {
 
         return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE),
                                  "Detected autofs mount point %s during canonicalization of %s.",
-                                 n1, path);
+                                 strna(n1), path);
 }
 
 int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret_path, int *ret_fd) {
@@ -1298,16 +1298,25 @@ int chase_symlinks_and_stat(
 
 int access_fd(int fd, int mode) {
         char p[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
-        int r;
 
         /* Like access() but operates on an already open fd */
 
         xsprintf(p, "/proc/self/fd/%i", fd);
-        r = access(p, mode);
-        if (r < 0)
-                return -errno;
+        if (access(p, mode) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
 
-        return r;
+                /* ENOENT can mean two things: that the fd does not exist or that /proc is not mounted. Let's
+                 * make things debuggable and distinguish the two. */
+
+                if (proc_mounted() == 0)
+                        return -ENOSYS;  /* /proc is not available or not set up properly, we're most likely in some chroot
+                                          * environment. */
+
+                return -EBADF; /* The directory exists, hence it's the fd that doesn't. */
+        }
+
+        return 0;
 }
 
 void unlink_tempfilep(char (*p)[]) {
@@ -1441,9 +1450,9 @@ int fsync_directory_of_file(int fd) {
         if (r < 0) {
                 log_debug_errno(r, "Failed to query /proc/self/fd/%d%s: %m",
                                 fd,
-                                r == -EOPNOTSUPP ? ", ignoring" : "");
+                                r == -ENOSYS ? ", ignoring" : "");
 
-                if (r == -EOPNOTSUPP)
+                if (r == -ENOSYS)
                         /* If /proc is not available, we're most likely running in some
                          * chroot environment, and syncing the directory is not very
                          * important in that case. Let's just silently do nothing. */
