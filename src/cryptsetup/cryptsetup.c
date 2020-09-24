@@ -294,7 +294,7 @@ static int parse_options(const char *options) {
                 _cleanup_free_ char *word = NULL;
                 int r;
 
-                r = extract_first_word(&options, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                r = extract_first_word(&options, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS | EXTRACT_UNESCAPE_SEPARATORS);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse options: %m");
                 if (r == 0)
@@ -873,6 +873,9 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                 }
+
+                log_debug("%s %s ← %s type=%s cipher=%s", __func__,
+                          argv[2], argv[3], strempty(arg_type), strempty(arg_cipher));
 
                 /* A delicious drop of snake oil */
                 (void) mlockall(MCL_FUTURE);

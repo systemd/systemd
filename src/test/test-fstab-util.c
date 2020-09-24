@@ -13,12 +13,11 @@ int fstab_filter_options(const char *opts, const char *names,
 */
 
 static void do_fstab_filter_options(const char *opts,
-                                      const char *remove,
-                                      int r_expected,
-                                      const char *name_expected,
-                                      const char *value_expected,
-                                      const char *filtered_expected) {
-
+                                    const char *remove,
+                                    int r_expected,
+                                    const char *name_expected,
+                                    const char *value_expected,
+                                    const char *filtered_expected) {
         int r;
         const char *name;
         _cleanup_free_ char *value = NULL, *filtered = NULL;
@@ -34,7 +33,7 @@ static void do_fstab_filter_options(const char *opts,
 
         /* also test the malloc-less mode */
         r = fstab_filter_options(opts, remove, &name, NULL, NULL);
-        log_info("\"%s\" → %d, \"%s\", expected %d, \"%s\"",
+        log_info("\"%s\" → %d, \"%s\", expected %d, \"%s\"\n-",
                  opts, r, name,
                  r_expected, name_expected);
         assert_se(r == r_expected);
@@ -53,6 +52,12 @@ static void test_fstab_filter_options(void) {
         do_fstab_filter_options("opt,other", "opt\0x-opt\0", 1, "opt", NULL, "other");
         do_fstab_filter_options("opt,other", "x-opt\0opt\0", 1, "opt", NULL, "other");
         do_fstab_filter_options("x-opt,other", "opt\0x-opt\0", 1, "x-opt", NULL, "other");
+
+        do_fstab_filter_options("opt=0\\,1,other", "opt\0x-opt\0", 1, "opt", "0,1", "other");
+        do_fstab_filter_options("opt=0,other,x-opt\\,foobar", "x-opt\0opt\0", 1, "opt", "0", "other,x-opt\\,foobar");
+        do_fstab_filter_options("opt,other,x-opt\\,part", "opt\0x-opt\0", 1, "opt", NULL, "other,x-opt\\,part");
+        do_fstab_filter_options("opt,other,part\\,x-opt", "x-opt\0opt\0", 1, "opt", NULL, "other,part\\,x-opt");
+        do_fstab_filter_options("opt,other\\,\\,\\,opt,x-part", "opt\0x-opt\0", 1, "opt", NULL, "other\\,\\,\\,opt,x-part");
 
         do_fstab_filter_options("opto=0,other", "opt\0x-opt\0", 0, NULL, NULL, NULL);
         do_fstab_filter_options("opto,other", "opt\0x-opt\0", 0, NULL, NULL, NULL);

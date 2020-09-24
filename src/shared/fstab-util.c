@@ -95,7 +95,19 @@ int fstab_filter_options(const char *opts, const char *names,
 
         if (!ret_filtered) {
                 for (const char *word = opts;;) {
-                        const char *end = word + strcspn(word, ",");
+                        const char *end = word;
+
+                        /* Look for an *non-escaped* comma separator. Only commas can be escaped, so "\," is
+                         * the only valid escape sequence, so we can do a very simple test here. */
+                        for (;;) {
+                                size_t n = strcspn(end, ",");
+
+                                end += n;
+                                if (n > 0 && end[-1] == '\\')
+                                        end++;
+                                else
+                                        break;
+                        }
 
                         NULSTR_FOREACH(name, names) {
                                 if (end < word + strlen(name))
@@ -128,9 +140,10 @@ int fstab_filter_options(const char *opts, const char *names,
                                 break;
                 }
         } else {
-                stor = strv_split(opts, ",");
-                if (!stor)
-                        return -ENOMEM;
+                r = strv_split_full(&stor, opts, ",", EXTRACT_DONT_COALESCE_SEPARATORS | EXTRACT_UNESCAPE_SEPARATORS);
+                if (r < 0)
+                        return r;
+
                 strv = memdup(stor, sizeof(char*) * (strv_length(stor) + 1));
                 if (!strv)
                         return -ENOMEM;
@@ -165,7 +178,7 @@ answer:
         if (ret_filtered) {
                 char *f;
 
-                f = strv_join(strv, ",");
+                f = strv_join_full(strv, ",", NULL, true);
                 if (!f)
                         return -ENOMEM;
 
