@@ -280,52 +280,6 @@ int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
         return do_chown || do_chmod;
 }
 
-int chmod_and_chown_unsafe(const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        bool do_chown, do_chmod;
-        struct stat st;
-
-        assert(path);
-
-        /* Change ownership and access mode of the specified path, see description of fchmod_and_chown().
-         * Should only be used on trusted paths. */
-
-        if (lstat(path, &st) < 0)
-                return -errno;
-
-        do_chown =
-                (uid != UID_INVALID && st.st_uid != uid) ||
-                (gid != GID_INVALID && st.st_gid != gid);
-
-        do_chmod =
-                !S_ISLNK(st.st_mode) && /* chmod is not defined on symlinks */
-                ((mode != MODE_INVALID && ((st.st_mode ^ mode) & 07777) != 0) ||
-                 do_chown); /* If we change ownership, make sure we reset the mode afterwards, since chown()
-                             * modifies the access mode too */
-
-        if (mode == MODE_INVALID)
-                mode = st.st_mode; /* If we only shall do a chown(), save original mode, since chown() might break it. */
-        else if ((mode & S_IFMT) != 0 && ((mode ^ st.st_mode) & S_IFMT) != 0)
-                return -EINVAL; /* insist on the right file type if it was specified */
-
-        if (do_chown && do_chmod) {
-                mode_t minimal = st.st_mode & mode; /* the subset of the old and the new mask */
-
-                if (((minimal ^ st.st_mode) & 07777) != 0)
-                        if (chmod(path, minimal & 07777) < 0)
-                                return -errno;
-        }
-
-        if (do_chown)
-                if (lchown(path, uid, gid) < 0)
-                        return -errno;
-
-        if (do_chmod)
-                if (chmod(path, mode & 07777) < 0)
-                        return -errno;
-
-        return do_chown || do_chmod;
-}
-
 int fchmod_umask(int fd, mode_t m) {
         mode_t u;
         int r;
