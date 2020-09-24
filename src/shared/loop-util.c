@@ -116,7 +116,7 @@ int loop_device_make(
                 if (loop < 0) {
                         /* Somebody might've gotten the same number from the kernel, used the device,
                          * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
-                        if (errno != ENOENT)
+                        if (!IN_SET(errno, ENOENT, ENXIO))
                                 return -errno;
                 } else {
                         if (ioctl(loop, LOOP_SET_FD, fd) >= 0) {
