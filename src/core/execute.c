@@ -1927,7 +1927,7 @@ static int build_environment(
                 if (!pre)
                         return -ENOMEM;
 
-                joined = strv_join_full(c->directories[t].paths, ":", pre, false);
+                joined = strv_join_full(c->directories[t].paths, ":", pre, true);
                 if (!joined)
                         return -ENOMEM;
 
