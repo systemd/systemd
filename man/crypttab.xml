@@ -60,10 +60,10 @@
     device or file, or a specification of a block device via
     <literal>UUID=</literal> followed by the UUID.</para>
 
-    <para>The third field specifies an absolute path to a file to read the encryption key from. Optionally,
+    <para>The third field specifies an absolute path to a file with the encryption key. Optionally,
     the path may be followed by <literal>:</literal> and an fstab device specification (e.g. starting with
-    <literal>LABEL=</literal> or similar); in which case, the path is relative to the device file system
-    root. If the field is not present or set to <literal>none</literal> or <literal>-</literal>, a key file
+    <literal>LABEL=</literal> or similar); in which case the path is taken relative to the device file system
+    root. If the field is not present or is <literal>none</literal> or <literal>-</literal>, a key file
     named after the volume to unlock (i.e. the first column of the line), suffixed with
     <filename>.key</filename> is automatically loaded from the <filename>/etc/cryptsetup-keys.d/</filename>
     and <filename>/run/cryptsetup-keys.d/</filename> directories, if present. Otherwise, the password has to
@@ -78,12 +78,12 @@
       <varlistentry>
         <term><option>cipher=</option></term>
 
-        <listitem><para>Specifies the cipher to use. See
-        <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for possible values and the default value of this option. A
-        cipher with unpredictable IV values, such as
-        <literal>aes-cbc-essiv:sha256</literal>, is
-        recommended.</para></listitem>
+        <listitem><para>Specifies the cipher to use. See <citerefentry
+        project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for possible values and the default value of this option. A cipher with unpredictable IV values, such
+        as <literal>aes-cbc-essiv:sha256</literal>, is recommended. Embedded commas in the cipher
+        specification need to be escaped by preceding them with a backslash, see example below.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -498,15 +498,17 @@
     <title>Examples</title>
     <example>
       <title>/etc/crypttab example</title>
-      <para>Set up four encrypted block devices. One using LUKS for
-      normal storage, another one for usage as a swap device and two
-      TrueCrypt volumes.</para>
+      <para>Set up four encrypted block devices. One using LUKS for normal storage, another one for usage as
+      a swap device and two TrueCrypt volumes. For the fourth device, the option string is interpreted as two
+      options <literal>cipher=xchacha12,aes-adiantum-plain64</literal>,
+      <literal>keyfile-timeout=10s</literal>.</para>
 
       <programlisting>luks       UUID=2505567a-9e27-4efe-a4d5-15ad146c258b
 swap       /dev/sda7       /dev/urandom       swap
 truecrypt  /dev/sda2       /etc/container_password  tcrypt
 hidden     /mnt/tc_hidden  /dev/null    tcrypt-hidden,tcrypt-keyfile=/etc/keyfile
-external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s</programlisting>
+external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchacha12\,aes-adiantum-plain64
+</programlisting>
     </example>
 
     <example>
