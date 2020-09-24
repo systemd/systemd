@@ -296,7 +296,7 @@ static int parse_options(const char *options) {
 
                 r = extract_first_word(&options, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to parse options: %m");
+                        return log_error_errno(r, "Failed to parse options: %m");
                 if (r == 0)
                         break;
 
