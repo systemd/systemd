@@ -644,8 +644,8 @@ int mount_verbose_full(
                 log_debug("Moving mount %s → %s (%s \"%s\")...",
                           what, where, strnull(fl), strempty(o));
         else
-                log_debug("Mounting %s on %s (%s \"%s\")...",
-                          strna(type), where, strnull(fl), strempty(o));
+                log_debug("Mounting %s (%s) on %s (%s \"%s\")...",
+                          strna(what), strna(type), where, strnull(fl), strempty(o));
 
         if (follow_symlink)
                 r = mount(what, where, type, f, o) < 0 ? -errno : 0;
