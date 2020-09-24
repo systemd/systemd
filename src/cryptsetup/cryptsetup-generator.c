@@ -554,7 +554,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int add_crypttab_devices(void) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned crypttab_line = 0;
-        struct stat st;
         int r;
 
         if (!arg_read_crypttab)
@@ -564,11 +563,6 @@ static int add_crypttab_devices(void) {
         if (r < 0) {
                 if (errno != ENOENT)
                         log_error_errno(errno, "Failed to open %s: %m", arg_crypttab);
-                return 0;
-        }
-
-        if (fstat(fileno(f), &st) < 0) {
-                log_error_errno(errno, "Failed to stat %s: %m", arg_crypttab);
                 return 0;
         }
 
