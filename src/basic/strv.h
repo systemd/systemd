@@ -91,9 +91,9 @@ static inline char **strv_split(const char *s, const char *separators) {
  * string in the vector is an empty string. */
 int strv_split_colon_pairs(char ***t, const char *s);
 
-char *strv_join_prefix(char * const *l, const char *separator, const char *prefix);
+char *strv_join_full(char * const *l, const char *separator, const char *prefix, bool escape_separtor);
 static inline char *strv_join(char * const *l, const char *separator) {
-        return strv_join_prefix(l, separator, NULL);
+        return strv_join_full(l, separator, NULL, false);
 }
 
 char **strv_parse_nulstr(const char *s, size_t l);

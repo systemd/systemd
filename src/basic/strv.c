@@ -367,7 +367,7 @@ int strv_split_colon_pairs(char ***t, const char *s) {
         return (int) n;
 }
 
-char *strv_join_prefix(char * const *l, const char *separator, const char *prefix) {
+char *strv_join_full(char * const *l, const char *separator, const char *prefix, bool unescape_separators) {
         char * const *s;
         char *r, *e;
         size_t n, k, m;
@@ -378,11 +378,17 @@ char *strv_join_prefix(char * const *l, const char *separator, const char *prefi
         k = strlen(separator);
         m = strlen_ptr(prefix);
 
+        if (unescape_separators) /* If there separator is multi-char, we won't know how to escape it. */
+                assert(k == 1);
+
         n = 0;
         STRV_FOREACH(s, l) {
                 if (s != l)
                         n += k;
-                n += m + strlen(*s);
+
+                bool needs_escaping = unescape_separators && strchr(*s, separator[0]);
+
+                n += m + strlen(*s) * (1 + needs_escaping);
         }
 
         r = new(char, n+1);
@@ -397,7 +403,16 @@ char *strv_join_prefix(char * const *l, const char *separator, const char *prefi
                 if (prefix)
                         e = stpcpy(e, prefix);
 
-                e = stpcpy(e, *s);
+                bool needs_escaping = unescape_separators && strchr(*s, separator[0]);
+
+                if (needs_escaping)
+                        for (size_t i = 0; (*s)[i]; i++) {
+                                if ((*s)[i] == separator[0])
+                                        *(e++) = '\\';
+                                *(e++) = (*s)[i];
+                        }
+                else
+                        e = stpcpy(e, *s);
         }
 
         *e = 0;
