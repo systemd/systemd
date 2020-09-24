@@ -5,20 +5,22 @@
 # Frank Hill <hxf.prc@gmail.com>, 2014.
 # Boyuan Yang <073plan@gmail.com>, 2015.
 # Jeff Bai <jeffbai@aosc.xyz>, 2016.
+# Charles Lee <lchopn@gmail.com>, 2020.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2016-03-01 20:38-0700\n"
-"Last-Translator: Jeff Bai <jeffbai@aosc.xyz>\n"
-"Language-Team: Chinese <i18n-zh@googlegroups.com>\n"
+"PO-Revision-Date: 2020-09-24 04:29+0000\n"
+"Last-Translator: Charles Lee <lchopn@gmail.com>\n"
+"Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
+"projects/systemd/master/zh_CN/>\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 1.8.7.1\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Weblate 4.2.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -294,8 +296,6 @@ msgid ""
 msgstr "允许应用程序阻止系统响应笔记本上盖开关事件需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
-#| msgid "Allow non-logged-in users to run programs"
 msgid "Allow non-logged-in user to run programs"
 msgstr "允许未登录用户运行程序"
 
@@ -395,42 +395,28 @@ msgid "Halt the system"
 msgstr "休眠系统"
 
 #: src/login/org.freedesktop.login1.policy:225
-#, fuzzy
-#| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to halt the system."
-msgstr "休眠系统需要认证。"
+msgstr "停止系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:235
-#, fuzzy
-#| msgid "Hibernate the system while other users are logged in"
 msgid "Halt the system while other users are logged in"
-msgstr "存在其他已登录用户时仍然休眠"
+msgstr "当存在其他已登录用户时仍然停止系统"
 
 #: src/login/org.freedesktop.login1.policy:236
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to hibernate the system while other users are "
-#| "logged in."
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
-msgstr "存在其他已登录用户时进行休眠系统需要认证。"
+msgstr "当存在其他已登录用户时停止系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:246
-#, fuzzy
-#| msgid "Hibernate the system while an application is inhibiting this"
 msgid "Halt the system while an application is inhibiting this"
-msgstr "有其它应用程序阻止时仍然休眠"
+msgstr "当存在应用程序阻止时仍然停止系统"
 
 #: src/login/org.freedesktop.login1.policy:247
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to hibernate the system while an application "
-#| "is inhibiting this."
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
-msgstr "在其它应用程序阻止休眠时进行休眠需要认证。"
+msgstr "当应用程序阻止时停止系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
@@ -515,10 +501,8 @@ msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr "设置系统时区需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:352
-#, fuzzy
-#| msgid "Allow indication to the firmware to boot to setup interface"
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr "允许向固件发出指示以启动至设置界面"
+msgstr "指示固件以启动至设置界面"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid ""
@@ -653,7 +637,7 @@ msgstr "设置系统时间需要认证。"
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
-msgstr ""
+msgstr "设置 DNS 服务器"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
