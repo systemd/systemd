@@ -312,6 +312,25 @@ int fchmod_opath(int fd, mode_t m) {
         return 0;
 }
 
+int futimens_opath(int fd, const struct timespec ts[2]) {
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+
+        /* Similar to fchmod_path() but for futimens() */
+
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+        if (utimensat(AT_FDCWD, procfs_path, ts, 0) < 0) {
+                if (errno != ENOENT)
+                        return -errno;
+
+                if (proc_mounted() == 0)
+                        return -ENOSYS; /* if we have no /proc/, the concept is not implementable */
+
+                return -ENOENT;
+        }
+
+        return 0;
+}
+
 int stat_warn_permissions(const char *path, const struct stat *st) {
         assert(path);
         assert(st);
