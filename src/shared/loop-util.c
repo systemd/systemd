@@ -33,60 +33,78 @@ static void cleanup_clear_loop_close(int *fd) {
         (void) safe_close(*fd);
 }
 
-static int loop_configure(int fd, const struct loop_config *c) {
+static int loop_configure(
+                int fd,
+                const struct loop_config *c,
+                bool *try_loop_configure) {
+
         _cleanup_close_ int lock_fd = -1;
         int r;
 
         assert(fd >= 0);
         assert(c);
+        assert(try_loop_configure);
 
-        if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
-                /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other errors. Note that
-                 * the kernel is weird: non-existing ioctls currently return EINVAL rather than ENOTTY on
-                 * loopback block devices. They should fix that in the kernel, but in the meantime we accept
-                 * both here. */
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
-                        return -errno;
-        } else {
-                bool good = true;
+        if (*try_loop_configure) {
+                if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
+                        /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other
+                         * errors. Note that the kernel is weird: non-existing ioctls currently return EINVAL
+                         * rather than ENOTTY on loopback block devices. They should fix that in the kernel,
+                         * but in the meantime we accept both here. */
+                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL)
+                                return -errno;
 
-                if (c->info.lo_sizelimit != 0) {
-                        /* Kernel 5.8 vanilla doesn't properly propagate the size limit into the block
-                         * device. If it's used, let's immediately check if it had the desired effect
-                         * hence. And if not use classic LOOP_SET_STATUS64. */
-                        uint64_t z;
+                        *try_loop_configure = false;
+                } else {
+                        bool good = true;
 
-                        if (ioctl(fd, BLKGETSIZE64, &z) < 0) {
-                                r = -errno;
+                        if (c->info.lo_sizelimit != 0) {
+                                /* Kernel 5.8 vanilla doesn't properly propagate the size limit into the
+                                 * block device. If it's used, let's immediately check if it had the desired
+                                 * effect hence. And if not use classic LOOP_SET_STATUS64. */
+                                uint64_t z;
+
+                                if (ioctl(fd, BLKGETSIZE64, &z) < 0) {
+                                        r = -errno;
+                                        goto fail;
+                                }
+
+                                if (z != c->info.lo_sizelimit) {
+                                        log_debug("LOOP_CONFIGURE is broken, doesn't honour .lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
+                                        good = false;
+                                }
+                        }
+
+                        if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_PARTSCAN)) {
+                                /* Kernel 5.8 vanilla doesn't properly propagate the partition scanning flag
+                                 * into the block device. Let's hence verify if things work correctly here
+                                 * before returning. */
+
+                                r = blockdev_partscan_enabled(fd);
+                                if (r < 0)
+                                        goto fail;
+                                if (r == 0) {
+                                        log_debug("LOOP_CONFIGURE is broken, doesn't honour LO_FLAGS_PARTSCAN. Falling back to LOOP_SET_STATUS64.");
+                                        good = false;
+                                }
+                        }
+
+                        if (!good) {
+                                /* LOOP_CONFIGURE doesn't work. Remember that. */
+                                *try_loop_configure = false;
+
+                                /* We return EBUSY here instead of retrying immediately with LOOP_SET_FD,
+                                 * because LOOP_CLR_FD is async: if the operation cannot be executed right
+                                 * away it just sets the autoclear flag on the device. This means there's a
+                                 * good chance we cannot actually reuse the loopback device right-away. Hence
+                                 * let's assume it's busy, avoid the trouble and let the calling loop call us
+                                 * again with a new, likely unused device. */
+                                r = -EBUSY;
                                 goto fail;
                         }
 
-                        if (z != c->info.lo_sizelimit) {
-                                log_debug("LOOP_CONFIGURE is broken, doesn't honour .lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
-                                good = false;
-                        }
-                }
-
-                if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_PARTSCAN)) {
-                        /* Kernel 5.8 vanilla doesn't properly propagate the partition scanning flag into the
-                         * block device. Let's hence verify if things work correctly here before
-                         * returning. */
-
-                        r = blockdev_partscan_enabled(fd);
-                        if (r < 0)
-                                goto fail;
-                        if (r == 0) {
-                                log_debug("LOOP_CONFIGURE is broken, doesn't honour LO_FLAGS_PARTSCAN. Falling back to LOOP_SET_STATUS64.");
-                                good = false;
-                        }
-                }
-
-                if (good)
                         return 0;
-
-                /* Otherwise, undo the attachment and use the old APIs */
-                if (ioctl(fd, LOOP_CLR_FD) < 0)
-                        return -errno;
+                }
         }
 
         /* Since kernel commit 5db470e229e22b7eda6e23b5566e532c96fb5bc3 (kernel v5.0) the LOOP_SET_STATUS64
@@ -143,6 +161,7 @@ int loop_device_make(
                 LoopDevice **ret) {
 
         _cleanup_free_ char *loopdev = NULL;
+        bool try_loop_configure = true;
         struct loop_config config;
         LoopDevice *d = NULL;
         struct stat st;
@@ -233,7 +252,7 @@ int loop_device_make(
                         if (!IN_SET(errno, ENOENT, ENXIO))
                                 return -errno;
                 } else {
-                        r = loop_configure(loop, &config);
+                        r = loop_configure(loop, &config, &try_loop_configure);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
