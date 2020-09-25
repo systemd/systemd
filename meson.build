@@ -884,8 +884,9 @@ libcrypt = cc.find_library('crypt')
 
 crypt_header = conf.get('HAVE_CRYPT_H') == 1 ? '''#include <crypt.h>''' : '''#include <unistd.h>'''
 foreach ident : [
-        ['crypt_ra',          crypt_header],
-        ['crypt_gensalt_ra',  crypt_header]]
+        ['crypt_ra',               crypt_header],
+        ['crypt_preferred_method', crypt_header],
+        ['crypt_gensalt_ra',       crypt_header]]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE',
                                dependencies : libcrypt)
