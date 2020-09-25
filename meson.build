@@ -3338,6 +3338,7 @@ foreach tuple : tests
         type = tuple.length() >= 5 ? tuple[4] : ''
         defs = tuple.length() >= 6 ? tuple[5] : []
         incs = tuple.length() >= 7 ? tuple[6] : includes
+        parallel = tuple.length() >= 8 ? tuple[7] : true
         timeout = 30
 
         name = sources[0].split('/')[-1].split('.')[0]
