@@ -37,7 +37,9 @@ static inline bool gid_is_container(gid_t gid) {
 }
 
 typedef struct UGIDAllocationRange {
+        uid_t system_alloc_uid_min;
         uid_t system_uid_max;
+        gid_t system_alloc_gid_min;
         gid_t system_gid_max;
 } UGIDAllocationRange;
 

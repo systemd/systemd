@@ -694,35 +694,31 @@ if time_epoch == -1
 endif
 conf.set('TIME_EPOCH', time_epoch)
 
-system_uid_max = get_option('system-uid-max')
-if system_uid_max == -1
-        system_uid_max = run_command(
-                awk,
-                '/^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }',
-                '/etc/login.defs').stdout().strip()
-        if system_uid_max == ''
-                system_uid_max = 999
-        else
-                system_uid_max = system_uid_max.to_int()
+foreach tuple : [['system-alloc-uid-min', 'SYS_UID_MIN', 1],  # Also see login.defs(5).
+                 ['system-uid-max',       'SYS_UID_MAX', 999],
+                 ['system-alloc-gid-min', 'SYS_GID_MIN', 1],
+                 ['system-gid-max',       'SYS_GID_MAX', 999]]
+        v = get_option(tuple[0])
+        if v == -1
+                v = run_command(
+                        awk,
+                        '/^\s*@0@\s+/ { uid=$2 } END { print uid }'.format(tuple[1]),
+                        '/etc/login.defs').stdout().strip()
+                if v == ''
+                        v = tuple[2]
+                else
+                        v = v.to_int()
+                endif
         endif
+        conf.set(tuple[0].underscorify().to_upper(), v)
+        substs.set(tuple[0].underscorify().to_upper(), v)
+endforeach
+if conf.get('SYSTEM_ALLOC_UID_MIN') >= conf.get('SYSTEM_UID_MAX')
+        error('Invalid uid allocation range')
 endif
-conf.set('SYSTEM_UID_MAX', system_uid_max)
-substs.set('systemuidmax', system_uid_max)
-
-system_gid_max = get_option('system-gid-max')
-if system_gid_max == -1
-        system_gid_max = run_command(
-                awk,
-                '/^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }',
-                '/etc/login.defs').stdout().strip()
-        if system_gid_max == ''
-                system_gid_max = 999
-        else
-                system_gid_max = system_gid_max.to_int()
-        endif
+if conf.get('SYSTEM_ALLOC_GID_MIN') >= conf.get('SYSTEM_GID_MAX')
+        error('Invalid gid allocation range')
 endif
-conf.set('SYSTEM_GID_MAX', system_gid_max)
-substs.set('systemgidmax', system_gid_max)
 
 dynamic_uid_min = get_option('dynamic-uid-min')
 dynamic_uid_max = get_option('dynamic-uid-max')
@@ -3539,12 +3535,12 @@ status = [
                                                               get_option('debug-tty')),
         'TTY GID:                           @0@'.format(tty_gid),
         'users GID:                         @0@'.format(substs.get('USERS_GID')),
-        'maximum system UID:                @0@'.format(system_uid_max),
-        'maximum system GID:                @0@'.format(system_gid_max),
-        'minimum dynamic UID:               @0@'.format(dynamic_uid_min),
-        'maximum dynamic UID:               @0@'.format(dynamic_uid_max),
-        'minimum container UID base:        @0@'.format(container_uid_base_min),
-        'maximum container UID base:        @0@'.format(container_uid_base_max),
+        'system UIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
+                                                                        conf.get('SYSTEM_ALLOC_UID_MIN')),
+        'system GIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
+                                                                        conf.get('SYSTEM_ALLOC_GID_MIN')),
+        'dynamic UIDs:                      @0@–@1@'.format(dynamic_uid_min, dynamic_uid_max),
+        'container UID bases:               @0@–@1@'.format(container_uid_base_min, container_uid_base_max),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
         'render group access mode:          @0@'.format(get_option('group-render-mode')),
         'certificate root directory:        @0@'.format(get_option('certificate-root')),

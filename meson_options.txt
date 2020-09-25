@@ -194,6 +194,10 @@ option('status-unit-format-default', type : 'combo',
        description : 'use unit name or description in messages by default')
 option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
+option('system-alloc-uid-min', type : 'integer', value : '-1',
+       description : 'minimum system UID used when allocating')
+option('system-alloc-gid-min', type : 'integer', value : '-1',
+       description : 'minimum system GID used when allocating')
 option('system-uid-max', type : 'integer', value : '-1',
        description : 'maximum system UID')
 option('system-gid-max', type : 'integer', value : '-1',

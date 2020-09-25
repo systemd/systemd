@@ -13,7 +13,9 @@ static void test_acquire_ugid_allocation_range(void) {
         const UGIDAllocationRange *defs;
         assert_se(defs = acquire_ugid_allocation_range());
 
+        log_info("system_alloc_uid_min="UID_FMT, defs->system_alloc_uid_min);
         log_info("system_uid_max="UID_FMT, defs->system_uid_max);
+        log_info("system_alloc_gid_min="GID_FMT, defs->system_alloc_gid_min);
         log_info("system_gid_max="GID_FMT, defs->system_gid_max);
 }
 
