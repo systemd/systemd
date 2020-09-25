@@ -257,14 +257,7 @@ static int loop_wait_for_partitions_to_appear(
         assert(d);
         assert(ret_enumerator);
 
-        log_debug("Waiting for device (parent + %d partitions) to appear...", num_partitions);
-
-        if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
-                r = device_wait_for_initialization(d, "block", USEC_INFINITY, &device);
-                if (r < 0)
-                        return r;
-        } else
-                device = sd_device_ref(d);
+        log_debug("Waiting for %u partitions to appear...", num_partitions);
 
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
                 r = wait_for_partitions_to_appear(fd, device, num_partitions, flags, ret_enumerator);
@@ -370,6 +363,23 @@ int dissect_image(
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
 
+        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
+        if (r < 0)
+                return r;
+
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_NO_UDEV)) {
+                _cleanup_(sd_device_unrefp) sd_device *initialized = NULL;
+
+                /* If udev support is enabled, then let's wait for the device to be initialized before we doing anything. */
+
+                r = device_wait_for_initialization(d, "block", USEC_INFINITY, &initialized);
+                if (r < 0)
+                        return r;
+
+                sd_device_unref(d);
+                d = TAKE_PTR(initialized);
+        }
+
         b = blkid_new_probe();
         if (!b)
                 return -ENOMEM;
@@ -399,10 +409,6 @@ int dissect_image(
         if (!m)
                 return -ENOMEM;
 
-        r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
-        if (r < 0)
-                return r;
-
         if ((!(flags & DISSECT_IMAGE_GPT_ONLY) &&
             (flags & DISSECT_IMAGE_REQUIRE_ROOT)) ||
             (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)) {
@@ -412,8 +418,8 @@ int dissect_image(
 
                 (void) blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
+                        const char *fstype = NULL, *options = NULL, *devname = NULL;
                         _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
-                        const char *fstype = NULL, *options = NULL;
 
                         /* OK, we have found a file system, that's our root partition then. */
                         (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
@@ -424,9 +430,13 @@ int dissect_image(
                                         return -ENOMEM;
                         }
 
-                        r = device_path_make_major_minor(st.st_mode, st.st_rdev, &n);
+                        r = sd_device_get_devname(d, &devname);
                         if (r < 0)
                                 return r;
+
+                        n = strdup(devname);
+                        if (!n)
+                                return -ENOMEM;
 
                         m->single_file_system = true;
                         m->verity = verity && verity->root_hash && verity->data_path && (verity->designator < 0 || verity->designator == PARTITION_ROOT);
@@ -451,13 +461,7 @@ int dissect_image(
 
                         m->encrypted = streq_ptr(fstype, "crypto_LUKS");
 
-                        /* Even on a single partition we need to wait for udev to create the
-                         * /dev/block/X:Y symlink to /dev/loopZ */
-                        r = loop_wait_for_partitions_to_appear(fd, d, 0, flags, &e);
-                        if (r < 0)
-                                return r;
                         *ret = TAKE_PTR(m);
-
                         return 0;
                 }
         }
