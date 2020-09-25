@@ -288,10 +288,12 @@ int device_is_renaming(sd_device *dev) {
         assert(dev);
 
         r = sd_device_get_property_value(dev, "ID_RENAMING", NULL);
-        if (r < 0 && r != -ENOENT)
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
                 return r;
 
-        return r >= 0;
+        return true;
 }
 
 bool device_for_action(sd_device *dev, DeviceAction action) {
