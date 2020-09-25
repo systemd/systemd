@@ -1467,6 +1467,7 @@ foreach term : ['analyze',
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
         conf.set10(name, have)
+        substs.set10(name, have)
 endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1

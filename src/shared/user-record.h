@@ -43,6 +43,7 @@ typedef struct UGIDAllocationRange {
         gid_t system_gid_max;
 } UGIDAllocationRange;
 
+int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char *root);
 const UGIDAllocationRange *acquire_ugid_allocation_range(void);
 
 typedef enum UserDisposition {

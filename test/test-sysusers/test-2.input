@@ -1,4 +1,4 @@
-# Test generation of ID dynamically based on SYSTEM_UID_MAX and
+# Test generation of ID dynamically based on SYSTEM_UGID_MAX and
 # replacement of all fields up to the login shell.
 #
 #Type Name ID  GECOS        homedir      shell

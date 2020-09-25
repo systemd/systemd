@@ -1,1 +1,1 @@
-username:x:SYSTEM_UID_MAX:300::/:NOLOGIN
+username:x:SYSTEM_UGID_MAX:300::/:NOLOGIN

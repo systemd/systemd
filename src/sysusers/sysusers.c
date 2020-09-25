@@ -26,6 +26,7 @@
 #include "strv.h"
 #include "tmpfile-util-label.h"
 #include "uid-range.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "utf8.h"
 #include "util.h"
@@ -1949,10 +1950,25 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(errno, "Failed to set SYSTEMD_NSS_BYPASS_SYNTHETIC environment variable: %m");
 
         if (!uid_range) {
-                /* Default to default range of 1..SYSTEM_UID_MAX */
-                r = uid_range_add(&uid_range, &n_uid_range, 1, SYSTEM_UID_MAX);
+                /* Default to default range of SYSTEMD_UID_MIN..SYSTEM_UID_MAX. */
+                UGIDAllocationRange defs;
+
+                r = read_login_defs(&defs, NULL, arg_root);
                 if (r < 0)
-                        return log_oom();
+                        return log_error_errno(r, "Failed to read %s%s: %m",
+                                               strempty(arg_root), "/etc/login.defs");
+
+                /* We pick a range that very conservative: we look at compiled-in maximum and the value in
+                 * /etc/login.defs. That way the uids/gids which we allocate will be interpreted correctly,
+                 * even if /etc/login.defs is removed later. (The bottom bound doesn't matter much, since
+                 * it's only used during allocation, so we use the configured value directly). */
+                uid_t begin = defs.system_alloc_uid_min,
+                      end = MIN3((uid_t) SYSTEM_UID_MAX, defs.system_uid_max, defs.system_gid_max);
+                if (begin < end) {
+                        r = uid_range_add(&uid_range, &n_uid_range, begin, end - begin + 1);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         r = add_implicit();

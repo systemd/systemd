@@ -1,2 +1,2 @@
 u1:x:300:u2
-u2:x:SYSTEM_UID_MAX:
+u2:x:SYSTEM_UGID_MAX:

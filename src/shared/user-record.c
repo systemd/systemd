@@ -37,21 +37,24 @@ static int parse_alloc_uid(const char *path, const char *name, const char *t, ui
         *ret_uid = uid;
         return 0;
 }
+#endif
 
-static int read_login_defs(UGIDAllocationRange *ret_defs, const char *path) {
-        _cleanup_fclose_ FILE *f = NULL;
+int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char *root) {
         UGIDAllocationRange defs = {
                 .system_alloc_uid_min = SYSTEM_ALLOC_UID_MIN,
                 .system_uid_max = SYSTEM_UID_MAX,
                 .system_alloc_gid_min = SYSTEM_ALLOC_GID_MIN,
                 .system_gid_max = SYSTEM_GID_MAX,
         };
+
+#if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         if (!path)
                 path = "/etc/login.defs";
 
-        r = fopen_unlocked(path, "re", &f);
+        r = chase_symlinks_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT, "re", &f, NULL);
         if (r == -ENOENT)
                 goto assign;
         if (r < 0)
@@ -88,11 +91,11 @@ static int read_login_defs(UGIDAllocationRange *ret_defs, const char *path) {
                 defs.system_alloc_gid_min = MIN(defs.system_gid_max - 1, (gid_t) SYSTEM_ALLOC_GID_MIN);
                 /* Look at sys_gid_max to make sure sys_gid_min..sys_gid_max remains a valid range. */
         }
+#endif
 
         *ret_defs = defs;
         return 0;
 }
-#endif
 
 const UGIDAllocationRange *acquire_ugid_allocation_range(void) {
 #if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
@@ -114,7 +117,7 @@ const UGIDAllocationRange *acquire_ugid_allocation_range(void) {
         static thread_local bool initialized = false;
 
         if (!initialized) {
-                (void) read_login_defs(&defs, NULL);
+                (void) read_login_defs(&defs, NULL, NULL);
                 initialized = true;
         }
 #endif
