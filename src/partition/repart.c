@@ -2995,33 +2995,6 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
         return 0;
 }
 
-static int device_kernel_partitions_supported(int fd) {
-        struct loop_info64 info;
-        struct stat st;
-
-        assert(fd >= 0);
-
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(fd, "Failed to fstat() image file: %m");
-        if (!S_ISBLK(st.st_mode))
-                return -ENOTBLK; /* we do not log in this one special case about errors */
-
-        if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
-
-                if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL)
-                        return true; /* not a loopback device, let's assume partition are supported */
-
-                return log_error_errno(fd, "Failed to issue LOOP_GET_STATUS64 on block device: %m");
-        }
-
-#if HAVE_VALGRIND_MEMCHECK_H
-        /* Valgrind currently doesn't know LOOP_GET_STATUS64. Remove this once it does */
-        VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
-#endif
-
-        return FLAGS_SET(info.lo_flags, LO_FLAGS_PARTSCAN);
-}
-
 static int context_mangle_partitions(Context *context) {
         Partition *p;
         int r;
@@ -3233,11 +3206,11 @@ static int context_write_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to write partition table: %m");
 
-        capable = device_kernel_partitions_supported(fdisk_get_devfd(context->fdisk_context));
+        capable = blockdev_partscan_enabled(fdisk_get_devfd(context->fdisk_context));
         if (capable == -ENOTBLK)
                 log_debug("Not telling kernel to reread partition table, since we are not operating on a block device.");
         else if (capable < 0)
-                return capable;
+                return log_error_errno(capable, "Failed to check if block device supports partition scanning: %m");
         else if (capable > 0) {
                 log_info("Telling kernel to reread partition table.");
 
