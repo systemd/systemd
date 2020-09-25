@@ -339,6 +339,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-user-record.c'],
+         [],
+         []],
+
         [['src/test/test-user-util.c'],
          [],
          []],
