@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "tomoyo-util.h"
+#include "user-record.h"
 #include "user-util.h"
 #include "virt.h"
 

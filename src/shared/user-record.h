@@ -17,6 +17,30 @@
 /* The default disk size to use when nothing else is specified, relative to free disk space */
 #define USER_DISK_SIZE_DEFAULT_PERCENT 85
 
+static inline bool uid_is_system(uid_t uid) {
+        return uid <= SYSTEM_UID_MAX;
+}
+
+static inline bool gid_is_system(gid_t gid) {
+        return gid <= SYSTEM_GID_MAX;
+}
+
+static inline bool uid_is_dynamic(uid_t uid) {
+        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
+}
+
+static inline bool gid_is_dynamic(gid_t gid) {
+        return uid_is_dynamic((uid_t) gid);
+}
+
+static inline bool uid_is_container(uid_t uid) {
+        return CONTAINER_UID_BASE_MIN <= uid && uid <= CONTAINER_UID_BASE_MAX;
+}
+
+static inline bool gid_is_container(gid_t gid) {
+        return uid_is_container((uid_t) gid);
+}
+
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
         USER_SYSTEM,      /* statically allocated users for system services */

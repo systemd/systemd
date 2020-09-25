@@ -46,6 +46,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps */

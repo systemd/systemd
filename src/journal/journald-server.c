@@ -55,6 +55,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 #define USER_JOURNALS_MAX 1024
