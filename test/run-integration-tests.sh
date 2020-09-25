@@ -7,7 +7,7 @@ if [ $# -gt 0 ]; then
 else
     args="setup run clean-again"
 fi
-args_no_clean=$(sed -r 's/(^| )clean($| )/ /g' <<<$args)
+args_no_clean=$(sed -r 's/\bclean\b//g' <<<$args)
 do_clean=$( [ "$args" = "$args_no_clean" ]; echo $? )
 
 ninja -C "$BUILD_DIR"
@@ -26,6 +26,8 @@ if [ $do_clean = 1 ]; then
     for TEST in TEST-??-* ; do
         ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean )
     done
+
+    [ -n "$args_no_clean" ] || exit 0
 fi
 
 pass_blacklist() {
