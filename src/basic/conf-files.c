@@ -284,6 +284,108 @@ int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, u
         return conf_files_list_strv_internal(strv, suffix, root, flags, d);
 }
 
+static int conf_files_list_insert_main(
+                char ***strv,
+                const char *root,
+                const char *conf_file,
+                const char* const* dirs) {
+
+        const char* const* lower_dirs = NULL;
+        const char* const* d;
+        char **files;
+        char **p;
+        size_t i;
+        int r = 0;
+
+        assert(conf_file);
+
+        /* conf_file should never be overriden by drop-ins located in dirs with
+         * a lower priority. Hence we insert the main config file but also
+         * rearrange strv to make sure that won't happen.
+         *
+         * Main is inserted to make sure that it will be parsed before any
+         * entries in the same dirs or in dirs with higher priority.
+         *
+         * strv is assumed to be sorted already given our usual sorting rules. */
+
+        root = strempty(root);
+
+        const size_t strv_len = strv_length(*strv);
+        const size_t root_len = strlen(root);
+
+        files = new(char*, strv_len + 2);
+        if (!files)
+                return log_oom();
+
+        /* Figure out where lower directories start */
+        STRV_FOREACH(d, dirs)
+                if (path_startswith(conf_file, *d)) {
+                        lower_dirs = ++d;
+                        break;
+                }
+
+        i = 0;
+        STRV_FOREACH(p, *strv)
+                STRV_FOREACH(d, lower_dirs)
+                        if (path_startswith(*p + root_len, *d)) {
+                                files[i++] = TAKE_PTR(*p);
+                                break;
+                        }
+
+        files[i] = path_join(root, conf_file);
+        if (!files[i++])
+                r = -ENOMEM;
+
+        for (size_t j = 0; j < strv_len; j++)
+                if ((*strv)[j])
+                        files[i++] = TAKE_PTR((*strv)[j]);
+
+        files[i] = NULL;
+        assert(i == strv_len + 1);
+
+        free(*strv);
+        *strv = files;
+
+        return r;
+}
+
+int conf_files_main_and_list_strv(
+                char ***strv,
+                const char *suffix,
+                const char *root,
+                unsigned flags,
+                const char *conf_file,
+                const char* const* dirs) {
+        int r;
+
+        r = conf_files_list_strv(strv, suffix, root, flags, dirs);
+        if (r < 0)
+                return r;
+
+        if (conf_file)
+                r = conf_files_list_insert_main(strv, root, conf_file, dirs);
+
+        return r;
+}
+
+int conf_files_main_and_list_nulstr(
+                char ***strv,
+                const char *suffix,
+                const char *root,
+                unsigned flags,
+                const char *conf_file,
+                const char *dirs_nulstr) {
+
+        _cleanup_strv_free_ char **dirs = NULL;
+
+        dirs = strv_split_nulstr(dirs_nulstr);
+        if (!dirs)
+                return -ENOMEM;
+
+        return conf_files_main_and_list_strv(strv, suffix, root, flags,
+                                             conf_file, (const char* const *) dirs);
+}
+
 int conf_files_list_with_replacement(
                 const char *root,
                 char **config_dirs,

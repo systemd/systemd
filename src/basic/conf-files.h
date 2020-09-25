@@ -21,3 +21,20 @@ int conf_files_list_with_replacement(
                 const char *replacement,
                 char ***files,
                 char **replace_file);
+
+
+int conf_files_main_and_list_nulstr(
+                char ***strv,
+                const char *suffix,
+                const char *root,
+                unsigned flags,
+                const char *conf_file,
+                const char *dirs);
+
+int conf_files_main_and_list_strv(
+                char ***strv,
+                const char *suffix,
+                const char *root,
+                unsigned flags,
+                const char *conf_file,
+                const char* const* dirs);

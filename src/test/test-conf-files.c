@@ -90,6 +90,120 @@ static void test_conf_files_list(bool use_root) {
         assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
 }
 
+static void test_conf_files_main_and_list(bool use_root) {
+        _cleanup_strv_free_ char **files = NULL;
+        const char* const* dirs;
+        const char *conf_file;
+        char *tmp_dir, *root_dir;
+
+        tmp_dir = strdupa("/tmp/test-conf-files-XXXXXX");
+        setup_test_dir(tmp_dir, NULL);
+
+        if (use_root) {
+                conf_file = "/dir2/00-main.conf";
+                root_dir = tmp_dir;
+                dirs = (const char* const*) STRV_MAKE("/dir1", "/dir2", "/dir3");
+        } else {
+                conf_file = strjoina(tmp_dir, "/dir2/00-main.conf");
+                root_dir = NULL;
+                dirs = (const char* const*) STRV_MAKE(strjoina(tmp_dir, "/dir1"),
+                                                      strjoina(tmp_dir, "/dir2"),
+                                                      strjoina(tmp_dir, "/dir3"));
+        }
+
+        assert_se(conf_files_main_and_list_strv(&files, ".conf", root_dir, 0, conf_file, dirs) == 0);
+        assert_se(strv_equal(files, STRV_MAKE(strjoina(tmp_dir, "/dir2/00-main.conf"))));
+
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+
+        /* ----------------------- */
+
+        tmp_dir = strdupa("/tmp/test-conf-files-XXXXXX");
+        setup_test_dir(tmp_dir,
+                       "/dir2/99-bla.conf",
+                       "/dir1/10-foo.conf",
+                       NULL);
+
+        if (use_root) {
+                conf_file = "/dir2/50-main.conf";
+                root_dir = tmp_dir;
+                dirs = (const char* const*) STRV_MAKE("/dir1", "/dir2", "/dir3");
+        } else {
+                conf_file = strjoina(tmp_dir, "/dir2/50-main.conf");
+                root_dir = NULL;
+                dirs = (const char* const*) STRV_MAKE(strjoina(tmp_dir, "/dir1"),
+                                                      strjoina(tmp_dir, "/dir2"),
+                                                      strjoina(tmp_dir, "/dir3"));
+        }
+
+        assert_se(conf_files_main_and_list_strv(&files, ".conf", root_dir, 0, conf_file, dirs) == 0);
+        assert_se(strv_equal(files, STRV_MAKE(strjoina(tmp_dir, "/dir2/50-main.conf"),
+                                              strjoina(tmp_dir, "/dir1/10-foo.conf"),
+                                              strjoina(tmp_dir, "/dir2/99-bla.conf"))));
+
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+
+        /* ----------------------- */
+
+        tmp_dir = strdupa("/tmp/test-conf-files-XXXXXX");
+        setup_test_dir(tmp_dir,
+                       "/dir3/00-bla.conf",
+                       "/dir3/99-xxx.conf",
+                       NULL);
+
+        if (use_root) {
+                conf_file = "/dir2/50-main.conf";
+                root_dir = tmp_dir;
+                dirs = (const char* const*) STRV_MAKE("/dir1", "/dir2", "/dir3");
+        } else {
+                conf_file = strjoina(tmp_dir, "/dir2/50-main.conf");
+                root_dir = NULL;
+                dirs = (const char* const*) STRV_MAKE(strjoina(tmp_dir, "/dir1"),
+                                                      strjoina(tmp_dir, "/dir2"),
+                                                      strjoina(tmp_dir, "/dir3"));
+        }
+
+        assert_se(conf_files_main_and_list_strv(&files, ".conf", root_dir, 0, conf_file, dirs) == 0);
+        assert_se(strv_equal(files, STRV_MAKE(strjoina(tmp_dir, "/dir3/00-bla.conf"),
+                                              strjoina(tmp_dir, "/dir3/99-xxx.conf"),
+                                              strjoina(tmp_dir, "/dir2/50-main.conf"))));
+
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+
+        /* ----------------------- */
+
+        tmp_dir = strdupa("/tmp/test-conf-files-XXXXXX");
+        setup_test_dir(tmp_dir,
+                       "/dir1/10-foo.conf",
+                       "/dir2/00-bla.conf",
+                       "/dir2/80-bar.conf",
+                       "/dir3/20-bla.conf",
+                       "/dir3/10-foo.conf",
+                       NULL);
+
+        if (use_root) {
+                conf_file = "/dir2/00-main.conf";
+                root_dir = tmp_dir;
+                dirs = (const char* const*) STRV_MAKE("/dir1", "/dir2", "/dir3");
+        } else {
+                conf_file = strjoina(tmp_dir, "/dir2/00-main.conf");
+                root_dir = NULL;
+                dirs = (const char* const*) STRV_MAKE(strjoina(tmp_dir, "/dir1"),
+                                                      strjoina(tmp_dir, "/dir2"),
+                                                      strjoina(tmp_dir, "/dir3"));
+        }
+
+        assert_se(conf_files_main_and_list_strv(&files, ".conf", root_dir, 0, conf_file, dirs) == 0);
+        assert_se(strv_equal(files, STRV_MAKE(strjoina(tmp_dir, "/dir3/20-bla.conf"),
+                                              strjoina(tmp_dir, "/dir2/00-main.conf"),
+                                              strjoina(tmp_dir, "/dir2/00-bla.conf"),
+                                              strjoina(tmp_dir, "/dir1/10-foo.conf"),
+                                              strjoina(tmp_dir, "/dir2/80-bar.conf"))));
+
+        assert_se(rm_rf(tmp_dir, REMOVE_ROOT|REMOVE_PHYSICAL) == 0);
+}
+
+
 static void test_conf_files_insert(const char *root) {
         _cleanup_strv_free_ char **s = NULL;
 
@@ -149,6 +263,8 @@ int main(int argc, char **argv) {
 
         test_conf_files_list(false);
         test_conf_files_list(true);
+        test_conf_files_main_and_list(false);
+        test_conf_files_main_and_list(true);
         test_conf_files_insert(NULL);
         test_conf_files_insert("/root");
         test_conf_files_insert("/root/");

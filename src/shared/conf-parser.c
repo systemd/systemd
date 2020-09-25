@@ -420,7 +420,6 @@ int config_parse(const char *unit,
 }
 
 static int config_parse_many_files(
-                const char *conf_file,
                 char **files,
                 const char *sections,
                 ConfigItemLookup lookup,
@@ -432,12 +431,6 @@ static int config_parse_many_files(
         usec_t mtime = 0;
         char **fn;
         int r;
-
-        if (conf_file) {
-                r = config_parse(NULL, conf_file, NULL, sections, lookup, table, flags, userdata, &mtime);
-                if (r < 0)
-                        return r;
-        }
 
         STRV_FOREACH(fn, files) {
                 usec_t t;
@@ -469,11 +462,11 @@ int config_parse_many_nulstr(
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
-        r = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
+        r = conf_files_main_and_list_nulstr(&files, ".conf", NULL, 0, conf_file, conf_file_dirs);
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata, ret_mtime);
+        return config_parse_many_files(files, sections, lookup, table, flags, userdata, ret_mtime);
 }
 
 /* Parse each config file in the directories specified as strv. */
@@ -498,11 +491,12 @@ int config_parse_many(
         if (r < 0)
                 return r;
 
-        r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char* const*) dropin_dirs);
+        r = conf_files_main_and_list_strv(&files, ".conf", NULL, 0,
+                                          conf_file, (const char* const*) dropin_dirs);
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata, ret_mtime);
+        return config_parse_many_files(files, sections, lookup, table, flags, userdata, ret_mtime);
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
