@@ -626,7 +626,7 @@ msgstr "管理本地的虚拟机和容器镜像需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
-msgstr ""
+msgstr "设置 NTP 服务器"
 
 #: src/network/org.freedesktop.network1.policy:23
 #, fuzzy
@@ -649,7 +649,7 @@ msgstr "设置系统时间需要认证。"
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr ""
+msgstr "设置域名"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
@@ -661,7 +661,7 @@ msgstr "停止“$(unit)”需要认证。"
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr ""
+msgstr "设置默认路由"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
