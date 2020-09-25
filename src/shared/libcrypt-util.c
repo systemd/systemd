@@ -31,7 +31,7 @@
 
 int make_salt(char **ret) {
 
-#if HAVE_CRYPT_GENSALT_RA
+#if ((HAVE_CRYPT_GENSALT_RA) && (HAVE_CRYPT_PREFERRED_METHOD))
         const char *e;
         char *salt;
 
