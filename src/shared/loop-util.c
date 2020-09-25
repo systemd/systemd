@@ -176,7 +176,7 @@ int loop_device_make(
                 .fd = fd,
                 .info = {
                         /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
-                        .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((loop_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
+                        .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((open_flags & O_ACCMODE) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
                         .lo_offset = offset,
                         .lo_sizelimit = size == UINT64_MAX ? 0 : size,
                 },
@@ -198,7 +198,7 @@ int loop_device_make(
                 if (loop < 0) {
                         /* Somebody might've gotten the same number from the kernel, used the device,
                          * and called LOOP_CTL_REMOVE on it. Let's retry with a new number. */
-                        if (errno != ENOENT)
+                        if (!IN_SET(errno, ENOENT, ENXIO))
                                 return -errno;
                 } else {
                         r = loop_configure(loop, &config);
