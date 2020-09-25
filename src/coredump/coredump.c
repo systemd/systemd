@@ -683,7 +683,7 @@ static int change_uid_gid(const Context *context) {
         if (r < 0)
                 return r;
 
-        if (uid <= SYSTEM_UID_MAX) {
+        if (uid_is_system(uid)) {
                 const char *user = "systemd-coredump";
 
                 r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
