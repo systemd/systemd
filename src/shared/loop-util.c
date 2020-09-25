@@ -13,8 +13,11 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -24,6 +27,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tmpfile-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
         if (*fd < 0)
@@ -33,17 +37,133 @@ static void cleanup_clear_loop_close(int *fd) {
         (void) safe_close(*fd);
 }
 
+static int loop_is_bound(int fd) {
+        struct loop_info64 info;
+
+        assert(fd >= 0);
+
+        if (ioctl(fd, LOOP_GET_STATUS64, &info) < 0) {
+                if (errno == ENXIO)
+                        return false; /* not bound! */
+
+                return -errno;
+        }
+
+        return true; /* bound! */
+}
+
+static int device_has_block_children(sd_device *d) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        const char *main_sn, *main_ss;
+        sd_device *q;
+        int r;
+
+        assert(d);
+
+        /* Checks if the specified device currently has block device children (i.e. partition block
+         * devices). */
+
+        r = sd_device_get_sysname(d, &main_sn);
+        if (r < 0)
+                return r;
+
+        r = sd_device_get_subsystem(d, &main_ss);
+        if (r < 0)
+                return r;
+
+        if (!streq(main_ss, "block"))
+                return -EINVAL;
+
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_allow_uninitialized(e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_parent(e, d);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, q) {
+                const char *ss, *sn;
+
+                r = sd_device_get_subsystem(q, &ss);
+                if (r < 0)
+                        continue;
+
+                if (!streq(ss, "block"))
+                        continue;
+
+                r = sd_device_get_sysname(q, &sn);
+                if (r < 0)
+                        continue;
+
+                if (streq(sn, main_sn))
+                        continue;
+
+                return 1; /* we have block device children */
+        }
+
+        return 0;
+}
+
 static int loop_configure(
                 int fd,
+                int nr,
                 const struct loop_config *c,
                 bool *try_loop_configure) {
 
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_free_ char *sysname = NULL;
         _cleanup_close_ int lock_fd = -1;
         int r;
 
         assert(fd >= 0);
+        assert(nr >= 0);
         assert(c);
         assert(try_loop_configure);
+
+        if (asprintf(&sysname, "loop%i", nr) < 0)
+                return -ENOMEM;
+
+        r = sd_device_new_from_subsystem_sysname(&d, "block", sysname);
+        if (r < 0)
+                return r;
+
+        /* Let's lock the device before we do anything. We take the BSD lock on a second, separately opened
+         * fd for the device. udev after all watches for close() events (specifically IN_CLOSE_WRITE) on
+         * block devices to reprobe them, hence by having a separate fd we will later close() we can ensure
+         * we trigger udev after everything is done. If we'd lock our own fd instead and keep it open for a
+         * long time udev would possibly never run on it again, even though the fd is unlocked, simply
+         * because we never close() it. It also has the nice benefit we can use the _cleanup_close_ logic to
+         * automatically release the lock, after we are done. */
+        lock_fd = fd_reopen(fd, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (lock_fd < 0)
+                return lock_fd;
+        if (flock(lock_fd, LOCK_EX) < 0)
+                return -errno;
+
+        /* Let's see if the device is really detached, i.e. currently has no associated partition block
+         * devices. On various kernels (such as 5.8) it is possible to have a loopback block device that
+         * superficially is detached but still has partition block devices associated for it. They only go
+         * away when the device is reattached. (Yes, LOOP_CLR_FD doesn't work then, because officially
+         * nothing is attached and LOOP_CTL_REMOVE doesn't either, since it doesn't care about partition
+         * block devices. */
+        r = device_has_block_children(d);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = loop_is_bound(fd);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return -EBUSY;
+
+                return -EUCLEAN; /* Bound but children? Tell caller to reattach something so that the
+                                  * partition block devices are gone too. */
+        }
 
         if (*try_loop_configure) {
                 if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
@@ -115,21 +235,7 @@ static int loop_configure(
          * time where we attach the fd and where we reconfigure the device. Secondly, let's wait 50ms on
          * EAGAIN and retry. The former should be an efficient mechanism to avoid we have to wait 50ms
          * needlessly if we are just racing against udev. The latter is protection against all other cases,
-         * i.e. peers that do not take the BSD lock.
-         *
-         * We take the BSD lock on a second, separately opened fd for the device. udev after all watches for
-         * close() events (specifically IN_CLOSE_WRITE) on block devices to reprobe them, hence by having a
-         * separate fd we will later close() we can ensure we trigger udev after everything is done. If we'd
-         * lock our own fd instead and keep it open for a long time udev would possibly never run on it
-         * again, even though the fd is unlocked, simply because we never close() it. It also has the nice
-         * benefit we can use the _cleanup_close_ logic to automatically release the lock, after we are
-         * done. */
-        lock_fd = fd_reopen(fd, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (lock_fd < 0)
-                return lock_fd;
-
-        if (flock(lock_fd, LOCK_EX) < 0)
-                return -errno;
+         * i.e. peers that do not take the BSD lock. */
 
         if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
                 return -errno;
@@ -150,6 +256,44 @@ static int loop_configure(
 fail:
         (void) ioctl(fd, LOOP_CLR_FD);
         return r;
+}
+
+static int attach_empty_file(int loop, int nr) {
+        _cleanup_close_ int fd = -1;
+
+        /* So here's the thing: on various kernels (5.8 at least) loop block devices might enter a state
+         * where they are detached but nonetheless have partitions, when used heavily. Accessing these
+         * partitions results in immediatey IO errors. There's no pretty way to get rid of them
+         * again. Neither LOOP_CLR_FD nor LOOP_CTL_REMOVE suffice (see above). What does work is to
+         * reassociate them with a new fd however. This is what we do here hence: we associate the devices
+         * with an empty file (i.e. an image that definitely has no partitons). We then immediately clear it
+         * again. This suffices to make the partitions go away. Ugly but appears to work. */
+
+        log_debug("Found unattached loopback block device /dev/loop%i with partitions. Attaching empty file to remove them.", nr);
+
+        fd = open_tmpfile_unlinkable(NULL, O_RDONLY);
+        if (fd < 0)
+                return fd;
+
+        if (flock(loop, LOCK_EX) < 0)
+                return -errno;
+
+        if (ioctl(loop, LOOP_SET_FD, fd) < 0)
+                return -errno;
+
+        if (ioctl(loop, LOOP_SET_STATUS64, &(struct loop_info64) {
+                                .lo_flags = LO_FLAGS_READ_ONLY|
+                                            LO_FLAGS_AUTOCLEAR|
+                                            LO_FLAGS_PARTSCAN, /* enable partscan, so that the partitions really go away */
+                        }) < 0)
+                return -errno;
+
+        if (ioctl(loop, LOOP_CLR_FD) < 0)
+                return -errno;
+
+        /* The caller is expected to immediately close the loopback device after this, so that the BSD lock
+         * is released, and udev sees the changes. */
+        return 0;
 }
 
 int loop_device_make(
@@ -252,12 +396,17 @@ int loop_device_make(
                         if (!IN_SET(errno, ENOENT, ENXIO))
                                 return -errno;
                 } else {
-                        r = loop_configure(loop, &config, &try_loop_configure);
+                        r = loop_configure(loop, nr, &config, &try_loop_configure);
                         if (r >= 0) {
                                 loop_with_fd = TAKE_FD(loop);
                                 break;
                         }
-                        if (r != -EBUSY)
+                        if (r == -EUCLEAN) {
+                                /* Make left-over partition disappear hack (see above) */
+                                r = attach_empty_file(loop, nr);
+                                if (r < 0 && r != -EBUSY)
+                                        return r;
+                        } else if (r != -EBUSY)
                                 return r;
                 }
 
