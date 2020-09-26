@@ -299,6 +299,7 @@ substs.set('CERTIFICATEROOT',                                 get_option('certif
 substs.set('RANDOM_SEED',                                     join_paths(randomseeddir, 'random-seed'))
 substs.set('SYSTEM_SYSVINIT_PATH',                            sysvinit_path)
 substs.set('SYSTEM_SYSVRCND_PATH',                            sysvrcnd_path)
+substs.set('SYSTEMD_TEST_DATA',                               join_paths(testsdir, 'testdata'))
 substs.set('RC_LOCAL_PATH',                                   get_option('rc-local'))
 substs.set('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default ? 'yes' : 'no')
 substs.set('STATUS_UNIT_FORMAT_DEFAULT',                      status_unit_format_default)
@@ -1467,6 +1468,8 @@ foreach term : ['analyze',
         name = 'ENABLE_' + term.underscorify().to_upper()
         conf.set10(name, have)
 endforeach
+
+enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
@@ -2962,8 +2965,8 @@ public_programs += executable(
         install_rpath : rootlibexecdir,
         install : true)
 
-if conf.get('ENABLE_SYSUSERS') == 1
-        public_programs += executable(
+if enable_sysusers
+        exe = executable(
                 'systemd-sysusers',
                 'src/sysusers/sysusers.c',
                 include_directories : includes,
@@ -2971,9 +2974,17 @@ if conf.get('ENABLE_SYSUSERS') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
+        public_programs += exe
+
+        if want_tests != 'false'
+                test('test-sysusers',
+                     test_sysusers_sh,
+                     # https://github.com/mesonbuild/meson/issues/2681
+                     args : exe.full_path())
+        endif
 
         if have_standalone_binaries
-                public_programs += executable(
+                exe = executable(
                         'systemd-sysusers.standalone',
                         'src/sysusers/sysusers.c',
                         include_directories : includes,
@@ -2984,6 +2995,14 @@ if conf.get('ENABLE_SYSUSERS') == 1
                                      libjournal_client],
                         install : true,
                         install_dir : rootbindir)
+                public_programs += exe
+
+                if want_tests != 'false'
+                        test('test-sysusers.standalone',
+                             test_sysusers_sh,
+                             # https://github.com/mesonbuild/meson/issues/2681
+                             args : exe.full_path())
+                endif
         endif
 endif
 
