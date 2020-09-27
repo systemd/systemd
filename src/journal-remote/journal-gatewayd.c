@@ -58,9 +58,6 @@ typedef struct RequestMeta {
 
         bool follow;
         bool discrete;
-
-        uint64_t n_fields;
-        bool n_fields_set;
 } RequestMeta;
 
 static const char* const mime_types[_OUTPUT_MODE_MAX] = {
@@ -554,10 +551,6 @@ static ssize_t request_reader_fields(
                 /* End of this field, so let's serialize the next
                  * one */
 
-                if (m->n_fields_set &&
-                    m->n_fields <= 0)
-                        return MHD_CONTENT_READER_END_OF_STREAM;
-
                 r = sd_journal_enumerate_unique(m->journal, &d, &l);
                 if (r < 0) {
                         log_error_errno(r, "Failed to advance field index: %m");
@@ -567,9 +560,6 @@ static ssize_t request_reader_fields(
 
                 pos -= m->size;
                 m->delta += m->size;
-
-                if (m->n_fields_set)
-                        m->n_fields -= 1;
 
                 r = request_meta_ensure_tmp(m);
                 if (r < 0) {
