@@ -41,7 +41,7 @@ compare() {
 rm -f $TESTDIR/etc/sysusers.d/* $TESTDIR/usr/lib/sysusers.d/*
 
 # happy tests
-for f in $SOURCE/test-*.input; do
+for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
     echo "*** Running $f"
     prepare_testdir ${f%.input}
     cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
@@ -50,7 +50,7 @@ for f in $SOURCE/test-*.input; do
     compare $f ""
 done
 
-for f in $SOURCE/test-*.input; do
+for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
     echo "*** Running $f on stdin"
     prepare_testdir ${f%.input}
     touch $TESTDIR/etc/sysusers.d/test.conf
@@ -59,7 +59,7 @@ for f in $SOURCE/test-*.input; do
     compare $f "on stdin"
 done
 
-for f in $SOURCE/test-*.input; do
+for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
     echo "*** Running $f on stdin with --replace"
     prepare_testdir ${f%.input}
     touch $TESTDIR/etc/sysusers.d/test.conf
@@ -98,7 +98,7 @@ compare $SOURCE/inline "(--inline --replace=…)"
 rm -f $TESTDIR/etc/sysusers.d/* $TESTDIR/usr/lib/sysusers.d/*
 
 # tests for error conditions
-for f in $SOURCE/unhappy-*.input; do
+for f in $(ls -1 $SOURCE/unhappy-*.input | sort -V); do
     echo "*** Running test $f"
     prepare_testdir ${f%.input}
     cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
