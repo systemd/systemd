@@ -216,13 +216,6 @@ int start_upload(Uploader *u,
                                 LOG_ERR, return -EXFULL);
                 }
 
-                if (arg_curl_timeout_secs > 0) {
-                        easy_setopt(curl, CURLOPT_TIMEOUT, arg_curl_timeout_secs,
-                                    LOG_ERR, return -EXFULL);
-                        log_info("Added a CURLOPT_TIMEOUT of %ld seconds",
-                                 arg_curl_timeout_secs);
-                }
-
                 /* tell it to POST to the URL */
                 easy_setopt(curl, CURLOPT_POST, 1L,
                             LOG_ERR, return -EXFULL);
