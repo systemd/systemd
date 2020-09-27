@@ -541,6 +541,18 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[sS][pP][eE][cC][tT][rR][eE]*x360Convert
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPSpectrex360Convertible13*:pvr*
  KEYBOARD_KEY_82=f20                                    # Fn+F12; Microphone mute button, should be micmute
 
+# HP Elite x2 1013 G3
+evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
+  KEYBOARD_KEY_f8=unknown                               # rfkill is also reported by HP Wireless hotkeys
+  KEYBOARD_KEY_64=calendar
+  KEYBOARD_KEY_81=f20                                   # Microphone mute button
+  KEYBOARD_KEY_ee=switchvideomode                       # Switch display outputs
+  KEYBOARD_KEY_92=brightnessdown
+  KEYBOARD_KEY_97=brightnessup
+
+evdev:name:Intel HID events:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
+  KEYBOARD_KEY_08=unknown                               # rfkill is also reported by HP Wireless hotkeys
+
 # Elitebook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Compaq*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*EliteBook*:pvr*
