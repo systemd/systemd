@@ -748,26 +748,26 @@ static void test_config_parse_pass_environ(void) {
         _cleanup_strv_free_ char **passenv = NULL;
 
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
-                              "PassEnvironment", 0, "A B",
-                              &passenv, NULL);
+                                      "PassEnvironment", 0, "A B",
+                                      &passenv, NULL);
         assert_se(r >= 0);
         assert_se(strv_length(passenv) == 2);
         assert_se(streq(passenv[0], "A"));
         assert_se(streq(passenv[1], "B"));
 
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
-                              "PassEnvironment", 0, "",
-                              &passenv, NULL);
+                                      "PassEnvironment", 0, "",
+                                      &passenv, NULL);
         assert_se(r >= 0);
         assert_se(strv_isempty(passenv));
 
         r = config_parse_pass_environ(NULL, "fake", 1, "section", 1,
-                              "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 \\",
-                              &passenv, NULL);
+                                      "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 'special_name$$' \\",
+                                      &passenv, NULL);
         assert_se(r >= 0);
-        assert_se(strv_length(passenv) == 1);
+        assert_se(strv_length(passenv) == 2);
         assert_se(streq(passenv[0], "normal_name"));
-
+        assert_se(streq(passenv[1], "special_name$$"));
 }
 
 static void test_unit_dump_config_items(void) {
