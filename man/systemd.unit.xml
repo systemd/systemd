@@ -59,12 +59,14 @@
 <filename>$XDG_RUNTIME_DIR/systemd/user.control/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/transient/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/generator.early/*</filename>
-<filename>~/.config/systemd/user/*</filename>
+<filename>$XDG_CONFIG_HOME/systemd/user/*</filename>
+<filename>$XDG_CONFIG_DIRS/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/generator/*</filename>
-<filename>~/.local/share/systemd/user/*</filename>
+<filename>$XDG_DATA_HOME/systemd/user/*</filename>
+<filename>$XDG_DATA_DIRS/systemd/user/*</filename>
 <filename index='false'>…</filename>
 <filename>/usr/lib/systemd/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/generator.late/*</filename></literallayout></para>
@@ -438,6 +440,10 @@
             <entry>User configuration (<varname>$XDG_CONFIG_HOME</varname> is used if set, <filename>~/.config</filename> otherwise)</entry>
           </row>
           <row>
+            <entry><filename>$XDG_CONFIG_DIRS/systemd/user</filename> or <filename>/etc/xdg/systemd/user</filename></entry>
+            <entry>Additional configuration directories as specified by the XDG base directory specification (<varname>$XDG_CONFIG_DIRS</varname> is used if set, <filename>/etc/xdg</filename> otherwise)</entry>
+          </row>
+          <row>
             <entry><filename>/etc/systemd/user</filename></entry>
             <entry>User units created by the administrator</entry>
           </row>
@@ -457,6 +463,10 @@
           <row>
             <entry><filename>$XDG_DATA_HOME/systemd/user</filename> or <filename>$HOME/.local/share/systemd/user</filename></entry>
             <entry>Units of packages that have been installed in the home directory (<varname>$XDG_DATA_HOME</varname> is used if set, <filename>~/.local/share</filename> otherwise)</entry>
+          </row>
+          <row>
+            <entry><filename>$XDG_DATA_DIRS/systemd/user</filename> or <filename>/usr/local/share/systemd/user</filename> and <filename>/usr/share/systemd/user</filename></entry>
+            <entry>Additional data directories as specified by the XDG base directory specification (<varname>$XDG_DATA_DIRS</varname> is used if set, <filename>/usr/local/share</filename> and <filename>/usr/share</filename> otherwise)</entry>
           </row>
           <row>
             <entry><filename>$dir/systemd/user</filename> for each <varname index="false">$dir</varname> in <varname>$XDG_DATA_DIRS</varname></entry>

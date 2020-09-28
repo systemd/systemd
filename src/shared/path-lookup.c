@@ -185,10 +185,10 @@ static char** user_dirs(
         if (strv_extend(&res, generator_early) < 0)
                 return NULL;
 
-        if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
+        if (strv_extend(&res, persistent_config) < 0)
                 return NULL;
 
-        if (strv_extend(&res, persistent_config) < 0)
+        if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
                 return NULL;
 
         /* global config has lower priority than the user config of the same type */
