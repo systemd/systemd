@@ -20,6 +20,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* export action of device object on sd-device, so that monitor becomes useful
+
 * add root=tmpfs that mounts a tmpfs to /sysroot (to be used in combination
   with usr=…, for a similar effect as systemd.volatile=yes but without the
   "hide-out" effect). Also, add root=gpt-auto-late support or so, that is like
