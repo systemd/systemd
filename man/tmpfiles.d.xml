@@ -91,7 +91,7 @@ A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX
     directories during boot and to do periodic cleanup afterwards. See
     <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     the description of <filename>systemd-tmpfiles-setup.service</filename>,
-    <filename>systemd-tmpfiles-cleanup.service</filename>, and associated units.</para>
+    <filename>systemd-tmpfiles-clean.service</filename>, and associated units.</para>
 
     <para>System daemons frequently require private runtime directories below <filename>/run</filename> to
     store communication sockets and similar. For these, it is better to use
