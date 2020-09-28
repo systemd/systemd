@@ -6359,6 +6359,12 @@ static int set_environment(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static void invalid_callback(const char *p, void *userdata) {
+        _cleanup_free_ char *t = cescape(p);
+
+        log_debug("Ignoring invalid environment assignment \"%s\".", strnull(t));
+}
+
 static int import_environment(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -6375,9 +6381,18 @@ static int import_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        if (argc < 2)
-                r = sd_bus_message_append_strv(m, environ);
-        else {
+        if (argc < 2) {
+                _cleanup_strv_free_ char **copy = NULL;
+
+                copy = strv_copy(environ);
+                if (!copy)
+                        return log_oom();
+
+                strv_env_clean_with_callback(copy, invalid_callback, NULL);
+
+                r = sd_bus_message_append_strv(m, copy);
+
+        } else {
                 char **a, **b;
 
                 r = sd_bus_message_open_container(m, 'a', "s");
