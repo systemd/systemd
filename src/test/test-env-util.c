@@ -10,6 +10,8 @@
 #include "util.h"
 
 static void test_strv_env_delete(void) {
+        log_info("/* %s */", __func__);
+
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
 
         a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF");
@@ -30,9 +32,9 @@ static void test_strv_env_delete(void) {
 }
 
 static void test_strv_env_get(void) {
-        char **l;
+        log_info("/* %s */", __func__);
 
-        l = STRV_MAKE("ONE_OR_TWO=1", "THREE=3", "ONE_OR_TWO=2", "FOUR=4");
+        char **l = STRV_MAKE("ONE_OR_TWO=1", "THREE=3", "ONE_OR_TWO=2", "FOUR=4");
 
         assert_se(streq(strv_env_get(l, "ONE_OR_TWO"), "2"));
         assert_se(streq(strv_env_get(l, "THREE"), "3"));
@@ -40,6 +42,8 @@ static void test_strv_env_get(void) {
 }
 
 static void test_strv_env_unset(void) {
+        log_info("/* %s */", __func__);
+
         _cleanup_strv_free_ char **l = NULL;
 
         l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES");
@@ -53,6 +57,8 @@ static void test_strv_env_unset(void) {
 }
 
 static void test_strv_env_set(void) {
+        log_info("/* %s */", __func__);
+
         _cleanup_strv_free_ char **l = NULL, **r = NULL;
 
         l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES");
@@ -69,6 +75,8 @@ static void test_strv_env_set(void) {
 }
 
 static void test_strv_env_merge(void) {
+        log_info("/* %s */", __func__);
+
         _cleanup_strv_free_ char **a = NULL, **b = NULL, **r = NULL;
 
         a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF");
@@ -97,6 +105,8 @@ static void test_strv_env_merge(void) {
 }
 
 static void test_env_strv_get_n(void) {
+        log_info("/* %s */", __func__);
+
         const char *_env[] = {
                 "FOO=NO NO NO",
                 "FOO=BAR BAR",
@@ -127,6 +137,8 @@ static void test_env_strv_get_n(void) {
 }
 
 static void test_replace_env(bool braceless) {
+        log_info("/* %s(braceless=%s) */", __func__, yes_no(braceless));
+
         const char *env[] = {
                 "FOO=BAR BAR",
                 "BAR=waldo",
@@ -152,6 +164,8 @@ static void test_replace_env(bool braceless) {
 }
 
 static void test_replace_env2(bool extended) {
+        log_info("/* %s(extended=%s) */", __func__, yes_no(extended));
+
         const char *env[] = {
                 "FOO=foo",
                 "BAR=bar",
@@ -180,6 +194,8 @@ static void test_replace_env2(bool extended) {
 }
 
 static void test_replace_env_argv(void) {
+        log_info("/* %s */", __func__);
+
         const char *env[] = {
                 "FOO=BAR BAR",
                 "BAR=waldo",
@@ -230,24 +246,24 @@ static void test_replace_env_argv(void) {
 }
 
 static void test_env_clean(void) {
-        _cleanup_strv_free_ char **e;
+        log_info("/* %s */", __func__);
 
-        e = strv_new("FOOBAR=WALDO",
-                     "FOOBAR=WALDO",
-                     "FOOBAR",
-                     "F",
-                     "X=",
-                     "F=F",
-                     "=",
-                     "=F",
-                     "",
-                     "0000=000",
-                     "äöüß=abcd",
-                     "abcd=äöüß",
-                     "xyz\n=xyz",
-                     "xyz=xyz\n",
-                     "another=one",
-                     "another=final one");
+        _cleanup_strv_free_ char **e = strv_new("FOOBAR=WALDO",
+                                                "FOOBAR=WALDO",
+                                                "FOOBAR",
+                                                "F",
+                                                "X=",
+                                                "F=F",
+                                                "=",
+                                                "=F",
+                                                "",
+                                                "0000=000",
+                                                "äöüß=abcd",
+                                                "abcd=äöüß",
+                                                "xyz\n=xyz",
+                                                "xyz=xyz\n",
+                                                "another=one",
+                                                "another=final one");
         assert_se(e);
         assert_se(!strv_env_is_valid(e));
         assert_se(strv_env_clean(e) == e);
@@ -263,6 +279,8 @@ static void test_env_clean(void) {
 }
 
 static void test_env_name_is_valid(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(env_name_is_valid("test"));
 
         assert_se(!env_name_is_valid(NULL));
@@ -275,6 +293,8 @@ static void test_env_name_is_valid(void) {
 }
 
 static void test_env_value_is_valid(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(env_value_is_valid(""));
         assert_se(env_value_is_valid("głąb kapuściany"));
         assert_se(env_value_is_valid("printf \"\\x1b]0;<mock-chroot>\\x07<mock-chroot>\""));
@@ -283,6 +303,8 @@ static void test_env_value_is_valid(void) {
 }
 
 static void test_env_assignment_is_valid(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(env_assignment_is_valid("a="));
         assert_se(env_assignment_is_valid("b=głąb kapuściany"));
         assert_se(env_assignment_is_valid("c=\\007\\009\\011"));
