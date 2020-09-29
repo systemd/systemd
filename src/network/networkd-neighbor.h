@@ -49,6 +49,8 @@ int neighbor_section_verify(Neighbor *neighbor);
 
 int link_set_neighbors(Link *link);
 
+int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_lladdr);
