@@ -1861,8 +1861,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>RequestOptions=</varname></term>
           <listitem>
-            <para>When configured, allows to set arbitrary request options in the DHCPv6 request options list and will
-            sent to the DHCPV6 server. A whitespace-separated list of integers in the range 1..254. Defaults to unset.</para>
+            <para>When configured, allows to set arbitrary request options in the DHCPv6 request options list
+            that will be sent to the DHCPV6 server. A whitespace-separated list of integers in the range
+            1..254. Defaults to unset.</para>
           </listitem>
         </varlistentry>
 
@@ -2053,8 +2054,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>UseOnLinkPrefix=</varname></term>
           <listitem>
-            <para>When true (the default), the onlink prefix received in the Router Advertisement will be used and take
-            precedence over any statically configured ones.</para>
+            <para>When true (the default), the onlink prefix received in the Router Advertisement will be
+            used and takes precedence over any statically configured ones.</para>
           </listitem>
         </varlistentry>
 
@@ -2566,7 +2567,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
   <refsect1>
     <title>[LLDP] Section Options</title>
       <para>The [LLDP] section manages the Link Layer Discovery Protocol (LLDP) and accepts the following
-      keys.</para>
+      keys:</para>
       <variablelist class='network-directives'>
         <varlistentry>
           <term><varname>MUDURL=</varname></term>
@@ -2893,11 +2894,11 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>LimitBytes=</varname></term>
         <listitem>
-          <para>Specifies the hard limit on the FIFO size in bytes. The size limit (a buffer size) to prevent
-          it from overflowing in case it is unable to dequeue packets as quickly as it receives them. When
-          this limit is reached, incoming packets are dropped. When suffixed with K, M, or G, the specified
-          size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults
-          to unset and kernel's default is used.</para>
+          <para>Specifies the hard limit in bytes on the FIFO buffer size. The size limit prevents overflow
+          in case the kernel is unable to dequeue packets as quickly as it receives them. When this limit is
+          reached, incoming packets are dropped. When suffixed with K, M, or G, the specified size is parsed
+          as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to unset and
+          kernel default is used.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3104,13 +3105,12 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>PriorityMap=</varname></term>
         <listitem>
-          <para>The priority map maps the priority of a packet to a band. The argument is a white-space
-          separated list of numbers. The first number indicates which band the packets with priority
-          0 should be put to, the second is for priority 1, and so on. There can be up to 16 numbers in
-          the list. If there are fewer, the default band that traffic with one of the unmentioned
-          priorities goes to is the last one. Each band number must be 0..255. This setting can be
-          specified multiple times. If an empty string is assigned, then the all previous assignments
-          are cleared.</para>
+          <para>The priority map maps the priority of a packet to a band. The argument is a whitespace
+          separated list of numbers. The first number indicates which band the packets with priority 0 should
+          be put to, the second is for priority 1, and so on. There can be up to 16 numbers in the list. If
+          there are fewer, the default band that traffic with one of the unmentioned priorities goes to is
+          the last one. Each band number must be in the range 0..255. This setting can be specified multiple
+          times. If an empty string is assigned, then the all previous assignments are cleared.</para>
         </listitem>
       </varlistentry>
     </variablelist>

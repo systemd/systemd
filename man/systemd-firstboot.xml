@@ -211,8 +211,8 @@
       <varlistentry>
         <term><option>--prompt</option></term>
 
-        <listitem><para>Query the user for locale, keymap, timezone, hostname
-        and root password. This is equivalent to specifying
+        <listitem><para>Query the user for locale, keymap, timezone, hostname,
+        root's password, and root's shell. This is equivalent to specifying
         <option>--prompt-locale</option>,
         <option>--prompt-keymap</option>,
         <option>--prompt-timezone</option>,

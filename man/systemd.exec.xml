@@ -231,13 +231,14 @@
       <varlistentry>
         <term><varname>RootHashSignature=</varname></term>
 
-        <listitem><para>Takes a PKCS7 formatted binary signature of the <varname>RootHash=</varname> option as a path
-        to a DER encoded signature file or as an ASCII base64 string encoding of the DER encoded signature, prefixed
-        by <literal>base64:</literal>. The dm-verity volume will only be opened if the signature of the root hash
-        signature is valid and created by a public key present in the kernel keyring. If this option is not specified,
-        but a file with the <filename>.roothash.p7s</filename> suffix is found next to the image file, bearing otherwise
-        the same name (except if the image has the <filename>.raw</filename> suffix, in which case the signature file
-        must not have it in its name), the signature is read from it and automatically used.</para>
+        <listitem><para>Takes a PKCS7 signature of the <varname>RootHash=</varname> option as a path to a
+        DER-encoded signature file, or as an ASCII base64 string encoding of a DER-encoded signature prefixed
+        by <literal>base64:</literal>. The dm-verity volume will only be opened if the signature of the root
+        hash is valid and signed by a public key present in the kernel keyring. If this option is not
+        specified, but a file with the <filename>.roothash.p7s</filename> suffix is found next to the image
+        file, bearing otherwise the same name (except if the image has the <filename>.raw</filename> suffix,
+        in which case the signature file must not have it in its name), the signature is read from it and
+        automatically used.</para>
 
         <para>If the disk image contains a separate <filename>/usr/</filename> partition it may also be
         Verity protected, in which case the signature for the root hash may configured via a
@@ -681,7 +682,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Takes a profile name as argument. The process executed by the unit will switch to
         this profile when started. Profiles must already be loaded in the kernel, or the unit will fail. If
         prefixed by <literal>-</literal>, all errors will be ignored. This setting has no effect if AppArmor
-        is not enabled. This setting not affect commands prefixed with <literal>+</literal>.</para>
+        is not enabled. This setting does not affect commands prefixed with <literal>+</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -1169,12 +1170,12 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>LogsDirectory=</varname></term>
         <term><varname>ConfigurationDirectory=</varname></term>
 
-        <listitem><para>These options take a whitespace-separated list of directory names. The specified directory
-        names must be relative, and may not include <literal>..</literal>. If set, one or more
-        directories by the specified names will be created (including their parents) below the locations
-        defined in the following table, when the unit is started. Also, the corresponding environment variable
-        is defined with the full path of directories. If multiple directories are set, then in the environment variable
-        the paths are concatenated with colon (<literal>:</literal>).</para>
+        <listitem><para>These options take a whitespace-separated list of directory names. The specified
+        directory names must be relative, and may not include <literal>..</literal>. If set, when the unit is
+        started, one or more directories by the specified names will be created (including their parents)
+        below the locations defined in the following table. Also, the corresponding environment variable will
+        be defined with the full paths of the directories. If multiple directories are set, then in the
+        environment variable the paths are concatenated with colon (<literal>:</literal>).</para>
         <table>
           <title>Automatic directory creation and environment variables</title>
           <tgroup cols='4'>
@@ -1336,10 +1337,10 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <term><varname>ReadOnlyPaths=</varname></term>
         <term><varname>InaccessiblePaths=</varname></term>
 
-        <listitem><para>Sets up a new file system namespace for executed processes. These options may be used to limit
-        access a process might have to the file system hierarchy. Each setting takes a space-separated list of paths
-        relative to the host's root directory (i.e. the system running the service manager).  Note that if paths
-        contain symlinks, they are resolved relative to the root directory set with
+        <listitem><para>Sets up a new file system namespace for executed processes. These options may be used
+        to limit access a process has to the file system. Each setting takes a space-separated list of paths
+        relative to the host's root directory (i.e. the system running the service manager). Note that if
+        paths contain symlinks, they are resolved relative to the root directory set with
         <varname>RootDirectory=</varname>/<varname>RootImage=</varname>.</para>
 
         <para>Paths listed in <varname>ReadWritePaths=</varname> are accessible from within the namespace
@@ -2962,8 +2963,8 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       <varlistentry>
         <term><varname>$LOG_NAMESPACE</varname></term>
 
-        <listitem><para>If the <varname>LogNamespace=</varname> service setting is used, contains name of the
-        selected logging namespace.</para></listitem>
+        <listitem><para>Contains the name of the selected logging namespace when the
+        <varname>LogNamespace=</varname> service setting is used.</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -120,7 +120,7 @@
 
         <listitem><para>Read the user's JSON record from the specified file. If passed as
         <literal>-</literal> read the user record from standard input. The supplied JSON object must follow
-        the structure documented on <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
+        the structure documented in <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
         This option may be used in conjunction with the <command>create</command> and
         <command>update</command> commands (see below), where it allows configuring the user record in JSON
         as-is, instead of setting the individual user record properties (see below).</para></listitem>
@@ -421,7 +421,7 @@
 
         <listitem><para>Takes a password hint to store alongside the user record. This string is stored
         accessible only to privileged users and the user itself and may not be queried by other users.
-        Example: <option>--password-hint="My first pet's name"</option></para></listitem>
+        Example: <option>--password-hint="My first pet's name"</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

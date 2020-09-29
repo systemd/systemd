@@ -219,12 +219,10 @@
         <term><varname>_SYSTEMD_OWNER_UID=</varname></term>
 
         <listitem>
-          <para>The control group path in the systemd hierarchy, the
-          the systemd slice unit name, the systemd unit name, the
-          unit name in the systemd user manager (if any), the systemd
-          session ID (if any), and the owner UID of the systemd user
-          unit or systemd session (if any) of the process the journal
-          entry originates from.</para>
+          <para>The control group path in the systemd hierarchy, the systemd slice unit name, the systemd
+          unit name, the unit name in the systemd user manager (if any), the systemd session ID (if any), and
+          the owner UID of the systemd user unit or systemd session (if any) of the process the journal entry
+          originates from.</para>
         </listitem>
       </varlistentry>
 
@@ -398,15 +396,12 @@
       <varlistentry>
         <term><varname>_KERNEL_DEVICE=</varname></term>
         <listitem>
-          <para>The kernel device name. If the entry is associated to
-          a block device, the major and minor of the device node,
-          separated by <literal>:</literal> and prefixed by
-          <literal>b</literal>. Similar for character devices but
-          prefixed by <literal>c</literal>. For network devices, this
-          is the interface index prefixed by <literal>n</literal>. For
-          all other devices, this is the subsystem name prefixed by
-          <literal>+</literal>, followed by <literal>:</literal>,
-          followed by the kernel device name.</para>
+          <para>The kernel device name. If the entry is associated to a block device, contains the major and
+          minor numbers of the device node, separated by <literal>:</literal> and prefixed by
+          <literal>b</literal>. Similarly for character devices, but prefixed by <literal>c</literal>. For
+          network devices, this is the interface index prefixed by <literal>n</literal>. For all other
+          devices, this is the subsystem name prefixed by <literal>+</literal>, followed by
+          <literal>:</literal>, followed by the kernel device name.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

@@ -107,9 +107,9 @@
     For more information please consult
     <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and
-    <citerefentry><refentrytitle>org.freedesktop.machine1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>org.freedesktop.machine1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     and
-    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
     <para>A small companion daemon

@@ -1162,7 +1162,7 @@
             <citerefentry><refentrytitle>systemd-xdg-autostart-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             for the XDG desktop files in autostart directories.
             Desktop Environments can opt-in to use this service by adding a <varname>Wants=</varname>
-            dependency on <literal>xdg-desktop-autostart.target</literal></para>.
+            dependency on <literal>xdg-desktop-autostart.target</literal>.</para>
           </listitem>
         </varlistentry>
       </variablelist>
