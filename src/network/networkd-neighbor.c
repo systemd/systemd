@@ -32,6 +32,8 @@ void neighbor_free(Neighbor *neighbor) {
         free(neighbor);
 }
 
+DEFINE_NETWORK_SECTION_FUNCTIONS(Neighbor, neighbor_free);
+
 static int neighbor_new_static(Network *network, const char *filename, unsigned section_line, Neighbor **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(neighbor_freep) Neighbor *neighbor = NULL;
@@ -118,7 +120,7 @@ static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(neighbor_hash_ops, Neighbor, neighbor_hash_func, neighbor_compare_func, neighbor_free);
 
-int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret) {
+static int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret) {
         Neighbor *existing;
 
         assert(link);
@@ -202,7 +204,7 @@ int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
         return 0;
 }
 
-int neighbor_add_foreign(Link *link, const Neighbor *in, Neighbor **ret) {
+static int neighbor_add_foreign(Link *link, const Neighbor *in, Neighbor **ret) {
         return neighbor_add_internal(link, &link->neighbors_foreign, in, ret);
 }
 
@@ -242,7 +244,7 @@ static int neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, L
         return 1;
 }
 
-int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback) {
+static int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
