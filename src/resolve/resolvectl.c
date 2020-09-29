@@ -1662,6 +1662,7 @@ struct global_info {
         const char *mdns;
         const char *dns_over_tls;
         const char *dnssec;
+        const char *resolv_conf_mode;
         bool dnssec_supported;
 };
 
@@ -1691,6 +1692,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 { "DNSOverTLS",                 "s",         NULL,                             offsetof(struct global_info, dns_over_tls)     },
                 { "DNSSEC",                     "s",         NULL,                             offsetof(struct global_info, dnssec)           },
                 { "DNSSECSupported",            "b",         NULL,                             offsetof(struct global_info, dnssec_supported) },
+                { "ResolvConfMode",             "s",         NULL,                             offsetof(struct global_info, resolv_conf_mode) },
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1774,6 +1776,14 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                            TABLE_BOOLEAN, global_info.dnssec_supported);
         if (r < 0)
                 return table_log_add_error(r);
+
+        if (global_info.resolv_conf_mode) {
+                r = table_add_many(table,
+                                   TABLE_STRING, "resolv.conf mode:",
+                                   TABLE_STRING, global_info.resolv_conf_mode);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
         if (global_info.current_dns) {
                 r = table_add_many(table,
