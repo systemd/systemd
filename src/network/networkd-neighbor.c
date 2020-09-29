@@ -87,124 +87,6 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
         return 0;
 }
 
-static int neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->neighbor_messages > 0);
-
-        link->neighbor_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST)
-                /* Neighbor may not exist yet. So, do not enter failed state here. */
-                log_link_message_warning_errno(link, m, r, "Could not set neighbor, ignoring");
-
-        if (link->neighbor_messages == 0) {
-                log_link_debug(link, "Neighbors set");
-                link->neighbors_configured = true;
-                link_check_ready(link);
-        }
-
-        return 1;
-}
-
-int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(neighbor);
-        assert(link);
-        assert(link->ifindex > 0);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
-                                          link->ifindex, neighbor->family);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_NEWNEIGH message: %m");
-
-        r = sd_rtnl_message_neigh_set_state(req, NUD_PERMANENT);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set state: %m");
-
-        r = sd_netlink_message_set_flags(req, NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_REPLACE);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set flags: %m");
-
-        r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr, neighbor->lladdr_size);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append NDA_LLADDR attribute: %m");
-
-        r = netlink_message_append_in_addr_union(req, NDA_DST, neighbor->family, &neighbor->in_addr);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: neighbor_configure_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link->neighbor_messages++;
-        link_ref(link);
-
-        r = neighbor_add(link, neighbor->family, &neighbor->in_addr, &neighbor->lladdr, neighbor->lladdr_size, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add neighbor: %m");
-
-        return 0;
-}
-
-static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -ESRCH)
-                /* Neighbor may not exist because it already got deleted, ignore that. */
-                log_link_message_warning_errno(link, m, r, "Could not remove neighbor");
-
-        return 1;
-}
-
-int neighbor_remove(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(neighbor);
-        assert(link);
-        assert(link->ifindex > 0);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_DELNEIGH,
-                                          link->ifindex, neighbor->family);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_DELNEIGH message: %m");
-
-        r = netlink_message_append_in_addr_union(req, NDA_DST, neighbor->family, &neighbor->in_addr);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: neighbor_remove_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
 static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         assert(neighbor);
 
@@ -354,6 +236,124 @@ bool neighbor_equal(const Neighbor *n1, const Neighbor *n2) {
                 return false;
 
         return neighbor_compare_func(n1, n2) == 0;
+}
+
+static int neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->neighbor_messages > 0);
+
+        link->neighbor_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EEXIST)
+                /* Neighbor may not exist yet. So, do not enter failed state here. */
+                log_link_message_warning_errno(link, m, r, "Could not set neighbor, ignoring");
+
+        if (link->neighbor_messages == 0) {
+                log_link_debug(link, "Neighbors set");
+                link->neighbors_configured = true;
+                link_check_ready(link);
+        }
+
+        return 1;
+}
+
+int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(neighbor);
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
+                                          link->ifindex, neighbor->family);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate RTM_NEWNEIGH message: %m");
+
+        r = sd_rtnl_message_neigh_set_state(req, NUD_PERMANENT);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set state: %m");
+
+        r = sd_netlink_message_set_flags(req, NLM_F_REQUEST | NLM_F_ACK | NLM_F_CREATE | NLM_F_REPLACE);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set flags: %m");
+
+        r = sd_netlink_message_append_data(req, NDA_LLADDR, &neighbor->lladdr, neighbor->lladdr_size);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append NDA_LLADDR attribute: %m");
+
+        r = netlink_message_append_in_addr_union(req, NDA_DST, neighbor->family, &neighbor->in_addr);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: neighbor_configure_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link->neighbor_messages++;
+        link_ref(link);
+
+        r = neighbor_add(link, neighbor->family, &neighbor->in_addr, &neighbor->lladdr, neighbor->lladdr_size, NULL);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add neighbor: %m");
+
+        return 0;
+}
+
+static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -ESRCH)
+                /* Neighbor may not exist because it already got deleted, ignore that. */
+                log_link_message_warning_errno(link, m, r, "Could not remove neighbor");
+
+        return 1;
+}
+
+int neighbor_remove(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(neighbor);
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_DELNEIGH,
+                                          link->ifindex, neighbor->family);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate RTM_DELNEIGH message: %m");
+
+        r = netlink_message_append_in_addr_union(req, NDA_DST, neighbor->family, &neighbor->in_addr);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: neighbor_remove_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
 }
 
 int neighbor_section_verify(Neighbor *neighbor) {
