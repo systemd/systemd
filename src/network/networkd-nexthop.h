@@ -26,8 +26,6 @@ struct NextHop {
         uint32_t id;
 
         union in_addr_union gw;
-
-        LIST_FIELDS(NextHop, nexthops);
 };
 
 void nexthop_free(NextHop *nexthop);

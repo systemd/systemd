@@ -20,13 +20,8 @@ void nexthop_free(NextHop *nexthop) {
                 return;
 
         if (nexthop->network) {
-                LIST_REMOVE(nexthops, nexthop->network->static_nexthops, nexthop);
-
-                assert(nexthop->network->n_static_nexthops > 0);
-                nexthop->network->n_static_nexthops--;
-
-                if (nexthop->section)
-                        hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
+                assert(nexthop->section);
+                hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
         }
 
         network_config_section_free(nexthop->section);
@@ -64,19 +59,17 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                nexthop = hashmap_get(network->nexthops_by_section, n);
-                if (nexthop) {
-                        *ret = TAKE_PTR(nexthop);
-
-                        return 0;
-                }
+        nexthop = hashmap_get(network->nexthops_by_section, n);
+        if (nexthop) {
+                *ret = TAKE_PTR(nexthop);
+                return 0;
         }
 
         r = nexthop_new(&nexthop);
@@ -85,23 +78,17 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
 
         nexthop->protocol = RTPROT_STATIC;
         nexthop->network = network;
-        LIST_PREPEND(nexthops, network->static_nexthops, nexthop);
-        network->n_static_nexthops++;
+        nexthop->section = TAKE_PTR(n);
 
-        if (filename) {
-                nexthop->section = TAKE_PTR(n);
+        r = hashmap_ensure_allocated(&network->nexthops_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-                r = hashmap_ensure_allocated(&network->nexthops_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->nexthops_by_section, nexthop->section, nexthop);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->nexthops_by_section, nexthop->section, nexthop);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(nexthop);
-
         return 0;
 }
 
@@ -343,12 +330,12 @@ int link_set_nexthop(Link *link) {
 
         link->static_nexthops_configured = false;
 
-        LIST_FOREACH(nexthops, nh, link->network->static_nexthops) {
+        HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
                 r = nexthop_configure(nh, link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set nexthop: %m");
-                if (r > 0)
-                        link->nexthop_messages++;
+
+                link->nexthop_messages++;
         }
 
         if (link->nexthop_messages == 0) {

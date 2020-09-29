@@ -152,7 +152,7 @@ int network_verify(Network *network) {
         RoutePrefix *route_prefix, *route_prefix_next;
         Neighbor *neighbor, *neighbor_next;
         AddressLabel *label, *label_next;
-        NextHop *nexthop, *nextnop_next;
+        NextHop *nexthop;
         Address *address, *address_next;
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
@@ -298,7 +298,7 @@ int network_verify(Network *network) {
                 if (route_section_verify(route, network) < 0)
                         route_free(route);
 
-        LIST_FOREACH_SAFE(nexthops, nexthop, nextnop_next, network->static_nexthops)
+        HASHMAP_FOREACH(nexthop, network->nexthops_by_section)
                 if (nexthop_section_verify(nexthop) < 0)
                         nexthop_free(nexthop);
 
@@ -649,7 +649,6 @@ static Network *network_free(Network *network) {
         MdbEntry *mdb_entry;
         Neighbor *neighbor;
         Address *address;
-        NextHop *nexthop;
         Prefix *prefix;
         Route *route;
 
@@ -711,9 +710,6 @@ static Network *network_free(Network *network) {
         while ((route = network->static_routes))
                 route_free(route);
 
-        while ((nexthop = network->static_nexthops))
-                nexthop_free(nexthop);
-
         while ((address = network->static_addresses))
                 address_free(address);
 
@@ -740,7 +736,7 @@ static Network *network_free(Network *network) {
 
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
-        hashmap_free(network->nexthops_by_section);
+        hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free(network->fdb_entries_by_section);
         hashmap_free(network->mdb_entries_by_section);
         hashmap_free(network->neighbors_by_section);
