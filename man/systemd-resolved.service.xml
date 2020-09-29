@@ -212,9 +212,9 @@
     receives any DNS traffic not matching any of its configured search/route-only domains, set the "DNS
     default route" option for it to false.</para>
 
-    <para>See the <ulink url="https://www.freedesktop.org/wiki/Software/systemd/resolved">resolved D-Bus API
-    Documentation</ulink> for information about the APIs <filename>systemd-resolved</filename> provides.
-    </para>
+    <para>See
+    <citerefentry><refentrytitle>org.freedesktop.resolve1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for information about the D-Bus APIs <filename>systemd-resolved</filename> provides.</para>
   </refsect1>
 
   <refsect1>

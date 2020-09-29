@@ -126,8 +126,8 @@
         script exits uncleanly (by non-zero error code, or signal/coredump). If your script succeeds
         you should trigger the reboot in your own code, for example by invoking logind's
         <command>Reboot()</command> call or calling <command>systemctl reboot</command>. See
-        <ulink url="https://www.freedesktop.org/wiki/Software/systemd/logind">logind dbus API</ulink>
-        for details.</para>
+        <citerefentry><refentrytitle>org.freedesktop.login1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details about the logind D-Bus API.</para>
       </listitem>
 
       <listitem>
