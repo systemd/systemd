@@ -26,7 +26,5 @@ int mdb_entry_verify(MdbEntry *mdb_entry);
 MdbEntry *mdb_entry_free(MdbEntry *mdb_entry);
 int link_set_bridge_mdb(Link *link);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(MdbEntry, mdb_entry_free);
-
 CONFIG_PARSER_PROTOTYPE(config_parse_mdb_group_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_mdb_vlan_id);

@@ -10,6 +10,27 @@
 
 #define STATIC_MDB_ENTRIES_PER_NETWORK_MAX 1024U
 
+/* remove MDB entry. */
+MdbEntry *mdb_entry_free(MdbEntry *mdb_entry) {
+        if (!mdb_entry)
+                return NULL;
+
+        if (mdb_entry->network) {
+                LIST_REMOVE(static_mdb_entries, mdb_entry->network->static_mdb_entries, mdb_entry);
+                assert(mdb_entry->network->n_static_mdb_entries > 0);
+                mdb_entry->network->n_static_mdb_entries--;
+
+                if (mdb_entry->section)
+                        hashmap_remove(mdb_entry->network->mdb_entries_by_section, mdb_entry->section);
+        }
+
+        network_config_section_free(mdb_entry->section);
+
+        return mfree(mdb_entry);
+}
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(MdbEntry, mdb_entry_free);
+
 /* create a new MDB entry or get an existing one. */
 static int mdb_entry_new_static(
                 Network *network,
@@ -70,25 +91,6 @@ static int mdb_entry_new_static(
         *ret = TAKE_PTR(mdb_entry);
 
         return 0;
-}
-
-/* remove and MDB entry. */
-MdbEntry *mdb_entry_free(MdbEntry *mdb_entry) {
-        if (!mdb_entry)
-                return NULL;
-
-        if (mdb_entry->network) {
-                LIST_REMOVE(static_mdb_entries, mdb_entry->network->static_mdb_entries, mdb_entry);
-                assert(mdb_entry->network->n_static_mdb_entries > 0);
-                mdb_entry->network->n_static_mdb_entries--;
-
-                if (mdb_entry->section)
-                        hashmap_remove(mdb_entry->network->mdb_entries_by_section, mdb_entry->section);
-        }
-
-        network_config_section_free(mdb_entry->section);
-
-        return mfree(mdb_entry);
 }
 
 static int set_mdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
