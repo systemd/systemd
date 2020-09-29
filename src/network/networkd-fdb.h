@@ -43,10 +43,8 @@ struct FdbEntry {
         LIST_FIELDS(FdbEntry, static_fdb_entries);
 };
 
-void fdb_entry_free(FdbEntry *fdb_entry);
+FdbEntry *fdb_entry_free(FdbEntry *fdb_entry);
 int fdb_entry_configure(Link *link, FdbEntry *fdb_entry);
-
-DEFINE_NETWORK_SECTION_FUNCTIONS(FdbEntry, fdb_entry_free);
 
 const char* fdb_ntf_flags_to_string(NeighborCacheEntryFlags i) _const_;
 NeighborCacheEntryFlags fdb_ntf_flags_from_string(const char *s) _pure_;

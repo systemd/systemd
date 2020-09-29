@@ -30,6 +30,26 @@ static const char* const fdb_ntf_flags_table[_NEIGHBOR_CACHE_ENTRY_FLAGS_MAX] = 
 
 DEFINE_STRING_TABLE_LOOKUP(fdb_ntf_flags, NeighborCacheEntryFlags);
 
+/* remove and FDB entry. */
+FdbEntry *fdb_entry_free(FdbEntry *fdb_entry) {
+        if (!fdb_entry)
+                return NULL;
+
+        if (fdb_entry->network) {
+                LIST_REMOVE(static_fdb_entries, fdb_entry->network->static_fdb_entries, fdb_entry);
+                assert(fdb_entry->network->n_static_fdb_entries > 0);
+                fdb_entry->network->n_static_fdb_entries--;
+
+                if (fdb_entry->section)
+                        hashmap_remove(fdb_entry->network->fdb_entries_by_section, fdb_entry->section);
+        }
+
+        network_config_section_free(fdb_entry->section);
+        return mfree(fdb_entry);
+}
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(FdbEntry, fdb_entry_free);
+
 /* create a new FDB entry or get an existing one. */
 static int fdb_entry_new_static(
                 Network *network,
@@ -169,24 +189,6 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         link_ref(link);
 
         return 1;
-}
-
-/* remove and FDB entry. */
-void fdb_entry_free(FdbEntry *fdb_entry) {
-        if (!fdb_entry)
-                return;
-
-        if (fdb_entry->network) {
-                LIST_REMOVE(static_fdb_entries, fdb_entry->network->static_fdb_entries, fdb_entry);
-                assert(fdb_entry->network->n_static_fdb_entries > 0);
-                fdb_entry->network->n_static_fdb_entries--;
-
-                if (fdb_entry->section)
-                        hashmap_remove(fdb_entry->network->fdb_entries_by_section, fdb_entry->section);
-        }
-
-        network_config_section_free(fdb_entry->section);
-        free(fdb_entry);
 }
 
 /* parse the HW address from config files. */
