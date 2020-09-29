@@ -272,8 +272,7 @@
 
     <para>Note that some but not all interfaces provided
     by systemd are covered by the
-    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
-    Stability Promise</ulink>.</para>
+    <ulink url="Portability and">Interface Portability and Stability Promise</ulink>.</para>
 
     <para>Units may be generated dynamically at boot and system
     manager reload time, for example based on other configuration
@@ -287,8 +286,8 @@
     </para>
 
     <para>Systems which invoke systemd in a container or initrd environment should implement the <ulink
-    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface">initrd Interface</ulink>
+    url="https://systemd.io/CONTAINER_INTERFACE">Container Interface</ulink> or
+    <ulink url="https://systemd.io/INITRD_INTERFACE/">initrd Interface</ulink>
     specifications, respectively.</para>
   </refsect1>
 
