@@ -125,19 +125,10 @@ static int nexthop_compare_func(const NextHop *a, const NextHop *b) {
         if (r != 0)
                 return r;
 
-        switch (a->family) {
-        case AF_INET:
-        case AF_INET6:
+        if (IN_SET(a->family, AF_INET, AF_INET6))
+                return memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
 
-                r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
-
-                return 0;
-        default:
-                /* treat any other address family as AF_UNSPEC */
-                return 0;
-        }
+        return 0;
 }
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
