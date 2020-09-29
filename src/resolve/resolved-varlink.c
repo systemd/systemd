@@ -93,7 +93,11 @@ static void vl_on_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         dns_query_complete(q, DNS_TRANSACTION_ABORTED);
 }
 
-static bool validate_and_mangle_flags(uint64_t *flags, uint64_t ok) {
+static bool validate_and_mangle_flags(
+                const char *name,
+                uint64_t *flags,
+                uint64_t ok) {
+
         assert(flags);
 
         /* This checks that the specified client-provided flags parameter actually makes sense, and mangles
@@ -115,6 +119,12 @@ static bool validate_and_mangle_flags(uint64_t *flags, uint64_t ok) {
 
         if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
                 *flags |= SD_RESOLVED_PROTOCOLS_ALL;
+
+        /* If the SD_RESOLVED_NO_SEARCH flag is acceptable, and the query name is dot-suffixed, turn off
+         * search domains. Note that DNS name normalization drops the dot suffix, hence we propagate this
+         * into the flags field as early as we can. */
+        if (name && FLAGS_SET(ok, SD_RESOLVED_NO_SEARCH) && dns_name_dot_suffixed(name) > 0)
+                *flags |= SD_RESOLVED_NO_SEARCH;
 
         return true;
 }
@@ -285,7 +295,7 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         if (!IN_SET(p.family, AF_UNSPEC, AF_INET, AF_INET6))
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
 
-        if (!validate_and_mangle_flags(&p.flags, SD_RESOLVED_NO_SEARCH))
+        if (!validate_and_mangle_flags(p.name, &p.flags, SD_RESOLVED_NO_SEARCH))
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         r = parse_as_address(link, &p);
@@ -460,7 +470,7 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         if (FAMILY_ADDRESS_SIZE(p.family) != p.address_size)
                 return varlink_error(link, "io.systemd.UserDatabase.BadAddressSize", NULL);
 
-        if (!validate_and_mangle_flags(&p.flags, 0))
+        if (!validate_and_mangle_flags(NULL, &p.flags, 0))
                 return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
         r = dns_question_new_reverse(&question, p.family, &p.address);
