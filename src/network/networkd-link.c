@@ -925,41 +925,6 @@ static void link_enter_configured(Link *link) {
         link_dirty(link);
 }
 
-static int link_request_set_routing_policy_rule(Link *link) {
-        RoutingPolicyRule *rule, *rrule = NULL;
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        link->routing_policy_rules_configured = false;
-
-        LIST_FOREACH(rules, rule, link->network->rules) {
-                r = routing_policy_rule_get(link->manager, rule, &rrule);
-                if (r >= 0) {
-                        if (r == 0)
-                                (void) routing_policy_rule_make_local(link->manager, rrule);
-                        continue;
-                }
-
-                r = routing_policy_rule_configure(rule, link, NULL);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set routing policy rules: %m");
-                if (r > 0)
-                        link->routing_policy_rule_messages++;
-        }
-
-        routing_policy_rule_purge(link->manager, link);
-        if (link->routing_policy_rule_messages == 0)
-                link->routing_policy_rules_configured = true;
-        else {
-                log_link_debug(link, "Setting routing policy rules");
-                link_set_state(link, LINK_STATE_CONFIGURING);
-        }
-
-        return 0;
-}
-
 static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1066,7 +1031,7 @@ int link_request_set_routes(Link *link) {
                  * the addresses now, let's not configure the routes either. */
                 return 0;
 
-        r = link_request_set_routing_policy_rule(link);
+        r = link_set_routing_policy_rules(link);
         if (r < 0)
                 return r;
 

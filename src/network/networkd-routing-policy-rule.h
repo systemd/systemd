@@ -62,6 +62,8 @@ void routing_policy_rule_free(RoutingPolicyRule *rule);
 DEFINE_NETWORK_SECTION_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
 int routing_policy_rule_section_verify(RoutingPolicyRule *rule);
 
+int link_set_routing_policy_rules(Link *link);
+
 int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback);
 int routing_policy_rule_remove(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback);
 

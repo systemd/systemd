@@ -609,6 +609,41 @@ int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netl
         return 1;
 }
 
+int link_set_routing_policy_rules(Link *link) {
+        RoutingPolicyRule *rule, *rrule = NULL;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        link->routing_policy_rules_configured = false;
+
+        LIST_FOREACH(rules, rule, link->network->rules) {
+                r = routing_policy_rule_get(link->manager, rule, &rrule);
+                if (r >= 0) {
+                        if (r == 0)
+                                (void) routing_policy_rule_make_local(link->manager, rrule);
+                        continue;
+                }
+
+                r = routing_policy_rule_configure(rule, link, NULL);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set routing policy rules: %m");
+                if (r > 0)
+                        link->routing_policy_rule_messages++;
+        }
+
+        routing_policy_rule_purge(link->manager, link);
+        if (link->routing_policy_rule_messages == 0)
+                link->routing_policy_rules_configured = true;
+        else {
+                log_link_debug(link, "Setting routing policy rules");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
+
+        return 0;
+}
+
 int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
         int r;
 
