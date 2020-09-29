@@ -1386,31 +1386,31 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
         return 0;
 }
 
-static int routing_policy_rule_read_full_file(const char *state_file, char **ret) {
+static int routing_policy_rule_read_full_file(const char *state_file, char ***ret) {
+        _cleanup_strv_free_ char **lines = NULL;
         _cleanup_free_ char *s = NULL;
-        size_t size;
         int r;
 
         assert(state_file);
 
-        r = read_full_file(state_file, &s, &size);
-        if (r == -ENOENT)
-                return -ENODATA;
+        r = read_full_file(state_file, &s, NULL);
+        if (r == -ENOENT) {
+                *ret = NULL;
+                return 0;
+        }
         if (r < 0)
                 return r;
-        if (size <= 0)
-                return -ENODATA;
 
-        *ret = TAKE_PTR(s);
+        lines = strv_split_newlines(s);
+        if (!lines)
+                return -ENOMEM;
 
-        return size;
+        *ret = TAKE_PTR(lines);
+        return 0;
 }
 
 int routing_policy_load_rules(const char *state_file, Set **rules) {
-        _cleanup_strv_free_ char **l = NULL;
-        _cleanup_free_ char *data = NULL;
-        uint16_t low = 0, high = 0;
-        const char *p;
+        _cleanup_strv_free_ char **data = NULL;
         char **i;
         int r;
 
@@ -1418,15 +1418,12 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
         assert(rules);
 
         r = routing_policy_rule_read_full_file(state_file, &data);
-        if (r <= 0)
-                return r;
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read %s, ignoring: %m", state_file);
 
-        l = strv_split_newlines(data);
-        if (!l)
-                return -ENOMEM;
-
-        STRV_FOREACH(i, l) {
+        STRV_FOREACH(i, data) {
                 _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
+                const char *p;
 
                 p = startswith(*i, "RULE=");
                 if (!p)
@@ -1434,7 +1431,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                 r = routing_policy_rule_new(&rule);
                 if (r < 0)
-                        return r;
+                        return log_oom();
 
                 for (;;) {
                         _cleanup_free_ char *a = NULL;
@@ -1442,7 +1439,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                         r = extract_first_word(&p, &a, NULL, 0);
                         if (r < 0)
-                                return r;
+                                return log_oom();
                         if (r == 0)
                                 break;
 
@@ -1523,6 +1520,8 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         continue;
                                 }
                         } else if (streq(a, "sourceport")) {
+                                uint16_t low, high;
+
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
                                         log_warning_errno(r, "Invalid routing policy rule source port range, ignoring assignment: '%s'", b);
@@ -1532,6 +1531,8 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                 rule->sport.start = low;
                                 rule->sport.end = high;
                         } else if (streq(a, "destinationport")) {
+                                uint16_t low, high;
+
                                 r = parse_ip_port_range(b, &low, &high);
                                 if (r < 0) {
                                         log_warning_errno(r, "Invalid routing policy rule destination port range, ignoring assignment: '%s'", b);
@@ -1574,7 +1575,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                 r = set_ensure_put(rules, &routing_policy_rule_hash_ops, rule);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to add RPDB rule to saved DB, ignoring: %s", p);
+                        log_warning_errno(r, "Failed to add RPDB rule to saved DB, ignoring: %s", *i);
                         continue;
                 }
                 if (r > 0)
