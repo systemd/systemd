@@ -84,9 +84,9 @@ static int ipv6_proxy_ndp_set(Link *link) {
 
         r = sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure proxy NDP for interface: %m");
+                return log_link_warning_errno(link, r, "Cannot configure proxy NDP for the interface: %m");
 
-        return 0;
+        return v;
 }
 
 /* configure all ipv6 proxy ndp addresses */
@@ -99,7 +99,7 @@ int link_set_ipv6_proxy_ndp_addresses(Link *link) {
 
         /* enable or disable proxy_ndp itself depending on whether ipv6_proxy_ndp_addresses are set or not */
         r = ipv6_proxy_ndp_set(link);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         SET_FOREACH(address, link->network->ipv6_proxy_ndp_addresses) {
