@@ -628,7 +628,6 @@ failure:
 }
 
 static Network *network_free(Network *network) {
-        IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         RoutePrefix *route_prefix;
         Address *address;
         Prefix *prefix;
@@ -695,15 +694,13 @@ static Network *network_free(Network *network) {
         while ((address = network->static_addresses))
                 address_free(address);
 
-        while ((ipv6_proxy_ndp_address = network->ipv6_proxy_ndp_addresses))
-                ipv6_proxy_ndp_address_free(ipv6_proxy_ndp_address);
-
         while ((prefix = network->static_prefixes))
                 prefix_free(prefix);
 
         while ((route_prefix = network->static_route_prefixes))
                 route_prefix_free(route_prefix);
 
+        set_free_free(network->ipv6_proxy_ndp_addresses);
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);

@@ -14,44 +14,6 @@
 #include "string-util.h"
 #include "sysctl-util.h"
 
-void ipv6_proxy_ndp_address_free(IPv6ProxyNDPAddress *ipv6_proxy_ndp_address) {
-        if (!ipv6_proxy_ndp_address)
-                return;
-
-        if (ipv6_proxy_ndp_address->network) {
-                LIST_REMOVE(ipv6_proxy_ndp_addresses, ipv6_proxy_ndp_address->network->ipv6_proxy_ndp_addresses,
-                            ipv6_proxy_ndp_address);
-
-                assert(ipv6_proxy_ndp_address->network->n_ipv6_proxy_ndp_addresses > 0);
-                ipv6_proxy_ndp_address->network->n_ipv6_proxy_ndp_addresses--;
-        }
-
-        free(ipv6_proxy_ndp_address);
-}
-
-static int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddress **ret) {
-        _cleanup_(ipv6_proxy_ndp_address_freep) IPv6ProxyNDPAddress *ipv6_proxy_ndp_address = NULL;
-
-        assert(network);
-        assert(ret);
-
-        /* allocate space for IPv6ProxyNDPAddress entry */
-        ipv6_proxy_ndp_address = new(IPv6ProxyNDPAddress, 1);
-        if (!ipv6_proxy_ndp_address)
-                return -ENOMEM;
-
-        *ipv6_proxy_ndp_address = (IPv6ProxyNDPAddress) {
-                .network = network,
-        };
-
-        LIST_PREPEND(ipv6_proxy_ndp_addresses, network->ipv6_proxy_ndp_addresses, ipv6_proxy_ndp_address);
-        network->n_ipv6_proxy_ndp_addresses++;
-
-        *ret = TAKE_PTR(ipv6_proxy_ndp_address);
-
-        return 0;
-}
-
 static int set_ipv6_proxy_ndp_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -65,20 +27,16 @@ static int set_ipv6_proxy_ndp_address_handler(sd_netlink *rtnl, sd_netlink_messa
 }
 
 /* send a request to the kernel to add a IPv6 Proxy entry to the neighbour table */
-int ipv6_proxy_ndp_address_configure(Link *link, IPv6ProxyNDPAddress *ipv6_proxy_ndp_address) {
+static int ipv6_proxy_ndp_address_configure(Link *link, const struct in6_addr *address) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        sd_netlink *rtnl;
         int r;
 
         assert(link);
-        assert(link->network);
         assert(link->manager);
-        assert(ipv6_proxy_ndp_address);
-
-        rtnl = link->manager->rtnl;
+        assert(address);
 
         /* create new netlink message */
-        r = sd_rtnl_message_new_neigh(rtnl, &req, RTM_NEWNEIGH, link->ifindex, AF_INET6);
+        r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH, link->ifindex, AF_INET6);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWNEIGH message: %m");
 
@@ -86,11 +44,11 @@ int ipv6_proxy_ndp_address_configure(Link *link, IPv6ProxyNDPAddress *ipv6_proxy
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set neighbor flags: %m");
 
-        r = sd_netlink_message_append_in6_addr(req, NDA_DST, &ipv6_proxy_ndp_address->in_addr);
+        r = sd_netlink_message_append_in6_addr(req, NDA_DST, address);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
-        r = netlink_call_async(rtnl, NULL, req, set_ipv6_proxy_ndp_address_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req, set_ipv6_proxy_ndp_address_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -112,10 +70,7 @@ static bool ipv6_proxy_ndp_is_needed(Link *link) {
         if (link->network->ipv6_proxy_ndp >= 0)
                 return link->network->ipv6_proxy_ndp;
 
-        if (link->network->n_ipv6_proxy_ndp_addresses == 0)
-                return false;
-
-        return true;
+        return !set_isempty(link->network->ipv6_proxy_ndp_addresses);
 }
 
 static int ipv6_proxy_ndp_set(Link *link) {
@@ -138,21 +93,23 @@ static int ipv6_proxy_ndp_set(Link *link) {
 
 /* configure all ipv6 proxy ndp addresses */
 int ipv6_proxy_ndp_addresses_configure(Link *link) {
-        IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
+        struct in6_addr *address;
         int r;
 
         assert(link);
+        assert(link->network);
 
         /* enable or disable proxy_ndp itself depending on whether ipv6_proxy_ndp_addresses are set or not */
         r = ipv6_proxy_ndp_set(link);
-        if (r != 0)
+        if (r < 0)
                 return r;
 
-        LIST_FOREACH(ipv6_proxy_ndp_addresses, ipv6_proxy_ndp_address, link->network->ipv6_proxy_ndp_addresses) {
-                r = ipv6_proxy_ndp_address_configure(link, ipv6_proxy_ndp_address);
-                if (r != 0)
+        SET_FOREACH(address, link->network->ipv6_proxy_ndp_addresses) {
+                r = ipv6_proxy_ndp_address_configure(link, address);
+                if (r < 0)
                         return r;
         }
+
         return 0;
 }
 
@@ -168,26 +125,24 @@ int config_parse_ipv6_proxy_ndp_address(
                 void *data,
                 void *userdata) {
 
+        _cleanup_free_ struct in6_addr *address = NULL;
         Network *network = userdata;
-        _cleanup_(ipv6_proxy_ndp_address_freep) IPv6ProxyNDPAddress *ipv6_proxy_ndp_address = NULL;
-        int r;
         union in_addr_union buffer;
+        int r;
 
         assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
+        assert(network);
 
-        r = ipv6_proxy_ndp_address_new_static(network, &ipv6_proxy_ndp_address);
-        if (r < 0)
-                return log_oom();
+        if (isempty(rvalue)) {
+                network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
+                return 0;
+        }
 
         r = in_addr_from_string(AF_INET6, rvalue, &buffer);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse IPv6 proxy NDP address, ignoring: %s",
-                           rvalue);
+                           "Failed to parse IPv6 proxy NDP address, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -197,8 +152,15 @@ int config_parse_ipv6_proxy_ndp_address(
                 return 0;
         }
 
-        ipv6_proxy_ndp_address->in_addr = buffer.in6;
-        ipv6_proxy_ndp_address = NULL;
+        address = newdup(struct in6_addr, &buffer.in6, 1);
+        if (!address)
+                return log_oom();
+
+        r = set_ensure_put(&network->ipv6_proxy_ndp_addresses, &in6_addr_hash_ops, address);
+        if (r < 0)
+                return log_oom();
+        if (r > 0)
+                TAKE_PTR(address);
 
         return 0;
 }
