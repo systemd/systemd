@@ -156,7 +156,6 @@ int network_verify(Network *network) {
         Address *address, *address_next;
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
-        FdbEntry *fdb;
         MdbEntry *mdb, *mdb_next;
         TrafficControl *tc;
         SRIOV *sr_iov;
@@ -299,10 +298,7 @@ int network_verify(Network *network) {
                         route_free(route);
 
         network_verify_nexthops(network);
-
-        HASHMAP_FOREACH(fdb, network->fdb_entries_by_section)
-                if (section_is_invalid(fdb->section))
-                        fdb_entry_free(fdb);
+        network_verify_fdb_entries(network);
 
         LIST_FOREACH_SAFE(static_mdb_entries, mdb, mdb_next, network->static_mdb_entries)
                 if (mdb_entry_verify(mdb) < 0)

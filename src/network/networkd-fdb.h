@@ -43,6 +43,8 @@ struct FdbEntry {
 
 FdbEntry *fdb_entry_free(FdbEntry *fdb_entry);
 
+void network_verify_fdb_entries(Network *network);
+
 int link_set_bridge_fdb(Link *link);
 
 const char* fdb_ntf_flags_to_string(NeighborCacheEntryFlags i) _const_;

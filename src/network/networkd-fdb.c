@@ -195,6 +195,16 @@ int link_set_bridge_fdb(Link *link) {
         return 0;
 }
 
+void network_verify_fdb_entries(Network *network) {
+        FdbEntry *fdb_entry;
+
+        assert(network);
+
+        HASHMAP_FOREACH(fdb_entry, network->fdb_entries_by_section)
+                if (section_is_invalid(fdb_entry->section))
+                        fdb_entry_free(fdb_entry);
+}
+
 /* parse the HW address from config files. */
 int config_parse_fdb_hwaddr(
                 const char *unit,
