@@ -759,10 +759,17 @@ int udev_event_spawn(UdevEvent *event,
         /* allow programs in /usr/lib/udev/ to be called without the path */
         if (!path_is_absolute(argv[0])) {
                 char *program;
+                _cleanup_free_ char *oldpath = NULL;
 
-                program = path_join(UDEVLIBEXECDIR, argv[0]);
-                if (!program)
+                oldpath = strdup(getenv("PATH"));
+                if (!oldpath)
                         return log_oom();
+
+                setenv("PATH", "/usr/lib/udev:/lib/udev", 1);
+                r = find_executable(cmd, &program);
+                setenv("PATH", oldpath, 1);
+                if (r < 0)
+                        return log_device_error_errno(event->dev, r, "Failed to determine whether udev helper '%s' exists: %m", cmd);
 
                 free_and_replace(argv[0], program);
         }
