@@ -393,25 +393,10 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         } else if (!IN_SET(tmp->family, AF_INET, AF_INET6))
                 return log_link_debug(link, "rtnl: received nexthop message with invalid family %d, ignoring.", tmp->family);
 
-        switch (tmp->family) {
-        case AF_INET:
-                r = sd_netlink_message_read_in_addr(message, NHA_GATEWAY, &tmp->gw.in);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
-                        return 0;
-                }
-                break;
-
-        case AF_INET6:
-                r = sd_netlink_message_read_in6_addr(message, NHA_GATEWAY, &tmp->gw.in6);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
-                        return 0;
-                }
-                break;
-
-        default:
-                assert_not_reached("Received rule message with unsupported address family");
+        r = netlink_message_read_in_addr_union(message, NHA_GATEWAY, tmp->family, &tmp->gw);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
+                return 0;
         }
 
         r = sd_netlink_message_read_u32(message, NHA_ID, &tmp->id);
