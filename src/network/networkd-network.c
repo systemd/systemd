@@ -150,7 +150,6 @@ static int network_resolve_stacked_netdevs(Network *network) {
 
 int network_verify(Network *network) {
         RoutePrefix *route_prefix, *route_prefix_next;
-        RoutingPolicyRule *rule;
         Neighbor *neighbor, *neighbor_next;
         AddressLabel *label, *label_next;
         NextHop *nexthop, *nextnop_next;
@@ -327,9 +326,7 @@ int network_verify(Network *network) {
                 if (section_is_invalid(route_prefix->section))
                         route_prefix_free(route_prefix);
 
-        HASHMAP_FOREACH(rule, network->rules_by_section)
-                if (routing_policy_rule_section_verify(rule) < 0)
-                        routing_policy_rule_free(rule);
+        network_verify_routing_policy_rules(network);
 
         bool has_root = false, has_clsact = false;
         ORDERED_HASHMAP_FOREACH(tc, network->tc_by_section)

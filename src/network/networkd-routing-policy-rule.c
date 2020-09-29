@@ -1460,7 +1460,7 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
         return 0;
 }
 
-int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
+static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
         if (section_is_invalid(rule->section))
                 return -EINVAL;
 
@@ -1475,6 +1475,16 @@ int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
                 rule->family = AF_INET;
 
         return 0;
+}
+
+void network_verify_routing_policy_rules(Network *network) {
+        RoutingPolicyRule *rule;
+
+        assert(network);
+
+        HASHMAP_FOREACH(rule, network->rules_by_section)
+                if (routing_policy_rule_section_verify(rule) < 0)
+                        routing_policy_rule_free(rule);
 }
 
 int routing_policy_serialize_rules(Set *rules, FILE *f) {

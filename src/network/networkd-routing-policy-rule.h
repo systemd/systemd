@@ -50,7 +50,8 @@ typedef struct RoutingPolicyRule {
 } RoutingPolicyRule;
 
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
-int routing_policy_rule_section_verify(RoutingPolicyRule *rule);
+
+void network_verify_routing_policy_rules(Network *network);
 
 int link_set_routing_policy_rules(Link *link);
 
