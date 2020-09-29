@@ -1025,10 +1025,12 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>CPUSchedulingResetOnFork=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, elevated CPU scheduling priorities and policies will be
-        reset when the executed processes fork, and can hence not leak into child processes. See
-        <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details. Defaults to false.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, elevated CPU scheduling priorities and policies
+        will be reset when the executed processes call
+        <citerefentry project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+        and can hence not leak into child processes. See
+        <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        for details. Defaults to false.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3623,7 +3625,8 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+        <citerefentry project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry>
       </para>
   </refsect1>
 
