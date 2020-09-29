@@ -260,7 +260,12 @@ finish:
         dns_query_free(q);
 }
 
-static int validate_and_mangle_ifindex_and_flags(int ifindex, uint64_t *flags, uint64_t ok, sd_bus_error *error) {
+static int validate_and_mangle_flags(
+                const char *name,
+                uint64_t *flags,
+                uint64_t ok,
+                sd_bus_error *error) {
+
         assert(flags);
 
         /* Checks that the client supplied interface index and flags parameter actually are valid and make
@@ -277,14 +282,15 @@ static int validate_and_mangle_ifindex_and_flags(int ifindex, uint64_t *flags, u
          *    to mean "all supported protocols".
          */
 
-        if (ifindex < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
-
         if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_CNAME|ok))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
                 *flags |= SD_RESOLVED_PROTOCOLS_ALL;
+
+        /* Imply SD_RESOLVED_NO_SEARCH if permitted and name is dot suffixed. */
+        if (name && FLAGS_SET(ok, SD_RESOLVED_NO_SEARCH) && dns_name_dot_suffixed(name) > 0)
+                *flags |= SD_RESOLVED_NO_SEARCH;
 
         return 0;
 }
@@ -371,10 +377,13 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
+        if (ifindex < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
-        r = validate_and_mangle_ifindex_and_flags(ifindex, &flags, SD_RESOLVED_NO_SEARCH, error);
+        r = validate_and_mangle_flags(hostname, &flags, SD_RESOLVED_NO_SEARCH, error);
         if (r < 0)
                 return r;
 
@@ -527,7 +536,10 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = validate_and_mangle_ifindex_and_flags(ifindex, &flags, 0, error);
+        if (ifindex < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+
+        r = validate_and_mangle_flags(NULL, &flags, 0, error);
         if (r < 0)
                 return r;
 
@@ -679,6 +691,9 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
+        if (ifindex < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+
         r = dns_name_is_valid(name);
         if (r < 0)
                 return r;
@@ -692,7 +707,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (dns_type_is_obsolete(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Specified DNS resource record type %" PRIu16 " is obsolete.", type);
 
-        r = validate_and_mangle_ifindex_and_flags(ifindex, &flags, 0, error);
+        r = validate_and_mangle_flags(name, &flags, 0, error);
         if (r < 0)
                 return r;
 
@@ -1205,6 +1220,9 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
+        if (ifindex < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface index");
+
         if (!IN_SET(family, AF_INET, AF_INET6, AF_UNSPEC))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown address family %i", family);
 
@@ -1227,7 +1245,7 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (name && !type)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Service name cannot be specified without service type.");
 
-        r = validate_and_mangle_ifindex_and_flags(ifindex, &flags, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS, error);
+        r = validate_and_mangle_flags(name, &flags, SD_RESOLVED_NO_TXT|SD_RESOLVED_NO_ADDRESS, error);
         if (r < 0)
                 return r;
 

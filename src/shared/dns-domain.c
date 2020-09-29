@@ -41,8 +41,9 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
                                 /* Trailing dash */
                                 return -EINVAL;
 
-                        if (*n == '.')
+                        if (n[0] == '.' && (n[1] != 0 || !FLAGS_SET(flags, DNS_LABEL_LEAVE_TRAILING_DOT)))
                                 n++;
+
                         break;
                 }
 
@@ -139,7 +140,7 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
                 return -EINVAL;
 
         /* More than one trailing dot? */
-        if (*n == '.')
+        if (n[0] == '.' && !FLAGS_SET(flags, DNS_LABEL_LEAVE_TRAILING_DOT))
                 return -EINVAL;
 
         if (sz >= 1 && d)
@@ -1371,4 +1372,20 @@ int dns_name_is_valid_or_address(const char *name) {
                 return 1;
 
         return dns_name_is_valid(name);
+}
+
+int dns_name_dot_suffixed(const char *name) {
+        const char *p = name;
+        int r;
+
+        for (;;) {
+                if (streq(p, "."))
+                        return true;
+
+                r = dns_label_unescape(&p, NULL, DNS_LABEL_MAX, DNS_LABEL_LEAVE_TRAILING_DOT);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return false;
+        }
 }

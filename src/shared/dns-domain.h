@@ -25,8 +25,9 @@
 #define DNS_N_LABELS_MAX 127
 
 typedef enum DNSLabelFlags {
-        DNS_LABEL_LDH        = 1 << 0, /* Follow the "LDH" rule — only letters, digits, and internal hyphens. */
-        DNS_LABEL_NO_ESCAPES = 1 << 1, /* Do not treat backslashes specially */
+        DNS_LABEL_LDH                = 1 << 0, /* Follow the "LDH" rule — only letters, digits, and internal hyphens. */
+        DNS_LABEL_NO_ESCAPES         = 1 << 1, /* Do not treat backslashes specially */
+        DNS_LABEL_LEAVE_TRAILING_DOT = 1 << 2, /* Leave trailing dot in place */
 } DNSLabelFlags;
 
 int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags flags);
@@ -110,3 +111,5 @@ int dns_name_common_suffix(const char *a, const char *b, const char **ret);
 int dns_name_apply_idna(const char *name, char **ret);
 
 int dns_name_is_valid_or_address(const char *name);
+
+int dns_name_dot_suffixed(const char *name);
