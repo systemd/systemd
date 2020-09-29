@@ -611,13 +611,15 @@ static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule
 }
 
 static void routing_policy_rule_purge(Manager *m, Link *link) {
-        RoutingPolicyRule *rule, *existing;
+        RoutingPolicyRule *rule;
         int r;
 
         assert(m);
         assert(link);
 
         SET_FOREACH(rule, m->rules_saved) {
+                RoutingPolicyRule *existing;
+
                 existing = set_get(m->rules_foreign, rule);
                 if (!existing)
                         continue; /* Saved rule does not exist anymore. */
@@ -1258,13 +1260,12 @@ int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
 }
 
 int routing_policy_serialize_rules(Set *rules, FILE *f) {
-        RoutingPolicyRule *rule = NULL;
+        RoutingPolicyRule *rule;
         int r;
 
         assert(f);
 
         SET_FOREACH(rule, rules) {
-                _cleanup_free_ char *from_str = NULL, *to_str = NULL;
                 const char *family_str;
                 bool space = false;
 
@@ -1278,24 +1279,28 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                 }
 
                 if (!in_addr_is_null(rule->family, &rule->from)) {
-                        r = in_addr_to_string(rule->family, &rule->from, &from_str);
+                        _cleanup_free_ char *str = NULL;
+
+                        r = in_addr_to_string(rule->family, &rule->from, &str);
                         if (r < 0)
                                 return r;
 
                         fprintf(f, "%sfrom=%s/%hhu",
                                 space ? " " : "",
-                                from_str, rule->from_prefixlen);
+                                str, rule->from_prefixlen);
                         space = true;
                 }
 
                 if (!in_addr_is_null(rule->family, &rule->to)) {
-                        r = in_addr_to_string(rule->family, &rule->to, &to_str);
+                        _cleanup_free_ char *str = NULL;
+
+                        r = in_addr_to_string(rule->family, &rule->to, &str);
                         if (r < 0)
                                 return r;
 
                         fprintf(f, "%sto=%s/%hhu",
                                 space ? " " : "",
-                                to_str, rule->to_prefixlen);
+                                str, rule->to_prefixlen);
                         space = true;
                 }
 
