@@ -2,10 +2,13 @@
 #pragma once
 
 #include "sd-dhcp-lease.h"
+#include "sd-netlink.h"
 
 #include "conf-parser.h"
 #include "hash-funcs.h"
+#include "log.h"
 #include "macro.h"
+#include "string-util.h"
 
 typedef enum AddressFamily {
         /* This is a bitmask, though it usually doesn't feel that way! */
@@ -70,3 +73,10 @@ static inline bool section_is_invalid(NetworkConfigSection *section) {
         }                                                               \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
+
+static inline int log_message_warning_errno(sd_netlink_message *m, int err, const char *msg) {
+        const char *err_msg = NULL;
+
+        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
+        return log_warning_errno(err, "%s: %s%s%m", msg, strempty(err_msg), err_msg ? " " : "");
+}

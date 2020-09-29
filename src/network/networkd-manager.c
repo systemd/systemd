@@ -46,13 +46,6 @@
 /* use 128 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (128*1024*1024)
 
-static int log_message_warning_errno(sd_netlink_message *m, int err, const char *msg) {
-        const char *err_msg = NULL;
-
-        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
-        return log_warning_errno(err, "%s: %s%s%m", msg, strempty(err_msg), err_msg ? " " : "");
-}
-
 static int setup_default_address_pool(Manager *m) {
         AddressPool *p;
         int r;
