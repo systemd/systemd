@@ -21,7 +21,6 @@
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
 #include "networkd-route.h"

@@ -3,8 +3,10 @@
 #include <net/if.h>
 
 #include "netlink-util.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-mdb.h"
+#include "networkd-network.h"
 #include "string-util.h"
 #include "vlan-util.h"
 

@@ -17,6 +17,7 @@
 #include "networkd-address-label.h"
 #include "networkd-fdb.h"
 #include "networkd-manager.h"
+#include "networkd-mdb.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"

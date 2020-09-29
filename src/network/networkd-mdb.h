@@ -1,24 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <inttypes.h>
+
 #include "conf-parser.h"
-#include "list.h"
-#include "macro.h"
+#include "in-addr-util.h"
 #include "networkd-util.h"
 
 typedef struct Network Network;
-typedef struct MdbEntry MdbEntry;
 typedef struct Link Link;
-typedef struct NetworkConfigSection NetworkConfigSection;
 
-struct MdbEntry {
+typedef struct MdbEntry {
         Network *network;
         NetworkConfigSection *section;
 
         int family;
         union in_addr_union group_addr;
         uint16_t vlan_id;
-};
+} MdbEntry;
 
 MdbEntry *mdb_entry_free(MdbEntry *mdb_entry);
 

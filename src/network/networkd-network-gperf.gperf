@@ -15,6 +15,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "networkd-dhcp6.h"
 #include "networkd-fdb.h"
 #include "networkd-ipv4ll.h"
+#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
 #include "networkd-neighbor.h"
