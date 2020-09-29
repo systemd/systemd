@@ -572,7 +572,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         return 1;
 }
 
-int neighbor_section_verify(Neighbor *neighbor) {
+static int neighbor_section_verify(Neighbor *neighbor) {
         if (section_is_invalid(neighbor->section))
                 return -EINVAL;
 
@@ -590,6 +590,17 @@ int neighbor_section_verify(Neighbor *neighbor) {
 
         return 0;
 }
+
+void network_verify_neighbors(Network *network) {
+        Neighbor *neighbor;
+
+        assert(network);
+
+        HASHMAP_FOREACH(neighbor, network->neighbors_by_section)
+                if (neighbor_section_verify(neighbor) < 0)
+                        neighbor_free(neighbor);
+}
+
 
 int config_parse_neighbor_address(
                 const char *unit,

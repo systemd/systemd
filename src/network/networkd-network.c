@@ -152,7 +152,6 @@ static int network_resolve_stacked_netdevs(Network *network) {
 
 int network_verify(Network *network) {
         RoutePrefix *route_prefix, *route_prefix_next;
-        Neighbor *neighbor;
         AddressLabel *label, *label_next;
         Address *address, *address_next;
         Prefix *prefix, *prefix_next;
@@ -309,9 +308,7 @@ int network_verify(Network *network) {
                 if (mdb_entry_verify(mdb) < 0)
                         mdb_entry_free(mdb);
 
-        HASHMAP_FOREACH(neighbor, network->neighbors_by_section)
-                if (neighbor_section_verify(neighbor) < 0)
-                        neighbor_free(neighbor);
+        network_verify_neighbors(network);
 
         LIST_FOREACH_SAFE(labels, label, label_next, network->address_labels)
                 if (section_is_invalid(label->section))

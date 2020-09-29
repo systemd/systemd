@@ -31,7 +31,8 @@ typedef struct Neighbor {
 } Neighbor;
 
 void neighbor_free(Neighbor *neighbor);
-int neighbor_section_verify(Neighbor *neighbor);
+
+void network_verify_neighbors(Network *network);
 
 int link_set_neighbors(Link *link);
 int link_drop_neighbors(Link *link);
