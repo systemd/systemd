@@ -19,7 +19,32 @@
 #include "strv.h"
 #include "user-util.h"
 
-int routing_policy_rule_new(RoutingPolicyRule **ret) {
+RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
+        if (!rule)
+                return NULL;
+
+        if (rule->network) {
+                assert(rule->section);
+                hashmap_remove(rule->network->rules_by_section, rule->section);
+        }
+
+        if (rule->manager) {
+                if (set_get(rule->manager->rules, rule) == rule)
+                        set_remove(rule->manager->rules, rule);
+                if (set_get(rule->manager->rules_foreign, rule) == rule)
+                        set_remove(rule->manager->rules_foreign, rule);
+        }
+
+        network_config_section_free(rule->section);
+        free(rule->iif);
+        free(rule->oif);
+
+        return mfree(rule);
+}
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
+
+static int routing_policy_rule_new(RoutingPolicyRule **ret) {
         RoutingPolicyRule *rule;
 
         rule = new(RoutingPolicyRule, 1);
@@ -74,29 +99,6 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
 
         *ret = TAKE_PTR(rule);
         return 0;
-}
-
-RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
-        if (!rule)
-                return NULL;
-
-        if (rule->network) {
-                assert(rule->section);
-                hashmap_remove(rule->network->rules_by_section, rule->section);
-        }
-
-        if (rule->manager) {
-                if (set_get(rule->manager->rules, rule) == rule)
-                        set_remove(rule->manager->rules, rule);
-                if (set_get(rule->manager->rules_foreign, rule) == rule)
-                        set_remove(rule->manager->rules_foreign, rule);
-        }
-
-        network_config_section_free(rule->section);
-        free(rule->iif);
-        free(rule->oif);
-
-        return mfree(rule);
 }
 
 static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *src) {

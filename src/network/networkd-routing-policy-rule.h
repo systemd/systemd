@@ -49,10 +49,7 @@ typedef struct RoutingPolicyRule {
         int suppress_prefixlen;
 } RoutingPolicyRule;
 
-int routing_policy_rule_new(RoutingPolicyRule **ret);
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
-
-DEFINE_NETWORK_SECTION_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
 int routing_policy_rule_section_verify(RoutingPolicyRule *rule);
 
 int link_set_routing_policy_rules(Link *link);
