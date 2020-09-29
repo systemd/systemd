@@ -154,6 +154,22 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         assert(data->sysname || data->devlink);
         assert(!data->device);
 
+        /* Ignore REMOVE events here. We are waiting for initialization after all, not de-initialization. We
+         * might see a REMOVE event from an earlier use of the device (devices by the same name are recycled
+         * by the kernel after all), which we should not get confused by. After all we cannot distinguish use
+         * cycles of the devices, as the udev queue is entirely asynchronous.
+         *
+         * If we see a REMOVE event here for the use cycle we actually care about then we won't notice of
+         * course, but that should be OK, given the timeout logic used on the wait loop: this will be noticed
+         * by means of -ETIMEDOUT. Thus we won't notice immediately, but eventually, and that should be
+         * sufficient for an error path that should regularly not happen.
+         *
+         * (And yes, we only need to special case REMOVE. It's the only "negative" event type, where a device
+         * ceases to exist. All other event types are "positive": the device exists and is registered in the
+         * udev database, thus whenever we see the event, we can consider it initialized.) */
+        if (device_for_action(device, DEVICE_ACTION_REMOVE))
+                return 0;
+
         if (data->sysname && sd_device_get_sysname(device, &sysname) >= 0 && streq(sysname, data->sysname))
                 goto found;
 
