@@ -348,16 +348,17 @@
         terminated. When the mode parameter is specified as <option>no</option> (the default), the whole OS tree is
         made available writable (unless <option>--read-only</option> is specified, see above).</para>
 
-        <para>Note that if one of the volatile modes is chosen, its effect is limited to the root file system (or
-        <filename>/var/</filename> in case of <option>state</option>), and any other mounts placed in the hierarchy are
-        unaffected — regardless if they are established automatically (e.g. the EFI system partition that might be
-        mounted to <filename>/efi/</filename> or <filename>/boot/</filename>) or explicitly (e.g. through an additional
-        command line option such as <option>--bind=</option>, see below). This means, even if
-        <option>--volatile=overlay</option> is used changes to <filename>/efi/</filename> or
-        <filename>/boot/</filename> are prohibited in case such a partition exists in the container image operated on,
-        and even if <option>--volatile=state</option> is used the hypothetical file <filename>/etc/foobar</filename> is
-        potentially writable if <option>--bind=/etc/foobar</option> if used to mount it from outside the read-only
-        container <filename>/etc</filename> directory.</para>
+        <para>Note that if one of the volatile modes is chosen, its effect is limited to the root file system
+        (or <filename>/var/</filename> in case of <option>state</option>), and any other mounts placed in the
+        hierarchy are unaffected — regardless if they are established automatically (e.g. the EFI system
+        partition that might be mounted to <filename>/efi/</filename> or <filename>/boot/</filename>) or
+        explicitly (e.g. through an additional command line option such as <option>--bind=</option>, see
+        below). This means, even if <option>--volatile=overlay</option> is used changes to
+        <filename>/efi/</filename> or <filename>/boot/</filename> are prohibited in case such a partition
+        exists in the container image operated on, and even if <option>--volatile=state</option> is used the
+        hypothetical file <filename index="false">/etc/foobar</filename> is potentially writable if
+        <option>--bind=/etc/foobar</option> if used to mount it from outside the read-only container
+        <filename>/etc</filename> directory.</para>
 
         <para>The <option>--ephemeral</option> option is closely related to this setting, and provides similar
         behaviour by making a temporary, ephemeral copy of the whole OS image and executing that. For further details,

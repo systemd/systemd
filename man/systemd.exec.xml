@@ -1275,7 +1275,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <para>Example: if a system service unit has the following,
         <programlisting>RuntimeDirectory=foo/bar baz</programlisting>
-        the service manager creates <filename>/run/foo</filename> (if it does not exist),
+        the service manager creates <filename index='false'>/run/foo</filename> (if it does not exist),
 
         <filename index='false'>/run/foo/bar</filename>, and <filename index='false'>/run/baz</filename>. The
         directories <filename index='false'>/run/foo/bar</filename> and

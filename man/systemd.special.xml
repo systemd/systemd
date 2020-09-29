@@ -862,8 +862,8 @@
           pulled in via a <option>Wants=</option> dependency of the storage daemon and thus generally not be
           part of any transaction unless a storage daemon is used. The instance name for instances of this
           template unit must be a properly escaped block device node path, e.g.
-          <filename>blockdev@dev-mapper-foobar.target</filename> for the storage device
-          <filename>/dev/mapper/foobar</filename>.</para></listitem>
+          <filename index="false">blockdev@dev-mapper-foobar.target</filename> for the storage device
+          <filename index="false">/dev/mapper/foobar</filename>.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><filename>cryptsetup-pre.target</filename></term>

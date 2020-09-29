@@ -279,7 +279,7 @@
     <para>When the input qualifies as absolute file system path, this algorithm is extended slightly: the path to the
     root directory <literal>/</literal> is encoded as single dash <literal>-</literal>. In addition, any leading,
     trailing or duplicate <literal>/</literal> characters are removed from the string before transformation. Example:
-    <filename>/foo//bar/baz/</filename> becomes <literal>foo-bar-baz</literal>.</para>
+    <filename index="false">/foo//bar/baz/</filename> becomes <literal>foo-bar-baz</literal>.</para>
 
     <para>This escaping is fully reversible, as long as it is known whether the escaped string was a path (the
     unescaping results are different for paths and non-path strings). The
@@ -1922,7 +1922,7 @@ ExecStart=/usr/sbin/foo-daemon
 
       <para>After running <command>systemctl enable</command>, a
       symlink
-      <filename>/etc/systemd/system/multi-user.target.wants/foo.service</filename>
+      <filename index="false">/etc/systemd/system/multi-user.target.wants/foo.service</filename>
       linking to the actual unit will be created. It tells systemd to
       pull in the unit when starting
       <filename>multi-user.target</filename>. The inverse

@@ -76,7 +76,7 @@
         <title>Setup environment to allow access to a program installed in
         <filename index="false">/opt/foo</filename></title>
 
-        <para><filename>/etc/environment.d/60-foo.conf</filename>:
+        <para><filename index="false">/etc/environment.d/60-foo.conf</filename>:
         </para>
         <programlisting>
         FOO_DEBUG=force-software-gl,log-verbose
