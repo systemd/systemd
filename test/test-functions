@@ -4,6 +4,8 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 export PATH
 
+echo "Hello world"
+
 os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
 LOOKS_LIKE_DEBIAN=$(source $os_release && [[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && echo yes || :)
 LOOKS_LIKE_ARCH=$(source $os_release && [[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && echo yes || :)
