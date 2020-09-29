@@ -29,8 +29,6 @@ struct Neighbor {
         union in_addr_union in_addr;
         union lladdr_union lladdr;
         size_t lladdr_size;
-
-        LIST_FIELDS(Neighbor, neighbors);
 };
 
 void neighbor_free(Neighbor *neighbor);

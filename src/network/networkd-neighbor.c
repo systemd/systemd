@@ -18,12 +18,8 @@ void neighbor_free(Neighbor *neighbor) {
                 return;
 
         if (neighbor->network) {
-                LIST_REMOVE(neighbors, neighbor->network->neighbors, neighbor);
-                assert(neighbor->network->n_neighbors > 0);
-                neighbor->network->n_neighbors--;
-
-                if (neighbor->section)
-                        hashmap_remove(neighbor->network->neighbors_by_section, neighbor->section);
+                assert(neighbor->section);
+                hashmap_remove(neighbor->network->neighbors_by_section, neighbor->section);
         }
 
         network_config_section_free(neighbor->section);
@@ -43,19 +39,17 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                neighbor = hashmap_get(network->neighbors_by_section, n);
-                if (neighbor) {
-                        *ret = TAKE_PTR(neighbor);
-
-                        return 0;
-                }
+        neighbor = hashmap_get(network->neighbors_by_section, n);
+        if (neighbor) {
+                *ret = TAKE_PTR(neighbor);
+                return 0;
         }
 
         neighbor = new(Neighbor, 1);
@@ -65,25 +59,18 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
         *neighbor = (Neighbor) {
                 .network = network,
                 .family = AF_UNSPEC,
+                .section = TAKE_PTR(n),
         };
 
-        LIST_APPEND(neighbors, network->neighbors, neighbor);
-        network->n_neighbors++;
+        r = hashmap_ensure_allocated(&network->neighbors_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-        if (filename) {
-                neighbor->section = TAKE_PTR(n);
-
-                r = hashmap_ensure_allocated(&network->neighbors_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->neighbors_by_section, neighbor->section, neighbor);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->neighbors_by_section, neighbor->section, neighbor);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(neighbor);
-
         return 0;
 }
 
@@ -320,7 +307,7 @@ int link_set_neighbors(Link *link) {
 
         link->neighbors_configured = false;
 
-        LIST_FOREACH(neighbors, neighbor, link->network->neighbors) {
+        HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
                 r = neighbor_configure(neighbor, link, NULL);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set neighbor: %m");

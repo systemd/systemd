@@ -2602,7 +2602,7 @@ static bool link_is_neighbor_configured(Link *link, Neighbor *neighbor) {
         if (!link->network)
                 return false;
 
-        LIST_FOREACH(neighbors, net_neighbor, link->network->neighbors)
+        HASHMAP_FOREACH(net_neighbor, link->network->neighbors_by_section)
                 if (neighbor_equal(net_neighbor, neighbor))
                         return true;
 
