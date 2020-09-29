@@ -439,7 +439,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         return 1;
 }
 
-int nexthop_section_verify(NextHop *nh) {
+static int nexthop_section_verify(NextHop *nh) {
         if (section_is_invalid(nh->section))
                 return -EINVAL;
 
@@ -447,6 +447,16 @@ int nexthop_section_verify(NextHop *nh) {
                 return -EINVAL;
 
         return 0;
+}
+
+void network_verify_nexthops(Network *network) {
+        NextHop *nh;
+
+        assert(network);
+
+        HASHMAP_FOREACH(nh, network->nexthops_by_section)
+                if (nexthop_section_verify(nh) < 0)
+                        nexthop_free(nh);
 }
 
 int config_parse_nexthop_id(

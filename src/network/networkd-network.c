@@ -153,7 +153,6 @@ int network_verify(Network *network) {
         RoutePrefix *route_prefix, *route_prefix_next;
         Neighbor *neighbor, *neighbor_next;
         AddressLabel *label, *label_next;
-        NextHop *nexthop;
         Address *address, *address_next;
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
@@ -299,9 +298,7 @@ int network_verify(Network *network) {
                 if (route_section_verify(route, network) < 0)
                         route_free(route);
 
-        HASHMAP_FOREACH(nexthop, network->nexthops_by_section)
-                if (nexthop_section_verify(nexthop) < 0)
-                        nexthop_free(nexthop);
+        network_verify_nexthops(network);
 
         LIST_FOREACH_SAFE(static_fdb_entries, fdb, fdb_next, network->static_fdb_entries)
                 if (section_is_invalid(fdb->section))

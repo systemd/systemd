@@ -30,7 +30,8 @@ typedef struct NextHop {
 } NextHop;
 
 NextHop *nexthop_free(NextHop *nexthop);
-int nexthop_section_verify(NextHop *nexthop);
+
+void network_verify_nexthops(Network *network);
 
 int link_set_nexthop(Link *link);
 
