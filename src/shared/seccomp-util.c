@@ -257,6 +257,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@default",
                 .help = "System calls that are always permitted",
                 .value =
+                "cacheflush\0"
                 "clock_getres\0"
                 "clock_getres_time64\0"
                 "clock_gettime\0"
