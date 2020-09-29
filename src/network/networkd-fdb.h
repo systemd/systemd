@@ -47,9 +47,6 @@ void network_verify_fdb_entries(Network *network);
 
 int link_set_bridge_fdb(Link *link);
 
-const char* fdb_ntf_flags_to_string(NeighborCacheEntryFlags i) _const_;
-NeighborCacheEntryFlags fdb_ntf_flags_from_string(const char *s) _pure_;
-
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_destination);

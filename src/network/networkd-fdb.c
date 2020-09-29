@@ -21,15 +21,6 @@
 
 #define STATIC_FDB_ENTRIES_PER_NETWORK_MAX 1024U
 
-static const char* const fdb_ntf_flags_table[_NEIGHBOR_CACHE_ENTRY_FLAGS_MAX] = {
-        [NEIGHBOR_CACHE_ENTRY_FLAGS_USE] = "use",
-        [NEIGHBOR_CACHE_ENTRY_FLAGS_SELF] = "self",
-        [NEIGHBOR_CACHE_ENTRY_FLAGS_MASTER] = "master",
-        [NEIGHBOR_CACHE_ENTRY_FLAGS_ROUTER] = "router",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(fdb_ntf_flags, NeighborCacheEntryFlags);
-
 /* remove and FDB entry. */
 FdbEntry *fdb_entry_free(FdbEntry *fdb_entry) {
         if (!fdb_entry)
@@ -367,6 +358,15 @@ int config_parse_fdb_vxlan_vni(
 
         return 0;
 }
+
+static const char* const fdb_ntf_flags_table[_NEIGHBOR_CACHE_ENTRY_FLAGS_MAX] = {
+        [NEIGHBOR_CACHE_ENTRY_FLAGS_USE] = "use",
+        [NEIGHBOR_CACHE_ENTRY_FLAGS_SELF] = "self",
+        [NEIGHBOR_CACHE_ENTRY_FLAGS_MASTER] = "master",
+        [NEIGHBOR_CACHE_ENTRY_FLAGS_ROUTER] = "router",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(fdb_ntf_flags, NeighborCacheEntryFlags);
 
 int config_parse_fdb_ntf_flags(
                 const char *unit,
