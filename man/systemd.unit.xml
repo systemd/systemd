@@ -255,9 +255,8 @@
     start it even manually.</para>
 
     <para>The unit file format is covered by the
-    <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/InterfaceStabilityPromise">Interface
-    Stability Promise</ulink>.</para>
+    <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface
+    Portability and Stability Promise</ulink>.</para>
 
   </refsect1>
 
