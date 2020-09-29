@@ -405,24 +405,20 @@
         <literal>user.verity.usrhash</literal> extended file attribute or via a <filename>.usrhash</filename>
         file adjacent to the disk image, following the same format and logic as for the root hash for the
         root file system described here. Note that there's currently no switch to configure the root hash for
-        the <filename>/usr/</filename> from the command line.</para></listitem>
+        the <filename>/usr/</filename> from the command line.</para>
+
+        <para>Also see the <varname>RootHash=</varname> option in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--root-hash-sig=</option></term>
 
-        <listitem><para>Takes a PKCS7 formatted binary signature of the <option>--root-hash=</option> option as a path
-        to a DER encoded signature file or as an ASCII base64 string encoding of the DER encoded signature, prefixed
-        by <literal>base64:</literal>. The dm-verity volume will only be opened if the signature of the root hash hex
-        string is valid and done by a public key present in the kernel keyring. If this option is not specified, but a
-        file with the <filename>.roothash.p7s</filename> suffix is found next to the image file, bearing otherwise the
-        same name (except if the image has the <filename>.raw</filename> suffix, in which case the signature file must
-        not have it in its name), the signature is read from it and automatically used.</para>
-
-        <para>The root hash for the <filename>/usr/</filename> file system included in a disk image may be
-        configured via a <filename>.usrhash.p7s</filename> file adjacent to the disk image. There's currently
-        no switch to configure the signature of the root hash of the <filename>/usr/</filename> file system
-        from the command line.</para></listitem>
+        <listitem><para>Takes a PKCS7 signature of the <option>--root-hash=</option> option.
+        The semantics are the same as for the <varname>RootHashSignature=</varname> option, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
