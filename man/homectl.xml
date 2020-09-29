@@ -299,11 +299,13 @@
       <varlistentry>
         <term><option>--timezone=</option><replaceable>TIMEZONE</replaceable></term>
 
-        <listitem><para>Takes a timezone specification as string that sets the timezone for the specified
-        user. Expects a `tzdata` location string. When the user logs in the <varname>$TZ</varname>
-        environment variable is initialized from this setting. Example:
-        <option>--timezone=Europe/Amsterdam</option> will result in the environment variable
-        <literal>TZ=:Europe/Amsterdam</literal>.</para></listitem>
+        <listitem><para>Takes a time zone location name that sets the timezone for the specified user. When
+        the user logs in the <varname>$TZ</varname> environment variable is initialized from this
+        setting. Example: <option>--timezone=Europe/Amsterdam</option> will result in the environment
+        variable <literal>TZ=:Europe/Amsterdam</literal>. (<literal>:</literal> is used intentionally as part
+        of the timezone specification, see
+        <citerefentry><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
