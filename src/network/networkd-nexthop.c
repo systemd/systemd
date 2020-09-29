@@ -95,7 +95,6 @@ static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         assert(nexthop);
 
         siphash24_compress(&nexthop->id, sizeof(nexthop->id), state);
-        siphash24_compress(&nexthop->oif, sizeof(nexthop->oif), state);
         siphash24_compress(&nexthop->family, sizeof(nexthop->family), state);
 
         switch (nexthop->family) {
@@ -114,10 +113,6 @@ static int nexthop_compare_func(const NextHop *a, const NextHop *b) {
         int r;
 
         r = CMP(a->id, b->id);
-        if (r != 0)
-                return r;
-
-        r = CMP(a->oif, b->oif);
         if (r != 0)
                 return r;
 
@@ -174,7 +169,6 @@ static int nexthop_add_internal(Link *link, Set **nexthops, NextHop *in, NextHop
                 return r;
 
         nexthop->id = in->id;
-        nexthop->oif = in->oif;
         nexthop->family = in->family;
         nexthop->gw = in->gw;
 
@@ -343,8 +337,9 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         _cleanup_(nexthop_freep) NextHop *tmp = NULL;
         _cleanup_free_ char *gateway = NULL;
         NextHop *nexthop = NULL;
-        Link *link = NULL;
+        uint32_t ifindex;
         uint16_t type;
+        Link *link;
         int r;
 
         assert(rtnl);
@@ -365,6 +360,25 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         } else if (!IN_SET(type, RTM_NEWNEXTHOP, RTM_DELNEXTHOP)) {
                 log_warning("rtnl: received unexpected message type %u when processing nexthop, ignoring.", type);
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, NHA_OIF, &ifindex);
+        if (r == -ENODATA) {
+                log_warning_errno(r, "rtnl: received nexthop message without NHA_OIF attribute, ignoring: %m");
+                return 0;
+        } else if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get NHA_OIF attribute, ignoring: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received nexthop message with invalid ifindex %"PRIu32", ignoring.", ifindex);
+                return 0;
+        }
+
+        r = link_get(m, ifindex, &link);
+        if (r < 0 || !link) {
+                if (!m->enumerating)
+                        log_warning("rtnl: received nexthop message for link (%"PRIu32") we do not know about, ignoring", ifindex);
                 return 0;
         }
 
@@ -408,22 +422,6 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 return 0;
         }
 
-        r = sd_netlink_message_read_u32(message, NHA_OIF, &tmp->oif);
-        if (r < 0 && r != -ENODATA) {
-                log_warning_errno(r, "rtnl: could not get NHA_OIF attribute, ignoring: %m");
-                return 0;
-        } else if (tmp->oif <= 0) {
-                log_warning("rtnl: received nexthop message with invalid ifindex %d, ignoring.", tmp->oif);
-                return 0;
-        }
-
-        r = link_get(m, tmp->oif, &link);
-        if (r < 0 || !link) {
-                if (!m->enumerating)
-                        log_warning("rtnl: received nexthop message for link (%d) we do not know about, ignoring", tmp->oif);
-                return 0;
-        }
-
         (void) nexthop_get(link, tmp, &nexthop);
 
         if (DEBUG_LOGGING)
@@ -432,9 +430,9 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         switch (type) {
         case RTM_NEWNEXTHOP:
                 if (nexthop)
-                        log_link_debug(link, "Received remembered nexthop: %s, oif: %d, id: %d", strna(gateway), tmp->oif, tmp->id);
+                        log_link_debug(link, "Received remembered nexthop: %s, id: %d", strna(gateway), tmp->id);
                 else {
-                        log_link_debug(link, "Remembering foreign nexthop: %s, oif: %d, id: %d", strna(gateway), tmp->oif, tmp->id);
+                        log_link_debug(link, "Remembering foreign nexthop: %s, id: %d", strna(gateway), tmp->id);
                         r = nexthop_add_foreign(link, tmp, &nexthop);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Could not remember foreign nexthop, ignoring: %m");
@@ -444,11 +442,11 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 break;
         case RTM_DELNEXTHOP:
                 if (nexthop) {
-                        log_link_debug(link, "Forgetting nexthop: %s, oif: %d, id: %d", strna(gateway), tmp->oif, tmp->id);
+                        log_link_debug(link, "Forgetting nexthop: %s, id: %d", strna(gateway), tmp->id);
                         nexthop_free(nexthop);
                 } else
-                        log_link_debug(link, "Kernel removed a nexthop we don't remember: %s, oif: %d, id: %d, ignoring.",
-                                       strna(gateway), tmp->oif, tmp->id);
+                        log_link_debug(link, "Kernel removed a nexthop we don't remember: %s, id: %d, ignoring.",
+                                       strna(gateway), tmp->id);
                 break;
 
         default:

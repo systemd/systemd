@@ -24,10 +24,8 @@ typedef struct NextHop {
 
         unsigned char protocol;
 
-        int family;
-        uint32_t oif;
         uint32_t id;
-
+        int family;
         union in_addr_union gw;
 } NextHop;
 
