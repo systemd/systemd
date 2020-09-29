@@ -84,10 +84,9 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         return 0;
 }
 
-void routing_policy_rule_free(RoutingPolicyRule *rule) {
-
+RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
         if (!rule)
-                return;
+                return NULL;
 
         if (rule->network) {
                 LIST_REMOVE(rules, rule->network->rules, rule);
@@ -108,7 +107,8 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
         network_config_section_free(rule->section);
         free(rule->iif);
         free(rule->oif);
-        free(rule);
+
+        return mfree(rule);
 }
 
 static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *src) {

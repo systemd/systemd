@@ -57,7 +57,7 @@ struct RoutingPolicyRule {
 };
 
 int routing_policy_rule_new(RoutingPolicyRule **ret);
-void routing_policy_rule_free(RoutingPolicyRule *rule);
+RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
 int routing_policy_rule_section_verify(RoutingPolicyRule *rule);
