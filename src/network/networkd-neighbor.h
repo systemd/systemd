@@ -38,9 +38,9 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Neighbor, neighbor_free);
 int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback);
 int neighbor_remove(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback);
 
-int neighbor_get(Link *link, int family, const union in_addr_union *addr, const union lladdr_union *lladdr, size_t lladdr_size, Neighbor **ret);
-int neighbor_add(Link *link, int family, const union in_addr_union *addr, const union lladdr_union *lladdr, size_t lladdr_size, Neighbor **ret);
-int neighbor_add_foreign(Link *link, int family, const union in_addr_union *addr, const union lladdr_union *lladdr, size_t lladdr_size, Neighbor **ret);
+int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret);
+int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret);
+int neighbor_add_foreign(Link *link, const Neighbor *in, Neighbor **ret);
 bool neighbor_equal(const Neighbor *n1, const Neighbor *n2);
 
 int neighbor_section_verify(Neighbor *neighbor);

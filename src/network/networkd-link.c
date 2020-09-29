@@ -2731,7 +2731,7 @@ static int link_drop_foreign_config(Link *link) {
 
         SET_FOREACH(neighbor, link->neighbors_foreign) {
                 if (link_is_neighbor_configured(link, neighbor)) {
-                        r = neighbor_add(link, neighbor->family, &neighbor->in_addr, &neighbor->lladdr, neighbor->lladdr_size, NULL);
+                        r = neighbor_add(link, neighbor, NULL);
                         if (r < 0)
                                 return r;
                 } else {

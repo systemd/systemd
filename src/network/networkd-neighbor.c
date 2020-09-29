@@ -118,28 +118,20 @@ static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(neighbor_hash_ops, Neighbor, neighbor_hash_func, neighbor_compare_func, neighbor_free);
 
-int neighbor_get(Link *link, int family, const union in_addr_union *addr, const union lladdr_union *lladdr, size_t lladdr_size, Neighbor **ret) {
-        Neighbor neighbor, *existing;
+int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret) {
+        Neighbor *existing;
 
         assert(link);
-        assert(addr);
-        assert(lladdr);
+        assert(in);
 
-        neighbor = (Neighbor) {
-                .family = family,
-                .in_addr = *addr,
-                .lladdr = *lladdr,
-                .lladdr_size = lladdr_size,
-        };
-
-        existing = set_get(link->neighbors, &neighbor);
+        existing = set_get(link->neighbors, in);
         if (existing) {
                 if (ret)
                         *ret = existing;
                 return 1;
         }
 
-        existing = set_get(link->neighbors_foreign, &neighbor);
+        existing = set_get(link->neighbors_foreign, in);
         if (existing) {
                 if (ret)
                         *ret = existing;
@@ -149,24 +141,23 @@ int neighbor_get(Link *link, int family, const union in_addr_union *addr, const 
         return -ENOENT;
 }
 
-static int neighbor_add_internal(Link *link, Set **neighbors, int family, const union in_addr_union *addr, const union lladdr_union *lladdr, size_t lladdr_size, Neighbor **ret) {
+static int neighbor_add_internal(Link *link, Set **neighbors, const Neighbor *in, Neighbor **ret) {
         _cleanup_(neighbor_freep) Neighbor *neighbor = NULL;
         int r;
 
         assert(link);
         assert(neighbors);
-        assert(addr);
-        assert(lladdr);
+        assert(in);
 
         neighbor = new(Neighbor, 1);
         if (!neighbor)
                 return -ENOMEM;
 
         *neighbor = (Neighbor) {
-                .family = family,
-                .in_addr = *addr,
-                .lladdr = *lladdr,
-                .lladdr_size = lladdr_size,
+                .family = in->family,
+                .in_addr = in->in_addr,
+                .lladdr = in->lladdr,
+                .lladdr_size = in->lladdr_size,
         };
 
         r = set_ensure_put(neighbors, &neighbor_hash_ops, neighbor);
@@ -179,19 +170,19 @@ static int neighbor_add_internal(Link *link, Set **neighbors, int family, const 
 
         if (ret)
                 *ret = neighbor;
-        TAKE_PTR(neighbor);
 
+        TAKE_PTR(neighbor);
         return 0;
 }
 
-int neighbor_add(Link *link, int family, const union in_addr_union *addr, const union lladdr_union *lladdr, size_t lladdr_size, Neighbor **ret) {
+int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
         Neighbor *neighbor;
         int r;
 
-        r = neighbor_get(link, family, addr, lladdr, lladdr_size, &neighbor);
+        r = neighbor_get(link, in, &neighbor);
         if (r == -ENOENT) {
                 /* Neighbor doesn't exist, make a new one */
-                r = neighbor_add_internal(link, &link->neighbors, family, addr, lladdr, lladdr_size, &neighbor);
+                r = neighbor_add_internal(link, &link->neighbors, in, &neighbor);
                 if (r < 0)
                         return r;
         } else if (r == 0) {
@@ -211,8 +202,8 @@ int neighbor_add(Link *link, int family, const union in_addr_union *addr, const 
         return 0;
 }
 
-int neighbor_add_foreign(Link *link, int family, const union in_addr_union *addr, const union lladdr_union *lladdr, size_t lladdr_size, Neighbor **ret) {
-        return neighbor_add_internal(link, &link->neighbors_foreign, family, addr, lladdr, lladdr_size, ret);
+int neighbor_add_foreign(Link *link, const Neighbor *in, Neighbor **ret) {
+        return neighbor_add_internal(link, &link->neighbors_foreign, in, ret);
 }
 
 bool neighbor_equal(const Neighbor *n1, const Neighbor *n2) {
@@ -290,7 +281,7 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
         link->neighbor_messages++;
         link_ref(link);
 
-        r = neighbor_add(link, neighbor->family, &neighbor->in_addr, &neighbor->lladdr, neighbor->lladdr_size, NULL);
+        r = neighbor_add(link, neighbor, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add neighbor: %m");
 
@@ -412,15 +403,12 @@ static int manager_rtnl_process_neighbor_lladdr(sd_netlink_message *message, uni
 }
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        Link *link = NULL;
+        _cleanup_(neighbor_freep) Neighbor *tmp = NULL;
+        _cleanup_free_ char *addr_str = NULL, *lladdr_str = NULL;
         Neighbor *neighbor = NULL;
-        int ifindex, family, r;
         uint16_t type, state;
-        union in_addr_union in_addr = IN_ADDR_NULL;
-        _cleanup_free_ char *addr_str = NULL;
-        union lladdr_union lladdr;
-        size_t lladdr_size = 0;
-        _cleanup_free_ char *lladdr_str = NULL;
+        int ifindex, r;
+        Link *link;
 
         assert(rtnl);
         assert(message);
@@ -445,7 +433,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
 
         r = sd_rtnl_message_neigh_get_state(message, &state);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received neighbor message with invalid state, ignoring: %m");
+                log_warning_errno(r, "rtnl: received neighbor message with invalid state, ignoring: %m");
                 return 0;
         } else if (!FLAGS_SET(state, NUD_PERMANENT)) {
                 log_debug("rtnl: received non-static neighbor, ignoring.");
@@ -470,48 +458,33 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                 return 0;
         }
 
-        r = sd_rtnl_message_neigh_get_family(message, &family);
+        tmp = new0(Neighbor, 1);
+
+        r = sd_rtnl_message_neigh_get_family(message, &tmp->family);
         if (r < 0) {
                 log_link_warning(link, "rtnl: received neighbor message without family, ignoring.");
                 return 0;
-        } else if (!IN_SET(family, AF_INET, AF_INET6)) {
-                log_link_debug(link, "rtnl: received neighbor message with invalid family '%i', ignoring.", family);
+        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received neighbor message with invalid family '%i', ignoring.", tmp->family);
                 return 0;
         }
 
-        switch (family) {
-        case AF_INET:
-                r = sd_netlink_message_read_in_addr(message, NDA_DST, &in_addr.in);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received neighbor message without valid address, ignoring: %m");
-                        return 0;
-                }
-
-                break;
-
-        case AF_INET6:
-                r = sd_netlink_message_read_in6_addr(message, NDA_DST, &in_addr.in6);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received neighbor message without valid address, ignoring: %m");
-                        return 0;
-                }
-
-                break;
-
-        default:
-                assert_not_reached("Received unsupported address family");
+        r = netlink_message_read_in_addr_union(message, NDA_DST, tmp->family, &tmp->in_addr);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received neighbor message without valid address, ignoring: %m");
+                return 0;
         }
 
-        if (in_addr_to_string(family, &in_addr, &addr_str) < 0)
+        if (in_addr_to_string(tmp->family, &tmp->in_addr, &addr_str) < 0)
                 log_link_warning_errno(link, r, "Could not print address: %m");
 
-        r = manager_rtnl_process_neighbor_lladdr(message, &lladdr, &lladdr_size, &lladdr_str);
+        r = manager_rtnl_process_neighbor_lladdr(message, &tmp->lladdr, &tmp->lladdr_size, &lladdr_str);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: received neighbor message with invalid lladdr, ignoring: %m");
                 return 0;
         }
 
-        (void) neighbor_get(link, family, &in_addr, &lladdr, lladdr_size, &neighbor);
+        (void) neighbor_get(link, tmp, &neighbor);
 
         switch (type) {
         case RTM_NEWNEIGH:
@@ -520,7 +493,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                                        strnull(addr_str), strnull(lladdr_str));
                 else {
                         /* A neighbor appeared that we did not request */
-                        r = neighbor_add_foreign(link, family, &in_addr, &lladdr, lladdr_size, &neighbor);
+                        r = neighbor_add_foreign(link, tmp, NULL);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember foreign neighbor %s->%s, ignoring: %m",
                                                        strnull(addr_str), strnull(lladdr_str));
