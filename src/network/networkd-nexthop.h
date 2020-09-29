@@ -31,13 +31,10 @@ struct NextHop {
 };
 
 void nexthop_free(NextHop *nexthop);
-int nexthop_remove(NextHop *nexthop, Link *link, link_netlink_message_handler_t callback);
 
 int link_set_nexthop(Link *link);
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
-
-bool nexthop_equal(NextHop *r1, NextHop *r2);
 
 int nexthop_section_verify(NextHop *nexthop);
 

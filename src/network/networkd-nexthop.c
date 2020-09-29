@@ -161,16 +161,6 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 nexthop_compare_func,
                 nexthop_free);
 
-bool nexthop_equal(NextHop *r1, NextHop *r2) {
-        if (r1 == r2)
-                return true;
-
-        if (!r1 || !r2)
-                return false;
-
-        return nexthop_compare_func(r1, r2) == 0;
-}
-
 static int nexthop_get(Link *link, NextHop *in, NextHop **ret) {
         NextHop *existing;
 
@@ -256,67 +246,6 @@ static int nexthop_add(Link *link, NextHop *in, NextHop **ret) {
 
         if (ret)
                 *ret = nexthop;
-
-        return 0;
-}
-
-static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -ESRCH)
-                log_link_message_warning_errno(link, m, r, "Could not drop nexthop, ignoring");
-
-        return 1;
-}
-
-int nexthop_remove(NextHop *nexthop, Link *link,
-                   link_netlink_message_handler_t callback) {
-
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(link->ifindex > 0);
-        assert(IN_SET(nexthop->family, AF_INET, AF_INET6));
-
-        r = sd_rtnl_message_new_nexthop(link->manager->rtnl, &req,
-                                      RTM_DELNEXTHOP, nexthop->family,
-                                      nexthop->protocol);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not create RTM_DELNEXTHOP message: %m");
-
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *gw = NULL;
-
-                if (!in_addr_is_null(nexthop->family, &nexthop->gw))
-                        (void) in_addr_to_string(nexthop->family, &nexthop->gw, &gw);
-
-                log_link_debug(link, "Removing nexthop: gw: %s", strna(gw));
-        }
-
-        if (in_addr_is_null(nexthop->family, &nexthop->gw) == 0) {
-                r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, nexthop->family, &nexthop->gw);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_GATEWAY attribute: %m");
-        }
-
-        r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               callback ?: nexthop_remove_handler,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
 
         return 0;
 }
