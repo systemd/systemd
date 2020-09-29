@@ -9,9 +9,9 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "ip-protocol-list.h"
-#include "networkd-routing-policy-rule.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
+#include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
 #include "parse-util.h"
 #include "socket-util.h"
@@ -44,19 +44,17 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                rule = hashmap_get(network->rules_by_section, n);
-                if (rule) {
-                        *ret = TAKE_PTR(rule);
-
-                        return 0;
-                }
+        rule = hashmap_get(network->rules_by_section, n);
+        if (rule) {
+                *ret = TAKE_PTR(rule);
+                return 0;
         }
 
         r = routing_policy_rule_new(&rule);
@@ -64,23 +62,17 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
                 return r;
 
         rule->network = network;
-        LIST_APPEND(rules, network->rules, rule);
-        network->n_rules++;
+        rule->section = TAKE_PTR(n);
 
-        if (filename) {
-                rule->section = TAKE_PTR(n);
+        r = hashmap_ensure_allocated(&network->rules_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-                r = hashmap_ensure_allocated(&network->rules_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->rules_by_section, rule->section, rule);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->rules_by_section, rule->section, rule);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(rule);
-
         return 0;
 }
 
@@ -89,12 +81,8 @@ RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
                 return NULL;
 
         if (rule->network) {
-                LIST_REMOVE(rules, rule->network->rules, rule);
-                assert(rule->network->n_rules > 0);
-                rule->network->n_rules--;
-
-                if (rule->section)
-                        hashmap_remove(rule->network->rules_by_section, rule->section);
+                assert(rule->section);
+                hashmap_remove(rule->network->rules_by_section, rule->section);
         }
 
         if (rule->manager) {
@@ -618,17 +606,18 @@ static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link) {
 }
 
 static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule *rule) {
-        RoutingPolicyRule *link_rule;
         Link *link;
 
         assert(m);
         assert(rule);
 
         HASHMAP_FOREACH(link, m->links) {
+                RoutingPolicyRule *link_rule;
+
                 if (!link->network)
                         continue;
 
-                LIST_FOREACH(rules, link_rule, link->network->rules)
+                HASHMAP_FOREACH(link_rule, link->network->rules_by_section)
                         if (routing_policy_rule_compare_func(link_rule, rule) == 0)
                                 return true;
         }
@@ -678,7 +667,7 @@ int link_set_routing_policy_rules(Link *link) {
 
         link->routing_policy_rules_configured = false;
 
-        LIST_FOREACH(rules, rule, link->network->rules) {
+        HASHMAP_FOREACH(rule, link->network->rules_by_section) {
                 RoutingPolicyRule *existing;
 
                 r = routing_policy_rule_get(link->manager, rule, &existing);

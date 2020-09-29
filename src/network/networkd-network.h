@@ -29,7 +29,6 @@
 #include "networkd-nexthop.h"
 #include "networkd-radv.h"
 #include "networkd-route.h"
-#include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
@@ -295,7 +294,6 @@ struct Network {
         LIST_HEAD(AddressLabel, address_labels);
         LIST_HEAD(Prefix, static_prefixes);
         LIST_HEAD(RoutePrefix, static_route_prefixes);
-        LIST_HEAD(RoutingPolicyRule, rules);
 
         unsigned n_static_addresses;
         unsigned n_static_routes;
@@ -307,7 +305,6 @@ struct Network {
         unsigned n_address_labels;
         unsigned n_static_prefixes;
         unsigned n_static_route_prefixes;
-        unsigned n_rules;
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;

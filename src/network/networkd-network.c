@@ -16,6 +16,7 @@
 #include "network-internal.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-routing-policy-rule.h"
 #include "networkd-sriov.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -149,7 +150,7 @@ static int network_resolve_stacked_netdevs(Network *network) {
 
 int network_verify(Network *network) {
         RoutePrefix *route_prefix, *route_prefix_next;
-        RoutingPolicyRule *rule, *rule_next;
+        RoutingPolicyRule *rule;
         Neighbor *neighbor, *neighbor_next;
         AddressLabel *label, *label_next;
         NextHop *nexthop, *nextnop_next;
@@ -326,7 +327,7 @@ int network_verify(Network *network) {
                 if (section_is_invalid(route_prefix->section))
                         route_prefix_free(route_prefix);
 
-        LIST_FOREACH_SAFE(rules, rule, rule_next, network->rules)
+        HASHMAP_FOREACH(rule, network->rules_by_section)
                 if (routing_policy_rule_section_verify(rule) < 0)
                         routing_policy_rule_free(rule);
 
@@ -646,7 +647,6 @@ failure:
 static Network *network_free(Network *network) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         RoutePrefix *route_prefix;
-        RoutingPolicyRule *rule;
         AddressLabel *label;
         FdbEntry *fdb_entry;
         MdbEntry *mdb_entry;
@@ -741,9 +741,6 @@ static Network *network_free(Network *network) {
         while ((route_prefix = network->static_route_prefixes))
                 route_prefix_free(route_prefix);
 
-        while ((rule = network->rules))
-                routing_policy_rule_free(rule);
-
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         hashmap_free(network->nexthops_by_section);
@@ -753,7 +750,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->address_labels_by_section);
         hashmap_free(network->prefixes_by_section);
         hashmap_free(network->route_prefixes_by_section);
-        hashmap_free(network->rules_by_section);
+        hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 

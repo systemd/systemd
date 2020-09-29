@@ -2,25 +2,20 @@
 #pragma once
 
 #include <inttypes.h>
-#include <netinet/in.h>
 #include <linux/fib_rules.h>
 #include <stdbool.h>
+#include <stdio.h>
 
-#include "in-addr-util.h"
 #include "conf-parser.h"
-
-typedef struct RoutingPolicyRule RoutingPolicyRule;
-
-#include "networkd-link.h"
-#include "networkd-network.h"
+#include "in-addr-util.h"
 #include "networkd-util.h"
+#include "set.h"
 
 typedef struct Network Network;
 typedef struct Link Link;
-typedef struct NetworkConfigSection NetworkConfigSection;
 typedef struct Manager Manager;
 
-struct RoutingPolicyRule {
+typedef struct RoutingPolicyRule {
         Manager *manager;
         Network *network;
         Link *link;
@@ -52,9 +47,7 @@ struct RoutingPolicyRule {
         struct fib_rule_uid_range uid_range;
 
         int suppress_prefixlen;
-
-        LIST_FIELDS(RoutingPolicyRule, rules);
-};
+} RoutingPolicyRule;
 
 int routing_policy_rule_new(RoutingPolicyRule **ret);
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
