@@ -39,8 +39,6 @@ struct FdbEntry {
         struct ether_addr mac_addr;
         union in_addr_union destination_addr;
         NeighborCacheEntryFlags fdb_ntf_flags;
-
-        LIST_FIELDS(FdbEntry, static_fdb_entries);
 };
 
 FdbEntry *fdb_entry_free(FdbEntry *fdb_entry);

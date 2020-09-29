@@ -156,7 +156,7 @@ int network_verify(Network *network) {
         Address *address, *address_next;
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
-        FdbEntry *fdb, *fdb_next;
+        FdbEntry *fdb;
         MdbEntry *mdb, *mdb_next;
         TrafficControl *tc;
         SRIOV *sr_iov;
@@ -300,7 +300,7 @@ int network_verify(Network *network) {
 
         network_verify_nexthops(network);
 
-        LIST_FOREACH_SAFE(static_fdb_entries, fdb, fdb_next, network->static_fdb_entries)
+        HASHMAP_FOREACH(fdb, network->fdb_entries_by_section)
                 if (section_is_invalid(fdb->section))
                         fdb_entry_free(fdb);
 
@@ -637,7 +637,6 @@ failure:
 static Network *network_free(Network *network) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         RoutePrefix *route_prefix;
-        FdbEntry *fdb_entry;
         MdbEntry *mdb_entry;
         Address *address;
         Prefix *prefix;
@@ -704,9 +703,6 @@ static Network *network_free(Network *network) {
         while ((address = network->static_addresses))
                 address_free(address);
 
-        while ((fdb_entry = network->static_fdb_entries))
-                fdb_entry_free(fdb_entry);
-
         while ((mdb_entry = network->static_mdb_entries))
                 mdb_entry_free(mdb_entry);
 
@@ -722,7 +718,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
-        hashmap_free(network->fdb_entries_by_section);
+        hashmap_free_with_destructor(network->fdb_entries_by_section, fdb_entry_free);
         hashmap_free(network->mdb_entries_by_section);
         hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
@@ -849,7 +845,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 if (route->family == AF_INET6)
                         return true;
 
-        LIST_FOREACH(static_fdb_entries, fdb, network->static_fdb_entries)
+        HASHMAP_FOREACH(fdb, network->fdb_entries_by_section)
                 if (fdb->family == AF_INET6)
                         return true;
 

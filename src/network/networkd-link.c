@@ -1136,7 +1136,7 @@ static int link_set_bridge_fdb(Link *link) {
         FdbEntry *fdb_entry;
         int r;
 
-        LIST_FOREACH(static_fdb_entries, fdb_entry, link->network->static_fdb_entries) {
+        HASHMAP_FOREACH(fdb_entry, link->network->fdb_entries_by_section) {
                 r = fdb_entry_configure(link, fdb_entry);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");

@@ -36,12 +36,8 @@ FdbEntry *fdb_entry_free(FdbEntry *fdb_entry) {
                 return NULL;
 
         if (fdb_entry->network) {
-                LIST_REMOVE(static_fdb_entries, fdb_entry->network->static_fdb_entries, fdb_entry);
-                assert(fdb_entry->network->n_static_fdb_entries > 0);
-                fdb_entry->network->n_static_fdb_entries--;
-
-                if (fdb_entry->section)
-                        hashmap_remove(fdb_entry->network->fdb_entries_by_section, fdb_entry->section);
+                assert(fdb_entry->section);
+                hashmap_remove(fdb_entry->network->fdb_entries_by_section, fdb_entry->section);
         }
 
         network_config_section_free(fdb_entry->section);
@@ -63,23 +59,21 @@ static int fdb_entry_new_static(
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
+
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
         /* search entry in hashmap first. */
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
-
-                fdb_entry = hashmap_get(network->fdb_entries_by_section, n);
-                if (fdb_entry) {
-                        *ret = TAKE_PTR(fdb_entry);
-
-                        return 0;
-                }
+        fdb_entry = hashmap_get(network->fdb_entries_by_section, n);
+        if (fdb_entry) {
+                *ret = TAKE_PTR(fdb_entry);
+                return 0;
         }
 
-        if (network->n_static_fdb_entries >= STATIC_FDB_ENTRIES_PER_NETWORK_MAX)
+        if (hashmap_size(network->fdb_entries_by_section) >= STATIC_FDB_ENTRIES_PER_NETWORK_MAX)
                 return -E2BIG;
 
         /* allocate space for and FDB entry. */
@@ -90,24 +84,18 @@ static int fdb_entry_new_static(
         /* init FDB structure. */
         *fdb_entry = (FdbEntry) {
                 .network = network,
+                .section = TAKE_PTR(n),
                 .vni = VXLAN_VID_MAX + 1,
                 .fdb_ntf_flags = NEIGHBOR_CACHE_ENTRY_FLAGS_SELF,
         };
 
-        LIST_PREPEND(static_fdb_entries, network->static_fdb_entries, fdb_entry);
-        network->n_static_fdb_entries++;
+        r = hashmap_ensure_allocated(&network->fdb_entries_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-        if (filename) {
-                fdb_entry->section = TAKE_PTR(n);
-
-                r = hashmap_ensure_allocated(&network->fdb_entries_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->fdb_entries_by_section, fdb_entry->section, fdb_entry);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->fdb_entries_by_section, fdb_entry->section, fdb_entry);
+        if (r < 0)
+                return r;
 
         /* return allocated FDB structure. */
         *ret = TAKE_PTR(fdb_entry);
