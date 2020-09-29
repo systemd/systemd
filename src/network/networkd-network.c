@@ -846,6 +846,9 @@ bool network_has_static_ipv6_configurations(Network *network) {
         if (!hashmap_isempty(network->prefixes_by_section))
                 return true;
 
+        if (!hashmap_isempty(network->route_prefixes_by_section))
+                return true;
+
         return false;
 }
 
