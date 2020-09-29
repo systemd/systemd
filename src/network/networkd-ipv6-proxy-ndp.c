@@ -14,40 +14,19 @@
 #include "string-util.h"
 #include "sysctl-util.h"
 
-static bool ipv6_proxy_ndp_is_needed(Link *link) {
-        assert(link);
+void ipv6_proxy_ndp_address_free(IPv6ProxyNDPAddress *ipv6_proxy_ndp_address) {
+        if (!ipv6_proxy_ndp_address)
+                return;
 
-        if (link->flags & IFF_LOOPBACK)
-                return false;
+        if (ipv6_proxy_ndp_address->network) {
+                LIST_REMOVE(ipv6_proxy_ndp_addresses, ipv6_proxy_ndp_address->network->ipv6_proxy_ndp_addresses,
+                            ipv6_proxy_ndp_address);
 
-        if (!link->network)
-                return false;
+                assert(ipv6_proxy_ndp_address->network->n_ipv6_proxy_ndp_addresses > 0);
+                ipv6_proxy_ndp_address->network->n_ipv6_proxy_ndp_addresses--;
+        }
 
-        if (link->network->ipv6_proxy_ndp >= 0)
-                return link->network->ipv6_proxy_ndp;
-
-        if (link->network->n_ipv6_proxy_ndp_addresses == 0)
-                return false;
-
-        return true;
-}
-
-static int ipv6_proxy_ndp_set(Link *link) {
-        bool v;
-        int r;
-
-        assert(link);
-
-        if (!socket_ipv6_is_supported())
-                return 0;
-
-        v = ipv6_proxy_ndp_is_needed(link);
-
-        r = sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure proxy NDP for interface: %m");
-
-        return 0;
+        free(ipv6_proxy_ndp_address);
 }
 
 static int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddress **ret) {
@@ -69,68 +48,6 @@ static int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddre
         network->n_ipv6_proxy_ndp_addresses++;
 
         *ret = TAKE_PTR(ipv6_proxy_ndp_address);
-
-        return 0;
-}
-
-void ipv6_proxy_ndp_address_free(IPv6ProxyNDPAddress *ipv6_proxy_ndp_address) {
-        if (!ipv6_proxy_ndp_address)
-                return;
-
-        if (ipv6_proxy_ndp_address->network) {
-                LIST_REMOVE(ipv6_proxy_ndp_addresses, ipv6_proxy_ndp_address->network->ipv6_proxy_ndp_addresses,
-                            ipv6_proxy_ndp_address);
-
-                assert(ipv6_proxy_ndp_address->network->n_ipv6_proxy_ndp_addresses > 0);
-                ipv6_proxy_ndp_address->network->n_ipv6_proxy_ndp_addresses--;
-        }
-
-        free(ipv6_proxy_ndp_address);
-}
-
-int config_parse_ipv6_proxy_ndp_address(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(ipv6_proxy_ndp_address_freep) IPv6ProxyNDPAddress *ipv6_proxy_ndp_address = NULL;
-        int r;
-        union in_addr_union buffer;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = ipv6_proxy_ndp_address_new_static(network, &ipv6_proxy_ndp_address);
-        if (r < 0)
-                return log_oom();
-
-        r = in_addr_from_string(AF_INET6, rvalue, &buffer);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse IPv6 proxy NDP address, ignoring: %s",
-                           rvalue);
-                return 0;
-        }
-
-        if (in_addr_is_null(AF_INET6, &buffer)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "IPv6 proxy NDP address cannot be the ANY address, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        ipv6_proxy_ndp_address->in_addr = buffer.in6;
-        ipv6_proxy_ndp_address = NULL;
 
         return 0;
 }
@@ -183,6 +100,42 @@ int ipv6_proxy_ndp_address_configure(Link *link, IPv6ProxyNDPAddress *ipv6_proxy
         return 0;
 }
 
+static bool ipv6_proxy_ndp_is_needed(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->network->ipv6_proxy_ndp >= 0)
+                return link->network->ipv6_proxy_ndp;
+
+        if (link->network->n_ipv6_proxy_ndp_addresses == 0)
+                return false;
+
+        return true;
+}
+
+static int ipv6_proxy_ndp_set(Link *link) {
+        bool v;
+        int r;
+
+        assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        v = ipv6_proxy_ndp_is_needed(link);
+
+        r = sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "proxy_ndp", v);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot configure proxy NDP for interface: %m");
+
+        return 0;
+}
+
 /* configure all ipv6 proxy ndp addresses */
 int ipv6_proxy_ndp_addresses_configure(Link *link) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
@@ -200,5 +153,52 @@ int ipv6_proxy_ndp_addresses_configure(Link *link) {
                 if (r != 0)
                         return r;
         }
+        return 0;
+}
+
+int config_parse_ipv6_proxy_ndp_address(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(ipv6_proxy_ndp_address_freep) IPv6ProxyNDPAddress *ipv6_proxy_ndp_address = NULL;
+        int r;
+        union in_addr_union buffer;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = ipv6_proxy_ndp_address_new_static(network, &ipv6_proxy_ndp_address);
+        if (r < 0)
+                return log_oom();
+
+        r = in_addr_from_string(AF_INET6, rvalue, &buffer);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse IPv6 proxy NDP address, ignoring: %s",
+                           rvalue);
+                return 0;
+        }
+
+        if (in_addr_is_null(AF_INET6, &buffer)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "IPv6 proxy NDP address cannot be the ANY address, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        ipv6_proxy_ndp_address->in_addr = buffer.in6;
+        ipv6_proxy_ndp_address = NULL;
+
         return 0;
 }
