@@ -5,18 +5,16 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
+#include <inttypes.h>
 #include <linux/neighbour.h>
 
 #include "conf-parser.h"
 #include "ether-addr-util.h"
-#include "list.h"
-#include "macro.h"
+#include "in-addr-util.h"
 #include "networkd-util.h"
 
 typedef struct Network Network;
-typedef struct FdbEntry FdbEntry;
 typedef struct Link Link;
-typedef struct NetworkConfigSection NetworkConfigSection;
 
 typedef enum NeighborCacheEntryFlags {
         NEIGHBOR_CACHE_ENTRY_FLAGS_USE = NTF_USE,
@@ -27,7 +25,7 @@ typedef enum NeighborCacheEntryFlags {
         _NEIGHBOR_CACHE_ENTRY_FLAGS_INVALID = -1,
 } NeighborCacheEntryFlags;
 
-struct FdbEntry {
+typedef struct FdbEntry {
         Network *network;
         NetworkConfigSection *section;
 
@@ -39,7 +37,7 @@ struct FdbEntry {
         struct ether_addr mac_addr;
         union in_addr_union destination_addr;
         NeighborCacheEntryFlags fdb_ntf_flags;
-};
+} FdbEntry;
 
 FdbEntry *fdb_entry_free(FdbEntry *fdb_entry);
 

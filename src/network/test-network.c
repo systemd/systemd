@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
+#include "ether-addr-util.h"
 #include "hostname-util.h"
 #include "network-internal.h"
 #include "networkd-manager.h"

@@ -5,6 +5,7 @@
 #include <linux/if_link.h>
 
 #include "conf-parser.h"
+#include "ether-addr-util.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"

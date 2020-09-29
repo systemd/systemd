@@ -15,6 +15,7 @@
 #include "networkd-dhcp-server.h"
 #include "network-internal.h"
 #include "networkd-address-label.h"
+#include "networkd-fdb.h"
 #include "networkd-manager.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
