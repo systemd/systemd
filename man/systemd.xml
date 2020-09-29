@@ -1087,15 +1087,15 @@
       command line, and as a normal command line argument, the latter has higher precedence.</para>
 
       <para>When <command>systemd</command> is used as a user manager, the kernel command line is ignored and
-      the options described are understood. Nevertheless, <command>systemd</command> is usually started in
-      this mode through the
+      only the options described below are understood. Nevertheless, <command>systemd</command> is usually
+      started in this mode through the
       <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       service, which is shared between all users, and it may be more convenient to use configuration files to
-      modify settings, see
-      <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      or a drop-in that specifies one of the environment variables listed above in the Environment section,
-      see
-      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+      modify settings (see
+      <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+      or a drop-in that specifies one of the environment variables listed above in the Environment section
+      (see the discussion of <varname>Environment=</varname> and <varname>EnvironmentFile=</varname> in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
 
       <variablelist>
         <varlistentry>
