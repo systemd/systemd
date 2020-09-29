@@ -64,15 +64,10 @@ int routing_policy_rule_section_verify(RoutingPolicyRule *rule);
 
 int link_set_routing_policy_rules(Link *link);
 
-int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback);
-int routing_policy_rule_remove(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback);
-
 int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret);
 int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret);
-int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule);
 int routing_policy_serialize_rules(Set *rules, FILE *f);
 int routing_policy_load_rules(const char *state_file, Set **rules);
-void routing_policy_rule_purge(Manager *m, Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);
