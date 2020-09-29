@@ -11,9 +11,9 @@
 #include "parse-util.h"
 #include "socket-util.h"
 
-void address_label_free(AddressLabel *label) {
+AddressLabel *address_label_free(AddressLabel *label) {
         if (!label)
-                return;
+                return NULL;
 
         if (label->network) {
                 assert(label->section);
@@ -21,7 +21,7 @@ void address_label_free(AddressLabel *label) {
         }
 
         network_config_section_free(label->section);
-        free(label);
+        return mfree(label);
 }
 
 static int address_label_new_static(Network *network, const char *filename, unsigned section_line, AddressLabel **ret) {

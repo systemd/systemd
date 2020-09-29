@@ -27,7 +27,7 @@ struct AddressLabel {
         union in_addr_union in_addr;
 };
 
-void address_label_free(AddressLabel *label);
+AddressLabel *address_label_free(AddressLabel *label);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(AddressLabel, address_label_free);
 
