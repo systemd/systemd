@@ -1548,11 +1548,16 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>MUDURL=</varname></term>
           <listitem>
-            <para>When configured, the Manufacturer Usage Descriptions (MUD) URL will be sent to the
-            DHCPv4 server. Takes an URL of length up to 255 characters. A superficial verification that
-            the string is a valid URL will be performed. DHCPv4 clients are intended to have at most one
-            MUD URL associated with them. See
-            <ulink url="https://tools.ietf.org/html/rfc8520">RFC 8520</ulink>.</para>
+            <para>When configured, the specified Manufacturer Usage Description (MUD) URL will be sent to the
+            DHCPv4 server. Takes a URL of length up to 255 characters. A superficial verification that the
+            string is a valid URL will be performed. DHCPv4 clients are intended to have at most one MUD URL
+            associated with them. See <ulink url="https://tools.ietf.org/html/rfc8520">RFC 8520</ulink>.
+            </para>
+
+            <para>MUD is an embedded software standard defined by the IETF that allows IoT device makers to
+            advertise device specifications, including the intended communication patterns for their device
+            when it connects to the network. The network can then use this to author a context-specific
+            access policy, so the device functions only within those parameters.</para>
           </listitem>
         </varlistentry>
 
@@ -1847,10 +1852,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>MUDURL=</varname></term>
           <listitem>
-            <para>When configured, the Manufacturer Usage Descriptions (MUD) URL will be sent to the DHCPV6 server.
-            Takes an URL of length up to 255 characters. A superficial verification that the string is a valid URL
-            will be performed. DHCPv6 clients are intended to have at most one MUD URL associated with them. See
-            <ulink url="https://tools.ietf.org/html/rfc8520">RFC 8520</ulink>.</para>
+            <para>When configured, the specified Manufacturer Usage Description (MUD) URL will be sent to
+            the DHCPV6 server. The syntax and semantics are the same as for <varname>MUDURL=</varname> in the
+            [DHCPv4] section described above.</para>
           </listitem>
         </varlistentry>
 
@@ -2567,14 +2571,11 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>MUDURL=</varname></term>
           <listitem>
-            <para>Controls support for Ethernet LLDP packet's Manufacturer Usage Description (MUD). MUD is an embedded software
-            standard defined by the IETF that allows IoT Device makers to advertise device specifications, including the intended
-            communication patterns for their device when it connects to the network. The network can then use this intent to author
-            a context-specific access policy, so the device functions only within those parameters. Takes an URL of length up to 255
-            characters. A superficial verification that the string is a valid URL
-            will be performed. See
-            <ulink url="https://tools.ietf.org/html/rfc8520">RFC 8520</ulink> for details. The MUD URL received
-            from the LLDP packets will be saved at the state files and can be read via
+            <para>When configured, the specified Manufacturer Usage Descriptions (MUD) URL will be sent in
+            LLDP packets. The syntax and semantics are the same as for <varname>MUDURL=</varname> in the
+            [DHCPv4] section described above.</para>
+
+            <para>The MUD URLs received via LLDP packets are saved and can be read using the
             <function>sd_lldp_neighbor_get_mud_url()</function> function.</para>
           </listitem>
         </varlistentry>
