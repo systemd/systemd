@@ -287,7 +287,6 @@ struct Network {
         LIST_HEAD(FdbEntry, static_fdb_entries);
         LIST_HEAD(MdbEntry, static_mdb_entries);
         LIST_HEAD(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
-        LIST_HEAD(AddressLabel, address_labels);
         LIST_HEAD(Prefix, static_prefixes);
         LIST_HEAD(RoutePrefix, static_route_prefixes);
 
@@ -296,7 +295,6 @@ struct Network {
         unsigned n_static_fdb_entries;
         unsigned n_static_mdb_entries;
         unsigned n_ipv6_proxy_ndp_addresses;
-        unsigned n_address_labels;
         unsigned n_static_prefixes;
         unsigned n_static_route_prefixes;
 

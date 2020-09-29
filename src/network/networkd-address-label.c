@@ -16,16 +16,11 @@ void address_label_free(AddressLabel *label) {
                 return;
 
         if (label->network) {
-                LIST_REMOVE(labels, label->network->address_labels, label);
-                assert(label->network->n_address_labels > 0);
-                label->network->n_address_labels--;
-
-                if (label->section) {
-                        hashmap_remove(label->network->address_labels_by_section, label->section);
-                        network_config_section_free(label->section);
-                }
+                assert(label->section);
+                hashmap_remove(label->network->address_labels_by_section, label->section);
         }
 
+        network_config_section_free(label->section);
         free(label);
 }
 
@@ -36,19 +31,17 @@ static int address_label_new_static(Network *network, const char *filename, unsi
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                label = hashmap_get(network->address_labels_by_section, n);
-                if (label) {
-                        *ret = TAKE_PTR(label);
-
-                        return 0;
-                }
+        label = hashmap_get(network->address_labels_by_section, n);
+        if (label) {
+                *ret = TAKE_PTR(label);
+                return 0;
         }
 
         label = new(AddressLabel, 1);
@@ -57,25 +50,18 @@ static int address_label_new_static(Network *network, const char *filename, unsi
 
         *label = (AddressLabel) {
                 .network = network,
+                .section = TAKE_PTR(n),
         };
 
-        LIST_APPEND(labels, network->address_labels, label);
-        network->n_address_labels++;
+        r = hashmap_ensure_allocated(&network->address_labels_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-        if (filename) {
-                label->section = TAKE_PTR(n);
-
-                r = hashmap_ensure_allocated(&network->address_labels_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->address_labels_by_section, label->section, label);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->address_labels_by_section, label->section, label);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(label);
-
         return 0;
 }
 

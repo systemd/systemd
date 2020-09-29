@@ -1322,7 +1322,7 @@ static int link_request_set_addresses(Link *link) {
                                 return r;
                 }
 
-        LIST_FOREACH(labels, label, link->network->address_labels) {
+        HASHMAP_FOREACH(label, link->network->address_labels_by_section) {
                 r = address_label_configure(label, link, NULL, false);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set address label: %m");

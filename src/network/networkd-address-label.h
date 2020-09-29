@@ -25,8 +25,6 @@ struct AddressLabel {
         uint32_t label;
 
         union in_addr_union in_addr;
-
-        LIST_FIELDS(AddressLabel, labels);
 };
 
 void address_label_free(AddressLabel *label);

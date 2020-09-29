@@ -152,7 +152,7 @@ static int network_resolve_stacked_netdevs(Network *network) {
 
 int network_verify(Network *network) {
         RoutePrefix *route_prefix, *route_prefix_next;
-        AddressLabel *label, *label_next;
+        AddressLabel *label;
         Address *address, *address_next;
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
@@ -310,7 +310,7 @@ int network_verify(Network *network) {
 
         network_verify_neighbors(network);
 
-        LIST_FOREACH_SAFE(labels, label, label_next, network->address_labels)
+        HASHMAP_FOREACH(label, network->address_labels_by_section)
                 if (section_is_invalid(label->section))
                         address_label_free(label);
 
@@ -640,7 +640,6 @@ failure:
 static Network *network_free(Network *network) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         RoutePrefix *route_prefix;
-        AddressLabel *label;
         FdbEntry *fdb_entry;
         MdbEntry *mdb_entry;
         Address *address;
@@ -717,9 +716,6 @@ static Network *network_free(Network *network) {
         while ((ipv6_proxy_ndp_address = network->ipv6_proxy_ndp_addresses))
                 ipv6_proxy_ndp_address_free(ipv6_proxy_ndp_address);
 
-        while ((label = network->address_labels))
-                address_label_free(label);
-
         while ((prefix = network->static_prefixes))
                 prefix_free(prefix);
 
@@ -732,7 +728,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->fdb_entries_by_section);
         hashmap_free(network->mdb_entries_by_section);
         hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
-        hashmap_free(network->address_labels_by_section);
+        hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free(network->prefixes_by_section);
         hashmap_free(network->route_prefixes_by_section);
         hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
@@ -868,7 +864,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 if (neighbor->family == AF_INET6)
                         return true;
 
-        if (!LIST_IS_EMPTY(network->address_labels))
+        if (!hashmap_isempty(network->address_labels_by_section))
                 return true;
 
         if (!LIST_IS_EMPTY(network->static_prefixes))
