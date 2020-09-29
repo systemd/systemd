@@ -48,8 +48,7 @@ static int prefix_new(Prefix **ret) {
         return 0;
 }
 
-static int prefix_new_static(Network *network, const char *filename,
-                             unsigned section_line, Prefix **ret) {
+static int prefix_new_static(Network *network, const char *filename, unsigned section_line, Prefix **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(prefix_freep) Prefix *prefix = NULL;
         int r;
@@ -121,8 +120,7 @@ static int route_prefix_new(RoutePrefix **ret) {
         return 0;
 }
 
-static int route_prefix_new_static(Network *network, const char *filename,
-                                   unsigned section_line, RoutePrefix **ret) {
+static int route_prefix_new_static(Network *network, const char *filename, unsigned section_line, RoutePrefix **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         _cleanup_(route_prefix_freep) RoutePrefix *prefix = NULL;
         int r;
@@ -182,16 +180,17 @@ void network_verify_route_prefixes(Network *network) {
                         route_prefix_free(prefix);
 }
 
-int config_parse_prefix(const char *unit,
-                        const char *filename,
-                        unsigned line,
-                        const char *section,
-                        unsigned section_line,
-                        const char *lvalue,
-                        int ltype,
-                        const char *rvalue,
-                        void *data,
-                        void *userdata) {
+int config_parse_prefix(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Network *network = userdata;
         _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
@@ -226,16 +225,18 @@ int config_parse_prefix(const char *unit,
         return 0;
 }
 
-int config_parse_prefix_flags(const char *unit,
-                              const char *filename,
-                              unsigned line,
-                              const char *section,
-                              unsigned section_line,
-                              const char *lvalue,
-                              int ltype,
-                              const char *rvalue,
-                              void *data,
-                              void *userdata) {
+int config_parse_prefix_flags(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
         int r;
@@ -270,16 +271,18 @@ int config_parse_prefix_flags(const char *unit,
         return 0;
 }
 
-int config_parse_prefix_lifetime(const char *unit,
-                                 const char *filename,
-                                 unsigned line,
-                                 const char *section,
-                                 unsigned section_line,
-                                 const char *lvalue,
-                                 int ltype,
-                                 const char *rvalue,
-                                 void *data,
-                                 void *userdata) {
+int config_parse_prefix_lifetime(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(prefix_free_or_set_invalidp) Prefix *p = NULL;
         usec_t usec;
@@ -358,16 +361,17 @@ int config_parse_prefix_assign(
         return 0;
 }
 
-int config_parse_route_prefix(const char *unit,
-                              const char *filename,
-                              unsigned line,
-                              const char *section,
-                              unsigned section_line,
-                              const char *lvalue,
-                              int ltype,
-                              const char *rvalue,
-                              void *data,
-                              void *userdata) {
+int config_parse_route_prefix(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         Network *network = userdata;
         _cleanup_(route_prefix_free_or_set_invalidp) RoutePrefix *p = NULL;
@@ -402,16 +406,18 @@ int config_parse_route_prefix(const char *unit,
         return 0;
 }
 
-int config_parse_route_prefix_lifetime(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_route_prefix_lifetime(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(route_prefix_free_or_set_invalidp) RoutePrefix *p = NULL;
         usec_t usec;
@@ -447,8 +453,7 @@ int config_parse_route_prefix_lifetime(const char *unit,
         return 0;
 }
 
-static int radv_get_ip6dns(Network *network, struct in6_addr **dns,
-                           size_t *n_dns) {
+static int radv_get_ip6dns(Network *network, struct in6_addr **dns, size_t *n_dns) {
         _cleanup_free_ struct in6_addr *addresses = NULL;
         size_t i, n_addresses = 0, n_allocated = 0;
 
@@ -672,8 +677,13 @@ int radv_configure(Link *link) {
         return 0;
 }
 
-int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
-                    uint32_t lifetime_preferred, uint32_t lifetime_valid) {
+int radv_add_prefix(
+                Link *link,
+                const struct in6_addr *prefix,
+                uint8_t prefix_len,
+                uint32_t lifetime_preferred,
+                uint32_t lifetime_valid) {
+
         _cleanup_(sd_radv_prefix_unrefp) sd_radv_prefix *p = NULL;
         int r;
 
@@ -819,10 +829,10 @@ int config_parse_radv_search_domains(
 }
 
 static const char * const radv_prefix_delegation_table[_RADV_PREFIX_DELEGATION_MAX] = {
-        [RADV_PREFIX_DELEGATION_NONE] = "no",
+        [RADV_PREFIX_DELEGATION_NONE]   = "no",
         [RADV_PREFIX_DELEGATION_STATIC] = "static",
-        [RADV_PREFIX_DELEGATION_DHCP6] = "dhcpv6",
-        [RADV_PREFIX_DELEGATION_BOTH] = "yes",
+        [RADV_PREFIX_DELEGATION_DHCP6]  = "dhcpv6",
+        [RADV_PREFIX_DELEGATION_BOTH]   = "yes",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(
@@ -830,21 +840,24 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(
                 RADVPrefixDelegation,
                 RADV_PREFIX_DELEGATION_BOTH);
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_router_prefix_delegation,
-                         radv_prefix_delegation,
-                         RADVPrefixDelegation,
-                         "Invalid router prefix delegation");
+DEFINE_CONFIG_PARSE_ENUM(
+                config_parse_router_prefix_delegation,
+                radv_prefix_delegation,
+                RADVPrefixDelegation,
+                "Invalid router prefix delegation");
 
-int config_parse_router_preference(const char *unit,
-                                   const char *filename,
-                                   unsigned line,
-                                   const char *section,
-                                   unsigned section_line,
-                                   const char *lvalue,
-                                   int ltype,
-                                   const char *rvalue,
-                                   void *data,
-                                   void *userdata) {
+int config_parse_router_preference(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
 
         assert(filename);
