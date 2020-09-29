@@ -173,7 +173,7 @@ static int neighbor_add_internal(Link *link, Set **neighbors, const Neighbor *in
         return 0;
 }
 
-int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
+static int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret) {
         Neighbor *neighbor;
         int r;
 
@@ -204,7 +204,7 @@ static int neighbor_add_foreign(Link *link, const Neighbor *in, Neighbor **ret) 
         return neighbor_add_internal(link, &link->neighbors_foreign, in, ret);
 }
 
-bool neighbor_equal(const Neighbor *n1, const Neighbor *n2) {
+static bool neighbor_equal(const Neighbor *n1, const Neighbor *n2) {
         if (n1 == n2)
                 return true;
 
@@ -330,7 +330,7 @@ static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
         return 1;
 }
 
-int neighbor_remove(Neighbor *neighbor, Link *link) {
+static int neighbor_remove(Neighbor *neighbor, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -357,6 +357,57 @@ int neighbor_remove(Neighbor *neighbor, Link *link) {
         link_ref(link);
 
         return 0;
+}
+
+static bool link_is_neighbor_configured(Link *link, Neighbor *neighbor) {
+        Neighbor *net_neighbor;
+
+        assert(link);
+        assert(neighbor);
+
+        if (!link->network)
+                return false;
+
+        HASHMAP_FOREACH(net_neighbor, link->network->neighbors_by_section)
+                if (neighbor_equal(net_neighbor, neighbor))
+                        return true;
+
+        return false;
+}
+
+int link_drop_foreign_neighbors(Link *link) {
+        Neighbor *neighbor;
+        int r;
+
+        assert(link);
+
+        SET_FOREACH(neighbor, link->neighbors_foreign)
+                if (link_is_neighbor_configured(link, neighbor)) {
+                        r = neighbor_add(link, neighbor, NULL);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = neighbor_remove(neighbor, link);
+                        if (r < 0)
+                                return r;
+                }
+
+        return 0;
+}
+
+int link_drop_neighbors(Link *link) {
+        Neighbor *neighbor;
+        int k, r = 0;
+
+        assert(link);
+
+        SET_FOREACH(neighbor, link->neighbors) {
+                k = neighbor_remove(neighbor, link);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
 }
 
 static int manager_rtnl_process_neighbor_lladdr(sd_netlink_message *message, union lladdr_union *lladdr, size_t *size, char **str) {

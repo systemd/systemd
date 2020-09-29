@@ -33,12 +33,9 @@ typedef struct Neighbor {
 void neighbor_free(Neighbor *neighbor);
 int neighbor_section_verify(Neighbor *neighbor);
 
-int neighbor_remove(Neighbor *neighbor, Link *link);
-
-int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret);
-bool neighbor_equal(const Neighbor *n1, const Neighbor *n2);
-
 int link_set_neighbors(Link *link);
+int link_drop_neighbors(Link *link);
+int link_drop_foreign_neighbors(Link *link);
 
 int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 

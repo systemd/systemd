@@ -2593,22 +2593,6 @@ static bool link_is_static_address_configured(Link *link, Address *address) {
         return false;
 }
 
-static bool link_is_neighbor_configured(Link *link, Neighbor *neighbor) {
-        Neighbor *net_neighbor;
-
-        assert(link);
-        assert(neighbor);
-
-        if (!link->network)
-                return false;
-
-        HASHMAP_FOREACH(net_neighbor, link->network->neighbors_by_section)
-                if (neighbor_equal(net_neighbor, neighbor))
-                        return true;
-
-        return false;
-}
-
 static bool link_is_static_route_configured(Link *link, Route *route) {
         Route *net_route;
 
@@ -2695,7 +2679,6 @@ static int link_enumerate_ipv6_tentative_addresses(Link *link) {
 
 static int link_drop_foreign_config(Link *link) {
         Address *address;
-        Neighbor *neighbor;
         Route *route;
         int r;
 
@@ -2729,17 +2712,9 @@ static int link_drop_foreign_config(Link *link) {
                 }
         }
 
-        SET_FOREACH(neighbor, link->neighbors_foreign) {
-                if (link_is_neighbor_configured(link, neighbor)) {
-                        r = neighbor_add(link, neighbor, NULL);
-                        if (r < 0)
-                                return r;
-                } else {
-                        r = neighbor_remove(neighbor, link);
-                        if (r < 0)
-                                return r;
-                }
-        }
+        r = link_drop_foreign_neighbors(link);
+        if (r < 0)
+                return r;
 
         SET_FOREACH(route, link->routes_foreign) {
                 /* do not touch routes managed by the kernel */
@@ -2808,7 +2783,6 @@ static int remove_static_address_handler(sd_netlink *rtnl, sd_netlink_message *m
 
 static int link_drop_config(Link *link) {
         Address *address, *pool_address;
-        Neighbor *neighbor;
         Route *route;
         int r;
 
@@ -2832,11 +2806,9 @@ static int link_drop_config(Link *link) {
                         }
         }
 
-        SET_FOREACH(neighbor, link->neighbors) {
-                r = neighbor_remove(neighbor, link);
-                if (r < 0)
-                        return r;
-        }
+        r = link_drop_neighbors(link);
+        if (r < 0)
+                return r;
 
         SET_FOREACH(route, link->routes) {
                 /* do not touch routes managed by the kernel */
