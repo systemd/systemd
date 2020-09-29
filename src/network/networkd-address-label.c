@@ -93,12 +93,7 @@ static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         return 1;
 }
 
-int address_label_configure(
-                AddressLabel *label,
-                Link *link,
-                link_netlink_message_handler_t callback,
-                bool update) {
-
+static int address_label_configure(AddressLabel *label, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -126,12 +121,30 @@ int address_label_configure(
                 return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               callback ?: address_label_handler,
+                               address_label_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
+
+        return 0;
+}
+
+int link_set_address_labels(Link *link) {
+        AddressLabel *label;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        HASHMAP_FOREACH(label, link->network->address_labels_by_section) {
+                r = address_label_configure(label, link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set address label: %m");
+
+                link->address_label_messages++;
+        }
 
         return 0;
 }

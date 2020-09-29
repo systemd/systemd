@@ -1248,7 +1248,6 @@ static int static_address_configure(Address *address, Link *link, bool update) {
 }
 
 static int link_request_set_addresses(Link *link) {
-        AddressLabel *label;
         Address *ad;
         Prefix *p;
         int r;
@@ -1322,13 +1321,9 @@ static int link_request_set_addresses(Link *link) {
                                 return r;
                 }
 
-        HASHMAP_FOREACH(label, link->network->address_labels_by_section) {
-                r = address_label_configure(label, link, NULL, false);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set address label: %m");
-
-                link->address_label_messages++;
-        }
+        r = link_set_address_labels(link);
+        if (r < 0)
+                return r;
 
         /* now that we can figure out a default address for the dhcp server, start it */
         if (link_dhcp4_server_enabled(link) && (link->flags & IFF_UP)) {

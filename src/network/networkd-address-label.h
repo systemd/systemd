@@ -33,7 +33,7 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(AddressLabel, address_label_free);
 
 void network_verify_address_labels(Network *network);
 
-int address_label_configure(AddressLabel *address, Link *link, link_netlink_message_handler_t callback, bool update);
+int link_set_address_labels(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_label_prefix);
