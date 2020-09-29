@@ -154,9 +154,9 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
-        RoutePrefix *route_prefix, *route_prefix_next;
+        RoutePrefix *route_prefix;
         Address *address, *address_next;
-        Prefix *prefix, *prefix_next;
+        Prefix *prefix;
         Route *route, *route_next;
         TrafficControl *tc;
         SRIOV *sr_iov;
@@ -309,11 +309,11 @@ int network_verify(Network *network) {
         network_verify_neighbors(network);
         network_verify_address_labels(network);
 
-        LIST_FOREACH_SAFE(prefixes, prefix, prefix_next, network->static_prefixes)
+        HASHMAP_FOREACH(prefix, network->prefixes_by_section)
                 if (section_is_invalid(prefix->section))
                         prefix_free(prefix);
 
-        LIST_FOREACH_SAFE(route_prefixes, route_prefix, route_prefix_next, network->static_route_prefixes)
+        HASHMAP_FOREACH(route_prefix, network->route_prefixes_by_section)
                 if (section_is_invalid(route_prefix->section))
                         route_prefix_free(route_prefix);
 
@@ -633,9 +633,7 @@ failure:
 }
 
 static Network *network_free(Network *network) {
-        RoutePrefix *route_prefix;
         Address *address;
-        Prefix *prefix;
         Route *route;
 
         if (!network)
@@ -699,12 +697,6 @@ static Network *network_free(Network *network) {
         while ((address = network->static_addresses))
                 address_free(address);
 
-        while ((prefix = network->static_prefixes))
-                prefix_free(prefix);
-
-        while ((route_prefix = network->static_route_prefixes))
-                route_prefix_free(route_prefix);
-
         set_free_free(network->ipv6_proxy_ndp_addresses);
         hashmap_free(network->addresses_by_section);
         hashmap_free(network->routes_by_section);
@@ -713,8 +705,8 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->mdb_entries_by_section, mdb_entry_free);
         hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
-        hashmap_free(network->prefixes_by_section);
-        hashmap_free(network->route_prefixes_by_section);
+        hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
+        hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
         hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
@@ -851,7 +843,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
         if (!hashmap_isempty(network->address_labels_by_section))
                 return true;
 
-        if (!LIST_IS_EMPTY(network->static_prefixes))
+        if (!hashmap_isempty(network->prefixes_by_section))
                 return true;
 
         return false;

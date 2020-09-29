@@ -29,8 +29,6 @@ struct Prefix {
         sd_radv_prefix *radv_prefix;
 
         bool assign;
-
-        LIST_FIELDS(Prefix, prefixes);
 };
 
 struct RoutePrefix {
@@ -38,8 +36,6 @@ struct RoutePrefix {
         NetworkConfigSection *section;
 
         sd_radv_route_prefix *radv_route_prefix;
-
-        LIST_FIELDS(RoutePrefix, route_prefixes);
 };
 
 Prefix *prefix_free(Prefix *prefix);

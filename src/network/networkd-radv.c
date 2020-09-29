@@ -21,13 +21,8 @@ Prefix *prefix_free(Prefix *prefix) {
                 return NULL;
 
         if (prefix->network) {
-                LIST_REMOVE(prefixes, prefix->network->static_prefixes, prefix);
-                assert(prefix->network->n_static_prefixes > 0);
-                prefix->network->n_static_prefixes--;
-
-                if (prefix->section)
-                        hashmap_remove(prefix->network->prefixes_by_section,
-                                       prefix->section);
+                assert(prefix->section);
+                hashmap_remove(prefix->network->prefixes_by_section, prefix->section);
         }
 
         network_config_section_free(prefix->section);
@@ -61,21 +56,17 @@ static int prefix_new_static(Network *network, const char *filename,
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                if (section_line) {
-                        prefix = hashmap_get(network->prefixes_by_section, n);
-                        if (prefix) {
-                                *ret = TAKE_PTR(prefix);
-
-                                return 0;
-                        }
-                }
+        prefix = hashmap_get(network->prefixes_by_section, n);
+        if (prefix) {
+                *ret = TAKE_PTR(prefix);
+                return 0;
         }
 
         r = prefix_new(&prefix);
@@ -83,20 +74,15 @@ static int prefix_new_static(Network *network, const char *filename,
                 return r;
 
         prefix->network = network;
-        LIST_APPEND(prefixes, network->static_prefixes, prefix);
-        network->n_static_prefixes++;
+        prefix->section = TAKE_PTR(n);
 
-        if (filename) {
-                prefix->section = TAKE_PTR(n);
+        r = hashmap_ensure_allocated(&network->prefixes_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-                r = hashmap_ensure_allocated(&network->prefixes_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->prefixes_by_section, prefix->section, prefix);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->prefixes_by_section, prefix->section, prefix);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(prefix);
 
@@ -108,13 +94,8 @@ RoutePrefix *route_prefix_free(RoutePrefix *prefix) {
                 return NULL;
 
         if (prefix->network) {
-                LIST_REMOVE(route_prefixes, prefix->network->static_route_prefixes, prefix);
-                assert(prefix->network->n_static_route_prefixes > 0);
-                prefix->network->n_static_route_prefixes--;
-
-                if (prefix->section)
-                        hashmap_remove(prefix->network->route_prefixes_by_section,
-                                       prefix->section);
+                assert(prefix->section);
+                hashmap_remove(prefix->network->route_prefixes_by_section, prefix->section);
         }
 
         network_config_section_free(prefix->section);
@@ -148,21 +129,17 @@ static int route_prefix_new_static(Network *network, const char *filename,
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                if (section_line) {
-                        prefix = hashmap_get(network->route_prefixes_by_section, n);
-                        if (prefix) {
-                                *ret = TAKE_PTR(prefix);
-
-                                return 0;
-                        }
-                }
+        prefix = hashmap_get(network->route_prefixes_by_section, n);
+        if (prefix) {
+                *ret = TAKE_PTR(prefix);
+                return 0;
         }
 
         r = route_prefix_new(&prefix);
@@ -170,20 +147,15 @@ static int route_prefix_new_static(Network *network, const char *filename,
                 return r;
 
         prefix->network = network;
-        LIST_APPEND(route_prefixes, network->static_route_prefixes, prefix);
-        network->n_static_route_prefixes++;
+        prefix->section = TAKE_PTR(n);
 
-        if (filename) {
-                prefix->section = TAKE_PTR(n);
+        r = hashmap_ensure_allocated(&network->route_prefixes_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-                r = hashmap_ensure_allocated(&network->route_prefixes_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->route_prefixes_by_section, prefix->section, prefix);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->route_prefixes_by_section, prefix->section, prefix);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(prefix);
 
@@ -609,8 +581,6 @@ int radv_emit_dns(Link *link) {
 }
 
 int radv_configure(Link *link) {
-        RoutePrefix *q;
-        Prefix *p;
         int r;
 
         assert(link);
@@ -655,7 +625,10 @@ int radv_configure(Link *link) {
         }
 
         if (link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_STATIC) {
-                LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
+                RoutePrefix *q;
+                Prefix *p;
+
+                HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
                         r = sd_radv_add_prefix(link->radv, p->radv_prefix, false);
                         if (r == -EEXIST)
                                 continue;
@@ -667,7 +640,7 @@ int radv_configure(Link *link) {
                                 return r;
                 }
 
-                LIST_FOREACH(route_prefixes, q, link->network->static_route_prefixes) {
+                HASHMAP_FOREACH(q, link->network->route_prefixes_by_section) {
                         r = sd_radv_add_route_prefix(link->radv, q->radv_route_prefix, false);
                         if (r == -EEXIST)
                                 continue;

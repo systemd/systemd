@@ -1239,7 +1239,6 @@ static int static_address_configure(Address *address, Link *link, bool update) {
 
 static int link_request_set_addresses(Link *link) {
         Address *ad;
-        Prefix *p;
         int r;
 
         assert(link);
@@ -1286,8 +1285,10 @@ static int link_request_set_addresses(Link *link) {
                         return r;
         }
 
-        if (link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_STATIC)
-                LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
+        if (link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_STATIC) {
+                Prefix *p;
+
+                HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
                         _cleanup_(address_freep) Address *address = NULL;
 
                         if (!p->assign)
@@ -1310,6 +1311,7 @@ static int link_request_set_addresses(Link *link) {
                         if (r < 0)
                                 return r;
                 }
+        }
 
         r = link_set_address_labels(link);
         if (r < 0)
