@@ -21,6 +21,7 @@
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
+#include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-sriov.h"
 #include "parse-util.h"

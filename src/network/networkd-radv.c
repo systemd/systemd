@@ -7,11 +7,11 @@
 #include <arpa/inet.h>
 
 #include "dns-domain.h"
-#include "networkd-address.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-network.h"
 #include "networkd-radv.h"
 #include "parse-util.h"
-#include "sd-radv.h"
 #include "string-util.h"
 #include "string-table.h"
 #include "strv.h"

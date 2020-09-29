@@ -5,13 +5,17 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
+#include <inttypes.h>
+#include <stdbool.h>
+
+#include "sd-radv.h"
+
+#include "in-addr-util.h"
 #include "conf-parser.h"
-#include "networkd-address.h"
-#include "networkd-link.h"
 #include "networkd-util.h"
 
-typedef struct Prefix Prefix;
-typedef struct RoutePrefix RoutePrefix;
+typedef struct Network Network;
+typedef struct Link Link;
 
 typedef enum RADVPrefixDelegation {
         RADV_PREFIX_DELEGATION_NONE   = 0,
@@ -22,21 +26,21 @@ typedef enum RADVPrefixDelegation {
         _RADV_PREFIX_DELEGATION_INVALID = -1,
 } RADVPrefixDelegation;
 
-struct Prefix {
+typedef struct Prefix {
         Network *network;
         NetworkConfigSection *section;
 
         sd_radv_prefix *radv_prefix;
 
         bool assign;
-};
+} Prefix;
 
-struct RoutePrefix {
+typedef struct RoutePrefix {
         Network *network;
         NetworkConfigSection *section;
 
         sd_radv_route_prefix *radv_route_prefix;
-};
+} RoutePrefix;
 
 Prefix *prefix_free(Prefix *prefix);
 RoutePrefix *route_prefix_free(RoutePrefix *prefix);
