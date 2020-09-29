@@ -2,9 +2,7 @@
 
 #include <netinet/in.h>
 #include <linux/if.h>
-#include <unistd.h>
 
-#include "fileio.h"
 #include "netlink-util.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-link.h"
