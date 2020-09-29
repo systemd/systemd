@@ -16,9 +16,9 @@
 #include "string-table.h"
 #include "strv.h"
 
-void prefix_free(Prefix *prefix) {
+Prefix *prefix_free(Prefix *prefix) {
         if (!prefix)
-                return;
+                return NULL;
 
         if (prefix->network) {
                 LIST_REMOVE(prefixes, prefix->network->static_prefixes, prefix);
@@ -33,8 +33,10 @@ void prefix_free(Prefix *prefix) {
         network_config_section_free(prefix->section);
         sd_radv_prefix_unref(prefix->radv_prefix);
 
-        free(prefix);
+        return mfree(prefix);
 }
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(Prefix, prefix_free);
 
 static int prefix_new(Prefix **ret) {
         _cleanup_(prefix_freep) Prefix *prefix = NULL;
@@ -101,24 +103,9 @@ static int prefix_new_static(Network *network, const char *filename,
         return 0;
 }
 
-static int route_prefix_new(RoutePrefix **ret) {
-        _cleanup_(route_prefix_freep) RoutePrefix *prefix = NULL;
-
-        prefix = new0(RoutePrefix, 1);
+RoutePrefix *route_prefix_free(RoutePrefix *prefix) {
         if (!prefix)
-                return -ENOMEM;
-
-        if (sd_radv_route_prefix_new(&prefix->radv_route_prefix) < 0)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(prefix);
-
-        return 0;
-}
-
-void route_prefix_free(RoutePrefix *prefix) {
-        if (!prefix)
-                return;
+                return NULL;
 
         if (prefix->network) {
                 LIST_REMOVE(route_prefixes, prefix->network->static_route_prefixes, prefix);
@@ -133,7 +120,24 @@ void route_prefix_free(RoutePrefix *prefix) {
         network_config_section_free(prefix->section);
         sd_radv_route_prefix_unref(prefix->radv_route_prefix);
 
-        free(prefix);
+        return mfree(prefix);
+}
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(RoutePrefix, route_prefix_free);
+
+static int route_prefix_new(RoutePrefix **ret) {
+        _cleanup_(route_prefix_freep) RoutePrefix *prefix = NULL;
+
+        prefix = new0(RoutePrefix, 1);
+        if (!prefix)
+                return -ENOMEM;
+
+        if (sd_radv_route_prefix_new(&prefix->radv_route_prefix) < 0)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(prefix);
+
+        return 0;
 }
 
 static int route_prefix_new_static(Network *network, const char *filename,

@@ -42,13 +42,8 @@ struct RoutePrefix {
         LIST_FIELDS(RoutePrefix, route_prefixes);
 };
 
-void prefix_free(Prefix *prefix);
-
-DEFINE_NETWORK_SECTION_FUNCTIONS(Prefix, prefix_free);
-
-void route_prefix_free(RoutePrefix *prefix);
-
-DEFINE_NETWORK_SECTION_FUNCTIONS(RoutePrefix, route_prefix_free);
+Prefix *prefix_free(Prefix *prefix);
+RoutePrefix *route_prefix_free(RoutePrefix *prefix);
 
 int radv_emit_dns(Link *link);
 int radv_configure(Link *link);
