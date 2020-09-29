@@ -15,6 +15,7 @@
 #include "resolved-dns-server.h"
 #include "resolved-resolv-conf.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util-label.h"
@@ -371,3 +372,49 @@ int manager_write_resolv_conf(Manager *m) {
 
         return r;
 }
+
+int resolv_conf_mode(void) {
+        static const char * const table[_RESOLV_CONF_MODE_MAX] = {
+                [RESOLV_CONF_UPLINK] = PRIVATE_UPLINK_RESOLV_CONF,
+                [RESOLV_CONF_STUB] = PRIVATE_STUB_RESOLV_CONF,
+                [RESOLV_CONF_STATIC] = PRIVATE_STATIC_RESOLV_CONF,
+        };
+
+        struct stat system_st;
+
+        if (stat("/etc/resolv.conf", &system_st) < 0) {
+                if (errno == ENOENT)
+                        return RESOLV_CONF_MISSING;
+
+                return -errno;
+        }
+
+        for (ResolvConfMode m = 0; m < _RESOLV_CONF_MODE_MAX; m++) {
+                struct stat our_st;
+
+                if (!table[m])
+                        continue;
+
+                if (stat(table[m], &our_st) < 0) {
+                        if (errno != ENOENT)
+                                log_debug_errno(errno, "Failed to stat() %s, ignoring: %m", table[m]);
+
+                        continue;
+                }
+
+                if (system_st.st_dev == our_st.st_dev &&
+                    system_st.st_ino == our_st.st_ino)
+                        return m;
+        }
+
+        return RESOLV_CONF_FOREIGN;
+}
+
+static const char* const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
+        [RESOLV_CONF_UPLINK] = "uplink",
+        [RESOLV_CONF_STUB] = "stub",
+        [RESOLV_CONF_STATIC] = "static",
+        [RESOLV_CONF_MISSING] = "missing",
+        [RESOLV_CONF_FOREIGN] = "foreign",
+};
+DEFINE_STRING_TABLE_LOOKUP(resolv_conf_mode, ResolvConfMode);
