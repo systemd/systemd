@@ -30,7 +30,7 @@ typedef struct Neighbor {
         size_t lladdr_size;
 } Neighbor;
 
-void neighbor_free(Neighbor *neighbor);
+Neighbor *neighbor_free(Neighbor *neighbor);
 
 void network_verify_neighbors(Network *network);
 

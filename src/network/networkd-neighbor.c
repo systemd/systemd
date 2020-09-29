@@ -9,9 +9,9 @@
 #include "networkd-network.h"
 #include "set.h"
 
-void neighbor_free(Neighbor *neighbor) {
+Neighbor *neighbor_free(Neighbor *neighbor) {
         if (!neighbor)
-                return;
+                return NULL;
 
         if (neighbor->network) {
                 assert(neighbor->section);
@@ -25,7 +25,7 @@ void neighbor_free(Neighbor *neighbor) {
                 set_remove(neighbor->link->neighbors_foreign, neighbor);
         }
 
-        free(neighbor);
+        return mfree(neighbor);
 }
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Neighbor, neighbor_free);
