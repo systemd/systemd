@@ -77,14 +77,14 @@ int rtnl_log_create_error(int r);
                                       userdata, 0, __func__);           \
         })
 
-#define netlink_add_match(nl, ret_slot, metch, callback, destroy_callback, userdata) \
+#define netlink_add_match(nl, ret_slot, match, callback, destroy_callback, userdata, description) \
         ({                                                              \
                 int (*_callback_)(sd_netlink *, sd_netlink_message *, typeof(userdata)) = callback; \
                 void (*_destroy_)(typeof(userdata)) = destroy_callback; \
                 sd_netlink_add_match(nl, ret_slot, match,               \
                                      (sd_netlink_message_handler_t) _callback_, \
                                      (sd_netlink_destroy_t) _destroy_,  \
-                                     userdata, __func__);               \
+                                     userdata, description);            \
         })
 
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
