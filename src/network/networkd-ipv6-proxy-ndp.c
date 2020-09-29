@@ -92,7 +92,7 @@ static int ipv6_proxy_ndp_set(Link *link) {
 }
 
 /* configure all ipv6 proxy ndp addresses */
-int ipv6_proxy_ndp_addresses_configure(Link *link) {
+int link_set_ipv6_proxy_ndp_addresses(Link *link) {
         struct in6_addr *address;
         int r;
 

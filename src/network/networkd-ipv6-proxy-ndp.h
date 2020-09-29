@@ -5,6 +5,6 @@
 
 typedef struct Link Link;
 
-int ipv6_proxy_ndp_addresses_configure(Link *link);
+int link_set_ipv6_proxy_ndp_addresses(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_proxy_ndp_address);

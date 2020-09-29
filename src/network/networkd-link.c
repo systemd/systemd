@@ -2896,7 +2896,7 @@ static int link_configure(Link *link) {
         if (r < 0)
                return r;
 
-        r = ipv6_proxy_ndp_addresses_configure(link);
+        r = link_set_ipv6_proxy_ndp_addresses(link);
         if (r < 0)
                 return r;
 
