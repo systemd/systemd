@@ -15,6 +15,7 @@
 #include "resolved-dnssd-bus.h"
 #include "resolved-dnssd.h"
 #include "resolved-link-bus.h"
+#include "resolved-resolv-conf.h"
 #include "socket-netlink.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -1555,6 +1556,28 @@ static BUS_DEFINE_PROPERTY_GET(bus_property_get_dnssec_supported, "b", Manager, 
 static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dnssec_mode, "s", Manager, manager_get_dnssec_mode, dnssec_mode_to_string);
 static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dns_over_tls_mode, "s", Manager, manager_get_dns_over_tls_mode, dns_over_tls_mode_to_string);
 
+static int bus_property_get_resolv_conf_mode(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        int r;
+
+        assert(reply);
+
+        r = resolv_conf_mode();
+        if (r < 0) {
+                log_warning_errno(r, "Failed to test /etc/resolv.conf mode, ignoring: %m");
+                return sd_bus_message_append(reply, "s", NULL);
+        }
+
+        return sd_bus_message_append(reply, "s", resolv_conf_mode_to_string(r));
+}
+
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
         DnsScope *s;
@@ -1936,6 +1959,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("DNSSECSupported", "b", bus_property_get_dnssec_supported, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSStubListener", "s", bus_property_get_dns_stub_listener_mode, offsetof(Manager, dns_stub_listener_mode), 0),
+        SD_BUS_PROPERTY("ResolvConfMode", "s", bus_property_get_resolv_conf_mode, 0, 0),
 
         SD_BUS_METHOD_WITH_ARGS("ResolveHostname",
                                 SD_BUS_ARGS("i", ifindex, "s", name, "i", family, "t", flags),
