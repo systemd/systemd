@@ -5,19 +5,18 @@
 #include <linux/nexthop.h>
 
 #include "alloc-util.h"
-#include "conf-parser.h"
-#include "in-addr-util.h"
 #include "netlink-util.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "parse-util.h"
 #include "set.h"
 #include "string-util.h"
-#include "util.h"
 
-void nexthop_free(NextHop *nexthop) {
+NextHop *nexthop_free(NextHop *nexthop) {
         if (!nexthop)
-                return;
+                return NULL;
 
         if (nexthop->network) {
                 assert(nexthop->section);
@@ -31,7 +30,7 @@ void nexthop_free(NextHop *nexthop) {
                 set_remove(nexthop->link->nexthops_foreign, nexthop);
         }
 
-        free(nexthop);
+        return mfree(nexthop);
 }
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(NextHop, nexthop_free);

@@ -32,6 +32,7 @@
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
+#include "networkd-nexthop.h"
 #include "networkd-sriov.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"

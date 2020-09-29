@@ -4,16 +4,19 @@
 
 #pragma once
 
+#include <inttypes.h>
+
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
-#include "macro.h"
-
-typedef struct NextHop NextHop;
-typedef struct NetworkConfigSection NetworkConfigSection;
-
-#include "networkd-network.h"
+#include "in-addr-util.h"
 #include "networkd-util.h"
 
-struct NextHop {
+typedef struct Link Link;
+typedef struct Manager Manager;
+typedef struct Network Network;
+
+typedef struct NextHop {
         Network *network;
         NetworkConfigSection *section;
 
@@ -26,15 +29,14 @@ struct NextHop {
         uint32_t id;
 
         union in_addr_union gw;
-};
+} NextHop;
 
-void nexthop_free(NextHop *nexthop);
+NextHop *nexthop_free(NextHop *nexthop);
+int nexthop_section_verify(NextHop *nexthop);
 
 int link_set_nexthop(Link *link);
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
-
-int nexthop_section_verify(NextHop *nexthop);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_gateway);
