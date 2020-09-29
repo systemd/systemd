@@ -29,6 +29,7 @@
 #include "networkd-link-bus.h"
 #include "networkd-manager-bus.h"
 #include "networkd-manager.h"
+#include "networkd-neighbor.h"
 #include "networkd-network-bus.h"
 #include "networkd-nexthop.h"
 #include "networkd-routing-policy-rule.h"

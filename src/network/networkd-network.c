@@ -15,6 +15,7 @@
 #include "networkd-dhcp-server.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
+#include "networkd-neighbor.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-routing-policy-rule.h"

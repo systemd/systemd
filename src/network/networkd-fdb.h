@@ -8,6 +8,7 @@
 #include <linux/neighbour.h>
 
 #include "conf-parser.h"
+#include "ether-addr-util.h"
 #include "list.h"
 #include "macro.h"
 #include "networkd-util.h"

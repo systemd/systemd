@@ -25,7 +25,6 @@
 #include "networkd-lldp-tx.h"
 #include "networkd-mdb.h"
 #include "networkd-ndisc.h"
-#include "networkd-neighbor.h"
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-util.h"

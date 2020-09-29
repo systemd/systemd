@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#include "sd-netlink.h"
-
 #include "alloc-util.h"
-#include "conf-parser.h"
-#include "ether-addr-util.h"
 #include "hashmap.h"
-#include "in-addr-util.h"
 #include "netlink-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-neighbor.h"
+#include "networkd-network.h"
 #include "set.h"
 
 void neighbor_free(Neighbor *neighbor) {
