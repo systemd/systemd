@@ -20,8 +20,10 @@ struct MdbEntry {
         uint16_t vlan_id;
 };
 
-int mdb_entry_verify(MdbEntry *mdb_entry);
 MdbEntry *mdb_entry_free(MdbEntry *mdb_entry);
+
+void network_verify_mdb_entries(Network *network);
+
 int link_set_bridge_mdb(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_mdb_group_address);

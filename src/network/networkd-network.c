@@ -157,7 +157,6 @@ int network_verify(Network *network) {
         Address *address, *address_next;
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
-        MdbEntry *mdb;
         TrafficControl *tc;
         SRIOV *sr_iov;
 
@@ -300,11 +299,7 @@ int network_verify(Network *network) {
 
         network_verify_nexthops(network);
         network_verify_fdb_entries(network);
-
-        HASHMAP_FOREACH(mdb, network->mdb_entries_by_section)
-                if (mdb_entry_verify(mdb) < 0)
-                        mdb_entry_free(mdb);
-
+        network_verify_mdb_entries(network);
         network_verify_neighbors(network);
         network_verify_address_labels(network);
 
