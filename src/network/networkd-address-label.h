@@ -31,6 +31,8 @@ AddressLabel *address_label_free(AddressLabel *label);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(AddressLabel, address_label_free);
 
+void network_verify_address_labels(Network *network);
+
 int address_label_configure(AddressLabel *address, Link *link, link_netlink_message_handler_t callback, bool update);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_address_label);

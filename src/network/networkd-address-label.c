@@ -136,6 +136,16 @@ int address_label_configure(
         return 0;
 }
 
+void network_verify_address_labels(Network *network) {
+        AddressLabel *label;
+
+        assert(network);
+
+        HASHMAP_FOREACH(label, network->address_labels_by_section)
+                if (section_is_invalid(label->section))
+                        address_label_free(label);
+}
+
 int config_parse_address_label_prefix(const char *unit,
                                       const char *filename,
                                       unsigned line,
