@@ -388,18 +388,16 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
 
         r = sd_rtnl_message_get_family(message, &tmp->family);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get nexthop family, ignoring: %m");
+                log_link_warning_errno(link, r, "rtnl: could not get nexthop family, ignoring: %m");
                 return 0;
-        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
-                log_debug("rtnl: received nexthop message with invalid family %d, ignoring.", tmp->family);
-                return 0;
-        }
+        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6))
+                return log_link_debug(link, "rtnl: received nexthop message with invalid family %d, ignoring.", tmp->family);
 
         switch (tmp->family) {
         case AF_INET:
                 r = sd_netlink_message_read_in_addr(message, NHA_GATEWAY, &tmp->gw.in);
                 if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
+                        log_link_warning_errno(link, r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
                         return 0;
                 }
                 break;
@@ -407,7 +405,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         case AF_INET6:
                 r = sd_netlink_message_read_in6_addr(message, NHA_GATEWAY, &tmp->gw.in6);
                 if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
+                        log_link_warning_errno(link, r, "rtnl: could not get NHA_GATEWAY attribute, ignoring: %m");
                         return 0;
                 }
                 break;
@@ -418,7 +416,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
 
         r = sd_netlink_message_read_u32(message, NHA_ID, &tmp->id);
         if (r < 0 && r != -ENODATA) {
-                log_warning_errno(r, "rtnl: could not get NHA_ID attribute, ignoring: %m");
+                log_link_warning_errno(link, r, "rtnl: could not get NHA_ID attribute, ignoring: %m");
                 return 0;
         }
 
