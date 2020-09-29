@@ -453,15 +453,15 @@ int config_parse_route_prefix_lifetime(
         return 0;
 }
 
-static int radv_get_ip6dns(Network *network, struct in6_addr **dns, size_t *n_dns) {
+static int network_get_ipv6_dns(Network *network, struct in6_addr **ret_addresses, size_t *ret_size) {
         _cleanup_free_ struct in6_addr *addresses = NULL;
-        size_t i, n_addresses = 0, n_allocated = 0;
+        size_t n_addresses = 0, n_allocated = 0;
 
         assert(network);
-        assert(dns);
-        assert(n_dns);
+        assert(ret_addresses);
+        assert(ret_size);
 
-        for (i = 0; i < network->n_dns; i++) {
+        for (size_t i = 0; i < network->n_dns; i++) {
                 union in_addr_union *addr;
 
                 if (network->dns[i]->family != AF_INET6)
@@ -480,11 +480,8 @@ static int radv_get_ip6dns(Network *network, struct in6_addr **dns, size_t *n_dn
                 addresses[n_addresses++] = addr->in6;
         }
 
-        if (addresses) {
-                *dns = TAKE_PTR(addresses);
-
-                *n_dns = n_addresses;
-        }
+        *ret_addresses = TAKE_PTR(addresses);
+        *ret_size = n_addresses;
 
         return n_addresses;
 }
@@ -521,7 +518,7 @@ static int radv_set_dns(Link *link, Link *uplink) {
 
         lifetime_usec = SD_RADV_DEFAULT_DNS_LIFETIME_USEC;
 
-        r = radv_get_ip6dns(link->network, &dns, &n_dns);
+        r = network_get_ipv6_dns(link->network, &dns, &n_dns);
         if (r > 0)
                 goto set_dns;
 
@@ -531,7 +528,7 @@ static int radv_set_dns(Link *link, Link *uplink) {
                         return 0;
                 }
 
-                r = radv_get_ip6dns(uplink->network, &dns, &n_dns);
+                r = network_get_ipv6_dns(uplink->network, &dns, &n_dns);
                 if (r > 0)
                         goto set_dns;
         }
