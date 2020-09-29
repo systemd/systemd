@@ -12,7 +12,6 @@
 #include "conf-parser.h"
 #include "hashmap.h"
 #include "netdev.h"
-#include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-brvlan.h"
 #include "networkd-dhcp-common.h"

@@ -4,12 +4,12 @@
 #include <linux/if_addrlabel.h>
 
 #include "alloc-util.h"
-#include "conf-parser.h"
-#include "networkd-address-label.h"
 #include "netlink-util.h"
+#include "networkd-address-label.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-network.h"
 #include "parse-util.h"
-#include "socket-util.h"
 
 AddressLabel *address_label_free(AddressLabel *label) {
         if (!label)
@@ -23,6 +23,8 @@ AddressLabel *address_label_free(AddressLabel *label) {
         network_config_section_free(label->section);
         return mfree(label);
 }
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(AddressLabel, address_label_free);
 
 static int address_label_new_static(Network *network, const char *filename, unsigned section_line, AddressLabel **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
