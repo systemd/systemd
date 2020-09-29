@@ -154,9 +154,7 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
-        RoutePrefix *route_prefix;
         Address *address, *address_next;
-        Prefix *prefix;
         Route *route, *route_next;
         TrafficControl *tc;
         SRIOV *sr_iov;
@@ -308,15 +306,8 @@ int network_verify(Network *network) {
         network_verify_mdb_entries(network);
         network_verify_neighbors(network);
         network_verify_address_labels(network);
-
-        HASHMAP_FOREACH(prefix, network->prefixes_by_section)
-                if (section_is_invalid(prefix->section))
-                        prefix_free(prefix);
-
-        HASHMAP_FOREACH(route_prefix, network->route_prefixes_by_section)
-                if (section_is_invalid(route_prefix->section))
-                        route_prefix_free(route_prefix);
-
+        network_verify_prefixes(network);
+        network_verify_route_prefixes(network);
         network_verify_routing_policy_rules(network);
 
         bool has_root = false, has_clsact = false;

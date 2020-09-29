@@ -162,6 +162,26 @@ static int route_prefix_new_static(Network *network, const char *filename,
         return 0;
 }
 
+void network_verify_prefixes(Network *network) {
+        Prefix *prefix;
+
+        assert(network);
+
+        HASHMAP_FOREACH(prefix, network->prefixes_by_section)
+                if (section_is_invalid(prefix->section))
+                        prefix_free(prefix);
+}
+
+void network_verify_route_prefixes(Network *network) {
+        RoutePrefix *prefix;
+
+        assert(network);
+
+        HASHMAP_FOREACH(prefix, network->route_prefixes_by_section)
+                if (section_is_invalid(prefix->section))
+                        route_prefix_free(prefix);
+}
+
 int config_parse_prefix(const char *unit,
                         const char *filename,
                         unsigned line,
