@@ -15,7 +15,33 @@
 #include "string-util.h"
 #include "util.h"
 
-int nexthop_new(NextHop **ret) {
+void nexthop_free(NextHop *nexthop) {
+        if (!nexthop)
+                return;
+
+        if (nexthop->network) {
+                LIST_REMOVE(nexthops, nexthop->network->static_nexthops, nexthop);
+
+                assert(nexthop->network->n_static_nexthops > 0);
+                nexthop->network->n_static_nexthops--;
+
+                if (nexthop->section)
+                        hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
+        }
+
+        network_config_section_free(nexthop->section);
+
+        if (nexthop->link) {
+                set_remove(nexthop->link->nexthops, nexthop);
+                set_remove(nexthop->link->nexthops_foreign, nexthop);
+        }
+
+        free(nexthop);
+}
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(NextHop, nexthop_free);
+
+static int nexthop_new(NextHop **ret) {
         _cleanup_(nexthop_freep) NextHop *nexthop = NULL;
 
         nexthop = new(NextHop, 1);
@@ -77,30 +103,6 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         *ret = TAKE_PTR(nexthop);
 
         return 0;
-}
-
-void nexthop_free(NextHop *nexthop) {
-        if (!nexthop)
-                return;
-
-        if (nexthop->network) {
-                LIST_REMOVE(nexthops, nexthop->network->static_nexthops, nexthop);
-
-                assert(nexthop->network->n_static_nexthops > 0);
-                nexthop->network->n_static_nexthops--;
-
-                if (nexthop->section)
-                        hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
-        }
-
-        network_config_section_free(nexthop->section);
-
-        if (nexthop->link) {
-                set_remove(nexthop->link->nexthops, nexthop);
-                set_remove(nexthop->link->nexthops_foreign, nexthop);
-        }
-
-        free(nexthop);
 }
 
 static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
@@ -169,7 +171,7 @@ bool nexthop_equal(NextHop *r1, NextHop *r2) {
         return nexthop_compare_func(r1, r2) == 0;
 }
 
-int nexthop_get(Link *link, NextHop *in, NextHop **ret) {
+static int nexthop_get(Link *link, NextHop *in, NextHop **ret) {
         NextHop *existing;
 
         assert(link);
@@ -225,11 +227,11 @@ static int nexthop_add_internal(Link *link, Set **nexthops, NextHop *in, NextHop
         return 0;
 }
 
-int nexthop_add_foreign(Link *link, NextHop *in, NextHop **ret) {
+static int nexthop_add_foreign(Link *link, NextHop *in, NextHop **ret) {
         return nexthop_add_internal(link, &link->nexthops_foreign, in, ret);
 }
 
-int nexthop_add(Link *link, NextHop *in, NextHop **ret) {
+static int nexthop_add(Link *link, NextHop *in, NextHop **ret) {
         NextHop *nexthop;
         int r;
 

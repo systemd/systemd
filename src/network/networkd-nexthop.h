@@ -30,9 +30,6 @@ struct NextHop {
         LIST_FIELDS(NextHop, nexthops);
 };
 
-extern const struct hash_ops nexthop_hash_ops;
-
-int nexthop_new(NextHop **ret);
 void nexthop_free(NextHop *nexthop);
 int nexthop_remove(NextHop *nexthop, Link *link, link_netlink_message_handler_t callback);
 
@@ -40,14 +37,9 @@ int link_set_nexthop(Link *link);
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
-int nexthop_get(Link *link, NextHop *in, NextHop **ret);
-int nexthop_add(Link *link, NextHop *in, NextHop **ret);
-int nexthop_add_foreign(Link *link, NextHop *in, NextHop **ret);
 bool nexthop_equal(NextHop *r1, NextHop *r2);
 
 int nexthop_section_verify(NextHop *nexthop);
-
-DEFINE_NETWORK_SECTION_FUNCTIONS(NextHop, nexthop_free);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_nexthop_gateway);
