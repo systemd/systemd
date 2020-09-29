@@ -47,6 +47,8 @@ bool neighbor_equal(const Neighbor *n1, const Neighbor *n2);
 
 int neighbor_section_verify(Neighbor *neighbor);
 
+int link_set_neighbors(Link *link);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_neighbor_lladdr);

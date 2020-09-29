@@ -1131,33 +1131,6 @@ void link_check_ready(Link *link) {
         return;
 }
 
-static int link_request_set_neighbors(Link *link) {
-        Neighbor *neighbor;
-        int r;
-
-        assert(link);
-        assert(link->network);
-        assert(link->state != _LINK_STATE_INVALID);
-
-        link->neighbors_configured = false;
-
-        LIST_FOREACH(neighbors, neighbor, link->network->neighbors) {
-                r = neighbor_configure(neighbor, link, NULL);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set neighbor: %m");
-        }
-
-        if (link->neighbor_messages == 0) {
-                link->neighbors_configured = true;
-                link_check_ready(link);
-        } else {
-                log_link_debug(link, "Setting neighbors");
-                link_set_state(link, LINK_STATE_CONFIGURING);
-        }
-
-        return 0;
-}
-
 static int link_set_bridge_fdb(Link *link) {
         FdbEntry *fdb_entry;
         int r;
@@ -1307,7 +1280,7 @@ static int link_request_set_addresses(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_set_neighbors(link);
+        r = link_set_neighbors(link);
         if (r < 0)
                 return r;
 

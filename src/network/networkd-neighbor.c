@@ -310,6 +310,33 @@ int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_hand
         return 0;
 }
 
+int link_set_neighbors(Link *link) {
+        Neighbor *neighbor;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->state != _LINK_STATE_INVALID);
+
+        link->neighbors_configured = false;
+
+        LIST_FOREACH(neighbors, neighbor, link->network->neighbors) {
+                r = neighbor_configure(neighbor, link, NULL);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set neighbor: %m");
+        }
+
+        if (link->neighbor_messages == 0) {
+                link->neighbors_configured = true;
+                link_check_ready(link);
+        } else {
+                log_link_debug(link, "Setting neighbors");
+                link_set_state(link, LINK_STATE_CONFIGURING);
+        }
+
+        return 0;
+}
+
 static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
