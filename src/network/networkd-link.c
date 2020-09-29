@@ -925,60 +925,6 @@ static void link_enter_configured(Link *link) {
         link_dirty(link);
 }
 
-static int nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(link);
-        assert(link->nexthop_messages > 0);
-        assert(IN_SET(link->state, LINK_STATE_CONFIGURING,
-                      LINK_STATE_FAILED, LINK_STATE_LINGER));
-
-        link->nexthop_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set nexthop");
-                link_enter_failed(link);
-                return 1;
-        }
-
-        if (link->nexthop_messages == 0) {
-                log_link_debug(link, "Nexthop set");
-                link->static_nexthops_configured = true;
-                link_check_ready(link);
-        }
-
-        return 1;
-}
-
-static int link_request_set_nexthop(Link *link) {
-        NextHop *nh;
-        int r;
-
-        link->static_nexthops_configured = false;
-
-        LIST_FOREACH(nexthops, nh, link->network->static_nexthops) {
-                r = nexthop_configure(nh, link, nexthop_handler);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set nexthop: %m");
-                if (r > 0)
-                        link->nexthop_messages++;
-        }
-
-        if (link->nexthop_messages == 0) {
-                link->static_nexthops_configured = true;
-                link_check_ready(link);
-        } else {
-                log_link_debug(link, "Setting nexthop");
-                link_set_state(link, LINK_STATE_CONFIGURING);
-        }
-
-        return 1;
-}
-
 static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1002,7 +948,7 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         if (link->route_messages == 0) {
                 log_link_debug(link, "Routes set");
                 link->static_routes_configured = true;
-                link_request_set_nexthop(link);
+                link_set_nexthop(link);
         }
 
         return 1;
@@ -1053,7 +999,7 @@ int link_request_set_routes(Link *link) {
 
         if (link->route_messages == 0) {
                 link->static_routes_configured = true;
-                link_request_set_nexthop(link);
+                link_set_nexthop(link);
         } else {
                 log_link_debug(link, "Setting routes");
                 link_set_state(link, LINK_STATE_CONFIGURING);
