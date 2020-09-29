@@ -34,7 +34,7 @@ struct Neighbor {
 void neighbor_free(Neighbor *neighbor);
 int neighbor_section_verify(Neighbor *neighbor);
 
-int neighbor_remove(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback);
+int neighbor_remove(Neighbor *neighbor, Link *link);
 
 int neighbor_add(Link *link, const Neighbor *in, Neighbor **ret);
 bool neighbor_equal(const Neighbor *n1, const Neighbor *n2);

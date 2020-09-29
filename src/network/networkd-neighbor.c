@@ -244,7 +244,7 @@ static int neighbor_configure_handler(sd_netlink *rtnl, sd_netlink_message *m, L
         return 1;
 }
 
-static int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback) {
+static int neighbor_configure(Neighbor *neighbor, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -255,7 +255,7 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_messa
         assert(link->manager->rtnl);
 
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_NEWNEIGH,
-                                          link->ifindex, neighbor->family);
+                                      link->ifindex, neighbor->family);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_NEWNEIGH message: %m");
 
@@ -275,7 +275,7 @@ static int neighbor_configure(Neighbor *neighbor, Link *link, link_netlink_messa
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: neighbor_configure_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req, neighbor_configure_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -301,7 +301,7 @@ int link_set_neighbors(Link *link) {
         link->neighbors_configured = false;
 
         HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
-                r = neighbor_configure(neighbor, link, NULL);
+                r = neighbor_configure(neighbor, link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set neighbor: %m");
         }
@@ -334,7 +334,7 @@ static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
         return 1;
 }
 
-int neighbor_remove(Neighbor *neighbor, Link *link, link_netlink_message_handler_t callback) {
+int neighbor_remove(Neighbor *neighbor, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -345,7 +345,7 @@ int neighbor_remove(Neighbor *neighbor, Link *link, link_netlink_message_handler
         assert(link->manager->rtnl);
 
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &req, RTM_DELNEIGH,
-                                          link->ifindex, neighbor->family);
+                                      link->ifindex, neighbor->family);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_DELNEIGH message: %m");
 
@@ -353,7 +353,7 @@ int neighbor_remove(Neighbor *neighbor, Link *link, link_netlink_message_handler
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback ?: neighbor_remove_handler,
+        r = netlink_call_async(link->manager->rtnl, NULL, req, neighbor_remove_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");

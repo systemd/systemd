@@ -2735,7 +2735,7 @@ static int link_drop_foreign_config(Link *link) {
                         if (r < 0)
                                 return r;
                 } else {
-                        r = neighbor_remove(neighbor, link, NULL);
+                        r = neighbor_remove(neighbor, link);
                         if (r < 0)
                                 return r;
                 }
@@ -2833,7 +2833,7 @@ static int link_drop_config(Link *link) {
         }
 
         SET_FOREACH(neighbor, link->neighbors) {
-                r = neighbor_remove(neighbor, link, NULL);
+                r = neighbor_remove(neighbor, link);
                 if (r < 0)
                         return r;
         }
