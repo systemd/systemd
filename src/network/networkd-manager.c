@@ -1689,9 +1689,51 @@ bool manager_should_reload(Manager *m) {
         return paths_check_timestamp(NETWORK_DIRS, &m->network_dirs_ts_usec, false);
 }
 
-int manager_rtnl_enumerate_links(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *link;
+static int manager_enumerate_internal(
+                Manager *m,
+                sd_netlink_message *req,
+                int (*process)(sd_netlink *, sd_netlink_message *, Manager *),
+                const char *name) {
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        int r;
+
+        assert(m);
+        assert(m->rtnl);
+        assert(req);
+        assert(process);
+
+        r = sd_netlink_message_request_dump(req, true);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(m->rtnl, req, 0, &reply);
+        if (r < 0) {
+                if (r == -EOPNOTSUPP && name) {
+                        log_debug_errno(r, "%s are not supported by the kernel. Ignoring.", name);
+                        return 0;
+                }
+
+                return r;
+        }
+
+        for (sd_netlink_message *reply_one = reply; reply_one; reply_one = sd_netlink_message_next(reply_one)) {
+                int k;
+
+                m->enumerating = true;
+
+                k = process(m->rtnl, reply_one, m);
+                if (k < 0 && r >= 0)
+                        r = k;
+
+                m->enumerating = false;
+        }
+
+        return r;
+}
+
+static int manager_enumerate_links(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1701,32 +1743,11 @@ int manager_rtnl_enumerate_links(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0)
-                return r;
-
-        for (link = reply; link; link = sd_netlink_message_next(link)) {
-                int k;
-
-                m->enumerating = true;
-
-                k = manager_rtnl_process_link(m->rtnl, link, m);
-                if (k < 0)
-                        r = k;
-
-                m->enumerating = false;
-        }
-
-        return r;
+        return manager_enumerate_internal(m, req, manager_rtnl_process_link, NULL);
 }
 
-int manager_rtnl_enumerate_addresses(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *addr;
+static int manager_enumerate_addresses(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1736,32 +1757,11 @@ int manager_rtnl_enumerate_addresses(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0)
-                return r;
-
-        for (addr = reply; addr; addr = sd_netlink_message_next(addr)) {
-                int k;
-
-                m->enumerating = true;
-
-                k = manager_rtnl_process_address(m->rtnl, addr, m);
-                if (k < 0)
-                        r = k;
-
-                m->enumerating = false;
-        }
-
-        return r;
+        return manager_enumerate_internal(m, req, manager_rtnl_process_address, NULL);
 }
 
-int manager_rtnl_enumerate_neighbors(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *neigh;
+static int manager_enumerate_neighbors(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1771,32 +1771,11 @@ int manager_rtnl_enumerate_neighbors(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0)
-                return r;
-
-        for (neigh = reply; neigh; neigh = sd_netlink_message_next(neigh)) {
-                int k;
-
-                m->enumerating = true;
-
-                k = manager_rtnl_process_neighbor(m->rtnl, neigh, m);
-                if (k < 0)
-                        r = k;
-
-                m->enumerating = false;
-        }
-
-        return r;
+        return manager_enumerate_internal(m, req, manager_rtnl_process_neighbor, NULL);
 }
 
-int manager_rtnl_enumerate_routes(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *route;
+static int manager_enumerate_routes(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1809,32 +1788,11 @@ int manager_rtnl_enumerate_routes(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0)
-                return r;
-
-        for (route = reply; route; route = sd_netlink_message_next(route)) {
-                int k;
-
-                m->enumerating = true;
-
-                k = manager_rtnl_process_route(m->rtnl, route, m);
-                if (k < 0)
-                        r = k;
-
-                m->enumerating = false;
-        }
-
-        return r;
+        return manager_enumerate_internal(m, req, manager_rtnl_process_route, NULL);
 }
 
-int manager_rtnl_enumerate_rules(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *rule;
+static int manager_enumerate_rules(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1844,38 +1802,11 @@ int manager_rtnl_enumerate_rules(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0) {
-                if (r == -EOPNOTSUPP) {
-                        log_debug("FIB Rules are not supported by the kernel. Ignoring.");
-                        return 0;
-                }
-
-                return r;
-        }
-
-        for (rule = reply; rule; rule = sd_netlink_message_next(rule)) {
-                int k;
-
-                m->enumerating = true;
-
-                k = manager_rtnl_process_rule(m->rtnl, rule, m);
-                if (k < 0)
-                        r = k;
-
-                m->enumerating = false;
-        }
-
-        return r;
+        return manager_enumerate_internal(m, req, manager_rtnl_process_rule, "Routing policy rules");
 }
 
-int manager_rtnl_enumerate_nexthop(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *nexthop;
+static int manager_enumerate_nexthop(Manager *m) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
         assert(m);
@@ -1885,33 +1816,37 @@ int manager_rtnl_enumerate_nexthop(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_netlink_message_request_dump(req, true);
+        return manager_enumerate_internal(m, req, manager_rtnl_process_nexthop, "Nexthop rules");
+}
+
+int manager_enumerate(Manager *m) {
+        int r;
+
+        r = manager_enumerate_links(m);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Could not enumerate links: %m");
 
-        r = sd_netlink_call(m->rtnl, req, 0, &reply);
-        if (r < 0) {
-                if (r == -EOPNOTSUPP) {
-                        log_debug("Nexthop are not supported by the kernel. Ignoring.");
-                        return 0;
-                }
+        r = manager_enumerate_addresses(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not enumerate addresses: %m");
 
-                return r;
-        }
+        r = manager_enumerate_neighbors(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not enumerate neighbors: %m");
 
-        for (nexthop = reply; nexthop; nexthop = sd_netlink_message_next(nexthop)) {
-                int k;
+        r = manager_enumerate_routes(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not enumerate routes: %m");
 
-                m->enumerating = true;
+        r = manager_enumerate_rules(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not enumerate routing policy rules: %m");
 
-                k = manager_rtnl_process_nexthop(m->rtnl, nexthop, m);
-                if (k < 0)
-                        r = k;
+        r = manager_enumerate_nexthop(m);
+        if (r < 0)
+                return log_error_errno(r, "Could not enumerate nexthop rules: %m");
 
-                m->enumerating = false;
-        }
-
-        return r;
+        return 0;
 }
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found) {

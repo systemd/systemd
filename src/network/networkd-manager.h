@@ -82,12 +82,7 @@ int manager_start(Manager *m);
 int manager_load_config(Manager *m);
 bool manager_should_reload(Manager *m);
 
-int manager_rtnl_enumerate_links(Manager *m);
-int manager_rtnl_enumerate_addresses(Manager *m);
-int manager_rtnl_enumerate_neighbors(Manager *m);
-int manager_rtnl_enumerate_routes(Manager *m);
-int manager_rtnl_enumerate_rules(Manager *m);
-int manager_rtnl_enumerate_nexthop(Manager *m);
+int manager_enumerate(Manager *m);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
