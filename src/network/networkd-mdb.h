@@ -18,8 +18,6 @@ struct MdbEntry {
         int family;
         union in_addr_union group_addr;
         uint16_t vlan_id;
-
-        LIST_FIELDS(MdbEntry, static_mdb_entries);
 };
 
 int mdb_entry_verify(MdbEntry *mdb_entry);

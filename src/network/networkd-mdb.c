@@ -16,12 +16,8 @@ MdbEntry *mdb_entry_free(MdbEntry *mdb_entry) {
                 return NULL;
 
         if (mdb_entry->network) {
-                LIST_REMOVE(static_mdb_entries, mdb_entry->network->static_mdb_entries, mdb_entry);
-                assert(mdb_entry->network->n_static_mdb_entries > 0);
-                mdb_entry->network->n_static_mdb_entries--;
-
-                if (mdb_entry->section)
-                        hashmap_remove(mdb_entry->network->mdb_entries_by_section, mdb_entry->section);
+                assert(mdb_entry->section);
+                hashmap_remove(mdb_entry->network->mdb_entries_by_section, mdb_entry->section);
         }
 
         network_config_section_free(mdb_entry->section);
@@ -44,22 +40,21 @@ static int mdb_entry_new_static(
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
+
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
         /* search entry in hashmap first. */
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
-
-                mdb_entry = hashmap_get(network->mdb_entries_by_section, n);
-                if (mdb_entry) {
-                        *ret = TAKE_PTR(mdb_entry);
-                        return 0;
-                }
+        mdb_entry = hashmap_get(network->mdb_entries_by_section, n);
+        if (mdb_entry) {
+                *ret = TAKE_PTR(mdb_entry);
+                return 0;
         }
 
-        if (network->n_static_mdb_entries >= STATIC_MDB_ENTRIES_PER_NETWORK_MAX)
+        if (hashmap_size(network->mdb_entries_by_section) >= STATIC_MDB_ENTRIES_PER_NETWORK_MAX)
                 return -E2BIG;
 
         /* allocate space for an MDB entry. */
@@ -70,26 +65,19 @@ static int mdb_entry_new_static(
         /* init MDB structure. */
         *mdb_entry = (MdbEntry) {
                 .network = network,
+                .section = TAKE_PTR(n),
         };
 
-        LIST_PREPEND(static_mdb_entries, network->static_mdb_entries, mdb_entry);
-        network->n_static_mdb_entries++;
+        r = hashmap_ensure_allocated(&network->mdb_entries_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-        if (filename) {
-                mdb_entry->section = TAKE_PTR(n);
-
-                r = hashmap_ensure_allocated(&network->mdb_entries_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->mdb_entries_by_section, mdb_entry->section, mdb_entry);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->mdb_entries_by_section, mdb_entry->section, mdb_entry);
+        if (r < 0)
+                return r;
 
         /* return allocated MDB structure. */
         *ret = TAKE_PTR(mdb_entry);
-
         return 0;
 }
 
@@ -214,7 +202,7 @@ int link_set_bridge_mdb(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (LIST_IS_EMPTY(link->network->static_mdb_entries))
+        if (hashmap_isempty(link->network->mdb_entries_by_section))
                 goto finish;
 
         if (!link_has_carrier(link))
@@ -238,7 +226,7 @@ int link_set_bridge_mdb(Link *link) {
                 goto finish;
         }
 
-        LIST_FOREACH(static_mdb_entries, mdb_entry, link->network->static_mdb_entries) {
+        HASHMAP_FOREACH(mdb_entry, link->network->mdb_entries_by_section) {
                 r = mdb_entry_configure(link, mdb_entry);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to add MDB entry to multicast group database: %m");

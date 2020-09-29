@@ -157,7 +157,7 @@ int network_verify(Network *network) {
         Address *address, *address_next;
         Prefix *prefix, *prefix_next;
         Route *route, *route_next;
-        MdbEntry *mdb, *mdb_next;
+        MdbEntry *mdb;
         TrafficControl *tc;
         SRIOV *sr_iov;
 
@@ -301,7 +301,7 @@ int network_verify(Network *network) {
         network_verify_nexthops(network);
         network_verify_fdb_entries(network);
 
-        LIST_FOREACH_SAFE(static_mdb_entries, mdb, mdb_next, network->static_mdb_entries)
+        HASHMAP_FOREACH(mdb, network->mdb_entries_by_section)
                 if (mdb_entry_verify(mdb) < 0)
                         mdb_entry_free(mdb);
 
@@ -634,7 +634,6 @@ failure:
 static Network *network_free(Network *network) {
         IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
         RoutePrefix *route_prefix;
-        MdbEntry *mdb_entry;
         Address *address;
         Prefix *prefix;
         Route *route;
@@ -700,9 +699,6 @@ static Network *network_free(Network *network) {
         while ((address = network->static_addresses))
                 address_free(address);
 
-        while ((mdb_entry = network->static_mdb_entries))
-                mdb_entry_free(mdb_entry);
-
         while ((ipv6_proxy_ndp_address = network->ipv6_proxy_ndp_addresses))
                 ipv6_proxy_ndp_address_free(ipv6_proxy_ndp_address);
 
@@ -716,7 +712,7 @@ static Network *network_free(Network *network) {
         hashmap_free(network->routes_by_section);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->fdb_entries_by_section, fdb_entry_free);
-        hashmap_free(network->mdb_entries_by_section);
+        hashmap_free_with_destructor(network->mdb_entries_by_section, mdb_entry_free);
         hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free(network->prefixes_by_section);
@@ -846,7 +842,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 if (fdb->family == AF_INET6)
                         return true;
 
-        LIST_FOREACH(static_mdb_entries, mdb, network->static_mdb_entries)
+        HASHMAP_FOREACH(mdb, network->mdb_entries_by_section)
                 if (mdb->family == AF_INET6)
                         return true;
 
