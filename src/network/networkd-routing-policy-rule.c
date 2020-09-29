@@ -304,24 +304,6 @@ int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRu
         return -ENOENT;
 }
 
-static int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule) {
-        int r;
-
-        assert(m);
-
-        if (set_contains(m->rules_foreign, rule)) {
-                set_remove(m->rules_foreign, rule);
-
-                r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, rule);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        routing_policy_rule_free(rule);
-        }
-
-        return -ENOENT;
-}
-
 static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPolicyRule *in, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
         int r;
@@ -660,7 +642,7 @@ static void routing_policy_rule_purge(Manager *m, Link *link) {
 }
 
 int link_set_routing_policy_rules(Link *link) {
-        RoutingPolicyRule *rule, *rrule = NULL;
+        RoutingPolicyRule *rule;
         int r;
 
         assert(link);
@@ -669,18 +651,25 @@ int link_set_routing_policy_rules(Link *link) {
         link->routing_policy_rules_configured = false;
 
         LIST_FOREACH(rules, rule, link->network->rules) {
-                r = routing_policy_rule_get(link->manager, rule, &rrule);
-                if (r >= 0) {
-                        if (r == 0)
-                                (void) routing_policy_rule_make_local(link->manager, rrule);
+                RoutingPolicyRule *existing;
+
+                r = routing_policy_rule_get(link->manager, rule, &existing);
+                if (r > 0)
+                        continue;
+                if (r == 0) {
+                        r = set_ensure_put(&link->manager->rules, &routing_policy_rule_hash_ops, existing);
+                        if (r < 0)
+                                return log_link_warning_errno(link, r, "Could not store existing routing policy rule: %m");
+
+                        set_remove(link->manager->rules_foreign, existing);
                         continue;
                 }
 
                 r = routing_policy_rule_configure(rule, link);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not set routing policy rules: %m");
-                if (r > 0)
-                        link->routing_policy_rule_messages++;
+                        return log_link_warning_errno(link, r, "Could not set routing policy rule: %m");
+
+                link->routing_policy_rule_messages++;
         }
 
         routing_policy_rule_purge(link->manager, link);
