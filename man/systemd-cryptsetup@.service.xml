@@ -36,10 +36,9 @@
 
     <para><filename>systemd-cryptsetup@.service</filename> will ask
     for hard disk passwords via the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/PasswordAgents">
-    password agent logic</ulink>, in order to query the user for the
-    password using the right mechanism at boot and during
-    runtime.</para>
+    url="https://systemd.io/PASSWORD_AGENTS/">password agent logic</ulink>, in
+    order to query the user for the password using the right mechanism at boot
+    and during runtime.</para>
 
     <para>At early boot and when the system manager configuration is reloaded, <filename>/etc/crypttab</filename> is
     translated into <filename>systemd-cryptsetup@.service</filename> units by
