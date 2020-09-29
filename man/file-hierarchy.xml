@@ -603,13 +603,12 @@
   <refsect1>
     <title>System Packages</title>
 
-    <para>Developers of system packages should follow strict rules
-    when placing their own files in the file system. The following
-    table lists recommended locations for specific types of files
-    supplied by the vendor.</para>
+    <para>Developers of system packages should follow strict rules when placing their files in the file
+    system. The following table lists recommended locations for specific types of files supplied by the
+    vendor.</para>
 
     <table>
-      <title>System Package Vendor Files Locations</title>
+      <title>System package vendor files locations</title>
       <tgroup cols='2' align='left' colsep='1' rowsep='1'>
         <colspec colname="directory" />
         <colspec colname="purpose" />
@@ -648,11 +647,11 @@
     <filename>/usr/share/</filename> hierarchy to the locations
     defined by the various relevant specifications.</para>
 
-    <para>During runtime, and for local configuration and runtime state,
-    additional directories are defined:</para>
+    <para>The following directories shall be used by the package for local configuration and files created
+    during runtime:</para>
 
     <table>
-      <title>System Package Variable Files Locations</title>
+      <title>System package variable files locations</title>
       <tgroup cols='2' align='left' colsep='1' rowsep='1'>
         <colspec colname="directory" />
         <colspec colname="purpose" />
@@ -699,16 +698,13 @@
   <refsect1>
     <title>User Packages</title>
 
-    <para>Programs running in user context should follow strict rules
-    when placing their own files in the user's home directory. The
-    following table lists recommended locations in the home directory
-    for specific types of files supplied by the vendor if the
-    application is installed in the home directory. (Note, however,
-    that user applications installed system-wide should follow the
-    rules outlined above regarding placing vendor files.)</para>
+    <para>Programs running in user context should follow strict rules when placing their own files in the
+    user's home directory. The following table lists recommended locations in the home directory for specific
+    types of files supplied by the vendor if the application is installed in the home directory. (User
+    applications installed system-wide are covered by the rules outlined above for vendor files.)</para>
 
     <table>
-      <title>User Package Vendor File Locations</title>
+      <title>Vendor package file locations under the home directory of the user</title>
       <tgroup cols='2' align='left' colsep='1' rowsep='1'>
         <colspec colname="directory" />
         <colspec colname="purpose" />
@@ -725,7 +721,7 @@
           </row>
           <row>
       <entry><filename>~/.local/lib/<replaceable>arch-id</replaceable>/</filename></entry>
-      <entry>Public shared libraries of the package. As above, be careful with using too generic names, and pick unique names for your libraries to place here to avoid name clashes.</entry>
+      <entry>Public shared libraries of the package. As above, be careful with using overly generic names, and pick unique names for your libraries to place here to avoid name clashes.</entry>
           </row>
           <row>
       <entry><filename>~/.local/lib/<replaceable>package</replaceable>/</filename></entry>
@@ -739,15 +735,15 @@
       </tgroup>
     </table>
 
-    <para>Additional static vendor files may be installed in the
-    <filename>~/.local/share/</filename> hierarchy to the locations
-    defined by the various relevant specifications.</para>
+    <para>Additional static vendor files may be installed in the <filename>~/.local/share/</filename>
+    hierarchy, mirroring the subdirectories specified in the section "Vendor-supplied operating system
+    resources" above.</para>
 
-    <para>During runtime, and for local configuration and state,
-    additional directories are defined:</para>
+    <para>The following directories shall be used by the package for per-user local configuration and files
+    created during runtime:</para>
 
     <table>
-      <title>User Package Variable File Locations</title>
+      <title>User package variable file locations</title>
       <tgroup cols='2' align='left' colsep='1' rowsep='1'>
         <colspec colname="directory" />
         <colspec colname="purpose" />
