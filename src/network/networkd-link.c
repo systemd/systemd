@@ -1132,19 +1132,6 @@ void link_check_ready(Link *link) {
         return;
 }
 
-static int link_set_bridge_fdb(Link *link) {
-        FdbEntry *fdb_entry;
-        int r;
-
-        HASHMAP_FOREACH(fdb_entry, link->network->fdb_entries_by_section) {
-                r = fdb_entry_configure(link, fdb_entry);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");
-        }
-
-        return 0;
-}
-
 static int static_address_ready_callback(Address *address) {
         Address *a;
         Link *link;

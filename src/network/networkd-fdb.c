@@ -122,7 +122,7 @@ static int set_fdb_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
 }
 
 /* send a request to the kernel to add a FDB entry in its static MAC table. */
-int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
+static int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -177,6 +177,22 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry) {
         link_ref(link);
 
         return 1;
+}
+
+int link_set_bridge_fdb(Link *link) {
+        FdbEntry *fdb_entry;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        HASHMAP_FOREACH(fdb_entry, link->network->fdb_entries_by_section) {
+                r = fdb_entry_configure(link, fdb_entry);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to add MAC entry to static MAC table: %m");
+        }
+
+        return 0;
 }
 
 /* parse the HW address from config files. */

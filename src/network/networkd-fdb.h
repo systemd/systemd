@@ -42,7 +42,8 @@ struct FdbEntry {
 };
 
 FdbEntry *fdb_entry_free(FdbEntry *fdb_entry);
-int fdb_entry_configure(Link *link, FdbEntry *fdb_entry);
+
+int link_set_bridge_fdb(Link *link);
 
 const char* fdb_ntf_flags_to_string(NeighborCacheEntryFlags i) _const_;
 NeighborCacheEntryFlags fdb_ntf_flags_from_string(const char *s) _pure_;
