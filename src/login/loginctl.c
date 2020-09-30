@@ -1325,6 +1325,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -H --host=[USER@]HOST    Operate on remote host\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
                "  -p --property=NAME       Show only properties by this name\n"
+               "  -P NAME                  Equivalent to --value --property=NAME\n"
                "  -a --all                 Show all properties, including empty ones\n"
                "     --value               When showing properties, only print the value\n"
                "  -l --full                Do not ellipsize output\n"
@@ -1381,7 +1382,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:als:H:M:n:o:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hp:P:als:H:M:n:o:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -1390,6 +1391,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case 'P':
+                        arg_value = true;
+                        _fallthrough_;
 
                 case 'p': {
                         r = strv_extend(&arg_property, optarg);
