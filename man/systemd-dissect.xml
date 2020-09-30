@@ -70,10 +70,10 @@
 
     <para>OS images may use any kind of Linux-supported file systems. In addition they may make use of LUKS
     disk encryption, and contain Verity integrity information. Note that qualifying OS images may be booted
-    with <citerefentry><refentrytitle>system-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    with <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <option>--image=</option> switch, and be used as root file system for system service using the
     <varname>RootImage=</varname> unit file setting, see
-    <citerefentry><refentrytitle>system.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Note that the partition table shown when invoked without command switch (as listed below) does not
     necessarily show all partitions included in the image, but just the partitions that are understood and
@@ -252,8 +252,8 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>system-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>system.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable Partitions Specification</ulink>,
       <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>

@@ -304,7 +304,7 @@
         setting. Example: <option>--timezone=Europe/Amsterdam</option> will result in the environment
         variable <literal>TZ=:Europe/Amsterdam</literal>. (<literal>:</literal> is used intentionally as part
         of the timezone specification, see
-        <citerefentry><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)
+        <citerefentry project='man-pages'><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)
         </para></listitem>
       </varlistentry>
 

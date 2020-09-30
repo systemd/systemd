@@ -153,7 +153,9 @@
         case the image has multiple partitions, otherwise partition name <literal>root</literal> is implied.
         Options for multiple partitions can be specified in a single line with space separators. Assigning an empty
         string removes previous assignments. Duplicated options are ignored. For a list of valid mount options, please
-        refer to <citerefentry><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+        refer to
+        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
 
         <para>Valid partition names follow the <ulink url="https://systemd.io/DISCOVERABLE_PARTITIONS">Discoverable
         Partitions Specification</ulink>.</para>
@@ -1009,7 +1011,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Sets the CPU scheduling policy for executed processes. Takes one of <option>other</option>,
         <option>batch</option>, <option>idle</option>, <option>fifo</option> or <option>rr</option>. See
-        <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        <citerefentry project='man-pages'><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
 
@@ -1019,7 +1021,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Sets the CPU scheduling priority for executed processes. The available priority range depends
         on the selected CPU scheduling policy (see above). For real-time scheduling policies an integer between 1
         (lowest priority) and 99 (highest priority) can be used. See
-        <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        <citerefentry project='man-pages'><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details. </para></listitem>
       </varlistentry>
 
@@ -1030,7 +1032,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         will be reset when the executed processes call
         <citerefentry project='man-pages'><refentrytitle>fork</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
         and can hence not leak into child processes. See
-        <citerefentry><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        <citerefentry project='man-pages'><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for details. Defaults to false.</para></listitem>
       </varlistentry>
 
@@ -1043,7 +1045,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         are specified by the lower and upper CPU indices separated by a dash. This option may be specified more than
         once, in which case the specified CPU affinity masks are merged. If the empty string is assigned, the mask
         is reset, all assignments prior to this will have no effect. See
-        <citerefentry><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        <citerefentry project='man-pages'><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
 
