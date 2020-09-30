@@ -1465,7 +1465,7 @@ int config_parse_tcp_window(
 
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         Network *network = userdata;
-        uint64_t k;
+        uint32_t k;
         int r;
 
         assert(filename);
@@ -1483,13 +1483,13 @@ int config_parse_tcp_window(
                 return 0;
         }
 
-        r = parse_size(rvalue, 1024, &k);
+        r = safe_atou32(rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Could not parse TCP %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
                 return 0;
         }
-        if (k > UINT32_MAX) {
+        if (k >= 1024) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Specified TCP %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
                 return 0;

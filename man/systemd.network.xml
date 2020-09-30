@@ -1389,21 +1389,22 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>InitialCongestionWindow=</varname></term>
           <listitem>
-            <para>The TCP initial congestion window is used during the start of a TCP connection. During the start of a TCP
-            session, when a client requests a resource, the server's initial congestion window determines how many data bytes
-            will be sent during the initial burst of data. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual
-            suffixes K, M, G are supported and are understood to the base of 1024. When unset, the kernel's default will be used.
-            </para>
+            <para>The TCP initial congestion window is used during the start of a TCP connection.
+            During the start of a TCP session, when a client requests a resource, the server's initial
+            congestion window determines how many packets will be sent during the initial burst of data
+            without waiting for acknowledgement. Takes a number between 1 and 1023. Note that 100 is
+            considered an extremely large value for this option. When unset, the kernel's default
+            (typically 10) will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>InitialAdvertisedReceiveWindow=</varname></term>
           <listitem>
-            <para>The TCP initial advertised receive window is the amount of receive data (in bytes) that can initially be buffered at one time
-            on a connection. The sending host can send only that amount of data before waiting for an acknowledgment and window update
-            from the receiving host. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual suffixes K, M, G are supported
-            and are understood to the base of 1024. When unset, the kernel's default will be used.
-            </para>
+            <para>The TCP initial advertised receive window is the amount of receive data (in bytes)
+            that can initially be buffered at one time on a connection. The sending host can send only
+            that amount of data before waiting for an acknowledgment and window update from the
+            receiving host. Takes a number between 1 and 1023. Note that 100 is considered an extremely
+            large value for this option. When unset, the kernel's default will be used.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
