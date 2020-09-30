@@ -718,7 +718,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         ORDERED_HASHMAP_FOREACH(i, todo_gids, iterator) {
                 struct sgrp n = {
                         .sg_namp = i->name,
-                        .sg_passwd = (char*) "!!",
+                        .sg_passwd = (char*) "!*",
                 };
 
                 r = putsgent_with_members(&n, gshadow);
