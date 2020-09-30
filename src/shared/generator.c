@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "cgroup-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -620,6 +621,11 @@ int generator_write_cryptsetup_service_section(
 }
 
 void log_setup_generator(void) {
-        log_set_prohibit_ipc(true);
-        log_setup_service();
+        /* Disable talking to syslog/journal (i.e. the two IPC-based loggers) if we run in system context. */
+        if (cg_pid_get_owner_uid(0, NULL) == -ENXIO /* not running in a per-user slice */)
+                log_set_prohibit_ipc(true);
+
+        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG); /* This effectively means: journal for per-user generators, kmsg otherwise */
+        log_parse_environment();
+        (void) log_open();
 }
