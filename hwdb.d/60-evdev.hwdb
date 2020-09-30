@@ -45,6 +45,8 @@
 
 # Hyperpen 12000U
 evdev:input:b0003v08CAp0010*
+# Hyperpen 6000U
+evdev:input:b0003v08CAp0020*
  EVDEV_ABS_00=::20
  EVDEV_ABS_01=::20
 
