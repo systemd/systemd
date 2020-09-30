@@ -149,6 +149,13 @@
           <literal>file:/</literal>, <literal>man:</literal> or <literal>info:</literal> URL.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>TID=</varname></term>
+        <listitem>
+          <para>The numeric thread ID (TID) the log message originates from.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
