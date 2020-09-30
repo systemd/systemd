@@ -265,28 +265,39 @@ int log_open(void) {
                 return 0;
         }
 
-        if (log_target != LOG_TARGET_AUTO || getpid_cached() == 1 || stderr_is_journal()) {
+        if (getpid_cached() == 1 ||
+            stderr_is_journal() ||
+            IN_SET(log_target,
+                   LOG_TARGET_KMSG,
+                   LOG_TARGET_JOURNAL,
+                   LOG_TARGET_JOURNAL_OR_KMSG,
+                   LOG_TARGET_SYSLOG,
+                   LOG_TARGET_SYSLOG_OR_KMSG)) {
 
-                if (!prohibit_ipc &&
-                    IN_SET(log_target, LOG_TARGET_AUTO,
-                                       LOG_TARGET_JOURNAL_OR_KMSG,
-                                       LOG_TARGET_JOURNAL)) {
-                        r = log_open_journal();
-                        if (r >= 0) {
-                                log_close_syslog();
-                                log_close_console();
-                                return r;
+                if (!prohibit_ipc) {
+                        if (IN_SET(log_target,
+                                   LOG_TARGET_AUTO,
+                                   LOG_TARGET_JOURNAL_OR_KMSG,
+                                   LOG_TARGET_JOURNAL)) {
+
+                                r = log_open_journal();
+                                if (r >= 0) {
+                                        log_close_syslog();
+                                        log_close_console();
+                                        return r;
+                                }
                         }
-                }
 
-                if (!prohibit_ipc &&
-                    IN_SET(log_target, LOG_TARGET_SYSLOG_OR_KMSG,
-                                       LOG_TARGET_SYSLOG)) {
-                        r = log_open_syslog();
-                        if (r >= 0) {
-                                log_close_journal();
-                                log_close_console();
-                                return r;
+                        if (IN_SET(log_target,
+                                   LOG_TARGET_SYSLOG_OR_KMSG,
+                                   LOG_TARGET_SYSLOG)) {
+
+                                r = log_open_syslog();
+                                if (r >= 0) {
+                                        log_close_journal();
+                                        log_close_console();
+                                        return r;
+                                }
                         }
                 }
 
