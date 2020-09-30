@@ -670,7 +670,7 @@
         <para>These variables may contain a list of paths, separated by colons
         (<literal>:</literal>). When set, if the list ends with an empty
         component (<literal>...:</literal>), this list is prepended to the
-        usual set of of paths. Otherwise, the specified list replaces the usual
+        usual set of paths. Otherwise, the specified list replaces the usual
         set of paths.
         </para></listitem>
       </varlistentry>
@@ -850,9 +850,9 @@
         <listitem><para>Controls log output, with the same effect as the
         <varname>$SYSTEMD_LOG_COLOR</varname>, <varname>$SYSTEMD_LOG_LEVEL</varname>,
         <varname>$SYSTEMD_LOG_LOCATION</varname>, <varname>$SYSTEMD_LOG_TARGET</varname>,
-        <varname>$SYSTEMD_LOG_TIME</varname>, <varname>$SYSTEMD_LOG_TID</varname> environment variables
-        described above.  <varname>systemd.log_color</varname>, <varname>systemd.log_location</varname>,
-        <varname>systemd.log_time</varname> and <varname>systemd.log_tid=</varname> can be specified without
+        <varname>$SYSTEMD_LOG_TIME</varname>, and <varname>$SYSTEMD_LOG_TID</varname> environment variables
+        described above. <varname>systemd.log_color</varname>, <varname>systemd.log_location</varname>,
+        <varname>systemd.log_time</varname>, and <varname>systemd.log_tid=</varname> can be specified without
         an argument, with the same effect as a positive boolean.</para></listitem>
       </varlistentry>
 
@@ -1084,18 +1084,18 @@
       <para>Those options correspond directly to options listed above in "Kernel Command Line". Both forms
       may be used equivalently for the system manager, but it is recommended to use the forms listed above in
       this context, because they are properly namespaced. When an option is specified both on the kernel
-      command line, and as a normal command line argument, the latter has higher precedence.</para>
+      command line and as a normal command line argument, the latter has higher precedence.</para>
 
       <para>When <command>systemd</command> is used as a user manager, the kernel command line is ignored and
-      the options described are understood. Nevertheless, <command>systemd</command> is usually started in
-      this mode through the
+      only the options described below are understood. Nevertheless, <command>systemd</command> is usually
+      started in this mode through the
       <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       service, which is shared between all users, and it may be more convenient to use configuration files to
-      modify settings, see
-      <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      or a drop-in that specifies one of the environment variables listed above in the Environment section,
-      see
-      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+      modify settings (see
+      <citerefentry><refentrytitle>systemd-user.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+      or a drop-in that specifies one of the environment variables listed above in the Environment section
+      (see the discussion of <varname>Environment=</varname> and <varname>EnvironmentFile=</varname> in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
 
       <variablelist>
         <varlistentry>

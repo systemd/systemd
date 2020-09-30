@@ -523,9 +523,8 @@
   <refsect1>
     <title>[MACVTAP] Section Options</title>
 
-    <para>The [MACVTAP] section applies for
-    netdevs of kind <literal>macvtap</literal> and accepts the
-    same key as [MACVLAN].</para>
+    <para>The [MACVTAP] section applies for netdevs of kind <literal>macvtap</literal> and accepts the same
+    keys as [MACVLAN].</para>
   </refsect1>
 
   <refsect1>
@@ -558,9 +557,8 @@
   <refsect1>
     <title>[IPVTAP] Section Options</title>
 
-    <para>The [IPVTAP] section only applies for
-    netdevs of kind <literal>ipvtap</literal> and accepts the
-    same key as [IPVLAN].</para>
+    <para>The [IPVTAP] section only applies for netdevs of kind <literal>ipvtap</literal> and accepts the
+    same keys as [IPVLAN].</para>
   </refsect1>
 
   <refsect1>
@@ -818,7 +816,7 @@
       <varlistentry>
         <term><varname>IPDoNotFragment=</varname></term>
         <listitem>
-          <para>Accepts the same key in [VXLAN] section.</para>
+          <para>Accepts the same key as in [VXLAN] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -876,8 +874,8 @@
         <term><varname>PeerTunnelId=</varname></term>
         <listitem>
           <para>Specifies the peer tunnel id. Takes a number in the range 1—4294967295. The value used must
-          match the <literal>PeerTunnelId=</literal> value being used at the peer. This setting is
-          compulsory.</para>
+          match the <literal>TunnelId=</literal> value being used at the peer. This setting is compulsory.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1100,43 +1098,43 @@
       <varlistentry>
         <term><varname>Port=</varname></term>
         <listitem>
-          <para>Accepts the same key in [MACsecReceiveChannel] section.</para>
+          <para>Accepts the same key as in [MACsecReceiveChannel] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>Accepts the same key in [MACsecReceiveChannel] section.</para>
+          <para>Accepts the same key as in [MACsecReceiveChannel] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>PacketNumber=</varname></term>
         <listitem>
-          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
+          <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KeyId=</varname></term>
         <listitem>
-          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
+          <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Key=</varname></term>
         <listitem>
-          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
+          <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KeyFile=</varname></term>
         <listitem>
-          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
+          <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Activate=</varname></term>
         <listitem>
-          <para>Accepts the same key in [MACsecTransmitAssociation] section.</para>
+          <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1379,7 +1377,7 @@
           <para>Specifies the encapsulation mechanism used to store networking packets of various protocols
           inside the UDP packets. Supports the following values:
 
-          <literal>FooOverUDP</literal> provides the simplest no frills model of UDP encapsulation, it simply
+          <literal>FooOverUDP</literal> provides the simplest no-frills model of UDP encapsulation, it simply
           encapsulates packets directly in the UDP payload. <literal>GenericUDPEncapsulation</literal> is a
           generic and extensible encapsulation, it allows encapsulation of packets for any IP protocol and
           optional data as part of the encapsulation. For more detailed information see <ulink
@@ -1391,10 +1389,9 @@
       <varlistentry>
         <term><varname>Port=</varname></term>
         <listitem>
-          <para>Specifies the port number, where the IP encapsulation packets will arrive. Please take note
-          that the packets will arrive with the encapsulation will be removed. Then they will be manually fed
-          back into the network stack, and sent ahead for delivery to the real destination. This option is
-          mandatory.</para>
+          <para>Specifies the port number where the encapsulated packets will arrive. Those packets will be
+          removed and manually fed back into the network stack with the encapsulation removed to be sent to
+          the real destination. This option is mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

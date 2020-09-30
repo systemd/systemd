@@ -1307,7 +1307,7 @@ ls</programlisting>
       <title>Simple service</title>
 
       <para>The following unit file creates a service that will
-      execute <filename>/usr/sbin/foo-daemon</filename>. Since no
+      execute <filename index="false">/usr/sbin/foo-daemon</filename>. Since no
       <varname>Type=</varname> is specified, the default
       <varname>Type=</varname><option>simple</option> will be assumed.
       systemd will assume the unit to be started immediately after the

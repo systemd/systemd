@@ -131,8 +131,9 @@
         <term><option>--type=</option></term>
         <term><option>-t</option></term>
 
-        <listitem><para>Specifies the file system type to mount (e.g. <literal>vfat</literal>, <literal>ext4</literal>,
-        …). If omitted (or set to <literal>auto</literal>) the file system is determined automatically.</para></listitem>
+        <listitem><para>Specifies the file system type to mount (e.g. <literal>vfat</literal> or
+        <literal>ext4</literal>). If omitted or set to <literal>auto</literal>, the file system type is
+        determined automatically.</para></listitem>
       </varlistentry>
 
       <varlistentry>

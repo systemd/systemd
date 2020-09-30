@@ -49,7 +49,7 @@
 
         <listitem><para>Takes a path to the resume device. Both
         persistent block device paths like
-        <filename>/dev/disk/by-foo/bar</filename> and
+        <filename index="false">/dev/disk/by-foo/bar</filename> and
         <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-style
         specifiers like <literal>FOO=bar</literal> are
         supported.</para></listitem>

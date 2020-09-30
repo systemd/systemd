@@ -120,7 +120,7 @@
 
         <listitem><para>Read the user's JSON record from the specified file. If passed as
         <literal>-</literal> read the user record from standard input. The supplied JSON object must follow
-        the structure documented on <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
+        the structure documented in <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>.
         This option may be used in conjunction with the <command>create</command> and
         <command>update</command> commands (see below), where it allows configuring the user record in JSON
         as-is, instead of setting the individual user record properties (see below).</para></listitem>
@@ -299,11 +299,13 @@
       <varlistentry>
         <term><option>--timezone=</option><replaceable>TIMEZONE</replaceable></term>
 
-        <listitem><para>Takes a timezone specification as string that sets the timezone for the specified
-        user. Expects a `tzdata` location string. When the user logs in the <varname>$TZ</varname>
-        environment variable is initialized from this setting. Example:
-        <option>--timezone=Europe/Amsterdam</option> will result in the environment variable
-        <literal>TZ=:Europe/Amsterdam</literal>.</para></listitem>
+        <listitem><para>Takes a time zone location name that sets the timezone for the specified user. When
+        the user logs in the <varname>$TZ</varname> environment variable is initialized from this
+        setting. Example: <option>--timezone=Europe/Amsterdam</option> will result in the environment
+        variable <literal>TZ=:Europe/Amsterdam</literal>. (<literal>:</literal> is used intentionally as part
+        of the timezone specification, see
+        <citerefentry><refentrytitle>tzset</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -419,7 +421,7 @@
 
         <listitem><para>Takes a password hint to store alongside the user record. This string is stored
         accessible only to privileged users and the user itself and may not be queried by other users.
-        Example: <option>--password-hint="My first pet's name"</option></para></listitem>
+        Example: <option>--password-hint="My first pet's name"</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

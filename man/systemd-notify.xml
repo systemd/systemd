@@ -136,11 +136,10 @@
       <varlistentry>
         <term><option>--no-block</option></term>
 
-        <listitem><para>Do not synchronously wait for the requested operation to finish.
-        Use of this option is only recommended when <command>systemd-notify</command>
-        is spawned by the service manager, or when the invoking process is directly spawned
-        by the service manager and has enough privileges to allow <command>systemd-notify
-        </command> to send the notification on its behalf. Sending notifications with
+        <listitem><para>Do not synchronously wait for the requested operation to finish.  Use of this option
+        is only recommended when <command>systemd-notify</command> is spawned by the service manager, or when
+        the invoking process is directly spawned by the service manager and has enough privileges to allow
+        <command>systemd-notify</command> to send the notification on its behalf. Sending notifications with
         this option set is prone to race conditions in all other cases.</para></listitem>
       </varlistentry>
 
