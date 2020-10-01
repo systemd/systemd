@@ -523,8 +523,8 @@ static int accept_cb(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
                 r = add_connection_socket(context, nfd);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to accept connection, ignoring: %m");
-                        safe_close(fd);
+                        log_warning_errno(r, "Failed to accept connection, ignoring: %m");
+                        safe_close(nfd);
                 }
         }
 
