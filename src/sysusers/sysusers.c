@@ -84,6 +84,9 @@ static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
 static unsigned n_uid_range = 0;
 
+static UGIDAllocationRange login_defs = {};
+static bool login_defs_need_warning = false;
+
 STATIC_DESTRUCTOR_REGISTER(groups, ordered_hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(users, ordered_hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(members, ordered_hashmap_freep);
@@ -103,6 +106,26 @@ static int errno_is_not_exists(int code) {
         /* See getpwnam(3) and getgrnam(3): those codes and others can be returned if the user or group are
          * not found. */
         return IN_SET(code, 0, ENOENT, ESRCH, EBADF, EPERM);
+}
+
+static void maybe_emit_login_defs_warning(void) {
+        if (!login_defs_need_warning)
+                return;
+
+        if (login_defs.system_alloc_uid_min != SYSTEM_ALLOC_UID_MIN ||
+            login_defs.system_uid_max != SYSTEM_UID_MAX)
+                log_warning("login.defs specifies UID allocation range "UID_FMT"–"UID_FMT
+                            " that is different than the built-in defaults ("UID_FMT"–"UID_FMT")",
+                            login_defs.system_alloc_uid_min, login_defs.system_uid_max,
+                            SYSTEM_ALLOC_UID_MIN, SYSTEM_UID_MAX);
+        if (login_defs.system_alloc_gid_min != SYSTEM_ALLOC_GID_MIN ||
+            login_defs.system_gid_max != SYSTEM_GID_MAX)
+                log_warning("login.defs specifies GID allocation range "GID_FMT"–"GID_FMT
+                            " that is different than the built-in defaults ("GID_FMT"–"GID_FMT")",
+                            login_defs.system_alloc_gid_min, login_defs.system_gid_max,
+                            SYSTEM_ALLOC_GID_MIN, SYSTEM_GID_MAX);
+
+        login_defs_need_warning = false;
 }
 
 static int load_user_database(void) {
@@ -1002,6 +1025,8 @@ static int add_user(Item *i) {
 
         /* And if that didn't work either, let's try to find a free one */
         if (!i->uid_set) {
+                maybe_emit_login_defs_warning();
+
                 for (;;) {
                         r = uid_range_next_lower(uid_range, n_uid_range, &search_uid);
                         if (r < 0)
@@ -1168,6 +1193,8 @@ static int add_group(Item *i) {
 
         /* And if that didn't work either, let's try to find a free one */
         if (!i->gid_set) {
+                maybe_emit_login_defs_warning();
+
                 for (;;) {
                         /* We look for new GIDs in the UID pool! */
                         r = uid_range_next_lower(uid_range, n_uid_range, &search_uid);
@@ -1951,19 +1978,19 @@ static int run(int argc, char *argv[]) {
 
         if (!uid_range) {
                 /* Default to default range of SYSTEMD_UID_MIN..SYSTEM_UID_MAX. */
-                UGIDAllocationRange defs;
-
-                r = read_login_defs(&defs, NULL, arg_root);
+                r = read_login_defs(&login_defs, NULL, arg_root);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read %s%s: %m",
                                                strempty(arg_root), "/etc/login.defs");
+
+                login_defs_need_warning = true;
 
                 /* We pick a range that very conservative: we look at compiled-in maximum and the value in
                  * /etc/login.defs. That way the uids/gids which we allocate will be interpreted correctly,
                  * even if /etc/login.defs is removed later. (The bottom bound doesn't matter much, since
                  * it's only used during allocation, so we use the configured value directly). */
-                uid_t begin = defs.system_alloc_uid_min,
-                      end = MIN3((uid_t) SYSTEM_UID_MAX, defs.system_uid_max, defs.system_gid_max);
+                uid_t begin = login_defs.system_alloc_uid_min,
+                      end = MIN3((uid_t) SYSTEM_UID_MAX, login_defs.system_uid_max, login_defs.system_gid_max);
                 if (begin < end) {
                         r = uid_range_add(&uid_range, &n_uid_range, begin, end - begin + 1);
                         if (r < 0)
