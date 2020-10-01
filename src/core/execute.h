@@ -23,6 +23,7 @@ typedef struct Manager Manager;
 #include "namespace.h"
 #include "nsflags.h"
 #include "numa-util.h"
+#include "path-util.h"
 #include "time-util.h"
 
 #define EXEC_STDIN_DATA_MAX (64U*1024U*1024U)
@@ -323,6 +324,14 @@ static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
         assert(c);
 
         return (c->restrict_namespaces & NAMESPACE_FLAGS_ALL) != NAMESPACE_FLAGS_ALL;
+}
+
+static inline bool exec_context_with_rootfs(const ExecContext *c) {
+        assert(c);
+
+        /* Checks if RootDirectory= or RootImage= are used */
+
+        return !empty_or_root(c->root_directory) || c->root_image;
 }
 
 typedef enum ExecFlags {

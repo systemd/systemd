@@ -2983,7 +2983,7 @@ static int compile_bind_mounts(
                         continue;
 
                 if (exec_directory_is_private(context, t) &&
-                    !(context->root_directory || context->root_image)) {
+                    !exec_context_with_rootfs(context)) {
                         char *private_root;
 
                         /* So this is for a dynamic user, and we need to make sure the process can access its own
@@ -3014,7 +3014,7 @@ static int compile_bind_mounts(
                         }
 
                         if (exec_directory_is_private(context, t) &&
-                            (context->root_directory || context->root_image))
+                            exec_context_with_rootfs(context))
                                 /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
                                  * directory is not created on the root directory. So, let's bind-mount the directory
                                  * on the 'non-private' place. */
@@ -5658,7 +5658,7 @@ bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
                 return c->mount_apivfs;
 
         /* Default to "yes" if root directory or image are specified */
-        if (c->root_image || !empty_or_root(c->root_directory))
+        if (exec_context_with_rootfs(c))
                 return true;
 
         return false;
