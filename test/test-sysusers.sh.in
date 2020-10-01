@@ -27,12 +27,12 @@ preprocess() {
 }
 
 compare() {
-    if ! diff -u $TESTDIR/etc/passwd <(preprocess ${1%.*}.expected-passwd); then
-        echo "**** Unexpected output for $f"
+    if ! diff -u $TESTDIR/etc/passwd <(preprocess $1.expected-passwd); then
+        echo "**** Unexpected output for $f $2"
         exit 1
     fi
 
-    if ! diff -u $TESTDIR/etc/group <(preprocess ${1%.*}.expected-group); then
+    if ! diff -u $TESTDIR/etc/group <(preprocess $1.expected-group); then
         echo "**** Unexpected output for $f $2"
         exit 1
     fi
@@ -47,7 +47,7 @@ for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
     cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
     $SYSUSERS --root=$TESTDIR
 
-    compare $f ""
+    compare ${f%.*} ""
 done
 
 for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
@@ -56,7 +56,7 @@ for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
     touch $TESTDIR/etc/sysusers.d/test.conf
     cat $f | $SYSUSERS --root=$TESTDIR -
 
-    compare $f "on stdin"
+    compare ${f%.*} "on stdin"
 done
 
 for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
@@ -68,12 +68,12 @@ for f in $(ls -1 $SOURCE/test-*.input | sort -V); do
     # this should be ignored
     cat $SOURCE/test-1.input | $SYSUSERS --root=$TESTDIR --replace=/usr/lib/sysusers.d/test.conf -
 
-    compare $f "on stdin with --replace"
+    compare ${f%.*} "on stdin with --replace"
 done
 
 # test --inline
 echo "*** Testing --inline"
-prepare_testdir
+prepare_testdir $SOURCE/inline
 # copy a random file to make sure it is ignored
 cp $f $TESTDIR/etc/sysusers.d/confuse.conf
 $SYSUSERS --root=$TESTDIR --inline \
@@ -84,7 +84,7 @@ compare $SOURCE/inline "(--inline)"
 
 # test --replace
 echo "*** Testing --inline with --replace"
-prepare_testdir
+prepare_testdir $SOURCE/inline
 # copy a random file to make sure it is ignored
 cp $f $TESTDIR/etc/sysusers.d/confuse.conf
 $SYSUSERS --root=$TESTDIR \
