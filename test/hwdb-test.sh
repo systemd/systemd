@@ -18,7 +18,7 @@ if [ ! -x "$SYSTEMD_HWDB" ]; then
     exit 1
 fi
 
-D=$(mktemp --directory)
+D=$(mktemp --tmpdir --directory "hwdb-test.XXXXXXXXXX")
 trap "rm -rf '$D'" EXIT INT QUIT PIPE
 mkdir -p "$D/etc/udev"
 ln -s "$ROOTDIR/hwdb.d" "$D/etc/udev/hwdb.d"
