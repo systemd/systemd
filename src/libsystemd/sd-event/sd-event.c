@@ -3183,15 +3183,20 @@ static int process_inotify(sd_event *e) {
 }
 
 static int source_dispatch(sd_event_source *s) {
+        _cleanup_(sd_event_unrefp) sd_event *saved_event = NULL;
         EventSourceType saved_type;
         int r = 0;
 
         assert(s);
         assert(s->pending || s->type == SOURCE_EXIT);
 
-        /* Save the event source type, here, so that we still know it after the event callback which might invalidate
-         * the event. */
+        /* Save the event source type, here, so that we still know it after the event callback which might
+         * invalidate the event. */
         saved_type = s->type;
+
+        /* Similar, store a reference to the event loop object, so that we can still access it after the
+         * callback might have invalidated/disconnected the event source. */
+        saved_event = sd_event_ref(s->event);
 
         if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
                 r = source_set_pending(s, false);
@@ -3299,9 +3304,15 @@ static int source_dispatch(sd_event_source *s) {
 
         s->dispatching = false;
 
-        if (r < 0)
-                log_debug_errno(r, "Event source %s (type %s) returned error, disabling: %m",
-                                strna(s->description), event_source_type_to_string(saved_type));
+        if (r < 0) {
+                log_debug_errno(r, "Event source %s (type %s) returned error, %s: %m",
+                                strna(s->description),
+                                event_source_type_to_string(saved_type),
+                                s->exit_on_failure ? "exiting" : "disabling");
+
+                if (s->exit_on_failure)
+                        (void) sd_event_exit(saved_event, r);
+        }
 
         if (s->n_ref == 0)
                 source_free(s);
@@ -3334,9 +3345,15 @@ static int event_prepare(sd_event *e) {
                 r = s->prepare(s, s->userdata);
                 s->dispatching = false;
 
-                if (r < 0)
-                        log_debug_errno(r, "Prepare callback of event source %s (type %s) returned error, disabling: %m",
-                                        strna(s->description), event_source_type_to_string(s->type));
+                if (r < 0) {
+                        log_debug_errno(r, "Prepare callback of event source %s (type %s) returned error, %s: %m",
+                                        strna(s->description),
+                                        event_source_type_to_string(s->type),
+                                        s->exit_on_failure ? "exiting" : "disabling");
+
+                        if (s->exit_on_failure)
+                                (void) sd_event_exit(e, r);
+                }
 
                 if (s->n_ref == 0)
                         source_free(s);
@@ -3972,5 +3989,23 @@ _public_ int sd_event_source_set_floating(sd_event_source *s, int b) {
                 sd_event_source_unref(s);
         }
 
+        return 1;
+}
+
+_public_ int sd_event_source_get_exit_on_failure(sd_event_source *s) {
+        assert_return(s, -EINVAL);
+        assert_return(s->type != SOURCE_EXIT, -EDOM);
+
+        return s->exit_on_failure;
+}
+
+_public_ int sd_event_source_set_exit_on_failure(sd_event_source *s, int b) {
+        assert_return(s, -EINVAL);
+        assert_return(s->type != SOURCE_EXIT, -EDOM);
+
+        if (s->exit_on_failure == !!b)
+                return 0;
+
+        s->exit_on_failure = b;
         return 1;
 }

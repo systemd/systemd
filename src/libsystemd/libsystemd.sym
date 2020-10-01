@@ -726,6 +726,8 @@ LIBSYSTEMD_247 {
 global:
         sd_event_add_time_relative;
         sd_event_source_set_time_relative;
+        sd_event_source_get_exit_on_failure;
+        sd_event_source_set_exit_on_failure;
 
         sd_bus_error_has_names_sentinel;
 
