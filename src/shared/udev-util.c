@@ -118,12 +118,13 @@ static int device_new_from_dev_path(const char *devlink, sd_device **ret_device)
 
         assert(devlink);
 
-        r = stat(devlink, &st);
-        if (r < 0)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno, "Failed to stat() %s: %m", devlink);
+        if (stat(devlink, &st) < 0)
+                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to stat() %s: %m", devlink);
 
         if (!S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK), "%s does not point to a block device: %m", devlink);
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK),
+                                       "%s does not point to a block device: %m", devlink);
 
         r = sd_device_new_from_devnum(ret_device, 'b', st.st_rdev);
         if (r < 0)

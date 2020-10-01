@@ -162,71 +162,84 @@ static void test_strv_find_startswith(void) {
 }
 
 static void test_strv_join(void) {
-        _cleanup_free_ char *p = NULL, *q = NULL, *r = NULL, *s = NULL, *t = NULL, *v = NULL, *w = NULL;
-
         log_info("/* %s */", __func__);
 
-        p = strv_join((char **)input_table_multiple, ", ");
+        _cleanup_free_ char *p = strv_join((char **)input_table_multiple, ", ");
         assert_se(p);
         assert_se(streq(p, "one, two, three"));
 
-        q = strv_join((char **)input_table_multiple, ";");
+        _cleanup_free_ char *q = strv_join((char **)input_table_multiple, ";");
         assert_se(q);
         assert_se(streq(q, "one;two;three"));
 
-        r = strv_join((char **)input_table_multiple, NULL);
+        _cleanup_free_ char *r = strv_join((char **)input_table_multiple, NULL);
         assert_se(r);
         assert_se(streq(r, "one two three"));
 
-        s = strv_join((char **)input_table_one, ", ");
+        _cleanup_free_ char *s = strv_join(STRV_MAKE("1", "2", "3,3"), ",");
         assert_se(s);
-        assert_se(streq(s, "one"));
+        assert_se(streq(s, "1,2,3,3"));
 
-        t = strv_join((char **)input_table_none, ", ");
+        _cleanup_free_ char *t = strv_join((char **)input_table_one, ", ");
         assert_se(t);
-        assert_se(streq(t, ""));
+        assert_se(streq(t, "one"));
 
-        v = strv_join((char **)input_table_two_empties, ", ");
+        _cleanup_free_ char *u = strv_join((char **)input_table_none, ", ");
+        assert_se(u);
+        assert_se(streq(u, ""));
+
+        _cleanup_free_ char *v = strv_join((char **)input_table_two_empties, ", ");
         assert_se(v);
         assert_se(streq(v, ", "));
 
-        w = strv_join((char **)input_table_one_empty, ", ");
+        _cleanup_free_ char *w = strv_join((char **)input_table_one_empty, ", ");
         assert_se(w);
         assert_se(streq(w, ""));
 }
 
-static void test_strv_join_prefix(void) {
-        _cleanup_free_ char *p = NULL, *q = NULL, *r = NULL, *s = NULL, *t = NULL, *v = NULL, *w = NULL;
-
+static void test_strv_join_full(void) {
         log_info("/* %s */", __func__);
 
-        p = strv_join_prefix((char **)input_table_multiple, ", ", "foo");
+        _cleanup_free_ char *p = strv_join_full((char **)input_table_multiple, ", ", "foo", false);
         assert_se(p);
         assert_se(streq(p, "fooone, footwo, foothree"));
 
-        q = strv_join_prefix((char **)input_table_multiple, ";", "foo");
+        _cleanup_free_ char *q = strv_join_full((char **)input_table_multiple, ";", "foo", false);
         assert_se(q);
         assert_se(streq(q, "fooone;footwo;foothree"));
 
-        r = strv_join_prefix((char **)input_table_multiple, NULL, "foo");
+        _cleanup_free_ char *r = strv_join_full(STRV_MAKE("a", "a;b", "a:c"), ";", NULL, true);
         assert_se(r);
-        assert_se(streq(r, "fooone footwo foothree"));
+        assert_se(streq(r, "a;a\\;b;a:c"));
 
-        s = strv_join_prefix((char **)input_table_one, ", ", "foo");
+        _cleanup_free_ char *s = strv_join_full(STRV_MAKE("a", "a;b", "a;;c", ";", ";x"), ";", NULL, true);
         assert_se(s);
-        assert_se(streq(s, "fooone"));
+        assert_se(streq(s, "a;a\\;b;a\\;\\;c;\\;;\\;x"));
 
-        t = strv_join_prefix((char **)input_table_none, ", ", "foo");
+        _cleanup_free_ char *t = strv_join_full(STRV_MAKE("a", "a;b", "a:c", ";"), ";", "=", true);
         assert_se(t);
-        assert_se(streq(t, ""));
+        assert_se(streq(t, "=a;=a\\;b;=a:c;=\\;"));
+        t = mfree(t);
 
-        v = strv_join_prefix((char **)input_table_two_empties, ", ", "foo");
+        _cleanup_free_ char *u = strv_join_full((char **)input_table_multiple, NULL, "foo", false);
+        assert_se(u);
+        assert_se(streq(u, "fooone footwo foothree"));
+
+        _cleanup_free_ char *v = strv_join_full((char **)input_table_one, ", ", "foo", false);
         assert_se(v);
-        assert_se(streq(v, "foo, foo"));
+        assert_se(streq(v, "fooone"));
 
-        w = strv_join_prefix((char **)input_table_one_empty, ", ", "foo");
+        _cleanup_free_ char *w = strv_join_full((char **)input_table_none, ", ", "foo", false);
         assert_se(w);
-        assert_se(streq(w, "foo"));
+        assert_se(streq(w, ""));
+
+        _cleanup_free_ char *x = strv_join_full((char **)input_table_two_empties, ", ", "foo", false);
+        assert_se(x);
+        assert_se(streq(x, "foo, foo"));
+
+        _cleanup_free_ char *y = strv_join_full((char **)input_table_one_empty, ", ", "foo", false);
+        assert_se(y);
+        assert_se(streq(y, "foo"));
 }
 
 static void test_strv_unquote(const char *quoted, char **list) {
@@ -995,7 +1008,7 @@ int main(int argc, char *argv[]) {
         test_strv_find_prefix();
         test_strv_find_startswith();
         test_strv_join();
-        test_strv_join_prefix();
+        test_strv_join_full();
 
         test_strv_unquote("    foo=bar     \"waldo\"    zzz    ", STRV_MAKE("foo=bar", "waldo", "zzz"));
         test_strv_unquote("", STRV_MAKE_EMPTY);
