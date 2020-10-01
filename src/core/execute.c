@@ -3245,10 +3245,8 @@ static int apply_working_directory(
 
                 wd = home;
 
-        } else if (context->working_directory)
-                wd = context->working_directory;
-        else
-                wd = "/";
+        } else
+                wd = empty_to_root(context->working_directory);
 
         if (params->flags & EXEC_APPLY_CHROOT)
                 d = wd;
@@ -5171,8 +5169,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n",
                 prefix, c->umask,
-                prefix, c->working_directory ? c->working_directory : "/",
-                prefix, c->root_directory ? c->root_directory : "/",
+                prefix, empty_to_root(c->working_directory),
+                prefix, empty_to_root(c->root_directory),
                 prefix, yes_no(c->non_blocking),
                 prefix, yes_no(c->private_tmp),
                 prefix, yes_no(c->private_devices),
