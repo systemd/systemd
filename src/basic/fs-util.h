@@ -79,7 +79,7 @@ enum {
         CHASE_PREFIX_ROOT = 1 << 0, /* The specified path will be prefixed by the specified root before beginning the iteration */
         CHASE_NONEXISTENT = 1 << 1, /* It's OK if the path doesn't actually exist. */
         CHASE_NO_AUTOFS   = 1 << 2, /* Return -EREMOTE if autofs mount point found */
-        CHASE_SAFE        = 1 << 3, /* Return EPERM if we ever traverse from unprivileged to privileged files or directories */
+        CHASE_SAFE        = 1 << 3, /* Return -EPERM if we ever traverse from unprivileged to privileged files or directories */
         CHASE_TRAIL_SLASH = 1 << 4, /* Any trailing slash will be preserved */
         CHASE_STEP        = 1 << 5, /* Just execute a single step of the normalization */
         CHASE_NOFOLLOW    = 1 << 6, /* Do not follow the path's right-most component. With ret_fd, when the path's
