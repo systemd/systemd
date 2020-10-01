@@ -259,6 +259,39 @@ static int show_table(Table *table, const char *word) {
         return 0;
 }
 
+int list_machine_hostname(const char* name, char** hostname);
+int list_machine_hostname(const char* name, char** hostname) {
+
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        const char *s;
+        const char *attr = "StaticHostname";
+        int r;
+
+        r = bus_connect_transport(BUS_TRANSPORT_MACHINE, name, false, &bus);
+        if (r < 0)
+               log_error_errno(r, "Failed to create bus connection: %m");
+
+        r = sd_bus_get_property(
+                        bus,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        attr,
+                        &error, &reply, "s");
+        if (r < 0)
+                return log_error_errno(r, "Could not get property: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "s", &s);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        *hostname = strdup(s);
+
+        return 0;
+}
+
 static int list_machines(int argc, char *argv[], void *userdata) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -275,7 +308,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Could not get machines: %s", bus_error_message(&error, r));
 
-        table = table_new("machine", "class", "service", "os", "version", "addresses");
+        table = table_new("machine", "class", "service", "os", "version", "hostname", "addresses");
         if (!table)
                 return log_oom();
 
@@ -291,7 +324,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         for (;;) {
-                _cleanup_free_ char *os = NULL, *version_id = NULL, *addresses = NULL;
+                _cleanup_free_ char *os = NULL, *version_id = NULL, *addresses = NULL, *hostname = NULL;
                 const char *name, *class, *service;
 
                 r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, NULL);
@@ -320,12 +353,15 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                                 "\n",
                                 &addresses);
 
+                list_machine_hostname(name, &hostname);
+
                 r = table_add_many(table,
                                    TABLE_STRING, empty_to_null(name),
                                    TABLE_STRING, empty_to_null(class),
                                    TABLE_STRING, empty_to_null(service),
                                    TABLE_STRING, empty_to_null(os),
                                    TABLE_STRING, empty_to_null(version_id),
+                                   TABLE_STRING, empty_to_null(hostname),
                                    TABLE_STRING, empty_to_null(addresses));
                 if (r < 0)
                         return table_log_add_error(r);
