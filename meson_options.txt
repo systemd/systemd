@@ -28,9 +28,9 @@ option('static-libsystemd', type : 'combo',
        description : '''install a static library for libsystemd''')
 option('static-libudev', type : 'combo',
        choices : ['false', 'true', 'pic', 'no-pic'],
-       description : '''install a static library for libudev''')
+       description : 'install a static library for libudev')
 option('standalone-binaries', type : 'boolean', value : 'false',
-       description : '''also build standalone versions of supported binaries''')
+       description : 'also build standalone versions of supported binaries')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d',
        description : 'the directory where the SysV init scripts are located')
@@ -40,8 +40,10 @@ option('telinit-path', type : 'string', value : '/lib/sysvinit/telinit',
        description : 'path to telinit')
 option('rc-local', type : 'string',
        value : '/etc/rc.local')
-option('initrd', type: 'boolean',
+option('initrd', type : 'boolean',
        description : 'install services for use when running systemd in initrd')
+option('compat-mutable-uid-boundaries', type : 'boolean', value : 'false',
+       description : 'look at uid boundaries in /etc/login.defs for compatibility')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
@@ -192,6 +194,10 @@ option('status-unit-format-default', type : 'combo',
        description : 'use unit name or description in messages by default')
 option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
+option('system-alloc-uid-min', type : 'integer', value : '-1',
+       description : 'minimum system UID used when allocating')
+option('system-alloc-gid-min', type : 'integer', value : '-1',
+       description : 'minimum system GID used when allocating')
 option('system-uid-max', type : 'integer', value : '-1',
        description : 'maximum system UID')
 option('system-gid-max', type : 'integer', value : '-1',

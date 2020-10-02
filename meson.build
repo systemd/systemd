@@ -299,6 +299,7 @@ substs.set('CERTIFICATEROOT',                                 get_option('certif
 substs.set('RANDOM_SEED',                                     join_paths(randomseeddir, 'random-seed'))
 substs.set('SYSTEM_SYSVINIT_PATH',                            sysvinit_path)
 substs.set('SYSTEM_SYSVRCND_PATH',                            sysvrcnd_path)
+substs.set('SYSTEMD_TEST_DATA',                               join_paths(testsdir, 'testdata'))
 substs.set('RC_LOCAL_PATH',                                   get_option('rc-local'))
 substs.set('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default ? 'yes' : 'no')
 substs.set('STATUS_UNIT_FORMAT_DEFAULT',                      status_unit_format_default)
@@ -694,35 +695,31 @@ if time_epoch == -1
 endif
 conf.set('TIME_EPOCH', time_epoch)
 
-system_uid_max = get_option('system-uid-max')
-if system_uid_max == -1
-        system_uid_max = run_command(
-                awk,
-                '/^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }',
-                '/etc/login.defs').stdout().strip()
-        if system_uid_max == ''
-                system_uid_max = 999
-        else
-                system_uid_max = system_uid_max.to_int()
+foreach tuple : [['system-alloc-uid-min', 'SYS_UID_MIN', 1],  # Also see login.defs(5).
+                 ['system-uid-max',       'SYS_UID_MAX', 999],
+                 ['system-alloc-gid-min', 'SYS_GID_MIN', 1],
+                 ['system-gid-max',       'SYS_GID_MAX', 999]]
+        v = get_option(tuple[0])
+        if v == -1
+                v = run_command(
+                        awk,
+                        '/^\s*@0@\s+/ { uid=$2 } END { print uid }'.format(tuple[1]),
+                        '/etc/login.defs').stdout().strip()
+                if v == ''
+                        v = tuple[2]
+                else
+                        v = v.to_int()
+                endif
         endif
+        conf.set(tuple[0].underscorify().to_upper(), v)
+        substs.set(tuple[0].underscorify().to_upper(), v)
+endforeach
+if conf.get('SYSTEM_ALLOC_UID_MIN') >= conf.get('SYSTEM_UID_MAX')
+        error('Invalid uid allocation range')
 endif
-conf.set('SYSTEM_UID_MAX', system_uid_max)
-substs.set('systemuidmax', system_uid_max)
-
-system_gid_max = get_option('system-gid-max')
-if system_gid_max == -1
-        system_gid_max = run_command(
-                awk,
-                '/^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }',
-                '/etc/login.defs').stdout().strip()
-        if system_gid_max == ''
-                system_gid_max = 999
-        else
-                system_gid_max = system_gid_max.to_int()
-        endif
+if conf.get('SYSTEM_ALLOC_GID_MIN') >= conf.get('SYSTEM_GID_MAX')
+        error('Invalid gid allocation range')
 endif
-conf.set('SYSTEM_GID_MAX', system_gid_max)
-substs.set('systemgidmax', system_gid_max)
 
 dynamic_uid_min = get_option('dynamic-uid-min')
 dynamic_uid_max = get_option('dynamic-uid-max')
@@ -1444,6 +1441,7 @@ foreach term : ['analyze',
                 'idn',
                 'ima',
                 'initrd',
+                'compat-mutable-uid-boundaries',
                 'ldconfig',
                 'localed',
                 'logind',
@@ -1470,7 +1468,10 @@ foreach term : ['analyze',
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
         conf.set10(name, have)
+        substs.set10(name, have)
 endforeach
+
+enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
@@ -2966,8 +2967,8 @@ public_programs += executable(
         install_rpath : rootlibexecdir,
         install : true)
 
-if conf.get('ENABLE_SYSUSERS') == 1
-        public_programs += executable(
+if enable_sysusers
+        exe = executable(
                 'systemd-sysusers',
                 'src/sysusers/sysusers.c',
                 include_directories : includes,
@@ -2975,9 +2976,17 @@ if conf.get('ENABLE_SYSUSERS') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
+        public_programs += exe
+
+        if want_tests != 'false'
+                test('test-sysusers',
+                     test_sysusers_sh,
+                     # https://github.com/mesonbuild/meson/issues/2681
+                     args : exe.full_path())
+        endif
 
         if have_standalone_binaries
-                public_programs += executable(
+                exe = executable(
                         'systemd-sysusers.standalone',
                         'src/sysusers/sysusers.c',
                         include_directories : includes,
@@ -2988,6 +2997,14 @@ if conf.get('ENABLE_SYSUSERS') == 1
                                      libjournal_client],
                         install : true,
                         install_dir : rootbindir)
+                public_programs += exe
+
+                if want_tests != 'false'
+                        test('test-sysusers.standalone',
+                             test_sysusers_sh,
+                             # https://github.com/mesonbuild/meson/issues/2681
+                             args : exe.full_path())
+                endif
         endif
 endif
 
@@ -3539,12 +3556,12 @@ status = [
                                                               get_option('debug-tty')),
         'TTY GID:                           @0@'.format(tty_gid),
         'users GID:                         @0@'.format(substs.get('USERS_GID')),
-        'maximum system UID:                @0@'.format(system_uid_max),
-        'maximum system GID:                @0@'.format(system_gid_max),
-        'minimum dynamic UID:               @0@'.format(dynamic_uid_min),
-        'maximum dynamic UID:               @0@'.format(dynamic_uid_max),
-        'minimum container UID base:        @0@'.format(container_uid_base_min),
-        'maximum container UID base:        @0@'.format(container_uid_base_max),
+        'system UIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
+                                                                        conf.get('SYSTEM_ALLOC_UID_MIN')),
+        'system GIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
+                                                                        conf.get('SYSTEM_ALLOC_GID_MIN')),
+        'dynamic UIDs:                      @0@–@1@'.format(dynamic_uid_min, dynamic_uid_max),
+        'container UID bases:               @0@–@1@'.format(container_uid_base_min, container_uid_base_max),
         '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
         'render group access mode:          @0@'.format(get_option('group-render-mode')),
         'certificate root directory:        @0@'.format(get_option('certificate-root')),
@@ -3628,6 +3645,7 @@ foreach tuple : [
         ['libcurl'],
         ['idn'],
         ['initrd'],
+        ['compat-mutable-uid-boundaries'],
         ['libidn2'],
         ['libidn'],
         ['libiptc'],

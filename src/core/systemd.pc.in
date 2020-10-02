@@ -80,9 +80,9 @@ modulesloaddir=${modules_load_dir}
 catalog_dir=/usr/lib/systemd/catalog
 catalogdir=${catalog_dir}
 
-system_uid_max=@systemuidmax@
+system_uid_max=@SYSTEM_UID_MAX@
 systemuidmax=${system_uid_max}
-system_gid_max=@systemgidmax@
+system_gid_max=@SYSTEM_GID_MAX@
 systemgidmax=${system_gid_max}
 
 dynamic_uid_min=@dynamicuidmin@

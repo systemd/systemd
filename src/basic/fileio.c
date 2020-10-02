@@ -940,6 +940,42 @@ int search_and_fopen_nulstr(const char *path, const char *mode, const char *root
         return search_and_fopen_internal(path, mode, root, s, _f);
 }
 
+int chase_symlinks_and_fopen_unlocked(
+                const char *path,
+                const char *root,
+                unsigned chase_flags,
+                const char *open_flags,
+                FILE **ret_file,
+                char **ret_path) {
+
+        _cleanup_close_ int fd = -1;
+        _cleanup_free_ char *final_path = NULL;
+        int mode_flags, r;
+        FILE *f;
+
+        assert(path);
+        assert(open_flags);
+        assert(ret_file);
+
+        mode_flags = mode_to_flags(open_flags);
+        if (mode_flags < 0)
+                return mode_flags;
+
+        fd = chase_symlinks_and_open(path, root, chase_flags, mode_flags, ret_path ? &final_path : NULL);
+        if (fd < 0)
+                return fd;
+
+        r = fdopen_unlocked(fd, open_flags, &f);
+        if (r < 0)
+                return r;
+        TAKE_FD(fd);
+
+        *ret_file = f;
+        if (ret_path)
+                *ret_path = TAKE_PTR(final_path);
+        return 0;
+}
+
 int fflush_and_check(FILE *f) {
         assert(f);
 

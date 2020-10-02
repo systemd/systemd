@@ -2,8 +2,6 @@
 
 in_files = ['basic.conf']
 
-enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
-
 foreach file : in_files
         gen = configure_file(
                 input : file + '.in',

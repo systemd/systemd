@@ -3,7 +3,7 @@
 
 #include <grp.h>
 #if ENABLE_GSHADOW
-#include <gshadow.h>
+#  include <gshadow.h>
 #endif
 #include <pwd.h>
 #include <shadow.h>
@@ -60,30 +60,6 @@ int take_etc_passwd_lock(const char *root);
 #define GID_NOBODY ((gid_t) 65534U)
 
 #define ETC_PASSWD_LOCK_PATH "/etc/.pwd.lock"
-
-static inline bool uid_is_system(uid_t uid) {
-        return uid <= SYSTEM_UID_MAX;
-}
-
-static inline bool gid_is_system(gid_t gid) {
-        return gid <= SYSTEM_GID_MAX;
-}
-
-static inline bool uid_is_dynamic(uid_t uid) {
-        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
-}
-
-static inline bool gid_is_dynamic(gid_t gid) {
-        return uid_is_dynamic((uid_t) gid);
-}
-
-static inline bool uid_is_container(uid_t uid) {
-        return CONTAINER_UID_BASE_MIN <= uid && uid <= CONTAINER_UID_BASE_MAX;
-}
-
-static inline bool gid_is_container(gid_t gid) {
-        return uid_is_container((uid_t) gid);
-}
 
 /* The following macros add 1 when converting things, since UID 0 is a valid UID, while the pointer
  * NULL is special */

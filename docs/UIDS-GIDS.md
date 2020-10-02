@@ -171,10 +171,11 @@ pick — given that 64K UIDs are assigned to each container according to this
 allocation logic, the maximum UID used for this range is hence
 1878982656+65535=1879048191.)
 
-Note that systemd does not make any of these values runtime-configurable. All
-these boundaries are chosen during build time. That said, the system UID/GID
-boundary is traditionally configured in /etc/login.defs, though systemd won't
-look there during runtime.
+Systemd has compile-time default for these boundaries. Using those defaults is
+recommended. It will nevertheless query `/etc/login.defs` at runtime, when
+compiled with `-Dcompat-mutable-uid-boundaries=true` and that file is present.
+Support for this is considered only a compatibility feature and should not be
+used except when upgrading systems which were creating with different defaults.
 
 ## Considerations for container managers
 

@@ -6,7 +6,7 @@ set -ex
 repart=$1
 test -x $repart
 
-D=$(mktemp --directory)
+D=$(mktemp --tmpdir --directory "test-repart.XXXXXXXXXX")
 trap "rm -rf '$D'" EXIT INT QUIT PIPE
 mkdir -p $D/definitions
 

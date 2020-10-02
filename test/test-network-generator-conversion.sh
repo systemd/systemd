@@ -17,7 +17,7 @@ for f in "$src"/test-*.input; do
     echo "*** Running $f"
 
     (
-        out=$(mktemp --directory)
+        out=$(mktemp --tmpdir --directory "test-network-generator-conversion.XXXXXXXXXX")
         trap "rm -rf '$out'" EXIT INT QUIT PIPE
 
         $generator --root "$out" -- $(cat $f)

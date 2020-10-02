@@ -46,6 +46,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps */
@@ -682,7 +683,7 @@ static int change_uid_gid(const Context *context) {
         if (r < 0)
                 return r;
 
-        if (uid <= SYSTEM_UID_MAX) {
+        if (uid_is_system(uid)) {
                 const char *user = "systemd-coredump";
 
                 r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
