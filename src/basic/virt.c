@@ -92,6 +92,11 @@ static int detect_vm_device_tree(void) {
                 _cleanup_closedir_ DIR *dir = NULL;
                 struct dirent *dent;
 
+                if (access("/proc/device-tree/ibm,partition-name", F_OK) == 0 &&
+                    access("/proc/device-tree/hmc-managed?", F_OK) == 0 &&
+                    access("/proc/device-tree/chosen/qemu,graphic-width", F_OK) != 0)
+                        return VIRTUALIZATION_POWERVM;
+
                 dir = opendir("/proc/device-tree");
                 if (!dir) {
                         if (errno == ENOENT) {
@@ -635,6 +640,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_PARALLELS] = "parallels",
         [VIRTUALIZATION_BHYVE] = "bhyve",
         [VIRTUALIZATION_QNX] = "qnx",
+        [VIRTUALIZATION_POWERVM] = "powervm",
         [VIRTUALIZATION_VM_OTHER] = "vm-other",
 
         [VIRTUALIZATION_SYSTEMD_NSPAWN] = "systemd-nspawn",
