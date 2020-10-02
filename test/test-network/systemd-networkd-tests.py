@@ -762,6 +762,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     links = [
         '6rdtun99',
         'bareudp99',
+        'batadv99',
         'bond98',
         'bond99',
         'bridge99',
@@ -838,6 +839,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '21-vlan.network',
         '25-6rd-tunnel.netdev',
         '25-bareudp.netdev',
+        '25-batadv.netdev',
         '25-bond.netdev',
         '25-bond-balanced-tlb.netdev',
         '25-bridge.netdev',
