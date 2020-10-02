@@ -94,7 +94,7 @@ static bool address_pool_prefix_is_taken(
                 }
 
                 /* Don't clash with addresses already pulled from the pool, but not assigned yet */
-                LIST_FOREACH(addresses, a, l->pool_addresses) {
+                SET_FOREACH(a, l->pool_addresses) {
                         if (a->family != p->family)
                                 continue;
 

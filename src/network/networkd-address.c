@@ -657,13 +657,9 @@ int link_drop_addresses(Link *link) {
 
                 link->address_remove_messages++;
 
-                /* If this address came from an address pool, clean up the pool */
-                LIST_FOREACH(addresses, pool_address, link->pool_addresses)
-                        if (address_equal(address, pool_address)) {
-                                LIST_REMOVE(addresses, link->pool_addresses, pool_address);
-                                address_free(pool_address);
-                                break;
-                        }
+                SET_FOREACH(pool_address, link->pool_addresses)
+                        if (address_equal(address, pool_address))
+                                address_free(set_remove(link->pool_addresses, pool_address));
         }
 
         return r;
@@ -681,8 +677,12 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
 
         /* Something useful was configured? just use it */
         r = in_addr_is_null(original->family, &original->in_addr);
-        if (r <= 0)
+        if (r < 0)
                 return r;
+        if (r == 0) {
+                *ret = NULL;
+                return 0;
+        }
 
         /* The address is configured to be 0.0.0.0 or [::] by the user?
          * Then let's acquire something more useful from the pool. */
@@ -722,11 +722,14 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         na->broadcast = broadcast;
         na->in_addr = in_addr;
 
-        LIST_PREPEND(addresses, link->pool_addresses, na);
+        r = set_ensure_put(&link->pool_addresses, &address_hash_ops, na);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EEXIST;
 
         *ret = TAKE_PTR(na);
-
-        return 0;
+        return 1;
 }
 
 int address_configure(
@@ -737,7 +740,7 @@ int address_configure(
                 Address **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        Address *a;
+        Address *acquired_address, *a;
         int r;
 
         assert(address);
@@ -754,9 +757,11 @@ int address_configure(
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
                                             "Too many addresses are configured, refusing: %m");
 
-        r = address_acquire(link, address, &address);
+        r = address_acquire(link, address, &acquired_address);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to acquire an address from pool: %m");
+        if (acquired_address)
+                address = acquired_address;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *str = NULL;

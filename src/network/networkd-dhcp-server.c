@@ -27,7 +27,7 @@ static Address* link_find_dhcp_server_address(Link *link) {
                         return address;
 
         /* If that didn't work, find a suitable address we got from the pool */
-        LIST_FOREACH(addresses, address, link->pool_addresses)
+        SET_FOREACH(address, link->pool_addresses)
                 if (address->family == AF_INET)
                         return address;
 

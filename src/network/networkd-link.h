@@ -89,6 +89,7 @@ typedef struct Link {
 
         Set *addresses;
         Set *addresses_foreign;
+        Set *pool_addresses;
         Set *static_addresses;
         Set *neighbors;
         Set *neighbors_foreign;
@@ -126,8 +127,6 @@ typedef struct Link {
         bool setting_genmode:1;
         bool ipv6_mtu_set:1;
         bool bridge_mdb_configured:1;
-
-        LIST_HEAD(Address, pool_addresses);
 
         sd_dhcp_server *dhcp_server;
 

@@ -707,8 +707,6 @@ static void link_free_engines(Link *link) {
 }
 
 static Link *link_free(Link *link) {
-        Address *address;
-
         assert(link);
 
         link_ntp_settings_clear(link);
@@ -732,17 +730,13 @@ static Link *link_free(Link *link) {
 
         link->addresses = set_free(link->addresses);
         link->addresses_foreign = set_free(link->addresses_foreign);
+        link->pool_addresses = set_free(link->pool_addresses);
         link->static_addresses = set_free(link->static_addresses);
         link->dhcp6_addresses = set_free(link->dhcp6_addresses);
         link->dhcp6_addresses_old = set_free(link->dhcp6_addresses_old);
         link->dhcp6_pd_addresses = set_free(link->dhcp6_pd_addresses);
         link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
         link->ndisc_addresses = set_free(link->ndisc_addresses);
-
-        while ((address = link->pool_addresses)) {
-                LIST_REMOVE(addresses, link->pool_addresses, address);
-                address_free(address);
-        }
 
         link_lldp_emit_stop(link);
         link_free_engines(link);

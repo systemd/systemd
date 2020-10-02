@@ -52,8 +52,6 @@ struct Address {
         address_ready_callback_t callback;
 
         sd_ipv4acd *acd;
-
-        LIST_FIELDS(Address, addresses);
 };
 
 int address_new(Address **ret);
