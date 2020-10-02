@@ -57,7 +57,7 @@ struct Address {
 };
 
 int address_new(Address **ret);
-void address_free(Address *address);
+Address *address_free(Address *address);
 int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
 int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
 int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);

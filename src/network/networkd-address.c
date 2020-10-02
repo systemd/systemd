@@ -110,9 +110,9 @@ static int address_new_static(Network *network, const char *filename, unsigned s
         return 0;
 }
 
-void address_free(Address *address) {
+Address *address_free(Address *address) {
         if (!address)
-                return;
+                return NULL;
 
         if (address->network) {
                 LIST_REMOVE(addresses, address->network->static_addresses, address);
@@ -149,7 +149,7 @@ void address_free(Address *address) {
 
         network_config_section_free(address->section);
         free(address->label);
-        free(address);
+        return mfree(address);
 }
 
 static uint32_t address_prefix(const Address *a) {
