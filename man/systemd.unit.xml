@@ -1163,6 +1163,7 @@
           <literal>vmware</literal>,
           <literal>microsoft</literal>,
           <literal>oracle</literal>,
+          <literal>powervm</literal>,
           <literal>xen</literal>,
           <literal>bochs</literal>,
           <literal>uml</literal>,
