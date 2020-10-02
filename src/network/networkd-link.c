@@ -811,6 +811,9 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
         int r = 0, k;
         Address *ad;
 
+        log_link_warning(link, "DBG - before return");
+        return r;
+
         assert(link);
         assert(link->manager);
         assert(link->manager->event);
@@ -818,10 +821,11 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
         bool keep_dhcp = may_keep_dhcp &&
                          link->network &&
                          (link->manager->restarting ||
-                          FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
+                          FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP));
 
         if (link->dhcp_client && !keep_dhcp) {
                 k = sd_dhcp_client_stop(link->dhcp_client);
+                log_link_warning(link, "DBG - stopping client in link_stop_clients");
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");
         }
@@ -877,6 +881,8 @@ void link_enter_failed(Link *link) {
         log_link_warning(link, "Failed");
 
         link_set_state(link, LINK_STATE_FAILED);
+
+
 
         link_stop_clients(link, false);
 
@@ -3647,6 +3653,11 @@ static int link_load(Link *link) {
                 r = network_apply(network, link);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to apply network %s: %m", basename(network_file));
+
+                if (FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
+                    if (asprintf(&link->lease_file, "/var/systemd/persist/netif/leases/%d", link->ifindex) < 0)
+                            return -ENOMEM;
+                }
         }
 
 network_file_fail:
