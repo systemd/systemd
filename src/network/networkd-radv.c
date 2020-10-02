@@ -686,6 +686,36 @@ int radv_configure(Link *link) {
         return 0;
 }
 
+int radv_update_mac(Link *link) {
+        bool restart;
+        int r;
+
+        assert(link);
+
+        if (!link->radv)
+                return 0;
+
+        restart = sd_radv_is_running(link->radv);
+
+        if (restart) {
+                r = sd_radv_stop(link->radv);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_radv_set_mac(link->radv, &link->mac);
+        if (r < 0)
+                return r;
+
+        if (restart) {
+                r = sd_radv_start(link->radv);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int radv_add_prefix(
                 Link *link,
                 const struct in6_addr *prefix,

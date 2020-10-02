@@ -3047,25 +3047,9 @@ int link_update(Link *link, sd_netlink_message *m) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
 
-                if (link->radv) {
-                        bool restart = sd_radv_is_running(link->radv);
-
-                        if (restart) {
-                                r = sd_radv_stop(link->radv);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not stop Router Advertisement: %m");
-                        }
-
-                        r = sd_radv_set_mac(link->radv, &link->mac);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not update MAC for Router Advertisement: %m");
-
-                        if (restart) {
-                                r = sd_radv_start(link->radv);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not restart Router Advertisement: %m");
-                        }
-                }
+                r = dhcp6_update_mac(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not update MAC address for Router Advertisement: %m");
 
                 if (link->ndisc) {
                         r = sd_ndisc_set_mac(link->ndisc, &link->mac);

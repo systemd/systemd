@@ -50,6 +50,7 @@ void network_verify_route_prefixes(Network *network);
 
 int radv_emit_dns(Link *link);
 int radv_configure(Link *link);
+int radv_update_mac(Link *link);
 int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
                     uint32_t lifetime_preferred, uint32_t lifetime_valid);
 
