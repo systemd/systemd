@@ -61,45 +61,6 @@ DUID* link_get_duid(Link *link) {
                 return &link->manager->duid;
 }
 
-static bool link_dhcp6_enabled(Link *link) {
-        assert(link);
-
-        if (!socket_ipv6_is_supported())
-                return false;
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (link->network->bond)
-                return false;
-
-        if (link->iftype == ARPHRD_CAN)
-                return false;
-
-        return link->network->dhcp & ADDRESS_FAMILY_IPV6;
-}
-
-static bool link_dhcp4_enabled(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (link->network->bond)
-                return false;
-
-        if (link->iftype == ARPHRD_CAN)
-                return false;
-
-        return link->network->dhcp & ADDRESS_FAMILY_IPV4;
-}
-
 static bool link_dhcp4_server_enabled(Link *link) {
         assert(link);
 

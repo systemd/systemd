@@ -1,14 +1,41 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <netinet/in.h>
+#include <linux/if_arp.h>
+
 #include "dhcp-internal.h"
 #include "dhcp6-internal.h"
 #include "escape.h"
 #include "in-addr-util.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-link.h"
 #include "networkd-network.h"
 #include "parse-util.h"
+#include "socket-util.h"
 #include "string-table.h"
 #include "strv.h"
+
+bool link_dhcp_enabled(Link *link, int family) {
+        assert(link);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (family == AF_INET6 && !socket_ipv6_is_supported())
+                return false;
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->network->bond)
+                return false;
+
+        if (link->iftype == ARPHRD_CAN)
+                return false;
+
+        return link->network->dhcp & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
+}
 
 int config_parse_dhcp(
                 const char* unit,
