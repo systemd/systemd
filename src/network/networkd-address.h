@@ -77,6 +77,7 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 int link_set_addresses(Link *link);
 int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
+int link_serialize_addresses(Link *link, FILE *f);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 

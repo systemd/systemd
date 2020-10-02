@@ -3707,7 +3707,6 @@ int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        Address *a;
         int r;
 
         assert(link);
@@ -3925,19 +3924,9 @@ int link_save(Link *link) {
 
                 /************************************************************/
 
-                fputs("ADDRESSES=", f);
-                space = false;
-                SET_FOREACH(a, link->addresses) {
-                        _cleanup_free_ char *address_str = NULL;
-
-                        r = in_addr_to_string(a->family, &a->in_addr, &address_str);
-                        if (r < 0)
-                                goto fail;
-
-                        fprintf(f, "%s%s/%u", space ? " " : "", address_str, a->prefixlen);
-                        space = true;
-                }
-                fputc('\n', f);
+                r = link_serialize_addresses(link, f);
+                if (r < 0)
+                        goto fail;
 
                 /************************************************************/
 

@@ -1217,6 +1217,27 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         return 1;
 }
 
+int link_serialize_addresses(Link *link, FILE *f) {
+        bool space = false;
+        Address *a;
+
+        assert(link);
+
+        fputs("ADDRESSES=", f);
+        SET_FOREACH(a, link->addresses) {
+                _cleanup_free_ char *address_str = NULL;
+
+                if (in_addr_to_string(a->family, &a->in_addr, &address_str) < 0)
+                        continue;
+
+                fprintf(f, "%s%s/%u", space ? " " : "", address_str, a->prefixlen);
+                space = true;
+        }
+        fputc('\n', f);
+
+        return 0;
+}
+
 static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         _cleanup_free_ char *pretty = NULL;
         Address *address;
