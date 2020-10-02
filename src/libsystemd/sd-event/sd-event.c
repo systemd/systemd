@@ -972,6 +972,12 @@ static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType t
         return s;
 }
 
+static int io_exit_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        assert(s);
+
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+}
+
 _public_ int sd_event_add_io(
                 sd_event *e,
                 sd_event_source **ret,
@@ -987,9 +993,11 @@ _public_ int sd_event_add_io(
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(fd >= 0, -EBADF);
         assert_return(!(events & ~(EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLPRI|EPOLLERR|EPOLLHUP|EPOLLET)), -EINVAL);
-        assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        if (!callback)
+                callback = io_exit_callback;
 
         s = source_new(e, !ret, SOURCE_IO);
         if (!s)
@@ -1235,6 +1243,12 @@ _public_ int sd_event_add_signal(
         return 0;
 }
 
+static int child_exit_callback(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        assert(s);
+
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+}
+
 static bool shall_use_pidfd(void) {
         /* Mostly relevant for debugging, i.e. this is used in test-event.c to test the event loop once with and once without pidfd */
         return getenv_bool_secure("SYSTEMD_PIDFD") != 0;
@@ -1256,9 +1270,11 @@ _public_ int sd_event_add_child(
         assert_return(pid > 1, -EINVAL);
         assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED)), -EINVAL);
         assert_return(options != 0, -EINVAL);
-        assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        if (!callback)
+                callback = child_exit_callback;
 
         if (e->n_enabled_child_sources == 0) {
                 /* Caller must block SIGCHLD before using us to watch children, even if pidfd is available,
@@ -1357,9 +1373,11 @@ _public_ int sd_event_add_child_pidfd(
         assert_return(pidfd >= 0, -EBADF);
         assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED)), -EINVAL);
         assert_return(options != 0, -EINVAL);
-        assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        if (!callback)
+                callback = child_exit_callback;
 
         if (e->n_enabled_child_sources == 0) {
                 r = signal_is_blocked(SIGCHLD);
@@ -1426,6 +1444,12 @@ _public_ int sd_event_add_child_pidfd(
         return 0;
 }
 
+static int generic_exit_callback(sd_event_source *s, void *userdata) {
+        assert(s);
+
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+}
+
 _public_ int sd_event_add_defer(
                 sd_event *e,
                 sd_event_source **ret,
@@ -1437,9 +1461,11 @@ _public_ int sd_event_add_defer(
 
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        if (!callback)
+                callback = generic_exit_callback;
 
         s = source_new(e, !ret, SOURCE_DEFER);
         if (!s)
@@ -1471,9 +1497,11 @@ _public_ int sd_event_add_post(
 
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
-        assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        if (!callback)
+                callback = generic_exit_callback;
 
         s = source_new(e, !ret, SOURCE_POST);
         if (!s)
@@ -1826,6 +1854,12 @@ static int inode_data_realize_watch(sd_event *e, struct inode_data *d) {
         return 1;
 }
 
+static int inotify_exit_callback(sd_event_source *s, const struct inotify_event *event, void *userdata) {
+        assert(s);
+
+        return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
+}
+
 _public_ int sd_event_add_inotify(
                 sd_event *e,
                 sd_event_source **ret,
@@ -1844,9 +1878,11 @@ _public_ int sd_event_add_inotify(
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(path, -EINVAL);
-        assert_return(callback, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(e), -ECHILD);
+
+        if (!callback)
+                callback = inotify_exit_callback;
 
         /* Refuse IN_MASK_ADD since we coalesce watches on the same inode, and hence really don't want to merge
          * masks. Or in other words, this whole code exists only to manage IN_MASK_ADD type operations for you, hence
