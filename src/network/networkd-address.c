@@ -621,6 +621,66 @@ int link_drop_foreign_addresses(Link *link) {
         return r;
 }
 
+static int remove_static_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(link->ifname);
+        assert(link->address_remove_messages > 0);
+
+        link->address_remove_messages--;
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0 && r != -EADDRNOTAVAIL)
+                log_link_message_warning_errno(link, m, r, "Could not drop address");
+        else if (r >= 0)
+                (void) manager_rtnl_process_address(rtnl, m, link->manager);
+
+        if (link->address_remove_messages == 0 && link->request_static_addresses) {
+                link_set_state(link, LINK_STATE_CONFIGURING);
+                r = link_set_addresses(link);
+                if (r < 0)
+                        link_enter_failed(link);
+        }
+
+        return 1;
+}
+
+int link_drop_addresses(Link *link) {
+        Address *address, *pool_address;
+        int k, r = 0;
+
+        assert(link);
+
+        SET_FOREACH(address, link->addresses) {
+                /* we consider IPv6LL addresses to be managed by the kernel */
+                if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1 && link_ipv6ll_enabled(link))
+                        continue;
+
+                k = address_remove(address, link, remove_static_address_handler);
+                if (k < 0 && r >= 0) {
+                        r = k;
+                        continue;
+                }
+
+                link->address_remove_messages++;
+
+                /* If this address came from an address pool, clean up the pool */
+                LIST_FOREACH(addresses, pool_address, link->pool_addresses)
+                        if (address_equal(address, pool_address)) {
+                                LIST_REMOVE(addresses, link->pool_addresses, pool_address);
+                                address_free(pool_address);
+                                break;
+                        }
+        }
+
+        return r;
+}
+
 static int address_acquire(Link *link, Address *original, Address **ret) {
         union in_addr_union in_addr = IN_ADDR_NULL;
         struct in_addr broadcast = {};
