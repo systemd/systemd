@@ -63,16 +63,19 @@ int change_uid_gid_raw(
                 uid_t uid,
                 gid_t gid,
                 const gid_t *supplementary_gids,
-                size_t n_supplementary_gids) {
+                size_t n_supplementary_gids,
+                bool chown_stdio) {
 
         if (!uid_is_valid(uid))
                 uid = 0;
         if (!gid_is_valid(gid))
                 gid = 0;
 
-        (void) fchown(STDIN_FILENO, uid, gid);
-        (void) fchown(STDOUT_FILENO, uid, gid);
-        (void) fchown(STDERR_FILENO, uid, gid);
+        if (chown_stdio) {
+                (void) fchown(STDIN_FILENO, uid, gid);
+                (void) fchown(STDOUT_FILENO, uid, gid);
+                (void) fchown(STDERR_FILENO, uid, gid);
+        }
 
         if (setgroups(n_supplementary_gids, supplementary_gids) < 0)
                 return log_error_errno(errno, "Failed to set auxiliary groups: %m");
@@ -86,7 +89,7 @@ int change_uid_gid_raw(
         return 0;
 }
 
-int change_uid_gid(const char *user, char **_home) {
+int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         char *x, *u, *g, *h;
         _cleanup_free_ gid_t *gids = NULL;
         _cleanup_free_ char *home = NULL, *line = NULL;
@@ -99,7 +102,7 @@ int change_uid_gid(const char *user, char **_home) {
         pid_t pid;
         int r;
 
-        assert(_home);
+        assert(ret_home);
 
         if (!user || STR_IN_SET(user, "root", "0")) {
                 /* Reset everything fully to 0, just in case */
@@ -108,7 +111,7 @@ int change_uid_gid(const char *user, char **_home) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to become root: %m");
 
-                *_home = NULL;
+                *ret_home = NULL;
                 return 0;
         }
 
@@ -232,12 +235,12 @@ int change_uid_gid(const char *user, char **_home) {
         if (r < 0 && !IN_SET(r, -EEXIST, -ENOTDIR))
                 return log_error_errno(r, "Failed to make home directory: %m");
 
-        r = change_uid_gid_raw(uid, gid, gids, n_gids);
+        r = change_uid_gid_raw(uid, gid, gids, n_gids, chown_stdio);
         if (r < 0)
                 return r;
 
-        if (_home)
-                *_home = TAKE_PTR(home);
+        if (ret_home)
+                *ret_home = TAKE_PTR(home);
 
         return 0;
 }
