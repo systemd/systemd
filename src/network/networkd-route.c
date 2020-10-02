@@ -566,6 +566,25 @@ int link_drop_foreign_routes(Link *link) {
         return r;
 }
 
+int link_drop_routes(Link *link) {
+        Route *route;
+        int k, r = 0;
+
+        assert(link);
+
+        SET_FOREACH(route, link->routes) {
+                /* do not touch routes managed by the kernel */
+                if (route->protocol == RTPROT_KERNEL)
+                        continue;
+
+                k = route_remove(route, link, NULL);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
 int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         Route *route = userdata;
         int r;

@@ -2637,7 +2637,6 @@ static int remove_static_address_handler(sd_netlink *rtnl, sd_netlink_message *m
 
 static int link_drop_config(Link *link) {
         Address *address, *pool_address;
-        Route *route;
         int r;
 
         SET_FOREACH(address, link->addresses) {
@@ -2664,15 +2663,9 @@ static int link_drop_config(Link *link) {
         if (r < 0)
                 return r;
 
-        SET_FOREACH(route, link->routes) {
-                /* do not touch routes managed by the kernel */
-                if (route->protocol == RTPROT_KERNEL)
-                        continue;
-
-                r = route_remove(route, link, NULL);
-                if (r < 0)
-                        return r;
-        }
+        r = link_drop_routes(link);
+        if (r < 0)
+                return r;
 
         ndisc_flush(link);
 
