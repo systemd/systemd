@@ -175,10 +175,6 @@ found:
         return sd_event_exit(sd_device_monitor_get_event(monitor), 0);
 }
 
-static int device_timeout_handler(sd_event_source *s, uint64_t usec, void *userdata) {
-        return sd_event_exit(sd_event_source_get_event(s), -ETIMEDOUT);
-}
-
 static int device_wait_for_initialization_internal(
                 sd_device *_device,
                 const char *devlink,
@@ -248,7 +244,7 @@ static int device_wait_for_initialization_internal(
                 r = sd_event_add_time_relative(
                                 event, &timeout_source,
                                 CLOCK_MONOTONIC, timeout, 0,
-                                device_timeout_handler, NULL);
+                                NULL, INT_TO_PTR(-ETIMEDOUT));
                 if (r < 0)
                         return log_error_errno(r, "Failed to add timeout event source: %m");
         }
