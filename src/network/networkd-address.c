@@ -1379,6 +1379,27 @@ int link_configure_ipv4_dad(Link *link) {
         return 0;
 }
 
+int link_stop_ipv4_dad(Link *link) {
+        Address *address;
+        int k, r = 0;
+
+        assert(link);
+
+        if (!link->network)
+                return 0;
+
+        LIST_FOREACH(addresses, address, link->network->static_addresses) {
+                if (!address->acd)
+                        continue;
+
+                k = sd_ipv4acd_stop(address->acd);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
 int config_parse_broadcast(
                 const char *unit,
                 const char *filename,

@@ -79,6 +79,7 @@ int link_drop_foreign_addresses(Link *link);
 int link_serialize_addresses(Link *link, FILE *f);
 int link_deserialize_addresses(Link *link, const char *addresses);
 int link_configure_ipv4_dad(Link *link);
+int link_stop_ipv4_dad(Link *link);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 

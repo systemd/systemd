@@ -813,7 +813,6 @@ static void link_enter_unmanaged(Link *link) {
 
 int link_stop_clients(Link *link, bool may_keep_dhcp) {
         int r = 0, k;
-        Address *ad;
 
         assert(link);
         assert(link->manager);
@@ -836,13 +835,9 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
                         r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
         }
 
-        if (link->network)
-                LIST_FOREACH(addresses, ad, link->network->static_addresses)
-                        if (ad->acd && sd_ipv4acd_is_running(ad->acd) == 0) {
-                                k = sd_ipv4acd_stop(ad->acd);
-                                if (k < 0)
-                                        r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client: %m");
-                        }
+        k = link_stop_ipv4_dad(link);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client: %m");
 
         if (link->dhcp6_client) {
                 k = sd_dhcp6_client_stop(link->dhcp6_client);
