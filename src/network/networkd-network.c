@@ -210,17 +210,14 @@ int network_verify(Network *network) {
                                     network->filename);
                         network->dhcp_server = false;
                 }
-                if (network->n_static_addresses > 0) {
-                        Address *address;
-
+                if (!ordered_hashmap_isempty(network->addresses_by_section))
                         log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.",
                                     network->filename);
-                        while ((address = network->static_addresses))
-                                address_free(address);
-                }
                 if (!hashmap_isempty(network->routes_by_section))
                         log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.",
                                     network->filename);
+
+                network->addresses_by_section = ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
                 network->routes_by_section = hashmap_free_with_destructor(network->routes_by_section, route_free);
         }
 
@@ -617,8 +614,6 @@ failure:
 }
 
 static Network *network_free(Network *network) {
-        Address *address;
-
         if (!network)
                 return NULL;
 
@@ -674,11 +669,8 @@ static Network *network_free(Network *network) {
         netdev_unref(network->vrf);
         hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
 
-        while ((address = network->static_addresses))
-                address_free(address);
-
         set_free_free(network->ipv6_proxy_ndp_addresses);
-        hashmap_free(network->addresses_by_section);
+        ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
         hashmap_free_with_destructor(network->routes_by_section, route_free);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->fdb_entries_by_section, fdb_entry_free);
@@ -800,7 +792,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
 
         assert(network);
 
-        LIST_FOREACH(addresses, address, network->static_addresses)
+        ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section)
                 if (address->family == AF_INET6)
                         return true;
 

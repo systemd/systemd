@@ -21,7 +21,7 @@ static Address* link_find_dhcp_server_address(Link *link) {
         assert(link->network);
 
         /* The first statically configured address if there is any */
-        LIST_FOREACH(addresses, address, link->network->static_addresses)
+        ORDERED_HASHMAP_FOREACH(address, link->network->addresses_by_section)
                 if (address->family == AF_INET &&
                     !in_addr_is_null(address->family, &address->in_addr))
                         return address;

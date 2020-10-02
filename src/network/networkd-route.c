@@ -2182,7 +2182,7 @@ static int route_section_verify(Route *route, Network *network) {
                         route->scope = RT_SCOPE_LINK;
         }
 
-        if (network->n_static_addresses == 0 &&
+        if (ordered_hashmap_isempty(network->addresses_by_section) &&
             in_addr_is_null(route->family, &route->gw) == 0 &&
             route->gateway_onlink < 0) {
                 log_warning("%s: Gateway= without static address configured. "

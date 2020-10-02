@@ -67,22 +67,20 @@ static int address_new_static(Network *network, const char *filename, unsigned s
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                address = hashmap_get(network->addresses_by_section, n);
-                if (address) {
-                        *ret = TAKE_PTR(address);
-
-                        return 0;
-                }
+        address = ordered_hashmap_get(network->addresses_by_section, n);
+        if (address) {
+                *ret = TAKE_PTR(address);
+                return 0;
         }
 
-        if (network->n_static_addresses >= STATIC_ADDRESSES_PER_NETWORK_MAX)
+        if (ordered_hashmap_size(network->addresses_by_section) >= STATIC_ADDRESSES_PER_NETWORK_MAX)
                 return -E2BIG;
 
         r = address_new(&address);
@@ -90,23 +88,17 @@ static int address_new_static(Network *network, const char *filename, unsigned s
                 return r;
 
         address->network = network;
-        LIST_APPEND(addresses, network->static_addresses, address);
-        network->n_static_addresses++;
+        address->section = TAKE_PTR(n);
 
-        if (filename) {
-                address->section = TAKE_PTR(n);
+        r = ordered_hashmap_ensure_allocated(&network->addresses_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-                r = hashmap_ensure_allocated(&network->addresses_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->addresses_by_section, address->section, address);
-                if (r < 0)
-                        return r;
-        }
+        r = ordered_hashmap_put(network->addresses_by_section, address->section, address);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(address);
-
         return 0;
 }
 
@@ -115,12 +107,8 @@ Address *address_free(Address *address) {
                 return NULL;
 
         if (address->network) {
-                LIST_REMOVE(addresses, address->network->static_addresses, address);
-                assert(address->network->n_static_addresses > 0);
-                address->network->n_static_addresses--;
-
-                if (address->section)
-                        hashmap_remove(address->network->addresses_by_section, address->section);
+                assert(address->section);
+                ordered_hashmap_remove(address->network->addresses_by_section, address->section);
         }
 
         if (address->link && !address->acd) {
@@ -551,7 +539,7 @@ static bool link_is_static_address_configured(Link *link, Address *address) {
         if (!link->network)
                 return false;
 
-        LIST_FOREACH(addresses, net_address, link->network->static_addresses)
+        ORDERED_HASHMAP_FOREACH(net_address, link->network->addresses_by_section)
                 if (address_equal(net_address, address))
                         return true;
                 else if (address->family == AF_INET6 && net_address->family == AF_INET6 &&
@@ -1002,7 +990,7 @@ int link_set_addresses(Link *link) {
                 return 0;
         }
 
-        LIST_FOREACH(addresses, ad, link->network->static_addresses) {
+        ORDERED_HASHMAP_FOREACH(ad, link->network->addresses_by_section) {
                 bool update;
 
                 if (ad->family == AF_INET6 && !in_addr_is_null(ad->family, &ad->in_addr_peer))
@@ -1368,7 +1356,7 @@ int link_configure_ipv4_dad(Link *link) {
         assert(link);
         assert(link->network);
 
-        LIST_FOREACH(addresses, address, link->network->static_addresses)
+        ORDERED_HASHMAP_FOREACH(address, link->network->addresses_by_section)
                 if (address->family == AF_INET &&
                     FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
                         r = ipv4_dad_configure(link, address);
@@ -1388,7 +1376,7 @@ int link_stop_ipv4_dad(Link *link) {
         if (!link->network)
                 return 0;
 
-        LIST_FOREACH(addresses, address, link->network->static_addresses) {
+        ORDERED_HASHMAP_FOREACH(address, link->network->addresses_by_section) {
                 if (!address->acd)
                         continue;
 
@@ -1473,11 +1461,10 @@ int config_parse_address(const char *unit,
         assert(rvalue);
         assert(data);
 
-        if (streq(section, "Network")) {
-                /* we are not in an Address section, so treat
-                 * this as the special '0' section */
-                r = address_new_static(network, NULL, 0, &n);
-        } else
+        if (streq(section, "Network"))
+                /* we are not in an Address section, so use line number instead. */
+                r = address_new_static(network, filename, line, &n);
+        else
                 r = address_new_static(network, filename, section_line, &n);
         if (r == -ENOMEM)
                 return log_oom();
@@ -1810,11 +1797,11 @@ static int address_section_verify(Address *address) {
 }
 
 void network_verify_addresses(Network *network) {
-        Address *address, *address_next;
+        Address *address;
 
         assert(network);
 
-        LIST_FOREACH_SAFE(addresses, address, address_next, network->static_addresses)
+        ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section)
                 if (address_section_verify(address) < 0)
                         address_free(address);
 }

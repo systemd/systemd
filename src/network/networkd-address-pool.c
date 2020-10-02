@@ -107,7 +107,7 @@ static bool address_pool_prefix_is_taken(
         ORDERED_HASHMAP_FOREACH(n, p->manager->networks) {
                 Address *a;
 
-                LIST_FOREACH(addresses, a, n->static_addresses) {
+                ORDERED_HASHMAP_FOREACH(a, n->addresses_by_section) {
                         if (a->family != p->family)
                                 continue;
 

@@ -278,11 +278,7 @@ struct Network {
         LLDPEmit lldp_emit; /* LLDP transmission */
         char *lldp_mud;    /* LLDP MUD URL */
 
-        LIST_HEAD(Address, static_addresses);
-
-        unsigned n_static_addresses;
-
-        Hashmap *addresses_by_section;
+        OrderedHashmap *addresses_by_section;
         Hashmap *routes_by_section;
         Hashmap *nexthops_by_section;
         Hashmap *fdb_entries_by_section;
