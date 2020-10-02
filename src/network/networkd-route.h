@@ -58,8 +58,6 @@ struct Route {
 
         usec_t lifetime;
         sd_event_source *expire;
-
-        LIST_FIELDS(Route, routes);
 };
 
 void route_hash_func(const Route *route, struct siphash *state);

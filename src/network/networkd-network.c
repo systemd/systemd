@@ -217,14 +217,10 @@ int network_verify(Network *network) {
                         while ((address = network->static_addresses))
                                 address_free(address);
                 }
-                if (network->n_static_routes > 0) {
-                        Route *route;
-
+                if (!hashmap_isempty(network->routes_by_section))
                         log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.",
                                     network->filename);
-                        while ((route = network->static_routes))
-                                route_free(route);
-                }
+                network->routes_by_section = hashmap_free_with_destructor(network->routes_by_section, route_free);
         }
 
         if (network->link_local < 0)
@@ -624,7 +620,6 @@ failure:
 
 static Network *network_free(Network *network) {
         Address *address;
-        Route *route;
 
         if (!network)
                 return NULL;
@@ -681,15 +676,12 @@ static Network *network_free(Network *network) {
         netdev_unref(network->vrf);
         hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
 
-        while ((route = network->static_routes))
-                route_free(route);
-
         while ((address = network->static_addresses))
                 address_free(address);
 
         set_free_free(network->ipv6_proxy_ndp_addresses);
         hashmap_free(network->addresses_by_section);
-        hashmap_free(network->routes_by_section);
+        hashmap_free_with_destructor(network->routes_by_section, route_free);
         hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->fdb_entries_by_section, fdb_entry_free);
         hashmap_free_with_destructor(network->mdb_entries_by_section, mdb_entry_free);
@@ -814,7 +806,7 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 if (address->family == AF_INET6)
                         return true;
 
-        LIST_FOREACH(routes, route, network->static_routes)
+        HASHMAP_FOREACH(route, network->routes_by_section)
                 if (route->family == AF_INET6)
                         return true;
 

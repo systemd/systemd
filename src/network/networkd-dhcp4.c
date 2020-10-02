@@ -384,7 +384,7 @@ static int link_set_dhcp_routes(Link *link) {
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Could not set router: %m");
 
-                        LIST_FOREACH(routes, rt, link->network->static_routes) {
+                        HASHMAP_FOREACH(rt, link->network->routes_by_section) {
                                 if (!rt->gateway_from_dhcp)
                                         continue;
 

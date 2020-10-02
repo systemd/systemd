@@ -194,22 +194,20 @@ static int route_new_static(Network *network, const char *filename, unsigned sec
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                route = hashmap_get(network->routes_by_section, n);
-                if (route) {
-                        *ret = TAKE_PTR(route);
-
-                        return 0;
-                }
+        route = hashmap_get(network->routes_by_section, n);
+        if (route) {
+                *ret = TAKE_PTR(route);
+                return 0;
         }
 
-        if (network->n_static_routes >= routes_max())
+        if (hashmap_size(network->routes_by_section) >= routes_max())
                 return -E2BIG;
 
         r = route_new(&route);
@@ -218,23 +216,17 @@ static int route_new_static(Network *network, const char *filename, unsigned sec
 
         route->protocol = RTPROT_STATIC;
         route->network = network;
-        LIST_PREPEND(routes, network->static_routes, route);
-        network->n_static_routes++;
+        route->section = TAKE_PTR(n);
 
-        if (filename) {
-                route->section = TAKE_PTR(n);
+        r = hashmap_ensure_allocated(&network->routes_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-                r = hashmap_ensure_allocated(&network->routes_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->routes_by_section, route->section, route);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->routes_by_section, route->section, route);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(route);
-
         return 0;
 }
 
@@ -243,13 +235,8 @@ Route *route_free(Route *route) {
                 return NULL;
 
         if (route->network) {
-                LIST_REMOVE(routes, route->network->static_routes, route);
-
-                assert(route->network->n_static_routes > 0);
-                route->network->n_static_routes--;
-
-                if (route->section)
-                        hashmap_remove(route->network->routes_by_section, route->section);
+                assert(route->section);
+                hashmap_remove(route->network->routes_by_section, route->section);
         }
 
         network_config_section_free(route->section);
@@ -630,7 +617,7 @@ static bool link_is_static_route_configured(Link *link, Route *route) {
         if (!link->network)
                 return false;
 
-        LIST_FOREACH(routes, net_route, link->network->static_routes)
+        HASHMAP_FOREACH(net_route, link->network->routes_by_section)
                 if (route_equal(net_route, route))
                         return true;
 
@@ -1065,7 +1052,7 @@ int link_set_routes(Link *link) {
 
         /* First add the routes that enable us to talk to gateways, then add in the others that need a gateway. */
         for (phase = 0; phase < _PHASE_MAX; phase++)
-                LIST_FOREACH(routes, rt, link->network->static_routes) {
+                HASHMAP_FOREACH(rt, link->network->routes_by_section) {
                         if (rt->gateway_from_dhcp)
                                 continue;
 
@@ -1437,6 +1424,7 @@ int link_deserialize_routes(Link *link, const char *routes) {
 
 int network_add_ipv4ll_route(Network *network) {
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        unsigned section_line;
         int r;
 
         assert(network);
@@ -1444,8 +1432,10 @@ int network_add_ipv4ll_route(Network *network) {
         if (!network->ipv4ll_route)
                 return 0;
 
+        section_line = hashmap_find_free_section_line(network->routes_by_section);
+
         /* IPv4LLRoute= is in [Network] section. */
-        r = route_new_static(network, NULL, 0, &n);
+        r = route_new_static(network, network->filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -1467,6 +1457,7 @@ int network_add_ipv4ll_route(Network *network) {
 
 int network_add_default_route_on_device(Network *network) {
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        unsigned section_line;
         int r;
 
         assert(network);
@@ -1474,8 +1465,10 @@ int network_add_default_route_on_device(Network *network) {
         if (!network->default_route_on_device)
                 return 0;
 
+        section_line = hashmap_find_free_section_line(network->routes_by_section);
+
         /* DefaultRouteOnDevice= is in [Network] section. */
-        r = route_new_static(network, NULL, 0, &n);
+        r = route_new_static(network, network->filename, section_line, &n);
         if (r < 0)
                 return r;
 
@@ -1511,9 +1504,8 @@ int config_parse_gateway(
         assert(data);
 
         if (streq(section, "Network")) {
-                /* we are not in an Route section, so treat
-                 * this as the special '0' section */
-                r = route_new_static(network, NULL, 0, &n);
+                /* we are not in an Route section, so use line number instead */
+                r = route_new_static(network, filename, line, &n);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -2207,11 +2199,11 @@ static int route_section_verify(Route *route, Network *network) {
 }
 
 void network_verify_routes(Network *network) {
-        Route *route, *route_next;
+        Route *route;
 
         assert(network);
 
-        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes)
+        HASHMAP_FOREACH(route, network->routes_by_section)
                 if (route_section_verify(route, network) < 0)
                         route_free(route);
 }

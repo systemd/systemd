@@ -490,7 +490,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, r, "Could not set default route: %m");
 
         Route *route_gw;
-        LIST_FOREACH(routes, route_gw, link->network->static_routes) {
+        HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
                 if (!route_gw->gateway_from_dhcp)
                         continue;
 

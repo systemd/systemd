@@ -280,10 +280,8 @@ struct Network {
         char *lldp_mud;    /* LLDP MUD URL */
 
         LIST_HEAD(Address, static_addresses);
-        LIST_HEAD(Route, static_routes);
 
         unsigned n_static_addresses;
-        unsigned n_static_routes;
 
         Hashmap *addresses_by_section;
         Hashmap *routes_by_section;
