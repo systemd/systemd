@@ -193,36 +193,6 @@ static bool link_proxy_arp_enabled(Link *link) {
         return true;
 }
 
-static bool link_ipv6_accept_ra_enabled(Link *link) {
-        assert(link);
-
-        if (!socket_ipv6_is_supported())
-                return false;
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (!link_ipv6ll_enabled(link))
-                return false;
-
-        /* If unset use system default (enabled if local forwarding is disabled.
-         * disabled if local forwarding is enabled).
-         * If set, ignore or enforce RA independent of local forwarding state.
-         */
-        if (link->network->ipv6_accept_ra < 0)
-                /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
-                return !link_ipv6_forward_enabled(link);
-        else if (link->network->ipv6_accept_ra > 0)
-                /* accept RA even if ip_forward is enabled */
-                return true;
-        else
-                /* ignore RA */
-                return false;
-}
-
 static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
         assert(link);
 

@@ -3,8 +3,9 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <netinet/icmp6.h>
+#include <linux/if.h>
 
 #include "sd-ndisc.h"
 
@@ -34,6 +35,36 @@
 #define RESERVED_SUBNET_ANYCAST_PREFIXLEN                   7
 
 #define NDISC_APP_ID SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
+
+bool link_ipv6_accept_ra_enabled(Link *link) {
+        assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return false;
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (!link_ipv6ll_enabled(link))
+                return false;
+
+        /* If unset use system default (enabled if local forwarding is disabled.
+         * disabled if local forwarding is enabled).
+         * If set, ignore or enforce RA independent of local forwarding state.
+         */
+        if (link->network->ipv6_accept_ra < 0)
+                /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
+                return !link_ipv6_forward_enabled(link);
+        else if (link->network->ipv6_accept_ra > 0)
+                /* accept RA even if ip_forward is enabled */
+                return true;
+        else
+                /* ignore RA */
+                return false;
+}
 
 static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool force);
 
