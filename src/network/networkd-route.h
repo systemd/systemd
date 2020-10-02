@@ -73,6 +73,8 @@ int route_remove(Route *route, Link *link, link_netlink_message_handler_t callba
 
 int link_set_routes(Link *link);
 
+int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+
 int route_get(Link *link, Route *in, Route **ret);
 int route_add(Link *link, Route *in, Route **ret);
 int route_add_foreign(Link *link, Route *in, Route **ret);

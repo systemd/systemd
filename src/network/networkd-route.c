@@ -906,6 +906,260 @@ int link_set_routes(Link *link) {
         return 0;
 }
 
+int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
+        _cleanup_(route_freep) Route *tmp = NULL;
+        Route *route = NULL;
+        Link *link = NULL;
+        uint32_t ifindex;
+        uint16_t type;
+        unsigned char table;
+        int r;
+
+        assert(rtnl);
+        assert(message);
+        assert(m);
+
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
+                if (r < 0)
+                        log_message_warning_errno(message, r, "rtnl: failed to receive route message, ignoring");
+
+                return 0;
+        }
+
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE)) {
+                log_warning("rtnl: received unexpected message type %u when processing route, ignoring.", type);
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, RTA_OIF, &ifindex);
+        if (r == -ENODATA) {
+                log_debug("rtnl: received route message without ifindex, ignoring");
+                return 0;
+        } else if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get ifindex from route message, ignoring: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received route message with invalid ifindex %d, ignoring.", ifindex);
+                return 0;
+        }
+
+        r = link_get(m, ifindex, &link);
+        if (r < 0 || !link) {
+                /* when enumerating we might be out of sync, but we will
+                 * get the route again, so just ignore it */
+                if (!m->enumerating)
+                        log_warning("rtnl: received route message for link (%d) we do not know about, ignoring", ifindex);
+                return 0;
+        }
+
+        r = route_new(&tmp);
+        if (r < 0)
+                return log_oom();
+
+        r = sd_rtnl_message_route_get_family(message, &tmp->family);
+        if (r < 0) {
+                log_link_warning(link, "rtnl: received route message without family, ignoring");
+                return 0;
+        } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received route message with invalid family '%i', ignoring", tmp->family);
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_protocol(message, &tmp->protocol);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: received route message without route protocol: %m");
+                return 0;
+        }
+
+        switch (tmp->family) {
+        case AF_INET:
+                r = sd_netlink_message_read_in_addr(message, RTA_DST, &tmp->dst.in);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message without valid destination, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in_addr(message, RTA_GATEWAY, &tmp->gw.in);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in_addr(message, RTA_SRC, &tmp->src.in);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in_addr(message, RTA_PREFSRC, &tmp->prefsrc.in);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message without valid preferred source, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        case AF_INET6:
+                r = sd_netlink_message_read_in6_addr(message, RTA_DST, &tmp->dst.in6);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message without valid destination, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in6_addr(message, RTA_GATEWAY, &tmp->gw.in6);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in6_addr(message, RTA_SRC, &tmp->src.in6);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_in6_addr(message, RTA_PREFSRC, &tmp->prefsrc.in6);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message without valid preferred source, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        default:
+                assert_not_reached("Received route message with unsupported address family");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_dst_prefixlen(message, &tmp->dst_prefixlen);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route message with invalid destination prefixlen, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_src_prefixlen(message, &tmp->src_prefixlen);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route message with invalid source prefixlen, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_scope(message, &tmp->scope);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route message with invalid scope, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_tos(message, &tmp->tos);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route message with invalid tos, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_type(message, &tmp->type);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route message with invalid type, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_route_get_table(message, &table);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received route message with invalid table, ignoring: %m");
+                return 0;
+        }
+        tmp->table = table;
+
+        r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &tmp->priority);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: received route message with invalid priority, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_enter_container(message, RTA_METRICS);
+        if (r < 0 && r != -ENODATA) {
+                log_link_error_errno(link, r, "rtnl: Could not enter RTA_METRICS container: %m");
+                return 0;
+        }
+        if (r >= 0) {
+                r = sd_netlink_message_read_u32(message, RTAX_INITCWND, &tmp->initcwnd);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message with invalid initcwnd, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_read_u32(message, RTAX_INITRWND, &tmp->initrwnd);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message with invalid initrwnd, ignoring: %m");
+                        return 0;
+                }
+
+                r = sd_netlink_message_exit_container(message);
+                if (r < 0) {
+                        log_link_error_errno(link, r, "rtnl: Could not exit from RTA_METRICS container: %m");
+                        return 0;
+                }
+        }
+
+        (void) route_get(link, tmp, &route);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
+                        *buf_src = NULL, *buf_gw = NULL, *buf_prefsrc = NULL;
+                char buf_scope[ROUTE_SCOPE_STR_MAX], buf_table[ROUTE_TABLE_STR_MAX],
+                        buf_protocol[ROUTE_PROTOCOL_STR_MAX];
+
+                if (!in_addr_is_null(tmp->family, &tmp->dst)) {
+                        (void) in_addr_to_string(tmp->family, &tmp->dst, &buf_dst);
+                        (void) asprintf(&buf_dst_prefixlen, "/%u", tmp->dst_prefixlen);
+                }
+                if (!in_addr_is_null(tmp->family, &tmp->src))
+                        (void) in_addr_to_string(tmp->family, &tmp->src, &buf_src);
+                if (!in_addr_is_null(tmp->family, &tmp->gw))
+                        (void) in_addr_to_string(tmp->family, &tmp->gw, &buf_gw);
+                if (!in_addr_is_null(tmp->family, &tmp->prefsrc))
+                        (void) in_addr_to_string(tmp->family, &tmp->prefsrc, &buf_prefsrc);
+
+                log_link_debug(link,
+                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
+                               (!route && !link->manager->manage_foreign_routes) ? "Ignoring received foreign" :
+                               type == RTM_DELROUTE ? "Forgetting" :
+                               route ? "Received remembered" : "Remembering",
+                               strna(buf_dst), strempty(buf_dst_prefixlen),
+                               strna(buf_src), strna(buf_gw), strna(buf_prefsrc),
+                               format_route_scope(tmp->scope, buf_scope, sizeof buf_scope),
+                               format_route_table(tmp->table, buf_table, sizeof buf_table),
+                               format_route_protocol(tmp->protocol, buf_protocol, sizeof buf_protocol),
+                               strna(route_type_to_string(tmp->type)));
+        }
+
+        switch (type) {
+        case RTM_NEWROUTE:
+                if (!route && link->manager->manage_foreign_routes) {
+                        /* A route appeared that we did not request */
+                        r = route_add_foreign(link, tmp, &route);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
+                                return 0;
+                        }
+                }
+
+                break;
+
+        case RTM_DELROUTE:
+                route_free(route);
+                break;
+
+        default:
+                assert_not_reached("Received route message with invalid RTNL message type");
+        }
+
+        return 1;
+}
+
 int network_add_ipv4ll_route(Network *network) {
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
