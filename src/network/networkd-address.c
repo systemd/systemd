@@ -283,11 +283,11 @@ static int address_add_internal(Link *link, Set **addresses,
         return 0;
 }
 
-int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+static int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
         return address_add_internal(link, &link->addresses_foreign, family, in_addr, prefixlen, ret);
 }
 
-int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
+static int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret) {
         Address *address;
         int r;
 
@@ -337,7 +337,7 @@ static int address_release(Address *address) {
         return 0;
 }
 
-int address_update(
+static int address_update(
                 Address *address,
                 unsigned char flags,
                 unsigned char scope,
@@ -382,7 +382,7 @@ int address_update(
         return 0;
 }
 
-int address_drop(Address *address) {
+static int address_drop(Address *address) {
         Link *link;
         bool ready;
         int r;

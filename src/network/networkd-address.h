@@ -56,12 +56,8 @@ struct Address {
 
 int address_new(Address **ret);
 Address *address_free(Address *address);
-int address_add_foreign(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
-int address_add(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
 int address_get(Link *link, int family, const union in_addr_union *in_addr, unsigned char prefixlen, Address **ret);
 bool address_exists(Link *link, int family, const union in_addr_union *in_addr);
-int address_update(Address *address, unsigned char flags, unsigned char scope, const struct ifa_cacheinfo *cinfo);
-int address_drop(Address *address);
 int address_configure(Address *address, Link *link, link_netlink_message_handler_t callback, bool update, Address **ret);
 int address_remove(Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(Address *a1, Address *a2);
