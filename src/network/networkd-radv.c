@@ -602,11 +602,23 @@ int radv_emit_dns(Link *link) {
         return 0;
 }
 
+static bool link_radv_enabled(Link *link) {
+        assert(link);
+
+        if (!link_ipv6ll_enabled(link))
+                return false;
+
+        return link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE;
+}
+
 int radv_configure(Link *link) {
         int r;
 
         assert(link);
         assert(link->network);
+
+        if (!link_radv_enabled(link))
+                return 0;
 
         r = sd_radv_new(&link->radv);
         if (r < 0)

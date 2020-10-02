@@ -135,15 +135,6 @@ static bool link_ipv6_enabled(Link *link) {
         return false;
 }
 
-static bool link_radv_enabled(Link *link) {
-        assert(link);
-
-        if (!link_ipv6ll_enabled(link))
-                return false;
-
-        return link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE;
-}
-
 bool link_ip_forward_enabled(Link *link, int family) {
         assert(link);
         assert(IN_SET(family, AF_INET, AF_INET6));
@@ -1185,7 +1176,7 @@ static int link_acquire_ipv6_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not start IPv6 Router Discovery: %m");
         }
 
-        if (link_radv_enabled(link)) {
+        if (link->radv) {
                 assert(link->radv);
                 assert(in_addr_is_link_local(AF_INET6, (const union in_addr_union*)&link->ipv6ll_address) > 0);
 
@@ -2406,11 +2397,9 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (link_radv_enabled(link)) {
-                r = radv_configure(link);
-                if (r < 0)
-                        return r;
-        }
+        r = radv_configure(link);
+        if (r < 0)
+                return r;
 
         if (link_lldp_rx_enabled(link)) {
                 r = link_lldp_rx_configure(link);
