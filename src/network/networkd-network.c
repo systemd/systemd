@@ -156,7 +156,6 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
-        TrafficControl *tc;
         SRIOV *sr_iov;
 
         assert(network);
@@ -300,11 +299,7 @@ int network_verify(Network *network) {
         network_verify_prefixes(network);
         network_verify_route_prefixes(network);
         network_verify_routing_policy_rules(network);
-
-        bool has_root = false, has_clsact = false;
-        ORDERED_HASHMAP_FOREACH(tc, network->tc_by_section)
-                if (traffic_control_section_verify(tc, &has_root, &has_clsact) < 0)
-                        traffic_control_free(tc);
+        network_verify_traffic_control(network);
 
         ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section)
                 if (sr_iov_section_verify(sr_iov) < 0)

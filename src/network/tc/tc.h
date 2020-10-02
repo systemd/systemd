@@ -29,4 +29,4 @@ typedef struct TrafficControl {
 
 void traffic_control_free(TrafficControl *tc);
 int link_configure_traffic_control(Link *link);
-int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_root, bool *qdisc_has_clsact);
+void network_verify_traffic_control(Network *network);
