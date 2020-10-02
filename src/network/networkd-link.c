@@ -3975,7 +3975,6 @@ int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state;
         _cleanup_free_ char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        Route *route;
         Address *a;
         int r;
 
@@ -4210,22 +4209,9 @@ int link_save(Link *link) {
 
                 /************************************************************/
 
-                fputs("ROUTES=", f);
-                space = false;
-                SET_FOREACH(route, link->routes) {
-                        _cleanup_free_ char *route_str = NULL;
-
-                        r = in_addr_to_string(route->family, &route->dst, &route_str);
-                        if (r < 0)
-                                goto fail;
-
-                        fprintf(f, "%s%s/%hhu/%hhu/%"PRIu32"/%"PRIu32"/"USEC_FMT,
-                                space ? " " : "", route_str,
-                                route->dst_prefixlen, route->tos, route->priority, route->table, route->lifetime);
-                        space = true;
-                }
-
-                fputc('\n', f);
+                r = link_serialize_routes(link, f);
+                if (r < 0)
+                        goto fail;
         }
 
         print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);

@@ -1234,6 +1234,31 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         return 1;
 }
 
+int link_serialize_routes(Link *link, FILE *f) {
+        bool space = false;
+        Route *route;
+
+        assert(link);
+        assert(link->network);
+        assert(f);
+
+        fputs("ROUTES=", f);
+        SET_FOREACH(route, link->routes) {
+                _cleanup_free_ char *route_str = NULL;
+
+                if (in_addr_to_string(route->family, &route->dst, &route_str) < 0)
+                        continue;
+
+                fprintf(f, "%s%s/%hhu/%hhu/%"PRIu32"/%"PRIu32"/"USEC_FMT,
+                        space ? " " : "", route_str,
+                        route->dst_prefixlen, route->tos, route->priority, route->table, route->lifetime);
+                space = true;
+        }
+        fputc('\n', f);
+
+        return 0;
+}
+
 int link_deserialize_routes(Link *link, const char *routes) {
         int r;
 
