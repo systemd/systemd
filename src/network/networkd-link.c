@@ -947,16 +947,6 @@ static int link_set_static_configs(Link *link) {
         return 0;
 }
 
-static int link_set_bridge_vlan(Link *link) {
-        int r;
-
-        r = br_vlan_configure(link, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
-        if (r < 0)
-                log_link_error_errno(link, r, "Failed to assign VLANs to bridge port: %m");
-
-        return r;
-}
-
 static int link_set_proxy_arp(Link *link) {
         int r;
 
@@ -1842,12 +1832,9 @@ static int link_joined(Link *link) {
                         log_link_error_errno(link, r, "Failed to add to bond master's slave list: %m");
         }
 
-        if (link->network->use_br_vlan &&
-            (link->network->bridge || streq_ptr("bridge", link->kind))) {
-                r = link_set_bridge_vlan(link);
-                if (r < 0)
-                        log_link_error_errno(link, r, "Could not set bridge vlan: %m");
-        }
+        r = link_set_bridge_vlan(link);
+        if (r < 0)
+                log_link_error_errno(link, r, "Could not set bridge vlan: %m");
 
         /* Skip setting up addresses until it gets carrier,
            or it would try to set addresses twice,
