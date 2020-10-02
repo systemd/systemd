@@ -1324,7 +1324,7 @@ static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         return;
 }
 
-int configure_ipv4_duplicate_address_detection(Link *link, Address *address) {
+static int ipv4_dad_configure(Link *link, Address *address) {
         int r;
 
         assert(link);
@@ -1357,6 +1357,24 @@ int configure_ipv4_duplicate_address_detection(Link *link, Address *address) {
         r = sd_ipv4acd_set_callback(address->acd, static_address_on_acd, address);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int link_configure_ipv4_dad(Link *link) {
+        Address *address;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        LIST_FOREACH(addresses, address, link->network->static_addresses)
+                if (address->family == AF_INET &&
+                    FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
+                        r = ipv4_dad_configure(link, address);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to configure IPv4ACD: %m");
+                }
 
         return 0;
 }

@@ -2404,24 +2404,6 @@ static int link_drop_config(Link *link) {
         return 0;
 }
 
-static int link_configure_ipv4_dad(Link *link) {
-        Address *address;
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        LIST_FOREACH(addresses, address, link->network->static_addresses)
-                if (address->family == AF_INET &&
-                    FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
-                        r = configure_ipv4_duplicate_address_detection(link, address);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to configure IPv4ACD: %m");
-                }
-
-        return 0;
-}
-
 static int link_configure_traffic_control(Link *link) {
         TrafficControl *tc;
         int r;

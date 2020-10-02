@@ -68,7 +68,6 @@ int address_configure(Address *address, Link *link, link_netlink_message_handler
 int address_remove(Address *address, Link *link, link_netlink_message_handler_t callback);
 bool address_equal(Address *a1, Address *a2);
 bool address_is_ready(const Address *a);
-int configure_ipv4_duplicate_address_detection(Link *link, Address *address);
 
 int generate_ipv6_eui_64_address(Link *link, struct in6_addr *ret);
 
@@ -79,6 +78,7 @@ int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 int link_serialize_addresses(Link *link, FILE *f);
 int link_deserialize_addresses(Link *link, const char *addresses);
+int link_configure_ipv4_dad(Link *link);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
