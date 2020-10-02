@@ -3511,16 +3511,9 @@ int link_save(Link *link) {
         } else
                 (void) unlink(link->lease_file);
 
-        if (link->ipv4ll) {
-                struct in_addr address;
-
-                r = sd_ipv4ll_get_address(link->ipv4ll, &address);
-                if (r >= 0) {
-                        fputs("IPV4LL_ADDRESS=", f);
-                        serialize_in_addrs(f, &address, 1, false, NULL);
-                        fputc('\n', f);
-                }
-        }
+        r = link_serialize_ipv4ll(link, f);
+        if (r < 0)
+                goto fail;
 
         if (link->dhcp6_client) {
                 _cleanup_free_ char *duid = NULL;

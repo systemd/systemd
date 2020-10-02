@@ -195,6 +195,28 @@ int ipv4ll_configure(Link *link) {
         return 0;
 }
 
+int link_serialize_ipv4ll(Link *link, FILE *f) {
+        struct in_addr address;
+        int r;
+
+        assert(link);
+
+        if (!link->ipv4ll)
+                return 0;
+
+        r = sd_ipv4ll_get_address(link->ipv4ll, &address);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return r;
+
+        fputs("IPV4LL_ADDRESS=", f);
+        serialize_in_addrs(f, &address, 1, false, NULL);
+        fputc('\n', f);
+
+        return 0;
+}
+
 int link_deserialize_ipv4ll(Link *link, const char *ipv4ll_address) {
         union in_addr_union address;
         int r;
