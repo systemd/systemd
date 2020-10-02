@@ -68,6 +68,8 @@ extern const struct hash_ops route_hash_ops;
 
 int route_new(Route **ret);
 Route *route_free(Route *route);
+DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
+
 int route_configure(Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
 int route_remove(Route *route, Link *link, link_netlink_message_handler_t callback);
 
@@ -79,30 +81,9 @@ int link_deserialize_routes(Link *link, const char *routes);
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
-int route_get(Link *link, Route *in, Route **ret);
-int route_add(Link *link, Route *in, Route **ret);
-int route_add_foreign(Link *link, Route *in, Route **ret);
-bool route_equal(Route *r1, Route *r2);
-
-int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata);
-
-DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
-
 int network_add_ipv4ll_route(Network *network);
 int network_add_default_route_on_device(Network *network);
 void network_verify_routes(Network *network);
-
-const char* route_type_to_string(int t) _const_;
-int route_type_from_string(const char *s) _pure_;
-
-#define ROUTE_SCOPE_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("nowhere") + 1)
-const char *format_route_scope(int scope, char *buf, size_t size);
-
-#define ROUTE_TABLE_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("default") + 1)
-const char *format_route_table(int table, char *buf, size_t size);
-
-#define ROUTE_PROTOCOL_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("redirect") + 1)
-const char *format_route_protocol(int protocol, char *buf, size_t size);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);

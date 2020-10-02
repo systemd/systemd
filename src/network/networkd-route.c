@@ -25,6 +25,116 @@
 
 #define ROUTES_DEFAULT_MAX_PER_FAMILY 4096U
 
+static const char * const route_type_table[__RTN_MAX] = {
+        [RTN_UNICAST]     = "unicast",
+        [RTN_LOCAL]       = "local",
+        [RTN_BROADCAST]   = "broadcast",
+        [RTN_ANYCAST]     = "anycast",
+        [RTN_MULTICAST]   = "multicast",
+        [RTN_BLACKHOLE]   = "blackhole",
+        [RTN_UNREACHABLE] = "unreachable",
+        [RTN_PROHIBIT]    = "prohibit",
+        [RTN_THROW]       = "throw",
+        [RTN_NAT]         = "nat",
+        [RTN_XRESOLVE]    = "xresolve",
+};
+
+assert_cc(__RTN_MAX <= UCHAR_MAX);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_type, int);
+
+static const char * const route_scope_table[] = {
+        [RT_SCOPE_UNIVERSE] = "global",
+        [RT_SCOPE_SITE]     = "site",
+        [RT_SCOPE_LINK]     = "link",
+        [RT_SCOPE_HOST]     = "host",
+        [RT_SCOPE_NOWHERE]  = "nowhere",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_scope, int);
+
+#define ROUTE_SCOPE_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("nowhere") + 1)
+static const char *format_route_scope(int scope, char *buf, size_t size) {
+        const char *s;
+        char *p = buf;
+
+        s = route_scope_to_string(scope);
+        if (s)
+                strpcpy(&p, size, s);
+        else
+                strpcpyf(&p, size, "%d", scope);
+
+        return buf;
+}
+
+static const char * const route_table_table[] = {
+        [RT_TABLE_DEFAULT] = "default",
+        [RT_TABLE_MAIN]    = "main",
+        [RT_TABLE_LOCAL]   = "local",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_table, int);
+
+#define ROUTE_TABLE_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("default") + 1)
+static const char *format_route_table(int table, char *buf, size_t size) {
+        const char *s;
+        char *p = buf;
+
+        s = route_table_to_string(table);
+        if (s)
+                strpcpy(&p, size, s);
+        else
+                strpcpyf(&p, size, "%d", table);
+
+        return buf;
+}
+
+static const char * const route_protocol_table[] = {
+        [RTPROT_KERNEL] = "kernel",
+        [RTPROT_BOOT]   = "boot",
+        [RTPROT_STATIC] = "static",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(route_protocol, int);
+
+static const char * const route_protocol_full_table[] = {
+        [RTPROT_REDIRECT] = "redirect",
+        [RTPROT_KERNEL]   = "kernel",
+        [RTPROT_BOOT]     = "boot",
+        [RTPROT_STATIC]   = "static",
+        [RTPROT_GATED]    = "gated",
+        [RTPROT_RA]       = "ra",
+        [RTPROT_MRT]      = "mrt",
+        [RTPROT_ZEBRA]    = "zebra",
+        [RTPROT_BIRD]     = "bird",
+        [RTPROT_DNROUTED] = "dnrouted",
+        [RTPROT_XORP]     = "xorp",
+        [RTPROT_NTK]      = "ntk",
+        [RTPROT_DHCP]     = "dhcp",
+        [RTPROT_MROUTED]  = "mrouted",
+        [RTPROT_BABEL]    = "babel",
+        [RTPROT_BGP]      = "bgp",
+        [RTPROT_ISIS]     = "isis",
+        [RTPROT_OSPF]     = "ospf",
+        [RTPROT_RIP]      = "rip",
+        [RTPROT_EIGRP]    = "eigrp",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(route_protocol_full, int);
+
+#define ROUTE_PROTOCOL_STR_MAX CONST_MAX(DECIMAL_STR_MAX(int), STRLEN("redirect") + 1)
+static const char *format_route_protocol(int protocol, char *buf, size_t size) {
+        const char *s;
+        char *p = buf;
+
+        s = route_protocol_full_to_string(protocol);
+        if (s)
+                strpcpy(&p, size, s);
+        else
+                strpcpyf(&p, size, "%d", protocol);
+
+        return buf;
+}
+
 static unsigned routes_max(void) {
         static thread_local unsigned cached = 0;
 
@@ -282,7 +392,7 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_compare_func,
                 route_free);
 
-bool route_equal(Route *r1, Route *r2) {
+static bool route_equal(Route *r1, Route *r2) {
         if (r1 == r2)
                 return true;
 
@@ -292,7 +402,7 @@ bool route_equal(Route *r1, Route *r2) {
         return route_compare_func(r1, r2) == 0;
 }
 
-int route_get(Link *link, Route *in, Route **ret) {
+static int route_get(Link *link, Route *in, Route **ret) {
 
         Route *existing;
 
@@ -362,11 +472,11 @@ static int route_add_internal(Link *link, Set **routes, Route *in, Route **ret) 
         return 0;
 }
 
-int route_add_foreign(Link *link, Route *in, Route **ret) {
+static int route_add_foreign(Link *link, Route *in, Route **ret) {
         return route_add_internal(link, &link->routes_foreign, in, ret);
 }
 
-int route_add(Link *link, Route *in, Route **ret) {
+static int route_add(Link *link, Route *in, Route **ret) {
 
         Route *route;
         int r;
@@ -585,7 +695,7 @@ int link_drop_routes(Link *link) {
         return r;
 }
 
-int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         Route *route = userdata;
         int r;
 
@@ -1376,113 +1486,6 @@ int network_add_default_route_on_device(Network *network) {
 
         TAKE_PTR(n);
         return 0;
-}
-
-static const char * const route_type_table[__RTN_MAX] = {
-        [RTN_UNICAST]     = "unicast",
-        [RTN_LOCAL]       = "local",
-        [RTN_BROADCAST]   = "broadcast",
-        [RTN_ANYCAST]     = "anycast",
-        [RTN_MULTICAST]   = "multicast",
-        [RTN_BLACKHOLE]   = "blackhole",
-        [RTN_UNREACHABLE] = "unreachable",
-        [RTN_PROHIBIT]    = "prohibit",
-        [RTN_THROW]       = "throw",
-        [RTN_NAT]         = "nat",
-        [RTN_XRESOLVE]    = "xresolve",
-};
-
-assert_cc(__RTN_MAX <= UCHAR_MAX);
-DEFINE_STRING_TABLE_LOOKUP(route_type, int);
-
-static const char * const route_scope_table[] = {
-        [RT_SCOPE_UNIVERSE] = "global",
-        [RT_SCOPE_SITE]     = "site",
-        [RT_SCOPE_LINK]     = "link",
-        [RT_SCOPE_HOST]     = "host",
-        [RT_SCOPE_NOWHERE]  = "nowhere",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_scope, int);
-
-const char *format_route_scope(int scope, char *buf, size_t size) {
-        const char *s;
-        char *p = buf;
-
-        s = route_scope_to_string(scope);
-        if (s)
-                strpcpy(&p, size, s);
-        else
-                strpcpyf(&p, size, "%d", scope);
-
-        return buf;
-}
-
-static const char * const route_table_table[] = {
-        [RT_TABLE_DEFAULT] = "default",
-        [RT_TABLE_MAIN]    = "main",
-        [RT_TABLE_LOCAL]   = "local",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(route_table, int);
-
-const char *format_route_table(int table, char *buf, size_t size) {
-        const char *s;
-        char *p = buf;
-
-        s = route_table_to_string(table);
-        if (s)
-                strpcpy(&p, size, s);
-        else
-                strpcpyf(&p, size, "%d", table);
-
-        return buf;
-}
-
-static const char * const route_protocol_table[] = {
-        [RTPROT_KERNEL] = "kernel",
-        [RTPROT_BOOT]   = "boot",
-        [RTPROT_STATIC] = "static",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(route_protocol, int);
-
-static const char * const route_protocol_full_table[] = {
-        [RTPROT_REDIRECT] = "redirect",
-        [RTPROT_KERNEL]   = "kernel",
-        [RTPROT_BOOT]     = "boot",
-        [RTPROT_STATIC]   = "static",
-        [RTPROT_GATED]    = "gated",
-        [RTPROT_RA]       = "ra",
-        [RTPROT_MRT]      = "mrt",
-        [RTPROT_ZEBRA]    = "zebra",
-        [RTPROT_BIRD]     = "bird",
-        [RTPROT_DNROUTED] = "dnrouted",
-        [RTPROT_XORP]     = "xorp",
-        [RTPROT_NTK]      = "ntk",
-        [RTPROT_DHCP]     = "dhcp",
-        [RTPROT_MROUTED]  = "mrouted",
-        [RTPROT_BABEL]    = "babel",
-        [RTPROT_BGP]      = "bgp",
-        [RTPROT_ISIS]     = "isis",
-        [RTPROT_OSPF]     = "ospf",
-        [RTPROT_RIP]      = "rip",
-        [RTPROT_EIGRP]    = "eigrp",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(route_protocol_full, int);
-
-const char *format_route_protocol(int protocol, char *buf, size_t size) {
-        const char *s;
-        char *p = buf;
-
-        s = route_protocol_full_to_string(protocol);
-        if (s)
-                strpcpy(&p, size, s);
-        else
-                strpcpyf(&p, size, "%d", protocol);
-
-        return buf;
 }
 
 int config_parse_gateway(
