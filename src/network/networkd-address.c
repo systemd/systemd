@@ -1238,6 +1238,51 @@ int link_serialize_addresses(Link *link, FILE *f) {
         return 0;
 }
 
+int link_deserialize_addresses(Link *link, const char *addresses) {
+        int r;
+
+        assert(link);
+
+        for (const char *p = addresses;; ) {
+                _cleanup_free_ char *address_str = NULL;
+                union in_addr_union address;
+                unsigned char prefixlen;
+                char *prefixlen_str;
+                int family;
+
+                r = extract_first_word(&p, &address_str, NULL, 0);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to parse ADDRESSES=: %m");
+                if (r == 0)
+                        return 0;
+
+                prefixlen_str = strchr(address_str, '/');
+                if (!prefixlen_str) {
+                        log_link_debug(link, "Failed to parse address and prefix length, ignoring: %s", address_str);
+                        continue;
+                }
+                *prefixlen_str++ = '\0';
+
+                r = sscanf(prefixlen_str, "%hhu", &prefixlen);
+                if (r != 1) {
+                        log_link_debug(link, "Failed to parse prefixlen: %s", prefixlen_str);
+                        continue;
+                }
+
+                r = in_addr_from_string_auto(address_str, &family, &address);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Failed to parse address: %s", address_str);
+                        continue;
+                }
+
+                r = address_add(link, family, &address, prefixlen, NULL);
+                if (r < 0)
+                        log_link_debug_errno(link, r, "Failed to add address: %m");
+        }
+
+        return 0;
+}
+
 static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         _cleanup_free_ char *pretty = NULL;
         Address *address;

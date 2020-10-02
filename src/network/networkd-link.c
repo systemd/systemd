@@ -3087,41 +3087,9 @@ static int link_load(Link *link) {
 
 network_file_fail:
 
-        for (const char *p = addresses; p; ) {
-                _cleanup_free_ char *address_str = NULL;
-                char *prefixlen_str;
-                int family;
-                unsigned char prefixlen;
-
-                r = extract_first_word(&p, &address_str, NULL, 0);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "failed to parse ADDRESSES: %m");
-                if (r <= 0)
-                        break;
-
-                prefixlen_str = strchr(address_str, '/');
-                if (!prefixlen_str) {
-                        log_link_debug(link, "Failed to parse address and prefix length %s", address_str);
-                        continue;
-                }
-                *prefixlen_str++ = '\0';
-
-                r = sscanf(prefixlen_str, "%hhu", &prefixlen);
-                if (r != 1) {
-                        log_link_error(link, "Failed to parse prefixlen %s", prefixlen_str);
-                        continue;
-                }
-
-                r = in_addr_from_string_auto(address_str, &family, &address);
-                if (r < 0) {
-                        log_link_debug_errno(link, r, "Failed to parse address %s: %m", address_str);
-                        continue;
-                }
-
-                r = address_add(link, family, &address, prefixlen, NULL);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to add address: %m");
-        }
+        r = link_deserialize_addresses(link, addresses);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to load addresses from %s, ignoring: %m", link->state_file);
 
         r = link_deserialize_routes(link, routes);
         if (r < 0)
