@@ -11,6 +11,7 @@
 #include "hostname-util.h"
 #include "parse-util.h"
 #include "network-internal.h"
+#include "networkd-address.h"
 #include "networkd-dhcp4.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

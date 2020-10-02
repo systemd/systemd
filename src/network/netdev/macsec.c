@@ -13,7 +13,6 @@
 #include "memory-util.h"
 #include "netlink-util.h"
 #include "network-internal.h"
-#include "networkd-address.h"
 #include "networkd-manager.h"
 #include "path-util.h"
 #include "socket-util.h"

@@ -15,7 +15,6 @@
 #include "sd-radv.h"
 #include "sd-netlink.h"
 
-#include "list.h"
 #include "log-link.h"
 #include "network-util.h"
 #include "networkd-util.h"

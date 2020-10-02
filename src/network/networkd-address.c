@@ -3,20 +3,15 @@
 #include <net/if.h>
 
 #include "alloc-util.h"
-#include "conf-parser.h"
 #include "firewall-util.h"
 #include "memory-util.h"
-#include "missing_network.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"
-#include "networkd-ndisc.h"
+#include "networkd-network.h"
 #include "parse-util.h"
-#include "set.h"
-#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "utf8.h"
 
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U

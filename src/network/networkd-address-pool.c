@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "networkd-address-pool.h"
+#include "networkd-address.h"
 #include "networkd-manager.h"
 #include "set.h"
 #include "string-util.h"

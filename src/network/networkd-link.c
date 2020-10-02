@@ -21,6 +21,7 @@
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "networkd-address-label.h"
+#include "networkd-address.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"

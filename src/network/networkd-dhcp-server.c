@@ -4,6 +4,7 @@
 
 #include "fd-util.h"
 #include "fileio.h"
+#include "networkd-address.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"

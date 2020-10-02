@@ -3,26 +3,22 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
-
-#include "conf-parser.h"
-#include "in-addr-util.h"
-
-typedef struct Address Address;
-
-#include "networkd-link.h"
-#include "networkd-network.h"
-#include "networkd-util.h"
+#include <stdio.h>
 
 #include "sd-ipv4acd.h"
 
+#include "conf-parser.h"
+#include "in-addr-util.h"
+#include "networkd-link.h"
+#include "networkd-util.h"
+
 #define CACHE_INFO_INFINITY_LIFE_TIME 0xFFFFFFFFU
 
+typedef struct Manager Manager;
 typedef struct Network Network;
-typedef struct Link Link;
-typedef struct NetworkConfigSection NetworkConfigSection;
 typedef int (*address_ready_callback_t)(Address *address);
 
-struct Address {
+typedef struct Address {
         Network *network;
         NetworkConfigSection *section;
 
@@ -52,7 +48,7 @@ struct Address {
         address_ready_callback_t callback;
 
         sd_ipv4acd *acd;
-};
+} Address;
 
 int address_new(Address **ret);
 Address *address_free(Address *address);
