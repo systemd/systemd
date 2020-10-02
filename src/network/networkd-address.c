@@ -542,6 +542,85 @@ int address_remove(
         return 0;
 }
 
+static bool link_is_static_address_configured(Link *link, Address *address) {
+        Address *net_address;
+
+        assert(link);
+        assert(address);
+
+        if (!link->network)
+                return false;
+
+        LIST_FOREACH(addresses, net_address, link->network->static_addresses)
+                if (address_equal(net_address, address))
+                        return true;
+                else if (address->family == AF_INET6 && net_address->family == AF_INET6 &&
+                         in_addr_equal(AF_INET6, &address->in_addr, &net_address->in_addr_peer) > 0)
+                        return true;
+
+        return false;
+}
+
+static bool link_address_is_dynamic(Link *link, Address *address) {
+        Route *route;
+
+        assert(link);
+        assert(address);
+
+        if (address->cinfo.ifa_prefered != CACHE_INFO_INFINITY_LIFE_TIME)
+                return true;
+
+        /* Even when the address is leased from a DHCP server, networkd assign the address
+         * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
+         * corresponding routes with RTPROT_DHCP. */
+        SET_FOREACH(route, link->routes_foreign) {
+                if (route->protocol != RTPROT_DHCP)
+                        continue;
+
+                if (address->family != route->family)
+                        continue;
+
+                if (in_addr_equal(address->family, &address->in_addr, &route->prefsrc))
+                        return true;
+        }
+
+        return false;
+}
+
+int link_drop_foreign_addresses(Link *link) {
+        Address *address;
+        int k, r = 0;
+
+        assert(link);
+
+        SET_FOREACH(address, link->addresses_foreign) {
+                /* we consider IPv6LL addresses to be managed by the kernel */
+                if (address->family == AF_INET6 && in_addr_is_link_local(AF_INET6, &address->in_addr) == 1 && link_ipv6ll_enabled(link))
+                        continue;
+
+                if (link_address_is_dynamic(link, address)) {
+                        if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                                continue;
+                } else if (link->network && FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                        continue;
+
+                if (link_is_static_address_configured(link, address)) {
+                        k = address_add(link, address->family, &address->in_addr, address->prefixlen, NULL);
+                        if (k < 0) {
+                                log_link_error_errno(link, k, "Failed to add address: %m");
+                                if (r >= 0)
+                                        r = k;
+                        }
+                } else {
+                        k = address_remove(address, link, NULL);
+                        if (k < 0 && r >= 0)
+                                r = k;
+                }
+        }
+
+        return r;
+}
+
 static int address_acquire(Link *link, Address *original, Address **ret) {
         union in_addr_union in_addr = IN_ADDR_NULL;
         struct in_addr broadcast = {};
