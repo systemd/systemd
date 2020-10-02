@@ -108,7 +108,7 @@ static int sr_iov_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return 1;
 }
 
-int sr_iov_configure(Link *link, SRIOV *sr_iov) {
+static int sr_iov_configure(Link *link, SRIOV *sr_iov) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -222,6 +222,27 @@ int sr_iov_configure(Link *link, SRIOV *sr_iov) {
 
         link_ref(link);
         link->sr_iov_messages++;
+
+        return 0;
+}
+
+int link_configure_sr_iov(Link *link) {
+        SRIOV *sr_iov;
+        int r;
+
+        link->sr_iov_configured = false;
+        link->sr_iov_messages = 0;
+
+        ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section) {
+                r = sr_iov_configure(link, sr_iov);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->sr_iov_messages == 0)
+                link->sr_iov_configured = true;
+        else
+                log_link_debug(link, "Configuring SR-IOV");
 
         return 0;
 }

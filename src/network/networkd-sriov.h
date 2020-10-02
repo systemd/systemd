@@ -34,8 +34,7 @@ typedef struct SRIOV {
 } SRIOV;
 
 SRIOV *sr_iov_free(SRIOV *sr_iov);
-
-int sr_iov_configure(Link *link, SRIOV *sr_iov);
+int link_configure_sr_iov(Link *link);
 int sr_iov_section_verify(SRIOV *sr_iov);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(SRIOV, sr_iov_free);

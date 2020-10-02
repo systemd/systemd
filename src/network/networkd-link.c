@@ -2240,27 +2240,6 @@ static int link_drop_config(Link *link) {
         return 0;
 }
 
-static int link_configure_sr_iov(Link *link) {
-        SRIOV *sr_iov;
-        int r;
-
-        link->sr_iov_configured = false;
-        link->sr_iov_messages = 0;
-
-        ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section) {
-                r = sr_iov_configure(link, sr_iov);
-                if (r < 0)
-                        return r;
-        }
-
-        if (link->sr_iov_messages == 0)
-                link->sr_iov_configured = true;
-        else
-                log_link_debug(link, "Configuring SR-IOV");
-
-        return 0;
-}
-
 int link_configure(Link *link) {
         int r;
 
