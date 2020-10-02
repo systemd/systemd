@@ -1,14 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdio.h>
+
+#include "sd-netlink.h"
+
 #include "conf-parser.h"
-#include "macro.h"
-
-typedef struct Route Route;
-typedef struct NetworkConfigSection NetworkConfigSection;
-
-#include "networkd-network.h"
+#include "in-addr-util.h"
+#include "networkd-link.h"
 #include "networkd-util.h"
+
+typedef struct Manager Manager;
+typedef struct Network Network;
 
 typedef struct MultipathRouteVia {
         uint16_t family;
@@ -21,7 +26,7 @@ typedef struct MultipathRoute {
         uint32_t weight;
 } MultipathRoute;
 
-struct Route {
+typedef struct Route {
         Network *network;
         NetworkConfigSection *section;
 
@@ -58,7 +63,7 @@ struct Route {
 
         usec_t lifetime;
         sd_event_source *expire;
-};
+} Route;
 
 void route_hash_func(const Route *route, struct siphash *state);
 int route_compare_func(const Route *a, const Route *b);
