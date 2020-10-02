@@ -6,6 +6,7 @@
 #include "firewall-util.h"
 #include "memory-util.h"
 #include "netlink-util.h"
+#include "networkd-address-pool.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"

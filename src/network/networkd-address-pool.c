@@ -15,7 +15,8 @@ static int address_pool_new(
                 const union in_addr_union *u,
                 unsigned prefixlen) {
 
-        AddressPool *p;
+        _cleanup_free_ AddressPool *p = NULL;
+        int r;
 
         assert(m);
         assert(u);
@@ -31,8 +32,11 @@ static int address_pool_new(
                 .in_addr = *u,
         };
 
-        LIST_PREPEND(address_pools, m->address_pools, p);
+        r = ordered_set_ensure_put(&m->address_pools, NULL, p);
+        if (r < 0)
+                return r;
 
+        TAKE_PTR(p);
         return 0;
 }
 
@@ -55,17 +59,6 @@ static int address_pool_new_from_string(
         return address_pool_new(m, family, &u, prefixlen);
 }
 
-void address_pool_free(AddressPool *p) {
-
-        if (!p)
-                return;
-
-        if (p->manager)
-                LIST_REMOVE(address_pools, p->manager->address_pools, p);
-
-        free(p);
-}
-
 int address_pool_setup_default(Manager *m) {
         int r;
 
@@ -76,7 +69,7 @@ int address_pool_setup_default(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = address_pool_new_from_string(m, AF_INET, "10.0.0.0", 8);
+        r = address_pool_new_from_string(m, AF_INET, "192.168.0.0", 16);
         if (r < 0)
                 return r;
 
@@ -84,7 +77,7 @@ int address_pool_setup_default(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = address_pool_new_from_string(m, AF_INET, "192.168.0.0", 16);
+        r = address_pool_new_from_string(m, AF_INET, "10.0.0.0", 8);
         if (r < 0)
                 return r;
 
@@ -187,7 +180,7 @@ int address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_ad
         assert(prefixlen > 0);
         assert(found);
 
-        LIST_FOREACH(address_pools, p, m->address_pools) {
+        ORDERED_SET_FOREACH(p, m->address_pools) {
                 r = address_pool_acquire_one(p, family, prefixlen, found);
                 if (r != 0)
                         return r;

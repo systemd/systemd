@@ -24,6 +24,7 @@
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "networkd-address-pool.h"
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
@@ -855,7 +856,6 @@ int manager_new(Manager **ret) {
 }
 
 void manager_free(Manager *m) {
-        AddressPool *pool;
         Link *link;
 
         if (!m)
@@ -878,8 +878,7 @@ void manager_free(Manager *m) {
 
         m->netdevs = hashmap_free_with_destructor(m->netdevs, netdev_unref);
 
-        while ((pool = m->address_pools))
-                address_pool_free(pool);
+        ordered_set_free_free(m->address_pools);
 
         /* routing_policy_rule_free() access m->rules and m->rules_foreign.
          * So, it is necessary to set NULL after the sets are freed. */

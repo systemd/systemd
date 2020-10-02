@@ -10,12 +10,11 @@
 
 #include "dhcp-identifier.h"
 #include "hashmap.h"
-#include "list.h"
-#include "time-util.h"
-
-#include "networkd-address-pool.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
+#include "ordered-set.h"
+#include "set.h"
+#include "time-util.h"
 
 struct Manager {
         sd_netlink *rtnl;
@@ -45,7 +44,7 @@ struct Manager {
         OrderedHashmap *networks;
         Hashmap *dhcp6_prefixes;
         Set *dhcp6_pd_prefixes;
-        LIST_HEAD(AddressPool, address_pools);
+        OrderedSet *address_pools;
 
         usec_t network_dirs_ts_usec;
 
