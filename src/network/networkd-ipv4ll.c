@@ -195,6 +195,36 @@ int ipv4ll_configure(Link *link) {
         return 0;
 }
 
+int ipv4ll_update_mac(Link *link) {
+        bool restart;
+        int r;
+
+        assert(link);
+
+        if (!link->ipv4ll)
+                return 0;
+
+        restart = sd_ipv4ll_is_running(link->ipv4ll) > 0;
+
+        if (restart) {
+                r = sd_ipv4ll_stop(link->ipv4ll);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
+        if (r < 0)
+                return r;
+
+        if (restart) {
+                r = sd_ipv4ll_start(link->ipv4ll);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 int link_serialize_ipv4ll(Link *link, FILE *f) {
         struct in_addr address;
         int r;

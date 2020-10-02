@@ -3035,25 +3035,9 @@ int link_update(Link *link, sd_netlink_message *m) {
                                mac.ether_addr_octet[4],
                                mac.ether_addr_octet[5]);
 
-                if (link->ipv4ll) {
-                        bool restart = sd_ipv4ll_is_running(link->ipv4ll) > 0;
-
-                        if (restart) {
-                                r = sd_ipv4ll_stop(link->ipv4ll);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not stop IPv4LL client: %m");
-                        }
-
-                        r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not update MAC address in IPv4LL client: %m");
-
-                        if (restart) {
-                                r = sd_ipv4ll_start(link->ipv4ll);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not restart IPv4LL client: %m");
-                        }
-                }
+                r = ipv4ll_update_mac(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not update MAC address in IPv4LL client: %m");
 
                 if (link->dhcp_client) {
                         r = sd_dhcp_client_set_mac(link->dhcp_client,
