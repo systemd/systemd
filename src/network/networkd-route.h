@@ -71,6 +71,8 @@ void route_free(Route *route);
 int route_configure(Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
 int route_remove(Route *route, Link *link, link_netlink_message_handler_t callback);
 
+int link_set_routes(Link *link);
+
 int route_get(Link *link, Route *in, Route **ret);
 int route_add(Link *link, Route *in, Route **ret);
 int route_add_foreign(Link *link, Route *in, Route **ret);

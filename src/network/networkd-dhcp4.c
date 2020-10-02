@@ -698,7 +698,7 @@ static int dhcp4_address_ready_callback(Address *address) {
                 return r;
 
         /* Reconfigure static routes as kernel may remove some routes when lease expires. */
-        r = link_request_set_routes(link);
+        r = link_set_routes(link);
         if (r < 0)
                 return r;
 
@@ -755,9 +755,9 @@ static int dhcp4_update_address(Link *link, bool announce) {
         link_set_state(link, LINK_STATE_CONFIGURING);
         link->dhcp4_configured = false;
 
-        /* address_handler calls link_request_set_routes() and link_request_set_nexthop(). Before they
-         * are called, the related flags must be cleared. Otherwise, the link becomes configured state
-         * before routes are configured. */
+        /* address_handler calls link_set_routes() and link_set_nexthop(). Before they are called, the
+         * related flags must be cleared. Otherwise, the link becomes configured state before routes
+         * are configured. */
         link->static_routes_configured = false;
         link->static_nexthops_configured = false;
 

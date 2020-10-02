@@ -368,7 +368,7 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                         return 1;
                 }
 
-                r = link_request_set_routes(link);
+                r = link_set_routes(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return 1;
@@ -1133,9 +1133,9 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         else {
                 log_link_debug(link, "Setting SLAAC addresses.");
 
-                /* address_handler calls link_request_set_routes() and link_request_set_nexthop().
-                 * Before they are called, the related flags must be cleared. Otherwise, the link
-                 * becomes configured state before routes are configured. */
+                /* address_handler calls link_set_routes() and link_set_nexthop(). Before they are
+                 * called, the related flags must be cleared. Otherwise, the link becomes configured
+                 * state before routes are configured. */
                 link->static_routes_configured = false;
                 link->static_nexthops_configured = false;
         }
