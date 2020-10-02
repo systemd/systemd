@@ -21,7 +21,7 @@ void traffic_control_free(TrafficControl *tc) {
         }
 }
 
-int traffic_control_configure(Link *link, TrafficControl *tc) {
+static int traffic_control_configure(Link *link, TrafficControl *tc) {
         assert(link);
         assert(tc);
 
@@ -33,6 +33,27 @@ int traffic_control_configure(Link *link, TrafficControl *tc) {
         default:
                 assert_not_reached("Invalid traffic control type");
         }
+}
+
+int link_configure_traffic_control(Link *link) {
+        TrafficControl *tc;
+        int r;
+
+        link->tc_configured = false;
+        link->tc_messages = 0;
+
+        ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section) {
+                r = traffic_control_configure(link, tc);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->tc_messages == 0)
+                link->tc_configured = true;
+        else
+                log_link_debug(link, "Configuring traffic control");
+
+        return 0;
 }
 
 int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_root, bool *qdisc_has_clsact) {

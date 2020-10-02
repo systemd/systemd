@@ -28,5 +28,5 @@ typedef struct TrafficControl {
 #define TC(tc) (&(tc)->meta)
 
 void traffic_control_free(TrafficControl *tc);
-int traffic_control_configure(Link *link, TrafficControl *tc);
+int link_configure_traffic_control(Link *link);
 int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_root, bool *qdisc_has_clsact);

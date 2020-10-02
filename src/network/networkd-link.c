@@ -2240,27 +2240,6 @@ static int link_drop_config(Link *link) {
         return 0;
 }
 
-static int link_configure_traffic_control(Link *link) {
-        TrafficControl *tc;
-        int r;
-
-        link->tc_configured = false;
-        link->tc_messages = 0;
-
-        ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section) {
-                r = traffic_control_configure(link, tc);
-                if (r < 0)
-                        return r;
-        }
-
-        if (link->tc_messages == 0)
-                link->tc_configured = true;
-        else
-                log_link_debug(link, "Configuring traffic control");
-
-        return 0;
-}
-
 static int link_configure_sr_iov(Link *link) {
         SRIOV *sr_iov;
         int r;
