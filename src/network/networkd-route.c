@@ -511,6 +511,61 @@ int route_remove(Route *route, Link *link,
         return 0;
 }
 
+static bool link_is_static_route_configured(Link *link, Route *route) {
+        Route *net_route;
+
+        assert(link);
+        assert(route);
+
+        if (!link->network)
+                return false;
+
+        LIST_FOREACH(routes, net_route, link->network->static_routes)
+                if (route_equal(net_route, route))
+                        return true;
+
+        return false;
+}
+
+int link_drop_foreign_routes(Link *link) {
+        Route *route;
+        int k, r = 0;
+
+        assert(link);
+
+        SET_FOREACH(route, link->routes_foreign) {
+                /* do not touch routes managed by the kernel */
+                if (route->protocol == RTPROT_KERNEL)
+                        continue;
+
+                /* do not touch multicast route added by kernel */
+                /* FIXME: Why the kernel adds this route with protocol RTPROT_BOOT??? We need to investigate that.
+                 * https://tools.ietf.org/html/rfc4862#section-5.4 may explain why. */
+                if (route->protocol == RTPROT_BOOT &&
+                    route->family == AF_INET6 &&
+                    route->dst_prefixlen == 8 &&
+                    in_addr_equal(AF_INET6, &route->dst, &(union in_addr_union) { .in6 = {{{ 0xff,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }}} }))
+                        continue;
+
+                if (route->protocol == RTPROT_STATIC && link->network &&
+                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                        continue;
+
+                if (route->protocol == RTPROT_DHCP && link->network &&
+                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                        continue;
+
+                if (link_is_static_route_configured(link, route))
+                        k = route_add(link, route, NULL);
+                else
+                        k = route_remove(route, link, NULL);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
 int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         Route *route = userdata;
         int r;

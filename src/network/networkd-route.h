@@ -72,6 +72,7 @@ int route_configure(Route *route, Link *link, link_netlink_message_handler_t cal
 int route_remove(Route *route, Link *link, link_netlink_message_handler_t callback);
 
 int link_set_routes(Link *link);
+int link_drop_foreign_routes(Link *link);
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
