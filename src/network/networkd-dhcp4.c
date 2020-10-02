@@ -1182,7 +1182,7 @@ int dhcp4_set_promote_secondaries(Link *link) {
         return 0;
 }
 
-int dhcp4_set_client_identifier(Link *link) {
+static int dhcp4_set_client_identifier(Link *link) {
         int r;
 
         assert(link);
@@ -1429,6 +1429,25 @@ int dhcp4_configure(Link *link) {
         }
 
         return dhcp4_set_client_identifier(link);
+}
+
+int dhcp4_update_mac(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->dhcp_client)
+                return 0;
+
+        r = sd_dhcp_client_set_mac(link->dhcp_client, (const uint8_t *) &link->mac, sizeof (link->mac), ARPHRD_ETHER);
+        if (r < 0)
+                return r;
+
+        r = dhcp4_set_client_identifier(link);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 int link_deserialize_dhcp4(Link *link, const char *dhcp4_address) {

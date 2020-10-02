@@ -18,7 +18,7 @@ typedef enum DHCPClientIdentifier {
 } DHCPClientIdentifier;
 
 int dhcp4_configure(Link *link);
-int dhcp4_set_client_identifier(Link *link);
+int dhcp4_update_mac(Link *link);
 int dhcp4_set_promote_secondaries(Link *link);
 
 int link_deserialize_dhcp4(Link *link, const char *dhcp4_address);

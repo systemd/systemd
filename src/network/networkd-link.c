@@ -3039,18 +3039,9 @@ int link_update(Link *link, sd_netlink_message *m) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not update MAC address in IPv4LL client: %m");
 
-                if (link->dhcp_client) {
-                        r = sd_dhcp_client_set_mac(link->dhcp_client,
-                                                   (const uint8_t *) &link->mac,
-                                                   sizeof (link->mac),
-                                                   ARPHRD_ETHER);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not update MAC address in DHCP client: %m");
-
-                        r = dhcp4_set_client_identifier(link);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not set DHCP client identifier: %m");
-                }
+                r = dhcp4_update_mac(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not update MAC address in DHCP client: %m");
 
                 if (link->dhcp6_client) {
                         const DUID* duid = link_get_duid(link);
