@@ -77,6 +77,7 @@ SR-IOV.Trust,                                config_parse_sr_iov_boolean,       
 SR-IOV.LinkState,                            config_parse_sr_iov_link_state,                           0,                             0
 SR-IOV.MACAddress,                           config_parse_sr_iov_mac,                                  0,                             0
 Network.Description,                         config_parse_string,                                      0,                             offsetof(Network, description)
+Network.BatmanAdvanced,                      config_parse_ifname,                                      0,                             offsetof(Network, batadv_name)
 Network.Bridge,                              config_parse_ifname,                                      0,                             offsetof(Network, bridge_name)
 Network.Bond,                                config_parse_ifname,                                      0,                             offsetof(Network, bond_name)
 Network.VLAN,                                config_parse_stacked_netdev,                              NETDEV_KIND_VLAN,              offsetof(Network, stacked_netdev_names)

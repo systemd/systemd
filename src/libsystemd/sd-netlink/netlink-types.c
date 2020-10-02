@@ -9,6 +9,7 @@
 #include <linux/genetlink.h>
 #include <linux/ip.h>
 #include <linux/if.h>
+#include <linux/batman_adv.h>
 #include <linux/can/netlink.h>
 #include <linux/fib_rules.h>
 #include <linux/fou.h>
@@ -80,6 +81,10 @@ static const NLType empty_types[1] = {
 static const NLTypeSystem empty_type_system = {
         .count = 0,
         .types = empty_types,
+};
+
+static const NLType rtnl_link_info_data_batadv_types[] = {
+        [IFLA_BATADV_ALGO_NAME] = { .type = NETLINK_TYPE_STRING, .size = 20 },
 };
 
 static const NLType rtnl_link_info_data_veth_types[] = {
@@ -403,6 +408,7 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_XFRM] = "xfrm",
         [NL_UNION_LINK_INFO_DATA_IFB] = "ifb",
         [NL_UNION_LINK_INFO_DATA_BAREUDP] = "bareudp",
+        [NL_UNION_LINK_INFO_DATA_BATADV] = "batadv",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -460,6 +466,8 @@ static const NLTypeSystem rtnl_link_info_data_type_systems[] = {
                                                        .types = rtnl_link_info_data_xfrm_types },
         [NL_UNION_LINK_INFO_DATA_BAREUDP] =          { .count = ELEMENTSOF(rtnl_link_info_data_bareudp_types),
                                                        .types = rtnl_link_info_data_bareudp_types },
+        [NL_UNION_LINK_INFO_DATA_BATADV] =           { .count = ELEMENTSOF(rtnl_link_info_data_batadv_types),
+                                                       .types = rtnl_link_info_data_batadv_types },
 };
 
 static const NLTypeSystemUnion rtnl_link_info_data_type_system_union = {
@@ -1326,6 +1334,83 @@ static const NLTypeSystem genl_nl80211_cmds_type_system = {
         .types = genl_nl80211_cmds,
 };
 
+static const NLType genl_batadv_types[] = {
+        [BATADV_ATTR_VERSION]                       = { .type = NETLINK_TYPE_STRING },
+        [BATADV_ATTR_ALGO_NAME]                     = { .type = NETLINK_TYPE_STRING },
+        [BATADV_ATTR_MESH_IFINDEX]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_MESH_IFNAME]                   = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ },
+        [BATADV_ATTR_MESH_ADDRESS]                  = { .size = ETH_ALEN },
+        [BATADV_ATTR_HARD_IFINDEX]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_HARD_IFNAME]                   = { .type = NETLINK_TYPE_STRING, .size = IFNAMSIZ },
+        [BATADV_ATTR_HARD_ADDRESS]                  = { .size = ETH_ALEN },
+        [BATADV_ATTR_ORIG_ADDRESS]                  = { .size = ETH_ALEN },
+        [BATADV_ATTR_TPMETER_RESULT]                = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_TPMETER_TEST_TIME]             = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_TPMETER_BYTES]                 = { .type = NETLINK_TYPE_U64 },
+        [BATADV_ATTR_TPMETER_COOKIE]                = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_PAD]                           = { .type = NETLINK_TYPE_UNSPEC },
+        [BATADV_ATTR_ACTIVE]                        = { .type = NETLINK_TYPE_FLAG },
+        [BATADV_ATTR_TT_ADDRESS]                    = { .size = ETH_ALEN },
+        [BATADV_ATTR_TT_TTVN]                       = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_TT_LAST_TTVN]                  = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_TT_CRC32]                      = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_TT_VID]                        = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_TT_FLAGS]                      = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_FLAG_BEST]                     = { .type = NETLINK_TYPE_FLAG },
+        [BATADV_ATTR_LAST_SEEN_MSECS]               = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_NEIGH_ADDRESS]                 = { .size = ETH_ALEN },
+        [BATADV_ATTR_TQ]                            = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_THROUGHPUT]                    = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_BANDWIDTH_UP]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_BANDWIDTH_DOWN]                = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_ROUTER]                        = { .size = ETH_ALEN },
+        [BATADV_ATTR_BLA_OWN]                       = { .type = NETLINK_TYPE_FLAG },
+        [BATADV_ATTR_BLA_ADDRESS]                   = { .size = ETH_ALEN },
+        [BATADV_ATTR_BLA_VID]                       = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_BLA_BACKBONE]                  = { .size = ETH_ALEN },
+        [BATADV_ATTR_BLA_CRC]                       = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_DAT_CACHE_IP4ADDRESS]          = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_DAT_CACHE_HWADDRESS]           = { .size = ETH_ALEN },
+        [BATADV_ATTR_DAT_CACHE_VID]                 = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_MCAST_FLAGS]                   = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_MCAST_FLAGS_PRIV]              = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_VLANID]                        = { .type = NETLINK_TYPE_U16 },
+        [BATADV_ATTR_AGGREGATED_OGMS_ENABLED]       = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_AP_ISOLATION_ENABLED]          = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_ISOLATION_MARK]                = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_ISOLATION_MASK]                = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_BONDING_ENABLED]               = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_BRIDGE_LOOP_AVOIDANCE_ENABLED] = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_DISTRIBUTED_ARP_TABLE_ENABLED] = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_FRAGMENTATION_ENABLED]         = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_GW_BANDWIDTH_DOWN]             = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_GW_BANDWIDTH_UP]               = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_GW_MODE]                       = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_GW_SEL_CLASS]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_HOP_PENALTY]                   = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_LOG_LEVEL]                     = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_MULTICAST_FORCEFLOOD_ENABLED]  = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_MULTICAST_FANOUT]              = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_NETWORK_CODING_ENABLED]        = { .type = NETLINK_TYPE_U8 },
+        [BATADV_ATTR_ORIG_INTERVAL]                 = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_ELP_INTERVAL]                  = { .type = NETLINK_TYPE_U32 },
+        [BATADV_ATTR_THROUGHPUT_OVERRIDE]           = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem genl_batadv_type_system = {
+        .count = ELEMENTSOF(genl_batadv_types),
+        .types = genl_batadv_types,
+};
+
+static const NLType genl_batadv_cmds[] = {
+        [BATADV_CMD_SET_MESH] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_type_system },
+};
+
+static const NLTypeSystem genl_batadv_cmds_type_system = {
+        .count = ELEMENTSOF(genl_batadv_cmds),
+        .types = genl_batadv_cmds,
+};
+
 static const NLType genl_families[] = {
         [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
         [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
@@ -1333,6 +1418,7 @@ static const NLType genl_families[] = {
         [SD_GENL_L2TP]      = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_l2tp_tunnel_session_type_system },
         [SD_GENL_MACSEC]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_macsec_device_type_system },
         [SD_GENL_NL80211]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_nl80211_cmds_type_system },
+        [SD_GENL_BATADV]    = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_batadv_cmds_type_system },
 };
 
 static const NLType nfnl_nft_table_types[] = {
