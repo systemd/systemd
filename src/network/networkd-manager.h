@@ -84,8 +84,6 @@ bool manager_should_reload(Manager *m);
 
 int manager_enumerate(Manager *m);
 
-int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
-
 void manager_dirty(Manager *m);
 
 int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);

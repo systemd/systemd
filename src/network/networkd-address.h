@@ -79,6 +79,8 @@ int link_set_addresses(Link *link);
 int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 
+int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
+
 void address_hash_func(const Address *a, struct siphash *state);
 int address_compare_func(const Address *a1, const Address *a2);
 extern const struct hash_ops address_hash_ops;

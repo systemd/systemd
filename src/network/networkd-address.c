@@ -1057,6 +1057,168 @@ int link_set_addresses(Link *link) {
         return 0;
 }
 
+int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
+        _cleanup_free_ char *buf = NULL;
+        Link *link = NULL;
+        uint16_t type;
+        unsigned char flags, prefixlen, scope;
+        union in_addr_union in_addr = IN_ADDR_NULL;
+        struct ifa_cacheinfo cinfo;
+        Address *address = NULL;
+        char valid_buf[FORMAT_TIMESPAN_MAX];
+        const char *valid_str = NULL;
+        int ifindex, family, r;
+
+        assert(rtnl);
+        assert(message);
+        assert(m);
+
+        if (sd_netlink_message_is_error(message)) {
+                r = sd_netlink_message_get_errno(message);
+                if (r < 0)
+                        log_message_warning_errno(message, r, "rtnl: failed to receive address message, ignoring");
+
+                return 0;
+        }
+
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
+                return 0;
+        } else if (!IN_SET(type, RTM_NEWADDR, RTM_DELADDR)) {
+                log_warning("rtnl: received unexpected message type %u when processing address, ignoring.", type);
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_ifindex(message, &ifindex);
+        if (r < 0) {
+                log_warning_errno(r, "rtnl: could not get ifindex from message, ignoring: %m");
+                return 0;
+        } else if (ifindex <= 0) {
+                log_warning("rtnl: received address message with invalid ifindex %d, ignoring.", ifindex);
+                return 0;
+        }
+
+        r = link_get(m, ifindex, &link);
+        if (r < 0 || !link) {
+                /* when enumerating we might be out of sync, but we will get the address again, so just
+                 * ignore it */
+                if (!m->enumerating)
+                        log_warning("rtnl: received address for link '%d' we don't know about, ignoring.", ifindex);
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_family(message, &family);
+        if (r < 0) {
+                log_link_warning(link, "rtnl: received address message without family, ignoring.");
+                return 0;
+        } else if (!IN_SET(family, AF_INET, AF_INET6)) {
+                log_link_debug(link, "rtnl: received address message with invalid family '%i', ignoring.", family);
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_prefixlen(message, &prefixlen);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received address message with invalid prefixlen, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_scope(message, &scope);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received address message with invalid scope, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_addr_get_flags(message, &flags);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "rtnl: received address message with invalid flags, ignoring: %m");
+                return 0;
+        }
+
+        switch (family) {
+        case AF_INET:
+                r = sd_netlink_message_read_in_addr(message, IFA_LOCAL, &in_addr.in);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "rtnl: received address message without valid address, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        case AF_INET6:
+                r = sd_netlink_message_read_in6_addr(message, IFA_ADDRESS, &in_addr.in6);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "rtnl: received address message without valid address, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        default:
+                assert_not_reached("Received unsupported address family");
+        }
+
+        r = in_addr_to_string(family, &in_addr, &buf);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Could not print address: %m");
+
+        r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &cinfo);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: cannot get IFA_CACHEINFO attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0 && cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
+                valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
+                                            cinfo.ifa_valid * USEC_PER_SEC,
+                                            USEC_PER_SEC);
+
+        (void) address_get(link, family, &in_addr, prefixlen, &address);
+
+        switch (type) {
+        case RTM_NEWADDR:
+                if (address)
+                        log_link_debug(link, "Remembering updated address: %s/%u (valid %s%s)",
+                                       strnull(buf), prefixlen,
+                                       valid_str ? "for " : "forever", strempty(valid_str));
+                else {
+                        /* An address appeared that we did not request */
+                        r = address_add_foreign(link, family, &in_addr, prefixlen, &address);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to remember foreign address %s/%u, ignoring: %m",
+                                                       strnull(buf), prefixlen);
+                                return 0;
+                        } else
+                                log_link_debug(link, "Remembering foreign address: %s/%u (valid %s%s)",
+                                               strnull(buf), prefixlen,
+                                               valid_str ? "for " : "forever", strempty(valid_str));
+                }
+
+                /* address_update() logs internally, so we don't need to here. */
+                r = address_update(address, flags, scope, &cinfo);
+                if (r < 0)
+                        link_enter_failed(link);
+
+                break;
+
+        case RTM_DELADDR:
+                if (address) {
+                        log_link_debug(link, "Forgetting address: %s/%u (valid %s%s)",
+                                       strnull(buf), prefixlen,
+                                       valid_str ? "for " : "forever", strempty(valid_str));
+                        (void) address_drop(address);
+                } else
+                        log_link_debug(link, "Kernel removed an address we don't remember: %s/%u (valid %s%s), ignoring.",
+                                       strnull(buf), prefixlen,
+                                       valid_str ? "for " : "forever", strempty(valid_str));
+
+                break;
+
+        default:
+                assert_not_reached("Received invalid RTNL message type");
+        }
+
+        return 1;
+}
+
 static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         _cleanup_free_ char *pretty = NULL;
         Address *address;
