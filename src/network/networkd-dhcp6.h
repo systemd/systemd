@@ -29,6 +29,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DHCP6DelegatedPrefix*, dhcp6_pd_free);
 bool link_dhcp6_pd_is_enabled(Link *link);
 int dhcp6_pd_remove(Link *link);
 int dhcp6_configure(Link *link);
+int dhcp6_update_mac(Link *link);
 int dhcp6_request_address(Link *link, int ir);
 int dhcp6_request_prefix_delegation(Link *link);
 

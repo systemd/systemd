@@ -3043,42 +3043,9 @@ int link_update(Link *link, sd_netlink_message *m) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not update MAC address in DHCP client: %m");
 
-                if (link->dhcp6_client) {
-                        const DUID* duid = link_get_duid(link);
-                        bool restart = sd_dhcp6_client_is_running(link->dhcp6_client) > 0;
-
-                        if (restart) {
-                                r = sd_dhcp6_client_stop(link->dhcp6_client);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m");
-                        }
-
-                        r = sd_dhcp6_client_set_mac(link->dhcp6_client,
-                                                    (const uint8_t *) &link->mac,
-                                                    sizeof (link->mac),
-                                                    ARPHRD_ETHER);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
-
-                        if (link->network->iaid_set) {
-                                r = sd_dhcp6_client_set_iaid(link->dhcp6_client, link->network->iaid);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not update DHCPv6 IAID: %m");
-                        }
-
-                        r = sd_dhcp6_client_set_duid(link->dhcp6_client,
-                                                     duid->type,
-                                                     duid->raw_data_len > 0 ? duid->raw_data : NULL,
-                                                     duid->raw_data_len);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not update DHCPv6 DUID: %m");
-
-                        if (restart) {
-                                r = sd_dhcp6_client_start(link->dhcp6_client);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Could not restart DHCPv6 client: %m");
-                        }
-                }
+                r = dhcp6_update_mac(link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
 
                 if (link->radv) {
                         bool restart = sd_radv_is_running(link->radv);

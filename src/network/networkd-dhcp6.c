@@ -1344,12 +1344,43 @@ static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
         return false;
 }
 
+static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
+        const DUID *duid;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(client);
+
+        r = sd_dhcp6_client_set_mac(client, (const uint8_t *) &link->mac, sizeof (link->mac), ARPHRD_ETHER);
+        if (r < 0)
+                return r;
+
+        if (link->network->iaid_set) {
+                r = sd_dhcp6_client_set_iaid(client, link->network->iaid);
+                if (r < 0)
+                        return r;
+        }
+
+        duid = link_get_duid(link);
+        if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
+                r = sd_dhcp6_client_set_duid_llt(client, duid->llt_time);
+        else
+                r = sd_dhcp6_client_set_duid(client,
+                                             duid->type,
+                                             duid->raw_data_len > 0 ? duid->raw_data : NULL,
+                                             duid->raw_data_len);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int dhcp6_configure(Link *link) {
         _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
         sd_dhcp6_option *vendor_option;
         sd_dhcp6_option *send_option;
         void *request_options;
-        const DUID *duid;
         int r;
 
         assert(link);
@@ -1368,28 +1399,9 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to attach event: %m");
 
-        r = sd_dhcp6_client_set_mac(client,
-                                    (const uint8_t *) &link->mac,
-                                    sizeof (link->mac), ARPHRD_ETHER);
+        r = dhcp6_set_identifier(link, client);
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set MAC address: %m");
-
-        if (link->network->iaid_set) {
-                r = sd_dhcp6_client_set_iaid(client, link->network->iaid);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set IAID: %m");
-        }
-
-        duid = link_get_duid(link);
-        if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
-                r = sd_dhcp6_client_set_duid_llt(client, duid->llt_time);
-        else
-                r = sd_dhcp6_client_set_duid(client,
-                                             duid->type,
-                                             duid->raw_data_len > 0 ? duid->raw_data : NULL,
-                                             duid->raw_data_len);
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set DUID: %m");
+                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set identifier: %m");
 
         ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp6_client_send_options) {
                 r = sd_dhcp6_client_add_option(client, send_option);
@@ -1468,6 +1480,36 @@ int dhcp6_configure(Link *link) {
         }
 
         link->dhcp6_client = TAKE_PTR(client);
+
+        return 0;
+}
+
+int dhcp6_update_mac(Link *link) {
+        bool restart;
+        int r;
+
+        assert(link);
+
+        if (!link->dhcp6_client)
+                return 0;
+
+        restart = sd_dhcp6_client_is_running(link->dhcp6_client) > 0;
+
+        if (restart) {
+                r = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (r < 0)
+                        return r;
+        }
+
+        r = dhcp6_set_identifier(link, link->dhcp6_client);
+        if (r < 0)
+                return r;
+
+        if (restart) {
+                r = sd_dhcp6_client_start(link->dhcp6_client);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not restart DHCPv6 client: %m");
+        }
 
         return 0;
 }
