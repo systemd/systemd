@@ -12,6 +12,7 @@
 /* This is the list of known sections. We need to ignore them in the initial parsing phase. */
 #define NETDEV_OTHER_SECTIONS                     \
         "-BareUDP\0"                              \
+        "-BatmanAdvanced\0"                       \
         "-Bond\0"                                 \
         "-Bridge\0"                               \
         "-FooOverUDP\0"                           \
@@ -83,6 +84,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_XFRM,
         NETDEV_KIND_IFB,
         NETDEV_KIND_BAREUDP,
+        NETDEV_KIND_BATADV,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_TUNNEL, /* Used by config_parse_stacked_netdev() */
         _NETDEV_KIND_INVALID = -EINVAL,
