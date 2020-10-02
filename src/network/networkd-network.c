@@ -156,8 +156,6 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
-        SRIOV *sr_iov;
-
         assert(network);
         assert(network->filename);
 
@@ -300,10 +298,7 @@ int network_verify(Network *network) {
         network_verify_route_prefixes(network);
         network_verify_routing_policy_rules(network);
         network_verify_traffic_control(network);
-
-        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section)
-                if (sr_iov_section_verify(sr_iov) < 0)
-                        sr_iov_free(sr_iov);
+        network_verify_sr_iov(network);
 
         return 0;
 }

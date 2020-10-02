@@ -247,7 +247,7 @@ int link_configure_sr_iov(Link *link) {
         return 0;
 }
 
-int sr_iov_section_verify(SRIOV *sr_iov) {
+static int sr_iov_section_verify(SRIOV *sr_iov) {
         assert(sr_iov);
 
         if (section_is_invalid(sr_iov->section))
@@ -260,6 +260,16 @@ int sr_iov_section_verify(SRIOV *sr_iov) {
                                          sr_iov->section->filename, sr_iov->section->line);
 
         return 0;
+}
+
+void network_verify_sr_iov(Network *network) {
+        SRIOV *sr_iov;
+
+        assert(network);
+
+        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section)
+                if (sr_iov_section_verify(sr_iov) < 0)
+                        sr_iov_free(sr_iov);
 }
 
 int config_parse_sr_iov_uint32(
