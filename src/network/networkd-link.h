@@ -227,6 +227,14 @@ bool link_has_carrier(Link *link);
 bool link_ipv6ll_enabled(Link *link);
 int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
 
+bool link_ip_forward_enabled(Link *link, int family);
+static inline bool link_ipv4_forward_enabled(Link *link) {
+        return link_ip_forward_enabled(link, AF_INET);
+}
+static inline bool link_ipv6_forward_enabled(Link *link) {
+        return link_ip_forward_enabled(link, AF_INET6);
+}
+
 int link_set_mtu(Link *link, uint32_t mtu);
 
 bool link_ipv4ll_enabled(Link *link, AddressFamily mask);

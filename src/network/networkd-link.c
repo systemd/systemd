@@ -162,25 +162,11 @@ static bool link_radv_enabled(Link *link) {
         return link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE;
 }
 
-static bool link_ipv4_forward_enabled(Link *link) {
+bool link_ip_forward_enabled(Link *link, int family) {
         assert(link);
+        assert(IN_SET(family, AF_INET, AF_INET6));
 
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (link->network->ip_forward == _ADDRESS_FAMILY_INVALID)
-                return false;
-
-        return link->network->ip_forward & ADDRESS_FAMILY_IPV4;
-}
-
-static bool link_ipv6_forward_enabled(Link *link) {
-        assert(link);
-
-        if (!socket_ipv6_is_supported())
+        if (family == AF_INET6 && !socket_ipv6_is_supported())
                 return false;
 
         if (link->flags & IFF_LOOPBACK)
@@ -189,10 +175,7 @@ static bool link_ipv6_forward_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        if (link->network->ip_forward == _ADDRESS_FAMILY_INVALID)
-                return false;
-
-        return link->network->ip_forward & ADDRESS_FAMILY_IPV6;
+        return link->network->ip_forward & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
 }
 
 static bool link_proxy_arp_enabled(Link *link) {
