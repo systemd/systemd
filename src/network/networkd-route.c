@@ -1234,6 +1234,72 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         return 1;
 }
 
+int link_deserialize_routes(Link *link, const char *routes) {
+        int r;
+
+        assert(link);
+
+        for (const char *p = routes;; ) {
+                _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
+                _cleanup_(route_freep) Route *tmp = NULL;
+                _cleanup_free_ char *route_str = NULL;
+                char *prefixlen_str;
+                Route *route;
+
+                r = extract_first_word(&p, &route_str, NULL, 0);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to parse ROUTES=: %m");
+                if (r == 0)
+                        return 0;
+
+                prefixlen_str = strchr(route_str, '/');
+                if (!prefixlen_str) {
+                        log_link_debug(link, "Failed to parse route, ignoring: %s", route_str);
+                        continue;
+                }
+                *prefixlen_str++ = '\0';
+
+                r = route_new(&tmp);
+                if (r < 0)
+                        return log_oom();
+
+                r = sscanf(prefixlen_str,
+                           "%hhu/%hhu/%"SCNu32"/%"PRIu32"/"USEC_FMT,
+                           &tmp->dst_prefixlen,
+                           &tmp->tos,
+                           &tmp->priority,
+                           &tmp->table,
+                           &tmp->lifetime);
+                if (r != 5) {
+                        log_link_debug(link,
+                                       "Failed to parse destination prefix length, tos, priority, table or expiration: %s",
+                                       prefixlen_str);
+                        continue;
+                }
+
+                r = in_addr_from_string_auto(route_str, &tmp->family, &tmp->dst);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Failed to parse route destination %s: %m", route_str);
+                        continue;
+                }
+
+                r = route_add(link, tmp, &route);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Failed to add route: %m");
+
+                if (route->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
+                        r = sd_event_add_time(link->manager->event, &expire,
+                                              clock_boottime_or_monotonic(),
+                                              route->lifetime, 0, route_expire_handler, route);
+                        if (r < 0)
+                                log_link_debug_errno(link, r, "Could not arm route expiration handler: %m");
+                }
+
+                sd_event_source_unref(route->expire);
+                route->expire = TAKE_PTR(expire);
+        }
+}
+
 int network_add_ipv4ll_route(Network *network) {
         _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
         int r;
