@@ -681,7 +681,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
 
         /* The address is configured to be 0.0.0.0 or [::] by the user?
          * Then let's acquire something more useful from the pool. */
-        r = manager_address_pool_acquire(link->manager, original->family, original->prefixlen, &in_addr);
+        r = address_pool_acquire(link->manager, original->family, original->prefixlen, &in_addr);
         if (r < 0)
                 return r;
         if (r == 0)

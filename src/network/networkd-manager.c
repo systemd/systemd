@@ -48,33 +48,6 @@
 /* use 128 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (128*1024*1024)
 
-static int setup_default_address_pool(Manager *m) {
-        AddressPool *p;
-        int r;
-
-        assert(m);
-
-        /* Add in the well-known private address ranges. */
-
-        r = address_pool_new_from_string(m, &p, AF_INET6, "fd00::", 8);
-        if (r < 0)
-                return r;
-
-        r = address_pool_new_from_string(m, &p, AF_INET, "10.0.0.0", 8);
-        if (r < 0)
-                return r;
-
-        r = address_pool_new_from_string(m, &p, AF_INET, "172.16.0.0", 12);
-        if (r < 0)
-                return r;
-
-        r = address_pool_new_from_string(m, &p, AF_INET, "192.168.0.0", 16);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 static int manager_reset_all(Manager *m) {
         Link *link;
         int r;
@@ -868,7 +841,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        r = setup_default_address_pool(m);
+        r = address_pool_setup_default(m);
         if (r < 0)
                 return r;
 
@@ -1132,26 +1105,6 @@ int manager_enumerate(Manager *m) {
         r = manager_enumerate_nexthop(m);
         if (r < 0)
                 return log_error_errno(r, "Could not enumerate nexthop rules: %m");
-
-        return 0;
-}
-
-int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found) {
-        AddressPool *p;
-        int r;
-
-        assert(m);
-        assert(prefixlen > 0);
-        assert(found);
-
-        LIST_FOREACH(address_pools, p, m->address_pools) {
-                if (p->family != family)
-                        continue;
-
-                r = address_pool_acquire(p, prefixlen, found);
-                if (r != 0)
-                        return r;
-        }
 
         return 0;
 }

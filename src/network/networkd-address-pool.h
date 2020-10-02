@@ -19,7 +19,7 @@ struct AddressPool {
         LIST_FIELDS(AddressPool, address_pools);
 };
 
-int address_pool_new_from_string(Manager *m, AddressPool **ret, int family, const char *p, unsigned prefixlen);
 void address_pool_free(AddressPool *p);
 
-int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found);
+int address_pool_setup_default(Manager *m);
+int address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);

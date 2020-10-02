@@ -86,8 +86,6 @@ int manager_enumerate(Manager *m);
 
 void manager_dirty(Manager *m);
 
-int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);
-
 Link* manager_find_uplink(Manager *m, Link *exclude);
 
 int manager_set_hostname(Manager *m, const char *hostname);

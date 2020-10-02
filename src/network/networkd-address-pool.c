@@ -39,7 +39,7 @@ static int address_pool_new(
         return 0;
 }
 
-int address_pool_new_from_string(
+static int address_pool_new_from_string(
                 Manager *m,
                 AddressPool **ret,
                 int family,
@@ -69,6 +69,33 @@ void address_pool_free(AddressPool *p) {
                 LIST_REMOVE(address_pools, p->manager->address_pools, p);
 
         free(p);
+}
+
+int address_pool_setup_default(Manager *m) {
+        AddressPool *p;
+        int r;
+
+        assert(m);
+
+        /* Add in the well-known private address ranges. */
+
+        r = address_pool_new_from_string(m, &p, AF_INET6, "fd00::", 8);
+        if (r < 0)
+                return r;
+
+        r = address_pool_new_from_string(m, &p, AF_INET, "10.0.0.0", 8);
+        if (r < 0)
+                return r;
+
+        r = address_pool_new_from_string(m, &p, AF_INET, "172.16.0.0", 12);
+        if (r < 0)
+                return r;
+
+        r = address_pool_new_from_string(m, &p, AF_INET, "192.168.0.0", 16);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static bool address_pool_prefix_is_taken(
@@ -120,7 +147,7 @@ static bool address_pool_prefix_is_taken(
         return false;
 }
 
-int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union *found) {
+static int address_pool_acquire_one(AddressPool *p, int family, unsigned prefixlen, union in_addr_union *found) {
         union in_addr_union u;
         unsigned i;
         int r;
@@ -128,6 +155,9 @@ int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union
         assert(p);
         assert(prefixlen > 0);
         assert(found);
+
+        if (p->family != family)
+                return 0;
 
         if (p->prefixlen >= prefixlen)
                 return 0;
@@ -150,6 +180,24 @@ int address_pool_acquire(AddressPool *p, unsigned prefixlen, union in_addr_union
                         *found = u;
                         return 1;
                 }
+        }
+
+        return 0;
+}
+
+int address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found) {
+        AddressPool *p;
+        int r;
+
+        assert(m);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(prefixlen > 0);
+        assert(found);
+
+        LIST_FOREACH(address_pools, p, m->address_pools) {
+                r = address_pool_acquire_one(p, family, prefixlen, found);
+                if (r != 0)
+                        return r;
         }
 
         return 0;
