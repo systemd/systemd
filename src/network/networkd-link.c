@@ -1051,122 +1051,12 @@ void link_check_ready(Link *link) {
         return;
 }
 
-static int static_address_ready_callback(Address *address) {
-        Address *a;
-        Link *link;
-
-        assert(address);
-        assert(address->link);
-
-        link = address->link;
-
-        if (!link->addresses_configured)
-                return 0;
-
-        SET_FOREACH(a, link->static_addresses)
-                if (!address_is_ready(a)) {
-                        _cleanup_free_ char *str = NULL;
-
-                        (void) in_addr_to_string(a->family, &a->in_addr, &str);
-                        log_link_debug(link, "an address %s/%u is not ready", strnull(str), a->prefixlen);
-                        return 0;
-                }
-
-        /* This should not be called again */
-        SET_FOREACH(a, link->static_addresses)
-                a->callback = NULL;
-
-        link->addresses_ready = true;
-
-        return link_set_routes(link);
-}
-
-static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        int r;
-
-        assert(rtnl);
-        assert(m);
-        assert(link);
-        assert(link->ifname);
-        assert(link->address_messages > 0);
-        assert(IN_SET(link->state, LINK_STATE_CONFIGURING,
-               LINK_STATE_FAILED, LINK_STATE_LINGER));
-
-        link->address_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
-
-        r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set address");
-                link_enter_failed(link);
-                return 1;
-        } else if (r >= 0)
-                (void) manager_rtnl_process_address(rtnl, m, link->manager);
-
-        if (link->address_messages == 0) {
-                Address *a;
-
-                log_link_debug(link, "Addresses set");
-                link->addresses_configured = true;
-
-                /* When all static addresses are already ready, then static_address_ready_callback()
-                 * will not be called automatically. So, call it here. */
-                a = set_first(link->static_addresses);
-                if (!a) {
-                        log_link_warning(link, "No static address is stored.");
-                        link_enter_failed(link);
-                        return 1;
-                }
-                if (!a->callback) {
-                        log_link_warning(link, "Address ready callback is not set.");
-                        link_enter_failed(link);
-                        return 1;
-                }
-                r = a->callback(a);
-                if (r < 0)
-                        link_enter_failed(link);
-        }
-
-        return 1;
-}
-
-static int static_address_configure(Address *address, Link *link, bool update) {
-        Address *ret;
-        int r;
-
-        assert(address);
-        assert(link);
-
-        r = address_configure(address, link, address_handler, update, &ret);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Could not configure static address: %m");
-
-        link->address_messages++;
-
-        r = set_ensure_put(&link->static_addresses, &address_hash_ops, ret);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to store static address: %m");
-
-        ret->callback = static_address_ready_callback;
-
-        return 0;
-}
-
-static int link_request_set_addresses(Link *link) {
-        Address *ad;
+static int link_set_static_configs(Link *link) {
         int r;
 
         assert(link);
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
-
-        if (link->address_remove_messages != 0) {
-                log_link_debug(link, "Removing old addresses, new addresses will be configured later.");
-                link->request_static_addresses = true;
-                return 0;
-        }
 
         /* Reset all *_configured flags we are configuring. */
         link->request_static_addresses = false;
@@ -1189,46 +1079,9 @@ static int link_request_set_addresses(Link *link) {
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(addresses, ad, link->network->static_addresses) {
-                bool update;
-
-                if (ad->family == AF_INET6 && !in_addr_is_null(ad->family, &ad->in_addr_peer))
-                        update = address_get(link, ad->family, &ad->in_addr_peer, ad->prefixlen, NULL) > 0;
-                else
-                        update = address_get(link, ad->family, &ad->in_addr, ad->prefixlen, NULL) > 0;
-
-                r = static_address_configure(ad, link, update);
-                if (r < 0)
-                        return r;
-        }
-
-        if (link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_STATIC) {
-                Prefix *p;
-
-                HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
-                        _cleanup_(address_freep) Address *address = NULL;
-
-                        if (!p->assign)
-                                continue;
-
-                        r = address_new(&address);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = sd_radv_prefix_get_prefix(p->radv_prefix, &address->in_addr.in6, &address->prefixlen);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not get RA prefix: %m");
-
-                        r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not generate EUI64 address: %m");
-
-                        address->family = AF_INET6;
-                        r = static_address_configure(address, link, true);
-                        if (r < 0)
-                                return r;
-                }
-        }
+        r = link_set_addresses(link);
+        if (r < 0)
+                return r;
 
         r = link_set_address_labels(link);
         if (r < 0)
@@ -1240,17 +1093,6 @@ static int link_request_set_addresses(Link *link) {
                 if (r < 0)
                         return r;
                 log_link_debug(link, "Offering DHCPv4 leases");
-        }
-
-        if (link->address_messages == 0) {
-                link->addresses_configured = true;
-                link->addresses_ready = true;
-                r = link_set_routes(link);
-                if (r < 0)
-                        return r;
-        } else {
-                log_link_debug(link, "Setting addresses");
-                link_set_state(link, LINK_STATE_CONFIGURING);
         }
 
         return 0;
@@ -2165,7 +2007,7 @@ static int link_joined(Link *link) {
                 return 0;
 
         link_set_state(link, LINK_STATE_CONFIGURING);
-        return link_request_set_addresses(link);
+        return link_set_static_configs(link);
 }
 
 static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -2627,7 +2469,7 @@ static int remove_static_address_handler(sd_netlink *rtnl, sd_netlink_message *m
 
         if (link->address_remove_messages == 0 && link->request_static_addresses) {
                 link_set_state(link, LINK_STATE_CONFIGURING);
-                r = link_request_set_addresses(link);
+                r = link_set_addresses(link);
                 if (r < 0)
                         link_enter_failed(link);
         }
@@ -3555,7 +3397,7 @@ static int link_carrier_gained(Link *link) {
                 }
 
                 link_set_state(link, LINK_STATE_CONFIGURING);
-                r = link_request_set_addresses(link);
+                r = link_set_static_configs(link);
                 if (r < 0)
                         return r;
         }

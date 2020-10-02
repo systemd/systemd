@@ -75,6 +75,8 @@ int generate_ipv6_eui_64_address(Link *link, struct in6_addr *ret);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 
+int link_set_addresses(Link *link);
+
 void address_hash_func(const Address *a, struct siphash *state);
 int address_compare_func(const Address *a1, const Address *a2);
 extern const struct hash_ops address_hash_ops;
