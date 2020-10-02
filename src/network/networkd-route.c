@@ -2162,7 +2162,7 @@ int config_parse_multipath_route(
         return 0;
 }
 
-int route_section_verify(Route *route, Network *network) {
+static int route_section_verify(Route *route, Network *network) {
         if (section_is_invalid(route->section))
                 return -EINVAL;
 
@@ -2201,4 +2201,14 @@ int route_section_verify(Route *route, Network *network) {
         }
 
         return 0;
+}
+
+void network_verify_routes(Network *network) {
+        Route *route, *route_next;
+
+        assert(network);
+
+        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes)
+                if (route_section_verify(route, network) < 0)
+                        route_free(route);
 }

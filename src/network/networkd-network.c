@@ -156,7 +156,6 @@ static int network_resolve_stacked_netdevs(Network *network) {
 
 int network_verify(Network *network) {
         Address *address, *address_next;
-        Route *route, *route_next;
         TrafficControl *tc;
         SRIOV *sr_iov;
 
@@ -219,6 +218,8 @@ int network_verify(Network *network) {
                                 address_free(address);
                 }
                 if (network->n_static_routes > 0) {
+                        Route *route;
+
                         log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.",
                                     network->filename);
                         while ((route = network->static_routes))
@@ -298,10 +299,7 @@ int network_verify(Network *network) {
                 if (address_section_verify(address) < 0)
                         address_free(address);
 
-        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes)
-                if (route_section_verify(route, network) < 0)
-                        route_free(route);
-
+        network_verify_routes(network);
         network_verify_nexthops(network);
         network_verify_fdb_entries(network);
         network_verify_mdb_entries(network);

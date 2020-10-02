@@ -85,12 +85,12 @@ int route_add_foreign(Link *link, Route *in, Route **ret);
 bool route_equal(Route *r1, Route *r2);
 
 int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata);
-int route_section_verify(Route *route, Network *network);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 
 int network_add_ipv4ll_route(Network *network);
 int network_add_default_route_on_device(Network *network);
+void network_verify_routes(Network *network);
 
 const char* route_type_to_string(int t) _const_;
 int route_type_from_string(const char *s) _pure_;
