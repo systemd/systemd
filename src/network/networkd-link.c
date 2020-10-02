@@ -2679,7 +2679,6 @@ static int link_load(Link *link) {
                             *routes = NULL,
                             *dhcp4_address = NULL,
                             *ipv4ll_address = NULL;
-        union in_addr_union address;
         int r;
 
         assert(link);
@@ -2730,27 +2729,9 @@ network_file_fail:
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to load DHCPv4 address from %s, ignoring: %m", link->state_file);
 
-        if (ipv4ll_address) {
-                r = in_addr_from_string(AF_INET, ipv4ll_address, &address);
-                if (r < 0) {
-                        log_link_debug_errno(link, r, "Failed to parse IPv4LL address %s: %m", ipv4ll_address);
-                        goto ipv4ll_address_fail;
-                }
-
-                r = sd_ipv4ll_new(&link->ipv4ll);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to create IPv4LL client: %m");
-
-                r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to attach IPv4LL event: %m");
-
-                r = sd_ipv4ll_set_address(link->ipv4ll, &address.in);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to set initial IPv4LL address %s: %m", ipv4ll_address);
-        }
-
-ipv4ll_address_fail:
+        r = link_deserialize_ipv4ll(link, ipv4ll_address);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to load IPv4LL address from %s, ignoring: %m", link->state_file);
 
         return 0;
 }

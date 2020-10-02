@@ -142,6 +142,25 @@ static void ipv4ll_handler(sd_ipv4ll *ll, int event, void *userdata) {
         }
 }
 
+static int ipv4ll_init(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (link->ipv4ll)
+                return 0;
+
+        r = sd_ipv4ll_new(&link->ipv4ll);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4ll_attach_event(link->ipv4ll, link->manager->event, 0);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int ipv4ll_configure(Link *link) {
         uint64_t seed;
         int r;
@@ -150,15 +169,9 @@ int ipv4ll_configure(Link *link) {
         assert(link->network);
         assert(link->network->link_local & (ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4));
 
-        if (!link->ipv4ll) {
-                r = sd_ipv4ll_new(&link->ipv4ll);
-                if (r < 0)
-                        return r;
-
-                r = sd_ipv4ll_attach_event(link->ipv4ll, NULL, 0);
-                if (r < 0)
-                        return r;
-        }
+        r = ipv4ll_init(link);
+        if (r < 0)
+                return r;
 
         if (link->sd_device &&
             net_get_unique_predictable_data(link->sd_device, true, &seed) >= 0) {
@@ -178,6 +191,30 @@ int ipv4ll_configure(Link *link) {
         r = sd_ipv4ll_set_callback(link->ipv4ll, ipv4ll_handler, link);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int link_deserialize_ipv4ll(Link *link, const char *ipv4ll_address) {
+        union in_addr_union address;
+        int r;
+
+        assert(link);
+
+        if (isempty(ipv4ll_address))
+                return 0;
+
+        r = in_addr_from_string(AF_INET, ipv4ll_address, &address);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to parse IPv4LL address: %s", ipv4ll_address);
+
+        r = ipv4ll_init(link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to initialize IPv4LL client: %m");
+
+        r = sd_ipv4ll_set_address(link->ipv4ll, &address.in);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to set initial IPv4LL address %s: %m", ipv4ll_address);
 
         return 0;
 }
