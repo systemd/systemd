@@ -236,10 +236,6 @@ int link_stop_clients(Link *link, bool may_keep_dhcp);
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
-uint32_t link_get_vrf_table(Link *link);
-uint32_t link_get_dhcp_route_table(Link *link);
-uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
-
 int link_reconfigure(Link *link, bool force);
 
 int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);

@@ -82,6 +82,9 @@ int link_drop_foreign_routes(Link *link);
 int link_serialize_routes(Link *link, FILE *f);
 int link_deserialize_routes(Link *link, const char *routes);
 
+uint32_t link_get_dhcp_route_table(Link *link);
+uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
+
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 int network_add_ipv4ll_route(Network *network);

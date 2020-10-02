@@ -21,6 +21,24 @@
 
 #define ROUTES_DEFAULT_MAX_PER_FAMILY 4096U
 
+static uint32_t link_get_vrf_table(Link *link) {
+        return link->network->vrf ? VRF(link->network->vrf)->table : RT_TABLE_MAIN;
+}
+
+uint32_t link_get_dhcp_route_table(Link *link) {
+        /* When the interface is part of an VRF use the VRFs routing table, unless
+         * another table is explicitly specified. */
+        if (link->network->dhcp_route_table_set)
+                return link->network->dhcp_route_table;
+        return link_get_vrf_table(link);
+}
+
+uint32_t link_get_ipv6_accept_ra_route_table(Link *link) {
+        if (link->network->ipv6_accept_ra_route_table_set)
+                return link->network->ipv6_accept_ra_route_table;
+        return link_get_vrf_table(link);
+}
+
 static const char * const route_type_table[__RTN_MAX] = {
         [RTN_UNICAST]     = "unicast",
         [RTN_LOCAL]       = "local",
