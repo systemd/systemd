@@ -1,7 +1,13 @@
 @@
-/* Disable this transformation for the securebits-util.h, as it makes
- * the expression there confusing. */
-position p : script:python() { p[0].file != "src/shared/securebits-util.h" };
+/* Disable this transformation in cases where it doesn't make sense or
+ * where it makes the resulting expression more confusing
+ */
+position p : script:python() {
+            not (p[0].file == "src/shared/securebits-util.h" or
+                 p[0].file == "src/core/manager.h" or
+                 p[0].current_element == "log_set_max_level_realm" or
+                 p[0].current_element == "unichar_is_valid")
+        };
 expression x, y;
 @@
 (
