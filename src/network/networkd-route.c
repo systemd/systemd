@@ -128,9 +128,9 @@ static int route_new_static(Network *network, const char *filename, unsigned sec
         return 0;
 }
 
-void route_free(Route *route) {
+Route *route_free(Route *route) {
         if (!route)
-                return;
+                return NULL;
 
         if (route->network) {
                 LIST_REMOVE(routes, route->network->static_routes, route);
@@ -164,7 +164,7 @@ void route_free(Route *route) {
 
         sd_event_source_unref(route->expire);
 
-        free(route);
+        return mfree(route);
 }
 
 void route_hash_func(const Route *route, struct siphash *state) {
