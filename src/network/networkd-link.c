@@ -2726,27 +2726,9 @@ network_file_fail:
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to load routes from %s, ignoring: %m", link->state_file);
 
-        if (dhcp4_address) {
-                r = in_addr_from_string(AF_INET, dhcp4_address, &address);
-                if (r < 0) {
-                        log_link_debug_errno(link, r, "Failed to parse DHCPv4 address %s: %m", dhcp4_address);
-                        goto dhcp4_address_fail;
-                }
-
-                r = sd_dhcp_client_new(&link->dhcp_client, link->network ? link->network->dhcp_anonymize : 0);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to create DHCPv4 client: %m");
-
-                r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to attach DHCPv4 event: %m");
-
-                r = sd_dhcp_client_set_request_address(link->dhcp_client, &address.in);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to set initial DHCPv4 address %s: %m", dhcp4_address);
-        }
-
-dhcp4_address_fail:
+        r = link_deserialize_dhcp4(link, dhcp4_address);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to load DHCPv4 address from %s, ignoring: %m", link->state_file);
 
         if (ipv4ll_address) {
                 r = in_addr_from_string(AF_INET, ipv4ll_address, &address);
