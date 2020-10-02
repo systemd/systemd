@@ -61,24 +61,6 @@ DUID* link_get_duid(Link *link) {
                 return &link->manager->duid;
 }
 
-static bool link_dhcp4_server_enabled(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (link->network->bond)
-                return false;
-
-        if (link->iftype == ARPHRD_CAN)
-                return false;
-
-        return link->network->dhcp_server;
-}
-
 bool link_ipv4ll_enabled(Link *link, AddressFamily mask) {
         assert(link);
         assert((mask & ~(ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4)) == 0);
@@ -974,12 +956,9 @@ static int link_set_static_configs(Link *link) {
                 return r;
 
         /* now that we can figure out a default address for the dhcp server, start it */
-        if (link_dhcp4_server_enabled(link) && (link->flags & IFF_UP)) {
-                r = dhcp4_server_configure(link);
-                if (r < 0)
-                        return r;
-                log_link_debug(link, "Offering DHCPv4 leases");
-        }
+        r = dhcp4_server_configure(link);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2414,16 +2393,6 @@ static int link_configure(Link *link) {
                         return r;
         }
 
-        if (link_dhcp4_server_enabled(link)) {
-                r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
-                if (r < 0)
-                        return r;
-
-                r = sd_dhcp_server_attach_event(link->dhcp_server, NULL, 0);
-                if (r < 0)
-                        return r;
-        }
-
         if (link_dhcp6_enabled(link) ||
             link_ipv6_accept_ra_enabled(link)) {
                 r = dhcp6_configure(link);
@@ -2684,7 +2653,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         if (r < 0)
                 return r;
 
-        if (link_dhcp4_server_enabled(link))
+        if (link->dhcp_server)
                 (void) sd_dhcp_server_stop(link->dhcp_server);
 
         r = link_drop_config(link);
@@ -3174,7 +3143,7 @@ static int link_carrier_lost(Link *link) {
                 return r;
         }
 
-        if (link_dhcp4_server_enabled(link))
+        if (link->dhcp_server)
                 (void) sd_dhcp_server_stop(link->dhcp_server);
 
         r = link_drop_config(link);

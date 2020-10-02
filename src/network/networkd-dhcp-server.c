@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <netinet/in.h>
+#include <linux/if_arp.h>
+#include <linux/if.h>
+
 #include "sd-dhcp-server.h"
 
 #include "fd-util.h"
@@ -14,6 +18,24 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+
+static bool link_dhcp4_server_enabled(Link *link) {
+        assert(link);
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (link->network->bond)
+                return false;
+
+        if (link->iftype == ARPHRD_CAN)
+                return false;
+
+        return link->network->dhcp_server;
+}
 
 static Address* link_find_dhcp_server_address(Link *link) {
         Address *address;
@@ -231,6 +253,24 @@ int dhcp4_server_configure(Link *link) {
         Address *address;
         int r;
 
+        assert(link);
+
+        if (!link_dhcp4_server_enabled(link))
+                return 0;
+
+        if (!(link->flags & IFF_UP))
+                return 0;
+
+        if (!link->dhcp_server) {
+                r = sd_dhcp_server_new(&link->dhcp_server, link->ifindex);
+                if (r < 0)
+                        return r;
+
+                r = sd_dhcp_server_attach_event(link->dhcp_server, link->manager->event, 0);
+                if (r < 0)
+                        return r;
+        }
+
         address = link_find_dhcp_server_address(link);
         if (!address)
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(EBUSY),
@@ -342,6 +382,8 @@ int dhcp4_server_configure(Link *link) {
                 r = sd_dhcp_server_start(link->dhcp_server);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
+
+                log_link_debug(link, "Offering DHCPv4 leases");
         }
 
         return 0;
