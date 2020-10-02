@@ -1,0 +1,14 @@
+[NetDev]
+Name=batadv99
+Kind=batadv
+Description=Batman test
+
+[BatmanAdvanced]
+GatewayMode=server
+RoutingAlgorithm=batman-iv
+DistributedArpTable=1
+Fragmentation=0
+HopPenalty=10
+OriginatorIntervalSec=1000ms
+GatewayBandwithDown=205M
+GatewayBandwithUp=2G

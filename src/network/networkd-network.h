@@ -81,11 +81,13 @@ struct Network {
         LIST_HEAD(Condition, conditions);
 
         /* Master or stacked netdevs */
+        NetDev *batadv;
         NetDev *bridge;
         NetDev *bond;
         NetDev *vrf;
         NetDev *xfrm;
         Hashmap *stacked_netdevs;
+        char *batadv_name;
         char *bridge_name;
         char *bond_name;
         char *vrf_name;
