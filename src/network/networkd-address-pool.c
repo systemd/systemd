@@ -11,7 +11,6 @@
 
 static int address_pool_new(
                 Manager *m,
-                AddressPool **ret,
                 int family,
                 const union in_addr_union *u,
                 unsigned prefixlen) {
@@ -19,7 +18,6 @@ static int address_pool_new(
         AddressPool *p;
 
         assert(m);
-        assert(ret);
         assert(u);
 
         p = new(AddressPool, 1);
@@ -35,13 +33,11 @@ static int address_pool_new(
 
         LIST_PREPEND(address_pools, m->address_pools, p);
 
-        *ret = p;
         return 0;
 }
 
 static int address_pool_new_from_string(
                 Manager *m,
-                AddressPool **ret,
                 int family,
                 const char *p,
                 unsigned prefixlen) {
@@ -50,14 +46,13 @@ static int address_pool_new_from_string(
         int r;
 
         assert(m);
-        assert(ret);
         assert(p);
 
         r = in_addr_from_string(family, p, &u);
         if (r < 0)
                 return r;
 
-        return address_pool_new(m, ret, family, &u, prefixlen);
+        return address_pool_new(m, family, &u, prefixlen);
 }
 
 void address_pool_free(AddressPool *p) {
@@ -72,26 +67,24 @@ void address_pool_free(AddressPool *p) {
 }
 
 int address_pool_setup_default(Manager *m) {
-        AddressPool *p;
         int r;
 
         assert(m);
 
         /* Add in the well-known private address ranges. */
-
-        r = address_pool_new_from_string(m, &p, AF_INET6, "fd00::", 8);
+        r = address_pool_new_from_string(m, AF_INET6, "fd00::", 8);
         if (r < 0)
                 return r;
 
-        r = address_pool_new_from_string(m, &p, AF_INET, "10.0.0.0", 8);
+        r = address_pool_new_from_string(m, AF_INET, "10.0.0.0", 8);
         if (r < 0)
                 return r;
 
-        r = address_pool_new_from_string(m, &p, AF_INET, "172.16.0.0", 12);
+        r = address_pool_new_from_string(m, AF_INET, "172.16.0.0", 12);
         if (r < 0)
                 return r;
 
-        r = address_pool_new_from_string(m, &p, AF_INET, "192.168.0.0", 16);
+        r = address_pool_new_from_string(m, AF_INET, "192.168.0.0", 16);
         if (r < 0)
                 return r;
 
