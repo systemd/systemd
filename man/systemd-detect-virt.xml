@@ -62,7 +62,7 @@
         </thead>
         <tbody>
           <row>
-            <entry valign="top" morerows="12">VM</entry>
+            <entry valign="top" morerows="13">VM</entry>
             <entry><varname>qemu</varname></entry>
             <entry>QEMU software virtualization, without KVM</entry>
           </row>
@@ -90,6 +90,11 @@
           <row>
             <entry><varname>oracle</varname></entry>
             <entry>Oracle VM VirtualBox (historically marketed by innotek and Sun Microsystems), for legacy and KVM hypervisor</entry>
+          </row>
+
+          <row>
+            <entry><varname>powervm</varname></entry>
+            <entry>IBM PowerVM hypervisor - comes as firmware with some IBM POWER servers</entry>
           </row>
 
           <row>
