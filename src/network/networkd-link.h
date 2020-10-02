@@ -191,9 +191,6 @@ typedef struct Link {
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
 
-DUID *link_get_duid(Link *link);
-int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
-
 void link_ntp_settings_clear(Link *link);
 void link_dns_settings_clear(Link *link);
 Link *link_unref(Link *link);
@@ -244,6 +241,7 @@ int link_stop_clients(Link *link, bool may_keep_dhcp);
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
+int link_configure(Link *link);
 int link_reconfigure(Link *link, bool force);
 
 int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);

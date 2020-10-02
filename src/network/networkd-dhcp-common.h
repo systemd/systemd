@@ -8,6 +8,7 @@
 #define DHCP_ROUTE_METRIC 1024
 
 typedef struct Link Link;
+typedef struct Manager Manager;
 
 typedef enum DHCPUseDomains {
         DHCP_USE_DOMAINS_NO,
@@ -44,6 +45,10 @@ static inline bool link_dhcp4_enabled(Link *link) {
 static inline bool link_dhcp6_enabled(Link *link) {
         return link_dhcp_enabled(link, AF_INET6);
 }
+
+DUID* link_get_duid(Link *link);
+int link_configure_duid(Link *link);
+int manager_request_product_uuid(Manager *m, Link *link);
 
 const char* dhcp_use_domains_to_string(DHCPUseDomains p) _const_;
 DHCPUseDomains dhcp_use_domains_from_string(const char *s) _pure_;

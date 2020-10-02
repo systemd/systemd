@@ -9,6 +9,7 @@
 #include "in-addr-util.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-link.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "parse-util.h"
 #include "socket-util.h"
@@ -35,6 +36,194 @@ bool link_dhcp_enabled(Link *link, int family) {
                 return false;
 
         return link->network->dhcp & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
+}
+
+DUID* link_get_duid(Link *link) {
+        if (link->network->duid.type != _DUID_TYPE_INVALID)
+                return &link->network->duid;
+        else
+                return &link->manager->duid;
+}
+
+static int duid_set_uuid(DUID *duid, sd_id128_t uuid) {
+        assert(duid);
+
+        if (duid->raw_data_len > 0)
+                return 0;
+
+        if (duid->type != DUID_TYPE_UUID)
+                return -EINVAL;
+
+        memcpy(&duid->raw_data, &uuid, sizeof(sd_id128_t));
+        duid->raw_data_len = sizeof(sd_id128_t);
+
+        return 1;
+}
+
+static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        Manager *manager = userdata;
+        const sd_bus_error *e;
+        const void *a;
+        size_t sz;
+        DUID *duid;
+        Link *link;
+        int r;
+
+        assert(m);
+        assert(manager);
+
+        e = sd_bus_message_get_error(m);
+        if (e) {
+                log_error_errno(sd_bus_error_get_errno(e),
+                                "Could not get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %s",
+                                e->message);
+                goto configure;
+        }
+
+        r = sd_bus_message_read_array(m, 'y', &a, &sz);
+        if (r < 0)
+                goto configure;
+
+        if (sz != sizeof(sd_id128_t)) {
+                log_error("Invalid product UUID. Falling back to use machine-app-specific ID as DUID-UUID.");
+                goto configure;
+        }
+
+        memcpy(&manager->product_uuid, a, sz);
+        while ((duid = set_steal_first(manager->duids_requesting_uuid)))
+                (void) duid_set_uuid(duid, manager->product_uuid);
+
+        manager->duids_requesting_uuid = set_free(manager->duids_requesting_uuid);
+
+configure:
+        while ((link = set_steal_first(manager->links_requesting_uuid))) {
+                link_unref(link);
+
+                r = link_configure(link);
+                if (r < 0)
+                        link_enter_failed(link);
+        }
+
+        manager->links_requesting_uuid = set_free(manager->links_requesting_uuid);
+
+        /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
+         * even if the method fails. */
+        manager->has_product_uuid = true;
+
+        return 1;
+}
+
+int manager_request_product_uuid(Manager *m, Link *link) {
+        int r;
+
+        assert(m);
+
+        if (m->has_product_uuid)
+                return 0;
+
+        log_debug("Requesting product UUID");
+
+        if (link) {
+                DUID *duid;
+
+                assert_se(duid = link_get_duid(link));
+
+                r = set_ensure_put(&m->links_requesting_uuid, NULL, link);
+                if (r < 0)
+                        return log_oom();
+                if (r > 0)
+                        link_ref(link);
+
+                r = set_ensure_put(&m->duids_requesting_uuid, NULL, duid);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
+                log_debug("Not connected to system bus, requesting product UUID later.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "GetProductUUID",
+                        get_product_uuid_handler,
+                        m,
+                        "b",
+                        false);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get product UUID: %m");
+
+        return 0;
+}
+
+static bool link_requires_uuid(Link *link) {
+        const DUID *duid;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        duid = link_get_duid(link);
+        if (duid->type != DUID_TYPE_UUID || duid->raw_data_len != 0)
+                return false;
+
+        if (link_dhcp4_enabled(link) && IN_SET(link->network->dhcp_client_identifier, DHCP_CLIENT_ID_DUID, DHCP_CLIENT_ID_DUID_ONLY))
+                return true;
+
+        if (link_dhcp6_enabled(link) || link_ipv6_accept_ra_enabled(link))
+                return true;
+
+        return false;
+}
+
+int link_configure_duid(Link *link) {
+        Manager *m;
+        DUID *duid;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        m = link->manager;
+        duid = link_get_duid(link);
+
+        if (!link_requires_uuid(link))
+                return 1;
+
+        if (m->has_product_uuid) {
+                (void) duid_set_uuid(duid, m->product_uuid);
+                return 1;
+        }
+
+        if (!m->links_requesting_uuid) {
+                r = manager_request_product_uuid(m, link);
+                if (r < 0) {
+                        if (r == -ENOMEM)
+                                return r;
+
+                        log_link_warning_errno(link, r,
+                                               "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
+                        return 1;
+                }
+        } else {
+                r = set_put(m->links_requesting_uuid, link);
+                if (r < 0)
+                        return log_oom();
+                if (r > 0)
+                        link_ref(link);
+
+                r = set_put(m->duids_requesting_uuid, duid);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
 }
 
 int config_parse_dhcp(

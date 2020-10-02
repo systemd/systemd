@@ -89,6 +89,5 @@ Link* manager_find_uplink(Manager *m, Link *exclude);
 
 int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);
-int manager_request_product_uuid(Manager *m, Link *link);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
