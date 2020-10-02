@@ -1,0 +1,16 @@
+[NetDev]
+Name=bat0
+Kind=batadv
+Description=Batman test
+
+[BatmanAdvanced]
+GatewayMode=server
+Aggregation=1
+BridgeLoopAvoidance=1
+DistributedArpTable=1
+Fragmentation=1
+HopPenalty=10
+OriginatorIntervalSec=1
+GatewayBandwithDown=100K
+GatewayBandwithUp=12K
+RoutingAlgorithm=batman-v

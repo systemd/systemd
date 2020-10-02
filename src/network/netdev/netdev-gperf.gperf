@@ -5,6 +5,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
 #include "bareudp.h"
+#include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
 #include "conf-parser.h"
@@ -235,3 +236,13 @@ WireGuardPeer.PresharedKeyFile,           config_parse_wireguard_preshared_key_f
 WireGuardPeer.PersistentKeepalive,        config_parse_wireguard_keepalive,          0,                             0
 Xfrm.InterfaceId,                         config_parse_uint32,                       0,                             offsetof(Xfrm, if_id)
 Xfrm.Independent,                         config_parse_bool,                         0,                             offsetof(Xfrm, independent)
+BatmanAdvanced.Aggregation,               config_parse_bool,                         0,                             offsetof(BatmanAdvanced, aggregation)
+BatmanAdvanced.BridgeLoopAvoidance,       config_parse_bool,                         0,                             offsetof(BatmanAdvanced, bridge_loop_avoidance)
+BatmanAdvanced.DistributedArpTable,       config_parse_bool,                         0,                             offsetof(BatmanAdvanced, distributed_arp_table)
+BatmanAdvanced.Fragmentation,             config_parse_bool,                         0,                             offsetof(BatmanAdvanced, fragmentation)
+BatmanAdvanced.GatewayMode,               config_parse_batadv_gateway_mode,          0,                             offsetof(BatmanAdvanced, gateway_mode)
+BatmanAdvanced.GatewayBandwithDown,       config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_down)
+BatmanAdvanced.GatewayBandwithUp,         config_parse_badadv_bandwidth,             0,                             offsetof(BatmanAdvanced, gateway_bandwidth_up)
+BatmanAdvanced.HopPenalty,                config_parse_uint8,                        0,                             offsetof(BatmanAdvanced, hop_penalty)
+BatmanAdvanced.OriginatorIntervalSec,     config_parse_sec,                          0,                             offsetof(BatmanAdvanced, originator_interval)
+BatmanAdvanced.RoutingAlgorithm,          config_parse_batadv_routing_algorithm,     0,                             offsetof(BatmanAdvanced, routing_algorithm)
