@@ -1472,6 +1472,27 @@ int dhcp6_configure(Link *link) {
         return 0;
 }
 
+int link_serialize_dhcp6_client(Link *link, FILE *f) {
+        _cleanup_free_ char *duid = NULL;
+        uint32_t iaid;
+        int r;
+
+        assert(link);
+
+        if (!link->dhcp6_client)
+                return 0;
+
+        r = sd_dhcp6_client_get_iaid(link->dhcp6_client, &iaid);
+        if (r >= 0)
+                fprintf(f, "DHCP6_CLIENT_IAID=0x%x\n", iaid);
+
+        r = sd_dhcp6_client_duid_as_string(link->dhcp6_client, &duid);
+        if (r >= 0)
+                fprintf(f, "DHCP6_CLIENT_DUID=%s\n", duid);
+
+        return 0;
+}
+
 int config_parse_dhcp6_pd_hint(
                 const char* unit,
                 const char *filename,

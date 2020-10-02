@@ -3515,18 +3515,9 @@ int link_save(Link *link) {
         if (r < 0)
                 goto fail;
 
-        if (link->dhcp6_client) {
-                _cleanup_free_ char *duid = NULL;
-                uint32_t iaid;
-
-                r = sd_dhcp6_client_get_iaid(link->dhcp6_client, &iaid);
-                if (r >= 0)
-                        fprintf(f, "DHCP6_CLIENT_IAID=0x%x\n", iaid);
-
-                r = sd_dhcp6_client_duid_as_string(link->dhcp6_client, &duid);
-                if (r >= 0)
-                        fprintf(f, "DHCP6_CLIENT_DUID=%s\n", duid);
-        }
+        r = link_serialize_dhcp6_client(link, f);
+        if (r < 0)
+                goto fail;
 
         r = fflush_and_check(f);
         if (r < 0)
