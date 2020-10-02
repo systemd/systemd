@@ -1685,7 +1685,7 @@ bool address_is_ready(const Address *a) {
         return !(a->flags & IFA_F_TENTATIVE);
 }
 
-int address_section_verify(Address *address) {
+static int address_section_verify(Address *address) {
         if (section_is_invalid(address->section))
                 return -EINVAL;
 
@@ -1702,4 +1702,14 @@ int address_section_verify(Address *address) {
                 address->scope = RT_SCOPE_HOST;
 
         return 0;
+}
+
+void network_verify_addresses(Network *network) {
+        Address *address, *address_next;
+
+        assert(network);
+
+        LIST_FOREACH_SAFE(addresses, address, address_next, network->static_addresses)
+                if (address_section_verify(address) < 0)
+                        address_free(address);
 }

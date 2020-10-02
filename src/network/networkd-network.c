@@ -155,7 +155,6 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
-        Address *address, *address_next;
         TrafficControl *tc;
         SRIOV *sr_iov;
 
@@ -212,6 +211,8 @@ int network_verify(Network *network) {
                         network->dhcp_server = false;
                 }
                 if (network->n_static_addresses > 0) {
+                        Address *address;
+
                         log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.",
                                     network->filename);
                         while ((address = network->static_addresses))
@@ -291,10 +292,7 @@ int network_verify(Network *network) {
                 network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
         }
 
-        LIST_FOREACH_SAFE(addresses, address, address_next, network->static_addresses)
-                if (address_section_verify(address) < 0)
-                        address_free(address);
-
+        network_verify_addresses(network);
         network_verify_routes(network);
         network_verify_nexthops(network);
         network_verify_fdb_entries(network);
