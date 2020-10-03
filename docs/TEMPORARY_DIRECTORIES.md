@@ -1,10 +1,10 @@
 ---
-title: Using /tmp/ And /var/tmp/ Safely
+title: Using /tmp/ and /var/tmp/ Safely
 category: Interfaces
 layout: default
 ---
 
-# Using `/tmp/` And `/var/tmp/` Safely
+# Using `/tmp/` and `/var/tmp/` Safely
 
 `/tmp/` and `/var/tmp/` are two world-writable directories Linux systems
 provide for temporary files. The former is typically on `tmpfs` and thus
