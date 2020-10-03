@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
 "POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2020-10-03 09:49+0200\n"
+"PO-Revision-Date: 2020-10-03 09:52+0200\n"
 "Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language: it\n"
 "MIME-Version: 1.0\n"
@@ -896,35 +896,35 @@ msgstr ""
 
 #: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
-msgstr "Autenticazione richiesta per avviare «${unit}»."
+msgstr "Autenticazione richiesta per avviare '${unit}'."
 
 #: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
-msgstr "Autenticazione richiesta per fermare «${unit}»."
+msgstr "Autenticazione richiesta per fermare '${unit}'."
 
 #: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "Autenticazione richiesta per ricaricare «${unit}»."
+msgstr "Autenticazione richiesta per ricaricare '${unit}'."
 
 #: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
-msgstr "Autenticazione richiesta per riavviare «${unit}»."
+msgstr "Autenticazione richiesta per riavviare '${unit}'."
 
 #: src/core/dbus-unit.c:538
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
-"Autenticazione richiesta per inviare un segnale UNIX ai processi di «${unit}»."
+"Autenticazione richiesta per inviare un segnale UNIX ai processi di '${unit}'."
 
 #: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
-"Autenticazione richiesta per riconfigurare lo stato \"fallito\" di «${unit}»."
+"Autenticazione richiesta per riconfigurare lo stato \"fallito\" di '${unit}'."
 
 #: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Autenticazione richiesta per configurare le proprietà di «${unit}»."
+msgstr "Autenticazione richiesta per configurare le proprietà di '${unit}'."
 
 #: src/core/dbus-unit.c:711
 msgid ""
