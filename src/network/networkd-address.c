@@ -215,6 +215,29 @@ bool address_equal(Address *a1, Address *a2) {
         return address_compare_func(a1, a2) == 0;
 }
 
+static int address_copy(Address *dest, const Address *src) {
+        int r;
+
+        assert(dest);
+        assert(src);
+
+        r = free_and_strdup(&dest->label, src->label);
+        if (r < 0)
+                return r;
+
+        dest->family = src->family;
+        dest->prefixlen = src->prefixlen;
+        dest->scope = src->scope;
+        dest->flags = src->flags;
+        dest->broadcast = src->broadcast;
+        dest->cinfo = src->cinfo;
+        dest->in_addr = src->in_addr;
+        dest->in_addr_peer = src->in_addr_peer;
+        dest->duplicate_address_detection = src->duplicate_address_detection;
+
+        return 0;
+}
+
 static int address_establish(Address *address, Link *link) {
         bool masq;
         int r;
@@ -753,17 +776,9 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         if (r < 0)
                 return r;
 
-        na->flags = original->flags;
-        na->family = original->family;
-        na->prefixlen = original->prefixlen;
-        na->scope = original->scope;
-        na->cinfo = original->cinfo;
-
-        if (original->label) {
-                na->label = strdup(original->label);
-                if (!na->label)
-                        return -ENOMEM;
-        }
+        r = address_copy(na, original);
+        if (r < 0)
+                return r;
 
         na->broadcast = broadcast;
         na->in_addr = in_addr;
