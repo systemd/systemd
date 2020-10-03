@@ -21,19 +21,11 @@
 #include "networkd-lldp-tx.h"
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
+#include "networkd-sysctl.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
 #include "socket-netlink.h"
-
-typedef enum IPv6PrivacyExtensions {
-        /* The values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values */
-        IPV6_PRIVACY_EXTENSIONS_NO,
-        IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC,
-        IPV6_PRIVACY_EXTENSIONS_YES, /* aka prefer-temporary */
-        _IPV6_PRIVACY_EXTENSIONS_MAX,
-        _IPV6_PRIVACY_EXTENSIONS_INVALID = -1,
-} IPv6PrivacyExtensions;
 
 typedef enum KeepConfiguration {
         KEEP_CONFIGURATION_NO            = 0,
@@ -329,7 +321,6 @@ bool network_has_static_ipv6_configurations(Network *network);
 CONFIG_PARSER_PROTOTYPE(config_parse_stacked_netdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6token);
-CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_privacy_extensions);
 CONFIG_PARSER_PROTOTYPE(config_parse_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
@@ -341,9 +332,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
-
-const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
-IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
 const char* keep_configuration_to_string(KeepConfiguration i) _const_;
 KeepConfiguration keep_configuration_from_string(const char *s) _pure_;

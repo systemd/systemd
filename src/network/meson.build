@@ -111,6 +111,8 @@ sources = files('''
         networkd-speed-meter.h
         networkd-sriov.c
         networkd-sriov.h
+        networkd-sysctl.c
+        networkd-sysctl.h
         networkd-util.c
         networkd-util.h
         networkd-wifi.c

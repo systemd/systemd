@@ -14,6 +14,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
+#include "networkd-sysctl.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -57,7 +58,7 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
          */
         if (link->network->ipv6_accept_ra < 0)
                 /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
-                return !link_ipv6_forward_enabled(link);
+                return !link_ip_forward_enabled(link, AF_INET6);
         else if (link->network->ipv6_accept_ra > 0)
                 /* accept RA even if ip_forward is enabled */
                 return true;

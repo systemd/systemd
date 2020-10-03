@@ -38,6 +38,7 @@
 #include "networkd-neighbor.h"
 #include "networkd-nexthop.h"
 #include "networkd-sriov.h"
+#include "networkd-sysctl.h"
 #include "networkd-radv.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-wifi.h"
@@ -106,7 +107,7 @@ bool link_ipv6ll_enabled(Link *link) {
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
-static bool link_ipv6_enabled(Link *link) {
+bool link_ipv6_enabled(Link *link) {
         assert(link);
 
         if (!socket_ipv6_is_supported())
@@ -126,71 +127,6 @@ static bool link_ipv6_enabled(Link *link) {
                 return true;
 
         return false;
-}
-
-bool link_ip_forward_enabled(Link *link, int family) {
-        assert(link);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-
-        if (family == AF_INET6 && !socket_ipv6_is_supported())
-                return false;
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        return link->network->ip_forward & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
-}
-
-static bool link_proxy_arp_enabled(Link *link) {
-        assert(link);
-
-        if (link->flags & IFF_LOOPBACK)
-                return false;
-
-        if (!link->network)
-                return false;
-
-        if (link->network->proxy_arp < 0)
-                return false;
-
-        return true;
-}
-
-static IPv6PrivacyExtensions link_ipv6_privacy_extensions(Link *link) {
-        assert(link);
-
-        if (!socket_ipv6_is_supported())
-                return _IPV6_PRIVACY_EXTENSIONS_INVALID;
-
-        if (link->flags & IFF_LOOPBACK)
-                return _IPV6_PRIVACY_EXTENSIONS_INVALID;
-
-        if (!link->network)
-                return _IPV6_PRIVACY_EXTENSIONS_INVALID;
-
-        return link->network->ipv6_privacy_extensions;
-}
-
-static int link_update_ipv6_sysctl(Link *link) {
-        bool enabled;
-        int r;
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        enabled = link_ipv6_enabled(link);
-        if (enabled) {
-                r = sysctl_write_ip_property_boolean(AF_INET6, link->ifname, "disable_ipv6", false);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Cannot enable IPv6: %m");
-
-                log_link_info(link, "IPv6 successfully enabled");
-        }
-
-        return 0;
 }
 
 static bool link_is_enslaved(Link *link) {
@@ -943,19 +879,6 @@ static int link_set_static_configs(Link *link) {
         r = dhcp4_server_configure(link);
         if (r < 0)
                 return r;
-
-        return 0;
-}
-
-static int link_set_proxy_arp(Link *link) {
-        int r;
-
-        if (!link_proxy_arp_enabled(link))
-                return 0;
-
-        r = sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp", link->network->proxy_arp > 0);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure proxy ARP for interface: %m");
 
         return 0;
 }
@@ -1983,179 +1906,6 @@ static int link_enter_join_netdev(Link *link) {
         return 0;
 }
 
-static int link_set_ipv4_forward(Link *link) {
-        int r;
-
-        if (!link_ipv4_forward_enabled(link))
-                return 0;
-
-        /* We propagate the forwarding flag from one interface to the
-         * global setting one way. This means: as long as at least one
-         * interface was configured at any time that had IP forwarding
-         * enabled the setting will stay on for good. We do this
-         * primarily to keep IPv4 and IPv6 packet forwarding behaviour
-         * somewhat in sync (see below). */
-
-        r = sysctl_write_ip_property(AF_INET, NULL, "ip_forward", "1");
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot turn on IPv4 packet forwarding, ignoring: %m");
-
-        return 0;
-}
-
-static int link_set_ipv6_forward(Link *link) {
-        int r;
-
-        if (!link_ipv6_forward_enabled(link))
-                return 0;
-
-        /* On Linux, the IPv6 stack does not know a per-interface
-         * packet forwarding setting: either packet forwarding is on
-         * for all, or off for all. We hence don't bother with a
-         * per-interface setting, but simply propagate the interface
-         * flag, if it is set, to the global flag, one-way. Note that
-         * while IPv4 would allow a per-interface flag, we expose the
-         * same behaviour there and also propagate the setting from
-         * one to all, to keep things simple (see above). */
-
-        r = sysctl_write_ip_property(AF_INET6, "all", "forwarding", "1");
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv6 packet forwarding, ignoring: %m");
-
-        return 0;
-}
-
-static int link_set_ipv6_privacy_extensions(Link *link) {
-        IPv6PrivacyExtensions s;
-        int r;
-
-        s = link_ipv6_privacy_extensions(link);
-        if (s < 0)
-                return 0;
-
-        r = sysctl_write_ip_property_int(AF_INET6, link->ifname, "use_tempaddr", (int) link->network->ipv6_privacy_extensions);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extension for interface: %m");
-
-        return 0;
-}
-
-static int link_set_ipv6_accept_ra(Link *link) {
-        int r;
-
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
-                return 0;
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        if (!link->network)
-                return 0;
-
-        r = sysctl_write_ip_property(AF_INET6, link->ifname, "accept_ra", "0");
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot disable kernel IPv6 accept_ra for interface: %m");
-
-        return 0;
-}
-
-static int link_set_ipv6_dad_transmits(Link *link) {
-        int r;
-
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
-                return 0;
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        if (!link->network)
-                return 0;
-
-        if (link->network->ipv6_dad_transmits < 0)
-                return 0;
-
-        r = sysctl_write_ip_property_int(AF_INET6, link->ifname, "dad_transmits", link->network->ipv6_dad_transmits);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv6 dad transmits for interface: %m");
-
-        return 0;
-}
-
-static int link_set_ipv6_hop_limit(Link *link) {
-        int r;
-
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
-                return 0;
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        if (!link->network)
-                return 0;
-
-        if (link->network->ipv6_hop_limit < 0)
-                return 0;
-
-        r = sysctl_write_ip_property_int(AF_INET6, link->ifname, "hop_limit", link->network->ipv6_hop_limit);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface: %m");
-
-        return 0;
-}
-
-static int link_set_ipv6_mtu(Link *link) {
-        int r;
-
-        /* Make this a NOP if IPv6 is not available */
-        if (!socket_ipv6_is_supported())
-                return 0;
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        if (link->network->ipv6_mtu == 0)
-                return 0;
-
-        /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
-         * on the interface. Bump up IPv6 MTU bytes to IPV6_MTU_MIN. */
-        if (link->network->ipv6_mtu < IPV6_MIN_MTU) {
-                log_link_notice(link, "Bumping IPv6 MTU to "STRINGIFY(IPV6_MIN_MTU)" byte minimum required");
-                link->network->ipv6_mtu = IPV6_MIN_MTU;
-        }
-
-        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "mtu", link->network->ipv6_mtu);
-        if (r < 0) {
-                if (link->mtu < link->network->ipv6_mtu)
-                        log_link_warning(link, "Cannot set IPv6 MTU %"PRIu32" higher than device MTU %"PRIu32,
-                                         link->network->ipv6_mtu, link->mtu);
-                else
-                        log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface: %m");
-        }
-
-        link->ipv6_mtu_set = true;
-
-        return 0;
-}
-
-static int link_set_ipv4_accept_local(Link *link) {
-        int r;
-
-        if (link->flags & IFF_LOOPBACK)
-                return 0;
-
-        if (link->network->ipv4_accept_local < 0)
-                return 0;
-
-        r = sysctl_write_ip_property_boolean(AF_INET, link->ifname, "accept_local", link->network->ipv4_accept_local);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Cannot set IPv4 accept_local flag for interface: %m");
-
-        return 0;
-}
-
 static int link_enumerate_ipv6_tentative_addresses(Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         sd_netlink_message *addr;
@@ -2258,43 +2008,11 @@ int link_configure(Link *link) {
         if (link->iftype == ARPHRD_CAN)
                 return link_configure_can(link);
 
-        /* If IPv6 configured that is static IPv6 address and IPv6LL autoconfiguration is enabled
-         * for this interface, then enable IPv6 */
-        (void) link_update_ipv6_sysctl(link);
-
-        r = link_set_proxy_arp(link);
+        r = link_set_sysctl(link);
         if (r < 0)
-               return r;
+                return r;
 
         r = link_set_ipv6_proxy_ndp_addresses(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv4_forward(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv6_forward(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv6_privacy_extensions(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv6_accept_ra(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv6_dad_transmits(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv6_hop_limit(link);
-        if (r < 0)
-                return r;
-
-        r = link_set_ipv4_accept_local(link);
         if (r < 0)
                 return r;
 
@@ -2395,7 +2113,7 @@ static int link_configure_continue(Link *link) {
          * we must set this here, after we've set device mtu */
         r = link_set_ipv6_mtu(link);
         if (r < 0)
-                return r;
+                log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface, ignoring: %m");
 
         if (link_has_carrier(link) || link->network->configure_without_carrier) {
                 r = link_acquire_conf(link);

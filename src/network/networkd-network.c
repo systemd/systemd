@@ -991,50 +991,6 @@ int config_parse_ipv6token(
         return 0;
 }
 
-static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_MAX] = {
-        [IPV6_PRIVACY_EXTENSIONS_NO] = "no",
-        [IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC] = "prefer-public",
-        [IPV6_PRIVACY_EXTENSIONS_YES] = "yes",
-};
-
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(ipv6_privacy_extensions, IPv6PrivacyExtensions,
-                                        IPV6_PRIVACY_EXTENSIONS_YES);
-
-int config_parse_ipv6_privacy_extensions(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        IPv6PrivacyExtensions s, *ipv6_privacy_extensions = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(ipv6_privacy_extensions);
-
-        s = ipv6_privacy_extensions_from_string(rvalue);
-        if (s < 0) {
-                if (streq(rvalue, "kernel"))
-                        s = _IPV6_PRIVACY_EXTENSIONS_INVALID;
-                else {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
-                        return 0;
-                }
-        }
-
-        *ipv6_privacy_extensions = s;
-
-        return 0;
-}
-
 int config_parse_hostname(
                 const char *unit,
                 const char *filename,
