@@ -1157,12 +1157,10 @@ static bool promote_secondaries_enabled(const char *ifname) {
  * the primary one expires it relies on the kernel to promote the
  * secondary IP. See also https://github.com/systemd/systemd/issues/7163
  */
-int dhcp4_set_promote_secondaries(Link *link) {
+static int dhcp4_set_promote_secondaries(Link *link) {
         int r;
 
         assert(link);
-        assert(link->network);
-        assert(link->network->dhcp & ADDRESS_FAMILY_IPV4);
 
         /* check if the kernel has promote_secondaries enabled for our
          * interface. If it is not globally enabled or enabled for the
@@ -1267,7 +1265,13 @@ int dhcp4_configure(Link *link) {
 
         assert(link);
         assert(link->network);
-        assert(link->network->dhcp & ADDRESS_FAMILY_IPV4);
+
+        if (!link_dhcp4_enabled(link))
+                return 0;
+
+        r = dhcp4_set_promote_secondaries(link);
+        if (r < 0)
+                return r;
 
         r = dhcp4_init(link);
         if (r < 0)

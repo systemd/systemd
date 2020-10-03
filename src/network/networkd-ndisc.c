@@ -1226,13 +1226,18 @@ int ndisc_configure(Link *link) {
 
         assert(link);
 
-        r = sd_ndisc_new(&link->ndisc);
-        if (r < 0)
-                return r;
+        if (!link_ipv6_accept_ra_enabled(link))
+                return 0;
 
-        r = sd_ndisc_attach_event(link->ndisc, NULL, 0);
-        if (r < 0)
-                return r;
+        if (!link->ndisc) {
+                r = sd_ndisc_new(&link->ndisc);
+                if (r < 0)
+                        return r;
+
+                r = sd_ndisc_attach_event(link->ndisc, NULL, 0);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_ndisc_set_mac(link->ndisc, &link->mac);
         if (r < 0)

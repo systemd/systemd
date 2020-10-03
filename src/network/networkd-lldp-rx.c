@@ -25,7 +25,7 @@ static const char* const lldp_mode_table[_LLDP_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(lldp_mode, LLDPMode, LLDP_MODE_YES);
 
-bool link_lldp_rx_enabled(Link *link) {
+static bool link_lldp_rx_enabled(Link *link) {
         assert(link);
 
         if (link->flags & IFF_LOOPBACK)
@@ -68,9 +68,18 @@ static void lldp_handler(sd_lldp *lldp, sd_lldp_event event, sd_lldp_neighbor *n
 int link_lldp_rx_configure(Link *link) {
         int r;
 
-        r = sd_lldp_new(&link->lldp);
-        if (r < 0)
-                return r;
+        if (!link_lldp_rx_enabled(link))
+                return 0;
+
+        if (!link->lldp) {
+                r = sd_lldp_new(&link->lldp);
+                if (r < 0)
+                        return r;
+
+                r = sd_lldp_attach_event(link->lldp, NULL, 0);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_lldp_set_ifindex(link->lldp, link->ifindex);
         if (r < 0)
@@ -84,10 +93,6 @@ int link_lldp_rx_configure(Link *link) {
                 return r;
 
         r = sd_lldp_set_filter_address(link->lldp, &link->mac);
-        if (r < 0)
-                return r;
-
-        r = sd_lldp_attach_event(link->lldp, NULL, 0);
         if (r < 0)
                 return r;
 

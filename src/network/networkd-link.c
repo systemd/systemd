@@ -638,11 +638,9 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
         }
 
-        if (link_dhcp6_pd_is_enabled(link)) {
-                k = dhcp6_pd_remove(link);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Could not remove DHCPv6 PD addresses and routes: %m");
-        }
+        k = dhcp6_pd_remove(link);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not remove DHCPv6 PD addresses and routes: %m");
 
         if (link->ndisc) {
                 k = sd_ndisc_stop(link->ndisc);
@@ -1072,9 +1070,7 @@ static int link_acquire_ipv6_conf(Link *link) {
 
         assert(link);
 
-        if (link_ipv6_accept_ra_enabled(link)) {
-                assert(link->ndisc);
-
+        if (link->ndisc) {
                 log_link_debug(link, "Discovering IPv6 routers");
 
                 r = sd_ndisc_start(link->ndisc);
@@ -1134,9 +1130,7 @@ static int link_acquire_ipv4_conf(Link *link) {
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
         }
 
-        if (link_dhcp4_enabled(link)) {
-                assert(link->dhcp_client);
-
+        if (link->dhcp_client) {
                 log_link_debug(link, "Acquiring DHCPv4 lease");
 
                 r = sd_dhcp_client_start(link->dhcp_client);
@@ -1162,11 +1156,9 @@ static int link_acquire_conf(Link *link) {
                         return r;
         }
 
-        if (link_lldp_emit_enabled(link)) {
-                r = link_lldp_emit_start(link);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to start LLDP transmission: %m");
-        }
+        r = link_lldp_emit_start(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to start LLDP transmission: %m");
 
         return 0;
 }
@@ -1974,44 +1966,29 @@ int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4)) {
-                r = ipv4ll_configure(link);
-                if (r < 0)
-                        return r;
-        }
+        r = ipv4ll_configure(link);
+        if (r < 0)
+                return r;
 
-        if (link_dhcp4_enabled(link)) {
-                r = dhcp4_set_promote_secondaries(link);
-                if (r < 0)
-                        return r;
+        r = dhcp4_configure(link);
+        if (r < 0)
+                return r;
 
-                r = dhcp4_configure(link);
-                if (r < 0)
-                        return r;
-        }
+        r = dhcp6_configure(link);
+        if (r < 0)
+                return r;
 
-        if (link_dhcp6_enabled(link) ||
-            link_ipv6_accept_ra_enabled(link)) {
-                r = dhcp6_configure(link);
-                if (r < 0)
-                        return r;
-        }
-
-        if (link_ipv6_accept_ra_enabled(link)) {
-                r = ndisc_configure(link);
-                if (r < 0)
-                        return r;
-        }
+        r = ndisc_configure(link);
+        if (r < 0)
+                return r;
 
         r = radv_configure(link);
         if (r < 0)
                 return r;
 
-        if (link_lldp_rx_enabled(link)) {
-                r = link_lldp_rx_configure(link);
-                if (r < 0)
-                        return r;
-        }
+        r = link_lldp_rx_configure(link);
+        if (r < 0)
+                return r;
 
         r = link_configure_mtu(link);
         if (r < 0)

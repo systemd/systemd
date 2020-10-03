@@ -367,7 +367,7 @@ int link_lldp_emit_start(Link *link) {
 
         assert(link);
 
-        if (!link->network || link->network->lldp_emit == LLDP_EMIT_NO) {
+        if (!link_lldp_emit_enabled(link)) {
                 link_lldp_emit_stop(link);
                 return 0;
         }

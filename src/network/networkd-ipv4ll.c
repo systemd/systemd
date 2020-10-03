@@ -166,8 +166,9 @@ int ipv4ll_configure(Link *link) {
         int r;
 
         assert(link);
-        assert(link->network);
-        assert(link->network->link_local & (ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4));
+
+        if (!link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4))
+                return 0;
 
         r = ipv4ll_init(link);
         if (r < 0)

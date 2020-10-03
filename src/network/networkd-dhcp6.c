@@ -25,6 +25,15 @@
 #include "radv-internal.h"
 #include "web-util.h"
 
+bool link_dhcp6_pd_is_enabled(Link *link) {
+        assert(link);
+
+        if (!link->network)
+                return false;
+
+        return link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_DHCP6;
+}
+
 static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
         uint32_t lifetime_preferred, lifetime_valid;
         union in_addr_union pd_prefix;
@@ -180,6 +189,9 @@ int dhcp6_pd_remove(Link *link) {
 
         assert(link);
         assert(link->manager);
+
+        if (!link_dhcp6_pd_is_enabled(link))
+                return 0;
 
         link->dhcp6_pd_address_configured = false;
         link->dhcp6_pd_route_configured = false;
@@ -426,13 +438,6 @@ static int dhcp6_pd_assign_prefix(Link *link, const union in_addr_union *prefix,
         return 0;
 }
 
-bool link_dhcp6_pd_is_enabled(Link *link) {
-        if (!link->network)
-                return false;
-
-        return link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_DHCP6;
-}
-
 static bool link_has_preferred_subnet_id(Link *link) {
         if (!link->network)
                 return false;
@@ -642,9 +647,6 @@ static void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
                 if (link == dhcp6_link)
-                        continue;
-
-                if (!link_dhcp6_pd_is_enabled(link))
                         continue;
 
                 r = dhcp6_pd_remove(link);
@@ -1385,6 +1387,9 @@ int dhcp6_configure(Link *link) {
 
         assert(link);
         assert(link->network);
+
+        if (!link_dhcp6_enabled(link) && !link_ipv6_accept_ra_enabled(link))
+                return 0;
 
         if (link->dhcp6_client)
                 return 0;
