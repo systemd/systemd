@@ -3,22 +3,20 @@
 # Italian translation for systemd package
 # Traduzione in italiano per il pacchetto systemd
 # Daniele Medri <dmedri@gmail.com>, 2013-2020.
-# Milo Casagrande <milo@milo.name>, 2020.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
-"Report-Msgid-Bugs-To: \n"
+"Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
 "POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2020-09-15 08:29+0000\n"
-"Last-Translator: Milo Casagrande <milo@milo.name>\n"
-"Language-Team: Italian <https://translate.fedoraproject.org/projects/systemd/"
-"master/it/>\n"
+"PO-Revision-Date: 2020-10-03 09:35+0200\n"
+"Last-Translator: Daniele Medri <dmedri@gmail.com>\n"
 "Language: it\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.2.2\n"
+"X-Generator: Poedit 2.2.1\n"
+"Language-Team: \n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -28,8 +26,7 @@ msgstr "Invia la frase segreta (passphrase) al sistema"
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
-"È richiesto autenticarsi per inviare la frase segreta (passphrase) al "
-"sistema."
+"È richiesto autenticarsi per inviare la frase segreta (passphrase) al sistema."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -119,8 +116,7 @@ msgid "Change password of a home area"
 msgstr "Modifica password di un'area home"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid ""
-"Authentication is required to change the password of a user's home area."
+msgid "Authentication is required to change the password of a user's home area."
 msgstr ""
 "È richiesto autenticarsi per modificare la password dell'area home di un "
 "utente."
@@ -194,8 +190,7 @@ msgstr "Configura le impostazioni regionali di sistema"
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
 msgstr ""
-"È richiesto autenticarsi per configurare le impostazioni regionali di "
-"sistema."
+"È richiesto autenticarsi per configurare le impostazioni regionali di sistema."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
@@ -432,8 +427,7 @@ msgstr "Ferma il sistema mentre altri utenti sono connessi"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid ""
-"Authentication is required to halt the system while other users are logged "
-"in."
+"Authentication is required to halt the system while other users are logged in."
 msgstr ""
 "È richiesto autenticarsi per fermare il sistema mentre altri utenti sono "
 "connessi."
@@ -464,8 +458,8 @@ msgstr "Sospendi il sistema mentre altri utenti sono connessi"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid ""
-"Authentication is required to suspend the system while other users are "
-"logged in."
+"Authentication is required to suspend the system while other users are logged "
+"in."
 msgstr ""
 "È richiesto autenticarsi per sospendere il sistema mentre altri utenti sono "
 "connessi."
@@ -539,8 +533,7 @@ msgstr "Indica il \"motivo\" del riavvio nel kernel"
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr ""
-"È richiesto autenticarsi per configurare il \"motivo\" del riavvio nel "
-"kernel."
+"È richiesto autenticarsi per configurare il \"motivo\" del riavvio nel kernel."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Indicate to the firmware to boot to setup interface"
@@ -560,11 +553,11 @@ msgstr "Indicate al boot loader di avviare un menu"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
-"Authentication is required to indicate to the boot loader to boot to the "
-"boot loader menu."
+"Authentication is required to indicate to the boot loader to boot to the boot "
+"loader menu."
 msgstr ""
-"È richiesto autenticarsi per indicate al boot loader l'avvio di uno "
-"specifico menu."
+"È richiesto autenticarsi per indicate al boot loader l'avvio di uno specifico "
+"menu."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -575,8 +568,8 @@ msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
-"È richiesto autenticarsi per indicare al boot loader l'avvio di una "
-"specifica voce in elenco."
+"È richiesto autenticarsi per indicare al boot loader l'avvio di una specifica "
+"voce in elenco."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
@@ -631,8 +624,7 @@ msgid "Acquire a pseudo TTY in a local container"
 msgstr "Apri un pseudo TTY in un container locale"
 
 #: src/machine/org.freedesktop.machine1.policy:65
-msgid ""
-"Authentication is required to acquire a pseudo TTY in a local container."
+msgid "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr ""
 "È richiesto autenticarsi per aprire un pseudo TTY in un container locale."
 
@@ -818,8 +810,7 @@ msgid "Attach or detach a portable service image"
 msgstr "Collega o meno un'immagine di servizio portabile"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid ""
-"Authentication is required to attach or detach a portable service image."
+msgid "Authentication is required to attach or detach a portable service image."
 msgstr ""
 "È richiesto autenticarsi per collegare o meno un'immagine di servizio "
 "portabile."
@@ -829,8 +820,7 @@ msgid "Delete or modify portable service image"
 msgstr "Elimina o modifica un'immagine di servizio portabile"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-msgid ""
-"Authentication is required to delete or modify a portable service image."
+msgid "Authentication is required to delete or modify a portable service image."
 msgstr ""
 "È richiesto autenticarsi per eliminare o modificare un'immagine di servizio "
 "portabile."
@@ -886,8 +876,8 @@ msgstr ""
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
-"Authentication is required to control whether the RTC stores the local or "
-"UTC time."
+"Authentication is required to control whether the RTC stores the local or UTC "
+"time."
 msgstr ""
 "È richiesto autenticarsi per verificare se l'orologio di sistema (RTC) è "
 "configurato all'orario locale o al tempo civile (UTC)."
@@ -901,8 +891,8 @@ msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr ""
-"È richiesto autenticarsi per verificare se la sincronizzazione dell'orario "
-"in rete deve essere attivata."
+"È richiesto autenticarsi per verificare se la sincronizzazione dell'orario in "
+"rete deve essere attivata."
 
 #: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
@@ -925,8 +915,7 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
-"È richiesto autenticarsi per inviare un segnale UNIX ai processi di "
-"«${unit}»."
+"È richiesto autenticarsi per inviare un segnale UNIX ai processi di «${unit}»."
 
 #: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
