@@ -38,10 +38,6 @@ typedef struct Address {
 
         bool scope_set:1;
         bool ip_masquerade_done:1;
-        bool manage_temporary_address:1;
-        bool home_address:1;
-        bool prefix_route:1;
-        bool autojoin:1;
         AddressFamily duplicate_address_detection;
 
         /* Called when address become ready */

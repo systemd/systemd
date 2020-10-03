@@ -48,7 +48,6 @@ int address_new(Address **ret) {
                 .cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME,
                 .cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME,
                 .duplicate_address_detection = ADDRESS_FAMILY_IPV6,
-                .prefix_route = true,
         };
 
         *ret = TAKE_PTR(address);
@@ -754,6 +753,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
         if (r < 0)
                 return r;
 
+        na->flags = original->flags;
         na->family = original->family;
         na->prefixlen = original->prefixlen;
         na->scope = original->scope;
@@ -787,6 +787,7 @@ int address_configure(
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         Address *acquired_address, *a;
+        uint32_t flags;
         int r;
 
         assert(address);
@@ -829,29 +830,13 @@ int address_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set prefixlen: %m");
 
-        address->flags |= IFA_F_PERMANENT;
-
-        if (address->home_address)
-                address->flags |= IFA_F_HOMEADDRESS;
-
-        if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
-                address->flags |= IFA_F_NODAD;
-
-        if (address->manage_temporary_address)
-                address->flags |= IFA_F_MANAGETEMPADDR;
-
-        if (!address->prefix_route)
-                address->flags |= IFA_F_NOPREFIXROUTE;
-
-        if (address->autojoin)
-                address->flags |= IFA_F_MCAUTOJOIN;
-
-        r = sd_rtnl_message_addr_set_flags(req, (address->flags & 0xff));
+        flags = address->flags | IFA_F_PERMANENT;
+        r = sd_rtnl_message_addr_set_flags(req, flags & 0xff);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set flags: %m");
 
-        if (address->flags & ~0xff) {
-                r = sd_netlink_message_append_u32(req, IFA_FLAGS, address->flags);
+        if (flags & ~0xff) {
+                r = sd_netlink_message_append_u32(req, IFA_FLAGS, flags);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set extended flags: %m");
         }
@@ -1707,18 +1692,10 @@ int config_parse_address_flags(
                 return 0;
         }
 
-        if (streq(lvalue, "HomeAddress"))
-                n->home_address = r;
-        else if (streq(lvalue, "ManageTemporaryAddress"))
-                n->manage_temporary_address = r;
-        else if (streq(lvalue, "PrefixRoute"))
-                n->prefix_route = !r;
-        else if (streq(lvalue, "AddPrefixRoute"))
-                n->prefix_route = r;
-        else if (streq(lvalue, "AutoJoin"))
-                n->autojoin = r;
-        else
-                assert_not_reached("Invalid address flag type.");
+        if (streq(lvalue, "AddPrefixRoute"))
+                r = !r;
+
+        SET_FLAG(n->flags, ltype, r);
 
         n = NULL;
         return 0;
@@ -1851,6 +1828,9 @@ static int address_section_verify(Address *address) {
 
         if (!address->scope_set && in_addr_is_localhost(address->family, &address->in_addr) > 0)
                 address->scope = RT_SCOPE_HOST;
+
+        if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
+                address->flags |= IFA_F_NODAD;
 
         return 0;
 }
