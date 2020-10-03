@@ -1906,58 +1906,8 @@ static int link_enter_join_netdev(Link *link) {
         return 0;
 }
 
-static int link_enumerate_ipv6_tentative_addresses(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *addr;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-
-        r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_GETADDR, 0, AF_INET6);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(link->manager->rtnl, req, 0, &reply);
-        if (r < 0)
-                return r;
-
-        for (addr = reply; addr; addr = sd_netlink_message_next(addr)) {
-                unsigned char flags;
-                int ifindex;
-
-                r = sd_rtnl_message_addr_get_ifindex(addr, &ifindex);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: invalid ifindex, ignoring: %m");
-                        continue;
-                } else if (link->ifindex != ifindex)
-                        continue;
-
-                r = sd_rtnl_message_addr_get_flags(addr, &flags);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: received address message with invalid flags, ignoring: %m");
-                        continue;
-                } else if (!(flags & IFA_F_TENTATIVE))
-                        continue;
-
-                log_link_debug(link, "Found tentative ipv6 link-local address");
-                (void) manager_rtnl_process_address(link->manager->rtnl, addr, link->manager);
-        }
-
-        return 0;
-}
-
 static int link_drop_foreign_config(Link *link) {
         int r;
-
-        /* The kernel doesn't notify us about tentative addresses;
-         * so if ipv6ll is disabled, we need to enumerate them now so we can drop them below */
-        if (!link_ipv6ll_enabled(link)) {
-                r = link_enumerate_ipv6_tentative_addresses(link);
-                if (r < 0)
-                        return r;
-        }
 
         r = link_drop_foreign_addresses(link);
         if (r < 0)
