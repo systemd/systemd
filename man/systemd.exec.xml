@@ -2025,7 +2025,7 @@ RestrictNamespaces=~cgroup net</programlisting>
               </row>
               <row>
                 <entry>@process</entry>
-                <entry>Process control, execution, namespaceing operations (<citerefentry project='man-pages'><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, …)</entry>
+                <entry>Process control, execution, namespacing operations (<citerefentry project='man-pages'><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>, …)</entry>
               </row>
               <row>
                 <entry>@raw-io</entry>

@@ -1160,7 +1160,7 @@
     into words, and afterwards removed.</para>
 
     <para>If the command is not a full (absolute) path, it will be resolved to a full path using a
-    fixed search path determinted at compilation time. Searched directories include
+    fixed search path determined at compilation time. Searched directories include
     <filename>/usr/local/bin/</filename>, <filename>/usr/bin/</filename>, <filename>/bin/</filename>
     on systems using split <filename>/usr/bin/</filename> and <filename>/bin/</filename>
     directories, and their <filename>sbin/</filename> counterparts on systems using split
