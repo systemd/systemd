@@ -946,51 +946,6 @@ int config_parse_domains(
         }
 }
 
-int config_parse_ipv6token(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        union in_addr_union buffer;
-        struct in6_addr *token = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(token);
-
-        r = in_addr_from_string(AF_INET6, rvalue, &buffer);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse IPv6 token, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (in_addr_is_null(AF_INET6, &buffer)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "IPv6 token cannot be the ANY address, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if ((buffer.in6.s6_addr32[0] | buffer.in6.s6_addr32[1]) != 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "IPv6 token cannot be longer than 64 bits, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *token = buffer.in6;
-
-        return 0;
-}
-
 int config_parse_hostname(
                 const char *unit,
                 const char *filename,
