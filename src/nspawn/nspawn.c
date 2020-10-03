@@ -3321,9 +3321,9 @@ static int inner_child(
                 return log_error_errno(errno, "Failed to set PR_SET_KEEPCAPS: %m");
 
         if (uid_is_valid(arg_uid) || gid_is_valid(arg_gid))
-                r = change_uid_gid_raw(arg_uid, arg_gid, arg_supplementary_gids, arg_n_supplementary_gids);
+                r = change_uid_gid_raw(arg_uid, arg_gid, arg_supplementary_gids, arg_n_supplementary_gids, arg_console_mode != CONSOLE_PIPE);
         else
-                r = change_uid_gid(arg_user, &home);
+                r = change_uid_gid(arg_user, arg_console_mode != CONSOLE_PIPE, &home);
         if (r < 0)
                 return r;
 
