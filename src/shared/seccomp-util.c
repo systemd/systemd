@@ -676,7 +676,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
         },
         [SYSCALL_FILTER_SET_PROCESS] = {
                 .name = "@process",
-                .help = "Process control, execution, namespaceing operations",
+                .help = "Process control, execution, namespacing operations",
                 .value =
                 "arch_prctl\0"
                 "capget\0"      /* Able to query arbitrary processes */
