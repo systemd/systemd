@@ -624,7 +624,7 @@ int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_attach_event(link->radv, NULL, 0);
+        r = sd_radv_attach_event(link->radv, link->manager->event, 0);
         if (r < 0)
                 return r;
 

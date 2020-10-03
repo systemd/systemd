@@ -1400,7 +1400,7 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to create DHCP6 client: %m");
 
-        r = sd_dhcp6_client_attach_event(client, NULL, 0);
+        r = sd_dhcp6_client_attach_event(client, link->manager->event, 0);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to attach event: %m");
 

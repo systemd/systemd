@@ -9,6 +9,7 @@
 #include "networkd-link.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -76,7 +77,7 @@ int link_lldp_rx_configure(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = sd_lldp_attach_event(link->lldp, NULL, 0);
+                r = sd_lldp_attach_event(link->lldp, link->manager->event, 0);
                 if (r < 0)
                         return r;
         }

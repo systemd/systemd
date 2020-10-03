@@ -1377,7 +1377,7 @@ static int ipv4_dad_configure(Link *link, Address *address) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_attach_event(address->acd, NULL, 0);
+        r = sd_ipv4acd_attach_event(address->acd, link->manager->event, 0);
         if (r < 0)
                 return r;
 

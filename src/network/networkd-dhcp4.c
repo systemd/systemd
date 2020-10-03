@@ -623,7 +623,7 @@ static int configure_dhcpv4_duplicate_address_detection(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_attach_event(link->network->dhcp_acd, NULL, 0);
+        r = sd_ipv4acd_attach_event(link->network->dhcp_acd, link->manager->event, 0);
         if (r < 0)
                 return r;
 

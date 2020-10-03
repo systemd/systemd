@@ -1234,7 +1234,7 @@ int ndisc_configure(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = sd_ndisc_attach_event(link->ndisc, NULL, 0);
+                r = sd_ndisc_attach_event(link->ndisc, link->manager->event, 0);
                 if (r < 0)
                         return r;
         }
