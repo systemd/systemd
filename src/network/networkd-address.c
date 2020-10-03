@@ -1489,7 +1489,8 @@ int config_parse_broadcast(
         return 0;
 }
 
-int config_parse_address(const char *unit,
+int config_parse_address(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1619,16 +1620,18 @@ int config_parse_label(
         return 0;
 }
 
-int config_parse_lifetime(const char *unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          unsigned section_line,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_lifetime(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         uint32_t k;
@@ -1666,16 +1669,18 @@ int config_parse_lifetime(const char *unit,
         return 0;
 }
 
-int config_parse_address_flags(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+int config_parse_address_flags(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         int r;
@@ -1719,16 +1724,18 @@ int config_parse_address_flags(const char *unit,
         return 0;
 }
 
-int config_parse_address_scope(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
+int config_parse_address_scope(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         int r;
@@ -1779,6 +1786,7 @@ int config_parse_duplicate_address_detection(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         Network *network = userdata;
         _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
         AddressFamily a;
