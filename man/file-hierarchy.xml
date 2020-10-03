@@ -589,6 +589,19 @@
     directives of service units (see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details).</para>
+
+    <para><filename>/tmp/</filename>, <filename>/var/tmp/</filename> and <filename>/dev/shm/</filename>
+    should be mounted <option>nosuid</option> and <option>nodev</option>, which means that set-user-id mode
+    and character or block special devices are not interpreted on those file systems. In general it is not
+    possible to mount them <option>noexec</option>, because various programs use those directories for
+    dynamically generated or optimized code, and with that flag those use cases would break. Using this flag
+    is OK on special-purpose installations or systems where all software that may be installed is known and
+    doesn't require such functionality. See the discussion of
+    <option>nosuid</option>/<option>nodev</option>/<option>noexec</option> in <citerefentry
+    project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
+    <constant>PROT_EXEC</constant> in <citerefentry
+    project='man-pages'><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>
