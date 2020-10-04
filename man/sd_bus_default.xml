@@ -154,7 +154,7 @@
     is equivalent to <function>sd_bus_open()</function>. This description string is used in log
     messages about the bus object, and including a "name" for the bus makes them easier to
     understand. Some messages are emitted during bus initialization, hence using this function is
-    prefereable to setting the description later with
+    preferable to setting the description later with
     <function>sd_bus_open_with_description()</function>. The argument is copied internally and will
     not be referenced after the function returns.</para>
 
