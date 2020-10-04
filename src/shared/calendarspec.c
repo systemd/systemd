@@ -363,7 +363,7 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
 
         if (c->utc)
                 fputs(" UTC", f);
-        else if (c->timezone != NULL) {
+        else if (c->timezone) {
                 fputc(' ', f);
                 fputs(c->timezone, f);
         } else if (IN_SET(c->dst, 0, 1)) {

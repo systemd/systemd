@@ -270,7 +270,7 @@ static int dhcp6_client_set_duid_internal(
         assert_return(duid_len == 0 || duid != NULL, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
-        if (duid != NULL) {
+        if (duid) {
                 r = dhcp_validate_duid_len(duid_type, duid_len, true);
                 if (r < 0) {
                         r = dhcp_validate_duid_len(duid_type, duid_len, false);

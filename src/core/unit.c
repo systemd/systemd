@@ -5502,7 +5502,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                         done = true;
 
                         HASHMAP_FOREACH_KEY(di.data, other, u->dependencies[d]) {
-                                if ((di.origin_mask & ~mask) == di.origin_mask)
+                                if (FLAGS_SET(~mask, di.origin_mask))
                                         continue;
                                 di.origin_mask &= ~mask;
                                 unit_update_dependency_mask(u, d, other, di);
@@ -5516,7 +5516,7 @@ void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
                                         UnitDependencyInfo dj;
 
                                         dj.data = hashmap_get(other->dependencies[q], u);
-                                        if ((dj.destination_mask & ~mask) == dj.destination_mask)
+                                        if (FLAGS_SET(~mask, dj.destination_mask))
                                                 continue;
                                         dj.destination_mask &= ~mask;
 

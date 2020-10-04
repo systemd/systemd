@@ -45,7 +45,7 @@ static int unlinkat_harder(
                 return -errno;
         if (!S_ISDIR(st.st_mode))
                 return -ENOTDIR;
-        if ((st.st_mode & 0700) == 0700) /* Already set? */
+        if (FLAGS_SET(st.st_mode, 0700)) /* Already set? */
                 return -EACCES; /* original error */
         if (st.st_uid != geteuid())  /* this only works if the UID matches ours */
                 return -EACCES;

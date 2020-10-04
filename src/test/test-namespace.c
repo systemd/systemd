@@ -46,7 +46,7 @@ static void test_tmpdir(const char *id, const char *A, const char *B) {
                 c = strjoina(a, "/tmp");
                 assert_se(stat(c, &x) >= 0);
                 assert_se(S_ISDIR(x.st_mode));
-                assert_se((x.st_mode & 01777) == 01777);
+                assert_se(FLAGS_SET(x.st_mode, 01777));
                 assert_se(rmdir(c) >= 0);
                 assert_se(rmdir(a) >= 0);
         }
@@ -57,7 +57,7 @@ static void test_tmpdir(const char *id, const char *A, const char *B) {
                 d = strjoina(b, "/tmp");
                 assert_se(stat(d, &y) >= 0);
                 assert_se(S_ISDIR(y.st_mode));
-                assert_se((y.st_mode & 01777) == 01777);
+                assert_se(FLAGS_SET(y.st_mode, 01777));
                 assert_se(rmdir(d) >= 0);
                 assert_se(rmdir(b) >= 0);
         }
