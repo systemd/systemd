@@ -568,8 +568,6 @@ static int routing_policy_rule_configure_internal(RoutingPolicyRule *rule, int f
                         return log_link_error_errno(link, r, "Could not append FRA_SUPPRESS_PREFIXLEN attribute: %m");
         }
 
-        rule->link = link;
-
         r = netlink_call_async(link->manager->rtnl, NULL, m,
                                routing_policy_rule_handler,
                                link_netlink_destroy_callback, link);

@@ -18,7 +18,6 @@ typedef struct Manager Manager;
 typedef struct RoutingPolicyRule {
         Manager *manager;
         Network *network;
-        Link *link;
         NetworkConfigSection *section;
 
         bool invert_rule;
