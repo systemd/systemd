@@ -238,29 +238,38 @@ static int address_copy(Address *dest, const Address *src) {
         return 0;
 }
 
-static int address_establish(Address *address, Link *link) {
-        bool masq;
+static int address_set_masquerade(Address *address, bool add) {
+        union in_addr_union masked;
         int r;
 
         assert(address);
-        assert(link);
+        assert(address->link);
 
-        masq = link->network &&
-               link->network->ip_masquerade &&
-               address->family == AF_INET &&
-               address->scope < RT_SCOPE_LINK;
+        if (!address->link->network)
+                return 0;
 
-        /* Add firewall entry if this is requested */
-        if (address->ip_masquerade_done != masq) {
-                union in_addr_union masked = address->in_addr;
-                in_addr_mask(address->family, &masked, address->prefixlen);
+        if (!address->link->network->ip_masquerade)
+                return 0;
 
-                r = fw_add_masquerade(masq, AF_INET, 0, &masked, address->prefixlen, NULL, NULL, 0);
-                if (r < 0)
-                        return r;
+        if (address->family != AF_INET)
+                return 0;
 
-                address->ip_masquerade_done = masq;
-        }
+        if (address->scope >= RT_SCOPE_LINK)
+                return 0;
+
+        if (address->ip_masquerade_done == add)
+                return 0;
+
+        masked = address->in_addr;
+        r = in_addr_mask(address->family, &masked, address->prefixlen);
+        if (r < 0)
+                return r;
+
+        r = fw_add_masquerade(add, AF_INET, 0, &masked, address->prefixlen, NULL, NULL, 0);
+        if (r < 0)
+                return r;
+
+        address->ip_masquerade_done = add;
 
         return 0;
 }
@@ -334,27 +343,6 @@ static int address_add(Link *link, int family, const union in_addr_union *in_add
         return 0;
 }
 
-static int address_release(Address *address) {
-        int r;
-
-        assert(address);
-        assert(address->link);
-
-        /* Remove masquerading firewall entry if it was added */
-        if (address->ip_masquerade_done) {
-                union in_addr_union masked = address->in_addr;
-                in_addr_mask(address->family, &masked, address->prefixlen);
-
-                r = fw_add_masquerade(false, AF_INET, 0, &masked, address->prefixlen, NULL, NULL, 0);
-                if (r < 0)
-                        return r;
-
-                address->ip_masquerade_done = false;
-        }
-
-        return 0;
-}
-
 static int address_update(
                 Address *address,
                 unsigned char flags,
@@ -410,7 +398,7 @@ static int address_drop(Address *address) {
         ready = address_is_ready(address);
         link = address->link;
 
-        r = address_release(address);
+        r = address_set_masquerade(address, false);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable IP masquerading, ignoring: %m");
 
@@ -886,26 +874,25 @@ int address_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFA_CACHEINFO attribute: %m");
 
-        r = address_establish(address, link);
+        if (address->family == AF_INET6 && !in_addr_is_null(address->family, &address->in_addr_peer))
+                r = address_add(link, address->family, &address->in_addr_peer, address->prefixlen, &a);
+        else
+                r = address_add(link, address->family, &address->in_addr, address->prefixlen, &a);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add address: %m");
+
+        a->scope = address->scope;
+        r = address_set_masquerade(a, true);
         if (r < 0)
                 log_link_warning_errno(link, r, "Could not enable IP masquerading, ignoring: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req, callback, link_netlink_destroy_callback, link);
         if (r < 0) {
-                address_release(address);
+                (void) address_set_masquerade(a, false);
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
         }
 
         link_ref(link);
-
-        if (address->family == AF_INET6 && !in_addr_is_null(address->family, &address->in_addr_peer))
-                r = address_add(link, address->family, &address->in_addr_peer, address->prefixlen, &a);
-        else
-                r = address_add(link, address->family, &address->in_addr, address->prefixlen, &a);
-        if (r < 0) {
-                address_release(address);
-                return log_link_error_errno(link, r, "Could not add address: %m");
-        }
 
         if (FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
                 r = ipv4_dad_configure(a);
