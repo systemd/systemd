@@ -106,7 +106,7 @@ Address *address_free(Address *address) {
                 ordered_hashmap_remove(address->network->addresses_by_section, address->section);
         }
 
-        if (address->link && !address->acd) {
+        if (address->link) {
                 NDiscAddress *n;
 
                 set_remove(address->link->addresses, address);
@@ -793,6 +793,8 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
         return 1;
 }
 
+static int ipv4_dad_configure(Address *address);
+
 int address_configure(
                 Address *address,
                 Link *link,
@@ -905,16 +907,8 @@ int address_configure(
                 return log_link_error_errno(link, r, "Could not add address: %m");
         }
 
-        if (address->acd) {
-                assert(address->family == AF_INET);
-                if (DEBUG_LOGGING) {
-                        _cleanup_free_ char *pretty = NULL;
-
-                        (void) in_addr_to_string(address->family, &address->in_addr, &pretty);
-                        log_link_debug(link, "Starting IPv4ACD client. Probing address %s", strna(pretty));
-                }
-
-                r = sd_ipv4acd_start(address->acd, true);
+        if (FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
+                r = ipv4_dad_configure(a);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to start IPv4ACD client, ignoring: %m");
         }
@@ -1363,29 +1357,37 @@ static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         return;
 }
 
-static int ipv4_dad_configure(Link *link, Address *address) {
+static int ipv4_dad_configure(Address *address) {
         int r;
 
-        assert(link);
         assert(address);
-        assert(address->family == AF_INET);
-        assert(!address->link && address->network);
+        assert(address->link);
 
-        address->link = link;
+        if (address->family != AF_INET)
+                return 0;
 
-        r = sd_ipv4acd_new(&address->acd);
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *pretty = NULL;
+
+                (void) in_addr_to_string(address->family, &address->in_addr, &pretty);
+                log_link_debug(address->link, "Starting IPv4ACD client. Probing address %s", strna(pretty));
+        }
+
+        if (!address->acd) {
+                r = sd_ipv4acd_new(&address->acd);
+                if (r < 0)
+                        return r;
+
+                r = sd_ipv4acd_attach_event(address->acd, address->link->manager->event, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_ipv4acd_set_ifindex(address->acd, address->link->ifindex);
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_attach_event(address->acd, link->manager->event, 0);
-        if (r < 0)
-                return r;
-
-        r = sd_ipv4acd_set_ifindex(address->acd, link->ifindex);
-        if (r < 0)
-                return r;
-
-        r = sd_ipv4acd_set_mac(address->acd, &link->mac);
+        r = sd_ipv4acd_set_mac(address->acd, &address->link->mac);
         if (r < 0)
                 return r;
 
@@ -1397,37 +1399,16 @@ static int ipv4_dad_configure(Link *link, Address *address) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return sd_ipv4acd_start(address->acd, true);
 }
 
-int link_configure_ipv4_dad(Link *link) {
-        Address *address;
-        int r;
-
-        assert(link);
-        assert(link->network);
-
-        ORDERED_HASHMAP_FOREACH(address, link->network->addresses_by_section)
-                if (address->family == AF_INET &&
-                    FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV4)) {
-                        r = ipv4_dad_configure(link, address);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to configure IPv4ACD: %m");
-                }
-
-        return 0;
-}
-
-int link_stop_ipv4_dad(Link *link) {
+int ipv4_dad_stop(Link *link) {
         Address *address;
         int k, r = 0;
 
         assert(link);
 
-        if (!link->network)
-                return 0;
-
-        ORDERED_HASHMAP_FOREACH(address, link->network->addresses_by_section) {
+        SET_FOREACH(address, link->addresses) {
                 if (!address->acd)
                         continue;
 

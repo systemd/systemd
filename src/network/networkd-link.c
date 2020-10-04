@@ -628,7 +628,7 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
                         r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
         }
 
-        k = link_stop_ipv4_dad(link);
+        k = ipv4_dad_stop(link);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client: %m");
 
@@ -1995,10 +1995,6 @@ int link_configure(Link *link) {
                 return r;
 
         r = link_configure_addrgen_mode(link);
-        if (r < 0)
-                return r;
-
-        r = link_configure_ipv4_dad(link);
         if (r < 0)
                 return r;
 
