@@ -304,13 +304,15 @@ int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRu
         return -ENOENT;
 }
 
-static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPolicyRule *in, RoutingPolicyRule **ret) {
+static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
         int r;
 
         assert(m);
         assert(rules);
         assert(in);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(in->family == AF_UNSPEC || in->family == family);
 
         r = routing_policy_rule_new(&rule);
         if (r < 0)
@@ -321,6 +323,8 @@ static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPoli
         r = routing_policy_rule_copy(rule, in);
         if (r < 0)
                 return r;
+
+        rule->family = family;
 
         r = set_ensure_put(rules, &routing_policy_rule_hash_ops, rule);
         if (r < 0)
@@ -335,12 +339,12 @@ static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPoli
         return 0;
 }
 
-static int routing_policy_rule_add(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(m, &m->rules, rule, ret);
+static int routing_policy_rule_add(Manager *m, RoutingPolicyRule *rule, int family, RoutingPolicyRule **ret) {
+        return routing_policy_rule_add_internal(m, &m->rules, rule, family, ret);
 }
 
 int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(m, &m->rules_foreign, rule, ret);
+        return routing_policy_rule_add_internal(m, &m->rules_foreign, rule, rule->family, ret);
 }
 
 static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -449,7 +453,7 @@ static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link) {
+static int routing_policy_rule_configure_internal(RoutingPolicyRule *rule, int family, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -462,15 +466,15 @@ static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link) {
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *from = NULL, *to = NULL;
 
-                (void) in_addr_to_string(rule->family, &rule->from, &from);
-                (void) in_addr_to_string(rule->family, &rule->to, &to);
+                (void) in_addr_to_string(family, &rule->from, &from);
+                (void) in_addr_to_string(family, &rule->to, &to);
 
                 log_link_debug(link,
                                "Configuring routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
                                rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
         }
 
-        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, rule->family);
+        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, family);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not allocate RTM_NEWRULE message: %m");
 
@@ -583,12 +587,34 @@ static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link) {
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
+        link->routing_policy_rule_messages++;
 
-        r = routing_policy_rule_add(link->manager, rule, NULL);
+        r = routing_policy_rule_add(link->manager, rule, family, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add rule: %m");
 
         return 1;
+}
+
+static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link) {
+        int r;
+
+        if (IN_SET(rule->family, AF_INET, AF_INET6))
+                return routing_policy_rule_configure_internal(rule, rule->family, link);
+
+        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4)) {
+                r = routing_policy_rule_configure_internal(rule, AF_INET, link);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6)) {
+                r = routing_policy_rule_configure_internal(rule, AF_INET6, link);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule *rule) {
@@ -670,8 +696,6 @@ int link_set_routing_policy_rules(Link *link) {
                 r = routing_policy_rule_configure(rule, link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set routing policy rule: %m");
-
-                link->routing_policy_rule_messages++;
         }
 
         routing_policy_rule_purge(link->manager, link);
@@ -1216,8 +1240,6 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
 }
 
 int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
-        int r;
-
         if (section_is_invalid(rule->section))
                 return -EINVAL;
 
@@ -1228,33 +1250,8 @@ int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
                                 "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
                                 rule->section->filename, rule->section->line);
 
-        if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_IPV6)) {
-                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule6 = NULL;
-
-                assert(rule->family == AF_UNSPEC);
-
-                /* When Family=both, we need to copy the section, AF_INET and AF_INET6. */
-
-                r = routing_policy_rule_new_static(rule->network, NULL, 0, &rule6);
-                if (r < 0)
-                        return r;
-
-                r = routing_policy_rule_copy(rule6, rule);
-                if (r < 0)
-                        return r;
-
+        if (rule->family == AF_UNSPEC && rule->address_family == ADDRESS_FAMILY_NO)
                 rule->family = AF_INET;
-                rule6->family = AF_INET6;
-
-                TAKE_PTR(rule6);
-        }
-
-        if (rule->family == AF_UNSPEC) {
-                if (FLAGS_SET(rule->address_family, ADDRESS_FAMILY_IPV6))
-                        rule->family = AF_INET6;
-                else
-                        rule->family = AF_INET;
-        }
 
         return 0;
 }
