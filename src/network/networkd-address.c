@@ -1867,8 +1867,19 @@ static int address_section_verify(Address *address) {
                                          address->section->filename, address->section->line);
         }
 
-        if (!address->scope_set && in_addr_is_localhost(address->family, &address->in_addr) > 0)
+        if (in_addr_is_localhost(address->family, &address->in_addr) > 0 &&
+            (address->family == AF_INET || !address->scope_set)) {
+                /* For IPv4, scope must be always RT_SCOPE_HOST.
+                 * For IPv6, use RT_SCOPE_HOST only when it is not explicitly specified. */
+
+                if (address->scope_set && address->scope != RT_SCOPE_HOST)
+                        log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                          "%s: non-host scope is set in the [Address] section from line %u. "
+                                          "Ignoring Scope= setting.",
+                                          address->section->filename, address->section->line);
+
                 address->scope = RT_SCOPE_HOST;
+        }
 
         if (!FLAGS_SET(address->duplicate_address_detection, ADDRESS_FAMILY_IPV6))
                 address->flags |= IFA_F_NODAD;
