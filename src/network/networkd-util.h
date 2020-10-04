@@ -5,7 +5,7 @@
 #include "sd-netlink.h"
 
 #include "conf-parser.h"
-#include "hash-funcs.h"
+#include "hashmap.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"
@@ -52,6 +52,7 @@ int network_config_section_new(const char *filename, unsigned line, NetworkConfi
 void network_config_section_free(NetworkConfigSection *network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
 extern const struct hash_ops network_config_hash_ops;
+unsigned hashmap_find_free_section_line(Hashmap *hashmap);
 
 static inline bool section_is_invalid(NetworkConfigSection *section) {
         /* If this returns false, then it does _not_ mean the section is valid. */
