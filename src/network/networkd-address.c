@@ -1402,6 +1402,51 @@ static int ipv4_dad_configure(Address *address) {
         return sd_ipv4acd_start(address->acd, true);
 }
 
+static int ipv4_dad_update_mac_one(Address *address) {
+        bool running;
+        int r;
+
+        assert(address);
+
+        if (!address->acd)
+                return 0;
+
+        running = sd_ipv4acd_is_running(address->acd);
+
+        if (running) {
+                r = sd_ipv4acd_stop(address->acd);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_ipv4acd_set_mac(address->acd, &address->link->mac);
+        if (r < 0)
+                return r;
+
+        if (running) {
+                r = sd_ipv4acd_start(address->acd, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int ipv4_dad_update_mac(Link *link) {
+        Address *address;
+        int k, r = 0;
+
+        assert(link);
+
+        SET_FOREACH(address, link->addresses) {
+                k = ipv4_dad_update_mac_one(address);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
 int ipv4_dad_stop(Link *link) {
         Address *address;
         int k, r = 0;

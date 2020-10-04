@@ -66,6 +66,7 @@ int link_serialize_addresses(Link *link, FILE *f);
 int link_deserialize_addresses(Link *link, const char *addresses);
 
 int ipv4_dad_stop(Link *link);
+int ipv4_dad_update_mac(Link *link);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
