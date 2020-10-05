@@ -128,7 +128,7 @@
           </row>
 
           <row>
-            <entry valign="top" morerows="8">Container</entry>
+            <entry valign="top" morerows="9">Container</entry>
             <entry><varname>openvz</varname></entry>
             <entry>OpenVZ/Virtuozzo</entry>
           </row>
