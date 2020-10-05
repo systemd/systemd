@@ -183,7 +183,7 @@
     for the credential fields that could not be determined atomically
     at peer connection time, and which were later added by reading
     augmenting credential data from
-    <filename>/proc</filename>. Similarly, for credential objects
+    <filename>/proc/</filename>. Similarly, for credential objects
     retrieved via <function>sd_bus_get_owner_creds()</function>, the
     mask is set for the fields that could not be determined atomically
     at bus creation time, but have been augmented. Similarly, for
@@ -243,7 +243,7 @@
 
     <para><function>sd_bus_creds_get_augmented_mask()</function>
     returns the mask of fields that have been augmented from data in
-    <filename>/proc</filename>, and are thus not suitable for
+    <filename>/proc/</filename>, and are thus not suitable for
     authorization decisions.</para>
 
     <para><function>sd_bus_creds_ref()</function> always returns the

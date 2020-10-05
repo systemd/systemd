@@ -267,8 +267,8 @@
         argument. Behavior otherwise is very similar to the
         <varname>ListenFIFO=</varname> directive above. Use this to
         open character device nodes as well as special files in
-        <filename>/proc</filename> and
-        <filename>/sys</filename>.</para></listitem>
+        <filename>/proc/</filename> and
+        <filename>/sys/</filename>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

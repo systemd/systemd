@@ -1288,11 +1288,11 @@ node /org/freedesktop/systemd1 {
       file.</para>
 
       <para><function>EnableUnitFiles()</function> may be used to enable one or more units in the system (by
-      creating symlinks to them in <filename>/etc</filename> or <filename>/run</filename>). It takes a list
+      creating symlinks to them in <filename>/etc/</filename> or <filename>/run/</filename>). It takes a list
       of unit files to enable (either just file names or full absolute paths if the unit files are residing
       outside the usual unit search paths) and two booleans: the first controls whether the unit shall be
-      enabled for runtime only (true, <filename>/run</filename>), or persistently (false,
-      <filename>/etc</filename>). The second one controls whether symlinks pointing to other units shall be
+      enabled for runtime only (true, <filename>/run/</filename>), or persistently (false,
+      <filename>/etc/</filename>). The second one controls whether symlinks pointing to other units shall be
       replaced if necessary. This method returns one boolean and an array of the changes made. The boolean
       signals whether the unit files contained any enablement information (i.e. an [Install]) section. The
       changes array consists of structures with three strings: the type of the change (one of
@@ -1301,7 +1301,7 @@ node /org/freedesktop/systemd1 {
       format.</para>
 
       <para>Similarly, <function>DisableUnitFiles()</function> disables one or more units in the system,
-      i.e. removes all symlinks to them in <filename>/etc</filename> and <filename>/run</filename>.</para>
+      i.e. removes all symlinks to them in <filename>/etc/</filename> and <filename>/run/</filename>.</para>
 
       <para>The <function>EnableUnitFilesWithFlags()</function> and <function>DisableUnitFilesWithFlags()</function>
       take in options as flags instead of booleans to allow for extendability, defined as follows:</para>
@@ -1425,7 +1425,7 @@ node /org/freedesktop/systemd1 {
       flag. Taints may be used to lower the chance of bogus bug reports. The following taints are currently
       known: <literal>split-usr</literal>, <literal>mtab-not-symlink</literal>,
       <literal>cgroups-missing</literal>, <literal>local-hwclock</literal>. <literal>split-usr</literal> is
-      set if <filename>/usr</filename> is not pre-mounted when systemd is first invoked. See
+      set if <filename>/usr/</filename> is not pre-mounted when systemd is first invoked. See
       <ulink url="http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken">
       Booting Without /usr is Broken</ulink>
       for details why this is bad. <literal>mtab-not-symlink</literal> indicates that
@@ -2094,11 +2094,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <literal>disabled</literal>, and <literal>invalid</literal>. <literal>enabled</literal> indicates that a
       unit file is permanently enabled. <literal>enable-runtime</literal> indicates the unit file is only
       temporarily enabled and will no longer be enabled after a reboot (that means, it is enabled via
-      <filename>/run</filename> symlinks, rather than <filename>/etc</filename>). <literal>linked</literal>
-      indicates that a unit is linked into <filename>/etc</filename> permanently. <literal>linked-runtime</literal>
-      indicates that a unit is linked into <filename>/run</filename> temporarily (until the next
+      <filename>/run/</filename> symlinks, rather than <filename>/etc/</filename>). <literal>linked</literal>
+      indicates that a unit is linked into <filename>/etc/</filename> permanently. <literal>linked-runtime</literal>
+      indicates that a unit is linked into <filename>/run/</filename> temporarily (until the next
       reboot). <literal>masked</literal> indicates that the unit file is masked permanently.
-      <literal>masked-runtime</literal> indicates that it is masked in <filename>/run</filename> temporarily
+      <literal>masked-runtime</literal> indicates that it is masked in <filename>/run/</filename> temporarily
       (until the next reboot). <literal>static</literal> indicates that the unit is statically enabled, i.e.
       always enabled and doesn't need to be enabled explicitly. <literal>invalid</literal> indicates that it
       could not be determined whether the unit file is enabled.</para>

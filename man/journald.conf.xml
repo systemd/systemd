@@ -216,7 +216,7 @@
         with <literal>Runtime</literal> apply to the journal files
         when stored on a volatile in-memory file system, more
         specifically <filename>/run/log/journal</filename>. The former
-        is used only when <filename>/var</filename> is mounted,
+        is used only when <filename>/var/</filename> is mounted,
         writable, and the directory
         <filename>/var/log/journal</filename> exists. Otherwise, only
         the latter applies. Note that this means that during early

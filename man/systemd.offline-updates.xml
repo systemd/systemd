@@ -44,7 +44,7 @@
         created that points to <filename index="false">/var/lib/system-update</filename> (or
         wherever the directory with the upgrade files is located) and the system is rebooted. This
         symlink is in the root directory, since we need to check for it very early at boot, at a
-        time where <filename>/var</filename> is not available yet.</para>
+        time where <filename>/var/</filename> is not available yet.</para>
       </listitem>
 
       <listitem>

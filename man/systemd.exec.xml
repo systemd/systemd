@@ -61,10 +61,12 @@
       paths.  This is equivalent to having them listed explicitly in
       <varname>RequiresMountsFor=</varname>.</para></listitem>
 
-      <listitem><para>Similar, units with <varname>PrivateTmp=</varname> enabled automatically get mount unit
-      dependencies for all mounts required to access <filename>/tmp</filename> and <filename>/var/tmp</filename>. They
-      will also gain an automatic <varname>After=</varname> dependency on
-      <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+      <listitem><para>Similarly, units with <varname>PrivateTmp=</varname> enabled automatically get mount
+      unit dependencies for all mounts required to access <filename>/tmp/</filename> and
+      <filename>/var/tmp/</filename>. They will also gain an automatic <varname>After=</varname> dependency
+      on
+      <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      </para></listitem>
 
       <listitem><para>Units whose standard output or error output is connected to <option>journal</option> or
       <option>kmsg</option> (or their combinations with console output, see below) automatically acquire
@@ -273,11 +275,11 @@
         <term><varname>MountAPIVFS=</varname></term>
 
         <listitem><para>Takes a boolean argument. If on, a private mount namespace for the unit's processes is created
-        and the API file systems <filename>/proc</filename>, <filename>/sys</filename>, and <filename>/dev</filename>
+        and the API file systems <filename>/proc/</filename>, <filename>/sys/</filename>, and <filename>/dev/</filename>
         are mounted inside of it, unless they are already mounted. Note that this option has no effect unless used in
         conjunction with <varname>RootDirectory=</varname>/<varname>RootImage=</varname> as these three mounts are
         generally mounted in the host anyway, and unless the root directory is changed, the private mount namespace
-        will be a 1:1 copy of the host's, and include these three mounts. Note that the <filename>/dev</filename> file
+        will be a 1:1 copy of the host's, and include these three mounts. Note that the <filename>/dev/</filename> file
         system of the host is bind mounted if this option is used without <varname>PrivateDevices=</varname>. To run
         the service with a private, minimal version of <filename>/dev/</filename>, combine this option with
         <varname>PrivateDevices=</varname>.</para>
@@ -1121,12 +1123,12 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>ProtectSystem=</varname></term>
 
         <listitem><para>Takes a boolean argument or the special values <literal>full</literal> or
-        <literal>strict</literal>. If true, mounts the <filename>/usr</filename> and the boot loader
+        <literal>strict</literal>. If true, mounts the <filename>/usr/</filename> and the boot loader
         directories (<filename>/boot</filename> and <filename>/efi</filename>) read-only for processes
-        invoked by this unit. If set to <literal>full</literal>, the <filename>/etc</filename> directory is
+        invoked by this unit. If set to <literal>full</literal>, the <filename>/etc/</filename> directory is
         mounted read-only, too. If set to <literal>strict</literal> the entire file system hierarchy is
-        mounted read-only, except for the API file system subtrees <filename>/dev</filename>,
-        <filename>/proc</filename> and <filename>/sys</filename> (protect these directories using
+        mounted read-only, except for the API file system subtrees <filename>/dev/</filename>,
+        <filename>/proc/</filename> and <filename>/sys/</filename> (protect these directories using
         <varname>PrivateDevices=</varname>, <varname>ProtectKernelTunables=</varname>,
         <varname>ProtectControlGroups=</varname>). This setting ensures that any modification of the vendor-supplied
         operating system (and optionally its configuration, and local mounts) is prohibited for the service.  It is
@@ -1142,7 +1144,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>ProtectHome=</varname></term>
 
         <listitem><para>Takes a boolean argument or the special values <literal>read-only</literal> or
-        <literal>tmpfs</literal>. If true, the directories <filename>/home</filename>,
+        <literal>tmpfs</literal>. If true, the directories <filename>/home/</filename>,
         <filename>/root</filename>, and <filename>/run/user</filename> are made inaccessible and empty for
         processes invoked by this unit. If set to <literal>read-only</literal>, the three directories are
         made read-only instead. If set to <literal>tmpfs</literal>, temporary file systems are mounted on the
@@ -1259,13 +1261,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <para>Use <varname>RuntimeDirectory=</varname> to manage one or more runtime directories for the unit and bind
         their lifetime to the daemon runtime. This is particularly useful for unprivileged daemons that cannot create
-        runtime directories in <filename>/run</filename> due to lack of privileges, and to make sure the runtime
+        runtime directories in <filename>/run/</filename> due to lack of privileges, and to make sure the runtime
         directory is cleaned up automatically after use. For runtime directories that require more complex or different
         configuration or lifetime guarantees, please consider using
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
         <para>The directories defined by these options are always created under the standard paths used by systemd
-        (<filename>/var</filename>, <filename>/run</filename>, <filename>/etc</filename>, …). If the service needs
+        (<filename>/var/</filename>, <filename>/run/</filename>, <filename>/etc/</filename>, …). If the service needs
         directories in a different location, a different mechanism has to be used to create them.</para>
 
         <para><citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> provides
@@ -1319,7 +1321,7 @@ StateDirectory=aaa/bbb ccc</programlisting>
         and manually restarted. Here, the automatic restart means the operation specified in
         <varname>Restart=</varname>, and manual restart means the one triggered by <command>systemctl restart
         foo.service</command>. If set to <option>yes</option>, then the directories are not removed when the service is
-        stopped. Note that since the runtime directory <filename>/run</filename> is a mount point of
+        stopped. Note that since the runtime directory <filename>/run/</filename> is a mount point of
         <literal>tmpfs</literal>, then for system services the directories specified in
         <varname>RuntimeDirectory=</varname> are removed when the system is rebooted.</para></listitem>
       </varlistentry>
@@ -1409,7 +1411,7 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <para>Example: if a unit has the following,
         <programlisting>TemporaryFileSystem=/var:ro
 BindReadOnlyPaths=/var/lib/systemd</programlisting>
-        then the invoked processes by the unit cannot see any files or directories under <filename>/var</filename> except for
+        then the invoked processes by the unit cannot see any files or directories under <filename>/var/</filename> except for
         <filename>/var/lib/systemd</filename> or its contents.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/></listitem>
@@ -1418,20 +1420,22 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateTmp=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a new file system namespace for the executed
-        processes and mounts private <filename>/tmp/</filename> and <filename>/var/tmp/</filename> directories inside it
-        that are not shared by processes outside of the namespace. This is useful to secure access to temporary files of
-        the process, but makes sharing between processes via <filename>/tmp</filename> or <filename>/var/tmp</filename>
-        impossible. If this is enabled, all temporary files created by a service in these directories will be removed
-        after the service is stopped.  Defaults to false. It is possible to run two or more units within the same
-        private <filename>/tmp</filename> and <filename>/var/tmp</filename> namespace by using the
+        <listitem><para>Takes a boolean argument. If true, sets up a new file system namespace for the
+        executed processes and mounts private <filename>/tmp/</filename> and <filename>/var/tmp/</filename>
+        directories inside it that are not shared by processes outside of the namespace. This is useful to
+        secure access to temporary files of the process, but makes sharing between processes via
+        <filename>/tmp/</filename> or <filename>/var/tmp/</filename> impossible. If this is enabled, all
+        temporary files created by a service in these directories will be removed after the service is
+        stopped. Defaults to false. It is possible to run two or more units within the same private
+        <filename>/tmp/</filename> and <filename>/var/tmp/</filename> namespace by using the
         <varname>JoinsNamespaceOf=</varname> directive, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
-        restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and
-        related calls, see above. Enabling this setting has the side effect of adding <varname>Requires=</varname> and
-        <varname>After=</varname> dependencies on all mount units necessary to access <filename>/tmp</filename> and
-        <filename>/var/tmp</filename>. Moreover an implicitly <varname>After=</varname> ordering on
+        restrictions regarding mount propagation and privileges apply as for
+        <varname>ReadOnlyPaths=</varname> and related calls, see above. Enabling this setting has the side
+        effect of adding <varname>Requires=</varname> and <varname>After=</varname> dependencies on all mount
+        units necessary to access <filename>/tmp/</filename> and <filename>/var/tmp/</filename>. Moreover an
+        implicitly <varname>After=</varname> ordering on
         <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         is added.</para>
 
@@ -1445,7 +1449,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateDevices=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, sets up a new <filename>/dev</filename> mount for the
+        <listitem><para>Takes a boolean argument. If true, sets up a new <filename>/dev/</filename> mount for the
         executed processes and only adds API pseudo devices such as <filename>/dev/null</filename>,
         <filename>/dev/zero</filename> or <filename>/dev/random</filename> (as well as the pseudo TTY subsystem) to it,
         but no physical devices such as <filename>/dev/sda</filename>, system memory <filename>/dev/mem</filename>,
@@ -1458,7 +1462,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         for details). Note that using this setting will disconnect propagation of mounts from the service to the host
         (propagation in the opposite direction continues to work).  This means that this setting may not be used for
         services which shall be able to install mount points in the main mount namespace. The new
-        <filename>/dev</filename> will be mounted read-only and 'noexec'. The latter may break old programs which try
+        <filename>/dev/</filename> will be mounted read-only and 'noexec'. The latter may break old programs which try
         to set up executable memory by using
         <citerefentry><refentrytitle>mmap</refentrytitle><manvolnum>2</manvolnum></citerefentry> of
         <filename>/dev/zero</filename> instead of using <constant>MAP_ANON</constant>. For this setting the same
@@ -1591,7 +1595,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <term><varname>ProtectKernelTunables=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, kernel variables accessible through
-        <filename>/proc/sys</filename>, <filename>/sys</filename>, <filename>/proc/sysrq-trigger</filename>,
+        <filename>/proc/sys/</filename>, <filename>/sys/</filename>, <filename>/proc/sysrq-trigger</filename>,
         <filename>/proc/latency_stats</filename>, <filename>/proc/acpi</filename>,
         <filename>/proc/timer_stats</filename>, <filename>/proc/fs</filename> and <filename>/proc/irq</filename> will
         be made read-only to all processes of the unit. Usually, tunable kernel variables should be initialized only at
@@ -1652,7 +1656,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <listitem><para>Takes a boolean argument. If true, the Linux Control Groups (<citerefentry
         project='man-pages'><refentrytitle>cgroups</refentrytitle><manvolnum>7</manvolnum></citerefentry>) hierarchies
-        accessible through <filename>/sys/fs/cgroup</filename> will be made read-only to all processes of the
+        accessible through <filename>/sys/fs/cgroup/</filename> will be made read-only to all processes of the
         unit. Except for container managers no services should require write access to the control groups hierarchies;
         it is hence recommended to turn this on for most services. For this setting the same restrictions regarding
         mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related calls, see

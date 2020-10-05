@@ -43,9 +43,9 @@
     <filename>/run/systemd/network</filename> and the local administration network directory
     <filename>/etc/systemd/network</filename>. All configuration files are collectively sorted and processed
     in lexical order, regardless of the directories in which they live. However, files with identical
-    filenames replace each other. Files in <filename>/etc</filename> have the highest priority, files in
-    <filename>/run</filename> take precedence over files with the same name under
-    <filename>/usr</filename>. This can be used to override a system-supplied configuration file with a local
+    filenames replace each other. Files in <filename>/etc/</filename> have the highest priority, files in
+    <filename>/run/</filename> take precedence over files with the same name under
+    <filename>/usr/</filename>. This can be used to override a system-supplied configuration file with a local
     file if needed. As a special case, an empty file (file size 0) or symlink with the same name pointing to
     <filename>/dev/null</filename> disables the configuration file entirely (it is "masked").</para>
 
@@ -58,8 +58,8 @@
     <para>In addition to <filename>/etc/systemd/network</filename>, drop-in <literal>.d</literal>
     directories can be placed in <filename>/usr/lib/systemd/network</filename> or
     <filename>/run/systemd/network</filename> directories. Drop-in files in
-    <filename>/etc</filename> take precedence over those in <filename>/run</filename> which in turn
-    take precedence over those in <filename>/usr/lib</filename>. Drop-in files under any of these
+    <filename>/etc/</filename> take precedence over those in <filename>/run/</filename> which in turn
+    take precedence over those in <filename>/usr/lib/</filename>. Drop-in files under any of these
     directories take precedence over the main network file wherever located.</para>
 
     <para>Note that an interface without any static IPv6 addresses configured, and neither DHCPv6

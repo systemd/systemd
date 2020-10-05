@@ -102,8 +102,8 @@
           <term><option>-p</option></term>
           <term><option>--path=<replaceable>DEVPATH</replaceable></option></term>
           <listitem>
-            <para>The <filename>/sys</filename> path of the device to query, e.g.
-            <filename><optional>/sys</optional>/class/block/sda</filename>. This option is an alternative to
+            <para>The <filename>/sys/</filename> path of the device to query, e.g.
+            <filename><optional>/sys/</optional>/class/block/sda</filename>. This option is an alternative to
             the positional argument with a <filename>/sys/</filename> prefix. <command>udevadm info
             --path=/class/block/sda</command> is equivalent to <command>udevadm info
             /sys/class/block/sda</command>.</para>
@@ -114,7 +114,7 @@
           <term><option>--name=<replaceable>FILE</replaceable></option></term>
           <listitem>
             <para>The name of the device node or a symlink to query,
-            e.g. <filename><optional>/dev</optional>/sda</filename>. This option is an alternative to the
+            e.g. <filename><optional>/dev/</optional>/sda</filename>. This option is an alternative to the
             positional argument with a <filename>/dev/</filename> prefix. <command>udevadm info
             --name=sda</command> is equivalent to <command>udevadm info /dev/sda</command>.</para>
           </listitem>
@@ -297,7 +297,7 @@
           <term><option>--sysname-match=<replaceable>NAME</replaceable></option></term>
           <listitem>
             <para>Trigger events for devices for which the last component (i.e. the filename) of the
-            <filename>/sys</filename> path matches the specified <replaceable>PATH</replaceable>. This option
+            <filename>/sys/</filename> path matches the specified <replaceable>PATH</replaceable>. This option
             supports shell style pattern matching. When this option is specified more than once, then each
             matching result is ORed, that is, all devices which have any of the specified
             <replaceable>NAME</replaceable> are triggered.</para>
@@ -343,7 +343,7 @@
 
       <para>In addition, optional positional arguments can be used
       to specify device names or sys paths. They must start with
-      <filename>/dev</filename> or <filename>/sys</filename>
+      <filename>/dev/</filename> or <filename>/sys/</filename>
       respectively.</para>
     </refsect2>
 

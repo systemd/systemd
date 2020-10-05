@@ -51,7 +51,7 @@
     <para>See
     <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the configuration of sysctl settings. After sysctl configuration is
-    changed on disk, it must be written to the files in <filename>/proc/sys</filename> before it
+    changed on disk, it must be written to the files in <filename>/proc/sys/</filename> before it
     takes effect. It is possible to update specific settings, or simply to reload all configuration,
     see Examples below.</para>
   </refsect1>

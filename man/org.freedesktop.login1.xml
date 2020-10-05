@@ -504,7 +504,7 @@ node /org/freedesktop/login1 {
       stored on disk.</para>
 
       <para><function>AttachDevice()</function> may be used to assign a specific device to a specific
-      seat. The device is identified by its <filename>/sys</filename> path and must be eligible for seat
+      seat. The device is identified by its <filename>/sys/</filename> path and must be eligible for seat
       assignments. <function>AttachDevice()</function> takes three arguments: the seat id, the sysfs path,
       and a boolean for controlling polkit interactivity (see below). Device assignments are persistently
       stored on disk. To create a new seat, simply specify a previously unused seat id. For more information

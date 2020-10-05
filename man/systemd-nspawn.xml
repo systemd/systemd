@@ -52,7 +52,7 @@
     <para><command>systemd-nspawn</command> may be invoked on any directory tree containing an operating system tree,
     using the <option>--directory=</option> command line option. By using the <option>--machine=</option> option an OS
     tree is automatically searched for in a couple of locations, most importantly in
-    <filename>/var/lib/machines</filename>, the suggested directory to place OS container images installed on the
+    <filename>/var/lib/machines/</filename>, the suggested directory to place OS container images installed on the
     system.</para>
 
     <para>In contrast to <citerefentry
@@ -60,7 +60,7 @@
     may be used to boot full Linux-based operating systems in a container.</para>
 
     <para><command>systemd-nspawn</command> limits access to various kernel interfaces in the container to read-only,
-    such as <filename>/sys</filename>, <filename>/proc/sys</filename> or <filename>/sys/fs/selinux</filename>. The
+    such as <filename>/sys/</filename>, <filename>/proc/sys/</filename> or <filename>/sys/fs/selinux/</filename>. The
     host's network interfaces and the system clock may not be changed from within the container. Device nodes may not
     be created. The host system cannot be rebooted and kernel modules may not be loaded from within the
     container.</para>
@@ -100,7 +100,7 @@
     template unit file, making it usually unnecessary to alter this template file directly.</para>
 
     <para>Note that <command>systemd-nspawn</command> will mount file systems private to the container to
-    <filename>/dev</filename>, <filename>/run</filename> and similar. These will not be visible outside of the
+    <filename>/dev/</filename>, <filename>/run/</filename> and similar. These will not be visible outside of the
     container, and their contents will be lost when the container exits.</para>
 
     <para>Note that running two <command>systemd-nspawn</command> containers from the same directory tree will not make
@@ -358,7 +358,7 @@
         exists in the container image operated on, and even if <option>--volatile=state</option> is used the
         hypothetical file <filename index="false">/etc/foobar</filename> is potentially writable if
         <option>--bind=/etc/foobar</option> if used to mount it from outside the read-only container
-        <filename>/etc</filename> directory.</para>
+        <filename>/etc/</filename> directory.</para>
 
         <para>The <option>--ephemeral</option> option is closely related to this setting, and provides similar
         behaviour by making a temporary, ephemeral copy of the whole OS image and executing that. For further details,
@@ -1269,7 +1269,7 @@
         and mount options. The source path may optionally be prefixed with a <literal>+</literal> character. If so, the
         source path is taken relative to the image's root directory. This permits setting up bind mounts within the
         container image. The source path may be specified as empty string, in which case a temporary directory below
-        the host's <filename>/var/tmp</filename> directory is used. It is automatically removed when the container is
+        the host's <filename>/var/tmp/</filename> directory is used. It is automatically removed when the container is
         shut down. Mount options are comma-separated and currently, only <option>rbind</option> and
         <option>norbind</option> are allowed, controlling whether to create a recursive or a regular bind
         mount. Defaults to "rbind". Backslash escapes are interpreted, so <literal>\:</literal> may be used to embed
@@ -1340,13 +1340,13 @@
         point for the overlay file system in the container. At least
         two paths have to be specified.</para>
 
-        <para>The source paths may optionally be prefixed with <literal>+</literal> character. If so they are taken
-        relative to the image's root directory. The uppermost source path may also be specified as empty string, in
-        which case a temporary directory below the host's <filename>/var/tmp</filename> is used. The directory is
-        removed automatically when the container is shut down. This behaviour is useful in order to make read-only
-        container directories writable while the container is running. For example, use the
-        <literal>--overlay=+/var::/var</literal> option in order to automatically overlay a writable temporary
-        directory on a read-only <filename>/var</filename> directory.</para>
+        <para>The source paths may optionally be prefixed with <literal>+</literal> character. If so they are
+        taken relative to the image's root directory. The uppermost source path may also be specified as an
+        empty string, in which case a temporary directory below the host's <filename>/var/tmp/</filename> is
+        used. The directory is removed automatically when the container is shut down. This behaviour is
+        useful in order to make read-only container directories writable while the container is running. For
+        example, use <literal>--overlay=+/var::/var</literal> in order to automatically overlay a writable
+        temporary directory on a read-only <filename>/var/</filename> directory.</para>
 
         <para>For details about overlay file systems, see <ulink
         url="https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt">overlayfs.txt</ulink>. Note

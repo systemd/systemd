@@ -83,10 +83,10 @@ A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX
     <emphasis>creation</emphasis> of regular files, directories, pipes, and device nodes, adjustments to
     their <emphasis>access mode, ownership, attributes, quota assignments, and contents</emphasis>, and
     finally their time-based <emphasis>removal</emphasis>. It is mostly commonly used for volatile and
-    temporary files and directories (such as those located under <filename>/run</filename>,
-    <filename>/tmp</filename>, <filename>/var/tmp</filename>, the API file systems such as
-    <filename>/sys</filename> or <filename>/proc</filename>, as well as some other directories below
-    <filename>/var</filename>).</para>
+    temporary files and directories (such as those located under <filename>/run/</filename>,
+    <filename>/tmp/</filename>, <filename>/var/tmp/</filename>, the API file systems such as
+    <filename>/sys/</filename> or <filename>/proc/</filename>, as well as some other directories below
+    <filename>/var/</filename>).</para>
 
     <para><command>systemd-tmpfiles</command> uses this configuration to create volatile files and
     directories during boot and to do periodic cleanup afterwards. See
@@ -94,7 +94,7 @@ A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX
     the description of <filename>systemd-tmpfiles-setup.service</filename>,
     <filename>systemd-tmpfiles-clean.service</filename>, and associated units.</para>
 
-    <para>System daemons frequently require private runtime directories below <filename>/run</filename> to
+    <para>System daemons frequently require private runtime directories below <filename>/run/</filename> to
     store communication sockets and similar. For these, it is better to use
     <varname>RuntimeDirectory=</varname> in their unit files (see
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
@@ -258,11 +258,11 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
           <para>It is recommended to use <varname>Q</varname> for subvolumes that typically contain further subvolumes,
           and where it is desirable to have accounting and quota limits on all child subvolumes together. Examples for
-          <varname>Q</varname> are typically <filename>/home</filename> or <filename>/var/lib/machines</filename>. In
+          <varname>Q</varname> are typically <filename>/home/</filename> or <filename>/var/lib/machines/</filename>. In
           contrast, <varname>q</varname> should be used for subvolumes that either usually do not include further
           subvolumes or where no accounting and quota limits are needed that apply to all child subvolumes
-          together. Examples for <varname>q</varname> are typically <filename>/var</filename> or
-          <filename>/var/tmp</filename>. </para>
+          together. Examples for <varname>q</varname> are typically <filename>/var/</filename> or
+          <filename>/var/tmp/</filename>. </para>
 
           <para>As with <varname>q</varname>, <varname>Q</varname> has no effect on the quota group hierarchy if the
           subvolume already exists, regardless of whether the subvolume already belong to a quota group or not.
@@ -661,7 +661,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
             <row>
               <entry><literal>%t</literal></entry>
               <entry>System or user runtime directory</entry>
-              <entry>In <option>--user</option> mode, this is the same <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run</filename> otherwise.</entry>
+              <entry>In <option>--user</option> mode, this is the same <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run/</filename> otherwise.</entry>
             </row>
             <row>
               <entry><literal>%T</literal></entry>

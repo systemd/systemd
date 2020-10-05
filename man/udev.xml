@@ -25,7 +25,7 @@
 
   <refsect1><title>Description</title>
     <para>udev supplies the system software with device events, manages permissions
-    of device nodes and may create additional symlinks in the <filename>/dev</filename>
+    of device nodes and may create additional symlinks in the <filename>/dev/</filename>
     directory, or renames network interfaces. The kernel usually just assigns unpredictable
     device names based on the order of discovery. Meaningful symlinks or network device
     names provide a way to reliably identify devices based on their properties or
@@ -50,11 +50,11 @@
       volatile runtime directory <filename>/run/udev/rules.d</filename> and the local administration
       directory <filename>/etc/udev/rules.d</filename>.  All rules files are collectively sorted and
       processed in lexical order, regardless of the directories in which they live. However, files with
-      identical filenames replace each other. Files in <filename>/etc</filename> have the highest priority,
-      files in <filename>/run</filename> take precedence over files with the same name under
-      <filename>/usr</filename>. This can be used to override a system-supplied rules file with a local
-      file if needed; a symlink in <filename>/etc</filename> with the same name as a rules file in
-      <filename>/usr/lib</filename>, pointing to <filename>/dev/null</filename>, disables the rules file
+      identical filenames replace each other. Files in <filename>/etc/</filename> have the highest priority,
+      files in <filename>/run/</filename> take precedence over files with the same name under
+      <filename>/usr/</filename>. This can be used to override a system-supplied rules file with a local
+      file if needed; a symlink in <filename>/etc/</filename> with the same name as a rules file in
+      <filename>/usr/lib/</filename>, pointing to <filename>/dev/null</filename>, disables the rules file
       entirely. Rule files must have the extension <filename>.rules</filename>; other extensions are
       ignored.</para>
 

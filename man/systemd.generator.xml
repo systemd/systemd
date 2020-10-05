@@ -66,10 +66,10 @@
 
     <para>Directory paths for generator output differ by priority:
     <filename>…/generator.early</filename> has priority higher than the admin
-    configuration in <filename>/etc</filename>, while
+    configuration in <filename>/etc/</filename>, while
     <filename>…/generator</filename> has lower priority than
-    <filename>/etc</filename> but higher than vendor configuration in
-    <filename>/usr</filename>, and <filename>…/generator.late</filename> has priority
+    <filename>/etc/</filename> but higher than vendor configuration in
+    <filename>/usr/</filename>, and <filename>…/generator.late</filename> has priority
     lower than all other configuration. See the next section and the discussion of
     unit load paths and unit overriding in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -86,8 +86,8 @@
     mask a generator, thereby preventing it from running. Please note
     that the order of the two directories with the highest priority is
     reversed with respect to the unit load path, and generators in
-    <filename>/run</filename> overwrite those in
-    <filename>/etc</filename>.</para>
+    <filename>/run/</filename> overwrite those in
+    <filename>/etc/</filename>.</para>
 
     <para>After installing new generators or updating the
     configuration, <command>systemctl daemon-reload</command> may be
@@ -125,8 +125,8 @@
         in case of the system generators and
         <filename>$XDG_RUNTIME_DIR/generator.early</filename> in case of the user
         generators. Unit files placed in this directory override unit files in
-        <filename>/usr</filename>, <filename>/run</filename> and
-        <filename>/etc</filename>. This means that unit files placed in this
+        <filename>/usr/</filename>, <filename>/run/</filename> and
+        <filename>/etc/</filename>. This means that unit files placed in this
         directory take precedence over all normal configuration, both vendor and
         user/administrator.</para>
       </listitem>
@@ -161,11 +161,11 @@
         <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
         or <command>systemd</command> itself (this means: no
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)!
-        Non-essential file systems like <filename>/var</filename> and
-        <filename>/home</filename> are mounted after generators have run. Generators
+        Non-essential file systems like <filename>/var/</filename> and
+        <filename>/home/</filename> are mounted after generators have run. Generators
         can however rely on the most basic kernel functionality to be available,
-        including a mounted <filename>/sys</filename>, <filename>/proc</filename>,
-        <filename>/dev</filename>, <filename>/usr</filename>.
+        including a mounted <filename>/sys/</filename>, <filename>/proc/</filename>,
+        <filename>/dev/</filename>, <filename>/usr/</filename>.
         </para>
       </listitem>
 
@@ -208,7 +208,7 @@
         <para>Generators may write out dynamic unit files or just hook unit files
         into other units with the usual <filename>.wants/</filename> or
         <filename>.requires/</filename> symlinks. Often, it is nicer to simply
-        instantiate a template unit file from <filename>/usr</filename> with a
+        instantiate a template unit file from <filename>/usr/</filename> with a
         generator instead of writing out entirely dynamic unit files. Of course, this
         works only if a single parameter is to be used.</para>
       </listitem>
@@ -226,8 +226,8 @@
         <orderedlist numeration="lowerroman">
           <listitem>
             <para>User configuration should override vendor configuration. This
-            (mostly) means that stuff from <filename>/etc</filename> should override
-            stuff from <filename>/usr</filename>.</para>
+            (mostly) means that stuff from <filename>/etc/</filename> should override
+            stuff from <filename>/usr/</filename>.</para>
           </listitem>
 
           <listitem>
@@ -262,7 +262,7 @@
       argv[1] as location to place the generated unit files in order to allow the
       user to override <filename>/etc/fstab</filename> with their own native unit
       files, but also to ensure that <filename>/etc/fstab</filename> overrides any
-      vendor default from <filename>/usr</filename>.</para>
+      vendor default from <filename>/usr/</filename>.</para>
 
       <para>After editing <filename>/etc/fstab</filename>, the user should invoke
       <command>systemctl daemon-reload</command>. This will re-run all generators and
