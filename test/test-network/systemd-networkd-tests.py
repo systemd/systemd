@@ -382,6 +382,9 @@ def remove_routing_policy_rule_tables(tables):
         rc = 0
         while rc == 0:
             rc = call('ip rule del table', table, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        rc = 0
+        while rc == 0:
+            rc = call('ip -6 rule del table', table, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def remove_routes(routes):
     for route_type, addr in routes:
