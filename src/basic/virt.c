@@ -499,7 +499,7 @@ int detect_container(void) {
                 goto translate_name;
         }
         if (!IN_SET(r, -ENOENT, 0))
-                return log_debug_errno(r, "Failed to read /run/systemd/container: %m");
+                return log_debug_errno(r, "Failed to read /run/systemd/container-manager: %m");
 
         if (getpid_cached() == 1) {
                 /* If we are PID 1 we can just check our own environment variable, and that's authoritative.
