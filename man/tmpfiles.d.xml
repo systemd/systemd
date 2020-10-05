@@ -663,11 +663,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
               <entry>System or user runtime directory</entry>
               <entry>In <option>--user</option> mode, this is the same <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run/</filename> otherwise.</entry>
             </row>
-            <row>
-              <entry><literal>%T</literal></entry>
-              <entry>Directory for temporary files</entry>
-              <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-            </row>
+            <xi:include href="standard-specifiers.xml" xpointer="T"/>
             <row>
               <entry><literal>%g</literal></entry>
               <entry>User group</entry>
@@ -689,11 +685,7 @@ w- /proc/sys/vm/swappiness - - - - 10</programlisting></para>
               <entry>This is the numeric UID of the user running the command. In case of the system instance this resolves to <constant>0</constant>.</entry>
             </row>
             <xi:include href="standard-specifiers.xml" xpointer="v"/>
-            <row>
-              <entry><literal>%V</literal></entry>
-              <entry>Directory for larger and persistent temporary files</entry>
-              <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-            </row>
+            <xi:include href="standard-specifiers.xml" xpointer="V"/>
             <xi:include href="standard-specifiers.xml" xpointer="w"/>
             <xi:include href="standard-specifiers.xml" xpointer="W"/>
             <xi:include href="standard-specifiers.xml" xpointer="percent"/>

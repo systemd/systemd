@@ -1858,11 +1858,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
             <entry>Runtime directory root</entry>
             <entry>This is either <filename>/run/</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>
           </row>
-          <row>
-            <entry><literal>%T</literal></entry>
-            <entry>Directory for temporary files</entry>
-            <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="T"/>
           <row>
             <entry><literal>%g</literal></entry>
             <entry>User group</entry>
@@ -1888,11 +1884,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
 Note that this setting is <emphasis>not</emphasis> influenced by the <varname>User=</varname> setting configurable in the [Service] section of the service unit.</entry>
           </row>
           <xi:include href="standard-specifiers.xml" xpointer="v"/>
-          <row>
-            <entry><literal>%V</literal></entry>
-            <entry>Directory for larger and persistent temporary files</entry>
-            <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="V"/>
           <xi:include href="standard-specifiers.xml" xpointer="w"/>
           <xi:include href="standard-specifiers.xml" xpointer="W"/>
           <xi:include href="standard-specifiers.xml" xpointer="percent"/>
