@@ -870,6 +870,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-sit-tunnel.netdev',
         '25-tap.netdev',
         '25-tun.netdev',
+        '25-tunnel-any-any.network',
         '25-tunnel-local-any.network',
         '25-tunnel-remote-any.network',
         '25-tunnel.network',
