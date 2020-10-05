@@ -357,9 +357,9 @@
         (e.g. <filename>/dev/hidraw1</filename>), referring to a FIDO2 security token implementing the
         <literal>hmac-secret</literal> extension that shall be able to unlock the user account. A random salt
         value is generated on the host and passed to the FIDO2 device, which calculates a HMAC hash of the
-        salt combined with an internal secret key. The result is then used as the key to unlock the user
-        account. The random salt is included in the user record, so that whenever authentication is needed it
-        can be passed again to the FIDO2 token again.</para>
+        salt using an internal secret key. The result is then used as the key to unlock the user account. The
+        random salt is included in the user record, so that whenever authentication is needed it can be
+        passed to the FIDO2 token again.</para>
 
         <para>Instead of a valid path to a FIDO2 <literal>hidraw</literal> device the special strings
         <literal>list</literal> and <literal>auto</literal> may be specified. If <literal>list</literal> is
