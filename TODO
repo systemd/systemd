@@ -20,6 +20,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* systemd-analyze syscall-filter should show a list of syscalls listed in
+  @known but not in other groups (at least at debug level), since they are
+  candidates to be added to them.
+
 * export action of device object on sd-device, so that monitor becomes useful
 
 * add root=tmpfs that mounts a tmpfs to /sysroot (to be used in combination
