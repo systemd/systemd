@@ -779,7 +779,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                                         return r;
 
                                 n += r;
-                        } else if ((c & 0xc0) == 0xc0) {
+                        } else if (FLAGS_SET(c, 0xc0)) {
                                 /* Pointer */
 
                                 uint8_t d;
