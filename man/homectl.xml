@@ -355,11 +355,11 @@
 
         <listitem><para>Takes a path to a Linux <literal>hidraw</literal> device
         (e.g. <filename>/dev/hidraw1</filename>), referring to a FIDO2 security token implementing the
-        <literal>hmac-secret</literal> extension, that shall be able to unlock the user account. If used, a
-        random salt value is generated on the host, which is passed to the FIDO2 device, which calculates a
-        HMAC hash of it, keyed by its internal secret key. The result is then used as key for unlocking the
-        user account. The random salt is included in the user record, so that whenever authentication is
-        needed it can be passed again to the FIDO2 token, to retrieve the actual key.</para>
+        <literal>hmac-secret</literal> extension that shall be able to unlock the user account. A random salt
+        value is generated on the host and passed to the FIDO2 device, which calculates a HMAC hash of the
+        salt combined with an internal secret key. The result is then used as the key to unlock the user
+        account. The random salt is included in the user record, so that whenever authentication is needed it
+        can be passed again to the FIDO2 token again.</para>
 
         <para>Instead of a valid path to a FIDO2 <literal>hidraw</literal> device the special strings
         <literal>list</literal> and <literal>auto</literal> may be specified. If <literal>list</literal> is
