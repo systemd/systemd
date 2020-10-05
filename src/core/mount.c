@@ -973,11 +973,13 @@ static void mount_enter_unmounting(Mount *m) {
         m->control_command_id = MOUNT_EXEC_UNMOUNT;
         m->control_command = m->exec_command + MOUNT_EXEC_UNMOUNT;
 
-        r = exec_command_set(m->control_command, UMOUNT_PATH, m->where, "-c", NULL);
+        r = exec_command_set(m->control_command, UMOUNT_PATH, "-c", NULL);
         if (r >= 0 && m->lazy_unmount)
                 r = exec_command_append(m->control_command, "-l", NULL);
         if (r >= 0 && m->force_unmount)
                 r = exec_command_append(m->control_command, "-f", NULL);
+        if (r >= 0)
+                r = exec_command_append(m->control_command, m->where, NULL);
         if (r < 0)
                 goto fail;
 
@@ -1029,7 +1031,7 @@ static void mount_enter_mounting(Mount *m) {
                 if (r < 0)
                         goto fail;
 
-                r = exec_command_set(m->control_command, MOUNT_PATH, p->what, m->where, NULL);
+                r = exec_command_set(m->control_command, MOUNT_PATH, NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
                 if (r >= 0 && m->read_write_only)
@@ -1038,6 +1040,8 @@ static void mount_enter_mounting(Mount *m) {
                         r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
                 if (r >= 0 && !isempty(opts))
                         r = exec_command_append(m->control_command, "-o", opts, NULL);
+                if (r >= 0)
+                        r = exec_command_append(m->control_command, p->what, m->where, NULL);
         } else
                 r = -ENOENT;
         if (r < 0)
@@ -1089,15 +1093,15 @@ static void mount_enter_remounting(Mount *m) {
                 else
                         o = "remount";
 
-                r = exec_command_set(m->control_command, MOUNT_PATH,
-                                     p->what, m->where,
-                                     "-o", o, NULL);
+                r = exec_command_set(m->control_command, MOUNT_PATH, "-o", o, NULL);
                 if (r >= 0 && m->sloppy_options)
                         r = exec_command_append(m->control_command, "-s", NULL);
                 if (r >= 0 && m->read_write_only)
                         r = exec_command_append(m->control_command, "-w", NULL);
                 if (r >= 0 && p->fstype)
                         r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
+                if (r >= 0)
+                        r = exec_command_append(m->control_command, p->what, m->where, NULL);
         } else
                 r = -ENOENT;
         if (r < 0)

@@ -61,9 +61,9 @@ static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
                 /* Child */
                 execv(MOUNT_PATH,
                       STRV_MAKE(MOUNT_PATH,
-                                path,
                                 "-o",
-                                force_rw ? "remount,rw" : "remount"));
+                                force_rw ? "remount,rw" : "remount",
+                                path));
                 log_error_errno(errno, "Failed to execute " MOUNT_PATH ": %m");
                 _exit(EXIT_FAILURE);
         }
