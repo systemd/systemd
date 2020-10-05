@@ -745,6 +745,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     links = [
         '6rdtun99',
         'bareudp99',
+        'bond98',
         'bond99',
         'bridge99',
         'dropin-test',
