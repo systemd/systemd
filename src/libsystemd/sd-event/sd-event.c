@@ -834,10 +834,14 @@ static void source_disconnect(sd_event_source *s) {
                 sd_event_unref(event);
 }
 
+static void ratelimit_saved_state_free(struct ratelimit_saved_state *s);
+
 static void source_free(sd_event_source *s) {
         assert(s);
 
         source_disconnect(s);
+
+        ratelimit_saved_state_free(&s->ratelimit_saved_state);
 
         if (s->type == SOURCE_IO && s->io.owned)
                 s->io.fd = safe_close(s->io.fd);
@@ -3227,6 +3231,163 @@ static int process_inotify(sd_event *e) {
         return done;
 }
 
+static int source_ratelimit_saved_state_restore(sd_event_source *s) {
+        int r;
+
+        assert(s);
+
+        s->type = s->ratelimit_saved_state.type;
+        s->wakeup = s->ratelimit_saved_state.wakeup;
+        s->prepare = s->ratelimit_saved_state.prepare;
+        s->destroy_callback = s->ratelimit_saved_state.destroy_callback;
+        s->userdata = s->ratelimit_saved_state.userdata;
+
+        memcpy(&s->io, s->ratelimit_saved_state.data, s->ratelimit_saved_state.size);
+
+        if (s->enabled)
+                r = source_enable(s, s->enabled);
+        else
+                r = source_disable(s);
+
+        return r;
+}
+
+static void ratelimit_saved_state_free(struct ratelimit_saved_state *s) {
+        assert(s);
+
+        s->data = mfree(s->data);
+
+        s->size = -1;
+        s->type = _SOURCE_EVENT_SOURCE_TYPE_INVALID;
+        s->wakeup = _WAKEUP_TYPE_INVALID;
+        s->prepare = NULL;
+        s->destroy_callback = NULL;
+        s->userdata = NULL;
+}
+
+static int ratelimit_expire_callback(sd_event_source *s, uint64_t usec, void *userdata) {
+        int r;
+        struct clock_data *d;
+
+        assert(s);
+        assert(s->ratelimited);
+        assert(s->type == SOURCE_TIME_MONOTONIC);
+
+        d = event_get_clock_data(s->event, s->type);
+        assert(d);
+
+        prioq_remove(d->earliest, s, &s->time.earliest_index);
+        prioq_remove(d->latest, s, &s->time.latest_index);
+        d->needs_rearm = true;
+
+        r = source_ratelimit_saved_state_restore(s);
+        if (r < 0)
+                return r;
+
+        ratelimit_saved_state_free(&s->ratelimit_saved_state);
+        s->ratelimited = false;
+
+        return 0;
+}
+
+static int source_ratelimit_transform(sd_event_source *s) {
+        struct clock_data *d;
+        _cleanup_free_ char *buf = NULL;
+        size_t n;
+        int r;
+
+        assert(s);
+
+        r = source_disable(s);
+        if (r < 0)
+                return r;
+
+        /* Save current event source state */
+        s->ratelimit_saved_state.type = s->type;
+        s->ratelimit_saved_state.wakeup = s->wakeup;
+        s->ratelimit_saved_state.prepare = s->prepare;
+        s->ratelimit_saved_state.destroy_callback = s->destroy_callback;
+        s->ratelimit_saved_state.userdata = s->userdata;
+
+        n = sizeof(*s) - offsetof(sd_event_source, io);
+        buf = new0(char, n);
+        if (!buf)
+                return -ENOMEM;
+
+        memcpy(buf, &s->io, n);
+        s->ratelimit_saved_state.data = TAKE_PTR(buf);
+        s->ratelimit_saved_state.size = n;
+
+        /* Make sure MONOTONIC clock is set up as we will effectively transform the event source to MONOTONIC timer */
+        d = event_get_clock_data(s->event, SOURCE_TIME_MONOTONIC);
+        r = prioq_ensure_allocated(&d->earliest, earliest_time_prioq_compare);
+        if (r < 0)
+                goto fail;
+
+        r = prioq_ensure_allocated(&d->latest, latest_time_prioq_compare);
+        if (r < 0)
+                goto fail;
+
+        if (d->fd < 0) {
+                r = event_setup_timer_fd(s->event, d, CLOCK_MONOTONIC);
+                if (r < 0)
+                        goto fail;
+        }
+
+        /* Transform to MONOTONIC timer */
+        s->type = SOURCE_TIME_MONOTONIC;
+        s->wakeup = WAKEUP_CLOCK_DATA;
+        s->prepare = NULL;
+        s->destroy_callback = NULL;
+        s->userdata = NULL;
+
+        assert(s->ratelimit.begin + s->ratelimit.interval > 0);
+        s->time.next = s->ratelimit.begin + s->ratelimit.interval;
+
+        s->time.callback = ratelimit_expire_callback;
+        s->time.earliest_index = s->time.latest_index = PRIOQ_IDX_NULL;
+        s->time.accuracy = DEFAULT_ACCURACY_USEC;
+
+        d->needs_rearm = true;
+
+        r = prioq_put(d->earliest, s, &s->time.earliest_index);
+        if (r < 0)
+                goto fail;
+
+        r = prioq_put(d->latest, s, &s->time.latest_index);
+        if (r < 0)
+                goto fail;
+
+        r = source_enable(s, s->enabled);
+        if (r < 0)
+                goto fail;
+
+        return 0;
+fail:
+        source_ratelimit_saved_state_restore(s);
+        ratelimit_saved_state_free(&s->ratelimit_saved_state);
+        return r;
+}
+
+static int source_trigger_ratelimit(sd_event_source *s) {
+        int r;
+
+        assert(s);
+
+        if (ratelimit_below(&s->ratelimit))
+                return 0;
+
+        if (!s->ratelimited) {
+                r = source_ratelimit_transform(s);
+                if (r < 0)
+                        return r;
+
+                s->ratelimited = true;
+        }
+
+        return 1;
+}
+
 static int source_dispatch(sd_event_source *s) {
         _cleanup_(sd_event_unrefp) sd_event *saved_event = NULL;
         EventSourceType saved_type;
@@ -3242,6 +3403,19 @@ static int source_dispatch(sd_event_source *s) {
         /* Similar, store a reference to the event loop object, so that we can still access it after the
          * callback might have invalidated/disconnected the event source. */
         saved_event = sd_event_ref(s->event);
+
+        r = source_trigger_ratelimit(s);
+        if (r > 0) {
+                /* We got rate limitted so let's not dispatch the event source just yet */
+                log_debug("Event source  %s (type %s) rate limit hit: %m", strna(s->description),
+                          event_source_type_to_string(saved_type));
+                return 0;
+        } else if (r < 0) {
+                log_debug_errno(r, "Event source  %s (type %s) rate limit processing returned error, disabling the rate mlimit: %m",
+                                strna(s->description), event_source_type_to_string(saved_type));
+
+                (void) sd_event_source_set_ratelimit(s, 0, 0);
+        }
 
         if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
                 r = source_set_pending(s, false);
@@ -3788,7 +3962,7 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
         if (r > 0) {
                 /* There's something now, then let's dispatch it */
                 r = sd_event_dispatch(e);
-                if (r < 0)
+                if (r <= 0)
                         return r;
 
                 return 1;
@@ -4053,4 +4227,46 @@ _public_ int sd_event_source_set_exit_on_failure(sd_event_source *s, int b) {
 
         s->exit_on_failure = b;
         return 1;
+}
+
+static int source_disable_ratelimit(sd_event_source *s) {
+        assert(s);
+
+        if (s->ratelimited) {
+                ratelimit_expire_callback(s, 0, NULL);
+                ratelimit_saved_state_free(&s->ratelimit_saved_state);
+        }
+
+        s->ratelimit = (RateLimit) { .interval = 0, .burst = 0 };
+
+        return 0;
+}
+
+_public_ int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval_usec, uint64_t burst) {
+        assert_return(s, -EINVAL);
+
+        if (interval_usec == 0 || burst == 0)
+                return source_disable_ratelimit(s);
+
+        s->ratelimit = (RateLimit) { .interval = interval_usec, .burst = burst };
+
+        return 0;
+}
+
+_public_ int sd_event_source_get_ratelimit(sd_event_source *s, uint64_t *ret_interval_usec, uint64_t *ret_burst) {
+        assert_return(s, -EINVAL);
+
+        if (ret_interval_usec)
+                *ret_interval_usec = s->ratelimit.interval;
+
+        if (ret_burst)
+                *ret_burst = s->ratelimit.burst;
+
+        return 0;
+}
+
+_public_ int sd_event_source_is_ratelimited(sd_event_source *s) {
+        assert_return(s, -EINVAL);
+
+        return s->ratelimited;
 }

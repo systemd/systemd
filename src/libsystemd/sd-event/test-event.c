@@ -5,6 +5,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "event-source.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
@@ -590,6 +591,116 @@ static void test_pidfd(void) {
         sd_event_unref(e);
 }
 
+static int ratelimit_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        unsigned *c = (unsigned*) userdata;
+        *c += 1;
+        return 0;
+}
+
+static int ratelimit_time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        int r;
+
+        r = sd_event_source_set_enabled(s, SD_EVENT_ON);
+        if (r < 0)
+                log_warning_errno(r, "Failed to turn on notify event source: %m");
+
+        r = sd_event_source_set_time(s, usec + 1000);
+        if (r < 0)
+                log_error_errno(r, "Failed to restart watchdog event source: %m");
+
+        unsigned *c = (unsigned*) userdata;
+        *c += 1;
+
+        return 0;
+}
+
+static void test_ratelimit(void) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+
+        int p[2] = {-1, -1};
+        uint64_t burst, interval;
+        unsigned i, count;
+
+        assert_se(sd_event_default(&e) >= 0);
+        assert_se(pipe2(p, O_CLOEXEC) == 0);
+
+        assert_se(sd_event_add_io(e, &s, p[0], EPOLLIN, ratelimit_io_handler, &count) >= 0);
+        assert_se(sd_event_source_set_ratelimit(s, 1000000, 5) >= 0);
+        assert_se(sd_event_source_get_ratelimit(s, &interval, &burst) >= 0);
+        assert_se(interval == 1000000 && burst == 5);
+
+        assert_se(write(p[1], "1", 1) == 1);
+
+        count = 0;
+        for (i = 0; i < 10; i++) {
+                assert_se(sd_event_run(e, -1) >= 0);
+                usleep(250 * USEC_PER_MSEC);
+        }
+        log_info("ratelimit_io_handler: called %d times, event source not ratelimited", count);
+        assert_se(count == 10);
+
+        sd_event_source_set_ratelimit(s, 0, 0);
+        assert_se(sd_event_source_set_ratelimit(s, 1000000, 5) == 0);
+
+        count = 0;
+        for (i = 0; i < 10; i++) {
+                assert_se(sd_event_run(e, -1) >= 0);
+                usleep(10);
+        }
+        log_info("ratelimit_io_handler: called %d times, event source got ratelimited", count);
+        assert_se(count < 10);
+
+        assert_se(!sd_event_source_is_ratelimited(s));
+        assert_se(s->type == SOURCE_IO);
+        assert_se(s->io.callback == ratelimit_io_handler);
+        assert_se(s->userdata == &count);
+
+        s = sd_event_source_unref(s);
+        safe_close_pair(p);
+
+        count = 0;
+        assert_se(sd_event_add_time_relative(e, &s, CLOCK_MONOTONIC, 1000, 1, ratelimit_time_handler, &count) >= 0);
+        assert_se(sd_event_source_set_ratelimit(s, 10000000, 10) == 0);
+
+        do {
+                assert_se(sd_event_run(e, -1) >= 0);
+        } while (!sd_event_source_is_ratelimited(s));
+
+        log_info("ratelimit_time_handler: called %d times, event source got ratelimited", count);
+        assert_se(count == 10);
+
+        /* Changing high-level event source state has no effect on rate limit state */
+        assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) == 0);
+        assert_se(sd_event_source_is_ratelimited(s));
+        assert_se(s->enabled_client == SD_EVENT_OFF);
+        assert_se(s->enabled == SD_EVENT_OFF);
+        assert_se(s->userdata == NULL);
+        assert_se(s->time.callback != ratelimit_time_handler);
+
+        assert_se(sd_event_source_set_enabled(s, SD_EVENT_ON) == 0);
+        assert_se(sd_event_source_is_ratelimited(s));
+        assert_se(s->enabled_client == SD_EVENT_ON);
+        assert_se(s->enabled == SD_EVENT_ON);
+        assert_se(s->userdata == NULL);
+        assert_se(s->time.callback != ratelimit_time_handler);
+
+        /* In order to get rid of active rate limit client needs to disable it explicitely */
+        assert_se(sd_event_source_set_ratelimit(s, 0, 0) == 0);
+        assert_se(s->userdata = &count);
+        assert_se(s->time.callback == ratelimit_time_handler);
+        assert_se(!sd_event_source_is_ratelimited(s));
+
+        assert_se(sd_event_source_set_ratelimit(s, 10000000, 10) == 0);
+
+        do {
+                assert_se(sd_event_run(e, -1) >= 0);
+        } while (!sd_event_source_is_ratelimited(s));
+
+        log_info("ratelimit_time_handler: called 10 more times, event source got ratelimited");
+        assert_se(count == 20);
+}
+
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_INFO);
 
@@ -604,5 +715,6 @@ int main(int argc, char *argv[]) {
 
         test_pidfd();
 
+        test_ratelimit();
         return 0;
 }
