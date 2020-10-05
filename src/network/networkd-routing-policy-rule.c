@@ -1687,7 +1687,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                         continue;
                                 }
                                 rule->family = r;
-                        } if (STR_IN_SET(a, "from", "to")) {
+                        } else if (STR_IN_SET(a, "from", "to")) {
                                 union in_addr_union *buffer;
                                 uint8_t *prefixlen;
 
