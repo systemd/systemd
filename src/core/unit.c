@@ -1574,6 +1574,31 @@ static int unit_add_mount_dependencies(Unit *u) {
         return 0;
 }
 
+static int unit_add_oomd_dependencies(Unit *u) {
+        CGroupContext *c;
+        bool wants_oomd;
+        int r;
+
+        assert(u);
+
+        if (!u->default_dependencies)
+                return 0;
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return 0;
+
+        wants_oomd = (c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL);
+        if (!wants_oomd)
+                return 0;
+
+        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "systemd-oomd.service", true, UNIT_DEPENDENCY_FILE);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int unit_add_startup_units(Unit *u) {
         CGroupContext *c;
 
@@ -1631,6 +1656,10 @@ int unit_load(Unit *u) {
                         goto fail;
 
                 r = unit_add_mount_dependencies(u);
+                if (r < 0)
+                        goto fail;
+
+                r = unit_add_oomd_dependencies(u);
                 if (r < 0)
                         goto fail;
 
