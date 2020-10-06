@@ -208,6 +208,9 @@ static inline int cg_get_keyed_attribute_graceful(
 
 int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
 
+/* Does a parse_boolean() on the attribute contents and sets ret accordingly */
+int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute, bool *ret);
+
 int cg_set_access(const char *controller, const char *path, uid_t uid, gid_t gid);
 
 int cg_set_xattr(const char *controller, const char *path, const char *name, const void *value, size_t size, int flags);
