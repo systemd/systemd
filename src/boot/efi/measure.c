@@ -266,7 +266,7 @@ static EFI_TCG * tcg1_interface_check(void) {
         return tcg;
 }
 
-static EFI_TCG2 * tcg2_interface_check() {
+static EFI_TCG2 * tcg2_interface_check(void) {
         EFI_GUID tpm2_guid = EFI_TCG2_PROTOCOL_GUID;
         EFI_STATUS status;
         EFI_TCG2 *tcg;
