@@ -15,7 +15,6 @@
 #include "sd-radv.h"
 #include "sd-netlink.h"
 
-#include "list.h"
 #include "log-link.h"
 #include "network-util.h"
 #include "networkd-util.h"
@@ -89,6 +88,7 @@ typedef struct Link {
 
         Set *addresses;
         Set *addresses_foreign;
+        Set *pool_addresses;
         Set *static_addresses;
         Set *neighbors;
         Set *neighbors_foreign;
@@ -126,8 +126,6 @@ typedef struct Link {
         bool setting_genmode:1;
         bool ipv6_mtu_set:1;
         bool bridge_mdb_configured:1;
-
-        LIST_HEAD(Address, pool_addresses);
 
         sd_dhcp_server *dhcp_server;
 
@@ -193,9 +191,6 @@ typedef struct Link {
 
 typedef int (*link_netlink_message_handler_t)(sd_netlink*, sd_netlink_message*, Link*);
 
-DUID *link_get_duid(Link *link);
-int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
-
 void link_ntp_settings_clear(Link *link);
 void link_dns_settings_clear(Link *link);
 Link *link_unref(Link *link);
@@ -226,6 +221,8 @@ int link_save_and_clean(Link *link);
 int link_carrier_reset(Link *link);
 bool link_has_carrier(Link *link);
 
+bool link_ipv6_enabled(Link *link);
+bool link_ipv6ll_enabled(Link *link);
 int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
 
 int link_set_mtu(Link *link, uint32_t mtu);
@@ -237,11 +234,7 @@ int link_stop_clients(Link *link, bool may_keep_dhcp);
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
 
-uint32_t link_get_vrf_table(Link *link);
-uint32_t link_get_dhcp_route_table(Link *link);
-uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
-int link_request_set_routes(Link *link);
-
+int link_configure(Link *link);
 int link_reconfigure(Link *link, bool force);
 
 int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg);

@@ -4,30 +4,27 @@
 #include <linux/if_addrlabel.h>
 
 #include "alloc-util.h"
-#include "conf-parser.h"
-#include "networkd-address-label.h"
 #include "netlink-util.h"
+#include "networkd-address-label.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
+#include "networkd-network.h"
 #include "parse-util.h"
-#include "socket-util.h"
 
-void address_label_free(AddressLabel *label) {
+AddressLabel *address_label_free(AddressLabel *label) {
         if (!label)
-                return;
+                return NULL;
 
         if (label->network) {
-                LIST_REMOVE(labels, label->network->address_labels, label);
-                assert(label->network->n_address_labels > 0);
-                label->network->n_address_labels--;
-
-                if (label->section) {
-                        hashmap_remove(label->network->address_labels_by_section, label->section);
-                        network_config_section_free(label->section);
-                }
+                assert(label->section);
+                hashmap_remove(label->network->address_labels_by_section, label->section);
         }
 
-        free(label);
+        network_config_section_free(label->section);
+        return mfree(label);
 }
+
+DEFINE_NETWORK_SECTION_FUNCTIONS(AddressLabel, address_label_free);
 
 static int address_label_new_static(Network *network, const char *filename, unsigned section_line, AddressLabel **ret) {
         _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
@@ -36,19 +33,17 @@ static int address_label_new_static(Network *network, const char *filename, unsi
 
         assert(network);
         assert(ret);
-        assert(!!filename == (section_line > 0));
+        assert(filename);
+        assert(section_line > 0);
 
-        if (filename) {
-                r = network_config_section_new(filename, section_line, &n);
-                if (r < 0)
-                        return r;
+        r = network_config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
 
-                label = hashmap_get(network->address_labels_by_section, n);
-                if (label) {
-                        *ret = TAKE_PTR(label);
-
-                        return 0;
-                }
+        label = hashmap_get(network->address_labels_by_section, n);
+        if (label) {
+                *ret = TAKE_PTR(label);
+                return 0;
         }
 
         label = new(AddressLabel, 1);
@@ -57,25 +52,18 @@ static int address_label_new_static(Network *network, const char *filename, unsi
 
         *label = (AddressLabel) {
                 .network = network,
+                .section = TAKE_PTR(n),
         };
 
-        LIST_APPEND(labels, network->address_labels, label);
-        network->n_address_labels++;
+        r = hashmap_ensure_allocated(&network->address_labels_by_section, &network_config_hash_ops);
+        if (r < 0)
+                return r;
 
-        if (filename) {
-                label->section = TAKE_PTR(n);
-
-                r = hashmap_ensure_allocated(&network->address_labels_by_section, &network_config_hash_ops);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_put(network->address_labels_by_section, label->section, label);
-                if (r < 0)
-                        return r;
-        }
+        r = hashmap_put(network->address_labels_by_section, label->section, label);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(label);
-
         return 0;
 }
 
@@ -107,12 +95,7 @@ static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
         return 1;
 }
 
-int address_label_configure(
-                AddressLabel *label,
-                Link *link,
-                link_netlink_message_handler_t callback,
-                bool update) {
-
+static int address_label_configure(AddressLabel *label, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -140,7 +123,7 @@ int address_label_configure(
                 return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
-                               callback ?: address_label_handler,
+                               address_label_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -148,6 +131,34 @@ int address_label_configure(
         link_ref(link);
 
         return 0;
+}
+
+int link_set_address_labels(Link *link) {
+        AddressLabel *label;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        HASHMAP_FOREACH(label, link->network->address_labels_by_section) {
+                r = address_label_configure(label, link);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not set address label: %m");
+
+                link->address_label_messages++;
+        }
+
+        return 0;
+}
+
+void network_drop_invalid_address_labels(Network *network) {
+        AddressLabel *label;
+
+        assert(network);
+
+        HASHMAP_FOREACH(label, network->address_labels_by_section)
+                if (section_is_invalid(label->section))
+                        address_label_free(label);
 }
 
 int config_parse_address_label_prefix(const char *unit,

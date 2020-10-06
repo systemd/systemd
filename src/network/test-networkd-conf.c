@@ -176,14 +176,16 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         assert_se(network->filename = strdup("hogehoge.network"));
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match_name, network) == 0);
         assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
-        assert_se(network->n_static_addresses == 1);
+        assert_se(ordered_hashmap_size(network->addresses_by_section) == 1);
         assert_se(network_verify(network) >= 0);
-        assert_se(network->n_static_addresses == n_addresses);
+        assert_se(ordered_hashmap_size(network->addresses_by_section) == n_addresses);
         if (n_addresses > 0) {
-                assert_se(network->static_addresses);
-                assert_se(network->static_addresses->prefixlen == prefixlen);
-                assert_se(network->static_addresses->family == family);
-                assert_se(in_addr_equal(family, &network->static_addresses->in_addr, u));
+                Address *a;
+
+                assert_se(a = ordered_hashmap_first(network->addresses_by_section));
+                assert_se(a->prefixlen == prefixlen);
+                assert_se(a->family == family);
+                assert_se(in_addr_equal(family, &a->in_addr, u));
                 /* TODO: check Address.in_addr and Address.broadcast */
         }
 }

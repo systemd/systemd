@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
+#include "ether-addr-util.h"
 #include "hostname-util.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
@@ -252,6 +253,6 @@ int main(void) {
 
         test_network_get(manager, loopback);
 
-        assert_se(manager_rtnl_enumerate_links(manager) >= 0);
+        assert_se(manager_enumerate(manager) >= 0);
         return 0;
 }

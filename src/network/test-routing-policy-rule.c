@@ -1,13 +1,8 @@
-/***
-  SPDX-License-Identifier: LGPL-2.1+
-***/
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "fd-util.h"
 #include "fileio.h"
-#include "log.h"
-#include "macro.h"
-#include "network-internal.h"
-#include "networkd-manager.h"
+#include "networkd-routing-policy-rule.h"
 #include "string-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"

@@ -5,17 +5,16 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
+#include <inttypes.h>
 #include <linux/neighbour.h>
 
 #include "conf-parser.h"
-#include "list.h"
-#include "macro.h"
+#include "ether-addr-util.h"
+#include "in-addr-util.h"
 #include "networkd-util.h"
 
 typedef struct Network Network;
-typedef struct FdbEntry FdbEntry;
 typedef struct Link Link;
-typedef struct NetworkConfigSection NetworkConfigSection;
 
 typedef enum NeighborCacheEntryFlags {
         NEIGHBOR_CACHE_ENTRY_FLAGS_USE = NTF_USE,
@@ -26,7 +25,7 @@ typedef enum NeighborCacheEntryFlags {
         _NEIGHBOR_CACHE_ENTRY_FLAGS_INVALID = -1,
 } NeighborCacheEntryFlags;
 
-struct FdbEntry {
+typedef struct FdbEntry {
         Network *network;
         NetworkConfigSection *section;
 
@@ -38,17 +37,13 @@ struct FdbEntry {
         struct ether_addr mac_addr;
         union in_addr_union destination_addr;
         NeighborCacheEntryFlags fdb_ntf_flags;
+} FdbEntry;
 
-        LIST_FIELDS(FdbEntry, static_fdb_entries);
-};
+FdbEntry *fdb_entry_free(FdbEntry *fdb_entry);
 
-void fdb_entry_free(FdbEntry *fdb_entry);
-int fdb_entry_configure(Link *link, FdbEntry *fdb_entry);
+void network_drop_invalid_fdb_entries(Network *network);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(FdbEntry, fdb_entry_free);
-
-const char* fdb_ntf_flags_to_string(NeighborCacheEntryFlags i) _const_;
-NeighborCacheEntryFlags fdb_ntf_flags_from_string(const char *s) _pure_;
+int link_set_bridge_fdb(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_hwaddr);
 CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);

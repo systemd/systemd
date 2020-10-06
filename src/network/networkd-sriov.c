@@ -108,7 +108,7 @@ static int sr_iov_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         return 1;
 }
 
-int sr_iov_configure(Link *link, SRIOV *sr_iov) {
+static int sr_iov_configure(Link *link, SRIOV *sr_iov) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -226,7 +226,28 @@ int sr_iov_configure(Link *link, SRIOV *sr_iov) {
         return 0;
 }
 
-int sr_iov_section_verify(SRIOV *sr_iov) {
+int link_configure_sr_iov(Link *link) {
+        SRIOV *sr_iov;
+        int r;
+
+        link->sr_iov_configured = false;
+        link->sr_iov_messages = 0;
+
+        ORDERED_HASHMAP_FOREACH(sr_iov, link->network->sr_iov_by_section) {
+                r = sr_iov_configure(link, sr_iov);
+                if (r < 0)
+                        return r;
+        }
+
+        if (link->sr_iov_messages == 0)
+                link->sr_iov_configured = true;
+        else
+                log_link_debug(link, "Configuring SR-IOV");
+
+        return 0;
+}
+
+static int sr_iov_section_verify(SRIOV *sr_iov) {
         assert(sr_iov);
 
         if (section_is_invalid(sr_iov->section))
@@ -239,6 +260,16 @@ int sr_iov_section_verify(SRIOV *sr_iov) {
                                          sr_iov->section->filename, sr_iov->section->line);
 
         return 0;
+}
+
+void network_drop_invalid_sr_iov(Network *network) {
+        SRIOV *sr_iov;
+
+        assert(network);
+
+        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section)
+                if (sr_iov_section_verify(sr_iov) < 0)
+                        sr_iov_free(sr_iov);
 }
 
 int config_parse_sr_iov_uint32(

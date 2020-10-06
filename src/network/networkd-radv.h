@@ -5,13 +5,17 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
+#include <inttypes.h>
+#include <stdbool.h>
+
+#include "sd-radv.h"
+
+#include "in-addr-util.h"
 #include "conf-parser.h"
-#include "networkd-address.h"
-#include "networkd-link.h"
 #include "networkd-util.h"
 
-typedef struct Prefix Prefix;
-typedef struct RoutePrefix RoutePrefix;
+typedef struct Network Network;
+typedef struct Link Link;
 
 typedef enum RADVPrefixDelegation {
         RADV_PREFIX_DELEGATION_NONE   = 0,
@@ -22,36 +26,31 @@ typedef enum RADVPrefixDelegation {
         _RADV_PREFIX_DELEGATION_INVALID = -1,
 } RADVPrefixDelegation;
 
-struct Prefix {
+typedef struct Prefix {
         Network *network;
         NetworkConfigSection *section;
 
         sd_radv_prefix *radv_prefix;
 
         bool assign;
+} Prefix;
 
-        LIST_FIELDS(Prefix, prefixes);
-};
-
-struct RoutePrefix {
+typedef struct RoutePrefix {
         Network *network;
         NetworkConfigSection *section;
 
         sd_radv_route_prefix *radv_route_prefix;
+} RoutePrefix;
 
-        LIST_FIELDS(RoutePrefix, route_prefixes);
-};
+Prefix *prefix_free(Prefix *prefix);
+RoutePrefix *route_prefix_free(RoutePrefix *prefix);
 
-void prefix_free(Prefix *prefix);
-
-DEFINE_NETWORK_SECTION_FUNCTIONS(Prefix, prefix_free);
-
-void route_prefix_free(RoutePrefix *prefix);
-
-DEFINE_NETWORK_SECTION_FUNCTIONS(RoutePrefix, route_prefix_free);
+void network_drop_invalid_prefixes(Network *network);
+void network_drop_invalid_route_prefixes(Network *network);
 
 int radv_emit_dns(Link *link);
 int radv_configure(Link *link);
+int radv_update_mac(Link *link);
 int radv_add_prefix(Link *link, const struct in6_addr *prefix, uint8_t prefix_len,
                     uint32_t lifetime_preferred, uint32_t lifetime_valid);
 

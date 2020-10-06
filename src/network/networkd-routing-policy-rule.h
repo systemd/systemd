@@ -2,28 +2,22 @@
 #pragma once
 
 #include <inttypes.h>
-#include <netinet/in.h>
 #include <linux/fib_rules.h>
 #include <stdbool.h>
+#include <stdio.h>
 
-#include "in-addr-util.h"
 #include "conf-parser.h"
-
-typedef struct RoutingPolicyRule RoutingPolicyRule;
-
-#include "networkd-link.h"
-#include "networkd-network.h"
+#include "in-addr-util.h"
 #include "networkd-util.h"
+#include "set.h"
 
 typedef struct Network Network;
 typedef struct Link Link;
-typedef struct NetworkConfigSection NetworkConfigSection;
 typedef struct Manager Manager;
 
-struct RoutingPolicyRule {
+typedef struct RoutingPolicyRule {
         Manager *manager;
         Network *network;
-        Link *link;
         NetworkConfigSection *section;
 
         bool invert_rule;
@@ -52,25 +46,18 @@ struct RoutingPolicyRule {
         struct fib_rule_uid_range uid_range;
 
         int suppress_prefixlen;
+} RoutingPolicyRule;
 
-        LIST_FIELDS(RoutingPolicyRule, rules);
-};
+RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule);
 
-int routing_policy_rule_new(RoutingPolicyRule **ret);
-void routing_policy_rule_free(RoutingPolicyRule *rule);
+void network_drop_invalid_routing_policy_rules(Network *network);
 
-DEFINE_NETWORK_SECTION_FUNCTIONS(RoutingPolicyRule, routing_policy_rule_free);
-int routing_policy_rule_section_verify(RoutingPolicyRule *rule);
+int link_set_routing_policy_rules(Link *link);
 
-int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback);
-int routing_policy_rule_remove(RoutingPolicyRule *rule, Link *link, link_netlink_message_handler_t callback);
+int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
-int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret);
-int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret);
-int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule);
 int routing_policy_serialize_rules(Set *rules, FILE *f);
 int routing_policy_load_rules(const char *state_file, Set **rules);
-void routing_policy_rule_purge(Manager *m, Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);

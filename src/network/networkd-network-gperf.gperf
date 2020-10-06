@@ -6,15 +6,25 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "conf-parser.h"
 #include "netem.h"
 #include "network-internal.h"
+#include "networkd-address-label.h"
+#include "networkd-address.h"
 #include "networkd-can.h"
 #include "networkd-conf.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
+#include "networkd-fdb.h"
 #include "networkd-ipv4ll.h"
+#include "networkd-ipv6-proxy-ndp.h"
+#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
 #include "networkd-network.h"
+#include "networkd-neighbor.h"
+#include "networkd-nexthop.h"
+#include "networkd-radv.h"
+#include "networkd-route.h"
+#include "networkd-routing-policy-rule.h"
 #include "networkd-sriov.h"
 #include "qdisc.h"
 #include "tclass.h"
@@ -121,11 +131,11 @@ Address.Peer,                                config_parse_address,              
 Address.Broadcast,                           config_parse_broadcast,                                   0,                             0
 Address.Label,                               config_parse_label,                                       0,                             0
 Address.PreferredLifetime,                   config_parse_lifetime,                                    0,                             0
-Address.HomeAddress,                         config_parse_address_flags,                               0,                             0
-Address.ManageTemporaryAddress,              config_parse_address_flags,                               0,                             0
-Address.PrefixRoute,                         config_parse_address_flags,                               0,                             0 /* deprecated */
-Address.AddPrefixRoute,                      config_parse_address_flags,                               0,                             0
-Address.AutoJoin,                            config_parse_address_flags,                               0,                             0
+Address.HomeAddress,                         config_parse_address_flags,                               IFA_F_HOMEADDRESS,             0
+Address.ManageTemporaryAddress,              config_parse_address_flags,                               IFA_F_MANAGETEMPADDR,          0
+Address.PrefixRoute,                         config_parse_address_flags,                               IFA_F_NOPREFIXROUTE,           0 /* deprecated */
+Address.AddPrefixRoute,                      config_parse_address_flags,                               IFA_F_NOPREFIXROUTE,           0
+Address.AutoJoin,                            config_parse_address_flags,                               IFA_F_MCAUTOJOIN,              0
 Address.DuplicateAddressDetection,           config_parse_duplicate_address_detection,                 0,                             0
 Address.Scope,                               config_parse_address_scope,                               0,                             0
 IPv6AddressLabel.Prefix,                     config_parse_address_label_prefix,                        0,                             0

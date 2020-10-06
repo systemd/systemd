@@ -12,37 +12,20 @@
 #include "conf-parser.h"
 #include "hashmap.h"
 #include "netdev.h"
-#include "networkd-address-label.h"
-#include "networkd-address.h"
 #include "networkd-brvlan.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
 #include "networkd-dhcp-server.h"
-#include "networkd-fdb.h"
-#include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-lldp-tx.h"
-#include "networkd-mdb.h"
 #include "networkd-ndisc.h"
-#include "networkd-neighbor.h"
-#include "networkd-nexthop.h"
 #include "networkd-radv.h"
-#include "networkd-route.h"
-#include "networkd-routing-policy-rule.h"
+#include "networkd-sysctl.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
 #include "resolve-util.h"
 #include "socket-netlink.h"
-
-typedef enum IPv6PrivacyExtensions {
-        /* The values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values */
-        IPV6_PRIVACY_EXTENSIONS_NO,
-        IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC,
-        IPV6_PRIVACY_EXTENSIONS_YES, /* aka prefer-temporary */
-        _IPV6_PRIVACY_EXTENSIONS_MAX,
-        _IPV6_PRIVACY_EXTENSIONS_INVALID = -1,
-} IPv6PrivacyExtensions;
 
 typedef enum KeepConfiguration {
         KEEP_CONFIGURATION_NO            = 0,
@@ -245,6 +228,7 @@ struct Network {
         int ipv6_dad_transmits;
         int ipv6_hop_limit;
         int ipv6_proxy_ndp;
+        Set *ipv6_proxy_ndp_addresses;
         int proxy_arp;
         uint32_t ipv6_mtu;
 
@@ -285,31 +269,7 @@ struct Network {
         LLDPEmit lldp_emit; /* LLDP transmission */
         char *lldp_mud;    /* LLDP MUD URL */
 
-        LIST_HEAD(Address, static_addresses);
-        LIST_HEAD(Route, static_routes);
-        LIST_HEAD(NextHop, static_nexthops);
-        LIST_HEAD(FdbEntry, static_fdb_entries);
-        LIST_HEAD(MdbEntry, static_mdb_entries);
-        LIST_HEAD(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
-        LIST_HEAD(Neighbor, neighbors);
-        LIST_HEAD(AddressLabel, address_labels);
-        LIST_HEAD(Prefix, static_prefixes);
-        LIST_HEAD(RoutePrefix, static_route_prefixes);
-        LIST_HEAD(RoutingPolicyRule, rules);
-
-        unsigned n_static_addresses;
-        unsigned n_static_routes;
-        unsigned n_static_nexthops;
-        unsigned n_static_fdb_entries;
-        unsigned n_static_mdb_entries;
-        unsigned n_ipv6_proxy_ndp_addresses;
-        unsigned n_neighbors;
-        unsigned n_address_labels;
-        unsigned n_static_prefixes;
-        unsigned n_static_route_prefixes;
-        unsigned n_rules;
-
-        Hashmap *addresses_by_section;
+        OrderedHashmap *addresses_by_section;
         Hashmap *routes_by_section;
         Hashmap *nexthops_by_section;
         Hashmap *fdb_entries_by_section;
@@ -360,8 +320,6 @@ bool network_has_static_ipv6_configurations(Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_stacked_netdev);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel);
-CONFIG_PARSER_PROTOTYPE(config_parse_ipv6token);
-CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_privacy_extensions);
 CONFIG_PARSER_PROTOTYPE(config_parse_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
@@ -373,9 +331,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
-
-const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
-IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
 
 const char* keep_configuration_to_string(KeepConfiguration i) _const_;
 KeepConfiguration keep_configuration_from_string(const char *s) _pure_;

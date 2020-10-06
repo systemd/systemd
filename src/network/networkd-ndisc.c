@@ -3,16 +3,18 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <netinet/icmp6.h>
 #include <arpa/inet.h>
+#include <netinet/icmp6.h>
+#include <linux/if.h>
 
 #include "sd-ndisc.h"
 
 #include "missing_network.h"
+#include "networkd-address.h"
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
-#include "networkd-route.h"
+#include "networkd-sysctl.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -34,6 +36,36 @@
 #define RESERVED_SUBNET_ANYCAST_PREFIXLEN                   7
 
 #define NDISC_APP_ID SD_ID128_MAKE(13,ac,81,a7,d5,3f,49,78,92,79,5d,0c,29,3a,bc,7e)
+
+bool link_ipv6_accept_ra_enabled(Link *link) {
+        assert(link);
+
+        if (!socket_ipv6_is_supported())
+                return false;
+
+        if (link->flags & IFF_LOOPBACK)
+                return false;
+
+        if (!link->network)
+                return false;
+
+        if (!link_ipv6ll_enabled(link))
+                return false;
+
+        /* If unset use system default (enabled if local forwarding is disabled.
+         * disabled if local forwarding is enabled).
+         * If set, ignore or enforce RA independent of local forwarding state.
+         */
+        if (link->network->ipv6_accept_ra < 0)
+                /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
+                return !link_ip_forward_enabled(link, AF_INET6);
+        else if (link->network->ipv6_accept_ra > 0)
+                /* accept RA even if ip_forward is enabled */
+                return true;
+        else
+                /* ignore RA */
+                return false;
+}
 
 static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool force);
 
@@ -368,7 +400,7 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                         return 1;
                 }
 
-                r = link_request_set_routes(link);
+                r = link_set_routes(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return 1;
@@ -490,7 +522,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, r, "Could not set default route: %m");
 
         Route *route_gw;
-        LIST_FOREACH(routes, route_gw, link->network->static_routes) {
+        HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
                 if (!route_gw->gateway_from_dhcp)
                         continue;
 
@@ -1133,9 +1165,9 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         else {
                 log_link_debug(link, "Setting SLAAC addresses.");
 
-                /* address_handler calls link_request_set_routes() and link_request_set_nexthop().
-                 * Before they are called, the related flags must be cleared. Otherwise, the link
-                 * becomes configured state before routes are configured. */
+                /* address_handler calls link_set_routes() and link_set_nexthop(). Before they are
+                 * called, the related flags must be cleared. Otherwise, the link becomes configured
+                 * state before routes are configured. */
                 link->static_routes_configured = false;
                 link->static_nexthops_configured = false;
         }
@@ -1194,13 +1226,18 @@ int ndisc_configure(Link *link) {
 
         assert(link);
 
-        r = sd_ndisc_new(&link->ndisc);
-        if (r < 0)
-                return r;
+        if (!link_ipv6_accept_ra_enabled(link))
+                return 0;
 
-        r = sd_ndisc_attach_event(link->ndisc, NULL, 0);
-        if (r < 0)
-                return r;
+        if (!link->ndisc) {
+                r = sd_ndisc_new(&link->ndisc);
+                if (r < 0)
+                        return r;
+
+                r = sd_ndisc_attach_event(link->ndisc, link->manager->event, 0);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_ndisc_set_mac(link->ndisc, &link->mac);
         if (r < 0)

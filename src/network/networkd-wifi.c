@@ -6,6 +6,7 @@
 #include "sd-bus.h"
 
 #include "bus-util.h"
+#include "ether-addr-util.h"
 #include "netlink-internal.h"
 #include "netlink-util.h"
 #include "networkd-link.h"

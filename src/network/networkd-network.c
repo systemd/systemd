@@ -14,8 +14,16 @@
 #include "in-addr-util.h"
 #include "networkd-dhcp-server.h"
 #include "network-internal.h"
+#include "networkd-address-label.h"
+#include "networkd-address.h"
+#include "networkd-fdb.h"
 #include "networkd-manager.h"
+#include "networkd-mdb.h"
+#include "networkd-neighbor.h"
 #include "networkd-network.h"
+#include "networkd-nexthop.h"
+#include "networkd-radv.h"
+#include "networkd-routing-policy-rule.h"
 #include "networkd-sriov.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -148,19 +156,6 @@ static int network_resolve_stacked_netdevs(Network *network) {
 }
 
 int network_verify(Network *network) {
-        RoutePrefix *route_prefix, *route_prefix_next;
-        RoutingPolicyRule *rule, *rule_next;
-        Neighbor *neighbor, *neighbor_next;
-        AddressLabel *label, *label_next;
-        NextHop *nexthop, *nextnop_next;
-        Address *address, *address_next;
-        Prefix *prefix, *prefix_next;
-        Route *route, *route_next;
-        FdbEntry *fdb, *fdb_next;
-        MdbEntry *mdb, *mdb_next;
-        TrafficControl *tc;
-        SRIOV *sr_iov;
-
         assert(network);
         assert(network->filename);
 
@@ -213,18 +208,15 @@ int network_verify(Network *network) {
                                     network->filename);
                         network->dhcp_server = false;
                 }
-                if (network->n_static_addresses > 0) {
+                if (!ordered_hashmap_isempty(network->addresses_by_section))
                         log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.",
                                     network->filename);
-                        while ((address = network->static_addresses))
-                                address_free(address);
-                }
-                if (network->n_static_routes > 0) {
+                if (!hashmap_isempty(network->routes_by_section))
                         log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.",
                                     network->filename);
-                        while ((route = network->static_routes))
-                                route_free(route);
-                }
+
+                network->addresses_by_section = ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
+                network->routes_by_section = hashmap_free_with_destructor(network->routes_by_section, route_free);
         }
 
         if (network->link_local < 0)
@@ -290,54 +282,23 @@ int network_verify(Network *network) {
         if (network->keep_configuration < 0)
                 network->keep_configuration = KEEP_CONFIGURATION_NO;
 
-        LIST_FOREACH_SAFE(addresses, address, address_next, network->static_addresses)
-                if (address_section_verify(address) < 0)
-                        address_free(address);
+        if (network->ipv6_proxy_ndp == 0 && !set_isempty(network->ipv6_proxy_ndp_addresses)) {
+                log_warning("%s: IPv6ProxyNDP= is disabled. Ignoring IPv6ProxyNDPAddress=.", network->filename);
+                network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
+        }
 
-        LIST_FOREACH_SAFE(routes, route, route_next, network->static_routes)
-                if (route_section_verify(route, network) < 0)
-                        route_free(route);
-
-        LIST_FOREACH_SAFE(nexthops, nexthop, nextnop_next, network->static_nexthops)
-                if (nexthop_section_verify(nexthop) < 0)
-                        nexthop_free(nexthop);
-
-        LIST_FOREACH_SAFE(static_fdb_entries, fdb, fdb_next, network->static_fdb_entries)
-                if (section_is_invalid(fdb->section))
-                        fdb_entry_free(fdb);
-
-        LIST_FOREACH_SAFE(static_mdb_entries, mdb, mdb_next, network->static_mdb_entries)
-                if (mdb_entry_verify(mdb) < 0)
-                        mdb_entry_free(mdb);
-
-        LIST_FOREACH_SAFE(neighbors, neighbor, neighbor_next, network->neighbors)
-                if (neighbor_section_verify(neighbor) < 0)
-                        neighbor_free(neighbor);
-
-        LIST_FOREACH_SAFE(labels, label, label_next, network->address_labels)
-                if (section_is_invalid(label->section))
-                        address_label_free(label);
-
-        LIST_FOREACH_SAFE(prefixes, prefix, prefix_next, network->static_prefixes)
-                if (section_is_invalid(prefix->section))
-                        prefix_free(prefix);
-
-        LIST_FOREACH_SAFE(route_prefixes, route_prefix, route_prefix_next, network->static_route_prefixes)
-                if (section_is_invalid(route_prefix->section))
-                        route_prefix_free(route_prefix);
-
-        LIST_FOREACH_SAFE(rules, rule, rule_next, network->rules)
-                if (routing_policy_rule_section_verify(rule) < 0)
-                        routing_policy_rule_free(rule);
-
-        bool has_root = false, has_clsact = false;
-        ORDERED_HASHMAP_FOREACH(tc, network->tc_by_section)
-                if (traffic_control_section_verify(tc, &has_root, &has_clsact) < 0)
-                        traffic_control_free(tc);
-
-        ORDERED_HASHMAP_FOREACH(sr_iov, network->sr_iov_by_section)
-                if (sr_iov_section_verify(sr_iov) < 0)
-                        sr_iov_free(sr_iov);
+        network_drop_invalid_addresses(network);
+        network_drop_invalid_routes(network);
+        network_drop_invalid_nexthops(network);
+        network_drop_invalid_fdb_entries(network);
+        network_drop_invalid_mdb_entries(network);
+        network_drop_invalid_neighbors(network);
+        network_drop_invalid_address_labels(network);
+        network_drop_invalid_prefixes(network);
+        network_drop_invalid_route_prefixes(network);
+        network_drop_invalid_routing_policy_rules(network);
+        network_drop_invalid_traffic_control(network);
+        network_drop_invalid_sr_iov(network);
 
         return 0;
 }
@@ -644,18 +605,6 @@ failure:
 }
 
 static Network *network_free(Network *network) {
-        IPv6ProxyNDPAddress *ipv6_proxy_ndp_address;
-        RoutePrefix *route_prefix;
-        RoutingPolicyRule *rule;
-        AddressLabel *label;
-        FdbEntry *fdb_entry;
-        MdbEntry *mdb_entry;
-        Neighbor *neighbor;
-        Address *address;
-        NextHop *nexthop;
-        Prefix *prefix;
-        Route *route;
-
         if (!network)
                 return NULL;
 
@@ -711,49 +660,17 @@ static Network *network_free(Network *network) {
         netdev_unref(network->vrf);
         hashmap_free_with_destructor(network->stacked_netdevs, netdev_unref);
 
-        while ((route = network->static_routes))
-                route_free(route);
-
-        while ((nexthop = network->static_nexthops))
-                nexthop_free(nexthop);
-
-        while ((address = network->static_addresses))
-                address_free(address);
-
-        while ((fdb_entry = network->static_fdb_entries))
-                fdb_entry_free(fdb_entry);
-
-        while ((mdb_entry = network->static_mdb_entries))
-                mdb_entry_free(mdb_entry);
-
-        while ((ipv6_proxy_ndp_address = network->ipv6_proxy_ndp_addresses))
-                ipv6_proxy_ndp_address_free(ipv6_proxy_ndp_address);
-
-        while ((neighbor = network->neighbors))
-                neighbor_free(neighbor);
-
-        while ((label = network->address_labels))
-                address_label_free(label);
-
-        while ((prefix = network->static_prefixes))
-                prefix_free(prefix);
-
-        while ((route_prefix = network->static_route_prefixes))
-                route_prefix_free(route_prefix);
-
-        while ((rule = network->rules))
-                routing_policy_rule_free(rule);
-
-        hashmap_free(network->addresses_by_section);
-        hashmap_free(network->routes_by_section);
-        hashmap_free(network->nexthops_by_section);
-        hashmap_free(network->fdb_entries_by_section);
-        hashmap_free(network->mdb_entries_by_section);
-        hashmap_free(network->neighbors_by_section);
-        hashmap_free(network->address_labels_by_section);
-        hashmap_free(network->prefixes_by_section);
-        hashmap_free(network->route_prefixes_by_section);
-        hashmap_free(network->rules_by_section);
+        set_free_free(network->ipv6_proxy_ndp_addresses);
+        ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
+        hashmap_free_with_destructor(network->routes_by_section, route_free);
+        hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
+        hashmap_free_with_destructor(network->fdb_entries_by_section, fdb_entry_free);
+        hashmap_free_with_destructor(network->mdb_entries_by_section, mdb_entry_free);
+        hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
+        hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
+        hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
+        hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
+        hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
         ordered_hashmap_free_with_destructor(network->tc_by_section, traffic_control_free);
 
@@ -866,30 +783,33 @@ bool network_has_static_ipv6_configurations(Network *network) {
 
         assert(network);
 
-        LIST_FOREACH(addresses, address, network->static_addresses)
+        ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section)
                 if (address->family == AF_INET6)
                         return true;
 
-        LIST_FOREACH(routes, route, network->static_routes)
+        HASHMAP_FOREACH(route, network->routes_by_section)
                 if (route->family == AF_INET6)
                         return true;
 
-        LIST_FOREACH(static_fdb_entries, fdb, network->static_fdb_entries)
+        HASHMAP_FOREACH(fdb, network->fdb_entries_by_section)
                 if (fdb->family == AF_INET6)
                         return true;
 
-        LIST_FOREACH(static_mdb_entries, mdb, network->static_mdb_entries)
+        HASHMAP_FOREACH(mdb, network->mdb_entries_by_section)
                 if (mdb->family == AF_INET6)
                         return true;
 
-        LIST_FOREACH(neighbors, neighbor, network->neighbors)
+        HASHMAP_FOREACH(neighbor, network->neighbors_by_section)
                 if (neighbor->family == AF_INET6)
                         return true;
 
-        if (!LIST_IS_EMPTY(network->address_labels))
+        if (!hashmap_isempty(network->address_labels_by_section))
                 return true;
 
-        if (!LIST_IS_EMPTY(network->static_prefixes))
+        if (!hashmap_isempty(network->prefixes_by_section))
+                return true;
+
+        if (!hashmap_isempty(network->route_prefixes_by_section))
                 return true;
 
         return false;
@@ -1024,95 +944,6 @@ int config_parse_domains(
                 if (r < 0)
                         return log_oom();
         }
-}
-
-int config_parse_ipv6token(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        union in_addr_union buffer;
-        struct in6_addr *token = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(token);
-
-        r = in_addr_from_string(AF_INET6, rvalue, &buffer);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse IPv6 token, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (in_addr_is_null(AF_INET6, &buffer)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "IPv6 token cannot be the ANY address, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if ((buffer.in6.s6_addr32[0] | buffer.in6.s6_addr32[1]) != 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "IPv6 token cannot be longer than 64 bits, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *token = buffer.in6;
-
-        return 0;
-}
-
-static const char* const ipv6_privacy_extensions_table[_IPV6_PRIVACY_EXTENSIONS_MAX] = {
-        [IPV6_PRIVACY_EXTENSIONS_NO] = "no",
-        [IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC] = "prefer-public",
-        [IPV6_PRIVACY_EXTENSIONS_YES] = "yes",
-};
-
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(ipv6_privacy_extensions, IPv6PrivacyExtensions,
-                                        IPV6_PRIVACY_EXTENSIONS_YES);
-
-int config_parse_ipv6_privacy_extensions(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        IPv6PrivacyExtensions s, *ipv6_privacy_extensions = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(ipv6_privacy_extensions);
-
-        s = ipv6_privacy_extensions_from_string(rvalue);
-        if (s < 0) {
-                if (streq(rvalue, "kernel"))
-                        s = _IPV6_PRIVACY_EXTENSIONS_INVALID;
-                else {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Failed to parse IPv6 privacy extensions option, ignoring: %s", rvalue);
-                        return 0;
-                }
-        }
-
-        *ipv6_privacy_extensions = s;
-
-        return 0;
 }
 
 int config_parse_hostname(

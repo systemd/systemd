@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <linux/if_macsec.h>
 
+#include "ether-addr-util.h"
 #include "in-addr-util.h"
 #include "netdev.h"
 #include "networkd-util.h"

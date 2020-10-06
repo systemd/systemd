@@ -2,10 +2,13 @@
 #pragma once
 
 #include "sd-dhcp-lease.h"
+#include "sd-netlink.h"
 
 #include "conf-parser.h"
-#include "hash-funcs.h"
+#include "hashmap.h"
+#include "log.h"
 #include "macro.h"
+#include "string-util.h"
 
 typedef enum AddressFamily {
         /* This is a bitmask, though it usually doesn't feel that way! */
@@ -49,6 +52,7 @@ int network_config_section_new(const char *filename, unsigned line, NetworkConfi
 void network_config_section_free(NetworkConfigSection *network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
 extern const struct hash_ops network_config_hash_ops;
+unsigned hashmap_find_free_section_line(Hashmap *hashmap);
 
 static inline bool section_is_invalid(NetworkConfigSection *section) {
         /* If this returns false, then it does _not_ mean the section is valid. */
@@ -70,3 +74,10 @@ static inline bool section_is_invalid(NetworkConfigSection *section) {
         }                                                               \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
         DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
+
+static inline int log_message_warning_errno(sd_netlink_message *m, int err, const char *msg) {
+        const char *err_msg = NULL;
+
+        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
+        return log_warning_errno(err, "%s: %s%s%m", msg, strempty(err_msg), err_msg ? " " : "");
+}

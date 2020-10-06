@@ -382,6 +382,9 @@ def remove_routing_policy_rule_tables(tables):
         rc = 0
         while rc == 0:
             rc = call('ip rule del table', table, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        rc = 0
+        while rc == 0:
+            rc = call('ip -6 rule del table', table, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def remove_routes(routes):
     for route_type, addr in routes:
@@ -745,6 +748,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
     links = [
         '6rdtun99',
         'bareudp99',
+        'bond98',
         'bond99',
         'bridge99',
         'dropin-test',
@@ -870,6 +874,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         '25-sit-tunnel.netdev',
         '25-tap.netdev',
         '25-tun.netdev',
+        '25-tunnel-any-any.network',
         '25-tunnel-local-any.network',
         '25-tunnel-remote-any.network',
         '25-tunnel.network',

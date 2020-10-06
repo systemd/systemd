@@ -10,12 +10,11 @@
 
 #include "dhcp-identifier.h"
 #include "hashmap.h"
-#include "list.h"
-#include "time-util.h"
-
-#include "networkd-address-pool.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
+#include "ordered-set.h"
+#include "set.h"
+#include "time-util.h"
 
 struct Manager {
         sd_netlink *rtnl;
@@ -45,7 +44,7 @@ struct Manager {
         OrderedHashmap *networks;
         Hashmap *dhcp6_prefixes;
         Set *dhcp6_pd_prefixes;
-        LIST_HEAD(AddressPool, address_pools);
+        OrderedSet *address_pools;
 
         usec_t network_dirs_ts_usec;
 
@@ -82,27 +81,13 @@ int manager_start(Manager *m);
 int manager_load_config(Manager *m);
 bool manager_should_reload(Manager *m);
 
-int manager_rtnl_enumerate_links(Manager *m);
-int manager_rtnl_enumerate_addresses(Manager *m);
-int manager_rtnl_enumerate_neighbors(Manager *m);
-int manager_rtnl_enumerate_routes(Manager *m);
-int manager_rtnl_enumerate_rules(Manager *m);
-int manager_rtnl_enumerate_nexthop(Manager *m);
-
-int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, void *userdata);
-int manager_rtnl_process_neighbor(sd_netlink *nl, sd_netlink_message *message, void *userdata);
-int manager_rtnl_process_route(sd_netlink *nl, sd_netlink_message *message, void *userdata);
-int manager_rtnl_process_rule(sd_netlink *nl, sd_netlink_message *message, void *userdata);
-int manager_rtnl_process_nexthop(sd_netlink *nl, sd_netlink_message *message, void *userdata);
+int manager_enumerate(Manager *m);
 
 void manager_dirty(Manager *m);
-
-int manager_address_pool_acquire(Manager *m, int family, unsigned prefixlen, union in_addr_union *found);
 
 Link* manager_find_uplink(Manager *m, Link *exclude);
 
 int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);
-int manager_request_product_uuid(Manager *m, Link *link);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);

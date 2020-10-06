@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-#include <stdbool.h>
-
 #include "conf-parser.h"
 
 typedef struct Link Link;
@@ -15,7 +13,6 @@ typedef enum LLDPMode {
         _LLDP_MODE_INVALID = -1,
 } LLDPMode;
 
-bool link_lldp_rx_enabled(Link *link);
 int link_lldp_rx_configure(Link *link);
 int link_update_lldp(Link *link);
 int link_lldp_save(Link *link);

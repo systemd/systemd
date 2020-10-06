@@ -14,6 +14,7 @@
 #include "hostname-util.h"
 #include "missing_network.h"
 #include "network-internal.h"
+#include "networkd-address.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -23,6 +24,15 @@
 #include "string-util.h"
 #include "radv-internal.h"
 #include "web-util.h"
+
+bool link_dhcp6_pd_is_enabled(Link *link) {
+        assert(link);
+
+        if (!link->network)
+                return false;
+
+        return link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_DHCP6;
+}
 
 static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
         uint32_t lifetime_preferred, lifetime_valid;
@@ -179,6 +189,9 @@ int dhcp6_pd_remove(Link *link) {
 
         assert(link);
         assert(link->manager);
+
+        if (!link_dhcp6_pd_is_enabled(link))
+                return 0;
 
         link->dhcp6_pd_address_configured = false;
         link->dhcp6_pd_route_configured = false;
@@ -342,7 +355,7 @@ static int dhcp6_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
                         return 1;
                 }
 
-                r = link_request_set_routes(link);
+                r = link_set_routes(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return 1;
@@ -423,13 +436,6 @@ static int dhcp6_pd_assign_prefix(Link *link, const union in_addr_union *prefix,
                 return r;
 
         return 0;
-}
-
-bool link_dhcp6_pd_is_enabled(Link *link) {
-        if (!link->network)
-                return false;
-
-        return link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_DHCP6;
 }
 
 static bool link_has_preferred_subnet_id(Link *link) {
@@ -607,9 +613,9 @@ static int dhcp6_pd_finalize(Link *link) {
                         link->dhcp6_pd_address_configured = true;
         } else {
                 log_link_debug(link, "Setting DHCPv6 PD addresses");
-                /* address_handler calls link_request_set_routes() and link_request_set_nexthop().
-                 * Before they are called, the related flags must be cleared. Otherwise, the link
-                 * becomes configured state before routes are configured. */
+                /* address_handler calls link_set_routes() and link_set_nexthop(). Before they are
+                 * called, the related flags must be cleared. Otherwise, the link becomes configured
+                 * state before routes are configured. */
                 link->static_routes_configured = false;
                 link->static_nexthops_configured = false;
         }
@@ -641,9 +647,6 @@ static void dhcp6_pd_prefix_lost(Link *dhcp6_link) {
 
         HASHMAP_FOREACH(link, dhcp6_link->manager->links) {
                 if (link == dhcp6_link)
-                        continue;
-
-                if (!link_dhcp6_pd_is_enabled(link))
                         continue;
 
                 r = dhcp6_pd_remove(link);
@@ -952,7 +955,7 @@ static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *
                         return 1;
                 }
 
-                r = link_request_set_routes(link);
+                r = link_set_routes(link);
                 if (r < 0) {
                         link_enter_failed(link);
                         return 1;
@@ -1075,9 +1078,9 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
                 link->dhcp6_address_configured = true;
         else {
                 log_link_debug(link, "Setting DHCPv6 addresses");
-                /* address_handler calls link_request_set_routes() and link_request_set_nexthop().
-                 * Before they are called, the related flags must be cleared. Otherwise, the link
-                 * becomes configured state before routes are configured. */
+                /* address_handler calls link_set_routes() and link_set_nexthop(). Before they are
+                 * called, the related flags must be cleared. Otherwise, the link becomes configured
+                 * state before routes are configured. */
                 link->static_routes_configured = false;
                 link->static_nexthops_configured = false;
         }
@@ -1343,40 +1346,22 @@ static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
         return false;
 }
 
-int dhcp6_configure(Link *link) {
-        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
-        sd_dhcp6_option *vendor_option;
-        sd_dhcp6_option *send_option;
-        void *request_options;
+static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
         const DUID *duid;
         int r;
 
         assert(link);
         assert(link->network);
+        assert(client);
 
-        if (link->dhcp6_client)
-                return 0;
-
-        r = sd_dhcp6_client_new(&client);
-        if (r == -ENOMEM)
-                return log_oom();
+        r = sd_dhcp6_client_set_mac(client, (const uint8_t *) &link->mac, sizeof (link->mac), ARPHRD_ETHER);
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to create DHCP6 client: %m");
-
-        r = sd_dhcp6_client_attach_event(client, NULL, 0);
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to attach event: %m");
-
-        r = sd_dhcp6_client_set_mac(client,
-                                    (const uint8_t *) &link->mac,
-                                    sizeof (link->mac), ARPHRD_ETHER);
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set MAC address: %m");
+                return r;
 
         if (link->network->iaid_set) {
                 r = sd_dhcp6_client_set_iaid(client, link->network->iaid);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set IAID: %m");
+                        return r;
         }
 
         duid = link_get_duid(link);
@@ -1388,7 +1373,40 @@ int dhcp6_configure(Link *link) {
                                              duid->raw_data_len > 0 ? duid->raw_data : NULL,
                                              duid->raw_data_len);
         if (r < 0)
-                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set DUID: %m");
+                return r;
+
+        return 0;
+}
+
+int dhcp6_configure(Link *link) {
+        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        sd_dhcp6_option *vendor_option;
+        sd_dhcp6_option *send_option;
+        void *request_options;
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (!link_dhcp6_enabled(link) && !link_ipv6_accept_ra_enabled(link))
+                return 0;
+
+        if (link->dhcp6_client)
+                return 0;
+
+        r = sd_dhcp6_client_new(&client);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to create DHCP6 client: %m");
+
+        r = sd_dhcp6_client_attach_event(client, link->manager->event, 0);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to attach event: %m");
+
+        r = dhcp6_set_identifier(link, client);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set identifier: %m");
 
         ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp6_client_send_options) {
                 r = sd_dhcp6_client_add_option(client, send_option);
@@ -1467,6 +1485,57 @@ int dhcp6_configure(Link *link) {
         }
 
         link->dhcp6_client = TAKE_PTR(client);
+
+        return 0;
+}
+
+int dhcp6_update_mac(Link *link) {
+        bool restart;
+        int r;
+
+        assert(link);
+
+        if (!link->dhcp6_client)
+                return 0;
+
+        restart = sd_dhcp6_client_is_running(link->dhcp6_client) > 0;
+
+        if (restart) {
+                r = sd_dhcp6_client_stop(link->dhcp6_client);
+                if (r < 0)
+                        return r;
+        }
+
+        r = dhcp6_set_identifier(link, link->dhcp6_client);
+        if (r < 0)
+                return r;
+
+        if (restart) {
+                r = sd_dhcp6_client_start(link->dhcp6_client);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not restart DHCPv6 client: %m");
+        }
+
+        return 0;
+}
+
+int link_serialize_dhcp6_client(Link *link, FILE *f) {
+        _cleanup_free_ char *duid = NULL;
+        uint32_t iaid;
+        int r;
+
+        assert(link);
+
+        if (!link->dhcp6_client)
+                return 0;
+
+        r = sd_dhcp6_client_get_iaid(link->dhcp6_client, &iaid);
+        if (r >= 0)
+                fprintf(f, "DHCP6_CLIENT_IAID=0x%x\n", iaid);
+
+        r = sd_dhcp6_client_duid_as_string(link->dhcp6_client, &duid);
+        if (r >= 0)
+                fprintf(f, "DHCP6_CLIENT_DUID=%s\n", duid);
 
         return 0;
 }

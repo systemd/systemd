@@ -88,29 +88,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Could not load configuration files: %m");
 
-        r = manager_rtnl_enumerate_links(m);
+        r = manager_enumerate(m);
         if (r < 0)
-                return log_error_errno(r, "Could not enumerate links: %m");
-
-        r = manager_rtnl_enumerate_addresses(m);
-        if (r < 0)
-                return log_error_errno(r, "Could not enumerate addresses: %m");
-
-        r = manager_rtnl_enumerate_neighbors(m);
-        if (r < 0)
-                return log_error_errno(r, "Could not enumerate neighbors: %m");
-
-        r = manager_rtnl_enumerate_routes(m);
-        if (r < 0)
-                return log_error_errno(r, "Could not enumerate routes: %m");
-
-        r = manager_rtnl_enumerate_rules(m);
-        if (r < 0)
-                return log_error_errno(r, "Could not enumerate rules: %m");
-
-        r = manager_rtnl_enumerate_nexthop(m);
-        if (r < 0)
-                return log_error_errno(r, "Could not enumerate nexthop: %m");
+                return r;
 
         r = manager_start(m);
         if (r < 0)

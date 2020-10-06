@@ -5,6 +5,7 @@
 #include <linux/if_link.h>
 
 #include "conf-parser.h"
+#include "ether-addr-util.h"
 #include "networkd-link.h"
 #include "networkd-network.h"
 #include "networkd-util.h"
@@ -33,9 +34,8 @@ typedef struct SRIOV {
 } SRIOV;
 
 SRIOV *sr_iov_free(SRIOV *sr_iov);
-
-int sr_iov_configure(Link *link, SRIOV *sr_iov);
-int sr_iov_section_verify(SRIOV *sr_iov);
+int link_configure_sr_iov(Link *link);
+void network_drop_invalid_sr_iov(Network *network);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(SRIOV, sr_iov_free);
 
