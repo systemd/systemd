@@ -2212,7 +2212,7 @@ static int route_section_verify(Route *route, Network *network) {
         return 0;
 }
 
-void network_verify_routes(Network *network) {
+void network_drop_invalid_routes(Network *network) {
         Route *route;
 
         assert(network);

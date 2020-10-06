@@ -1473,7 +1473,7 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
         return 0;
 }
 
-void network_verify_routing_policy_rules(Network *network) {
+void network_drop_invalid_routing_policy_rules(Network *network) {
         RoutingPolicyRule *rule;
 
         assert(network);

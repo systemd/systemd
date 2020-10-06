@@ -262,7 +262,7 @@ static int sr_iov_section_verify(SRIOV *sr_iov) {
         return 0;
 }
 
-void network_verify_sr_iov(Network *network) {
+void network_drop_invalid_sr_iov(Network *network) {
         SRIOV *sr_iov;
 
         assert(network);

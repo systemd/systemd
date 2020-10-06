@@ -21,7 +21,7 @@ typedef struct MdbEntry {
 
 MdbEntry *mdb_entry_free(MdbEntry *mdb_entry);
 
-void network_verify_mdb_entries(Network *network);
+void network_drop_invalid_mdb_entries(Network *network);
 
 int link_set_bridge_mdb(Link *link);
 

@@ -1874,7 +1874,7 @@ static int address_section_verify(Address *address) {
         return 0;
 }
 
-void network_verify_addresses(Network *network) {
+void network_drop_invalid_addresses(Network *network) {
         Address *address;
 
         assert(network);

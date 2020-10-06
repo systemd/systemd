@@ -29,4 +29,4 @@ typedef struct TrafficControl {
 
 void traffic_control_free(TrafficControl *tc);
 int link_configure_traffic_control(Link *link);
-void network_verify_traffic_control(Network *network);
+void network_drop_invalid_traffic_control(Network *network);

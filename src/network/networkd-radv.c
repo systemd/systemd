@@ -160,7 +160,7 @@ static int route_prefix_new_static(Network *network, const char *filename, unsig
         return 0;
 }
 
-void network_verify_prefixes(Network *network) {
+void network_drop_invalid_prefixes(Network *network) {
         Prefix *prefix;
 
         assert(network);
@@ -170,7 +170,7 @@ void network_verify_prefixes(Network *network) {
                         prefix_free(prefix);
 }
 
-void network_verify_route_prefixes(Network *network) {
+void network_drop_invalid_route_prefixes(Network *network) {
         RoutePrefix *prefix;
 
         assert(network);

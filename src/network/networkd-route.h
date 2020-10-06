@@ -89,7 +89,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
 int network_add_ipv4ll_route(Network *network);
 int network_add_default_route_on_device(Network *network);
-void network_verify_routes(Network *network);
+void network_drop_invalid_routes(Network *network);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);

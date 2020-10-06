@@ -151,7 +151,7 @@ int link_set_address_labels(Link *link) {
         return 0;
 }
 
-void network_verify_address_labels(Network *network) {
+void network_drop_invalid_address_labels(Network *network) {
         AddressLabel *label;
 
         assert(network);

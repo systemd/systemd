@@ -591,7 +591,7 @@ static int neighbor_section_verify(Neighbor *neighbor) {
         return 0;
 }
 
-void network_verify_neighbors(Network *network) {
+void network_drop_invalid_neighbors(Network *network) {
         Neighbor *neighbor;
 
         assert(network);

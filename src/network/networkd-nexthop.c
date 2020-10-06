@@ -449,7 +449,7 @@ static int nexthop_section_verify(NextHop *nh) {
         return 0;
 }
 
-void network_verify_nexthops(Network *network) {
+void network_drop_invalid_nexthops(Network *network) {
         NextHop *nh;
 
         assert(network);

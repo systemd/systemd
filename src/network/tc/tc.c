@@ -69,7 +69,7 @@ static int traffic_control_section_verify(TrafficControl *tc, bool *qdisc_has_ro
         }
 }
 
-void network_verify_traffic_control(Network *network) {
+void network_drop_invalid_traffic_control(Network *network) {
         bool has_root = false, has_clsact = false;
         TrafficControl *tc;
 

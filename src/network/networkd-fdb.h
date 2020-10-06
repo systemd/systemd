@@ -41,7 +41,7 @@ typedef struct FdbEntry {
 
 FdbEntry *fdb_entry_free(FdbEntry *fdb_entry);
 
-void network_verify_fdb_entries(Network *network);
+void network_drop_invalid_fdb_entries(Network *network);
 
 int link_set_bridge_fdb(Link *link);
 

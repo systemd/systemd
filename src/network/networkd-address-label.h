@@ -21,7 +21,7 @@ typedef struct AddressLabel {
 
 AddressLabel *address_label_free(AddressLabel *label);
 
-void network_verify_address_labels(Network *network);
+void network_drop_invalid_address_labels(Network *network);
 
 int link_set_address_labels(Link *link);
 

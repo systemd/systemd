@@ -287,18 +287,18 @@ int network_verify(Network *network) {
                 network->ipv6_proxy_ndp_addresses = set_free_free(network->ipv6_proxy_ndp_addresses);
         }
 
-        network_verify_addresses(network);
-        network_verify_routes(network);
-        network_verify_nexthops(network);
-        network_verify_fdb_entries(network);
-        network_verify_mdb_entries(network);
-        network_verify_neighbors(network);
-        network_verify_address_labels(network);
-        network_verify_prefixes(network);
-        network_verify_route_prefixes(network);
-        network_verify_routing_policy_rules(network);
-        network_verify_traffic_control(network);
-        network_verify_sr_iov(network);
+        network_drop_invalid_addresses(network);
+        network_drop_invalid_routes(network);
+        network_drop_invalid_nexthops(network);
+        network_drop_invalid_fdb_entries(network);
+        network_drop_invalid_mdb_entries(network);
+        network_drop_invalid_neighbors(network);
+        network_drop_invalid_address_labels(network);
+        network_drop_invalid_prefixes(network);
+        network_drop_invalid_route_prefixes(network);
+        network_drop_invalid_routing_policy_rules(network);
+        network_drop_invalid_traffic_control(network);
+        network_drop_invalid_sr_iov(network);
 
         return 0;
 }

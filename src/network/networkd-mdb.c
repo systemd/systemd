@@ -278,7 +278,7 @@ static int mdb_entry_verify(MdbEntry *mdb_entry) {
         return 0;
 }
 
-void network_verify_mdb_entries(Network *network) {
+void network_drop_invalid_mdb_entries(Network *network) {
         MdbEntry *mdb_entry;
 
         assert(network);
