@@ -1119,19 +1119,19 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         r = sd_rtnl_message_addr_get_prefixlen(message, &prefixlen);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received address message with invalid prefixlen, ignoring: %m");
+                log_link_warning_errno(link, r, "rtnl: received address message without prefixlen, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_addr_get_scope(message, &scope);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received address message with invalid scope, ignoring: %m");
+                log_link_warning_errno(link, r, "rtnl: received address message without scope, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_addr_get_flags(message, &flags);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received address message with invalid flags, ignoring: %m");
+                log_link_warning_errno(link, r, "rtnl: received address message without flags, ignoring: %m");
                 return 0;
         }
 
@@ -1158,9 +1158,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 assert_not_reached("Received unsupported address family");
         }
 
-        r = in_addr_to_string(family, &in_addr, &buf);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Could not print address: %m");
+        (void) in_addr_to_string(family, &in_addr, &buf);
 
         r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &cinfo);
         if (r < 0 && r != -ENODATA) {
