@@ -298,7 +298,10 @@ void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress(&route->src_prefixlen, sizeof(route->src_prefixlen), state);
                 siphash24_compress(&route->src, FAMILY_ADDRESS_SIZE(route->family), state);
 
-                siphash24_compress(&route->gw, FAMILY_ADDRESS_SIZE(route->family), state);
+                siphash24_compress(&route->gw_family, sizeof(route->gw_family), state);
+                if (IN_SET(route->gw_family, AF_INET, AF_INET6))
+                        siphash24_compress(&route->gw, FAMILY_ADDRESS_SIZE(route->gw_family), state);
+
 
                 siphash24_compress(&route->prefsrc, FAMILY_ADDRESS_SIZE(route->family), state);
 
@@ -345,9 +348,15 @@ int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
-                r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                r = CMP(a->gw_family, b->gw_family);
                 if (r != 0)
                         return r;
+
+                if (IN_SET(a->gw_family, AF_INET, AF_INET6)) {
+                        r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                        if (r != 0)
+                                return r;
+                }
 
                 r = memcmp(&a->prefsrc, &b->prefsrc, FAMILY_ADDRESS_SIZE(a->family));
                 if (r != 0)
@@ -466,6 +475,7 @@ static int route_add_internal(Manager *manager, Link *link, Set **routes, Route 
         route->src_prefixlen = in->src_prefixlen;
         route->dst = in->dst;
         route->dst_prefixlen = in->dst_prefixlen;
+        route->gw_family = in->gw_family;
         route->gw = in->gw;
         route->prefsrc = in->prefsrc;
         route->scope = in->scope;
@@ -587,8 +597,8 @@ int route_remove(
                 }
                 if (!in_addr_is_null(route->family, &route->src))
                         (void) in_addr_to_string(route->family, &route->src, &src);
-                if (!in_addr_is_null(route->family, &route->gw))
-                        (void) in_addr_to_string(route->family, &route->gw, &gw);
+                if (!in_addr_is_null(route->gw_family, &route->gw))
+                        (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
                 if (!in_addr_is_null(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
 
@@ -600,10 +610,21 @@ int route_remove(
                                strna(route_type_to_string(route->type)));
         }
 
-        if (in_addr_is_null(route->family, &route->gw) == 0) {
-                r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->family, &route->gw);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_GATEWAY attribute: %m");
+        if (in_addr_is_null(route->gw_family, &route->gw) == 0) {
+                if (route->gw_family == route->family) {
+                        r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->gw_family, &route->gw);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not append RTA_GATEWAY attribute: %m");
+                } else {
+                        RouteVia rtvia = {
+                                .family = route->gw_family,
+                                .address = route->gw,
+                        };
+
+                        r = sd_netlink_message_append_data(req, RTA_VIA, &rtvia, sizeof(rtvia));
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not append RTA_VIA attribute: %m");
+                }
         }
 
         if (route->dst_prefixlen) {
@@ -860,8 +881,8 @@ int route_configure(
                 }
                 if (!in_addr_is_null(route->family, &route->src))
                         (void) in_addr_to_string(route->family, &route->src, &src);
-                if (!in_addr_is_null(route->family, &route->gw))
-                        (void) in_addr_to_string(route->family, &route->gw, &gw);
+                if (!in_addr_is_null(route->gw_family, &route->gw))
+                        (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
                 if (!in_addr_is_null(route->family, &route->prefsrc))
                         (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
 
@@ -879,14 +900,21 @@ int route_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_NEWROUTE message: %m");
 
-        if (in_addr_is_null(route->family, &route->gw) == 0) {
-                r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->family, &route->gw);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not append RTA_GATEWAY attribute: %m");
+        if (in_addr_is_null(route->gw_family, &route->gw) == 0) {
+                if (route->gw_family == route->family) {
+                        r = netlink_message_append_in_addr_union(req, RTA_GATEWAY, route->gw_family, &route->gw);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not append RTA_GATEWAY attribute: %m");
+                } else {
+                        RouteVia rtvia = {
+                                .family = route->gw_family,
+                                .address = route->gw,
+                        };
 
-                r = sd_rtnl_message_route_set_family(req, route->family);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Could not set route family: %m");
+                        r = sd_netlink_message_append_data(req, RTA_VIA, &rtvia, sizeof(rtvia));
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Could not append RTA_VIA attribute: %m");
+                }
         }
 
         if (route->dst_prefixlen > 0) {
@@ -1109,7 +1137,7 @@ int link_set_routes(Link *link) {
                         if (rt->gateway_from_dhcp)
                                 continue;
 
-                        if ((in_addr_is_null(rt->family, &rt->gw) && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
+                        if ((in_addr_is_null(rt->gw_family, &rt->gw) && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
                                 continue;
 
                         r = route_configure(rt, link, route_handler, NULL);
@@ -1137,6 +1165,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         uint32_t ifindex;
         uint16_t type;
         unsigned char table;
+        RouteVia via;
         int r;
 
         assert(rtnl);
@@ -1211,6 +1240,16 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
                         return 0;
+                } else if (r >= 0)
+                        tmp->gw_family = AF_INET;
+
+                r = sd_netlink_message_read(message, RTA_VIA, sizeof(via), &via);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
+                        return 0;
+                } else if (r >= 0) {
+                        tmp->gw_family = via.family;
+                        tmp->gw = via.address;
                 }
 
                 r = sd_netlink_message_read_in_addr(message, RTA_SRC, &tmp->src.in);
@@ -1238,7 +1277,8 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 if (r < 0 && r != -ENODATA) {
                         log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
                         return 0;
-                }
+                } else if (r >= 0)
+                        tmp->gw_family = AF_INET6;
 
                 r = sd_netlink_message_read_in6_addr(message, RTA_SRC, &tmp->src.in6);
                 if (r < 0 && r != -ENODATA) {
@@ -1341,8 +1381,8 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 }
                 if (!in_addr_is_null(tmp->family, &tmp->src))
                         (void) in_addr_to_string(tmp->family, &tmp->src, &buf_src);
-                if (!in_addr_is_null(tmp->family, &tmp->gw))
-                        (void) in_addr_to_string(tmp->family, &tmp->gw, &buf_gw);
+                if (!in_addr_is_null(tmp->gw_family, &tmp->gw))
+                        (void) in_addr_to_string(tmp->gw_family, &tmp->gw, &buf_gw);
                 if (!in_addr_is_null(tmp->family, &tmp->prefsrc))
                         (void) in_addr_to_string(tmp->family, &tmp->prefsrc, &buf_prefsrc);
 
@@ -1582,10 +1622,7 @@ int config_parse_gateway(
                 }
         }
 
-        if (n->family == AF_UNSPEC)
-                r = in_addr_from_string_auto(rvalue, &n->family, &n->gw);
-        else
-                r = in_addr_from_string(n->family, rvalue, &n->gw);
+        r = in_addr_from_string_auto(rvalue, &n->gw_family, &n->gw);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
@@ -2213,6 +2250,9 @@ static int route_section_verify(Route *route, Network *network) {
         if (section_is_invalid(route->section))
                 return -EINVAL;
 
+        if (route->family == AF_UNSPEC)
+                route->family = route->gw_family;
+
         if (route->family == AF_UNSPEC) {
                 assert(route->section);
 
@@ -2222,6 +2262,12 @@ static int route_section_verify(Route *route, Network *network) {
                                          "Ignoring [Route] section from line %u.",
                                          route->section->filename, route->section->line);
         }
+
+        if (route->family == AF_INET6 && route->gw_family == AF_INET)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: IPv4 gateway is configured for IPv6 route. "
+                                         "Ignoring [Route] section from line %u.",
+                                         route->section->filename, route->section->line);
 
         if (!route->table_set && network->vrf) {
                 route->table = VRF(network->vrf)->table;
@@ -2247,7 +2293,7 @@ static int route_section_verify(Route *route, Network *network) {
                 route->priority = IP6_RT_PRIO_USER;
 
         if (ordered_hashmap_isempty(network->addresses_by_section) &&
-            in_addr_is_null(route->family, &route->gw) == 0 &&
+            in_addr_is_null(route->gw_family, &route->gw) == 0 &&
             route->gateway_onlink < 0) {
                 log_warning("%s: Gateway= without static address configured. "
                             "Enabling GatewayOnLink= option.",

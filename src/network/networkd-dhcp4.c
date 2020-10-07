@@ -312,6 +312,7 @@ static int link_set_dhcp_routes(Link *link) {
 
                         route->family = AF_INET;
                         route->protocol = RTPROT_DHCP;
+                        route->gw_family = AF_INET;
                         assert_se(sd_dhcp_route_get_gateway(static_routes[i], &route->gw.in) >= 0);
                         assert_se(sd_dhcp_route_get_destination(static_routes[i], &route->dst.in) >= 0);
                         assert_se(sd_dhcp_route_get_destination_prefix_length(static_routes[i], &route->dst_prefixlen) >= 0);
@@ -374,6 +375,7 @@ static int link_set_dhcp_routes(Link *link) {
                                 return log_link_error_errno(link, r, "Could not allocate route: %m");
 
                         route->family = AF_INET;
+                        route->gw_family = AF_INET;
                         route->gw.in = router[0];
                         route->prefsrc.in = address;
                         route->protocol = RTPROT_DHCP;
@@ -392,6 +394,7 @@ static int link_set_dhcp_routes(Link *link) {
                                 if (rt->family != AF_INET)
                                         continue;
 
+                                rt->gw_family = AF_INET;
                                 rt->gw.in = router[0];
 
                                 r = dhcp_route_configure(rt, link);

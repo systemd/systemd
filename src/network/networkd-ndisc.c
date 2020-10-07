@@ -513,6 +513,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         route->priority = link->network->dhcp6_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
+        route->gw_family = AF_INET6;
         route->gw = gateway;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
         route->mtu = mtu;
@@ -530,6 +531,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         continue;
 
                 route_gw->gw = gateway;
+                route_gw->gw_family = AF_INET6;
 
                 r = ndisc_route_configure(route_gw, link, rt);
                 if (r < 0)
@@ -839,6 +841,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->protocol = RTPROT_RA;
         route->pref = preference;
         route->gw.in6 = gateway;
+        route->gw_family = AF_INET6;
         route->dst_prefixlen = prefixlen;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
 
