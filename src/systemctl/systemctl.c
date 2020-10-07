@@ -323,23 +323,6 @@ static bool install_client_side(void) {
         return false;
 }
 
-static int compare_unit_info(const UnitInfo *a, const UnitInfo *b) {
-        int r;
-
-        /* First, order by machine */
-        r = strcasecmp_ptr(a->machine, b->machine);
-        if (r != 0)
-                return r;
-
-        /* Second, order by unit type */
-        r = strcasecmp_ptr(strrchr(a->id, '.'), strrchr(b->id, '.'));
-        if (r != 0)
-                return r;
-
-        /* Third, order by name */
-        return strcasecmp(a->id, b->id);
-}
-
 static const char* unit_type_suffix(const char *name) {
         const char *dot;
 
@@ -865,7 +848,7 @@ static int list_units(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        typesafe_qsort(unit_infos, r, compare_unit_info);
+        typesafe_qsort(unit_infos, r, unit_info_compare);
         return output_units_list(unit_infos, r);
 }
 
@@ -5724,7 +5707,7 @@ static int show_all(
 
         c = (unsigned) r;
 
-        typesafe_qsort(unit_infos, c, compare_unit_info);
+        typesafe_qsort(unit_infos, c, unit_info_compare);
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 _cleanup_free_ char *p = NULL;
