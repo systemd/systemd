@@ -15,18 +15,6 @@
 typedef struct Manager Manager;
 typedef struct Network Network;
 
-/* See struct rtvia in rtnetlink.h */
-typedef struct RouteVia {
-        uint16_t family;
-        union in_addr_union address;
-} _packed_ RouteVia;
-
-typedef struct MultipathRoute {
-        RouteVia gateway;
-        int ifindex;
-        uint32_t weight;
-} MultipathRoute;
-
 typedef struct Route {
         Network *network;
         NetworkConfigSection *section;
