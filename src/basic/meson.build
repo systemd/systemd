@@ -91,9 +91,11 @@ basic_sources = files('''
         limits-util.h
         linux/btrfs.h
         linux/btrfs_tree.h
+        linux/can/netlink.h
         linux/can/vxcan.h
         linux/fib_rules.h
         linux/fou.h
+        linux/hdlc/ioctl.h
         linux/if.h
         linux/if_addr.h
         linux/if_arp.h
