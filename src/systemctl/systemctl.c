@@ -186,8 +186,6 @@ static int trivial_method(int argc, char *argv[], void *userdata);
 static int halt_now(enum action a);
 static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *active_state);
 
-static bool original_stdout_is_tty;
-
 typedef enum BusFocus {
         BUS_FULL,      /* The full bus indicated via --system or --user */
         BUS_MANAGER,   /* The manager itself, possibly directly, possibly via the bus */
@@ -9404,11 +9402,6 @@ static int run(int argc, char *argv[]) {
         (void) rlimit_nofile_bump(HIGH_RLIMIT_NOFILE);
 
         sigbus_install();
-
-        /* Explicitly not on_tty() to avoid setting cached value.
-         * This becomes relevant for piping output which might be
-         * ellipsized. */
-        original_stdout_is_tty = isatty(STDOUT_FILENO);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
