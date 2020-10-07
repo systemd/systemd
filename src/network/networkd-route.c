@@ -760,10 +760,10 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
         assert(route);
 
         r = route_remove(route, route->manager, route->link, NULL);
-        if (r < 0)
+        if (r < 0) {
                 log_link_warning_errno(route->link, r, "Could not remove route: %m");
-        else
                 route_free(route);
+        }
 
         return 1;
 }
