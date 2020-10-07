@@ -161,3 +161,5 @@ bool dissected_image_can_do_verity(const DissectedImage *image, PartitionDesigna
 bool dissected_image_has_verity(const DissectedImage *image, PartitionDesignator d);
 
 int mount_image_privately_interactively(const char *path, DissectImageFlags flags, char **ret_directory, LoopDevice **ret_loop_device, DecryptedImage **ret_decrypted_image);
+
+int verity_dissect_and_mount(const char *src, const char *dest, const MountOptions *options);
