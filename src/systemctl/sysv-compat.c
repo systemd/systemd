@@ -58,12 +58,12 @@ int parse_shutdown_time_spec(const char *t, usec_t *ret) {
         if (streq(t, "now"))
                 *ret = 0;
         else if (!strchr(t, ':')) {
-                uint64_t u;
+                usec_t u;
 
-                if (safe_atou64(t, &u) < 0)
+                if (parse_time(t, &u, USEC_PER_MINUTE) < 0)
                         return -EINVAL;
 
-                *ret = now(CLOCK_REALTIME) + USEC_PER_MINUTE * u;
+                *ret = now(CLOCK_REALTIME) + u;
         } else {
                 char *e = NULL;
                 long hour, minute;

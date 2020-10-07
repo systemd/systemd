@@ -44,11 +44,13 @@
     <para>The time string may either be in the format
     <literal>hh:mm</literal> for hour/minutes specifying the time to
     execute the shutdown at, specified in 24h clock format.
-    Alternatively it may be in the syntax <literal>+m</literal>
-    referring to the specified number of minutes m from now.
-    <literal>now</literal> is an alias for <literal>+0</literal>, i.e.
-    for triggering an immediate shutdown. If no time argument is
-    specified, <literal>+1</literal> is implied.</para>
+    Alternatively it may be in the syntax documented in
+    <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+    with the default unit being minutes. So <literal>90</literal> is
+    equivalent to <literal>1h30m</literal>. <literal>now</literal> is an
+    alias for <literal>+0</literal>, i.e.  for triggering an immediate
+    shutdown. If no time argument is specified, <literal>+1</literal> is
+    implied.</para>
 
     <para>Note that to specify a wall message you must specify a time
     argument, too.</para>
