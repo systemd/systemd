@@ -791,20 +791,20 @@ static int dhcp4_update_address(Link *link, bool announce) {
                 if (r > 0 && !in4_addr_is_null(&router[0]))
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
-                                   LOG_LINK_MESSAGE(link, "DHCPv4 address %u.%u.%u.%u/%u via %u.%u.%u.%u",
-                                                    ADDRESS_FMT_VAL(address),
+                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u via "IPV4_ADDRESS_FMT_STR,
+                                                    IPV4_ADDRESS_FMT_VAL(address),
                                                     prefixlen,
-                                                    ADDRESS_FMT_VAL(router[0])),
-                                   "ADDRESS=%u.%u.%u.%u", ADDRESS_FMT_VAL(address),
+                                                    IPV4_ADDRESS_FMT_VAL(router[0])),
+                                   "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
                                    "PREFIXLEN=%u", prefixlen,
-                                   "GATEWAY=%u.%u.%u.%u", ADDRESS_FMT_VAL(router[0]));
+                                   "GATEWAY="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(router[0]));
                 else
                         log_struct(LOG_INFO,
                                    LOG_LINK_INTERFACE(link),
-                                   LOG_LINK_MESSAGE(link, "DHCPv4 address %u.%u.%u.%u/%u",
-                                                    ADDRESS_FMT_VAL(address),
+                                   LOG_LINK_MESSAGE(link, "DHCPv4 address "IPV4_ADDRESS_FMT_STR"/%u",
+                                                    IPV4_ADDRESS_FMT_VAL(address),
                                                     prefixlen),
-                                   "ADDRESS=%u.%u.%u.%u", ADDRESS_FMT_VAL(address),
+                                   "ADDRESS="IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(address),
                                    "PREFIXLEN=%u", prefixlen);
         }
 
@@ -955,8 +955,8 @@ static int dhcp_server_is_deny_listed(Link *link, sd_dhcp_client *client) {
         if (set_contains(link->network->dhcp_deny_listed_ip, UINT32_TO_PTR(addr.s_addr))) {
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
-                           LOG_LINK_MESSAGE(link, "DHCPv4 IP '%u.%u.%u.%u' found in deny-listed IP addresses, ignoring offer",
-                                            ADDRESS_FMT_VAL(addr)));
+                           LOG_LINK_MESSAGE(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" found in deny-list, ignoring offer",
+                                            IPV4_ADDRESS_FMT_VAL(addr)));
                 return true;
         }
 
@@ -983,8 +983,8 @@ static int dhcp_server_is_allow_listed(Link *link, sd_dhcp_client *client) {
         if (set_contains(link->network->dhcp_allow_listed_ip, UINT32_TO_PTR(addr.s_addr))) {
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
-                           LOG_LINK_MESSAGE(link, "DHCPv4 IP '%u.%u.%u.%u' found in allow-listed IP addresses, accepting offer",
-                                            ADDRESS_FMT_VAL(addr)));
+                           LOG_LINK_MESSAGE(link, "DHCPv4 server IP address "IPV4_ADDRESS_FMT_STR" found in allow-list, accepting offer",
+                                            IPV4_ADDRESS_FMT_VAL(addr)));
                 return true;
         }
 

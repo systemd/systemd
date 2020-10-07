@@ -23,7 +23,7 @@ static int ipv4ll_address_lost(Link *link) {
         if (r < 0)
                 return 0;
 
-        log_link_debug(link, "IPv4 link-local release %u.%u.%u.%u", ADDRESS_FMT_VAL(addr));
+        log_link_debug(link, "IPv4 link-local release "IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(addr));
 
         r = address_new(&address);
         if (r < 0)
@@ -79,8 +79,8 @@ static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
         else if (r < 0)
                 return r;
 
-        log_link_debug(link, "IPv4 link-local claim %u.%u.%u.%u",
-                       ADDRESS_FMT_VAL(address));
+        log_link_debug(link, "IPv4 link-local claim "IPV4_ADDRESS_FMT_STR,
+                       IPV4_ADDRESS_FMT_VAL(address));
 
         r = address_new(&ll_addr);
         if (r < 0)
