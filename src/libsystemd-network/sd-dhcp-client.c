@@ -1187,7 +1187,7 @@ static int client_timeout_resend(
 
         sd_dhcp_client *client = userdata;
         DHCP_CLIENT_DONT_DESTROY(client);
-        usec_t next_timeout = 0;
+        usec_t next_timeout;
         uint64_t time_now;
         uint32_t time_left;
         int r;
@@ -1203,17 +1203,14 @@ static int client_timeout_resend(
         switch (client->state) {
 
         case DHCP_STATE_RENEWING:
-
                 time_left = (client->lease->t2 - client->lease->t1) / 2;
                 if (time_left < 60)
                         time_left = 60;
 
                 next_timeout = time_now + time_left * USEC_PER_SEC;
-
                 break;
 
         case DHCP_STATE_REBINDING:
-
                 time_left = (client->lease->lifetime - client->lease->t2) / 2;
                 if (time_left < 60)
                         time_left = 60;
@@ -1230,24 +1227,20 @@ static int client_timeout_resend(
                 r = client_start(client);
                 if (r < 0)
                         goto error;
-                else {
-                        log_dhcp_client(client, "REBOOTED");
-                        return 0;
-                }
+
+                log_dhcp_client(client, "REBOOTED");
+                return 0;
 
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
         case DHCP_STATE_SELECTING:
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_BOUND:
-
-                if (client->attempt < client->max_attempts)
-                        client->attempt++;
-                else
+                if (client->attempt >= client->max_attempts)
                         goto error;
 
+                client->attempt++;
                 next_timeout = time_now + ((UINT64_C(1) << MIN(client->attempt, (uint64_t) 6)) - 1) * USEC_PER_SEC;
-
                 break;
 
         case DHCP_STATE_STOPPED:
@@ -1295,12 +1288,10 @@ static int client_timeout_resend(
                         client->state = DHCP_STATE_REBOOTING;
 
                 client->request_sent = time_now;
-
                 break;
 
         case DHCP_STATE_REBOOTING:
         case DHCP_STATE_BOUND:
-
                 break;
 
         case DHCP_STATE_STOPPED:
