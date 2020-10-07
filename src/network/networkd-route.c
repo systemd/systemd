@@ -1720,6 +1720,14 @@ int config_parse_gateway(
                         return 0;
                 }
 
+                if (isempty(rvalue)) {
+                        n->gateway_from_dhcp = false;
+                        n->gw_family = AF_UNSPEC;
+                        n->gw = IN_ADDR_NULL;
+                        TAKE_PTR(n);
+                        return 0;
+                }
+
                 if (streq(rvalue, "_dhcp")) {
                         n->gateway_from_dhcp = true;
                         TAKE_PTR(n);
