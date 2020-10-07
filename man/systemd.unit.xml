@@ -213,9 +213,9 @@
 
     <para>In addition to <filename>/etc/systemd/system</filename>, the drop-in <literal>.d/</literal>
     directories for system services can be placed in <filename>/usr/lib/systemd/system</filename> or
-    <filename>/run/systemd/system</filename> directories. Drop-in files in <filename>/etc</filename>
-    take precedence over those in <filename>/run</filename> which in turn take precedence over those
-    in <filename>/usr/lib</filename>. Drop-in files under any of these directories take precedence
+    <filename>/run/systemd/system</filename> directories. Drop-in files in <filename>/etc/</filename>
+    take precedence over those in <filename>/run/</filename> which in turn take precedence over those
+    in <filename>/usr/lib/</filename>. Drop-in files under any of these directories take precedence
     over unit files wherever located. Multiple drop-in files with different names are applied in
     lexicographic order, regardless of which of the directories they reside in.</para>
 
@@ -803,9 +803,9 @@
         <varname>PrivateTmp=</varname> directives (see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details). If a unit that has this setting set is started, its processes will see the same
-        <filename>/tmp</filename>, <filename>/var/tmp</filename> and network namespace as one listed unit
+        <filename>/tmp/</filename>, <filename>/var/tmp/</filename> and network namespace as one listed unit
         that is started. If multiple listed units are already started, it is not defined which namespace is
-        joined.  Note that this setting only has an effect if
+        joined. Note that this setting only has an effect if
         <varname>PrivateNetwork=</varname>/<varname>NetworkNamespacePath=</varname> and/or
         <varname>PrivateTmp=</varname> is enabled for both the unit that joins the namespace and the unit
         whose namespace is joined.</para></listitem>
@@ -1287,13 +1287,13 @@
         <varlistentry>
           <term><varname>ConditionNeedsUpdate=</varname></term>
 
-          <listitem><para>Takes one of <filename>/var</filename> or <filename>/etc</filename> as argument,
+          <listitem><para>Takes one of <filename>/var/</filename> or <filename>/etc/</filename> as argument,
           possibly prefixed with a <literal>!</literal> (to invert the condition). This condition may be
           used to conditionalize units on whether the specified directory requires an update because
-          <filename>/usr</filename>'s modification time is newer than the stamp file
+          <filename>/usr/</filename>'s modification time is newer than the stamp file
           <filename>.updated</filename> in the specified directory. This is useful to implement offline
-          updates of the vendor operating system resources in <filename>/usr</filename> that require updating
-          of <filename>/etc</filename> or <filename>/var</filename> on the next following boot. Units making
+          updates of the vendor operating system resources in <filename>/usr/</filename> that require updating
+          of <filename>/etc/</filename> or <filename>/var/</filename> on the next following boot. Units making
           use of this condition should order themselves before
           <citerefentry><refentrytitle>systemd-update-done.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
           to make sure they run before the stamp file's modification time gets reset indicating a completed
@@ -1312,9 +1312,9 @@
           <term><varname>ConditionFirstBoot=</varname></term>
 
           <listitem><para>Takes a boolean argument. This condition may be used to conditionalize units on
-          whether the system is booting up with an unpopulated <filename>/etc</filename> directory
-          (specifically: an <filename>/etc</filename> with no <filename>/etc/machine-id</filename>). This may
-          be used to populate <filename>/etc</filename> on the first boot after factory reset, or when a new
+          whether the system is booting up with an unpopulated <filename>/etc/</filename> directory
+          (specifically: an <filename>/etc/</filename> with no <filename>/etc/machine-id</filename>). This may
+          be used to populate <filename>/etc/</filename> on the first boot after factory reset, or when a new
           system instance boots up for the first time.</para>
 
           <para>If the <varname>systemd.condition-first-boot=</varname> option is specified on the kernel
@@ -1771,7 +1771,7 @@
           <row>
             <entry><literal>%E</literal></entry>
             <entry>Configuration directory root</entry>
-            <entry>This is either <filename>/etc</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
+            <entry>This is either <filename>/etc/</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
           </row>
           <row>
             <entry><literal>%f</literal></entry>
@@ -1857,13 +1857,9 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
           <row>
             <entry><literal>%t</literal></entry>
             <entry>Runtime directory root</entry>
-            <entry>This is either <filename>/run</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>
+            <entry>This is either <filename>/run/</filename> (for the system manager) or the path <literal>$XDG_RUNTIME_DIR</literal> resolves to (for user managers).</entry>
           </row>
-          <row>
-            <entry><literal>%T</literal></entry>
-            <entry>Directory for temporary files</entry>
-            <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="T"/>
           <row>
             <entry><literal>%g</literal></entry>
             <entry>User group</entry>
@@ -1889,11 +1885,7 @@ Note that this setting is <emphasis>not</emphasis> influenced by the <varname>Us
 Note that this setting is <emphasis>not</emphasis> influenced by the <varname>User=</varname> setting configurable in the [Service] section of the service unit.</entry>
           </row>
           <xi:include href="standard-specifiers.xml" xpointer="v"/>
-          <row>
-            <entry><literal>%V</literal></entry>
-            <entry>Directory for larger and persistent temporary files</entry>
-            <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="V"/>
           <xi:include href="standard-specifiers.xml" xpointer="w"/>
           <xi:include href="standard-specifiers.xml" xpointer="W"/>
           <xi:include href="standard-specifiers.xml" xpointer="percent"/>

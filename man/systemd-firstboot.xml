@@ -38,7 +38,7 @@
     basic system settings interactively on the first boot, or
     optionally non-interactively when a system image is created.
     The service is started if <varname>ConditionFirstBoot=yes</varname>
-    is satisfied. This essentially means that <filename>/etc</filename>
+    is satisfied. This essentially means that <filename>/etc/</filename>
     is empty, see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details.</para>

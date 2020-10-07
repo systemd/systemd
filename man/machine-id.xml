@@ -111,7 +111,7 @@
 
     <para><citerefentry><refentrytitle>systemd-machine-id-commit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     will attempt to write the machine ID to the file system if
-    <filename>/etc/machine-id</filename> or <filename>/etc</filename> are read-only during
+    <filename>/etc/machine-id</filename> or <filename>/etc/</filename> are read-only during
     early boot but become writable later on.</para>
   </refsect1>
 

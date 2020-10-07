@@ -78,8 +78,8 @@
     and administrator-controlled files under <filename>/usr/share/user-tmpfiles.d/</filename>. Users may use
     this to create and clean up files under their control, but the system instance performs global cleanup
     and is not influenced by user configuration. Note that this means a time-based cleanup configured in the
-    system instance, such as the one typically configured for <filename>/tmp</filename>, will thus also
-    affect files created by the user instance if they are placed in <filename>/tmp</filename>, even if the
+    system instance, such as the one typically configured for <filename>/tmp/</filename>, will thus also
+    affect files created by the user instance if they are placed in <filename>/tmp/</filename>, even if the
     user instance's time-based cleanup is turned off.</para>
   </refsect1>
 

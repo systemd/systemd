@@ -227,7 +227,7 @@ emergency.service    |              |              |
     <filename>initrd-root-fs.target</filename> is reached. The service
     <filename>initrd-parse-etc.service</filename> scans
     <filename>/sysroot/etc/fstab</filename> for a possible
-    <filename>/usr</filename> mount point and additional entries
+    <filename>/usr/</filename> mount point and additional entries
     marked with the <emphasis>x-initrd.mount</emphasis> option. All
     entries found are mounted below <filename>/sysroot</filename>, and
     <filename>initrd-fs.target</filename> is reached. The service

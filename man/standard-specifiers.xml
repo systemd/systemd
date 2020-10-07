@@ -39,10 +39,20 @@
     <entry>Operating system ID</entry>
     <entry>The operating system identifier of the running system, as read from the <varname>ID=</varname> field of <filename>/etc/os-release</filename>. See <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
   </row>
+  <row id='T'>
+    <entry><literal>%T</literal></entry>
+    <entry>Directory for temporary files</entry>
+    <entry>This is either <filename>/tmp<!-- no / --></filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to. (Note that the directory may be specified without a trailing slash.)</entry>
+  </row>
   <row id='v'>
     <entry><literal>%v</literal></entry>
     <entry>Kernel release</entry>
     <entry>Identical to <command>uname -r</command> output.</entry>
+  </row>
+  <row id='V'>
+    <entry><literal>%V</literal></entry>
+    <entry>Directory for larger and persistent temporary files</entry>
+    <entry>This is either <filename>/var/tmp<!-- no / --></filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to. (Note that the directory may be specified without a trailing slash.)</entry>
   </row>
   <row id='w'>
     <entry><literal>%w</literal></entry>

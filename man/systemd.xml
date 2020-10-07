@@ -264,7 +264,7 @@
     that need to be executed as part of the boot process. For example,
     it sets the hostname or configures the loopback network device. It
     also sets up and mounts various API file systems, such as
-    <filename>/sys</filename> or <filename>/proc</filename>.</para>
+    <filename>/sys/</filename> or <filename>/proc/</filename>.</para>
 
     <para>For more information about the concepts and
     ideas behind systemd, please refer to the

@@ -414,21 +414,21 @@
         <term><varname>_UDEV_SYSNAME=</varname></term>
         <listitem>
           <para>The kernel device name as it shows up in the device
-          tree below <filename>/sys</filename>.</para>
+          tree below <filename>/sys/</filename>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>_UDEV_DEVNODE=</varname></term>
         <listitem>
           <para>The device node path of this device in
-          <filename>/dev</filename>.</para>
+          <filename>/dev/</filename>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>_UDEV_DEVLINK=</varname></term>
         <listitem>
           <para>Additional symlink names pointing to the device node
-          in <filename>/dev</filename>. This field is frequently set
+          in <filename>/dev/</filename>. This field is frequently set
           more than once per entry.</para>
         </listitem>
       </varlistentry>

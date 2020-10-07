@@ -64,8 +64,8 @@
 
     <itemizedlist>
       <listitem><para>Directory trees containing an OS, including the
-      top-level directories <filename>/usr</filename>,
-      <filename>/etc</filename>, and so on.</para></listitem>
+      top-level directories <filename>/usr/</filename>,
+      <filename>/etc/</filename>, and so on.</para></listitem>
 
       <listitem><para>btrfs subvolumes containing OS trees, similar to regular directory trees.</para></listitem>
 
@@ -440,11 +440,11 @@
         <term><command>clean</command></term>
 
         <listitem><para>Remove hidden VM or container images (or all). This command removes all hidden machine images
-        from <filename>/var/lib/machines</filename>, i.e. those whose name begins with a dot. Use <command>machinectl
+        from <filename>/var/lib/machines/</filename>, i.e. those whose name begins with a dot. Use <command>machinectl
         list-images --all</command> to see a list of all machine images, including the hidden ones.</para>
 
         <para>When combined with the <option>--all</option> switch removes all images, not just hidden ones. This
-        command effectively empties <filename>/var/lib/machines</filename>.</para>
+        command effectively empties <filename>/var/lib/machines/</filename>.</para>
 
         <para>Note that commands such as <command>machinectl pull-tar</command> or <command>machinectl
         pull-raw</command> usually create hidden, read-only, unmodified machine images from the downloaded image first,
@@ -562,7 +562,7 @@
         <command>import-tar</command> is used, the file specified as
         the first argument should be a tar archive, possibly compressed
         with xz, gzip or bzip2. It will then be unpacked into its own
-        subvolume in <filename>/var/lib/machines</filename>. When
+        subvolume in <filename>/var/lib/machines/</filename>. When
         <command>import-raw</command> is used, the file should be a
         qcow2 or raw disk image, possibly compressed with xz, gzip or
         bzip2. If the second argument (the resulting image name) is
@@ -890,7 +890,7 @@
     <filename>/usr/lib/machines/</filename>. For compatibility reasons,
     the directory <filename>/var/lib/container/</filename> is
     searched, too. Note that images stored below
-    <filename>/usr</filename> are always considered read-only. It is
+    <filename>/usr/</filename> are always considered read-only. It is
     possible to symlink machines images from other directories into
     <filename>/var/lib/machines/</filename> to make them available for
     control with <command>machinectl</command>.</para>

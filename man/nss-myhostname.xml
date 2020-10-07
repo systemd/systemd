@@ -57,7 +57,7 @@
     hostname. When using dynamic hostnames, this is traditionally
     achieved by patching <filename>/etc/hosts</filename> at the same
     time as changing the hostname. This is problematic since it
-    requires a writable <filename>/etc</filename> file system and is
+    requires a writable <filename>/etc/</filename> file system and is
     fragile because the file might be edited by the administrator at
     the same time. With <command>nss-myhostname</command> enabled,
     changing <filename>/etc/hosts</filename> is unnecessary, and on

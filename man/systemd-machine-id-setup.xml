@@ -98,12 +98,12 @@
         <literal>tmpfs</literal>) to
         <filename>/etc/machine-id</filename> during the early phase of
         the boot process. This may happen because
-        <filename>/etc</filename> is initially read-only and was
+        <filename>/etc/</filename> is initially read-only and was
         missing a valid machine ID file at that point.</para>
 
         <para>This command will execute no operation if
         <filename>/etc/machine-id</filename> is not mounted from a
-        memory file system, or if <filename>/etc</filename> is
+        memory file system, or if <filename>/etc/</filename> is
         read-only. The command will write the current transient
         machine ID to disk and unmount the
         <filename>/etc/machine-id</filename> mount point in a

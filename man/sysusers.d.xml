@@ -260,17 +260,9 @@ r     -        500-900
           <xi:include href="standard-specifiers.xml" xpointer="l"/>
           <xi:include href="standard-specifiers.xml" xpointer="m"/>
           <xi:include href="standard-specifiers.xml" xpointer="o"/>
-          <row>
-            <entry><literal>%T</literal></entry>
-            <entry>Directory for temporary files</entry>
-            <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="T"/>
           <xi:include href="standard-specifiers.xml" xpointer="v"/>
-          <row>
-            <entry><literal>%V</literal></entry>
-            <entry>Directory for larger and persistent temporary files</entry>
-            <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
-          </row>
+          <xi:include href="standard-specifiers.xml" xpointer="V"/>
           <xi:include href="standard-specifiers.xml" xpointer="w"/>
           <xi:include href="standard-specifiers.xml" xpointer="W"/>
           <xi:include href="standard-specifiers.xml" xpointer="percent"/>

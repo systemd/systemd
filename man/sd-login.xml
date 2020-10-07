@@ -46,8 +46,8 @@
     systemd-logind, instead.</para>
 
     <para>These functions synchronously access data in
-    <filename>/proc</filename>, <filename>/sys/fs/cgroup</filename>
-    and <filename>/run</filename>. All of these are virtual file
+    <filename>/proc/</filename>, <filename>/sys/fs/cgroup/</filename>
+    and <filename>/run/</filename>. All of these are virtual file
     systems, hence the runtime cost of the accesses is relatively
     cheap.</para>
 
