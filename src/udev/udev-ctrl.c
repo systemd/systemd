@@ -355,10 +355,6 @@ int udev_ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int in
         return 0;
 }
 
-static int udev_ctrl_wait_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        return sd_event_exit(sd_event_source_get_event(s), 0);
-}
-
 int udev_ctrl_wait(struct udev_ctrl *uctrl, usec_t timeout) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *source_io = NULL, *source_timeout = NULL;
         int r;
@@ -385,7 +381,7 @@ int udev_ctrl_wait(struct udev_ctrl *uctrl, usec_t timeout) {
                         return r;
         }
 
-        r = sd_event_add_io(uctrl->event, &source_io, uctrl->sock, EPOLLIN, udev_ctrl_wait_io_handler, NULL);
+        r = sd_event_add_io(uctrl->event, &source_io, uctrl->sock, EPOLLIN, NULL, INT_TO_PTR(0));
         if (r < 0)
                 return r;
 
