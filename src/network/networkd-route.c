@@ -1725,6 +1725,20 @@ int config_parse_gateway(
                         TAKE_PTR(n);
                         return 0;
                 }
+
+                if (streq(rvalue, "_dhcp4")) {
+                        n->gw_family = AF_INET;
+                        n->gateway_from_dhcp = true;
+                        TAKE_PTR(n);
+                        return 0;
+                }
+
+                if (streq(rvalue, "_dhcp6")) {
+                        n->gw_family = AF_INET6;
+                        n->gateway_from_dhcp = true;
+                        TAKE_PTR(n);
+                        return 0;
+                }
         }
 
         r = in_addr_from_string_auto(rvalue, &n->gw_family, &n->gw);
@@ -1734,6 +1748,7 @@ int config_parse_gateway(
                 return 0;
         }
 
+        n->gateway_from_dhcp = false;
         TAKE_PTR(n);
         return 0;
 }
@@ -2361,11 +2376,19 @@ static int route_section_verify(Route *route, Network *network) {
         if (route->family == AF_UNSPEC) {
                 assert(route->section);
 
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: Route section without Gateway=, Destination=, Source=, "
-                                         "or PreferredSource= field configured. "
-                                         "Ignoring [Route] section from line %u.",
-                                         route->section->filename, route->section->line);
+                if (route->gateway_from_dhcp) {
+                        log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
+                                    "Please use \"_dhcp4\" or \"_dhcp6\" instead. Assuming \"_dhcp4\".",
+                                    route->section->filename, route->section->line);
+
+                        route->family = AF_INET;
+                        route->gw_family = AF_INET;
+                } else
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: Route section without Gateway=, Destination=, Source=, "
+                                                 "or PreferredSource= field configured. "
+                                                 "Ignoring [Route] section from line %u.",
+                                                 route->section->filename, route->section->line);
         }
 
         if (route->family == AF_INET6 && route->gw_family == AF_INET)
