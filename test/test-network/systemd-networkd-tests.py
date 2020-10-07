@@ -2145,10 +2145,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2001:1234:5:8fff:ff:ff:ff:ff proto static')
         self.assertRegex(output, '2001:1234:5:8f63::1 proto kernel')
 
-        print('### ip -6 route show dev dummy98 default')
-        output = check_output('ip -6 route show dev dummy98 default')
+        print('### ip -6 route show default')
+        output = check_output('ip -6 route show default')
         print(output)
-        self.assertRegex(output, 'default via 2001:1234:5:8fff:ff:ff:ff:ff proto static metric 1024 pref medium')
+        self.assertRegex(output, 'default')
+        self.assertRegex(output, 'via 2001:1234:5:8fff:ff:ff:ff:ff')
 
         print('### ip -4 route show dev dummy98')
         output = check_output('ip -4 route show dev dummy98')
@@ -2455,9 +2456,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 route show dev dummy98')
         print(output)
         self.assertRegex(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
-        output = check_output('ip -6 route show dev dummy98')
+        output = check_output('ip -6 route show default')
         print(output)
-        self.assertRegex(output, 'default via 2607:5300:203:39ff:ff:ff:ff:ff proto static')
+        self.assertRegex(output, 'default')
+        self.assertRegex(output, 'via 2607:5300:203:39ff:ff:ff:ff:ff')
 
         check_output('ip link del dummy98')
 
@@ -2478,9 +2480,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 route show dev dummy98')
         print(output)
         self.assertRegex(output, '10.2.0.0/16 proto kernel scope link src 10.2.3.4')
-        output = check_output('ip -6 route show dev dummy98')
+        output = check_output('ip -6 route show default')
         print(output)
-        self.assertRegex(output, 'default via 2607:5300:203:39ff:ff:ff:ff:ff proto static')
+        self.assertRegex(output, 'via 2607:5300:203:39ff:ff:ff:ff:ff')
 
     def test_bind_carrier(self):
         check_output('ip link add dummy98 type dummy')
