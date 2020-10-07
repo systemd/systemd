@@ -22,11 +22,11 @@
 
 #define ROUTES_DEFAULT_MAX_PER_FAMILY 4096U
 
-static uint32_t link_get_vrf_table(Link *link) {
+static uint32_t link_get_vrf_table(const Link *link) {
         return link->network->vrf ? VRF(link->network->vrf)->table : RT_TABLE_MAIN;
 }
 
-uint32_t link_get_dhcp_route_table(Link *link) {
+uint32_t link_get_dhcp_route_table(const Link *link) {
         /* When the interface is part of an VRF use the VRFs routing table, unless
          * another table is explicitly specified. */
         if (link->network->dhcp_route_table_set)
@@ -34,7 +34,7 @@ uint32_t link_get_dhcp_route_table(Link *link) {
         return link_get_vrf_table(link);
 }
 
-uint32_t link_get_ipv6_accept_ra_route_table(Link *link) {
+uint32_t link_get_ipv6_accept_ra_route_table(const Link *link) {
         if (link->network->ipv6_accept_ra_route_table_set)
                 return link->network->ipv6_accept_ra_route_table;
         return link_get_vrf_table(link);
@@ -408,7 +408,7 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_compare_func,
                 route_free);
 
-static bool route_equal(Route *r1, Route *r2) {
+static bool route_equal(const Route *r1, const Route *r2) {
         if (r1 == r2)
                 return true;
 
@@ -418,7 +418,7 @@ static bool route_equal(Route *r1, Route *r2) {
         return route_compare_func(r1, r2) == 0;
 }
 
-static int route_get(Manager *manager, Link *link, Route *in, Route **ret) {
+static int route_get(const Manager *manager, const Link *link, const Route *in, Route **ret) {
         Route *existing;
 
         assert(manager || link);
@@ -457,7 +457,7 @@ static int route_get(Manager *manager, Link *link, Route *in, Route **ret) {
         return -ENOENT;
 }
 
-static int route_add_internal(Manager *manager, Link *link, Set **routes, Route *in, Route **ret) {
+static int route_add_internal(Manager *manager, Link *link, Set **routes, const Route *in, Route **ret) {
 
         _cleanup_(route_freep) Route *route = NULL;
         int r;
@@ -505,12 +505,12 @@ static int route_add_internal(Manager *manager, Link *link, Set **routes, Route 
         return 0;
 }
 
-static int route_add_foreign(Manager *manager, Link *link, Route *in, Route **ret) {
+static int route_add_foreign(Manager *manager, Link *link, const Route *in, Route **ret) {
         assert(manager || link);
         return route_add_internal(manager, link, link ? &link->routes_foreign : &manager->routes_foreign, in, ret);
 }
 
-static int route_add(Manager *manager, Link *link, Route *in, Route **ret) {
+static int route_add(Manager *manager, Link *link, const Route *in, Route **ret) {
         Route *route;
         int r;
 
@@ -567,7 +567,7 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 }
 
 int route_remove(
-                Route *route,
+                const Route *route,
                 Manager *manager,
                 Link *link,
                 link_netlink_message_handler_t callback) {
@@ -679,7 +679,7 @@ int route_remove(
         return 0;
 }
 
-static bool link_is_static_route_configured(Link *link, Route *route) {
+static bool link_is_static_route_configured(const Link *link, const Route *route) {
         Route *net_route;
 
         assert(link);
@@ -768,7 +768,7 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
         return 1;
 }
 
-static int append_nexthop_one(Route *route, MultipathRoute *m, struct rtattr **rta, size_t offset) {
+static int append_nexthop_one(const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
         struct rtnexthop *rtnh;
         struct rtattr *new_rta;
         int r;
@@ -813,7 +813,7 @@ clear:
         return r;
 }
 
-static int append_nexthops(Route *route, sd_netlink_message *req) {
+static int append_nexthops(const Route *route, sd_netlink_message *req) {
         _cleanup_free_ struct rtattr *rta = NULL;
         struct rtnexthop *rtnh;
         MultipathRoute *m;
@@ -850,13 +850,15 @@ static int append_nexthops(Route *route, sd_netlink_message *req) {
 }
 
 int route_configure(
-                Route *route,
+                const Route *route,
                 Link *link,
                 link_netlink_message_handler_t callback,
                 Route **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
+        unsigned flags;
+        Route *nr;
         int r;
 
         assert(link);
@@ -947,10 +949,11 @@ int route_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set scope: %m");
 
+        flags = route->flags;
         if (route->gateway_onlink >= 0)
-                SET_FLAG(route->flags, RTNH_F_ONLINK, route->gateway_onlink);
+                SET_FLAG(flags, RTNH_F_ONLINK, route->gateway_onlink);
 
-        r = sd_rtnl_message_route_set_flags(req, route->flags);
+        r = sd_rtnl_message_route_set_flags(req, flags);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set flags: %m");
 
@@ -1052,25 +1055,25 @@ int route_configure(
         link_ref(link);
 
         if (IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW) || !ordered_set_isempty(route->multipath_routes))
-                r = route_add(link->manager, NULL, route, &route);
+                r = route_add(link->manager, NULL, route, &nr);
         else
-                r = route_add(NULL, link, route, &route);
+                r = route_add(NULL, link, route, &nr);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add route: %m");
 
         /* TODO: drop expiration handling once it can be pushed into the kernel */
-        if (route->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
+        if (nr->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
                 r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(),
-                                      route->lifetime, 0, route_expire_handler, route);
+                                      nr->lifetime, 0, route_expire_handler, nr);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not arm expiration timer: %m");
         }
 
-        sd_event_source_unref(route->expire);
-        route->expire = TAKE_PTR(expire);
+        sd_event_source_unref(nr->expire);
+        nr->expire = TAKE_PTR(expire);
 
         if (ret)
-                *ret = route;
+                *ret = nr;
 
         return 1;
 }
@@ -1423,7 +1426,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         return 1;
 }
 
-int link_serialize_routes(Link *link, FILE *f) {
+int link_serialize_routes(const Link *link, FILE *f) {
         bool space = false;
         Route *route;
 

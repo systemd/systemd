@@ -76,17 +76,17 @@ int route_new(Route **ret);
 Route *route_free(Route *route);
 DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 
-int route_configure(Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
-int route_remove(Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
+int route_configure(const Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
+int route_remove(const Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
 int link_set_routes(Link *link);
 int link_drop_routes(Link *link);
 int link_drop_foreign_routes(Link *link);
-int link_serialize_routes(Link *link, FILE *f);
+int link_serialize_routes(const Link *link, FILE *f);
 int link_deserialize_routes(Link *link, const char *routes);
 
-uint32_t link_get_dhcp_route_table(Link *link);
-uint32_t link_get_ipv6_accept_ra_route_table(Link *link);
+uint32_t link_get_dhcp_route_table(const Link *link);
+uint32_t link_get_ipv6_accept_ra_route_table(const Link *link);
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
