@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dissect-image.h"
 #include "sd-bus.h"
 
 #include "unit.h"
@@ -249,3 +250,5 @@ static inline int bus_set_transient_usec_fix_0(Unit *u, const char *name, usec_t
         return bus_set_transient_usec_internal(u, name, p, true, message, flags, error);
 }
 int bus_verify_manage_units_async_full(Unit *u, const char *verb, int capability, const char *polkit_message, bool interactive, sd_bus_message *call, sd_bus_error *error);
+
+int bus_read_mount_options(sd_bus_message *message, sd_bus_error *error, MountOptions **ret_options, char **ret_format_str, const char *separator);

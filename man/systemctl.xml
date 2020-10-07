@@ -568,6 +568,21 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
+          <term><command>mount-image</command> <replaceable>UNIT</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable> [<replaceable>PARTITION_NAME</replaceable><replaceable>MOUNT_OPTIONS</replaceable>]]</term>
+
+          <listitem><para>Mounts an image from the host into the specified unit's view. The first path argument is the source
+          image on the host, the second path argument is the destination directory in the unit's view. Any following argument is
+          interpreted as a tuple of partition name and comma-separated list of mount options for that partition. The format is the
+          same as the service <option>MountImages=</option> setting. When combined with the <option>--read-only</option> switch, a
+          ready-only mount is created. When combined with the <option>--mkdir</option> switch, the destination path is first
+          created before the mount is applied. Note that this option is currently only supported for units that run within a mount
+          namespace (e.g.: with <option>RootImage=</option>, <option>PrivateMounts=</option>, etc.).
+          Note that the namespace mentioned here, where the image mount will be added to, is the one where the main service
+          process runs, as other processes run in distinct namespaces (e.g.: <option>ExecReload=</option>,
+          <option>ExecStartPre=</option>, etc.).</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>service-log-level</command> <replaceable>SERVICE</replaceable> [<replaceable>LEVEL</replaceable>]</term>
 
           <listitem><para>If the <replaceable>LEVEL</replaceable> argument is not given, print the current

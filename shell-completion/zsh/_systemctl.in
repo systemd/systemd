@@ -32,6 +32,7 @@
         "list-dependencies:Show unit dependency tree"
         "clean:Remove configuration, state, cache, logs or runtime data of units"
         "bind:Bind mount a path from the host into a unit's namespace"
+        "mount-image:Mount an image from the host into a unit's namespace"
     )
 
     local -a machine_commands=(
@@ -380,6 +381,10 @@ done
     }
 
 (( $+functions[_systemctl_bind] )) || _systemctl_bind() {
+        _files
+    }
+
+(( $+functions[_systemctl_mount-image] )) || _systemctl_mount-image() {
         _files
     }
 

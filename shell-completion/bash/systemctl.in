@@ -214,7 +214,7 @@ _systemctl () {
                              list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
                              is-system-running preset-all'
-        [FILE]='link switch-root bind'
+        [FILE]='link switch-root bind mount-image'
         [TARGETS]='set-default'
         [MACHINES]='list-machines'
         [LOG_LEVEL]='log-level'
