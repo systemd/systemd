@@ -65,12 +65,30 @@
     </varlistentry>
 
     <varlistentry id='lesssecure'>
-      <term><varname>$SYSTEMD_LESSSECURE</varname></term>
+      <term><varname>$SYSTEMD_PAGERSECURE</varname></term>
 
-      <listitem><para>Takes a boolean argument. Overrides the <varname>$LESSSECURE</varname> environment
-      variable when invoking the pager, which controls the "secure" mode of less (which disables commands
-      such as <literal>|</literal> which allow to easily shell out to external command lines). By default
-      less secure mode is enabled, with this setting it may be disabled.</para></listitem>
+      <listitem><para>Takes a boolean argument. When true, the "secure" mode of the pager is enabled; if
+      false, disabled. If <varname>$SYSTEMD_PAGERSECURE</varname> is not set at all, secure mode is enabled
+      if the effective UID is not the same as the owner of the login session, see <citerefentry
+      project='man-pages'><refentrytitle>geteuid</refentrytitle><manvolnum>2</manvolnum></citerefentry> and
+      <citerefentry><refentrytitle>sd_pid_get_owner_uid</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      In secure mode, <option>LESSSECURE=1</option> will be set when invoking the pager, and the pager shall
+      disable commands that open or create new files or start new subprocesses. When
+      <varname>$SYSTEMD_PAGERSECURE</varname> is not set at all, pagers which are not known to implement
+      secure mode will not be used. (Currently only
+      <citerefentry><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry> implements
+      secure mode.)</para>
+
+      <para>Note: when commands are invoked with elevated privileges, for example under <citerefentry
+      project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry> or
+      <citerefentry
+      project='die-net'><refentrytitle>pkexec</refentrytitle><manvolnum>1</manvolnum></citerefentry>, care
+      must be taken to ensure that unintended interactive features are not enabled. "Secure" mode for the
+      pager may be enabled automatically as describe above. Setting <varname>SYSTEMD_PAGERSECURE=0</varname>
+      or not removing it from the inherited environment allows the user to invoke arbitrary commands. Note
+      that if the <varname>$SYSTEMD_PAGER</varname> or <varname>$PAGER</varname> variables are to be
+      honoured, <varname>$SYSTEMD_PAGERSECURE</varname> must be set too. It might be reasonable to completly
+      disable the pager using <option>--no-pager</option> instead.</para></listitem>
     </varlistentry>
 
     <varlistentry id='colors'>
