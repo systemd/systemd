@@ -20,6 +20,13 @@ Janitorial Clean-ups:
 
 Features:
 
+* Provide a tool to hook into CONFIG_STATIC_USERMODEHELPER in the kernel, so
+  that we can collect all usermode helper calls and spawn them as regular
+  services.
+
+* Add service setting to run a service within the specified VRF. i.e. do the
+  equivalent of "ip vrf exec".
+
 * systemd-analyze syscall-filter should show a list of syscalls listed in
   @known but not in other groups (at least at debug level), since they are
   candidates to be added to them.
