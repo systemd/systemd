@@ -38,7 +38,7 @@ static int dhcp4_release_old_lease(Link *link) {
         link_dirty(link);
 
         SET_FOREACH(route, link->dhcp_routes_old) {
-                k = route_remove(route, link, NULL);
+                k = route_remove(route, NULL, link, NULL);
                 if (k < 0)
                         r = k;
         }
@@ -512,7 +512,7 @@ static int dhcp4_remove_all(Link *link) {
         assert(link);
 
         SET_FOREACH(route, link->dhcp_routes) {
-                k = route_remove(route, link, dhcp4_remove_route_handler);
+                k = route_remove(route, NULL, link, dhcp4_remove_route_handler);
                 if (k < 0)
                         r = k;
                 else

@@ -164,7 +164,7 @@ static int dhcp6_pd_remove_old(Link *link, bool force) {
         link_dirty(link);
 
         SET_FOREACH(route, link->dhcp6_pd_routes_old) {
-                k = route_remove(route, link, NULL);
+                k = route_remove(route, NULL, link, NULL);
                 if (k < 0)
                         r = k;
 
@@ -208,7 +208,7 @@ int dhcp6_pd_remove(Link *link) {
         link_dirty(link);
 
         SET_FOREACH(route, link->dhcp6_pd_routes) {
-                k = route_remove(route, link, NULL);
+                k = route_remove(route, NULL, link, NULL);
                 if (k < 0)
                         r = k;
 
@@ -704,7 +704,7 @@ static int dhcp6_remove_old(Link *link, bool force) {
         link_dirty(link);
 
         SET_FOREACH(route, link->dhcp6_routes_old) {
-                k = route_remove(route, link, NULL);
+                k = route_remove(route, NULL, link, NULL);
                 if (k < 0)
                         r = k;
         }
@@ -740,7 +740,7 @@ static int dhcp6_remove(Link *link) {
         link_dirty(link);
 
         SET_FOREACH(route, link->dhcp6_routes) {
-                k = route_remove(route, link, NULL);
+                k = route_remove(route, NULL, link, NULL);
                 if (k < 0)
                         r = k;
         }

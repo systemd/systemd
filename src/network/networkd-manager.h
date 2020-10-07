@@ -61,6 +61,10 @@ struct Manager {
         Set *rules_foreign;
         Set *rules_saved;
 
+        /* Manager stores routes without RTA_OIF attribute. */
+        Set *routes;
+        Set *routes_foreign;
+
         /* For link speed meter*/
         bool use_speed_meter;
         sd_event_source *speed_meter_event_source;

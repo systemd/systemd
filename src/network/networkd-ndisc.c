@@ -163,7 +163,7 @@ static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool 
 
         SET_FOREACH(nr, link->ndisc_routes)
                 if (nr->marked && IN6_ARE_ADDR_EQUAL(&nr->router, router)) {
-                        k = route_remove(nr->route, link, NULL);
+                        k = route_remove(nr->route, NULL, link, NULL);
                         if (k < 0)
                                 r = k;
                 }

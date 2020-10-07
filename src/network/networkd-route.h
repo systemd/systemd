@@ -31,6 +31,7 @@ typedef struct Route {
         NetworkConfigSection *section;
 
         Link *link;
+        Manager *manager;
 
         int family;
         int quickack;
@@ -74,7 +75,7 @@ Route *route_free(Route *route);
 DEFINE_NETWORK_SECTION_FUNCTIONS(Route, route_free);
 
 int route_configure(Route *route, Link *link, link_netlink_message_handler_t callback, Route **ret);
-int route_remove(Route *route, Link *link, link_netlink_message_handler_t callback);
+int route_remove(Route *route, Manager *manager, Link *link, link_netlink_message_handler_t callback);
 
 int link_set_routes(Link *link);
 int link_drop_routes(Link *link);

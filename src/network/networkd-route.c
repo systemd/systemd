@@ -272,6 +272,11 @@ Route *route_free(Route *route) {
                                 free(set_remove(route->link->ndisc_routes, n));
         }
 
+        if (route->manager) {
+                set_remove(route->manager->routes, route);
+                set_remove(route->manager->routes_foreign, route);
+        }
+
         ordered_set_free_free(route->multipath_routes);
 
         sd_event_source_unref(route->expire);
@@ -404,36 +409,51 @@ static bool route_equal(Route *r1, Route *r2) {
         return route_compare_func(r1, r2) == 0;
 }
 
-static int route_get(Link *link, Route *in, Route **ret) {
-
+static int route_get(Manager *manager, Link *link, Route *in, Route **ret) {
         Route *existing;
 
-        assert(link);
+        assert(manager || link);
         assert(in);
 
-        existing = set_get(link->routes, in);
-        if (existing) {
-                if (ret)
-                        *ret = existing;
-                return 1;
-        }
+        if (link) {
+                existing = set_get(link->routes, in);
+                if (existing) {
+                        if (ret)
+                                *ret = existing;
+                        return 1;
+                }
 
-        existing = set_get(link->routes_foreign, in);
-        if (existing) {
-                if (ret)
-                        *ret = existing;
-                return 0;
+                existing = set_get(link->routes_foreign, in);
+                if (existing) {
+                        if (ret)
+                                *ret = existing;
+                        return 0;
+                }
+        } else {
+                existing = set_get(manager->routes, in);
+                if (existing) {
+                        if (ret)
+                                *ret = existing;
+                        return 1;
+                }
+
+                existing = set_get(manager->routes_foreign, in);
+                if (existing) {
+                        if (ret)
+                                *ret = existing;
+                        return 0;
+                }
         }
 
         return -ENOENT;
 }
 
-static int route_add_internal(Link *link, Set **routes, Route *in, Route **ret) {
+static int route_add_internal(Manager *manager, Link *link, Set **routes, Route *in, Route **ret) {
 
         _cleanup_(route_freep) Route *route = NULL;
         int r;
 
-        assert(link);
+        assert(manager || link);
         assert(routes);
         assert(in);
 
@@ -465,6 +485,7 @@ static int route_add_internal(Link *link, Set **routes, Route *in, Route **ret) 
                 return -EEXIST;
 
         route->link = link;
+        route->manager = manager;
 
         if (ret)
                 *ret = route;
@@ -474,28 +495,39 @@ static int route_add_internal(Link *link, Set **routes, Route *in, Route **ret) 
         return 0;
 }
 
-static int route_add_foreign(Link *link, Route *in, Route **ret) {
-        return route_add_internal(link, &link->routes_foreign, in, ret);
+static int route_add_foreign(Manager *manager, Link *link, Route *in, Route **ret) {
+        assert(manager || link);
+        return route_add_internal(manager, link, link ? &link->routes_foreign : &manager->routes_foreign, in, ret);
 }
 
-static int route_add(Link *link, Route *in, Route **ret) {
-
+static int route_add(Manager *manager, Link *link, Route *in, Route **ret) {
         Route *route;
         int r;
 
-        r = route_get(link, in, &route);
+        assert(manager || link);
+        assert(in);
+
+        r = route_get(manager, link, in, &route);
         if (r == -ENOENT) {
                 /* Route does not exist, create a new one */
-                r = route_add_internal(link, &link->routes, in, &route);
+                r = route_add_internal(manager, link, link ? &link->routes : &manager->routes, in, &route);
                 if (r < 0)
                         return r;
         } else if (r == 0) {
                 /* Take over a foreign route */
-                r = set_ensure_put(&link->routes, &route_hash_ops, route);
-                if (r < 0)
-                        return r;
+                if (link) {
+                        r = set_ensure_put(&link->routes, &route_hash_ops, route);
+                        if (r < 0)
+                                return r;
 
-                set_remove(link->routes_foreign, route);
+                        set_remove(link->routes_foreign, route);
+                } else {
+                        r = set_ensure_put(&manager->routes, &route_hash_ops, route);
+                        if (r < 0)
+                                return r;
+
+                        set_remove(manager->routes_foreign, route);
+                }
         } else if (r == 1) {
                 /* Route exists, do nothing */
                 ;
@@ -512,10 +544,9 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         int r;
 
         assert(m);
-        assert(link);
-        assert(link->ifname);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        /* Note that link may be NULL. */
+        if (link && IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
 
         r = sd_netlink_message_get_errno(m);
@@ -525,19 +556,22 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         return 1;
 }
 
-int route_remove(Route *route, Link *link,
-                 link_netlink_message_handler_t callback) {
+int route_remove(
+                Route *route,
+                Manager *manager,
+                Link *link,
+                link_netlink_message_handler_t callback) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(link->ifindex > 0);
+        assert(link || manager);
         assert(IN_SET(route->family, AF_INET, AF_INET6));
 
-        r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
+        if (!manager)
+                manager = link->manager;
+
+        r = sd_rtnl_message_new_route(manager->rtnl, &req,
                                       RTM_DELROUTE, route->family,
                                       route->protocol);
         if (r < 0)
@@ -618,7 +652,8 @@ int route_remove(Route *route, Link *link,
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
-        link_ref(link);
+        if (link)
+                link_ref(link);
 
         return 0;
 }
@@ -668,9 +703,9 @@ int link_drop_foreign_routes(Link *link) {
                         continue;
 
                 if (link_is_static_route_configured(link, route))
-                        k = route_add(link, route, NULL);
+                        k = route_add(NULL, link, route, NULL);
                 else
-                        k = route_remove(route, link, NULL);
+                        k = route_remove(route, NULL, link, NULL);
                 if (k < 0 && r >= 0)
                         r = k;
         }
@@ -689,7 +724,7 @@ int link_drop_routes(Link *link) {
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
 
-                k = route_remove(route, link, NULL);
+                k = route_remove(route, NULL, link, NULL);
                 if (k < 0 && r >= 0)
                         r = k;
         }
@@ -703,7 +738,7 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
 
         assert(route);
 
-        r = route_remove(route, route->link, NULL);
+        r = route_remove(route, route->manager, route->link, NULL);
         if (r < 0)
                 log_link_warning_errno(route->link, r, "Could not remove route: %m");
         else
@@ -810,7 +845,7 @@ int route_configure(
         assert(IN_SET(route->family, AF_INET, AF_INET6));
         assert(callback);
 
-        if (route_get(link, route, NULL) <= 0 &&
+        if (route_get(link->manager, link, route, NULL) <= 0 &&
             set_size(link->routes) >= routes_max())
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
                                             "Too many routes are configured, refusing: %m");
@@ -988,7 +1023,10 @@ int route_configure(
 
         link_ref(link);
 
-        r = route_add(link, route, &route);
+        if (IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW) || !ordered_set_isempty(route->multipath_routes))
+                r = route_add(link->manager, NULL, route, &route);
+        else
+                r = route_add(NULL, link, route, &route);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not add route: %m");
 
@@ -1123,24 +1161,23 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         }
 
         r = sd_netlink_message_read_u32(message, RTA_OIF, &ifindex);
-        if (r == -ENODATA) {
-                log_debug("rtnl: received route message without ifindex, ignoring");
-                return 0;
-        } else if (r < 0) {
+        if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get ifindex from route message, ignoring: %m");
                 return 0;
-        } else if (ifindex <= 0) {
-                log_warning("rtnl: received route message with invalid ifindex %d, ignoring.", ifindex);
-                return 0;
-        }
+        } else if (r >= 0) {
+                if (ifindex <= 0) {
+                        log_warning("rtnl: received route message with invalid ifindex %d, ignoring.", ifindex);
+                        return 0;
+                }
 
-        r = link_get(m, ifindex, &link);
-        if (r < 0 || !link) {
-                /* when enumerating we might be out of sync, but we will
-                 * get the route again, so just ignore it */
-                if (!m->enumerating)
-                        log_warning("rtnl: received route message for link (%d) we do not know about, ignoring", ifindex);
-                return 0;
+                r = link_get(m, ifindex, &link);
+                if (r < 0 || !link) {
+                        /* when enumerating we might be out of sync, but we will
+                         * get the route again, so just ignore it */
+                        if (!m->enumerating)
+                                log_warning("rtnl: received route message for link (%d) we do not know about, ignoring", ifindex);
+                        return 0;
+                }
         }
 
         r = route_new(&tmp);
@@ -1290,7 +1327,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 }
         }
 
-        (void) route_get(link, tmp, &route);
+        (void) route_get(m, link, tmp, &route);
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
@@ -1311,7 +1348,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
                 log_link_debug(link,
                                "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               (!route && !link->manager->manage_foreign_routes) ? "Ignoring received foreign" :
+                               (!route && !m->manage_foreign_routes) ? "Ignoring received foreign" :
                                type == RTM_DELROUTE ? "Forgetting" :
                                route ? "Received remembered" : "Remembering",
                                strna(buf_dst), strempty(buf_dst_prefixlen),
@@ -1324,9 +1361,9 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         switch (type) {
         case RTM_NEWROUTE:
-                if (!route && link->manager->manage_foreign_routes) {
+                if (!route && m->manage_foreign_routes) {
                         /* A route appeared that we did not request */
-                        r = route_add_foreign(link, tmp, &route);
+                        r = route_add_foreign(m, link, tmp, &route);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
                                 return 0;
@@ -1420,7 +1457,7 @@ int link_deserialize_routes(Link *link, const char *routes) {
                         continue;
                 }
 
-                r = route_add(link, tmp, &route);
+                r = route_add(NULL, link, tmp, &route);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Failed to add route: %m");
 
