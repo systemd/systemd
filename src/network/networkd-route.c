@@ -457,36 +457,50 @@ static int route_get(const Manager *manager, const Link *link, const Route *in, 
         return -ENOENT;
 }
 
-static int route_add_internal(Manager *manager, Link *link, Set **routes, const Route *in, Route **ret) {
+static void route_copy(Route *dest, const Route *src, const MultipathRoute *m) {
+        assert(dest);
+        assert(src);
 
+        dest->family = src->family;
+        dest->src = src->src;
+        dest->src_prefixlen = src->src_prefixlen;
+        dest->dst = src->dst;
+        dest->dst_prefixlen = src->dst_prefixlen;
+        dest->prefsrc = src->prefsrc;
+        dest->scope = src->scope;
+        dest->protocol = src->protocol;
+        dest->type = src->type;
+        dest->tos = src->tos;
+        dest->priority = src->priority;
+        dest->table = src->table;
+        dest->initcwnd = src->initcwnd;
+        dest->initrwnd = src->initrwnd;
+        dest->lifetime = src->lifetime;
+
+        if (m) {
+                dest->gw_family = m->gateway.family;
+                dest->gw = m->gateway.address;
+                dest->gw_weight = m->weight;
+        } else {
+                dest->gw_family = src->gw_family;
+                dest->gw = src->gw;
+        }
+}
+
+static int route_add_internal(Manager *manager, Link *link, Set **routes, const Route *in, const MultipathRoute *m, Route **ret) {
         _cleanup_(route_freep) Route *route = NULL;
         int r;
 
         assert(manager || link);
         assert(routes);
         assert(in);
+        assert(!m || (link && (m->ifindex == 0 || m->ifindex == link->ifindex)));
 
         r = route_new(&route);
         if (r < 0)
                 return r;
 
-        route->family = in->family;
-        route->src = in->src;
-        route->src_prefixlen = in->src_prefixlen;
-        route->dst = in->dst;
-        route->dst_prefixlen = in->dst_prefixlen;
-        route->gw_family = in->gw_family;
-        route->gw = in->gw;
-        route->prefsrc = in->prefsrc;
-        route->scope = in->scope;
-        route->protocol = in->protocol;
-        route->type = in->type;
-        route->tos = in->tos;
-        route->priority = in->priority;
-        route->table = in->table;
-        route->initcwnd = in->initcwnd;
-        route->initrwnd = in->initrwnd;
-        route->lifetime = in->lifetime;
+        route_copy(route, in, m);
 
         r = set_ensure_put(routes, &route_hash_ops, route);
         if (r < 0)
@@ -507,10 +521,10 @@ static int route_add_internal(Manager *manager, Link *link, Set **routes, const 
 
 static int route_add_foreign(Manager *manager, Link *link, const Route *in, Route **ret) {
         assert(manager || link);
-        return route_add_internal(manager, link, link ? &link->routes_foreign : &manager->routes_foreign, in, ret);
+        return route_add_internal(manager, link, link ? &link->routes_foreign : &manager->routes_foreign, in, NULL, ret);
 }
 
-static int route_add(Manager *manager, Link *link, const Route *in, Route **ret) {
+static int route_add(Manager *manager, Link *link, const Route *in, const MultipathRoute *m, Route **ret) {
         Route *route;
         int r;
 
@@ -520,7 +534,7 @@ static int route_add(Manager *manager, Link *link, const Route *in, Route **ret)
         r = route_get(manager, link, in, &route);
         if (r == -ENOENT) {
                 /* Route does not exist, create a new one */
-                r = route_add_internal(manager, link, link ? &link->routes : &manager->routes, in, &route);
+                r = route_add_internal(manager, link, link ? &link->routes : &manager->routes, in, m, &route);
                 if (r < 0)
                         return r;
         } else if (r == 0) {
@@ -724,7 +738,7 @@ int link_drop_foreign_routes(Link *link) {
                         continue;
 
                 if (link_is_static_route_configured(link, route))
-                        k = route_add(NULL, link, route, NULL);
+                        k = route_add(NULL, link, route, NULL, NULL);
                 else
                         k = route_remove(route, NULL, link, NULL);
                 if (k < 0 && r >= 0)
@@ -766,6 +780,47 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
         }
 
         return 1;
+}
+
+static int route_add_and_setup_timer(Link *link, const Route *route, const MultipathRoute *m, Route **ret) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
+        Route *nr;
+        int r;
+
+        assert(link);
+        assert(route);
+
+        if (IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW))
+                r = route_add(link->manager, NULL, route, NULL, &nr);
+        else if (!m || m->ifindex == 0 || m->ifindex == link->ifindex)
+                r = route_add(NULL, link, route, m, &nr);
+        else {
+                Link *link_gw;
+
+                r = link_get(link->manager, m->ifindex, &link_gw);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to get link with ifindex %d: %m", m->ifindex);
+
+                r = route_add(NULL, link_gw, route, m, &nr);
+        }
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not add route: %m");
+
+        /* TODO: drop expiration handling once it can be pushed into the kernel */
+        if (nr->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
+                r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(),
+                                      nr->lifetime, 0, route_expire_handler, nr);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not arm expiration timer: %m");
+        }
+
+        sd_event_source_unref(nr->expire);
+        nr->expire = TAKE_PTR(expire);
+
+        if (ret)
+                *ret = nr;
+
+        return 0;
 }
 
 static int append_nexthop_one(const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
@@ -856,9 +911,7 @@ int route_configure(
                 Route **ret) {
 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
         unsigned flags;
-        Route *nr;
         int r;
 
         assert(link);
@@ -1054,26 +1107,26 @@ int route_configure(
 
         link_ref(link);
 
-        if (IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW) || !ordered_set_isempty(route->multipath_routes))
-                r = route_add(link->manager, NULL, route, &nr);
-        else
-                r = route_add(NULL, link, route, &nr);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not add route: %m");
+        if (ordered_set_isempty(route->multipath_routes)) {
+                Route *nr;
 
-        /* TODO: drop expiration handling once it can be pushed into the kernel */
-        if (nr->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
-                r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(),
-                                      nr->lifetime, 0, route_expire_handler, nr);
+                r = route_add_and_setup_timer(link, route, NULL, &nr);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "Could not arm expiration timer: %m");
+                        return r;
+
+                if (ret)
+                        *ret = nr;
+        } else {
+                MultipathRoute *m;
+
+                assert(!ret);
+
+                ORDERED_SET_FOREACH(m, route->multipath_routes) {
+                        r = route_add_and_setup_timer(link, route, m, NULL);
+                        if (r < 0)
+                                return r;
+                }
         }
-
-        sd_event_source_unref(nr->expire);
-        nr->expire = TAKE_PTR(expire);
-
-        if (ret)
-                *ret = nr;
 
         return 1;
 }
@@ -1161,14 +1214,105 @@ int link_set_routes(Link *link) {
         return 0;
 }
 
-int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_(route_freep) Route *tmp = NULL;
+static int process_route_one(Manager *manager, Link *link, uint16_t type, const Route *tmp, const MultipathRoute *m) {
+        _cleanup_(route_freep) Route *nr = NULL;
         Route *route = NULL;
+        int r;
+
+        assert(manager);
+        assert(tmp);
+        assert(IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE));
+
+        if (m) {
+                if (link)
+                        return log_link_warning_errno(link, SYNTHETIC_ERRNO(EINVAL),
+                                                "rtnl: received route contains both RTA_OIF and RTA_MULTIPATH, ignoring.");
+
+                if (m->ifindex <= 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "rtnl: received multipath route with invalid ifindex, ignoring.");
+
+                r = link_get(manager, m->ifindex, &link);
+                if (r < 0) {
+                        log_warning_errno(r, "rtnl: received multipath route for link (%d) we do not know, ignoring: %m", m->ifindex);
+                        return 0;
+                }
+
+                r = route_new(&nr);
+                if (r < 0)
+                        return log_oom();
+
+                route_copy(nr, tmp, m);
+
+                tmp = nr;
+        }
+
+        (void) route_get(manager, link, tmp, &route);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
+                        *buf_src = NULL, *buf_gw = NULL, *buf_prefsrc = NULL;
+                char buf_scope[ROUTE_SCOPE_STR_MAX], buf_table[ROUTE_TABLE_STR_MAX],
+                        buf_protocol[ROUTE_PROTOCOL_STR_MAX];
+
+                if (!in_addr_is_null(tmp->family, &tmp->dst)) {
+                        (void) in_addr_to_string(tmp->family, &tmp->dst, &buf_dst);
+                        (void) asprintf(&buf_dst_prefixlen, "/%u", tmp->dst_prefixlen);
+                }
+                if (!in_addr_is_null(tmp->family, &tmp->src))
+                        (void) in_addr_to_string(tmp->family, &tmp->src, &buf_src);
+                if (!in_addr_is_null(tmp->gw_family, &tmp->gw))
+                        (void) in_addr_to_string(tmp->gw_family, &tmp->gw, &buf_gw);
+                if (!in_addr_is_null(tmp->family, &tmp->prefsrc))
+                        (void) in_addr_to_string(tmp->family, &tmp->prefsrc, &buf_prefsrc);
+
+                log_link_debug(link,
+                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
+                               (!route && !manager->manage_foreign_routes) ? "Ignoring received foreign" :
+                               type == RTM_DELROUTE ? "Forgetting" :
+                               route ? "Received remembered" : "Remembering",
+                               strna(buf_dst), strempty(buf_dst_prefixlen),
+                               strna(buf_src), strna(buf_gw), strna(buf_prefsrc),
+                               format_route_scope(tmp->scope, buf_scope, sizeof buf_scope),
+                               format_route_table(tmp->table, buf_table, sizeof buf_table),
+                               format_route_protocol(tmp->protocol, buf_protocol, sizeof buf_protocol),
+                               strna(route_type_to_string(tmp->type)));
+        }
+
+        switch (type) {
+        case RTM_NEWROUTE:
+                if (!route && manager->manage_foreign_routes) {
+                        /* A route appeared that we did not request */
+                        r = route_add_foreign(manager, link, tmp, NULL);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
+                                return 0;
+                        }
+                }
+
+                break;
+
+        case RTM_DELROUTE:
+                route_free(route);
+                break;
+
+        default:
+                assert_not_reached("Received route message with invalid RTNL message type");
+        }
+
+        return 1;
+}
+
+int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
+        _cleanup_ordered_set_free_free_ OrderedSet *multipath_routes = NULL;
+        _cleanup_(route_freep) Route *tmp = NULL;
+        _cleanup_free_ void *rta_multipath = NULL;
         Link *link = NULL;
         uint32_t ifindex;
         uint16_t type;
         unsigned char table;
         RouteVia via;
+        size_t rta_len;
         int r;
 
         assert(rtnl);
@@ -1370,57 +1514,28 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 }
         }
 
-        (void) route_get(m, link, tmp, &route);
-
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
-                        *buf_src = NULL, *buf_gw = NULL, *buf_prefsrc = NULL;
-                char buf_scope[ROUTE_SCOPE_STR_MAX], buf_table[ROUTE_TABLE_STR_MAX],
-                        buf_protocol[ROUTE_PROTOCOL_STR_MAX];
-
-                if (!in_addr_is_null(tmp->family, &tmp->dst)) {
-                        (void) in_addr_to_string(tmp->family, &tmp->dst, &buf_dst);
-                        (void) asprintf(&buf_dst_prefixlen, "/%u", tmp->dst_prefixlen);
+        r = sd_netlink_message_read_data(message, RTA_MULTIPATH, &rta_len, &rta_multipath);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: failed to read RTA_MULTIPATH attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0) {
+                r = rtattr_read_nexthop(rta_multipath, rta_len, tmp->family, &multipath_routes);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "rtnl: failed to parse RTA_MULTIPATH attribute, ignoring: %m");
+                        return 0;
                 }
-                if (!in_addr_is_null(tmp->family, &tmp->src))
-                        (void) in_addr_to_string(tmp->family, &tmp->src, &buf_src);
-                if (!in_addr_is_null(tmp->gw_family, &tmp->gw))
-                        (void) in_addr_to_string(tmp->gw_family, &tmp->gw, &buf_gw);
-                if (!in_addr_is_null(tmp->family, &tmp->prefsrc))
-                        (void) in_addr_to_string(tmp->family, &tmp->prefsrc, &buf_prefsrc);
-
-                log_link_debug(link,
-                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               (!route && !m->manage_foreign_routes) ? "Ignoring received foreign" :
-                               type == RTM_DELROUTE ? "Forgetting" :
-                               route ? "Received remembered" : "Remembering",
-                               strna(buf_dst), strempty(buf_dst_prefixlen),
-                               strna(buf_src), strna(buf_gw), strna(buf_prefsrc),
-                               format_route_scope(tmp->scope, buf_scope, sizeof buf_scope),
-                               format_route_table(tmp->table, buf_table, sizeof buf_table),
-                               format_route_protocol(tmp->protocol, buf_protocol, sizeof buf_protocol),
-                               strna(route_type_to_string(tmp->type)));
         }
 
-        switch (type) {
-        case RTM_NEWROUTE:
-                if (!route && m->manage_foreign_routes) {
-                        /* A route appeared that we did not request */
-                        r = route_add_foreign(m, link, tmp, &route);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
-                                return 0;
-                        }
+        if (ordered_set_isempty(multipath_routes))
+                (void) process_route_one(m, link, type, tmp, NULL);
+        else {
+                MultipathRoute *mr;
+
+                ORDERED_SET_FOREACH(mr, multipath_routes) {
+                        r = process_route_one(m, link, type, tmp, mr);
+                        if (r < 0)
+                                break;
                 }
-
-                break;
-
-        case RTM_DELROUTE:
-                route_free(route);
-                break;
-
-        default:
-                assert_not_reached("Received route message with invalid RTNL message type");
         }
 
         return 1;
@@ -1457,11 +1572,9 @@ int link_deserialize_routes(Link *link, const char *routes) {
         assert(link);
 
         for (const char *p = routes;; ) {
-                _cleanup_(sd_event_source_unrefp) sd_event_source *expire = NULL;
                 _cleanup_(route_freep) Route *tmp = NULL;
                 _cleanup_free_ char *route_str = NULL;
                 char *prefixlen_str;
-                Route *route;
 
                 r = extract_first_word(&p, &route_str, NULL, 0);
                 if (r < 0)
@@ -1500,20 +1613,9 @@ int link_deserialize_routes(Link *link, const char *routes) {
                         continue;
                 }
 
-                r = route_add(NULL, link, tmp, &route);
+                r = route_add_and_setup_timer(link, tmp, NULL, NULL);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "Failed to add route: %m");
-
-                if (route->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
-                        r = sd_event_add_time(link->manager->event, &expire,
-                                              clock_boottime_or_monotonic(),
-                                              route->lifetime, 0, route_expire_handler, route);
-                        if (r < 0)
-                                log_link_debug_errno(link, r, "Could not arm route expiration handler: %m");
-                }
-
-                sd_event_source_unref(route->expire);
-                route->expire = TAKE_PTR(expire);
         }
 }
 

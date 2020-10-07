@@ -24,6 +24,7 @@ typedef struct Route {
 
         int family;
         int gw_family;
+        uint32_t gw_weight;
         int quickack;
         int fast_open_no_cookie;
         int ttl_propagate;
