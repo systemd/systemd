@@ -38,6 +38,9 @@
 #define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
 #define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
 
+#define TRANSIENT_FAILURE_ATTEMPTS 3 /* Arbitrary limit: how many attempts are considered enough to report
+                                      * transient failure. */
+
 typedef struct sd_dhcp_client_id {
         uint8_t type;
         union {
@@ -1298,6 +1301,9 @@ static int client_timeout_resend(
                 r = -EINVAL;
                 goto error;
         }
+
+        if (client->attempt >= TRANSIENT_FAILURE_ATTEMPTS)
+                client_notify(client, SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE);
 
         return 0;
 

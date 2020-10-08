@@ -40,6 +40,8 @@ enum {
         SD_DHCP_CLIENT_EVENT_EXPIRED            = 3,
         SD_DHCP_CLIENT_EVENT_RENEW              = 4,
         SD_DHCP_CLIENT_EVENT_SELECTING          = 5,
+        SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE  = 6, /* Sent when we have not received a reply after the first few attempts.
+                                                      * The client may want to start acquiring link-local addresses. */
 };
 
 enum {
