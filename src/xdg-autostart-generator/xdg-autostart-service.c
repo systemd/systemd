@@ -28,6 +28,7 @@ XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
 
         free(s->type);
         free(s->exec_string);
+        free(s->working_directory);
 
         strv_free(s->only_show_in);
         strv_free(s->not_show_in);
@@ -321,6 +322,7 @@ XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
         const ConfigTableItem items[] = {
                 { "Desktop Entry", "Name",                      xdg_config_parse_string, 0, &service->description},
                 { "Desktop Entry", "Exec",                      xdg_config_parse_string, 0, &service->exec_string},
+                { "Desktop Entry", "Path",                      xdg_config_parse_string, 0, &service->working_directory},
                 { "Desktop Entry", "TryExec",                   xdg_config_parse_string, 0, &service->try_exec},
                 { "Desktop Entry", "Type",                      xdg_config_parse_string, 0, &service->type},
                 { "Desktop Entry", "OnlyShowIn",                xdg_config_parse_strv, 0,   &service->only_show_in},
@@ -605,6 +607,16 @@ int xdg_autostart_service_generate_unit(
                 "TimeoutSec=5s\n"
                 "Slice=app.slice\n",
                 exec_start);
+
+        if (service->working_directory) {
+                _cleanup_free_ char *e_working_directory = NULL;
+
+                e_working_directory = cescape(service->working_directory);
+                if (!e_working_directory)
+                        return log_oom();
+
+                fprintf(f, "WorkingDirectory=-%s\n", e_working_directory);
+        }
 
         /* Generate an ExecCondition to check $XDG_CURRENT_DESKTOP */
         if (!strv_isempty(service->only_show_in) || !strv_isempty(service->not_show_in)) {
