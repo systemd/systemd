@@ -1735,6 +1735,9 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         for (;;) {
                 struct libmnt_fs *fs;
                 const char *device, *path, *options, *fstype;
+                bool found = false;
+                Mount *mu;
+                Unit *u;
 
                 r = mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
@@ -1749,6 +1752,26 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 
                 if (!device || !path)
                         continue;
+
+                LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
+                        mu = MOUNT(u);
+                        if (! mu->from_proc_self_mountinfo)
+                                continue;
+                        if (strcmp(device, mu->parameters_proc_self_mountinfo.what) == 0 &&
+                            strcmp(path, mu->where) == 0 &&
+                            strcmp(options, mu->parameters_proc_self_mountinfo.options) == 0 &&
+                            strcmp(fstype, mu->parameters_proc_self_mountinfo.fstype) == 0) {
+                                mu->proc_flags |= MOUNT_PROC_IS_MOUNTED;
+                                found = true;
+                                log_debug("Mount entry '%s %s %s %s' already known, won't set device nor update mount unit", device, path, fstype, options);
+                                break;
+                        }
+                }
+
+                if (found)
+                        continue;
+
+                log_debug("Setting up new mount entry '%s %s %s %s'", device, path, fstype, options);
 
                 device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
