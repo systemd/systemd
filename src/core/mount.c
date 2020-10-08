@@ -66,6 +66,8 @@ static bool MOUNT_STATE_WITH_PROCESS(MountState state) {
                       MOUNT_CLEANING);
 }
 
+static Hashmap *mountinfo_hashmap;
+
 static bool mount_is_automount(const MountParameters *p) {
         assert(p);
 
@@ -232,6 +234,11 @@ static void mount_done(Unit *u) {
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_unref(m->timer_event_source);
+
+        if (m->mountinfo_key) {
+                (void) hashmap_remove(mountinfo_hashmap, m->mountinfo_key);
+                m->mountinfo_key = mfree(m->mountinfo_key);
+        }
 }
 
 static MountParameters* get_mount_parameters_fragment(Mount *m) {
@@ -1645,13 +1652,30 @@ static int mount_setup_existing_unit(
         return 0;
 }
 
+static bool ignore_mount(const char *where, const char *fstype) {
+
+        /* Ignore API mount points. They should never be referenced in
+         * dependencies ever. */
+        if (mount_point_is_api(where) || mount_point_ignore(where))
+                return true;
+
+        if (streq(fstype, "autofs"))
+                return true;
+
+        /* probably some kind of swap, ignore */
+        if (!is_path(where))
+                return true;
+
+        return false;
+}
+
 static int mount_setup_unit(
                 Manager *m,
                 const char *what,
                 const char *where,
                 const char *options,
                 const char *fstype,
-                bool set_flags) {
+                bool set_flags, Mount **mu) {
 
         _cleanup_free_ char *e = NULL;
         MountProcFlags flags;
@@ -1664,17 +1688,11 @@ static int mount_setup_unit(
         assert(options);
         assert(fstype);
 
-        /* Ignore API mount points. They should never be referenced in
-         * dependencies ever. */
-        if (mount_point_is_api(where) || mount_point_ignore(where))
+/* Test already done in mount_load_proc_self_mountinfo() */
+#if 0
+        if (ignore_mount(where, fstype))
                 return 0;
-
-        if (streq(fstype, "autofs"))
-                return 0;
-
-        /* probably some kind of swap, ignore */
-        if (!is_path(where))
-                return 0;
+#endif
 
         /* Mount unit names have to be (like all other unit names) short enough to fit into file names. This
          * means there's a good chance that overly long mount point paths after mangling them to look like a
@@ -1718,6 +1736,8 @@ static int mount_setup_unit(
         if (set_flags)
                 MOUNT(u)->proc_flags = flags;
 
+        *mu = MOUNT(u);
+
         return 0;
 }
 
@@ -1725,8 +1745,16 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
+        static bool mountinfo_hashmap_initialized = false;
 
         assert(m);
+
+        if (!mountinfo_hashmap_initialized) {
+                r = hashmap_ensure_allocated(&mountinfo_hashmap, &string_hash_ops);
+                if (r < 0)
+                        return -ENOMEM;
+                mountinfo_hashmap_initialized = true;
+        }
 
         r = libmount_parse(NULL, NULL, &table, &iter);
         if (r < 0)
@@ -1735,6 +1763,11 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         for (;;) {
                 struct libmnt_fs *fs;
                 const char *device, *path, *options, *fstype;
+                static char *mount_entry = NULL;
+                static size_t mount_entry_size = 0;
+                int size;
+                char *key = NULL;
+                Mount *mu;
 
                 r = mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
@@ -1750,9 +1783,54 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (!device || !path)
                         continue;
 
+                if (ignore_mount(path, fstype))
+                        continue;
+
+                size = snprintf(mount_entry, mount_entry_size, "%s %s %s %s", device, path, fstype, options);
+
+                if ((size_t)size >= mount_entry_size) {
+                        if (mount_entry)
+                                free(mount_entry);
+                        mount_entry_size = 1024 * (size / 1024 + 1);
+                        mount_entry = new(char, mount_entry_size);
+                        if (!mount_entry) {
+                                mount_entry_size = 0;
+                                return -ENOMEM;
+                        }
+                        size = snprintf(mount_entry, mount_entry_size, "%s %s %s %s", device, path, fstype, options);
+                }
+
+                mu = hashmap_get2(mountinfo_hashmap, mount_entry, (void **)&key);
+                if (mu) {
+                        assert(mu->mountinfo_key == key);
+                        if (mu->state == MOUNT_MOUNTED) {
+                                mu->proc_flags |= MOUNT_PROC_IS_MOUNTED;
+                                log_debug("Mount entry '%s' already known, won't set device nor update mount unit", mount_entry);
+                                continue;
+                        }
+                }
+
+                log_debug("Setting up mount entry '%s'", mount_entry);
+
                 device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
-                (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
+                (void) mount_setup_unit(m, device, path, options, fstype, set_flags, &mu);
+
+                if (mu->mountinfo_key) {
+                        (void) hashmap_remove(mountinfo_hashmap, mu->mountinfo_key);
+                        mu->mountinfo_key = mfree(mu->mountinfo_key);
+                }
+
+                key = strdup(mount_entry);
+                if (!key)
+                        return -ENOMEM;
+
+                r = hashmap_put(mountinfo_hashmap, key, mu);
+                if (r < 0) {
+                        assert(r != -EEXIST);
+                        return r;
+                }
+                mu->mountinfo_key = key;
         }
 
         return 0;

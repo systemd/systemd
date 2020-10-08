@@ -54,6 +54,8 @@ struct Mount {
 
         MountProcFlags proc_flags;
 
+        char *mountinfo_key;
+
         bool sloppy_options;
 
         bool lazy_unmount;
