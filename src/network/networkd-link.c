@@ -1229,7 +1229,14 @@ static int link_acquire_ipv4_conf(Link *link) {
         assert(link->manager);
         assert(link->manager->event);
 
-        if (link_ipv4ll_enabled(link)) {
+        if (link->dhcp_client) {
+                log_link_debug(link, "Acquiring DHCPv4 lease");
+
+                r = sd_dhcp_client_start(link->dhcp_client);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not acquire DHCPv4 lease: %m");
+
+        } else if (link_ipv4ll_enabled(link)) {
                 assert(link->ipv4ll);
 
                 log_link_debug(link, "Acquiring IPv4 link-local address");
@@ -1237,14 +1244,6 @@ static int link_acquire_ipv4_conf(Link *link) {
                 r = sd_ipv4ll_start(link->ipv4ll);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
-        }
-
-        if (link->dhcp_client) {
-                log_link_debug(link, "Acquiring DHCPv4 lease");
-
-                r = sd_dhcp_client_start(link->dhcp_client);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Could not acquire DHCPv4 lease: %m");
         }
 
         return 0;
