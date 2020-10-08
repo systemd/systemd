@@ -399,13 +399,11 @@ static int source_io_register(
                 .events = events | (enabled == SD_EVENT_ONESHOT ? EPOLLONESHOT : 0),
                 .data.ptr = s,
         };
-        int r;
 
-        r = epoll_ctl(s->event->epoll_fd,
+        if (epoll_ctl(s->event->epoll_fd,
                       s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
                       s->io.fd,
-                      &ev);
-        if (r < 0)
+                      &ev) < 0)
                 return -errno;
 
         s->io.registered = true;
@@ -616,8 +614,7 @@ static int event_make_signal_data(
                 .data.ptr = d,
         };
 
-        r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, d->fd, &ev);
-        if (r < 0)  {
+        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, d->fd, &ev) < 0) {
                 r = -errno;
                 goto fail;
         }
@@ -1044,7 +1041,6 @@ static int event_setup_timer_fd(
                 return 0;
 
         _cleanup_close_ int fd = -1;
-        int r;
 
         fd = timerfd_create(clock, TFD_NONBLOCK|TFD_CLOEXEC);
         if (fd < 0)
@@ -1057,8 +1053,7 @@ static int event_setup_timer_fd(
                 .data.ptr = d,
         };
 
-        r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0)
+        if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
                 return -errno;
 
         d->fd = TAKE_FD(fd);
@@ -2698,7 +2693,6 @@ static int event_arm_timer(
         struct itimerspec its = {};
         sd_event_source *a, *b;
         usec_t t;
-        int r;
 
         assert(e);
         assert(d);
@@ -2718,9 +2712,8 @@ static int event_arm_timer(
                         return 0;
 
                 /* disarm */
-                r = timerfd_settime(d->fd, TFD_TIMER_ABSTIME, &its, NULL);
-                if (r < 0)
-                        return r;
+                if (timerfd_settime(d->fd, TFD_TIMER_ABSTIME, &its, NULL) < 0)
+                        return -errno;
 
                 d->next = USEC_INFINITY;
                 return 0;
@@ -2742,8 +2735,7 @@ static int event_arm_timer(
         } else
                 timespec_store(&its.it_value, t);
 
-        r = timerfd_settime(d->fd, TFD_TIMER_ABSTIME, &its, NULL);
-        if (r < 0)
+        if (timerfd_settime(d->fd, TFD_TIMER_ABSTIME, &its, NULL) < 0)
                 return -errno;
 
         d->next = t;
@@ -2869,9 +2861,8 @@ static int process_child(sd_event *e) {
                         continue;
 
                 zero(s->child.siginfo);
-                r = waitid(P_PID, s->child.pid, &s->child.siginfo,
-                           WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options);
-                if (r < 0)
+                if (waitid(P_PID, s->child.pid, &s->child.siginfo,
+                           WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options) < 0)
                         return -errno;
 
                 if (s->child.siginfo.si_pid != 0) {
@@ -3347,7 +3338,6 @@ static sd_event_source* event_next_pending(sd_event *e) {
 static int arm_watchdog(sd_event *e) {
         struct itimerspec its = {};
         usec_t t;
-        int r;
 
         assert(e);
         assert(e->watchdog_fd >= 0);
@@ -3363,8 +3353,7 @@ static int arm_watchdog(sd_event *e) {
         if (its.it_value.tv_sec == 0 && its.it_value.tv_nsec == 0)
                 its.it_value.tv_nsec = 1;
 
-        r = timerfd_settime(e->watchdog_fd, TFD_TIMER_ABSTIME, &its, NULL);
-        if (r < 0)
+        if (timerfd_settime(e->watchdog_fd, TFD_TIMER_ABSTIME, &its, NULL) < 0)
                 return -errno;
 
         return 0;
@@ -3774,8 +3763,7 @@ _public_ int sd_event_now(sd_event *e, clockid_t clock, uint64_t *usec) {
                 return -EOPNOTSUPP;
 
         if (!triple_timestamp_is_set(&e->timestamp)) {
-                /* Implicitly fall back to now() if we never ran
-                 * before and thus have no cached time. */
+                /* Implicitly fall back to now() if we never ran before and thus have no cached time. */
                 *usec = now(clock);
                 return 1;
         }
@@ -3854,8 +3842,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                         .data.ptr = INT_TO_PTR(SOURCE_WATCHDOG),
                 };
 
-                r = epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, e->watchdog_fd, &ev);
-                if (r < 0) {
+                if (epoll_ctl(e->epoll_fd, EPOLL_CTL_ADD, e->watchdog_fd, &ev) < 0) {
                         r = -errno;
                         goto fail;
                 }
