@@ -1001,8 +1001,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         switch (event) {
                 case SD_DHCP_CLIENT_EVENT_STOP:
-
-                        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4)) {
+                        if (link_ipv4ll_enabled(link)) {
                                 assert(link->ipv4ll);
 
                                 log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");

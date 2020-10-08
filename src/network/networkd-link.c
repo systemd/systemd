@@ -55,9 +55,8 @@
 #include "util.h"
 #include "vrf.h"
 
-bool link_ipv4ll_enabled(Link *link, AddressFamily mask) {
+bool link_ipv4ll_enabled(Link *link) {
         assert(link);
-        assert((mask & ~(ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4)) == 0);
 
         if (link->flags & IFF_LOOPBACK)
                 return false;
@@ -80,7 +79,7 @@ bool link_ipv4ll_enabled(Link *link, AddressFamily mask) {
         if (link->network->bond)
                 return false;
 
-        return link->network->link_local & mask;
+        return link->network->link_local & ADDRESS_FAMILY_IPV4;
 }
 
 bool link_ipv6ll_enabled(Link *link) {
@@ -784,7 +783,7 @@ void link_check_ready(Link *link) {
                 bool has_ndisc_address = false;
                 NDiscAddress *n;
 
-                if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4) && !link->ipv4ll_address_configured) {
+                if (link_ipv4ll_enabled(link) && !link->ipv4ll_address_configured) {
                         log_link_debug(link, "%s(): IPv4LL is not configured.", __func__);
                         return;
                 }
@@ -803,7 +802,7 @@ void link_check_ready(Link *link) {
 
                 if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
                     !link->dhcp_address && set_isempty(link->dhcp6_addresses) && !has_ndisc_address &&
-                    !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address_configured)) {
+                    !(link_ipv4ll_enabled(link) && link->ipv4ll_address_configured)) {
                         log_link_debug(link, "%s(): DHCP4 or DHCP6 is enabled but no dynamic address is assigned yet.", __func__);
                         return;
                 }
@@ -813,7 +812,7 @@ void link_check_ready(Link *link) {
                             !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
                             !(link->dhcp6_pd_address_configured && link->dhcp6_pd_route_configured) &&
                             !(link->ndisc_addresses_configured && link->ndisc_routes_configured) &&
-                            !(link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4) && link->ipv4ll_address_configured)) {
+                            !(link_ipv4ll_enabled(link) && link->ipv4ll_address_configured)) {
                                 /* When DHCP or RA is enabled, at least one protocol must provide an address, or
                                  * an IPv4ll fallback address must be configured. */
                                 log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
@@ -1120,7 +1119,7 @@ static int link_acquire_ipv4_conf(Link *link) {
         assert(link->manager);
         assert(link->manager->event);
 
-        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4)) {
+        if (link_ipv4ll_enabled(link)) {
                 assert(link->ipv4ll);
 
                 log_link_debug(link, "Acquiring IPv4 link-local address");
