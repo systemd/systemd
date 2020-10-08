@@ -10,6 +10,7 @@ typedef struct XdgAutostartService {
 
         char *type; /* Purely as an assertion check */
         char *exec_string;
+        char *working_directory;
 
         char **only_show_in;
         char **not_show_in;
