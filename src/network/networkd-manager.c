@@ -886,6 +886,9 @@ void manager_free(Manager *m) {
         m->rules_foreign = set_free(m->rules_foreign);
         set_free(m->rules_saved);
 
+        m->routes = set_free(m->routes);
+        m->routes_foreign = set_free(m->routes_foreign);
+
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
         sd_resolve_unref(m->resolve);

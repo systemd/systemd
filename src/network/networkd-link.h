@@ -243,9 +243,3 @@ int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, in
 #define log_link_message_notice_errno(link, m, err, msg)  log_link_message_full_errno(link, m, LOG_NOTICE, err, msg)
 #define log_link_message_info_errno(link, m, err, msg)    log_link_message_full_errno(link, m, LOG_INFO, err, msg)
 #define log_link_message_debug_errno(link, m, err, msg)   log_link_message_full_errno(link, m, LOG_DEBUG, err, msg)
-
-#define ADDRESS_FMT_VAL(address)                   \
-        be32toh((address).s_addr) >> 24,           \
-        (be32toh((address).s_addr) >> 16) & 0xFFu, \
-        (be32toh((address).s_addr) >> 8) & 0xFFu,  \
-        be32toh((address).s_addr) & 0xFFu

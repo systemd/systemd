@@ -6,8 +6,21 @@
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"
+#include "ordered-set.h"
 #include "socket-util.h"
 #include "util.h"
+
+/* See struct rtvia in rtnetlink.h */
+typedef struct RouteVia {
+        uint16_t family;
+        union in_addr_union address;
+} _packed_ RouteVia;
+
+typedef struct MultipathRoute {
+        RouteVia gateway;
+        int ifindex;
+        uint32_t weight;
+} MultipathRoute;
 
 int rtnl_message_new_synthetic_error(sd_netlink *rtnl, int error, uint32_t serial, sd_netlink_message **ret);
 uint32_t rtnl_message_get_serial(sd_netlink_message *m);
@@ -94,3 +107,5 @@ int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short typ
 
 void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);
 int rtattr_append_attribute(struct rtattr **rta, unsigned short type, const void *data, size_t data_length);
+
+int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, OrderedSet **ret);

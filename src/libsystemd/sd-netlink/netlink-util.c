@@ -368,3 +368,80 @@ int rtattr_append_attribute(struct rtattr **rta, unsigned short type, const void
 
         return 0;
 }
+
+int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, OrderedSet **ret) {
+        _cleanup_ordered_set_free_free_ OrderedSet *set = NULL;
+        int r;
+
+        assert(rtnh);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (size < sizeof(struct rtnexthop))
+                return -EBADMSG;
+
+        for (; size >= sizeof(struct rtnexthop); ) {
+                _cleanup_free_ MultipathRoute *m = NULL;
+
+                if (NLMSG_ALIGN(rtnh->rtnh_len) > size)
+                        return -EBADMSG;
+
+                if (rtnh->rtnh_len < sizeof(struct rtnexthop))
+                        return -EBADMSG;
+
+                m = new(MultipathRoute, 1);
+                if (!m)
+                        return -ENOMEM;
+
+                *m = (MultipathRoute) {
+                        .ifindex = rtnh->rtnh_ifindex,
+                        .weight = rtnh->rtnh_hops == 0 ? 0 : rtnh->rtnh_hops + 1,
+                };
+
+                if (rtnh->rtnh_len > sizeof(struct rtnexthop)) {
+                        size_t len = rtnh->rtnh_len - sizeof(struct rtnexthop);
+
+                        for (struct rtattr *attr = RTNH_DATA(rtnh); RTA_OK(attr, len); attr = RTA_NEXT(attr, len)) {
+                                if (attr->rta_type == RTA_GATEWAY) {
+                                        if (attr->rta_len != RTA_LENGTH(FAMILY_ADDRESS_SIZE(family)))
+                                                return -EBADMSG;
+
+                                        m->gateway.family = family;
+                                        memcpy(&m->gateway.address, RTA_DATA(attr), FAMILY_ADDRESS_SIZE(family));
+                                        break;
+                                } else if (attr->rta_type == RTA_VIA) {
+                                        uint16_t gw_family;
+
+                                        if (family != AF_INET)
+                                                return -EINVAL;
+
+                                        if (attr->rta_len < RTA_LENGTH(sizeof(uint16_t)))
+                                                return -EBADMSG;
+
+                                        gw_family = *(uint16_t *) RTA_DATA(attr);
+
+                                        if (gw_family != AF_INET6)
+                                                return -EBADMSG;
+
+                                        if (attr->rta_len != RTA_LENGTH(FAMILY_ADDRESS_SIZE(gw_family) + sizeof(gw_family)))
+                                                return -EBADMSG;
+
+                                        memcpy(&m->gateway, RTA_DATA(attr), FAMILY_ADDRESS_SIZE(gw_family) + sizeof(gw_family));
+                                        break;
+                                }
+                        }
+                }
+
+                r = ordered_set_ensure_put(&set, NULL, m);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(m);
+
+                size -= NLMSG_ALIGN(rtnh->rtnh_len);
+                rtnh = RTNH_NEXT(rtnh);
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(set);
+        return 0;
+}

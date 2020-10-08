@@ -716,7 +716,7 @@ static const NLType rtnl_route_types[] = {
         [RTA_TABLE]             = { .type = NETLINK_TYPE_U32 },
         [RTA_MARK]              = { .type = NETLINK_TYPE_U32 },
         [RTA_MFC_STATS]         = { .type = NETLINK_TYPE_U64 },
-        [RTA_VIA]               = { .type = NETLINK_TYPE_U32 },
+        [RTA_VIA]               = { /* See struct rtvia */ },
         [RTA_NEWDST]            = { .type = NETLINK_TYPE_U32 },
         [RTA_PREF]              = { .type = NETLINK_TYPE_U8 },
         [RTA_EXPIRES]           = { .type = NETLINK_TYPE_U32 },

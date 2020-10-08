@@ -142,11 +142,40 @@ int local_addresses(sd_netlink *context, int ifindex, int af, struct local_addre
         return (int) n_list;
 }
 
+static int add_local_gateway(
+                struct local_address **list,
+                size_t *n_list,
+                size_t *n_allocated,
+                int af,
+                int ifindex,
+                uint32_t metric,
+                const RouteVia *via) {
+
+        assert(list);
+        assert(n_list);
+        assert(n_allocated);
+        assert(via);
+
+        if (af != AF_UNSPEC && af != via->family)
+                return 0;
+
+        if (!GREEDY_REALLOC(*list, *n_allocated, *n_list + 1))
+                return -ENOMEM;
+
+        (*list)[(*n_list)++] = (struct local_address) {
+                .ifindex = ifindex,
+                .metric = metric,
+                .family = via->family,
+                .address = via->address,
+        };
+
+        return 0;
+}
+
 int local_gateways(sd_netlink *context, int ifindex, int af, struct local_address **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ struct local_address *list = NULL;
-        sd_netlink_message *m = NULL;
         size_t n_list = 0, n_allocated = 0;
         int r;
 
@@ -172,12 +201,16 @@ int local_gateways(sd_netlink *context, int ifindex, int af, struct local_addres
         if (r < 0)
                 return r;
 
-        for (m = reply; m; m = sd_netlink_message_next(m)) {
-                struct local_address *a;
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
+                _cleanup_ordered_set_free_free_ OrderedSet *multipath_routes = NULL;
+                _cleanup_free_ void *rta_multipath = NULL;
+                union in_addr_union gateway;
                 uint16_t type;
                 unsigned char dst_len, src_len, table;
-                uint32_t ifi;
+                uint32_t ifi, metric = 0;
+                size_t rta_len;
                 int family;
+                RouteVia via;
 
                 r = sd_netlink_message_get_errno(m);
                 if (r < 0)
@@ -208,48 +241,72 @@ int local_gateways(sd_netlink *context, int ifindex, int af, struct local_addres
                 if (table != RT_TABLE_MAIN)
                         continue;
 
-                r = sd_netlink_message_read_u32(m, RTA_OIF, &ifi);
-                if (r == -ENODATA) /* Not all routes have an RTA_OIF attribute (for example nexthop ones) */
-                        continue;
-                if (r < 0)
+                r = sd_netlink_message_read_u32(m, RTA_PRIORITY, &metric);
+                if (r < 0 && r != -ENODATA)
                         return r;
-                if (ifindex > 0 && (int) ifi != ifindex)
-                        continue;
 
                 r = sd_rtnl_message_route_get_family(m, &family);
                 if (r < 0)
                         return r;
-                if (af != AF_UNSPEC && af != family)
+                if (!IN_SET(family, AF_INET, AF_INET6))
                         continue;
 
-                if (!GREEDY_REALLOC0(list, n_allocated, n_list + 1))
-                        return -ENOMEM;
-
-                a = list + n_list;
-
-                switch (family) {
-                case AF_INET:
-                        r = sd_netlink_message_read_in_addr(m, RTA_GATEWAY, &a->address.in);
-                        if (r < 0)
+                r = sd_netlink_message_read_u32(m, RTA_OIF, &ifi);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+                if (r >= 0) {
+                        if (ifi <= 0)
+                                return -EINVAL;
+                        if (ifindex > 0 && (int) ifi != ifindex)
                                 continue;
 
-                        break;
-                case AF_INET6:
-                        r = sd_netlink_message_read_in6_addr(m, RTA_GATEWAY, &a->address.in6);
-                        if (r < 0)
+                        r = netlink_message_read_in_addr_union(m, RTA_GATEWAY, family, &gateway);
+                        if (r < 0 && r != -ENODATA)
+                                return r;
+                        if (r >= 0) {
+                                via.family = family;
+                                via.address = gateway;
+                                r = add_local_gateway(&list, &n_list, &n_allocated, af, ifi, metric, &via);
+                                if (r < 0)
+                                        return r;
+
+                                continue;
+                        }
+
+                        if (family != AF_INET)
                                 continue;
 
-                        break;
-                default:
-                        continue;
+                        r = sd_netlink_message_read(m, RTA_VIA, sizeof(via), &via);
+                        if (r < 0 && r != -ENODATA)
+                                return r;
+                        if (r >= 0) {
+                                r = add_local_gateway(&list, &n_list, &n_allocated, af, ifi, metric, &via);
+                                if (r < 0)
+                                        return r;
+
+                                continue;
+                        }
                 }
 
-                sd_netlink_message_read_u32(m, RTA_PRIORITY, &a->metric);
+                r = sd_netlink_message_read_data(m, RTA_MULTIPATH, &rta_len, &rta_multipath);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+                if (r >= 0) {
+                        MultipathRoute *mr;
 
-                a->ifindex = ifi;
-                a->family = family;
+                        r = rtattr_read_nexthop(rta_multipath, rta_len, family, &multipath_routes);
+                        if (r < 0)
+                                return r;
 
-                n_list++;
+                        ORDERED_SET_FOREACH(mr, multipath_routes) {
+                                if (ifindex > 0 && mr->ifindex != ifindex)
+                                        continue;
+
+                                r = add_local_gateway(&list, &n_list, &n_allocated, af, ifi, metric, &mr->gateway);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
         }
 
         typesafe_qsort(list, n_list, address_compare);
