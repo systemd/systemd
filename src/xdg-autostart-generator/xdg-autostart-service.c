@@ -340,9 +340,12 @@ XdgAutostartService *xdg_autostart_service_parse_desktop(const char *path) {
                 { "Desktop Entry", "GenericName", NULL, 0, NULL},
                 { "Desktop Entry", "Icon", NULL, 0, NULL},
                 { "Desktop Entry", "Keywords", NULL, 0, NULL},
+                { "Desktop Entry", "MimeType", NULL, 0, NULL},
                 { "Desktop Entry", "NoDisplay", NULL, 0, NULL},
                 { "Desktop Entry", "StartupNotify", NULL, 0, NULL},
+                { "Desktop Entry", "StartupWMClass", NULL, 0, NULL},
                 { "Desktop Entry", "Terminal", NULL, 0, NULL},
+                { "Desktop Entry", "URL", NULL, 0, NULL},
                 { "Desktop Entry", "Version", NULL, 0, NULL},
                 {}
         };
