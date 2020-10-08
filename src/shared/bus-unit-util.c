@@ -2407,3 +2407,20 @@ int unit_load_state(sd_bus *bus, const char *name, char **load_state) {
 
         return 0;
 }
+
+int unit_info_compare(const UnitInfo *a, const UnitInfo *b) {
+        int r;
+
+        /* First, order by machine */
+        r = strcasecmp_ptr(a->machine, b->machine);
+        if (r != 0)
+                return r;
+
+        /* Second, order by unit type */
+        r = strcasecmp_ptr(strrchr(a->id, '.'), strrchr(b->id, '.'));
+        if (r != 0)
+                return r;
+
+        /* Third, order by name */
+        return strcasecmp(a->id, b->id);
+}

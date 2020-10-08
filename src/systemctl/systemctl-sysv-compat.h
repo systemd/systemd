@@ -3,9 +3,7 @@
 
 #include "time-util.h"
 
-#if HAVE_SYSV_COMPAT
 int talk_initctl(char runlevel);
-#endif
 
 int parse_shutdown_time_spec(const char *t, usec_t *ret);
 
@@ -31,3 +29,7 @@ enum {
         EXIT_PROGRAM_NOT_RUNNING                  = 3,
         EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN   = 4,
 };
+
+int enable_sysv_units(const char *verb, char **args);
+
+int action_to_runlevel(void) _pure_;

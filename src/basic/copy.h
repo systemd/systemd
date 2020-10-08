@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
