@@ -28,13 +28,12 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
 #define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name,type,yes,scope) \
         scope type name##_from_string(const char *s) {                  \
-                int b;                                                  \
                 if (!s)                                                 \
                         return -1;                                      \
-                b = parse_boolean(s);                                   \
+                int b = parse_boolean(s);                               \
                 if (b == 0)                                             \
                         return (type) 0;                                \
-                else if (b > 0)                                         \
+                if (b > 0)                                              \
                         return yes;                                     \
                 return (type) string_table_lookup(name##_table, ELEMENTSOF(name##_table), s); \
         }
