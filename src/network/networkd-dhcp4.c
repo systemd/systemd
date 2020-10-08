@@ -1088,6 +1088,21 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                         return -ENOMSG;
                         }
                         break;
+
+                case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
+                        if (link_ipv4ll_enabled(link)) {
+                                assert(link->ipv4ll);
+
+                                if (!sd_ipv4ll_is_running(link->ipv4ll)) {
+                                        log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
+
+                                        r = sd_ipv4ll_start(link->ipv4ll);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                                }
+                        }
+                        break;
+
                 default:
                         if (event < 0)
                                 log_link_warning_errno(link, event, "DHCP error: Client failed: %m");

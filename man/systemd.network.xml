@@ -367,7 +367,9 @@
             <para>Enables link-local address autoconfiguration. Accepts <option>yes</option>,
             <option>no</option>, <option>ipv4</option>, and <option>ipv6</option>. An IPv6 link-local address
             is configured when <option>yes</option> or <option>ipv6</option>. An IPv4 link-local address is
-            configured when <option>yes</option> or <option>ipv4</option>.</para>
+            configured when <option>yes</option> or <option>ipv4</option> and when DHCPv4 autoconfiguration
+            has been unsuccessful for some time. (IPv4 link-local address autoconfiguration will usually
+            happen in parallel with repeated attempts to acquire a DHCPv4 lease).</para>
 
             <para>Defaults to <option>no</option> when <varname>Bridge=yes</varname> is set, and
             <option>ipv6</option> otherwise.</para>
@@ -1654,7 +1656,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Specifies how many times the DHCPv4 client configuration should be attempted. Takes a
             number or <literal>infinity</literal>. Defaults to <literal>infinity</literal>. Note that the
             time between retries is increased exponentially, up to approximately one per minute, so the
-            network will not be overloaded even if this number is high.</para>
+            network will not be overloaded even if this number is high. The default is suitable in most
+            circumstances.</para>
           </listitem>
         </varlistentry>
 
