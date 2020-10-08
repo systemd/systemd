@@ -555,7 +555,7 @@ static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
 #    endif
 #  endif
 static inline int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
-#  ifdef __NR_pidfd_open
+#  ifdef __NR_pidfd_send_signal
         return syscall(__NR_pidfd_send_signal, fd, sig, info, flags);
 #  else
         errno = ENOSYS;
