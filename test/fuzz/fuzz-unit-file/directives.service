@@ -53,6 +53,7 @@ CapabilityBoundingSet=
 CollectMode=
 ConditionACPower=
 ConditionArchitecture=
+ConditionFirmware=
 ConditionCapability=
 ConditionControlGroupController=
 ConditionDirectoryNotEmpty=
