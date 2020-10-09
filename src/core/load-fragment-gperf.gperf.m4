@@ -297,6 +297,7 @@ Unit.ConditionFileIsExecutable,          config_parse_unit_condition_path,      
 Unit.ConditionNeedsUpdate,               config_parse_unit_condition_path,            CONDITION_NEEDS_UPDATE,             offsetof(Unit, conditions)
 Unit.ConditionFirstBoot,                 config_parse_unit_condition_string,          CONDITION_FIRST_BOOT,               offsetof(Unit, conditions)
 Unit.ConditionArchitecture,              config_parse_unit_condition_string,          CONDITION_ARCHITECTURE,             offsetof(Unit, conditions)
+Unit.ConditionFirmware,                  config_parse_unit_condition_string,          CONDITION_FIRMWARE,                 offsetof(Unit, conditions)
 Unit.ConditionVirtualization,            config_parse_unit_condition_string,          CONDITION_VIRTUALIZATION,           offsetof(Unit, conditions)
 Unit.ConditionHost,                      config_parse_unit_condition_string,          CONDITION_HOST,                     offsetof(Unit, conditions)
 Unit.ConditionKernelCommandLine,         config_parse_unit_condition_string,          CONDITION_KERNEL_COMMAND_LINE,      offsetof(Unit, conditions)
