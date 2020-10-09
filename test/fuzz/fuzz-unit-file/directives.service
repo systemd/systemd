@@ -35,6 +35,7 @@ CollectMode=
 ConditionACPower=
 ConditionArchitecture=
 ConditionCPUs=
+ConditionFirmware=
 ConditionCapability=
 ConditionControlGroupController=
 ConditionDirectoryNotEmpty=
