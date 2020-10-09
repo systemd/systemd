@@ -28,23 +28,34 @@ returns `EBUSY`), it refrains from processing the device. If it manages to take
 the lock it is kept for the entire time the device is processed.
 
 Note that `systemd-udevd` also watches all block device nodes it manages for
-`inotify()` `IN_CLOSE` events: whenever such an event is seen, this is used as
-trigger to re-run the rule-set for the device.
+`inotify()` `IN_CLOSE_WRITE` events: whenever such an event is seen, this is
+used as trigger to re-run the rule-set for the device.
 
 These two concepts allow tools such as disk partitioners or file system
 formatting tools to safely and easily take exclusive ownership of a block
 device while operating: before starting work on the block device, they should
 take an `LOCK_EX` lock on it. This has two effects: first of all, in case
 `systemd-udevd` is still processing the device the tool will wait for it to
-finish. Second, after the lock is taken, it can be sure that
-`systemd-udevd` will refrain from processing the block device, and thus all
-other client applications subscribed to it won't get device notifications from
-potentially half-written data either. After the operation is complete the
+finish. Second, after the lock is taken, it can be sure that `systemd-udevd`
+will refrain from processing the block device, and thus all other client
+applications subscribed to it won't get device notifications from potentially
+half-written data either. After the operation is complete the
 partitioner/formatter can simply close the device node. This has two effects:
 it implicitly releases the lock, so that `systemd-udevd` can process events on
-the device node again. Secondly, it results an `IN_CLOSE` event, which causes
-`systemd-udevd` to immediately re-process the device — seeing all changes the
-tool made — and notify subscribed clients about it.
+the device node again. Secondly, it results an `IN_CLOSE_WRITE` event, which
+causes `systemd-udevd` to immediately re-process the device — seeing all
+changes the tool made — and notify subscribed clients about it.
+
+Ideally, `systemd-udevd` would explicitly watch block devices for `LOCK_EX`
+locks being released. Such monitoring is not supported on Linux however, which
+is why it watches for `IN_CLOSE_WRITE` instead, i.e. for `close()` calls to
+writable file descriptors referring to the block device. In almost all cases,
+the difference between these two events does not matter much, as any locks
+taken are implicitly released by `close()`. However, it should be noted that if
+an application unlocks a device after completing its work without closing it,
+i.e. while keeping the file descriptor open for further, longer time, then
+`systemd-udevd` will not notice this and not retrigger and thus reprobe the
+device.
 
 Besides synchronizing block device access between `systemd-udevd` and such
 tools this scheme may also be used to synchronize access between those tools
