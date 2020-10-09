@@ -34,12 +34,6 @@ sources = files('''
         sd-dhcp6-lease.c
         dhcp-identifier.h
         dhcp-identifier.c
-        lldp-internal.h
-        lldp-network.h
-        lldp-network.c
-        lldp-neighbor.h
-        lldp-neighbor.c
-        sd-lldp.c
 '''.split())
 
 network_internal_h = files('network-internal.h')

@@ -33,8 +33,8 @@ fuzzers += [
          []],
 
         [['src/fuzz/fuzz-lldp.c'],
-         [libshared,
-          libsystemd_network],
+         [libbasic,libshared_static,libsystemd_static
+          ],
          []],
 
         [['src/fuzz/fuzz-ndisc-rs.c',
@@ -43,8 +43,9 @@ fuzzers += [
           'src/libsystemd-network/icmp6-util.h',
           'src/systemd/sd-dhcp6-client.h',
           'src/systemd/sd-ndisc.h'],
-         [libshared,
-          libsystemd_network],
+         [libsystemd_network,
+          libshared
+          ],
          []],
 
         [['src/fuzz/fuzz-json.c'],
