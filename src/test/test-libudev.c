@@ -106,7 +106,7 @@ static void test_device_parents(struct udev *udev, const char *syspath) {
 
         log_info("/* %s, device %s */", __func__, syspath);
         device = udev_device_new_from_syspath(udev, syspath);
-        if (device == NULL)
+        if (!device)
                 return;
 
         log_info("looking at parents");
@@ -142,7 +142,7 @@ static void test_device_subsys_name(struct udev *udev, const char *subsys, const
 
         log_info("looking up device: '%s:%s'", subsys, dev);
         device = udev_device_new_from_subsystem_sysname(udev, subsys, dev);
-        if (device == NULL)
+        if (!device)
                 log_warning_errno(errno, "udev_device_new_from_subsystem_sysname: %m");
         else
                 print_device(device);
@@ -213,7 +213,7 @@ static void test_monitor(struct udev *udev) {
                 for (i = 0; i < fdcount; i++) {
                         if (ev[i].data.fd == fd_udev && ev[i].events & EPOLLIN) {
                                 device = udev_monitor_receive_device(udev_monitor);
-                                if (device == NULL) {
+                                if (!device) {
                                         printf("no device from socket\n");
                                         continue;
                                 }

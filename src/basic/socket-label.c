@@ -129,8 +129,5 @@ int socket_address_listen(
         if (p)
                 (void) touch(p);
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }

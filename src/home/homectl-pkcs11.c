@@ -77,7 +77,9 @@ static int acquire_pkcs11_certificate(
 
         r = pkcs11_find_token(uri, pkcs11_callback, &data);
         if (r == -EAGAIN) /* pkcs11_find_token() doesn't log about this error, but all others */
-                return log_error_errno(ENXIO, "Specified PKCS#11 token with URI '%s' not found.", uri);
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "Specified PKCS#11 token with URI '%s' not found.",
+                                       uri);
         if (r < 0)
                 return r;
 
@@ -86,7 +88,8 @@ static int acquire_pkcs11_certificate(
 
         return 0;
 #else
-        return log_error_errno(EOPNOTSUPP, "PKCS#11 tokens not supported on this build.");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "PKCS#11 tokens not supported on this build.");
 #endif
 }
 
@@ -415,7 +418,8 @@ int list_pkcs11_tokens(void) {
 
         return 0;
 #else
-        return log_error_errno(EOPNOTSUPP, "PKCS#11 tokens not supported on this build.");
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "PKCS#11 tokens not supported on this build.");
 #endif
 }
 

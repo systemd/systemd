@@ -258,10 +258,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup_service();
 
-        if (argc > 2) {
-                log_error("This program expects one or no arguments.");
-                return -EINVAL;
-        }
+        if (argc > 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program expects one or no arguments.");
 
         umask(0022);
 
@@ -284,10 +283,10 @@ static int run(int argc, char *argv[]) {
                 if (stat(device, &st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", device);
 
-                if (!S_ISBLK(st.st_mode)) {
-                        log_error("%s is not a block device.", device);
-                        return -EINVAL;
-                }
+                if (!S_ISBLK(st.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "%s is not a block device.",
+                                               device);
 
                 r = sd_device_new_from_devnum(&dev, 'b', st.st_rdev);
                 if (r < 0)

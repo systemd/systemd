@@ -23,10 +23,10 @@ static void test_pool(struct in_addr *address, unsigned size, int ret) {
 static int test_basic(sd_event *event) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address_lo = {
-                .s_addr = htonl(INADDR_LOOPBACK),
+                .s_addr = htobe32(INADDR_LOOPBACK),
         };
         struct in_addr address_any = {
-                .s_addr = htonl(INADDR_ANY),
+                .s_addr = htobe32(INADDR_ANY),
         };
         int r;
 
@@ -105,7 +105,7 @@ static void test_message_handler(void) {
                 .end = SD_DHCP_OPTION_END,
         };
         struct in_addr address_lo = {
-                .s_addr = htonl(INADDR_LOOPBACK),
+                .s_addr = htobe32(INADDR_LOOPBACK),
         };
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);

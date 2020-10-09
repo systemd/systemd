@@ -1500,9 +1500,9 @@ int bus_cgroup_set_property(
                                         LIST_PREPEND(device_allow, c->device_allow, a);
                                 }
 
-                                a->r = !!strchr(rwm, 'r');
-                                a->w = !!strchr(rwm, 'w');
-                                a->m = !!strchr(rwm, 'm');
+                                a->r = strchr(rwm, 'r');
+                                a->w = strchr(rwm, 'w');
+                                a->m = strchr(rwm, 'm');
                         }
 
                         n++;

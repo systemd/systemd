@@ -353,7 +353,7 @@ static int save_external_coredump(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse resource limit '%s': %m",
                                        context->meta[META_ARGV_RLIMIT]);
-        if (rlimit < page_size()) {
+        if (rlimit < page_size())
                 /* Is coredumping disabled? Then don't bother saving/processing the
                  * coredump.  Anything below PAGE_SIZE cannot give a readable coredump
                  * (the kernel uses ELF_EXEC_PAGESIZE which is not easily accessible, but
@@ -361,7 +361,6 @@ static int save_external_coredump(
                 return log_info_errno(SYNTHETIC_ERRNO(EBADSLT),
                                       "Resource limits disable core dumping for process %s (%s).",
                                       context->meta[META_ARGV_PID], context->meta[META_COMM]);
-        }
 
         process_limit = MAX(arg_process_size_max, storage_size_max());
         if (process_limit == 0)

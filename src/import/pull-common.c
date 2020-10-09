@@ -389,10 +389,9 @@ int pull_verify(PullJob *main_job,
 
         assert(checksum_job->state == PULL_JOB_DONE);
 
-        if (!checksum_job->payload || checksum_job->payload_size <= 0) {
-                log_error("Checksum is empty, cannot verify.");
-                return -EBADMSG;
-        }
+        if (!checksum_job->payload || checksum_job->payload_size <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Checksum is empty, cannot verify.");
 
         r = verify_one(checksum_job, main_job);
         if (r < 0)
@@ -414,10 +413,9 @@ int pull_verify(PullJob *main_job,
 
         assert(signature_job->state == PULL_JOB_DONE);
 
-        if (!signature_job->payload || signature_job->payload_size <= 0) {
-                log_error("Signature is empty, cannot verify.");
-                return -EBADMSG;
-        }
+        if (!signature_job->payload || signature_job->payload_size <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Signature is empty, cannot verify.");
 
         r = pipe2(gpg_pipe, O_CLOEXEC);
         if (r < 0)

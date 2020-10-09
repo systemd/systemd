@@ -285,8 +285,7 @@ static void* client1(void *p) {
         assert_se(streq(hello, "hello"));
 
         if (pipe2(pp, O_CLOEXEC|O_NONBLOCK) < 0) {
-                log_error_errno(errno, "Failed to allocate pipe: %m");
-                r = -errno;
+                r = log_error_errno(errno, "Failed to allocate pipe: %m");
                 goto finish;
         }
 

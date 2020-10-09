@@ -97,15 +97,15 @@ static int dnssd_service_load(Manager *manager, const char *filename) {
         if (r < 0)
                 return r;
 
-        if (!service->name_template) {
-                log_error("%s doesn't define service instance name", service->name);
-                return -EINVAL;
-        }
+        if (!service->name_template)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s doesn't define service instance name",
+                                       service->name);
 
-        if (!service->type) {
-                log_error("%s doesn't define service type", service->name);
-                return -EINVAL;
-        }
+        if (!service->type)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s doesn't define service type",
+                                       service->name);
 
         if (LIST_IS_EMPTY(service->txt_data_items)) {
                 txt_data = new0(DnssdTxtData, 1);

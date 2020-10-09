@@ -1248,8 +1248,7 @@ static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
                 }
         }
 
-        *ret = expanded_patterns;
-        expanded_patterns = NULL; /* do not free */
+        *ret = TAKE_PTR(expanded_patterns); /* do not free */
 
         return 0;
 }

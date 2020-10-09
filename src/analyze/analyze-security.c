@@ -2185,10 +2185,10 @@ int analyze_security(sd_bus *bus, char **units, AnalyzeSecurityFlags flags) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to mangle unit name '%s': %m", *i);
 
-                        if (!endswith(mangled, ".service")) {
-                                log_error("Unit %s is not a service unit, refusing.", *i);
-                                return -EINVAL;
-                        }
+                        if (!endswith(mangled, ".service"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unit %s is not a service unit, refusing.",
+                                                       *i);
 
                         if (unit_name_is_valid(mangled, UNIT_NAME_TEMPLATE)) {
                                 r = unit_name_replace_instance(mangled, "test-instance", &instance);

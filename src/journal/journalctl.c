@@ -199,10 +199,9 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
         assert(j);
         assert(devpath);
 
-        if (!path_startswith(devpath, "/dev/")) {
-                log_error("Devpath does not start with /dev/");
-                return -EINVAL;
-        }
+        if (!path_startswith(devpath, "/dev/"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Devpath does not start with /dev/");
 
         if (stat(devpath, &st) < 0)
                 return log_error_errno(errno, "Couldn't stat file: %m");
@@ -1055,35 +1054,30 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_follow && !arg_no_tail && !arg_since && arg_lines == ARG_LINES_DEFAULT)
                 arg_lines = 10;
 
-        if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root + !!arg_image > 1) {
-                log_error("Please specify at most one of -D/--directory=, --file=, -M/--machine=, --root=, --image=.");
-                return -EINVAL;
-        }
+        if (!!arg_directory + !!arg_file + !!arg_machine + !!arg_root + !!arg_image > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify at most one of -D/--directory=, --file=, -M/--machine=, --root=, --image=.");
 
-        if (arg_since_set && arg_until_set && arg_since > arg_until) {
-                log_error("--since= must be before --until=.");
-                return -EINVAL;
-        }
+        if (arg_since_set && arg_until_set && arg_since > arg_until)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--since= must be before --until=.");
 
-        if (!!arg_cursor + !!arg_after_cursor + !!arg_since_set > 1) {
-                log_error("Please specify only one of --since=, --cursor=, and --after-cursor.");
-                return -EINVAL;
-        }
+        if (!!arg_cursor + !!arg_after_cursor + !!arg_since_set > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify only one of --since=, --cursor=, and --after-cursor.");
 
-        if (arg_follow && arg_reverse) {
-                log_error("Please specify either --reverse= or --follow=, not both.");
-                return -EINVAL;
-        }
+        if (arg_follow && arg_reverse)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify either --reverse= or --follow=, not both.");
 
-        if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && optind < argc) {
-                log_error("Extraneous arguments starting with '%s'", argv[optind]);
-                return -EINVAL;
-        }
+        if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Extraneous arguments starting with '%s'",
+                                       argv[optind]);
 
-        if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge) {
-                log_error("Using --boot or --list-boots with --merge is not supported.");
-                return -EINVAL;
-        }
+        if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Using --boot or --list-boots with --merge is not supported.");
 
         if (!strv_isempty(arg_system_units) && arg_journal_type == SD_JOURNAL_CURRENT_USER) {
                 /* Specifying --user and --unit= at the same time makes no sense (as the former excludes the user
@@ -1921,7 +1915,8 @@ static int setup_keys(void) {
                         "Please write down the following %ssecret verification key%s. It should be stored\n"
                         "in a safe location and should not be saved locally on disk.\n"
                         "\n\t%s",
-                        hn ?: "", hn ? "/" : "", SD_ID128_FORMAT_VAL(machine),
+                        strempty(hn), hn ? "/" : "",
+                        SD_ID128_FORMAT_VAL(machine),
                         ansi_highlight(), ansi_normal(),
                         p,
                         format_timespan(tsb, sizeof(tsb), arg_interval, 0),
@@ -2476,7 +2471,7 @@ int main(int argc, char *argv[]) {
                                 after_cursor = true;
                         }
                 } else
-                        after_cursor = !!arg_after_cursor;
+                        after_cursor = arg_after_cursor;
 
                 if (cursor) {
                         r = sd_journal_seek_cursor(j, cursor);

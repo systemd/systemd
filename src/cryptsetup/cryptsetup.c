@@ -832,10 +832,9 @@ static int run(int argc, char *argv[]) {
         if (argc <= 1)
                 return help();
 
-        if (argc < 3) {
-                log_error("This program requires at least two arguments.");
-                return -EINVAL;
-        }
+        if (argc < 3)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program requires at least two arguments.");
 
         log_setup_service();
 

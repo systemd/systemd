@@ -1064,13 +1064,11 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option code.");
                 }
 
-        if (optind < argc && getpid_cached() != 1) {
+        if (optind < argc && getpid_cached() != 1)
                 /* Hmm, when we aren't run as init system
                  * let's complain about excess arguments */
-
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Excess arguments.");
-        }
 
         return 0;
 }

@@ -1336,7 +1336,7 @@ static int start_transient_service(
                         if (c.cpu_usage_nsec != NSEC_INFINITY) {
                                 char ts[FORMAT_TIMESPAN_MAX];
                                 log_info("CPU time consumed: %s",
-                                         format_timespan(ts, sizeof ts, (c.cpu_usage_nsec + NSEC_PER_USEC - 1) / NSEC_PER_USEC, USEC_PER_MSEC));
+                                         format_timespan(ts, sizeof ts, DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
                         }
 
                         if (c.ip_ingress_bytes != UINT64_MAX) {

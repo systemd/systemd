@@ -4201,7 +4201,7 @@ static void service_bus_name_owner_change(Unit *u, const char *new_owner) {
         else
                 log_unit_debug(u, "D-Bus name %s now not owned by anyone.", s->bus_name);
 
-        s->bus_name_good = !!new_owner;
+        s->bus_name_good = new_owner;
 
         /* Track the current owner, so we can reconstruct changes after a daemon reload */
         r = free_and_strdup(&s->bus_name_owner, new_owner);

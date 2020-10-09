@@ -49,10 +49,9 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         int r;
 
         url = argv[1];
-        if (!http_url_is_valid(url)) {
-                log_error("URL '%s' is not valid.", url);
-                return -EINVAL;
-        }
+        if (!http_url_is_valid(url))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "URL '%s' is not valid.", url);
 
         if (argc >= 3)
                 local = argv[2];
@@ -73,10 +72,10 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local image name '%s' is not valid.", local);
-                        return -EINVAL;
-                }
+                if (!machine_name_is_valid(local))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Local image name '%s' is not valid.",
+                                               local);
 
                 if (!arg_force) {
                         r = image_find(IMAGE_MACHINE, local, NULL);
@@ -84,8 +83,9 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
                         } else {
-                                log_error("Image '%s' already exists.", local);
-                                return -EEXIST;
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Image '%s' already exists.",
+                                                       local);
                         }
                 }
 
@@ -135,10 +135,9 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         int r;
 
         url = argv[1];
-        if (!http_url_is_valid(url)) {
-                log_error("URL '%s' is not valid.", url);
-                return -EINVAL;
-        }
+        if (!http_url_is_valid(url))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "URL '%s' is not valid.", url);
 
         if (argc >= 3)
                 local = argv[2];
@@ -159,10 +158,10 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local image name '%s' is not valid.", local);
-                        return -EINVAL;
-                }
+                if (!machine_name_is_valid(local))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Local image name '%s' is not valid.",
+                                               local);
 
                 if (!arg_force) {
                         r = image_find(IMAGE_MACHINE, local, NULL);
@@ -170,8 +169,9 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
                         } else {
-                                log_error("Image '%s' already exists.", local);
-                                return -EEXIST;
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Image '%s' already exists.",
+                                                       local);
                         }
                 }
 

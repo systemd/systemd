@@ -762,10 +762,9 @@ int config_parse_dhcp_send_option(
         }
         case DHCP_OPTION_DATA_STRING:
                 sz = cunescape(p, UNESCAPE_ACCEPT_NUL, &q);
-                if (sz < 0) {
+                if (sz < 0)
                         log_syntax(unit, LOG_WARNING, filename, line, sz,
                                    "Failed to decode DHCP option data, ignoring assignment: %s", p);
-                }
 
                 udata = q;
                 break;

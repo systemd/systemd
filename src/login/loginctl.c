@@ -545,8 +545,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                 printf("\t    Unit: %s\n", i.scope);
                 show_unit_cgroup(bus, "org.freedesktop.systemd1.Scope", i.scope, i.leader);
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL) {
-
+                if (arg_transport == BUS_TRANSPORT_LOCAL)
                         show_journal_by_unit(
                                         stdout,
                                         i.scope,
@@ -560,7 +559,6 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
                                         SD_JOURNAL_LOCAL_ONLY,
                                         true,
                                         NULL);
-                }
         }
 
         return 0;

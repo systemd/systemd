@@ -923,10 +923,9 @@ static int umount_by_device(sd_bus *bus, const char *what) {
         if (stat(what, &st) < 0)
                 return log_error_errno(errno, "Can't stat %s: %m", what);
 
-        if (!S_ISBLK(st.st_mode)) {
-                log_error("Not a block device: %s", what);
-                return -ENOTBLK;
-        }
+        if (!S_ISBLK(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK),
+                                       "Not a block device: %s", what);
 
         r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
         if (r < 0)
@@ -1249,10 +1248,10 @@ static int discover_loop_backing_file(void) {
                 escaped = xescape(basename(arg_mount_what), "\\");
                 if (!escaped)
                         return log_oom();
-                if (!filename_is_valid(escaped)) {
-                        log_error("Escaped name %s is not a valid filename.", escaped);
-                        return -EINVAL;
-                }
+                if (!filename_is_valid(escaped))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Escaped name %s is not a valid filename.",
+                                               escaped);
 
                 arg_mount_where = path_join("/run/media/system", escaped);
                 if (!arg_mount_where)
@@ -1265,10 +1264,9 @@ static int discover_loop_backing_file(void) {
         if (stat(loop_dev, &st) < 0)
                 return log_error_errno(errno, "Can't stat %s: %m", loop_dev);
 
-        if (!S_ISBLK(st.st_mode)) {
-                log_error("Invalid file type: %s", loop_dev);
-                return -EINVAL;
-        }
+        if (!S_ISBLK(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid file type: %s", loop_dev);
 
         r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
         if (r < 0)
@@ -1309,19 +1307,19 @@ static int discover_device(void) {
         if (S_ISREG(st.st_mode))
                 return discover_loop_backing_file();
 
-        if (!S_ISBLK(st.st_mode)) {
-                log_error("Invalid file type: %s", arg_mount_what);
-                return -EINVAL;
-        }
+        if (!S_ISBLK(st.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid file type: %s",
+                                       arg_mount_what);
 
         r = sd_device_new_from_devnum(&d, 'b', st.st_rdev);
         if (r < 0)
                 return log_error_errno(r, "Failed to get device from device number: %m");
 
-        if (sd_device_get_property_value(d, "ID_FS_USAGE", &v) < 0 || !streq(v, "filesystem")) {
-                log_error("%s does not contain a known file system.", arg_mount_what);
-                return -EINVAL;
-        }
+        if (sd_device_get_property_value(d, "ID_FS_USAGE", &v) < 0 || !streq(v, "filesystem"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s does not contain a known file system.",
+                                       arg_mount_what);
 
         r = acquire_mount_type(d);
         if (r < 0)
@@ -1462,10 +1460,10 @@ static int run(int argc, char* argv[]) {
                 return action_umount(bus, argc, argv);
 
         if ((!arg_mount_type || fstype_is_blockdev_backed(arg_mount_type))
-            && !path_is_normalized(arg_mount_what)) {
-                log_error("Path contains non-normalized components: %s", arg_mount_what);
-                return -EINVAL;
-        }
+            && !path_is_normalized(arg_mount_what))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path contains non-normalized components: %s",
+                                       arg_mount_what);
 
         if (arg_discover) {
                 r = discover_device();
@@ -1473,20 +1471,19 @@ static int run(int argc, char* argv[]) {
                         return r;
         }
 
-        if (!arg_mount_where) {
-                log_error("Can't figure out where to mount %s.", arg_mount_what);
-                return -EINVAL;
-        }
+        if (!arg_mount_where)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Can't figure out where to mount %s.",
+                                       arg_mount_what);
 
-        if (path_equal(arg_mount_where, "/")) {
-                log_error("Refusing to operate on root directory.");
-                return -EINVAL;
-        }
+        if (path_equal(arg_mount_where, "/"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Refusing to operate on root directory.");
 
-        if (!path_is_normalized(arg_mount_where)) {
-                log_error("Path contains non-normalized components: %s", arg_mount_where);
-                return -EINVAL;
-        }
+        if (!path_is_normalized(arg_mount_where))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Path contains non-normalized components: %s",
+                                       arg_mount_where);
 
         if (streq_ptr(arg_mount_type, "auto"))
                 arg_mount_type = mfree(arg_mount_type);
@@ -1516,11 +1513,10 @@ static int run(int argc, char* argv[]) {
         if (arg_mount_type &&
             !streq(arg_mount_type, "auto") &&
             arg_uid != UID_INVALID &&
-            !fstype_can_uid_gid(arg_mount_type)) {
-                log_error("File system type %s is not known to support uid=/gid=, refusing.",
-                          arg_mount_type);
-                return -EOPNOTSUPP;
-        }
+            !fstype_can_uid_gid(arg_mount_type))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "File system type %s is not known to support uid=/gid=, refusing.",
+                                       arg_mount_type);
 
         switch (arg_action) {
 

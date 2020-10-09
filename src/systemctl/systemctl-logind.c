@@ -187,11 +187,10 @@ int logind_check_inhibitors(enum action a) {
         if (c <= 0)
                 return 0;
 
-        log_error("Please retry operation after closing inhibitors and logging out other users.\n"
-                  "Alternatively, ignore inhibitors and users with 'systemctl %s -i'.",
-                  action_table[a].verb);
-
-        return -EPERM;
+        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                               "Please retry operation after closing inhibitors and logging out other users.\n"
+                               "Alternatively, ignore inhibitors and users with 'systemctl %s -i'.",
+                               action_table[a].verb);
 #else
         return 0;
 #endif

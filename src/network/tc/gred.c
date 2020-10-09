@@ -123,11 +123,10 @@ int config_parse_generic_random_early_detection_u32(
                 return 0;
         }
 
-        if (v > MAX_DPs) {
+        if (v > MAX_DPs)
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid '%s=', ignoring assignment: %s",
                            lvalue, rvalue);
-        }
 
         *p = v;
         qdisc = NULL;

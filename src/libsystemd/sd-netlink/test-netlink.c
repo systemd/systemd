@@ -139,7 +139,7 @@ static void test_route(sd_netlink *rtnl) {
                 return;
         }
 
-        addr.s_addr = htonl(INADDR_LOOPBACK);
+        addr.s_addr = htobe32(INADDR_LOOPBACK);
 
         r = sd_netlink_message_append_in_addr(req, RTA_GATEWAY, &addr);
         if (r < 0) {

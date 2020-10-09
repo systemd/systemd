@@ -160,8 +160,7 @@ int khash_new_with_key(khash **ret, const char *algorithm, const void *key, size
         /* Temporary fix for rc kernel bug: https://bugzilla.redhat.com/show_bug.cgi?id=1395896 */
         (void) send(h->fd, NULL, 0, 0);
 
-        *ret = h;
-        h = NULL;
+        *ret = TAKE_PTR(h);
 
         return 0;
 }

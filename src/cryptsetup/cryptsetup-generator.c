@@ -378,14 +378,13 @@ static int create_disk(
                 else
                         fprintf(f, "Requires=%s\n", unit);
 
-                if (umount_unit) {
+                if (umount_unit)
                         fprintf(f,
                                 "Wants=%s\n"
                                 "Before=%s\n",
                                 umount_unit,
                                 umount_unit
                         );
-                }
         }
 
         if (!nofail)

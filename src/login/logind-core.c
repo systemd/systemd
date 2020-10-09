@@ -21,6 +21,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stdio-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
@@ -533,7 +534,7 @@ int manager_spawn_autovt(Manager *m, unsigned vtnr) {
                         return -EBUSY;
         }
 
-        snprintf(name, sizeof(name), "autovt@tty%u.service", vtnr);
+        xsprintf(name, "autovt@tty%u.service", vtnr);
         r = sd_bus_call_method(
                         m->bus,
                         "org.freedesktop.systemd1",
