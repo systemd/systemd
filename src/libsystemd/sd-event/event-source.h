@@ -57,6 +57,7 @@ struct sd_event_source {
 
         EventSourceType type:5;
         signed int enabled:3;
+        signed int enabled_client:3;
         bool pending:1;
         bool dispatching:1;
         bool floating:1;

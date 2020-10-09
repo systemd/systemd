@@ -1008,7 +1008,7 @@ _public_ int sd_event_add_io(
         s->io.events = events;
         s->io.callback = callback;
         s->userdata = userdata;
-        s->enabled = SD_EVENT_ON;
+        s->enabled_client = s->enabled = SD_EVENT_ON;
 
         r = source_io_register(s, s->enabled, events);
         if (r < 0)
@@ -1135,7 +1135,7 @@ _public_ int sd_event_add_time(
         s->time.callback = callback;
         s->time.earliest_index = s->time.latest_index = PRIOQ_IDX_NULL;
         s->userdata = userdata;
-        s->enabled = SD_EVENT_ONESHOT;
+        s->enabled_client = s->enabled = SD_EVENT_ONESHOT;
 
         d->needs_rearm = true;
 
@@ -1225,7 +1225,7 @@ _public_ int sd_event_add_signal(
         s->signal.sig = sig;
         s->signal.callback = callback;
         s->userdata = userdata;
-        s->enabled = SD_EVENT_ON;
+        s->enabled_client = s->enabled = SD_EVENT_ON;
 
         e->signal_sources[sig] = s;
 
@@ -1306,7 +1306,7 @@ _public_ int sd_event_add_child(
         s->child.options = options;
         s->child.callback = callback;
         s->userdata = userdata;
-        s->enabled = SD_EVENT_ONESHOT;
+        s->enabled_client = s->enabled = SD_EVENT_ONESHOT;
 
         /* We always take a pidfd here if we can, even if we wait for anything else than WEXITED, so that we
          * pin the PID, and make regular waitid() handling race-free. */
@@ -1409,7 +1409,7 @@ _public_ int sd_event_add_child_pidfd(
         s->child.callback = callback;
         s->child.pidfd_owned = false; /* If we got the pidfd passed in we don't own it by default (similar to the IO fd case) */
         s->userdata = userdata;
-        s->enabled = SD_EVENT_ONESHOT;
+        s->enabled_client = s->enabled = SD_EVENT_ONESHOT;
 
         r = hashmap_put(e->child_sources, PID_TO_PTR(pid), s);
         if (r < 0)
@@ -1473,7 +1473,7 @@ _public_ int sd_event_add_defer(
 
         s->defer.callback = callback;
         s->userdata = userdata;
-        s->enabled = SD_EVENT_ONESHOT;
+        s->enabled_client = s->enabled = SD_EVENT_ONESHOT;
 
         r = source_set_pending(s, true);
         if (r < 0)
@@ -1549,7 +1549,7 @@ _public_ int sd_event_add_exit(
         s->exit.callback = callback;
         s->userdata = userdata;
         s->exit.prioq_index = PRIOQ_IDX_NULL;
-        s->enabled = SD_EVENT_ONESHOT;
+        s->enabled_client = s->enabled = SD_EVENT_ONESHOT;
 
         r = prioq_put(s->event->exit, s, &s->exit.prioq_index);
         if (r < 0)
@@ -1903,7 +1903,7 @@ _public_ int sd_event_add_inotify(
         if (!s)
                 return -ENOMEM;
 
-        s->enabled = mask & IN_ONESHOT ? SD_EVENT_ONESHOT : SD_EVENT_ON;
+        s->enabled_client = s->enabled = mask & IN_ONESHOT ? SD_EVENT_ONESHOT : SD_EVENT_ON;
         s->inotify.mask = mask;
         s->inotify.callback = callback;
         s->userdata = userdata;
@@ -2238,8 +2238,178 @@ _public_ int sd_event_source_get_enabled(sd_event_source *s, int *m) {
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
         if (m)
-                *m = s->enabled;
-        return s->enabled != SD_EVENT_OFF;
+                *m = s->enabled_client;
+        return s->enabled_client != SD_EVENT_OFF;
+}
+
+static void source_prioq_reshuffle(sd_event_source *s) {
+        assert(s);
+
+        if (s->pending)
+                prioq_reshuffle(s->event->pending, s, &s->pending_index);
+
+        if (s->prepare)
+                prioq_reshuffle(s->event->prepare, s, &s->prepare_index);
+}
+
+static void source_time_prioq_reshuffle(sd_event_source *s, EventSourceType t) {
+        struct clock_data *d;
+
+        assert(IN_SET(t,
+                      SOURCE_TIME_REALTIME,
+                      SOURCE_TIME_BOOTTIME,
+                      SOURCE_TIME_MONOTONIC,
+                      SOURCE_TIME_REALTIME_ALARM,
+                      SOURCE_TIME_BOOTTIME_ALARM));
+
+        d = event_get_clock_data(s->event, s->type);
+        assert(d);
+
+        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
+        prioq_reshuffle(d->latest, s, &s->time.latest_index);
+        d->needs_rearm = true;
+}
+
+static int source_disable(sd_event_source *s) {
+        int r;
+
+        assert(s);
+
+        /* Unset the pending flag when this event source is disabled */
+        if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                r = source_set_pending(s, false);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (s->type) {
+
+        case SOURCE_IO:
+                source_io_unregister(s);
+                break;
+
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM:
+                source_time_prioq_reshuffle(s, s->type);
+                break;
+
+        case SOURCE_SIGNAL:
+                event_gc_signal_data(s->event, &s->priority, s->signal.sig);
+                break;
+
+        case SOURCE_CHILD:
+                assert(s->event->n_enabled_child_sources > 0);
+                s->event->n_enabled_child_sources--;
+
+                if (EVENT_SOURCE_WATCH_PIDFD(s))
+                        source_child_pidfd_unregister(s);
+                else
+                        event_gc_signal_data(s->event, &s->priority, SIGCHLD);
+
+                break;
+
+        case SOURCE_EXIT:
+                prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
+                break;
+
+        case SOURCE_DEFER:
+        case SOURCE_POST:
+        case SOURCE_INOTIFY:
+                break;
+
+        default:
+                assert_not_reached("Wut? I shouldn't exist.");
+        }
+
+        source_prioq_reshuffle(s);
+
+        return 0;
+}
+
+static int source_enable(sd_event_source *s, int m) {
+        int r;
+
+        assert(s);
+        assert(m != SD_EVENT_OFF);
+
+        /* Unset the pending flag when this event source is enabled */
+        if (s->enabled == SD_EVENT_OFF && !IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                r = source_set_pending(s, false);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (s->type) {
+
+        case SOURCE_IO:
+                r = source_io_register(s, m, s->io.events);
+                if (r < 0)
+                        return r;
+                break;
+
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM:
+                source_time_prioq_reshuffle(s, s->type);
+                break;
+
+        case SOURCE_SIGNAL:
+                r = event_make_signal_data(s->event, s->signal.sig, NULL);
+                if (r < 0) {
+                        s->enabled = SD_EVENT_OFF;
+                        event_gc_signal_data(s->event, &s->priority, s->signal.sig);
+                        return r;
+                }
+
+                break;
+
+        case SOURCE_CHILD:
+                if (s->enabled == SD_EVENT_OFF)
+                        s->event->n_enabled_child_sources++;
+
+                if (EVENT_SOURCE_WATCH_PIDFD(s)) {
+                        /* yes, we have pidfd */
+
+                        r = source_child_pidfd_register(s, m);
+                        if (r < 0) {
+                                s->enabled = SD_EVENT_OFF;
+                                s->event->n_enabled_child_sources--;
+                                return r;
+                        }
+                } else {
+                        /* no pidfd, or something other to watch for than WEXITED */
+
+                        r = event_make_signal_data(s->event, SIGCHLD, NULL);
+                        if (r < 0) {
+                                s->enabled = SD_EVENT_OFF;
+                                s->event->n_enabled_child_sources--;
+                                event_gc_signal_data(s->event, &s->priority, SIGCHLD);
+                                return r;
+                        }
+                }
+
+                break;
+
+        case SOURCE_EXIT:
+                prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
+                break;
+
+        case SOURCE_DEFER:
+        case SOURCE_POST:
+        case SOURCE_INOTIFY:
+                break;
+        default:
+                assert_not_reached("Wut? I shouldn't exist.");
+        }
+
+        source_prioq_reshuffle(s);
+
+        return 0;
 }
 
 _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
@@ -2254,176 +2424,15 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         if (s->event->state == SD_EVENT_FINISHED)
                 return m == SD_EVENT_OFF ? 0 : -ESTALE;
 
-        if (s->enabled == m)
+        if (s->enabled_client == m && s->enabled == m)
                 return 0;
 
-        if (m == SD_EVENT_OFF) {
+        s->enabled = m;
+        r = m == SD_EVENT_OFF ? source_disable(s) : source_enable(s, m);
+        if (r < 0)
+                return r;
 
-                /* Unset the pending flag when this event source is disabled */
-                if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
-                        r = source_set_pending(s, false);
-                        if (r < 0)
-                                return r;
-                }
-
-                switch (s->type) {
-
-                case SOURCE_IO:
-                        source_io_unregister(s);
-                        s->enabled = m;
-                        break;
-
-                case SOURCE_TIME_REALTIME:
-                case SOURCE_TIME_BOOTTIME:
-                case SOURCE_TIME_MONOTONIC:
-                case SOURCE_TIME_REALTIME_ALARM:
-                case SOURCE_TIME_BOOTTIME_ALARM: {
-                        struct clock_data *d;
-
-                        s->enabled = m;
-                        d = event_get_clock_data(s->event, s->type);
-                        assert(d);
-
-                        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-                        prioq_reshuffle(d->latest, s, &s->time.latest_index);
-                        d->needs_rearm = true;
-                        break;
-                }
-
-                case SOURCE_SIGNAL:
-                        s->enabled = m;
-
-                        event_gc_signal_data(s->event, &s->priority, s->signal.sig);
-                        break;
-
-                case SOURCE_CHILD:
-                        s->enabled = m;
-
-                        assert(s->event->n_enabled_child_sources > 0);
-                        s->event->n_enabled_child_sources--;
-
-                        if (EVENT_SOURCE_WATCH_PIDFD(s))
-                                source_child_pidfd_unregister(s);
-                        else
-                                event_gc_signal_data(s->event, &s->priority, SIGCHLD);
-
-                        break;
-
-                case SOURCE_EXIT:
-                        s->enabled = m;
-                        prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
-                        break;
-
-                case SOURCE_DEFER:
-                case SOURCE_POST:
-                case SOURCE_INOTIFY:
-                        s->enabled = m;
-                        break;
-
-                default:
-                        assert_not_reached("Wut? I shouldn't exist.");
-                }
-
-        } else {
-
-                /* Unset the pending flag when this event source is enabled */
-                if (s->enabled == SD_EVENT_OFF && !IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
-                        r = source_set_pending(s, false);
-                        if (r < 0)
-                                return r;
-                }
-
-                switch (s->type) {
-
-                case SOURCE_IO:
-                        r = source_io_register(s, m, s->io.events);
-                        if (r < 0)
-                                return r;
-
-                        s->enabled = m;
-                        break;
-
-                case SOURCE_TIME_REALTIME:
-                case SOURCE_TIME_BOOTTIME:
-                case SOURCE_TIME_MONOTONIC:
-                case SOURCE_TIME_REALTIME_ALARM:
-                case SOURCE_TIME_BOOTTIME_ALARM: {
-                        struct clock_data *d;
-
-                        s->enabled = m;
-                        d = event_get_clock_data(s->event, s->type);
-                        assert(d);
-
-                        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-                        prioq_reshuffle(d->latest, s, &s->time.latest_index);
-                        d->needs_rearm = true;
-                        break;
-                }
-
-                case SOURCE_SIGNAL:
-
-                        s->enabled = m;
-
-                        r = event_make_signal_data(s->event, s->signal.sig, NULL);
-                        if (r < 0) {
-                                s->enabled = SD_EVENT_OFF;
-                                event_gc_signal_data(s->event, &s->priority, s->signal.sig);
-                                return r;
-                        }
-
-                        break;
-
-                case SOURCE_CHILD:
-
-                        if (s->enabled == SD_EVENT_OFF)
-                                s->event->n_enabled_child_sources++;
-
-                        s->enabled = m;
-
-                        if (EVENT_SOURCE_WATCH_PIDFD(s)) {
-                                /* yes, we have pidfd */
-
-                                r = source_child_pidfd_register(s, s->enabled);
-                                if (r < 0) {
-                                        s->enabled = SD_EVENT_OFF;
-                                        s->event->n_enabled_child_sources--;
-                                        return r;
-                                }
-                        } else {
-                                /* no pidfd, or something other to watch for than WEXITED */
-
-                                r = event_make_signal_data(s->event, SIGCHLD, NULL);
-                                if (r < 0) {
-                                        s->enabled = SD_EVENT_OFF;
-                                        s->event->n_enabled_child_sources--;
-                                        event_gc_signal_data(s->event, &s->priority, SIGCHLD);
-                                        return r;
-                                }
-                        }
-
-                        break;
-
-                case SOURCE_EXIT:
-                        s->enabled = m;
-                        prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
-                        break;
-
-                case SOURCE_DEFER:
-                case SOURCE_POST:
-                case SOURCE_INOTIFY:
-                        s->enabled = m;
-                        break;
-
-                default:
-                        assert_not_reached("Wut? I shouldn't exist.");
-                }
-        }
-
-        if (s->pending)
-                prioq_reshuffle(s->event->pending, s, &s->pending_index);
-
-        if (s->prepare)
-                prioq_reshuffle(s->event->prepare, s, &s->prepare_index);
+        s->enabled_client = m;
 
         return 0;
 }
