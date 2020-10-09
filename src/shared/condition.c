@@ -5,6 +5,7 @@
 #include <fnmatch.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <time.h>
@@ -450,6 +451,87 @@ static int condition_test_architecture(Condition *c, char **env) {
         return a == b;
 }
 
+#define DTCOMPAT_FILE "/sys/firmware/devicetree/base/compatible"
+static int condition_test_firmware_devicetree_compatible(const char *dtcompatarg) {
+        int err;
+        _cleanup_free_ char *dtcompat = NULL;
+        char *compat;
+        size_t size;
+
+        err = read_full_virtual_file(DTCOMPAT_FILE, &dtcompat, &size);
+        if (err < 0) {
+                /* if the path doens't exist it is incompatible */
+                if (err != -ENOENT)
+                        log_debug_errno(errno, "Failed to open() '%s', assuming machine is incompatible: %m", DTCOMPAT_FILE);
+                return false;
+        }
+
+        /* Not sure this can happen, but play safe. */
+        if (!size) {
+                log_debug("%s has zero length, assuming machine is incompatible", DTCOMPAT_FILE);
+                return false;
+        }
+        /*
+         * /sys/firmware/devicetree/base/compatible consists of one or more
+         * strings, each ending in '\0'. So the last character in dtcompat must
+         * be a '\0'. Parsing the buffer relies on this, so check this first.
+         */
+        if (dtcompat[size - 1] != '\0') {
+                log_debug("%s is in an unknown format, assuming machine is incompatible", DTCOMPAT_FILE);
+                return false;
+        }
+        compat = dtcompat;
+        do {
+                size_t compat_len;
+
+                if (!strcmp(dtcompatarg, compat))
+                        return true;
+
+                compat_len = strlen(compat) + 1;
+
+                assert(size >= compat_len);
+
+                size -= compat_len;
+                compat += compat_len;
+        } while (size);
+
+        return false;
+}
+
+static int condition_test_firmware(Condition *c, char **env) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_FIRMWARE);
+
+        log_error("%s:%d\n", __func__, __LINE__);
+        if (!strcmp(c->parameter, "uefi")) {
+                return is_efi_boot();
+        } else if (!strcmp(c->parameter, "device-tree")) {
+                return access("/sys/firmware/device-tree/", F_OK) >= 0;
+        } else if (!strncmp(c->parameter, "device-tree-compatible(", strlen("device-tree-compatible("))) {
+                _cleanup_free_ char *dtcompatarg = NULL;
+                char *end;
+
+                dtcompatarg = strdup(c->parameter + strlen("device-tree-compatible("));
+                if (!dtcompatarg) {
+                        log_debug("Failed to allocate memory, assuming machine is incompatible");
+                        return false;
+                }
+
+                end = strchr(dtcompatarg, ')');
+                if (!end || *(end + 1) != '\0') {
+                        log_debug("Malformed Firmware condition \"%s\"", c->parameter);
+                        return false;
+                }
+                *end = '\0';
+
+                return condition_test_firmware_devicetree_compatible(dtcompatarg);
+        } else {
+                log_debug("Unsupported Firmware condition \"%s\"", c->parameter);
+                return false;
+        }
+}
+
 static int condition_test_host(Condition *c, char **env) {
         _cleanup_free_ char *h = NULL;
         sd_id128_t x, y;
@@ -843,6 +925,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_HOST]                     = condition_test_host,
                 [CONDITION_AC_POWER]                 = condition_test_ac_power,
                 [CONDITION_ARCHITECTURE]             = condition_test_architecture,
+                [CONDITION_FIRMWARE]                 = condition_test_firmware,
                 [CONDITION_NEEDS_UPDATE]             = condition_test_needs_update,
                 [CONDITION_FIRST_BOOT]               = condition_test_first_boot,
                 [CONDITION_USER]                     = condition_test_user,
@@ -949,6 +1032,7 @@ void condition_dump_list(Condition *first, FILE *f, const char *prefix, conditio
 
 static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE] = "ConditionArchitecture",
+        [CONDITION_FIRMWARE] = "ConditionFirmware",
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
         [CONDITION_HOST] = "ConditionHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
@@ -981,6 +1065,7 @@ DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
 
 static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE] = "AssertArchitecture",
+        [CONDITION_FIRMWARE] = "AssertFirmware",
         [CONDITION_VIRTUALIZATION] = "AssertVirtualization",
         [CONDITION_HOST] = "AssertHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
