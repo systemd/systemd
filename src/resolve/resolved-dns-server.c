@@ -535,7 +535,7 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
         else
                 packet_size = server->received_udp_packet_max;
 
-        return dns_packet_append_opt(packet, packet_size, edns_do, 0, NULL);
+        return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975 = */ true, 0, NULL);
 }
 
 int dns_server_ifindex(const DnsServer *s) {
