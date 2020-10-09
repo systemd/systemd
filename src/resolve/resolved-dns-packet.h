@@ -198,7 +198,7 @@ int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, bool canonica
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, const DnsAnswerFlags flags, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start);
-int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, int rcode, size_t *start);
+int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, bool include_rfc6975, int rcode, size_t *start);
 int dns_packet_append_question(DnsPacket *p, DnsQuestion *q);
 int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a);
 

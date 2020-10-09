@@ -93,7 +93,7 @@ static int dns_stub_finish_reply_packet(
         assert(p);
 
         if (add_opt) {
-                r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, rcode, NULL);
+                r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, /* include_rfc6975 = */ false, rcode, NULL);
                 if (r == -EMSGSIZE) /* Hit the size limit? then indicate truncation */
                         tc = true;
                 else if (r < 0)

@@ -691,7 +691,14 @@ fail:
 }
 
 /* Append the OPT pseudo-RR described in RFC6891 */
-int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, int rcode, size_t *start) {
+int dns_packet_append_opt(
+                DnsPacket *p,
+                uint16_t max_udp_size,
+                bool edns0_do,
+                bool include_rfc6975,
+                int rcode,
+                size_t *start) {
+
         size_t saved_size;
         int r;
 
@@ -734,8 +741,10 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
                 goto fail;
 
         /* RDLENGTH */
-        if (edns0_do && !DNS_PACKET_QR(p)) {
-                /* If DO is on and this is not a reply, also append RFC6975 Algorithm data */
+        if (edns0_do && include_rfc6975) {
+                /* If DO is on and this is requested, also append RFC6975 Algorithm data. This is supposed to
+                 * be done on queries, not on replies, hencer callers should turn this off when finishing off
+                 * replies. */
 
                 static const uint8_t rfc6975[] = {
 
