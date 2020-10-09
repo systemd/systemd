@@ -110,7 +110,6 @@ Features:
 
 * make us use dynamically fewer deps for containers in general purpose distros:
   o turn into dlopen() deps:
-    - libidn2 (always)
     - elfutils (always)
     - p11-kit-trust (always)
     - kmod-libs (only when called from PID 1)
