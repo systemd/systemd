@@ -594,6 +594,7 @@ int route_remove(
 
         if (!manager)
                 manager = link->manager;
+        /* link may be NULL! */
 
         r = sd_rtnl_message_new_route(manager->rtnl, &req,
                                       RTM_DELROUTE, route->family,
@@ -676,6 +677,8 @@ int route_remove(
                 return log_link_error_errno(link, r, "Could not append RTA_PRIORITY attribute: %m");
 
         if (!IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW)) {
+                assert(link); /* Those routes must be attached to a specific link */
+
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTA_OIF attribute: %m");
@@ -687,8 +690,7 @@ int route_remove(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
-        if (link)
-                link_ref(link);
+        link_ref(link); /* link may be NULL, link_ref() is OK with that */
 
         return 0;
 }
