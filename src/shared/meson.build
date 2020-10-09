@@ -117,6 +117,8 @@ shared_sources = files('''
         group-record.h
         id128-print.c
         id128-print.h
+        idn-util.c
+        idn-util.h
         ima-util.c
         ima-util.h
         import-util.c
@@ -355,7 +357,6 @@ libshared_deps = [threads,
                   libcap,
                   libcrypt,
                   libgcrypt,
-                  libidn,
                   libiptc,
                   libkmod,
                   liblz4,

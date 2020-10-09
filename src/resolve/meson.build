@@ -142,7 +142,7 @@ libsystemd_resolve_core = static_library(
 
 systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 
-systemd_resolved_dependencies = [threads, libgpg_error, libm, libidn]
+systemd_resolved_dependencies = [threads, libgpg_error, libm]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
                 systemd_resolved_sources += files('resolved-dnstls-gnutls.c',

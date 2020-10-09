@@ -8,10 +8,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#if HAVE_LIBIDN2
-#include <idn2.h>
-#endif
-
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-polkit.h"
@@ -20,6 +16,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hostname-util.h"
+#include "idn-util.h"
 #include "io-util.h"
 #include "missing_network.h"
 #include "netlink-util.h"
@@ -346,29 +343,38 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Couldn't find a single label in hostname.");
 
-#if HAVE_LIBIDN2
-        r = idn2_to_unicode_8z8z(label, &utf8, 0);
-        if (r != IDN2_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
-                                       "Failed to undo IDNA: %s", idn2_strerror(r));
-        assert(utf8_is_valid(utf8));
-
-        r = strlen(utf8);
-        decoded = utf8;
-#elif HAVE_LIBIDN
-        k = dns_label_undo_idna(label, r, label, sizeof label);
-        if (k < 0)
-                return log_error_errno(k, "Failed to undo IDNA: %m");
-        if (k > 0)
-                r = k;
-
-        if (!utf8_is_valid(label))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "System hostname is not UTF-8 clean.");
-        decoded = label;
-#else
-        decoded = label; /* no decoding */
+#if HAVE_LIBIDN || HAVE_LIBIDN2
+        r = dlopen_idn();
+        if (r < 0) {
+                log_debug_errno(r, "Failed to initialize IDN support, ignoring: %m");
+                decoded = label; /* no decoding */
+        } else
 #endif
+        {
+#if HAVE_LIBIDN2
+                r = sym_idn2_to_unicode_8z8z(label, &utf8, 0);
+                if (r != IDN2_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                               "Failed to undo IDNA: %s", sym_idn2_strerror(r));
+                assert(utf8_is_valid(utf8));
+
+                r = strlen(utf8);
+                decoded = utf8;
+#elif HAVE_LIBIDN
+                k = dns_label_undo_idna(label, r, label, sizeof label);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to undo IDNA: %m");
+                if (k > 0)
+                        r = k;
+
+                if (!utf8_is_valid(label))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "System hostname is not UTF-8 clean.");
+                decoded = label;
+#else
+                decoded = label; /* no decoding */
+#endif
+        }
 
         r = dns_label_escape_new(decoded, r, &n);
         if (r < 0)

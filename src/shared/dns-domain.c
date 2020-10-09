@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#if HAVE_LIBIDN2
-#  include <idn2.h>
-#elif HAVE_LIBIDN
-#  include <idna.h>
-#  include <stringprep.h>
-#endif
-
 #include <endian.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -17,6 +10,7 @@
 #include "hashmap.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "idn-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
 #include "parse-util.h"
@@ -312,11 +306,16 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
         const char *p;
         bool contains_8bit = false;
         char buffer[DNS_LABEL_MAX+1];
+        int r;
 
         assert(encoded);
         assert(decoded);
 
         /* Converts an U-label into an A-label */
+
+        r = dlopen_idn();
+        if (r < 0)
+                return r;
 
         if (encoded_size <= 0)
                 return -EINVAL;
@@ -332,11 +331,11 @@ int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded
                 return 0;
         }
 
-        input = stringprep_utf8_to_ucs4(encoded, encoded_size, &input_size);
+        input = sym_stringprep_utf8_to_ucs4(encoded, encoded_size, &input_size);
         if (!input)
                 return -ENOMEM;
 
-        if (idna_to_ascii_4i(input, input_size, buffer, 0) != 0)
+        if (sym_idna_to_ascii_4i(input, input_size, buffer, 0) != 0)
                 return -EINVAL;
 
         l = strlen(buffer);
@@ -362,11 +361,16 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
         _cleanup_free_ char *result = NULL;
         uint32_t *output = NULL;
         size_t w;
+        int r;
 
         /* To be invoked after unescaping. Converts an A-label into an U-label. */
 
         assert(encoded);
         assert(decoded);
+
+        r = dlopen_idn();
+        if (r < 0)
+                return r;
 
         if (encoded_size <= 0 || encoded_size > DNS_LABEL_MAX)
                 return -EINVAL;
@@ -374,16 +378,16 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
         if (!memory_startswith(encoded, encoded_size, IDNA_ACE_PREFIX))
                 return 0;
 
-        input = stringprep_utf8_to_ucs4(encoded, encoded_size, &input_size);
+        input = sym_stringprep_utf8_to_ucs4(encoded, encoded_size, &input_size);
         if (!input)
                 return -ENOMEM;
 
         output_size = input_size;
         output = newa(uint32_t, output_size);
 
-        idna_to_unicode_44i(input, input_size, output, &output_size, 0);
+        sym_idna_to_unicode_44i(input, input_size, output, &output_size, 0);
 
-        result = stringprep_ucs4_to_utf8(output, output_size, NULL, &w);
+        result = sym_stringprep_ucs4_to_utf8(output, output_size, NULL, &w);
         if (!result)
                 return -ENOMEM;
         if (w <= 0)
@@ -1266,26 +1270,38 @@ int dns_name_common_suffix(const char *a, const char *b, const char **ret) {
 }
 
 int dns_name_apply_idna(const char *name, char **ret) {
+
         /* Return negative on error, 0 if not implemented, positive on success. */
 
-#if HAVE_LIBIDN2
+#if HAVE_LIBIDN2 || HAVE_LIBIDN2
         int r;
+
+        r = dlopen_idn();
+        if (r == EOPNOTSUPP) {
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return r;
+#endif
+
+#if HAVE_LIBIDN2
         _cleanup_free_ char *t = NULL;
 
         assert(name);
         assert(ret);
 
-        r = idn2_lookup_u8((uint8_t*) name, (uint8_t**) &t,
-                           IDN2_NFC_INPUT | IDN2_NONTRANSITIONAL);
+        r = sym_idn2_lookup_u8((uint8_t*) name, (uint8_t**) &t,
+                               IDN2_NFC_INPUT | IDN2_NONTRANSITIONAL);
         log_debug("idn2_lookup_u8: %s → %s", name, t);
         if (r == IDN2_OK) {
                 if (!startswith(name, "xn--")) {
                         _cleanup_free_ char *s = NULL;
 
-                        r = idn2_to_unicode_8z8z(t, &s, 0);
+                        r = sym_idn2_to_unicode_8z8z(t, &s, 0);
                         if (r != IDN2_OK) {
                                 log_debug("idn2_to_unicode_8z8z(\"%s\") failed: %d/%s",
-                                          t, r, idn2_strerror(r));
+                                          t, r, sym_idn2_strerror(r));
                                 return 0;
                         }
 
@@ -1301,7 +1317,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
                 return 1; /* *ret has been written */
         }
 
-        log_debug("idn2_lookup_u8(\"%s\") failed: %d/%s", name, r, idn2_strerror(r));
+        log_debug("idn2_lookup_u8(\"%s\") failed: %d/%s", name, r, sym_idn2_strerror(r));
         if (r == IDN2_2HYPHEN)
                 /* The name has two hyphens — forbidden by IDNA2008 in some cases */
                 return 0;
@@ -1358,6 +1374,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
 
         return 1;
 #else
+        *ret = NULL;
         return 0;
 #endif
 }
