@@ -1618,13 +1618,12 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                if (ns_info->private_dev) {
+                if (ns_info->private_dev)
                         *(m++) = (MountEntry) {
                                 .path_const = "/dev",
                                 .mode = PRIVATE_DEV,
                                 .flags = DEV_MOUNT_OPTIONS,
                         };
-                }
 
                 if (ns_info->protect_kernel_tunables) {
                         r = append_static_mounts(&m,
@@ -1653,12 +1652,11 @@ int setup_namespace(
                                 goto finish;
                 }
 
-                if (ns_info->protect_control_groups) {
+                if (ns_info->protect_control_groups)
                         *(m++) = (MountEntry) {
                                 .path_const = "/sys/fs/cgroup",
                                 .mode = READONLY,
                         };
-                }
 
                 r = append_protect_home(&m, ns_info->protect_home, ns_info->ignore_protect_paths);
                 if (r < 0)

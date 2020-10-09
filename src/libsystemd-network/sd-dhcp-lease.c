@@ -1233,9 +1233,8 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 if (!a)
                         return -ENOMEM;
 
-                if (!strv_isempty(a)) {
+                if (!strv_isempty(a))
                         lease->search_domains = TAKE_PTR(a);
-                }
         }
 
         if (routes) {

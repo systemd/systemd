@@ -908,13 +908,11 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         if (r == 0 && k == 0) /* No actual cname happened? */
                 return -ELOOP;
 
-        if (q->answer_protocol == DNS_PROTOCOL_DNS) {
+        if (q->answer_protocol == DNS_PROTOCOL_DNS)
                 /* Don't permit CNAME redirects from unicast DNS to LLMNR or MulticastDNS, so that global resources
                  * cannot invade the local namespace. The opposite way we permit: local names may redirect to global
                  * ones. */
-
                 q->flags &= ~(SD_RESOLVED_LLMNR|SD_RESOLVED_MDNS); /* mask away the local protocols */
-        }
 
         /* Turn off searching for the new name */
         q->flags |= SD_RESOLVED_NO_SEARCH;

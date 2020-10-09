@@ -473,15 +473,13 @@ int pty_forward_new(
 
         f->master = master;
 
-        if (ioctl(f->output_fd, TIOCGWINSZ, &ws) < 0) {
+        if (ioctl(f->output_fd, TIOCGWINSZ, &ws) < 0)
                 /* If we can't get the resolution from the output fd, then use our internal, regular width/height,
                  * i.e. something derived from $COLUMNS and $LINES if set. */
-
                 ws = (struct winsize) {
                         .ws_row = lines(),
                         .ws_col = columns(),
                 };
-        }
 
         (void) ioctl(master, TIOCSWINSZ, &ws);
 

@@ -540,10 +540,8 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
                    MOUNT_MOUNTED, MOUNT_REMOUNTING,
                    MOUNT_REMOUNTING_SIGTERM, MOUNT_REMOUNTING_SIGKILL,
                    MOUNT_UNMOUNTING_SIGTERM, MOUNT_UNMOUNTING_SIGKILL,
-                   MOUNT_FAILED)) {
-
+                   MOUNT_FAILED))
                 (void) automount_send_ready(a, a->expire_tokens, -ENODEV);
-        }
 
         if (MOUNT(other)->state == MOUNT_DEAD)
                 (void) automount_send_ready(a, a->expire_tokens, 0);
