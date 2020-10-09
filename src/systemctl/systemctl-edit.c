@@ -18,7 +18,7 @@
 #include "tmpfile-util.h"
 
 int cat(int argc, char *argv[], void *userdata) {
-        _cleanup_(hashmap_freep) Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
+        _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         char **name;
@@ -55,7 +55,7 @@ int cat(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *fragment_path = NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
 
-                r = unit_find_paths(bus, *name, &lp, false, &cached_id_map, &cached_name_map, &fragment_path, &dropin_paths);
+                r = unit_find_paths(bus, *name, &lp, false, &cached_name_map, &cached_id_map, &fragment_path, &dropin_paths);
                 if (r == -ERFKILL) {
                         printf("%s# Unit %s is masked%s.\n",
                                ansi_highlight_magenta(),
@@ -318,7 +318,7 @@ static int run_editor(char **paths) {
 }
 
 static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
-        _cleanup_(hashmap_freep) Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
+        _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         char **name;
         int r;
@@ -334,12 +334,12 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL, *tmp_name = NULL;
                 const char *unit_name;
 
-                r = unit_find_paths(bus, *name, &lp, false, &cached_id_map, &cached_name_map, &path, NULL);
+                r = unit_find_paths(bus, *name, &lp, false, &cached_name_map, &cached_id_map, &path, NULL);
                 if (r == -EKEYREJECTED) {
                         /* If loading of the unit failed server side complete, then the server won't tell us
                          * the unit file path. In that case, find the file client side. */
                         log_debug_errno(r, "Unit '%s' was not loaded correctly, retrying client-side.", *name);
-                        r = unit_find_paths(bus, *name, &lp, true, &cached_id_map, &cached_name_map, &path, NULL);
+                        r = unit_find_paths(bus, *name, &lp, true, &cached_name_map, &cached_id_map, &path, NULL);
                 }
                 if (r == -ERFKILL)
                         return log_error_errno(r, "Unit '%s' masked, cannot edit.", *name);
