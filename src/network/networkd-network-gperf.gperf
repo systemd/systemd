@@ -56,6 +56,7 @@ Match.Virtualization,                        config_parse_net_condition,        
 Match.KernelCommandLine,                     config_parse_net_condition,                               CONDITION_KERNEL_COMMAND_LINE, offsetof(Network, conditions)
 Match.KernelVersion,                         config_parse_net_condition,                               CONDITION_KERNEL_VERSION,      offsetof(Network, conditions)
 Match.Architecture,                          config_parse_net_condition,                               CONDITION_ARCHITECTURE,        offsetof(Network, conditions)
+Match.Firmware,                              config_parse_net_condition,                               CONDITION_FIRMWARE,            offsetof(Network, conditions)
 Link.MACAddress,                             config_parse_hwaddr,                                      0,                             offsetof(Network, mac)
 Link.MTUBytes,                               config_parse_mtu,                                         AF_UNSPEC,                     offsetof(Network, mtu)
 Link.Group,                                  config_parse_uint32,                                      0,                             offsetof(Network, group)

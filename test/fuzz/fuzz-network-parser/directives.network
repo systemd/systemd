@@ -18,6 +18,7 @@ KernelVersion=
 Type=
 Driver=
 Architecture=
+Firmware=
 Path=
 WLANInterfaceType=
 SSID=
