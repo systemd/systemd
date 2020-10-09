@@ -84,14 +84,25 @@ void mac_selinux_retest(void) {
 }
 
 #if HAVE_SELINUX
+#  if HAVE_MALLINFO
+static struct mallinfo mallinfo_nowarn(void) {
+        /* glibc has deprecated mallinfo(), but the replacement malloc_info() returns an XML blob ;=[ */
+DISABLE_WARNING_DEPRECATED_DECLARATIONS
+        return mallinfo();
+REENABLE_WARNING
+}
+#  else
+#    warning "mallinfo() is missing, add mallinfo2() supported instead."
+#  endif
+
 static int open_label_db(void) {
         struct selabel_handle *hnd;
         usec_t before_timestamp, after_timestamp;
-        struct mallinfo before_mallinfo, after_mallinfo;
         char timespan[FORMAT_TIMESPAN_MAX];
-        int l;
 
-        before_mallinfo = mallinfo();
+#  if HAVE_MALLINFO
+        struct mallinfo before_mallinfo = mallinfo_nowarn();
+#  endif
         before_timestamp = now(CLOCK_MONOTONIC);
 
         hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
@@ -99,13 +110,16 @@ static int open_label_db(void) {
                 return log_enforcing_errno(errno, "Failed to initialize SELinux labeling handle: %m");
 
         after_timestamp = now(CLOCK_MONOTONIC);
-        after_mallinfo = mallinfo();
-
-        l = after_mallinfo.uordblks > before_mallinfo.uordblks ? after_mallinfo.uordblks - before_mallinfo.uordblks : 0;
-
+#  if HAVE_MALLINFO
+        struct mallinfo after_mallinfo = mallinfo_nowarn();
+        int l = after_mallinfo.uordblks > before_mallinfo.uordblks ? after_mallinfo.uordblks - before_mallinfo.uordblks : 0;
         log_debug("Successfully loaded SELinux database in %s, size on heap is %iK.",
                   format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp, 0),
-                  (l+1023)/1024);
+                  DIV_ROUND_UP(l, 1024));
+#  else
+        log_debug("Successfully loaded SELinux database in %s.",
+                  format_timespan(timespan, sizeof(timespan), after_timestamp - before_timestamp, 0));
+#  endif
 
         /* release memory after measurement */
         if (label_hnd)
