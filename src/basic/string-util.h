@@ -33,6 +33,10 @@ static inline bool streq_ptr(const char *a, const char *b) {
         return strcmp_ptr(a, b) == 0;
 }
 
+static inline bool strcaseeq_ptr(const char *a, const char *b) {
+        return strcasecmp_ptr(a, b) == 0;
+}
+
 static inline char* strstr_ptr(const char *haystack, const char *needle) {
         if (!haystack || !needle)
                 return NULL;
