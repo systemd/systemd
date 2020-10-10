@@ -64,7 +64,9 @@ int manager_handle_action(
 
         /* If the key handling is turned off, don't do anything */
         if (handle == HANDLE_IGNORE) {
-                log_debug("Refusing operation, as it is turned off.");
+                log_debug("Handling of %s (%s) is disabled, taking no action.",
+                          inhibit_key == 0 ? "idle timeout" : inhibit_what_to_string(inhibit_key),
+                          is_edge ? "edge" : "level");
                 return 0;
         }
 
