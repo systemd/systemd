@@ -82,6 +82,8 @@ struct Manager {
         char *action_job;
         sd_event_source *inhibit_timeout_source;
 
+        usec_t external_monitor_timestamp;
+
         char *scheduled_shutdown_type;
         usec_t scheduled_shutdown_timeout;
         sd_event_source *scheduled_shutdown_timeout_source;

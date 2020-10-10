@@ -28,6 +28,8 @@
 #include "userdb.h"
 #include "utmp-wtmp.h"
 
+#define EXTERNAL_MONITOR_DETECTION_DELAY_USEC (5 * USEC_PER_SEC)
+
 void manager_reset_config(Manager *m) {
         assert(m);
 
@@ -646,6 +648,13 @@ bool manager_is_docked_or_external_displays(Manager *m) {
                 log_warning_errno(n, "Display counting failed, assuming system is not docked: %m");
         else if (n >= 1) {
                 log_debug("System is docked (%i external display%s connected).", n, n > 1 ? "s" : "");
+                m->external_monitor_timestamp = now(CLOCK_MONOTONIC);
+                return true;
+        }
+
+        usec_t ts = now(CLOCK_MONOTONIC);
+        if (ts < m->external_monitor_timestamp + EXTERNAL_MONITOR_DETECTION_DELAY_USEC) {
+                log_debug("Assuming system is docked (external displays were connected recently).");
                 return true;
         }
 
