@@ -559,14 +559,14 @@ bool manager_is_lid_closed(Manager *m) {
         return false;
 }
 
-static bool manager_is_docked(Manager *m) {
+static const Button* manager_is_docked(Manager *m) {
         Button *b;
 
         HASHMAP_FOREACH(b, m->buttons)
                 if (b->docked)
-                        return true;
+                        return b;
 
-        return false;
+        return NULL;
 }
 
 static int manager_count_external_displays(Manager *m) {
@@ -633,19 +633,19 @@ static int manager_count_external_displays(Manager *m) {
 bool manager_is_docked_or_external_displays(Manager *m) {
         int n;
 
-        /* If we are docked don't react to lid closing */
-        if (manager_is_docked(m)) {
-                log_debug("System is docked.");
+        /* Don't react to lid closing if we are docked. */
+        const Button *dock_button = manager_is_docked(m);
+        if (dock_button) {
+                log_debug("System is docked (button %s found).", strna(dock_button->name));
                 return true;
         }
 
-        /* If we have more than one display connected,
-         * assume that we are docked. */
+        /* If we have at least one external display connected, assume that we are docked. */
         n = manager_count_external_displays(m);
         if (n < 0)
-                log_warning_errno(n, "Display counting failed: %m");
+                log_warning_errno(n, "Display counting failed, assuming system is not docked: %m");
         else if (n >= 1) {
-                log_debug("External (%i) displays connected.", n);
+                log_debug("System is docked (%i external display%s connected).", n, n > 1 ? "s" : "");
                 return true;
         }
 
