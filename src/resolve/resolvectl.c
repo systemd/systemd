@@ -1406,6 +1406,61 @@ static int dump_list(Table *table, const char *prefix, char * const *l) {
         return 0;
 }
 
+static int strv_extend_extended_bool(char ***strv, const char *name, const char *value) {
+        int r;
+
+        if (value) {
+                r = parse_boolean(value);
+                if (r >= 0)
+                        return strv_extendf(strv, "%s%s", plus_minus(r), name);
+        }
+
+        return strv_extendf(strv, "%s=%s", name, value ?: "???");
+}
+
+static char* link_protocol_status(const LinkInfo *info) {
+        _cleanup_strv_free_ char **s = NULL;
+
+        if (strv_extendf(&s, "%sDefaultRoute", plus_minus(info->default_route)) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "LLMNR", info->llmnr) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "mDNS", info->mdns) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "DNSOverTLS", info->dns_over_tls) < 0)
+                return NULL;
+
+        if (strv_extendf(&s, "DNSSEC=%s/%s",
+                         info->dnssec ?: "???",
+                         info->dnssec_supported ? "supported" : "unsupported") < 0)
+                return NULL;
+
+        return strv_join(s, " ");
+}
+
+static char* global_protocol_status(const GlobalInfo *info) {
+        _cleanup_strv_free_ char **s = NULL;
+
+        if (strv_extend_extended_bool(&s, "LLMNR", info->llmnr) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "mDNS", info->mdns) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "DNSOverTLS", info->dns_over_tls) < 0)
+                return NULL;
+
+        if (strv_extendf(&s, "DNSSEC=%s/%s",
+                         info->dnssec ?: "???",
+                         info->dnssec_supported ? "supported" : "unsupported") < 0)
+                return NULL;
+
+        return strv_join(s, " ");
+}
+
 static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
                 { "ScopesMask",                 "t",        NULL,                           offsetof(LinkInfo, scopes_mask)      },
@@ -1549,19 +1604,13 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (r < 0)
                 return table_log_add_error(r);
 
+        _cleanup_free_ char *pstatus = link_protocol_status(&link_info);
+        if (!pstatus)
+                return log_oom();
+
         r = table_add_many(table,
-                           TABLE_STRING, "DefaultRoute setting:",
-                           TABLE_BOOLEAN, link_info.default_route,
-                           TABLE_STRING, "LLMNR setting:",
-                           TABLE_STRING, strna(link_info.llmnr),
-                           TABLE_STRING, "MulticastDNS setting:",
-                           TABLE_STRING, strna(link_info.mdns),
-                           TABLE_STRING, "DNSOverTLS setting:",
-                           TABLE_STRING, strna(link_info.dns_over_tls),
-                           TABLE_STRING, "DNSSEC setting:",
-                           TABLE_STRING, strna(link_info.dnssec),
-                           TABLE_STRING, "DNSSEC supported:",
-                           TABLE_BOOLEAN, link_info.dnssec_supported);
+                           TABLE_STRING, "Protocols:",
+                           TABLE_STRING, pstatus);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -1774,18 +1823,14 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         table_set_header(table, false);
 
+        _cleanup_free_ char *pstatus = global_protocol_status(&global_info);
+        if (!pstatus)
+                return log_oom();
+
         r = table_add_many(table,
-                           TABLE_STRING, "LLMNR setting:",
+                           TABLE_STRING, "Protocols:",
                            TABLE_SET_ALIGN_PERCENT, 100,
-                           TABLE_STRING, strna(global_info.llmnr),
-                           TABLE_STRING, "MulticastDNS setting:",
-                           TABLE_STRING, strna(global_info.mdns),
-                           TABLE_STRING, "DNSOverTLS setting:",
-                           TABLE_STRING, strna(global_info.dns_over_tls),
-                           TABLE_STRING, "DNSSEC setting:",
-                           TABLE_STRING, strna(global_info.dnssec),
-                           TABLE_STRING, "DNSSEC supported:",
-                           TABLE_BOOLEAN, global_info.dnssec_supported);
+                           TABLE_STRING, pstatus);
         if (r < 0)
                 return table_log_add_error(r);
 

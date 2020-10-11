@@ -53,6 +53,10 @@ static inline const char* true_false(bool b) {
         return b ? "true" : "false";
 }
 
+static inline const char* plus_minus(bool b) {
+        return b ? "+" : "-";
+}
+
 static inline const char* one_zero(bool b) {
         return b ? "1" : "0";
 }
