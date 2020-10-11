@@ -532,6 +532,7 @@ static void test_condition_test_virtualization(void) {
 
         NULSTR_FOREACH(virt,
                        "kvm\0"
+                       "amazon\0"
                        "qemu\0"
                        "bochs\0"
                        "xen\0"
