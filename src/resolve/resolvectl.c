@@ -35,6 +35,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "utf8.h"
 #include "verbs.h"
 
 static int arg_family = AF_UNSPEC;
@@ -1302,17 +1303,37 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
 }
 
 static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) {
+        const unsigned indent = strlen("Global: "); /* Use the same indentation everywhere to make things nice */
+        int pos1, pos2;
+
+        if (ifname)
+                printf("%s%nLink %i (%s)%n%s:", ansi_highlight(), &pos1, ifindex, ifname, &pos2, ansi_normal());
+        else
+                printf("%s%nGlobal%n%s:", ansi_highlight(), &pos1, &pos2, ansi_normal());
+
+        size_t cols = columns(), position = pos2 - pos1 + 2;
         char **i;
 
-        printf("%sLink %i (%s)%s:",
-               ansi_highlight(), ifindex, ifname, ansi_normal());
+        STRV_FOREACH(i, p) {
+                size_t our_len = utf8_console_width(*i); /* This returns -1 on invalid utf-8 (which shouldn't happen).
+                                                          * If that happens, we'll just print one item per line. */
 
-        STRV_FOREACH(i, p)
-                printf(" %s", *i);
+                if (position <= indent || SIZE_ADD(SIZE_ADD(position, 1), our_len) < cols) {
+                        printf(" %s", *i);
+                        position = SIZE_ADD(SIZE_ADD(position, 1), our_len);
+                } else {
+                        printf("\n%*s%s", indent, "", *i);
+                        position = SIZE_ADD(our_len, indent);
+                }
+        }
 
         printf("\n");
 
         return 0;
+}
+
+static int status_print_strv_global(char **p) {
+        return status_print_strv_ifindex(0, NULL, p);
 }
 
 struct link_info {
@@ -1632,19 +1653,6 @@ static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m
         r = sd_bus_message_exit_container(m);
         if (r < 0)
                 return r;
-
-        return 0;
-}
-
-static int status_print_strv_global(char **p) {
-        char **i;
-
-        printf("%sGlobal%s:", ansi_highlight(), ansi_normal());
-
-        STRV_FOREACH(i, p)
-                printf(" %s", *i);
-
-        printf("\n");
 
         return 0;
 }
