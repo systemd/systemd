@@ -25,6 +25,23 @@ int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_err
         return 0;
 }
 
+int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        _cleanup_strv_free_ char **l = NULL;
+        char ***p = userdata;
+        int r;
+
+        r = bus_message_read_strv_extend(m, &l);
+        if (r < 0)
+                return r;
+
+        r = strv_extend_strv(p, l, false);
+        if (r < 0)
+                return r;
+
+        strv_sort(*p);
+        return 0;
+}
+
 static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigned flags, sd_bus_error *error, void *userdata) {
         char type;
         int r;

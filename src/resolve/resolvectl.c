@@ -1299,6 +1299,8 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
         if (r < 0)
                 return r;
 
+        strv_sort(*l);
+
         return 0;
 }
 
@@ -1417,7 +1419,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 { "MulticastDNS",               "s",        NULL,                           offsetof(LinkInfo, mdns)             },
                 { "DNSOverTLS",                 "s",        NULL,                           offsetof(LinkInfo, dns_over_tls)     },
                 { "DNSSEC",                     "s",        NULL,                           offsetof(LinkInfo, dnssec)           },
-                { "DNSSECNegativeTrustAnchors", "as",       NULL,                           offsetof(LinkInfo, ntas)             },
+                { "DNSSECNegativeTrustAnchors", "as",       bus_map_strv_sort,              offsetof(LinkInfo, ntas)             },
                 { "DNSSECSupported",            "b",        NULL,                           offsetof(LinkInfo, dnssec_supported) },
                 {}
         };
@@ -1682,6 +1684,8 @@ static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m
         if (r < 0)
                 return r;
 
+        strv_sort(*l);
+
         return 0;
 }
 
@@ -1694,7 +1698,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 { "CurrentDNSServer",           "(iiay)",    map_global_current_dns_server,    offsetof(GlobalInfo, current_dns)      },
                 { "CurrentDNSServerEx",         "(iiayqs)",  map_global_current_dns_server_ex, offsetof(GlobalInfo, current_dns_ex)   },
                 { "Domains",                    "a(isb)",    map_global_domains,               offsetof(GlobalInfo, domains)          },
-                { "DNSSECNegativeTrustAnchors", "as",        NULL,                             offsetof(GlobalInfo, ntas)             },
+                { "DNSSECNegativeTrustAnchors", "as",        bus_map_strv_sort,                offsetof(GlobalInfo, ntas)             },
                 { "LLMNR",                      "s",         NULL,                             offsetof(GlobalInfo, llmnr)            },
                 { "MulticastDNS",               "s",         NULL,                             offsetof(GlobalInfo, mdns)             },
                 { "DNSOverTLS",                 "s",         NULL,                             offsetof(GlobalInfo, dns_over_tls)     },
