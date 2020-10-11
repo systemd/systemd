@@ -164,7 +164,6 @@ Table *table_new_raw(size_t n_columns) {
 Table *table_new_internal(const char *first_header, ...) {
         _cleanup_(table_unrefp) Table *t = NULL;
         size_t n_columns = 1;
-        const char *h;
         va_list ap;
         int r;
 
@@ -172,8 +171,7 @@ Table *table_new_internal(const char *first_header, ...) {
 
         va_start(ap, first_header);
         for (;;) {
-                h = va_arg(ap, const char*);
-                if (!h)
+                if (!va_arg(ap, const char*))
                         break;
 
                 n_columns++;
@@ -185,7 +183,7 @@ Table *table_new_internal(const char *first_header, ...) {
                 return NULL;
 
         va_start(ap, first_header);
-        for (h = first_header; h; h = va_arg(ap, const char*)) {
+        for (const char *h = first_header; h; h = va_arg(ap, const char*)) {
                 TableCell *cell;
 
                 r = table_add_cell(t, &cell, TABLE_STRING, h);
@@ -223,12 +221,10 @@ DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, table_data_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(TableData*, table_data_unref);
 
 Table *table_unref(Table *t) {
-        size_t i;
-
         if (!t)
                 return NULL;
 
-        for (i = 0; i < t->n_cells; i++)
+        for (size_t i = 0; i < t->n_cells; i++)
                 table_data_unref(t->data[i]);
 
         free(t->data);
@@ -1047,11 +1043,9 @@ int table_set_empty_string(Table *t, const char *empty) {
 }
 
 int table_set_display_all(Table *t) {
-        size_t allocated;
-
         assert(t);
 
-        allocated = t->n_display_map;
+        size_t allocated = t->n_display_map;
 
         if (!GREEDY_REALLOC(t->display_map, allocated, MAX(t->n_columns, allocated)))
                 return -ENOMEM;
@@ -1124,7 +1118,6 @@ int table_set_sort(Table *t, size_t first_column, ...) {
 }
 
 int table_hide_column_from_display(Table *t, size_t column) {
-        size_t allocated, cur = 0;
         int r;
 
         assert(t);
@@ -1137,7 +1130,7 @@ int table_hide_column_from_display(Table *t, size_t column) {
                         return r;
         }
 
-        allocated = t->n_display_map;
+        size_t allocated = t->n_display_map, cur = 0;
 
         for (size_t i = 0; i < allocated; i++) {
                 if (t->display_map[i] == column)
@@ -1247,7 +1240,6 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 }
 
 static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
-        size_t i;
         int r;
 
         assert(t);
@@ -1262,7 +1254,7 @@ static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
                 return 1;
 
         /* Order other lines by the sorting map */
-        for (i = 0; i < t->n_sort_map; i++) {
+        for (size_t i = 0; i < t->n_sort_map; i++) {
                 TableData *d, *dd;
 
                 d = t->data[*a + t->sort_map[i]];
@@ -1290,13 +1282,12 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         case TABLE_STRING:
         case TABLE_PATH:
                 if (d->uppercase && !avoid_uppercasing) {
-                        char *p, *q;
-
                         d->formatted = new(char, strlen(d->string) + 1);
                         if (!d->formatted)
                                 return NULL;
 
-                        for (p = d->string, q = d->formatted; *p; p++, q++)
+                        char *q = d->formatted;
+                        for (char *p = d->string; *p; p++, q++)
                                 *q = (char) toupper((unsigned char) *p);
                         *q = 0;
 
@@ -1305,19 +1296,14 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
                 return d->string;
 
-        case TABLE_STRV: {
-                char *p;
-
+        case TABLE_STRV:
                 if (strv_isempty(d->strv))
                         return strempty(t->empty_string);
 
-                p = strv_join(d->strv, "\n");
-                if (!p)
+                d->formatted = strv_join(d->strv, "\n");
+                if (!d->formatted)
                         return NULL;
-
-                d->formatted = p;
                 break;
-        }
 
         case TABLE_BOOLEAN:
                 return yes_no(d->boolean);
@@ -1678,7 +1664,6 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         _cleanup_free_ char *clickable = NULL;
         const char *p;
         char *ret;
-        size_t i;
         int r;
 
         /* As with ellipsize_mem(), 'old_length' is a byte size while 'new_length' is a width in character cells */
@@ -1723,10 +1708,10 @@ static char *align_string_mem(const char *str, const char *url, size_t new_lengt
         if (!ret)
                 return NULL;
 
-        for (i = 0; i < lspace; i++)
+        for (size_t i = 0; i < lspace; i++)
                 ret[i] = ' ';
         memcpy(ret + lspace, clickable ?: str, clickable_length);
-        for (i = lspace + clickable_length; i < space + clickable_length; i++)
+        for (size_t i = lspace + clickable_length; i < space + clickable_length; i++)
                 ret[i] = ' ';
 
         ret[space + clickable_length] = 0;
@@ -1771,7 +1756,7 @@ static const char* table_data_rgap_color(TableData *d) {
 
 int table_print(Table *t, FILE *f) {
         size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
-                i, j, table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
+                table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
                 *width;
         _cleanup_free_ size_t *sorted = NULL;
         uint64_t *column_weight, weight_sum;
@@ -1795,7 +1780,7 @@ int table_print(Table *t, FILE *f) {
                 if (!sorted)
                         return -ENOMEM;
 
-                for (i = 0; i < n_rows; i++)
+                for (size_t i = 0; i < n_rows; i++)
                         sorted[i] = i * t->n_columns;
 
                 typesafe_qsort_r(sorted, n_rows, table_data_compare, t);
@@ -1814,21 +1799,21 @@ int table_print(Table *t, FILE *f) {
         width = newa(size_t, display_columns);
         column_weight = newa0(uint64_t, display_columns);
 
-        for (j = 0; j < display_columns; j++) {
+        for (size_t j = 0; j < display_columns; j++) {
                 minimum_width[j] = 1;
                 maximum_width[j] = (size_t) -1;
                 requested_width[j] = (size_t) -1;
         }
 
         /* First pass: determine column sizes */
-        for (i = t->header ? 0 : 1; i < n_rows; i++) {
+        for (size_t i = t->header ? 0 : 1; i < n_rows; i++) {
                 TableData **row;
 
                 /* Note that we don't care about ordering at this time, as we just want to determine column sizes,
                  * hence we don't care for sorted[] during the first pass. */
                 row = t->data + i * t->n_columns;
 
-                for (j = 0; j < display_columns; j++) {
+                for (size_t j = 0; j < display_columns; j++) {
                         TableData *d;
                         size_t req_width, req_height;
 
@@ -1885,7 +1870,7 @@ int table_print(Table *t, FILE *f) {
 
         /* Calculate the total weight for all columns, plus the minimum, maximum and requested width for the table. */
         weight_sum = 0;
-        for (j = 0; j < display_columns; j++) {
+        for (size_t j = 0; j < display_columns; j++) {
                 weight_sum += column_weight[j];
 
                 table_minimum_width += minimum_width[j];
@@ -1920,7 +1905,7 @@ int table_print(Table *t, FILE *f) {
 
                 extra = table_effective_width - table_requested_width;
 
-                for (j = 0; j < display_columns; j++) {
+                for (size_t j = 0; j < display_columns; j++) {
                         size_t delta;
 
                         if (weight_sum == 0)
@@ -1955,13 +1940,13 @@ int table_print(Table *t, FILE *f) {
 
                 extra = table_effective_width - table_minimum_width;
 
-                for (j = 0; j < display_columns; j++)
+                for (size_t j = 0; j < display_columns; j++)
                         width[j] = (size_t) -1;
 
                 for (;;) {
                         bool restart = false;
 
-                        for (j = 0; j < display_columns; j++) {
+                        for (size_t j = 0; j < display_columns; j++) {
                                 size_t delta, w;
 
                                 /* Did this column already get something assigned? If so, let's skip to the next */
@@ -2009,7 +1994,7 @@ int table_print(Table *t, FILE *f) {
         }
 
         /* Second pass: show output */
-        for (i = t->header ? 0 : 1; i < n_rows; i++) {
+        for (size_t i = t->header ? 0 : 1; i < n_rows; i++) {
                 size_t n_subline = 0;
                 bool more_sublines;
                 TableData **row;
@@ -2023,7 +2008,7 @@ int table_print(Table *t, FILE *f) {
                         const char *gap_color = NULL;
                         more_sublines = false;
 
-                        for (j = 0; j < display_columns; j++) {
+                        for (size_t j = 0; j < display_columns; j++) {
                                 _cleanup_free_ char *buffer = NULL, *extracted = NULL;
                                 bool lines_truncated = false;
                                 const char *field, *color = NULL;
@@ -2332,17 +2317,15 @@ static int table_data_to_json(TableData *d, JsonVariant **ret) {
 }
 
 static char* string_to_json_field_name(const char *f) {
-        char *c, *x;
-
         /* Tries to make a string more suitable as JSON field name. There are no strict rules defined what a
          * field name can be hence this is a bit vague and black magic. Right now we only convert spaces to
          * underscores and leave everything as is. */
 
-        c = strdup(f);
+        char *c = strdup(f);
         if (!c)
                 return NULL;
 
-        for (x = c; *x; x++)
+        for (char *x = c; *x; x++)
                 if (isspace(*x))
                         *x = '_';
 
@@ -2352,7 +2335,7 @@ static char* string_to_json_field_name(const char *f) {
 int table_to_json(Table *t, JsonVariant **ret) {
         JsonVariant **rows = NULL, **elements = NULL;
         _cleanup_free_ size_t *sorted = NULL;
-        size_t n_rows, i, j, display_columns;
+        size_t n_rows, display_columns;
         int r;
 
         assert(t);
@@ -2372,7 +2355,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                         goto finish;
                 }
 
-                for (i = 0; i < n_rows; i++)
+                for (size_t i = 0; i < n_rows; i++)
                         sorted[i] = i * t->n_columns;
 
                 typesafe_qsort_r(sorted, n_rows, table_data_compare, t);
@@ -2390,7 +2373,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                 goto finish;
         }
 
-        for (j = 0; j < display_columns; j++) {
+        for (size_t j = 0; j < display_columns; j++) {
                 _cleanup_free_ char *mangled = NULL;
                 const char *formatted;
                 TableData *d;
@@ -2422,7 +2405,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                 goto finish;
         }
 
-        for (i = 1; i < n_rows; i++) {
+        for (size_t i = 1; i < n_rows; i++) {
                 TableData **row;
 
                 if (sorted)
@@ -2430,7 +2413,7 @@ int table_to_json(Table *t, JsonVariant **ret) {
                 else
                         row = t->data + i * t->n_columns;
 
-                for (j = 0; j < display_columns; j++) {
+                for (size_t j = 0; j < display_columns; j++) {
                         TableData *d;
                         size_t k;
 
