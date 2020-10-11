@@ -58,21 +58,23 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                                 log_info("Initializing machine ID from container UUID.");
                                 return 0;
                         }
+                } else {
+                        switch (detect_vm()) {
+                        case VIRTUALIZATION_KVM:
+                        case VIRTUALIZATION_AMAZON:
+                            /* If we are not running in a container, see if we are
+                             * running in qemu/kvm and a machine ID was passed in
+                             * via -uuid on the qemu/kvm command line */
 
-                } else if (detect_vm() == VIRTUALIZATION_KVM) {
-
-                        /* If we are not running in a container, see if we are
-                         * running in qemu/kvm and a machine ID was passed in
-                         * via -uuid on the qemu/kvm command line */
-
-                        if (id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, ret) >= 0) {
-                                log_info("Initializing machine ID from KVM UUID.");
-                                return 0;
-                        }
-                        /* on POWER, it's exported here instead */
-                        if (id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, ret) >= 0) {
-                                log_info("Initializing machine ID from KVM UUID.");
-                                return 0;
+                            if (id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, ret) >= 0) {
+                                    log_info("Initializing machine ID from KVM UUID.");
+                                    return 0;
+                            }
+                            /* on POWER, it's exported here instead */
+                            if (id128_read("/sys/firmware/devicetree/base/vm,uuid", ID128_UUID, ret) >= 0) {
+                                    log_info("Initializing machine ID from KVM UUID.");
+                                    return 0;
+                            }
                         }
                 }
         }
