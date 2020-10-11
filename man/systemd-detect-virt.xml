@@ -69,7 +69,12 @@
 
           <row>
             <entry><varname>kvm</varname></entry>
-            <entry>Linux KVM kernel virtual machine, with whatever software, except Oracle Virtualbox</entry>
+            <entry>Linux KVM kernel virtual machine, in combination with QEMU. Not used for other virtualizers using the KVM interfaces, such as Oracle VirtualBox or Amazon EC2 Nitro, see below.</entry>
+          </row>
+
+          <row>
+            <entry><varname>amazon</varname></entry>
+            <entry>Amazon EC2 Nitro using Linux KVM</entry>
           </row>
 
           <row>

@@ -1192,6 +1192,7 @@
           <literal>container</literal> to test against a generic type of virtualization solution, or one of
           <literal>qemu</literal>,
           <literal>kvm</literal>,
+          <literal>amazon</literal>,
           <literal>zvm</literal>,
           <literal>vmware</literal>,
           <literal>microsoft</literal>,
