@@ -3899,7 +3899,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         output = check_output('ip route list dev veth99 10.0.0.0/8')
         print(output)
-        self.assertRegex(output, '10.0.0.0/8 via 192.168.5.1 proto static')
+        self.assertRegex(output, '10.0.0.0/8 via 192.168.5.1 proto dhcp')
 
     def test_dhcp_client_gateway_ipv6(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',

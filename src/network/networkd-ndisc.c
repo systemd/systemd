@@ -461,7 +461,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         union in_addr_union gateway;
         uint16_t lifetime;
         unsigned preference;
-        uint32_t mtu;
+        uint32_t table, mtu;
         usec_t time_now;
         int r;
 
@@ -504,12 +504,14 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         else if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get default router MTU from RA: %m");
 
+        table = link_get_ipv6_accept_ra_route_table(link);
+
         r = route_new(&route);
         if (r < 0)
                 return log_oom();
 
         route->family = AF_INET6;
-        route->table = link_get_ipv6_accept_ra_route_table(link);
+        route->table = table;
         route->priority = link->network->dhcp6_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
@@ -531,6 +533,17 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         continue;
 
                 route_gw->gw = gateway;
+                if (!route_gw->table_set)
+                        route_gw->table = table;
+                if (!route_gw->priority_set)
+                        route_gw->priority = link->network->dhcp6_route_metric;
+                if (!route_gw->protocol_set)
+                        route_gw->protocol = RTPROT_RA;
+                if (!route_gw->pref_set)
+                        route->pref = preference;
+                route_gw->lifetime = time_now + lifetime * USEC_PER_SEC;
+                if (route_gw->mtu == 0)
+                        route_gw->mtu = mtu;
 
                 r = ndisc_route_configure(route_gw, link, rt);
                 if (r < 0)

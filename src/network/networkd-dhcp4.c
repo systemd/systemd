@@ -395,6 +395,14 @@ static int link_set_dhcp_routes(Link *link) {
                                         continue;
 
                                 rt->gw.in = router[0];
+                                if (!rt->protocol_set)
+                                        rt->protocol = RTPROT_DHCP;
+                                if (!rt->priority_set)
+                                        rt->priority = link->network->dhcp_route_metric;
+                                if (!rt->table_set)
+                                        rt->table = table;
+                                if (rt->mtu == 0)
+                                        rt->mtu = link->network->dhcp_route_mtu;
 
                                 r = dhcp_route_configure(rt, link);
                                 if (r < 0)

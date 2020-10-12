@@ -32,20 +32,24 @@ typedef struct Route {
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen;
         unsigned char scope;
-        bool scope_set;
         unsigned char protocol;  /* RTPROT_* */
         unsigned char type; /* RTN_* */
         unsigned char tos;
         uint32_t priority; /* note that ip(8) calls this 'metric' */
         uint32_t table;
-        bool table_set;
         uint32_t mtu;
         uint32_t initcwnd;
         uint32_t initrwnd;
         unsigned char pref;
         unsigned flags;
         int gateway_onlink;
-        bool gateway_from_dhcp_or_ra;
+
+        bool scope_set:1;
+        bool table_set:1;
+        bool priority_set:1;
+        bool protocol_set:1;
+        bool pref_set:1;
+        bool gateway_from_dhcp_or_ra:1;
 
         union in_addr_union gw;
         union in_addr_union dst;

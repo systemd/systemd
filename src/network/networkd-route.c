@@ -1902,6 +1902,7 @@ int config_parse_route_priority(
                 return 0;
         }
 
+        n->priority_set = true;
         TAKE_PTR(n);
         return 0;
 }
@@ -2086,6 +2087,7 @@ int config_parse_ipv6_route_preference(
                 return 0;
         }
 
+        n->pref_set = true;
         TAKE_PTR(n);
         return 0;
 }
