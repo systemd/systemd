@@ -488,7 +488,7 @@ static int xdg_autostart_generate_desktop_condition(
 
                 r = find_binary(test_binary, &gnome_autostart_condition_path);
                 if (r < 0) {
-                        log_full_errno(r == -ENOENT ? LOG_INFO : LOG_WARNING, r,
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                        "%s not found: %m", test_binary);
                         fprintf(f, "# ExecCondition using %s skipped due to missing binary.\n", test_binary);
                         return r;
@@ -519,18 +519,18 @@ int xdg_autostart_service_generate_unit(
 
         /* Nothing to do for hidden services. */
         if (service->hidden) {
-                log_info("Not generating service for XDG autostart %s, it is hidden.", service->name);
+                log_debug("Not generating service for XDG autostart %s, it is hidden.", service->name);
                 return 0;
         }
 
         if (service->systemd_skip) {
-                log_info("Not generating service for XDG autostart %s, should be skipped by generator.", service->name);
+                log_debug("Not generating service for XDG autostart %s, should be skipped by generator.", service->name);
                 return 0;
         }
 
         /* Nothing to do if type is not Application. */
         if (!streq_ptr(service->type, "Application")) {
-                log_info("Not generating service for XDG autostart %s, only Type=Application is supported.", service->name);
+                log_debug("Not generating service for XDG autostart %s, only Type=Application is supported.", service->name);
                 return 0;
         }
 
@@ -546,7 +546,7 @@ int xdg_autostart_service_generate_unit(
         if (service->try_exec) {
                 r = find_binary(service->try_exec, NULL);
                 if (r < 0) {
-                        log_full_errno(r == -ENOENT ? LOG_INFO : LOG_WARNING, r,
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
                                        "Not generating service for XDG autostart %s, could not find TryExec= binary %s: %m",
                                        service->name, service->try_exec);
                         return 0;
@@ -563,8 +563,8 @@ int xdg_autostart_service_generate_unit(
 
         if (service->gnome_autostart_phase) {
                 /* There is no explicit value for the "Application" phase. */
-                log_info("Not generating service for XDG autostart %s, startup phases are not supported.",
-                         service->name);
+                log_debug("Not generating service for XDG autostart %s, startup phases are not supported.",
+                          service->name);
                 return 0;
         }
 
