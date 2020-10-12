@@ -50,7 +50,7 @@ static void clock_state_release(ClockState *sp) {
 static int clock_state_update(ClockState *sp, sd_event *event);
 
 static int update_notify_run_systemd_timesync(ClockState *sp) {
-        sp->run_systemd_timesync_wd = inotify_add_watch(sp->inotify_fd, "/run/systemd/timesync", IN_CREATE|IN_DELETE_SELF);
+        sp->run_systemd_timesync_wd = inotify_add_watch_and_warn(sp->inotify_fd, "/run/systemd/timesync", IN_CREATE|IN_DELETE_SELF);
         return sp->run_systemd_timesync_wd;
 }
 
