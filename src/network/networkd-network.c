@@ -16,6 +16,7 @@
 #include "network-internal.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
+#include "networkd-dhcp-common.h"
 #include "networkd-fdb.h"
 #include "networkd-manager.h"
 #include "networkd-mdb.h"
@@ -194,11 +195,6 @@ int network_verify(Network *network) {
                                     network->filename);
                         network->link_local = ADDRESS_FAMILY_NO;
                 }
-                if (network->dhcp != ADDRESS_FAMILY_NO) {
-                        log_warning("%s: Cannot enable DHCP= when Bond= is specified, disabling DHCP=.",
-                                    network->filename);
-                        network->dhcp = ADDRESS_FAMILY_NO;
-                }
                 if (network->dhcp_server) {
                         log_warning("%s: Cannot enable DHCPServer= when Bond= is specified, disabling DHCPServer=.",
                                     network->filename);
@@ -219,12 +215,6 @@ int network_verify(Network *network) {
                 network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
 
         if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
-                if (FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV6)) {
-                        log_warning("%s: DHCPv6 client is enabled by the .network file but IPv6 link local addressing is disabled. "
-                                    "Disabling DHCPv6 client.", network->filename);
-                        SET_FLAG(network->dhcp, ADDRESS_FAMILY_IPV6, false);
-                }
-
                 if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE) {
                         log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link local addressing is disabled. "
                                     "Disabling IPv6PrefixDelegation=.", network->filename);
@@ -244,6 +234,7 @@ int network_verify(Network *network) {
                 network->ip_forward |= ADDRESS_FAMILY_IPV4;
 
         network_adjust_ipv6_accept_ra(network);
+        network_adjust_dhcp(network);
 
         if (network->mtu > 0 && network->dhcp_use_mtu) {
                 log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
