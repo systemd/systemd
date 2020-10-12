@@ -524,7 +524,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
-                if (!route_gw->gateway_from_dhcp)
+                if (!route_gw->gateway_from_dhcp_or_ra)
                         continue;
 
                 if (route_gw->family != AF_INET6)

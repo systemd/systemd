@@ -1192,7 +1192,7 @@ int link_set_routes(Link *link) {
         /* First add the routes that enable us to talk to gateways, then add in the others that need a gateway. */
         for (phase = 0; phase < _PHASE_MAX; phase++)
                 HASHMAP_FOREACH(rt, link->network->routes_by_section) {
-                        if (rt->gateway_from_dhcp)
+                        if (rt->gateway_from_dhcp_or_ra)
                                 continue;
 
                         if ((in_addr_is_null(rt->gw_family, &rt->gw) && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
@@ -1723,7 +1723,7 @@ int config_parse_gateway(
                 }
 
                 if (isempty(rvalue)) {
-                        n->gateway_from_dhcp = false;
+                        n->gateway_from_dhcp_or_ra = false;
                         n->gw_family = AF_UNSPEC;
                         n->gw = IN_ADDR_NULL;
                         TAKE_PTR(n);
@@ -1731,21 +1731,21 @@ int config_parse_gateway(
                 }
 
                 if (streq(rvalue, "_dhcp")) {
-                        n->gateway_from_dhcp = true;
+                        n->gateway_from_dhcp_or_ra = true;
                         TAKE_PTR(n);
                         return 0;
                 }
 
                 if (streq(rvalue, "_dhcp4")) {
                         n->gw_family = AF_INET;
-                        n->gateway_from_dhcp = true;
+                        n->gateway_from_dhcp_or_ra = true;
                         TAKE_PTR(n);
                         return 0;
                 }
 
                 if (streq(rvalue, "_dhcp6")) {
                         n->gw_family = AF_INET6;
-                        n->gateway_from_dhcp = true;
+                        n->gateway_from_dhcp_or_ra = true;
                         TAKE_PTR(n);
                         return 0;
                 }
@@ -1758,7 +1758,7 @@ int config_parse_gateway(
                 return 0;
         }
 
-        n->gateway_from_dhcp = false;
+        n->gateway_from_dhcp_or_ra = false;
         TAKE_PTR(n);
         return 0;
 }
@@ -2386,7 +2386,7 @@ static int route_section_verify(Route *route, Network *network) {
         if (route->family == AF_UNSPEC) {
                 assert(route->section);
 
-                if (route->gateway_from_dhcp) {
+                if (route->gateway_from_dhcp_or_ra) {
                         log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
                                     "Please use \"_dhcp4\" or \"_dhcp6\" instead. Assuming \"_dhcp4\".",
                                     route->section->filename, route->section->line);
