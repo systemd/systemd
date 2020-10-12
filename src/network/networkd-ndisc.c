@@ -14,7 +14,6 @@
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
-#include "networkd-sysctl.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -52,19 +51,23 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (!link_ipv6ll_enabled(link))
                 return false;
 
-        /* If unset use system default (enabled if local forwarding is disabled.
-         * disabled if local forwarding is enabled).
-         * If set, ignore or enforce RA independent of local forwarding state.
-         */
-        if (link->network->ipv6_accept_ra < 0)
+        assert(link->network->ipv6_accept_ra >= 0);
+        return link->network->ipv6_accept_ra;
+}
+
+void network_adjust_ipv6_accept_ra(Network *network) {
+        assert(network);
+
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
+                if (network->ipv6_accept_ra > 0)
+                        log_warning("%s: IPv6AcceptRA= is enabled but IPv6 link local addressing is disabled or not supported. "
+                                    "Disabling IPv6AcceptRA=.", network->filename);
+                network->ipv6_accept_ra = false;
+        }
+
+        if (network->ipv6_accept_ra < 0)
                 /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
-                return !link_ip_forward_enabled(link, AF_INET6);
-        else if (link->network->ipv6_accept_ra > 0)
-                /* accept RA even if ip_forward is enabled */
-                return true;
-        else
-                /* ignore RA */
-                return false;
+                network->ipv6_accept_ra = !FLAGS_SET(network->ip_forward, ADDRESS_FAMILY_IPV6);
 }
 
 static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool force);

@@ -38,7 +38,7 @@ static int link_set_proxy_arp(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp", link->network->proxy_arp > 0);
 }
 
-bool link_ip_forward_enabled(Link *link, int family) {
+static bool link_ip_forward_enabled(Link *link, int family) {
         assert(link);
         assert(IN_SET(family, AF_INET, AF_INET6));
 

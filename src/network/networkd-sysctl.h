@@ -16,7 +16,6 @@ typedef enum IPv6PrivacyExtensions {
         _IPV6_PRIVACY_EXTENSIONS_INVALID = -1,
 } IPv6PrivacyExtensions;
 
-bool link_ip_forward_enabled(Link *link, int family);
 int link_set_sysctl(Link *link);
 int link_set_ipv6_mtu(Link *link);
 

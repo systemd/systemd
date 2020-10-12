@@ -71,6 +71,8 @@ static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
 
 bool link_ipv6_accept_ra_enabled(Link *link);
 
+void network_adjust_ipv6_accept_ra(Network *network);
+
 int ndisc_configure(Link *link);
 void ndisc_vacuum(Link *link);
 void ndisc_flush(Link *link);

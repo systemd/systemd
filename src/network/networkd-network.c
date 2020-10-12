@@ -19,6 +19,7 @@
 #include "networkd-fdb.h"
 #include "networkd-manager.h"
 #include "networkd-mdb.h"
+#include "networkd-ndisc.h"
 #include "networkd-neighbor.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
@@ -188,11 +189,6 @@ int network_verify(Network *network) {
 
         if (network->bond) {
                 /* Bonding slave does not support addressing. */
-                if (network->ipv6_accept_ra > 0) {
-                        log_warning("%s: Cannot enable IPv6AcceptRA= when Bond= is specified, disabling IPv6AcceptRA=.",
-                                    network->filename);
-                        network->ipv6_accept_ra = 0;
-                }
                 if (network->link_local >= 0 && network->link_local != ADDRESS_FAMILY_NO) {
                         log_warning("%s: Cannot enable LinkLocalAddressing= when Bond= is specified, disabling LinkLocalAddressing=.",
                                     network->filename);
@@ -223,12 +219,6 @@ int network_verify(Network *network) {
                 network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
 
         if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
-                if (network->ipv6_accept_ra > 0) {
-                        log_warning("%s: IPv6AcceptRA= is enabled by the .network file but IPv6 link local addressing is disabled. "
-                                    "Disabling IPv6AcceptRA=.", network->filename);
-                        network->ipv6_accept_ra = false;
-                }
-
                 if (FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV6)) {
                         log_warning("%s: DHCPv6 client is enabled by the .network file but IPv6 link local addressing is disabled. "
                                     "Disabling DHCPv6 client.", network->filename);
@@ -249,12 +239,11 @@ int network_verify(Network *network) {
                 SET_FLAG(network->link_local, ADDRESS_FAMILY_FALLBACK_IPV4, false);
         }
 
-        if (network->ipv6_accept_ra < 0 && network->bridge)
-                network->ipv6_accept_ra = false;
-
         /* IPMasquerade=yes implies IPForward=yes */
         if (network->ip_masquerade)
                 network->ip_forward |= ADDRESS_FAMILY_IPV4;
+
+        network_adjust_ipv6_accept_ra(network);
 
         if (network->mtu > 0 && network->dhcp_use_mtu) {
                 log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
