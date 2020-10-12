@@ -2382,7 +2382,7 @@ static int route_section_verify(Route *route, Network *network) {
         if (section_is_invalid(route->section))
                 return -EINVAL;
 
-        if (route->gateway_from_dhcp_or_ra)
+        if (route->gateway_from_dhcp_or_ra) {
                 if (route->gw_family == AF_UNSPEC) {
                         /* When deprecated Gateway=_dhcp is set, then assume gateway family based on other settings. */
                         switch (route->family) {
@@ -2405,6 +2405,19 @@ static int route_section_verify(Route *route, Network *network) {
                         }
                         route->gw_family = route->family;
                 }
+
+                if (route->gw_family == AF_INET && !FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV4))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: Gateway=\"_dhcp4\" is specified but DHCPv4 client is disabled. "
+                                                 "Ignoring [Route] section from line %u.",
+                                                 route->section->filename, route->section->line);
+
+                if (route->gw_family == AF_INET6 && !network->ipv6_accept_ra)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: Gateway=\"_ipv6ra\" is specified but IPv6AcceptRA= is disabled. "
+                                                 "Ignoring [Route] section from line %u.",
+                                                 route->section->filename, route->section->line);
+        }
 
         /* When only Gateway= is specified, assume the route family based on the Gateway address. */
         if (route->family == AF_UNSPEC)
