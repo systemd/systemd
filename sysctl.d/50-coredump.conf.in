@@ -10,3 +10,14 @@
 # setting below.
 
 kernel.core_pattern=|@rootlibexecdir@/systemd-coredump %P %u %g %s %t %c %h %e
+
+# Allow that 16 coredumps are dispatched in parallel by the kernel. We want to
+# be able to collect process metadata from /proc/%P/ while processing
+# coredumps, and thus need to make sure the crashed processes are not reaped
+# until we finished collecting what we need. The kernel default for this sysctl
+# is "0" which means the kernel doesn't wait for userspace processes to finish
+# processing before reaping the crashed processes — by setting this higher the
+# kernel will delay reaping until we are done, but only for the specified
+# number of crashes in parallel. The value of 16 is chosen to match
+# systemd-coredump.socket's MaxConnections= value.
+kernel.core_pipe_limit=16
