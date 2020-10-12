@@ -1320,12 +1320,12 @@ static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) 
                 size_t our_len = utf8_console_width(*i); /* This returns -1 on invalid utf-8 (which shouldn't happen).
                                                           * If that happens, we'll just print one item per line. */
 
-                if (position <= indent || SIZE_ADD(SIZE_ADD(position, 1), our_len) < cols) {
+                if (position <= indent || size_add(size_add(position, 1), our_len) < cols) {
                         printf(" %s", *i);
-                        position = SIZE_ADD(SIZE_ADD(position, 1), our_len);
+                        position = size_add(size_add(position, 1), our_len);
                 } else {
                         printf("\n%*s%s", indent, "", *i);
-                        position = SIZE_ADD(our_len, indent);
+                        position = size_add(our_len, indent);
                 }
         }
 

@@ -631,6 +631,8 @@ static inline int __coverity_check_and_return__(int condition) {
                 _copy;                                                  \
         })
 
-#define SIZE_ADD(x, y) ((x) >= SIZE_MAX - (y) ? SIZE_MAX : (x) + (y))
+static inline size_t size_add(size_t x, size_t y) {
+        return y >= SIZE_MAX - x ? SIZE_MAX : x + y;
+}
 
 #include "log.h"
