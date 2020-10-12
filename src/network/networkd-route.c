@@ -1743,7 +1743,7 @@ int config_parse_gateway(
                         return 0;
                 }
 
-                if (streq(rvalue, "_dhcp6")) {
+                if (streq(rvalue, "_ipv6ra")) {
                         n->gw_family = AF_INET6;
                         n->gateway_from_dhcp_or_ra = true;
                         TAKE_PTR(n);
@@ -2388,7 +2388,7 @@ static int route_section_verify(Route *route, Network *network) {
 
                 if (route->gateway_from_dhcp_or_ra) {
                         log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
-                                    "Please use \"_dhcp4\" or \"_dhcp6\" instead. Assuming \"_dhcp4\".",
+                                    "Please use \"_dhcp4\" or \"_ipv6ra\" instead. Assuming \"_dhcp4\".",
                                     route->section->filename, route->section->line);
 
                         route->family = AF_INET;

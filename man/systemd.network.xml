@@ -1283,9 +1283,8 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>Gateway=</varname></term>
           <listitem>
             <para>Takes the gateway address or the special values <literal>_dhcp4</literal> and
-            <literal>_dhcp6</literal>. If <literal>_dhcp4</literal> or <literal>_dhcp6</literal> is
-            set, then the gateway address provided by DHCP (or in the IPv6 case, provided by IPv6 RA)
-            is used.</para>
+            <literal>_ipv6ra</literal>. If <literal>_dhcp4</literal> or <literal>_ipv6ra</literal> is
+            set, then the gateway address provided by DHCPv4 or IPv6 RA is used.</para>
           </listitem>
         </varlistentry>
          <varlistentry>
