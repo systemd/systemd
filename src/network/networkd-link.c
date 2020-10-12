@@ -2707,6 +2707,18 @@ static bool link_is_static_address_configured(Link *link, Address *address) {
                 else if (address->family == AF_INET6 && net_address->family == AF_INET6 &&
                          in_addr_equal(AF_INET6, &address->in_addr, &net_address->in_addr_peer) > 0)
                         return true;
+                else if (address->family == AF_INET && net_address->family == AF_INET &&
+                         in_addr_equal(AF_INET, &address->in_addr, &net_address->in_addr) > 0)
+                        /* When Peer= is set, then address_equal() in the above returns false, as
+                         * address->in_addr is the peer address. */
+                        return true;
+                else if (address->family == AF_INET && net_address->family == AF_INET &&
+                         in_addr_equal(AF_INET, &address->in_addr, &net_address->in_addr) > 0)
+                        /* Even if both in_addr elements are equivalent, address_equal() may return
+                         * false when Peer= is set, as Address object in Network contains the peer
+                         * address but Address stored in Link does not, and address_prefix() in
+                         * address_compare_func() may provide different prefix. */
+                        return true;
 
         return false;
 }
