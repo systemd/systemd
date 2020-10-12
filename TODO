@@ -20,9 +20,11 @@ Janitorial Clean-ups:
 
 Features:
 
-* Provide a tool to hook into CONFIG_STATIC_USERMODEHELPER in the kernel, so
-  that we can collect all usermode helper calls and spawn them as regular
-  services.
+* port selinux code from mallinfo() to mallinfo2() once added to glibc
+
+* in fd_get_path() if we see (deleted) then do stat and check for st_nlink
+
+* add support for close_range() added in kernel 5.9
 
 * Add service setting to run a service within the specified VRF. i.e. do the
   equivalent of "ip vrf exec".
