@@ -595,7 +595,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
                                 new_size = limit;
 
                         /* Enlarge buffer */
-                        new_groups = realloc(*groupsp, new_size * sizeof(**groupsp));
+                        new_groups = reallocarray(*groupsp, new_size, sizeof(**groupsp));
                         if (!new_groups) {
                                 UNPROTECT_ERRNO;
                                 *errnop = ENOMEM;

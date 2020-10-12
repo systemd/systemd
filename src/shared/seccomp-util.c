@@ -1190,7 +1190,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
         }
 
         /* NOOP? */
-        if ((retain & NAMESPACE_FLAGS_ALL) == NAMESPACE_FLAGS_ALL)
+        if (FLAGS_SET(retain, NAMESPACE_FLAGS_ALL))
                 return 0;
 
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
@@ -1228,7 +1228,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                         unsigned long f;
 
                         f = namespace_flag_map[i].flag;
-                        if ((retain & f) == f) {
+                        if (FLAGS_SET(retain, f)) {
                                 log_debug("Permitting %s.", namespace_flag_map[i].name);
                                 continue;
                         }

@@ -5772,11 +5772,10 @@ void exec_status_start(ExecStatus *s, pid_t pid) {
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status) {
         assert(s);
 
-        if (s->pid != pid) {
+        if (s->pid != pid)
                 *s = (ExecStatus) {
                         .pid = pid,
                 };
-        }
 
         dual_timestamp_get(&s->exit_timestamp);
 

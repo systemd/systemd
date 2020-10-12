@@ -261,10 +261,9 @@ static int resolve_host(sd_bus *bus, const char *name) {
                        (int) strlen(name), c == 0 ? name : "", c == 0 ? ":" : " ",
                        canonical);
 
-        if (c == 0) {
-                log_error("%s: no addresses found", name);
-                return -ESRCH;
-        }
+        if (c == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
+                                       "%s: no addresses found", name);
 
         print_source(flags, ts);
 
@@ -356,10 +355,9 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (c == 0) {
-                log_error("%s: no names found", pretty);
-                return -ESRCH;
-        }
+        if (c == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
+                                       "%s: no names found", pretty);
 
         print_source(flags, ts);
 
@@ -2050,10 +2048,10 @@ static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd
                         r = dns_name_is_valid(n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate specified domain %s: %m", n);
-                        if (r == 0) {
-                                log_error("Domain not valid: %s", n);
-                                return -EINVAL;
-                        }
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Domain not valid: %s",
+                                                       n);
 
                         r = sd_bus_message_append(req, "(sb)", n, **p == '~');
                         if (r < 0)
@@ -2348,10 +2346,10 @@ static int verb_nta(int argc, char **argv, void *userdata) {
                         r = dns_name_is_valid(*p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);
-                        if (r == 0) {
-                                log_error("Domain not valid: %s", *p);
-                                return -EINVAL;
-                        }
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Domain not valid: %s",
+                                                       *p);
                 }
 
         r = call_nta(bus, clear ? NULL : argv + 2, bus_resolve_mgr, &error);

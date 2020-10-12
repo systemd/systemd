@@ -544,10 +544,10 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
         assert(fdt >= 0);
 
         ret = lzma_easy_encoder(&s, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
-        if (ret != LZMA_OK) {
-                log_error("Failed to initialize XZ encoder: code %u", ret);
-                return -EINVAL;
-        }
+        if (ret != LZMA_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to initialize XZ encoder: code %u",
+                                       ret);
 
         for (;;) {
                 if (s.avail_in == 0 && action == LZMA_RUN) {
@@ -579,10 +579,10 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                 }
 
                 ret = lzma_code(&s, action);
-                if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END)) {
-                        log_error("Compression failed: code %u", ret);
-                        return -EBADMSG;
-                }
+                if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Compression failed: code %u",
+                                               ret);
 
                 if (s.avail_out == 0 || ret == LZMA_STREAM_END) {
                         ssize_t n, k;
@@ -664,10 +664,10 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes) {
                 offset += n;
                 total_out += n;
 
-                if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes) {
-                        log_debug("Compressed stream longer than %"PRIu64" bytes", max_bytes);
-                        return -EFBIG;
-                }
+                if (max_bytes != (uint64_t) -1 && total_out > (size_t) max_bytes)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EFBIG),
+                                               "Compressed stream longer than %" PRIu64 " bytes",
+                                               max_bytes);
 
                 if (size - offset < frame_size + 4) {
                         k = loop_write(fdt, buf, offset, false);
@@ -715,10 +715,10 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
         assert(fdt >= 0);
 
         ret = lzma_stream_decoder(&s, UINT64_MAX, 0);
-        if (ret != LZMA_OK) {
-                log_debug("Failed to initialize XZ decoder: code %u", ret);
-                return -ENOMEM;
-        }
+        if (ret != LZMA_OK)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEM),
+                                       "Failed to initialize XZ decoder: code %u",
+                                       ret);
 
         for (;;) {
                 if (s.avail_in == 0 && action == LZMA_RUN) {
@@ -741,10 +741,10 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                 }
 
                 ret = lzma_code(&s, action);
-                if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END)) {
-                        log_debug("Decompression failed: code %u", ret);
-                        return -EBADMSG;
-                }
+                if (!IN_SET(ret, LZMA_OK, LZMA_STREAM_END))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Decompression failed: code %u",
+                                               ret);
 
                 if (s.avail_out == 0 || ret == LZMA_STREAM_END) {
                         ssize_t n, k;
@@ -772,8 +772,8 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                 }
         }
 #else
-        log_debug("Cannot decompress file. Compiled without XZ support.");
-        return -EPROTONOSUPPORT;
+        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                               "Cannot decompress file. Compiled without XZ support.");
 #endif
 }
 
@@ -833,8 +833,8 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
         munmap(src, st.st_size);
         return r;
 #else
-        log_debug("Cannot decompress file. Compiled without LZ4 support.");
-        return -EPROTONOSUPPORT;
+        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                               "Cannot decompress file. Compiled without LZ4 support.");
 #endif
 }
 
@@ -1043,8 +1043,8 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
                 (double) (max_bytes - left) / in_bytes * 100);
         return 0;
 #else
-        log_debug("Cannot decompress file. Compiled without ZSTD support.");
-        return -EPROTONOSUPPORT;
+        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                               "Cannot decompress file. Compiled without ZSTD support.");
 #endif
 }
 

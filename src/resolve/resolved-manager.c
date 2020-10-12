@@ -786,10 +786,8 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         l = recvmsg_safe(fd, &mh, 0);
         if (IN_SET(l, -EAGAIN, -EINTR))
                 return 0;
-        if (l < 0)
+        if (l <= 0)
                 return l;
-        if (l == 0)
-                return 0;
 
         assert(!(mh.msg_flags & MSG_TRUNC));
 

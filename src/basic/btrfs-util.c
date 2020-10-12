@@ -1393,13 +1393,12 @@ static int copy_quota_hierarchy(int fd, uint64_t old_subvol_id, uint64_t new_sub
                 }
 
                 for (j = 0; j < n_old_parent_qgroups; j++)
-                        if (old_parent_qgroups[j] == old_qgroups[i]) {
+                        if (old_parent_qgroups[j] == old_qgroups[i])
                                 /* The old subvolume shared a common
                                  * parent qgroup with its parent
                                  * subvolume. Let's set up something
                                  * similar in the destination. */
                                 copy_from_parent = true;
-                        }
         }
 
         if (!insert_intermediary_qgroup && !copy_from_parent)

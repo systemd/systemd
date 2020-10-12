@@ -4342,7 +4342,7 @@ static int load_settings(void) {
 
         /* If all settings are masked, there's no point in looking for
          * the settings file */
-        if ((arg_settings_mask & _SETTINGS_MASK_ALL) == _SETTINGS_MASK_ALL)
+        if (FLAGS_SET(arg_settings_mask, _SETTINGS_MASK_ALL))
                 return 0;
 
         fn = strjoina(arg_machine, ".nspawn");

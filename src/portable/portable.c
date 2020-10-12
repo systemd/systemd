@@ -434,10 +434,9 @@ static int portable_extract_by_path(
                         if (isempty(name) && fd < 0)
                                 break;
 
-                        if (isempty(name) || fd < 0) {
-                                log_debug("Invalid item sent from child.");
-                                return -EINVAL;
-                        }
+                        if (isempty(name) || fd < 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid item sent from child.");
 
                         add = portable_metadata_new(name, fd);
                         if (!add)

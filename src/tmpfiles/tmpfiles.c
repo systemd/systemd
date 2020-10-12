@@ -1417,10 +1417,10 @@ static int create_file(Item *i, const char *path) {
                 if (fstat(fd, &stbuf) < 0)
                         return log_error_errno(errno, "stat(%s) failed: %m", path);
 
-                if (!S_ISREG(stbuf.st_mode)) {
-                        log_error("%s exists and is not a regular file.", path);
-                        return -EEXIST;
-                }
+                if (!S_ISREG(stbuf.st_mode))
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                               "%s exists and is not a regular file.",
+                                               path);
 
                 st = &stbuf;
         } else {
@@ -1481,10 +1481,10 @@ static int truncate_file(Item *i, const char *path) {
 
                 fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
                 if (fd < 0) {
-                        if (errno == ENOENT) {
-                                log_error("Cannot create file %s on a read-only file system.", path);
-                                return -EROFS;
-                        }
+                        if (errno == ENOENT)
+                                return log_error_errno(SYNTHETIC_ERRNO(EROFS),
+                                                       "Cannot create file %s on a read-only file system.",
+                                                       path);
 
                         return log_error_errno(errno, "Failed to re-open file %s: %m", path);
                 }
@@ -1495,10 +1495,10 @@ static int truncate_file(Item *i, const char *path) {
         if (fstat(fd, &stbuf) < 0)
                 return log_error_errno(errno, "stat(%s) failed: %m", path);
 
-        if (!S_ISREG(stbuf.st_mode)) {
-                log_error("%s exists and is not a regular file.", path);
-                return -EEXIST;
-        }
+        if (!S_ISREG(stbuf.st_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "%s exists and is not a regular file.",
+                                       path);
 
         if (stbuf.st_size > 0) {
                 if (ftruncate(fd, 0) < 0) {

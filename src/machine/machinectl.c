@@ -1312,15 +1312,13 @@ static int login_machine(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        if (!strv_isempty(arg_setenv) || arg_uid) {
-                log_error("--setenv= and --uid= are not supported for 'login'. Use 'shell' instead.");
-                return -EINVAL;
-        }
+        if (!strv_isempty(arg_setenv) || arg_uid)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--setenv= and --uid= are not supported for 'login'. Use 'shell' instead.");
 
-        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE)) {
-                log_error("Login only supported on local machines.");
-                return -EOPNOTSUPP;
-        }
+        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Login only supported on local machines.");
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1369,10 +1367,9 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
 
         assert(bus);
 
-        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE)) {
-                log_error("Shell only supported on local machines.");
-                return -EOPNOTSUPP;
-        }
+        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_MACHINE))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Shell only supported on local machines.");
 
         /* Pass $TERM to shell session, if not explicitly specified. */
         if (!strv_find_prefix(arg_setenv, "TERM=")) {
@@ -1525,10 +1522,10 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
 
         if (argc > 2) {
                 b = parse_boolean(argv[2]);
-                if (b < 0) {
-                        log_error("Failed to parse boolean argument: %s", argv[2]);
-                        return -EINVAL;
-                }
+                if (b < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to parse boolean argument: %s",
+                                               argv[2]);
         }
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -1602,10 +1599,10 @@ static int start_machine(int argc, char *argv[], void *userdata) {
                 r = image_exists(bus, argv[i]);
                 if (r < 0)
                         return r;
-                if (r == 0) {
-                        log_error("Machine image '%s' does not exist.", argv[i]);
-                        return -ENXIO;
-                }
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                               "Machine image '%s' does not exist.",
+                                               argv[i]);
 
                 r = sd_bus_call_method(
                                 bus,
@@ -1674,10 +1671,10 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
                 r = image_exists(bus, argv[i]);
                 if (r < 0)
                         return r;
-                if (r == 0) {
-                        log_error("Machine image '%s' does not exist.", argv[i]);
-                        return -ENXIO;
-                }
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                               "Machine image '%s' does not exist.",
+                                               argv[i]);
 
                 r = sd_bus_message_append(m, "s", unit);
                 if (r < 0)
@@ -1874,10 +1871,9 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
                 local = fn;
         }
-        if (!local) {
-                log_error("Need either path or local name.");
-                return -EINVAL;
-        }
+        if (!local)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Need either path or local name.");
 
         r = tar_strip_suffixes(local, &ll);
         if (r < 0)
@@ -1885,10 +1881,10 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
         local = ll;
 
-        if (!machine_name_is_valid(local)) {
-                log_error("Local name %s is not a suitable machine name.", local);
-                return -EINVAL;
-        }
+        if (!machine_name_is_valid(local))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Local name %s is not a suitable machine name.",
+                                       local);
 
         if (path) {
                 fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
@@ -1935,10 +1931,9 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 
                 local = fn;
         }
-        if (!local) {
-                log_error("Need either path or local name.");
-                return -EINVAL;
-        }
+        if (!local)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Need either path or local name.");
 
         r = raw_strip_suffixes(local, &ll);
         if (r < 0)
@@ -1946,10 +1941,10 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 
         local = ll;
 
-        if (!machine_name_is_valid(local)) {
-                log_error("Local name %s is not a suitable machine name.", local);
-                return -EINVAL;
-        }
+        if (!machine_name_is_valid(local))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Local name %s is not a suitable machine name.",
+                                       local);
 
         if (path) {
                 fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
@@ -1996,15 +1991,14 @@ static int import_fs(int argc, char *argv[], void *userdata) {
 
                 local = fn;
         }
-        if (!local) {
-                log_error("Need either path or local name.");
-                return -EINVAL;
-        }
+        if (!local)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Need either path or local name.");
 
-        if (!machine_name_is_valid(local)) {
-                log_error("Local name %s is not a suitable machine name.", local);
-                return -EINVAL;
-        }
+        if (!machine_name_is_valid(local))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Local name %s is not a suitable machine name.",
+                                       local);
 
         if (path) {
                 fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
@@ -2054,10 +2048,9 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         local = argv[1];
-        if (!machine_name_is_valid(local)) {
-                log_error("Machine name %s is not valid.", local);
-                return -EINVAL;
-        }
+        if (!machine_name_is_valid(local))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Machine name %s is not valid.", local);
 
         if (argc >= 3)
                 path = argv[2];
@@ -2097,10 +2090,9 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         local = argv[1];
-        if (!machine_name_is_valid(local)) {
-                log_error("Machine name %s is not valid.", local);
-                return -EINVAL;
-        }
+        if (!machine_name_is_valid(local))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Machine name %s is not valid.", local);
 
         if (argc >= 3)
                 path = argv[2];
@@ -2140,10 +2132,9 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         remote = argv[1];
-        if (!http_url_is_valid(remote)) {
-                log_error("URL '%s' is not valid.", remote);
-                return -EINVAL;
-        }
+        if (!http_url_is_valid(remote))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "URL '%s' is not valid.", remote);
 
         if (argc >= 3)
                 local = argv[2];
@@ -2164,10 +2155,10 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local name %s is not a suitable machine name.", local);
-                        return -EINVAL;
-                }
+                if (!machine_name_is_valid(local))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Local name %s is not a suitable machine name.",
+                                               local);
         }
 
         r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullTar");
@@ -2197,10 +2188,9 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         remote = argv[1];
-        if (!http_url_is_valid(remote)) {
-                log_error("URL '%s' is not valid.", remote);
-                return -EINVAL;
-        }
+        if (!http_url_is_valid(remote))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "URL '%s' is not valid.", remote);
 
         if (argc >= 3)
                 local = argv[2];
@@ -2221,10 +2211,10 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local)) {
-                        log_error("Local name %s is not a suitable machine name.", local);
-                        return -EINVAL;
-                }
+                if (!machine_name_is_valid(local))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Local name %s is not a suitable machine name.",
+                                               local);
         }
 
         r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullRaw");

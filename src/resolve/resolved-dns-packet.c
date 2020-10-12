@@ -1435,7 +1435,7 @@ int dns_packet_read_name(
 
                         n += r;
                         continue;
-                } else if (allow_compression && (c & 0xc0) == 0xc0) {
+                } else if (allow_compression && FLAGS_SET(c, 0xc0)) {
                         uint16_t ptr;
 
                         /* Pointer */
@@ -2250,12 +2250,11 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                         if (DNS_PACKET_QR(p)) {
                                 /* Additional checks for responses */
 
-                                if (!DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(rr)) {
+                                if (!DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(rr))
                                         /* If this is a reply and we don't know the EDNS version
                                          * then something is weird... */
-                                        log_debug("EDNS version newer that our request, bad server.");
-                                        return -EBADMSG;
-                                }
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                               "EDNS version newer that our request, bad server.");
 
                                 if (has_rfc6975) {
                                         /* If the OPT RR contains RFC6975 algorithm data, then this

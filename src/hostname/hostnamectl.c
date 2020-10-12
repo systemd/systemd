@@ -194,10 +194,9 @@ static int show_status(int argc, char **argv, void *userdata) {
         if (arg_pretty || arg_static || arg_transient) {
                 const char *attr;
 
-                if (!!arg_static + !!arg_pretty + !!arg_transient > 1) {
-                        log_error("Cannot query more than one name type at a time");
-                        return -EINVAL;
-                }
+                if (!!arg_static + !!arg_pretty + !!arg_transient > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Cannot query more than one name type at a time");
 
                 attr = arg_pretty ? "PrettyHostname" :
                         arg_static ? "StaticHostname" : "Hostname";

@@ -139,7 +139,7 @@ _printf_(1, 0) static int fill_iovec_sprintf(const char *format, va_list ap, int
 
                 if (i >= n) {
                         n = MAX(i*2, 4);
-                        c = realloc(iov, n * sizeof(struct iovec));
+                        c = reallocarray(iov, n, sizeof(struct iovec));
                         if (!c) {
                                 r = -ENOMEM;
                                 goto fail;

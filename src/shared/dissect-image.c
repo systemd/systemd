@@ -224,7 +224,7 @@ static int wait_for_partitions_to_appear(
                         if (r < 0)
                                 return r;
                         if (r == 0)
-                                return log_debug_errno(EPROTONOSUPPORT,
+                                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
                                                        "Device is a loop device and partition scanning is off!");
 
                         return -EINVAL; /* original error */

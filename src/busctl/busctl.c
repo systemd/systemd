@@ -1130,14 +1130,13 @@ static int introspect(int argc, char **argv, void *userdata) {
 
         (void) pager_open(arg_pager_flags);
 
-        if (arg_legend) {
+        if (arg_legend)
                 printf("%-*s %-*s %-*s %-*s %s\n",
                        (int) name_width, "NAME",
                        (int) type_width, "TYPE",
                        (int) signature_width, "SIGNATURE",
                        (int) result_width, "RESULT/VALUE",
                        "FLAGS");
-        }
 
         for (j = 0; j < k; j++) {
                 _cleanup_free_ char *ellipsized = NULL;

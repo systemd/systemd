@@ -910,7 +910,8 @@ static int user_record_compile_effective_passwords(
          * the old literal password only (and do not care for the old PKCS#11 token) */
 
         if (strv_isempty(h->hashed_password))
-                return log_error_errno(EINVAL, "User record has no hashed passwords, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "User record has no hashed passwords, refusing.");
 
         /* Generates the list of plaintext passwords to propagate to LUKS/fscrypt devices, and checks whether
          * we have a plaintext password for each hashed one. If we are missing one we'll fail, since we

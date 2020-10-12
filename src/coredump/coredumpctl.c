@@ -888,10 +888,9 @@ static int dump_core(int argc, char **argv, void *userdata) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
-        if (arg_field) {
-                log_error("Option --field/-F only makes sense with list");
-                return -EINVAL;
-        }
+        if (arg_field)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --field/-F only makes sense with list");
 
         r = acquire_journal(&j, argv + 1);
         if (r < 0)
@@ -943,10 +942,9 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (!debugger)
                 return -ENOMEM;
 
-        if (arg_field) {
-                log_error("Option --field/-F only makes sense with list");
-                return -EINVAL;
-        }
+        if (arg_field)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --field/-F only makes sense with list");
 
         r = acquire_journal(&j, argv + 1);
         if (r < 0)
@@ -971,15 +969,13 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (!exe)
                 return log_oom();
 
-        if (endswith(exe, " (deleted)")) {
-                log_error("Binary already deleted.");
-                return -ENOENT;
-        }
+        if (endswith(exe, " (deleted)"))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Binary already deleted.");
 
-        if (!path_is_absolute(exe)) {
-                log_error("Binary is not an absolute path.");
-                return -ENOENT;
-        }
+        if (!path_is_absolute(exe))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Binary is not an absolute path.");
 
         r = save_core(j, NULL, &path, &unlink_path);
         if (r < 0)

@@ -791,8 +791,8 @@ static int slot_process(
 
         rv = m->C_GetTokenInfo(slotid, &token_info);
         if (rv == CKR_TOKEN_NOT_PRESENT) {
-                log_debug("Token not present in slot, ignoring.");
-                return -EAGAIN;
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                       "Token not present in slot, ignoring.");
         } else if (rv != CKR_OK) {
                 log_warning("Failed to acquire token info for slot %lu, ignoring slot: %s", slotid, p11_kit_strerror(rv));
                 return -EAGAIN;
@@ -808,10 +808,10 @@ static int slot_process(
                 return -EAGAIN;
         }
 
-        if (search_uri && !p11_kit_uri_match_token_info(search_uri, &token_info)) {
-                log_debug("Found non-matching token with URI %s.", token_uri_string);
-                return -EAGAIN;
-        }
+        if (search_uri && !p11_kit_uri_match_token_info(search_uri, &token_info))
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                       "Found non-matching token with URI %s.",
+                                       token_uri_string);
 
         log_debug("Found matching token with URI %s.", token_uri_string);
 
@@ -876,10 +876,9 @@ static int module_process(
                 log_warning("Failed to get slot list, ignoring module: %s", p11_kit_strerror(rv));
                 return -EAGAIN;
         }
-        if (n_slotids == 0) {
-                log_debug("This module has no slots? Ignoring module.");
-                return -EAGAIN;
-        }
+        if (n_slotids == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                       "This module has no slots? Ignoring module.");
 
         for (k = 0; k < n_slotids; k++) {
                 r = slot_process(

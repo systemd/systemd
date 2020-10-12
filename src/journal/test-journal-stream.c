@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "chattr-util.h"
+#include "io-util.h"
 #include "journal-file.h"
 #include "journal-internal.h"
 #include "log.h"
@@ -92,13 +93,11 @@ static void run_test(void) {
                 previous_ts = ts;
 
                 assert_se(asprintf(&p, "NUMBER=%u", i) >= 0);
-                iovec[0].iov_base = p;
-                iovec[0].iov_len = strlen(p);
+                iovec[0] = IOVEC_MAKE(p, strlen(p));
 
                 assert_se(asprintf(&q, "MAGIC=%s", i % 5 == 0 ? "quux" : "waldo") >= 0);
 
-                iovec[1].iov_base = q;
-                iovec[1].iov_len = strlen(q);
+                iovec[1] = IOVEC_MAKE(q, strlen(q));
 
                 if (i % 10 == 0)
                         assert_se(journal_file_append_entry(three, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
