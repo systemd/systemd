@@ -2380,25 +2380,42 @@ static int route_section_verify(Route *route, Network *network) {
         if (section_is_invalid(route->section))
                 return -EINVAL;
 
+        if (route->gateway_from_dhcp_or_ra)
+                if (route->gw_family == AF_UNSPEC) {
+                        /* When deprecated Gateway=_dhcp is set, then assume gateway family based on other settings. */
+                        switch (route->family) {
+                        case AF_UNSPEC:
+                                log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
+                                            "Please use \"_dhcp4\" or \"_ipv6ra\" instead. Assuming \"_dhcp4\".",
+                                            route->section->filename, route->section->line);
+                                route->family = AF_INET;
+                                break;
+                        case AF_INET:
+                        case AF_INET6:
+                                log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
+                                            "Assuming \"%s\" based on Destination=, Source=, or PreferredSource= setting.",
+                                            route->section->filename, route->section->line, route->family == AF_INET ? "_dhcp4" : "_ipv6ra");
+                                break;
+                        default:
+                                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                         "%s: Invalid route family. Ignoring [Route] section from line %u.",
+                                                         route->section->filename, route->section->line);
+                        }
+                        route->gw_family = route->family;
+                }
+
+        /* When only Gateway= is specified, assume the route family based on the Gateway address. */
         if (route->family == AF_UNSPEC)
                 route->family = route->gw_family;
 
         if (route->family == AF_UNSPEC) {
                 assert(route->section);
 
-                if (route->gateway_from_dhcp_or_ra) {
-                        log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
-                                    "Please use \"_dhcp4\" or \"_ipv6ra\" instead. Assuming \"_dhcp4\".",
-                                    route->section->filename, route->section->line);
-
-                        route->family = AF_INET;
-                        route->gw_family = AF_INET;
-                } else
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: Route section without Gateway=, Destination=, Source=, "
-                                                 "or PreferredSource= field configured. "
-                                                 "Ignoring [Route] section from line %u.",
-                                                 route->section->filename, route->section->line);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Route section without Gateway=, Destination=, Source=, "
+                                         "or PreferredSource= field configured. "
+                                         "Ignoring [Route] section from line %u.",
+                                         route->section->filename, route->section->line);
         }
 
         if (route->family == AF_INET6 && route->gw_family == AF_INET)
