@@ -493,7 +493,11 @@ int info_main(int argc, char *argv[], void *userdata) {
                 if (arg_wait_for_initialization_timeout > 0) {
                         sd_device *d;
 
-                        r = device_wait_for_initialization(device, NULL, arg_wait_for_initialization_timeout, &d);
+                        r = device_wait_for_initialization(
+                                        device,
+                                        NULL,
+                                        usec_add(now(CLOCK_MONOTONIC), arg_wait_for_initialization_timeout),
+                                        &d);
                         if (r < 0)
                                 return r;
 
