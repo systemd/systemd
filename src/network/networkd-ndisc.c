@@ -527,11 +527,10 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (!route_gw->gateway_from_dhcp_or_ra)
                         continue;
 
-                if (route_gw->family != AF_INET6)
+                if (route_gw->gw_family != AF_INET6)
                         continue;
 
                 route_gw->gw = gateway;
-                route_gw->gw_family = AF_INET6;
 
                 r = ndisc_route_configure(route_gw, link, rt);
                 if (r < 0)

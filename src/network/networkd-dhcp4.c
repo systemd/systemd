@@ -391,10 +391,9 @@ static int link_set_dhcp_routes(Link *link) {
                                 if (!rt->gateway_from_dhcp_or_ra)
                                         continue;
 
-                                if (rt->family != AF_INET)
+                                if (rt->gw_family != AF_INET)
                                         continue;
 
-                                rt->gw_family = AF_INET;
                                 rt->gw.in = router[0];
 
                                 r = dhcp_route_configure(rt, link);
