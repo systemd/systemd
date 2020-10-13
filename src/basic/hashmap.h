@@ -150,8 +150,9 @@ static inline int ordered_hashmap_put(OrderedHashmap *h, const void *key, void *
         return hashmap_put(PLAIN_HASHMAP(h), key, value);
 }
 
-int _hashmap_put_strdup(Hashmap **h, const char *k, const char *v  HASHMAP_DEBUG_PARAMS);
-#define hashmap_put_strdup(h, k, v) _hashmap_put_strdup(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
+int _hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const char *k, const char *v  HASHMAP_DEBUG_PARAMS);
+#define hashmap_put_strdup_full(h, hash_ops, k, v) _hashmap_put_strdup_full(h, hash_ops, k, v  HASHMAP_DEBUG_SRC_ARGS)
+#define hashmap_put_strdup(h, k, v) hashmap_put_strdup_full(h, &string_hash_ops_free_free, k, v)
 
 int hashmap_update(Hashmap *h, const void *key, void *value);
 static inline int ordered_hashmap_update(OrderedHashmap *h, const void *key, void *value) {

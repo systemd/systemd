@@ -1788,10 +1788,10 @@ int set_consume(Set *s, void *value) {
         return r;
 }
 
-int _hashmap_put_strdup(Hashmap **h, const char *k, const char *v  HASHMAP_DEBUG_PARAMS) {
+int _hashmap_put_strdup_full(Hashmap **h, const struct hash_ops *hash_ops, const char *k, const char *v  HASHMAP_DEBUG_PARAMS) {
         int r;
 
-        r = _hashmap_ensure_allocated(h, &string_hash_ops_free_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = _hashmap_ensure_allocated(h, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
         if (r < 0)
                 return r;
 
@@ -1822,14 +1822,14 @@ int _hashmap_put_strdup(Hashmap **h, const char *k, const char *v  HASHMAP_DEBUG
         return r;
 }
 
-int _set_put_strdup(Set **s, const char *p  HASHMAP_DEBUG_PARAMS) {
+int _set_put_strdup_full(Set **s, const struct hash_ops *hash_ops, const char *p  HASHMAP_DEBUG_PARAMS) {
         char *c;
         int r;
 
         assert(s);
         assert(p);
 
-        r = _set_ensure_allocated(s, &string_hash_ops_free  HASHMAP_DEBUG_PASS_ARGS);
+        r = _set_ensure_allocated(s, hash_ops  HASHMAP_DEBUG_PASS_ARGS);
         if (r < 0)
                 return r;
 
@@ -1843,14 +1843,14 @@ int _set_put_strdup(Set **s, const char *p  HASHMAP_DEBUG_PARAMS) {
         return set_consume(*s, c);
 }
 
-int _set_put_strdupv(Set **s, char **l  HASHMAP_DEBUG_PARAMS) {
+int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HASHMAP_DEBUG_PARAMS) {
         int n = 0, r;
         char **i;
 
         assert(s);
 
         STRV_FOREACH(i, l) {
-                r = _set_put_strdup(s, *i  HASHMAP_DEBUG_PASS_ARGS);
+                r = _set_put_strdup_full(s, hash_ops, *i  HASHMAP_DEBUG_PASS_ARGS);
                 if (r < 0)
                         return r;
 

@@ -126,10 +126,12 @@ int _set_ensure_consume(Set **s, const struct hash_ops *hash_ops, void *key  HAS
 
 int set_consume(Set *s, void *value);
 
-int _set_put_strdup(Set **s, const char *p  HASHMAP_DEBUG_PARAMS);
-#define set_put_strdup(s, p) _set_put_strdup(s, p  HASHMAP_DEBUG_SRC_ARGS)
-int _set_put_strdupv(Set **s, char **l  HASHMAP_DEBUG_PARAMS);
-#define set_put_strdupv(s, l) _set_put_strdupv(s, l  HASHMAP_DEBUG_SRC_ARGS)
+int _set_put_strdup_full(Set **s, const struct hash_ops *hash_ops, const char *p  HASHMAP_DEBUG_PARAMS);
+#define set_put_strdup_full(s, hash_ops, p) _set_put_strdup_full(s, hash_ops, p  HASHMAP_DEBUG_SRC_ARGS)
+#define set_put_strdup(s, p) set_put_strdup_full(s, &string_hash_ops_free, p)
+int _set_put_strdupv_full(Set **s, const struct hash_ops *hash_ops, char **l  HASHMAP_DEBUG_PARAMS);
+#define set_put_strdupv_full(s, hash_ops, l) _set_put_strdupv_full(s, hash_ops, l  HASHMAP_DEBUG_SRC_ARGS)
+#define set_put_strdupv(s, l) set_put_strdupv_full(s, &string_hash_ops_free, l)
 
 int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags flags);
 
