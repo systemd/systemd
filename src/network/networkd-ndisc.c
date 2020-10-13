@@ -725,8 +725,10 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         SET_FOREACH(a, addresses) {
                 Address *existing_address;
 
+                address->in_addr.in6 = *a;
+
                 /* see RFC4862 section 5.5.3.e */
-                r = address_get(link, AF_INET6, (union in_addr_union *) a, prefixlen, &existing_address);
+                r = address_get(link, address, &existing_address);
                 if (r > 0) {
                         lifetime_remaining = existing_address->cinfo.tstamp / 100 + existing_address->cinfo.ifa_valid - time_now / USEC_PER_SEC;
                         if (lifetime_valid > NDISC_PREFIX_LFT_MIN || lifetime_valid > lifetime_remaining)
@@ -742,8 +744,6 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
                 if (address->cinfo.ifa_valid == 0)
                         continue;
-
-                address->in_addr.in6 = *a;
 
                 r = ndisc_address_configure(address, link, rt);
                 if (r < 0)
