@@ -1349,6 +1349,9 @@ usb:v03F0p3117*
 usb:v03F0p311D*
  ID_MODEL_FROM_DATABASE=Atheros AR9285 Malbec Bluetooth Adapter
 
+usb:v03F0p312A*
+ ID_MODEL_FROM_DATABASE=LaserJet Pro M701n
+
 usb:v03F0p3202*
  ID_MODEL_FROM_DATABASE=PhotoSmart 1215
 
@@ -4059,6 +4062,9 @@ usb:v041Ep3232*
  ID_MODEL_FROM_DATABASE=Sound Blaster Premium HD [SBX]
 
 usb:v041Ep3237*
+ ID_MODEL_FROM_DATABASE=SB X-Fi Surround 5.1 Pro
+
+usb:v041Ep3263*
  ID_MODEL_FROM_DATABASE=SB X-Fi Surround 5.1 Pro
 
 usb:v041Ep3F00*
@@ -8693,6 +8699,9 @@ usb:v046DpC22E*
 usb:v046DpC231*
  ID_MODEL_FROM_DATABASE=G13 Virtual Mouse
 
+usb:v046DpC232*
+ ID_MODEL_FROM_DATABASE=Gaming Virtual Keyboard
+
 usb:v046DpC245*
  ID_MODEL_FROM_DATABASE=G400 Optical Mouse
 
@@ -9884,6 +9893,9 @@ usb:v047FpC00E*
 usb:v047FpC03B*
  ID_MODEL_FROM_DATABASE=HD1
 
+usb:v047FpDA60*
+ ID_MODEL_FROM_DATABASE=DA60
+
 usb:v0480*
  ID_VENDOR_FROM_DATABASE=Toshiba America Inc
 
@@ -10212,7 +10224,7 @@ usb:v048Dp1172*
  ID_MODEL_FROM_DATABASE=Flash Drive
 
 usb:v048Dp1234*
- ID_MODEL_FROM_DATABASE=Mass storage
+ ID_MODEL_FROM_DATABASE=Chipsbank CBM2199 Flash Drive
 
 usb:v048Dp1336*
  ID_MODEL_FROM_DATABASE=SD/MMC Cardreader
@@ -15185,6 +15197,9 @@ usb:v04D9pA052*
 usb:v04D9pA055*
  ID_MODEL_FROM_DATABASE=Keyboard
 
+usb:v04D9pA075*
+ ID_MODEL_FROM_DATABASE=Optical Gaming Mouse
+
 usb:v04D9pA096*
  ID_MODEL_FROM_DATABASE=Keyboard
 
@@ -16359,7 +16374,7 @@ usb:v04E8p685E*
  ID_MODEL_FROM_DATABASE=GT-I9100 / GT-C3350 Phones (USB Debugging mode)
 
 usb:v04E8p6860*
- ID_MODEL_FROM_DATABASE=Galaxy series, misc. (MTP mode)
+ ID_MODEL_FROM_DATABASE=Galaxy A5 (MTP)
 
 usb:v04E8p6863*
  ID_MODEL_FROM_DATABASE=Galaxy series, misc. (tethering mode)
@@ -19197,7 +19212,7 @@ usb:v0525p1265*
  ID_MODEL_FROM_DATABASE=File-backed Storage Gadget
 
 usb:v0525p3424*
- ID_MODEL_FROM_DATABASE=Lumidigm Venus fingerprint sensor
+ ID_MODEL_FROM_DATABASE=V30x/V4xx fingerprint sensor [Lumidigm]
 
 usb:v0525pA0F0*
  ID_MODEL_FROM_DATABASE=Cambridge Electronic Devices Power1401 mk 2
@@ -19227,7 +19242,7 @@ usb:v0525pA4A4*
  ID_MODEL_FROM_DATABASE=Linux-USB user-mode bulk source/sink
 
 usb:v0525pA4A5*
- ID_MODEL_FROM_DATABASE=Pocketbook Pro 903 / Mobius 2 Action Cam / xDuoo X3
+ ID_MODEL_FROM_DATABASE=Pocketbook Pro 903 / Mobius 2 Action Cam / xDuoo X3 / PocketBook Pro 602
 
 usb:v0525pA4A6*
  ID_MODEL_FROM_DATABASE=Linux-USB Serial Gadget
@@ -20161,6 +20176,9 @@ usb:v054Cp035C*
 
 usb:v054Cp035F*
  ID_MODEL_FROM_DATABASE=UP-DR200 Photo Printer
+
+usb:v054Cp0360*
+ ID_MODEL_FROM_DATABASE=M2 Card Reader
 
 usb:v054Cp0382*
  ID_MODEL_FROM_DATABASE=Memory Stick PRO-HG Duo Adaptor (MSAC-UAH1)
@@ -23669,6 +23687,9 @@ usb:v059Fp106E*
 usb:v059Fp1094*
  ID_MODEL_FROM_DATABASE=Rugged THB
 
+usb:v059Fp1095*
+ ID_MODEL_FROM_DATABASE=Rugged
+
 usb:v059FpA601*
  ID_MODEL_FROM_DATABASE=HardDrive
 
@@ -23782,6 +23803,12 @@ usb:v05A7p4002*
 
 usb:v05A7p4003*
  ID_MODEL_FROM_DATABASE=Bluetooth Headset Series 2 in DFU mode
+
+usb:v05A7p400D*
+ ID_MODEL_FROM_DATABASE=SoundLink Color II speaker in DFU mode
+
+usb:v05A7p40FE*
+ ID_MODEL_FROM_DATABASE=SoundLink Color II speaker
 
 usb:v05A7pBC50*
  ID_MODEL_FROM_DATABASE=SoundLink Wireless Mobile speaker
@@ -24796,6 +24823,9 @@ usb:v05C8p036E*
 
 usb:v05C8p0374*
  ID_MODEL_FROM_DATABASE=HP EliteBook integrated HD Webcam
+
+usb:v05C8p038E*
+ ID_MODEL_FROM_DATABASE=HP Wide Vision HD integrated webcam
 
 usb:v05C8p03A1*
  ID_MODEL_FROM_DATABASE=XiaoMi Webcam
@@ -27480,7 +27510,7 @@ usb:v067Bp1231*
  ID_MODEL_FROM_DATABASE=Orico SATA External Hard Disk Drive Lay-Flat Docking Station with USB 3.0 & eSATA interfaces.
 
 usb:v067Bp2303*
- ID_MODEL_FROM_DATABASE=PL2303 Serial Port
+ ID_MODEL_FROM_DATABASE=PL2303 Serial Port / Mobile Action MA-8910P
 
 usb:v067Bp2305*
  ID_MODEL_FROM_DATABASE=PL2305 Parallel Port
@@ -28375,6 +28405,9 @@ usb:v06BCp020B*
 
 usb:v06BCp02BB*
  ID_MODEL_FROM_DATABASE=OKI PT390 POS Printer
+
+usb:v06BCp0383*
+ ID_MODEL_FROM_DATABASE=MC563 Multifunction Printer
 
 usb:v06BCp0A91*
  ID_MODEL_FROM_DATABASE=B2500MFP (printer+scanner)
@@ -30901,6 +30934,9 @@ usb:v0781pB6B7*
 
 usb:v0781pB6BA*
  ID_MODEL_FROM_DATABASE=CF SDDR-289
+
+usb:v0781pCFC9*
+ ID_MODEL_FROM_DATABASE=SDDR-489 ImageMate Pro Reader
 
 usb:v0782*
  ID_VENDOR_FROM_DATABASE=Trackerball
@@ -35930,6 +35966,9 @@ usb:v096E*
 usb:v096Ep0005*
  ID_MODEL_FROM_DATABASE=ePass2000
 
+usb:v096Ep0006*
+ ID_MODEL_FROM_DATABASE=HID Dongle (for OEMs - manufacturer string is "OEM")
+
 usb:v096Ep0120*
  ID_MODEL_FROM_DATABASE=Microcosm Ltd Dinkey
 
@@ -37316,6 +37355,9 @@ usb:v0A5Fp0009*
 usb:v0A5Fp0050*
  ID_MODEL_FROM_DATABASE=P120i / WM120i
 
+usb:v0A5Fp0080*
+ ID_MODEL_FROM_DATABASE=GK420d Label Printer
+
 usb:v0A5Fp0081*
  ID_MODEL_FROM_DATABASE=GK420t Label Printer
 
@@ -37432,6 +37474,9 @@ usb:v0A82*
 
 usb:v0A82p4600*
  ID_MODEL_FROM_DATABASE=TravelScan 460/464
+
+usb:v0A82p6605*
+ ID_MODEL_FROM_DATABASE=ScanShell 800N
 
 usb:v0A83*
  ID_VENDOR_FROM_DATABASE=NextComm, Inc.
@@ -40406,6 +40451,9 @@ usb:v0BDApB72A*
 usb:v0BDApB812*
  ID_MODEL_FROM_DATABASE=RTL88x2bu [AC1200 Techkey]
 
+usb:v0BDApF179*
+ ID_MODEL_FROM_DATABASE=RTL8188FTV 802.11b/g/n 1T1R 2.4G WLAN Adapter
+
 usb:v0BDB*
  ID_VENDOR_FROM_DATABASE=Ericsson Business Mobile Networks BV
 
@@ -40868,6 +40916,12 @@ usb:v0C3D*
 usb:v0C3E*
  ID_VENDOR_FROM_DATABASE=Nextcell, Inc.
 
+usb:v0C40*
+ ID_VENDOR_FROM_DATABASE=ELMCU
+
+usb:v0C40p8000*
+ ID_MODEL_FROM_DATABASE=2.4GHz receiver
+
 usb:v0C44*
  ID_VENDOR_FROM_DATABASE=Motorola iDEN
 
@@ -40963,6 +41017,9 @@ usb:v0C45p184C*
 
 usb:v0C45p1A90*
  ID_MODEL_FROM_DATABASE=2M pixel Microscope Camera (with capture button) [Andonstar V160]
+
+usb:v0C45p5004*
+ ID_MODEL_FROM_DATABASE=Redragon Mitra RGB Keyboard
 
 usb:v0C45p5101*
  ID_MODEL_FROM_DATABASE=2.4G Wireless Device [Rii MX3]
@@ -45360,31 +45417,37 @@ usb:v0F6E*
  ID_VENDOR_FROM_DATABASE=INTELLIGENT SYSTEMS
 
 usb:v0F6Ep0100*
- ID_MODEL_FROM_DATABASE=GameBoy Color Emulator
+ ID_MODEL_FROM_DATABASE=IS-CGB-EMULATOR
 
 usb:v0F6Ep0201*
  ID_MODEL_FROM_DATABASE=GameBoy Advance Flash Gang Writer
 
 usb:v0F6Ep0202*
- ID_MODEL_FROM_DATABASE=GameBoy Advance Capture
+ ID_MODEL_FROM_DATABASE=IS-AGB-CAPTURE
 
 usb:v0F6Ep0300*
- ID_MODEL_FROM_DATABASE=Gamecube DOL Viewer
+ ID_MODEL_FROM_DATABASE=IS-DOL-VIEWER
 
 usb:v0F6Ep0400*
- ID_MODEL_FROM_DATABASE=NDS Emulator
+ ID_MODEL_FROM_DATABASE=IS-NITRO-EMULATOR
 
 usb:v0F6Ep0401*
- ID_MODEL_FROM_DATABASE=NDS UIC
+ ID_MODEL_FROM_DATABASE=IS-NITRO-UIC
 
 usb:v0F6Ep0402*
- ID_MODEL_FROM_DATABASE=NDS Writer
+ ID_MODEL_FROM_DATABASE=IS-NITRO-WRITER
 
 usb:v0F6Ep0403*
- ID_MODEL_FROM_DATABASE=NDS Capture
+ ID_MODEL_FROM_DATABASE=IS-NITRO-CAPTURE
 
 usb:v0F6Ep0404*
- ID_MODEL_FROM_DATABASE=NDS Emulator (Lite)
+ ID_MODEL_FROM_DATABASE=IS-NITRO-EMULATOR (DS Lite)
+
+usb:v0F6Ep0500*
+ ID_MODEL_FROM_DATABASE=IS-TWL-DEBUGGER
+
+usb:v0F6Ep0501*
+ ID_MODEL_FROM_DATABASE=IS-TWL-CAPTURE
 
 usb:v0F73*
  ID_VENDOR_FROM_DATABASE=DFI
@@ -52736,6 +52799,9 @@ usb:v1504*
 usb:v1504p001F*
  ID_MODEL_FROM_DATABASE=SRP-350II Thermal Receipt Printer
 
+usb:v1508*
+ ID_VENDOR_FROM_DATABASE=Fibocom
+
 usb:v1509*
  ID_VENDOR_FROM_DATABASE=First International Computer, Inc.
 
@@ -53255,6 +53321,9 @@ usb:v1532p004C*
 usb:v1532p004D*
  ID_MODEL_FROM_DATABASE=DeathAdder 2000 (Cynosa Pro Bundle)
 
+usb:v1532p004F*
+ ID_MODEL_FROM_DATABASE=RZ01-0145, Gaming Mouse [DeathAdder 2000 (Alternate)]
+
 usb:v1532p0050*
  ID_MODEL_FROM_DATABASE=Naga Hex V2
 
@@ -53345,14 +53414,23 @@ usb:v1532p007B*
 usb:v1532p007E*
  ID_MODEL_FROM_DATABASE=RC30-030502 Mouse Dock
 
+usb:v1532p0083*
+ ID_MODEL_FROM_DATABASE=RC30-0315, Gaming Mouse [Basilisk X HyperSpeed]
+
 usb:v1532p0084*
  ID_MODEL_FROM_DATABASE=RZ01-0321 Gaming Mouse [DeathAdder V2]
 
 usb:v1532p0085*
  ID_MODEL_FROM_DATABASE=RZ01-0316 Gaming Mouse [Basilisk V2]
 
+usb:v1532p0086*
+ ID_MODEL_FROM_DATABASE=Gaming Mouse [Basilisk Ultimate, Wired]
+
 usb:v1532p0088*
- ID_MODEL_FROM_DATABASE=Razer Basilisk Ultimate Dongle
+ ID_MODEL_FROM_DATABASE=Gaming Mouse [Basilisk Ultimate, Wireless, Receiver]
+
+usb:v1532p008A*
+ ID_MODEL_FROM_DATABASE=RZ01-0325, Gaming Mouse [Viper Mini]
 
 usb:v1532p0101*
  ID_MODEL_FROM_DATABASE=Copperhead Mouse
@@ -53585,6 +53663,12 @@ usb:v1532p0253*
 usb:v1532p0255*
  ID_MODEL_FROM_DATABASE=RZ09-0328, Gaming Laptop [Blade 15 Base Model (2020)]
 
+usb:v1532p0256*
+ ID_MODEL_FROM_DATABASE=RZ09--0329, Gaming Laptop [Blade Pro 17 Full HD (2020)]
+
+usb:v1532p025D*
+ ID_MODEL_FROM_DATABASE=RZ03-0338, Gaming Keyboard [Ornata V2]
+
 usb:v1532p0300*
  ID_MODEL_FROM_DATABASE=RZ06-0063 Motion Sensing Controllers [Hydra]
 
@@ -53627,6 +53711,12 @@ usb:v1532p051C*
 usb:v1532p051D*
  ID_MODEL_FROM_DATABASE=Nari (Wired)
 
+usb:v1532p051E*
+ ID_MODEL_FROM_DATABASE=RC30-026902, Gaming Headset [Nari Essential, Wireless, Receiver]
+
+usb:v1532p051F*
+ ID_MODEL_FROM_DATABASE=RC30-026901, Gaming Headset [Nari Essential, Wired]
+
 usb:v1532p0520*
  ID_MODEL_FROM_DATABASE=Kraken Tournament Edition
 
@@ -53647,6 +53737,9 @@ usb:v1532p0A02*
 
 usb:v1532p0A03*
  ID_MODEL_FROM_DATABASE=Wildcat
+
+usb:v1532p0A15*
+ ID_MODEL_FROM_DATABASE=RZ06-0199, Gaming Controller [Wolverine Tournament Edition]
 
 usb:v1532p0C00*
  ID_MODEL_FROM_DATABASE=RZ02-0135 Hard Gaming Mouse Mat [Firefly]
@@ -54253,6 +54346,21 @@ usb:v1605*
 
 usb:v1605p0001*
  ID_MODEL_FROM_DATABASE=DIO-32 (No Firmware Yet)
+
+usb:v1605p0002*
+ ID_MODEL_FROM_DATABASE=USB-DIO-48 (No Firmware Yet)
+
+usb:v1605p0003*
+ ID_MODEL_FROM_DATABASE=USB-DIO-96 (No Firmware Yet)
+
+usb:v1605p0004*
+ ID_MODEL_FROM_DATABASE=USB-DIO-32I (No Firmware Yet)
+
+usb:v1605p0005*
+ ID_MODEL_FROM_DATABASE=USB-DIO24 (based on -CTR6) (No Firmware Yet)
+
+usb:v1605p0006*
+ ID_MODEL_FROM_DATABASE=USB-DIO24-CTR6 (No Firmware Yet)
 
 usb:v1606*
  ID_VENDOR_FROM_DATABASE=Umax

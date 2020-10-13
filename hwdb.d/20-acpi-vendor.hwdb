@@ -177,6 +177,9 @@ acpi:LNRO*:
 acpi:LNUX*:
  ID_VENDOR_FROM_DATABASE=The Linux Foundation
 
+acpi:LOON*:
+ ID_VENDOR_FROM_DATABASE=Loongson Technology Corporation Limited
+
 acpi:MCHP*:
  ID_VENDOR_FROM_DATABASE=Microchip Technology Inc
 
@@ -222,6 +225,9 @@ acpi:PEGA*:
 acpi:PHYT*:
  ID_VENDOR_FROM_DATABASE=Phytium Technology Co. Ltd.
 
+acpi:PIXA*:
+ ID_VENDOR_FROM_DATABASE=PixArt imaging inc.
+
 acpi:QCOM*:
  ID_VENDOR_FROM_DATABASE=Qualcomm Inc
 
@@ -259,7 +265,7 @@ acpi:TCAG*:
  ID_VENDOR_FROM_DATABASE=Teracue AG
 
 acpi:TOSB*:
- ID_VENDOR_FROM_DATABASE=Toshiba Corporation
+ ID_VENDOR_FROM_DATABASE=Dynabook Inc.
 
 acpi:TXNW*:
  ID_VENDOR_FROM_DATABASE=Texas Instruments
@@ -1359,6 +1365,9 @@ acpi:CET*:
 acpi:CFG*:
  ID_VENDOR_FROM_DATABASE=Atlantis
 
+acpi:CFR*:
+ ID_VENDOR_FROM_DATABASE=Meta View, Inc.
+
 acpi:CGA*:
  ID_VENDOR_FROM_DATABASE=Chunghwa Picture Tubes, LTD
 
@@ -1484,6 +1493,9 @@ acpi:CMG*:
 
 acpi:CMI*:
  ID_VENDOR_FROM_DATABASE=C-Media Electronics
+
+acpi:CMK*:
+ ID_VENDOR_FROM_DATABASE=Comark LLC
 
 acpi:CMM*:
  ID_VENDOR_FROM_DATABASE=Comtime GmbH
@@ -4425,6 +4437,9 @@ acpi:MKT*:
 acpi:MKV*:
  ID_VENDOR_FROM_DATABASE=Trtheim Technology
 
+acpi:MLC*:
+ ID_VENDOR_FROM_DATABASE=MILCOTS
+
 acpi:MLD*:
  ID_VENDOR_FROM_DATABASE=Deep Video Imaging Ltd
 
@@ -4526,6 +4541,9 @@ acpi:MPN*:
 
 acpi:MPS*:
  ID_VENDOR_FROM_DATABASE=mps Software GmbH
+
+acpi:MPV*:
+ ID_VENDOR_FROM_DATABASE=Megapixel Visual Realty
 
 acpi:MPX*:
  ID_VENDOR_FROM_DATABASE=Micropix Technologies, Ltd.
@@ -4988,6 +5006,9 @@ acpi:NXQ*:
 
 acpi:NXS*:
  ID_VENDOR_FROM_DATABASE=Technology Nexus Secure Open Systems AB
+
+acpi:NXT*:
+ ID_VENDOR_FROM_DATABASE=NZXT (PNP same EDID)_
 
 acpi:NYC*:
  ID_VENDOR_FROM_DATABASE=Nakayo Relecommunications, Inc.
@@ -6150,6 +6171,9 @@ acpi:SKM*:
 acpi:SKT*:
  ID_VENDOR_FROM_DATABASE=Samsung Electro-Mechanics Company Ltd
 
+acpi:SKW*:
+ ID_VENDOR_FROM_DATABASE=Skyworth
+
 acpi:SKY*:
  ID_VENDOR_FROM_DATABASE=SKYDATA S.P.A.
 
@@ -6829,7 +6853,7 @@ acpi:TOP*:
  ID_VENDOR_FROM_DATABASE=Orion Communications Co., Ltd.
 
 acpi:TOS*:
- ID_VENDOR_FROM_DATABASE=Toshiba Corporation
+ ID_VENDOR_FROM_DATABASE=Dynabook Inc.
 
 acpi:TOU*:
  ID_VENDOR_FROM_DATABASE=Touchstone Technology
