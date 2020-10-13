@@ -188,7 +188,7 @@ int expose_port_watch_rtnl(
                 sd_event *event,
                 int recv_fd,
                 sd_netlink_message_handler_t handler,
-                union in_addr_union *exposed,
+                void *userdata,
                 sd_netlink **ret) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int fd, r;
@@ -207,11 +207,11 @@ int expose_port_watch_rtnl(
                 return log_error_errno(r, "Failed to create rtnl object: %m");
         }
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_NEWADDR, handler, NULL, exposed, "nspawn-NEWADDR");
+        r = sd_netlink_add_match(rtnl, NULL, RTM_NEWADDR, handler, NULL, userdata, "nspawn-NEWADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_NEWADDR messages: %m");
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_DELADDR, handler, NULL, exposed, "nspawn-DELADDR");
+        r = sd_netlink_add_match(rtnl, NULL, RTM_DELADDR, handler, NULL, userdata, "nspawn-DELADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_DELADDR messages: %m");
 
