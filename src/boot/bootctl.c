@@ -1661,6 +1661,31 @@ static int verb_is_installed(int argc, char *argv[], void *userdata) {
         return EXIT_SUCCESS;
 }
 
+static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target, size_t *ret_target_size) {
+        int r;
+        if (streq(arg1, "@current")) {
+                r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderEntrySelected", NULL, (void *) ret_target, ret_target_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get EFI variable 'LoaderEntrySelected': %m");
+        } else if (streq(arg1, "@oneshot")) {
+                r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderEntryOneShot", NULL, (void *) ret_target, ret_target_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryOneShot': %m");
+        } else if (streq(arg1, "@default")) {
+                r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderEntryDefault", NULL, (void *) ret_target, ret_target_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get EFI variable 'LoaderEntryDefault': %m");
+        } else {
+                char16_t *encoded = NULL;
+                encoded = utf8_to_utf16(arg1, strlen(arg1));
+                if (!encoded)
+                        return log_oom();
+                *ret_target = encoded;
+                *ret_target_size = char16_strlen(encoded) * 2 + 2;
+        }
+        return 0;
+}
+
 static int verb_set_default(int argc, char *argv[], void *userdata) {
         const char *name;
         int r;
@@ -1693,17 +1718,17 @@ static int verb_set_default(int argc, char *argv[], void *userdata) {
         if (isempty(argv[1])) {
                 r = efi_set_variable(EFI_VENDOR_LOADER, name, NULL, 0);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to remove EFI variale: %m");
+                        return log_error_errno(r, "Failed to remove EFI variable '%s': %m", name);
         } else {
-                _cleanup_free_ char16_t *encoded = NULL;
+                _cleanup_free_ char16_t *target = NULL;
+                size_t target_size = 0;
 
-                encoded = utf8_to_utf16(argv[1], strlen(argv[1]));
-                if (!encoded)
-                        return log_oom();
-
-                r = efi_set_variable(EFI_VENDOR_LOADER, name, encoded, char16_strlen(encoded) * 2 + 2);
+                r = parse_loader_entry_target_arg(argv[1], &target, &target_size);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to update EFI variable: %m");
+                        return r;
+                r = efi_set_variable(EFI_VENDOR_LOADER, name, target, target_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update EFI variable '%s': %m", name);
         }
 
         return 0;
