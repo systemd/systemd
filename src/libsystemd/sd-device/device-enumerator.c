@@ -118,7 +118,7 @@ _public_ int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumer
         else
                 hashmap = &enumerator->nomatch_sysattr;
 
-        r = hashmap_put_strdup(hashmap, sysattr, value);
+        r = hashmap_put_strdup_full(hashmap, &trivial_hash_ops_free_free, sysattr, value);
         if (r <= 0)
                 return r;
 
@@ -133,7 +133,7 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
         assert_return(enumerator, -EINVAL);
         assert_return(property, -EINVAL);
 
-        r = hashmap_put_strdup(&enumerator->match_property, property, value);
+        r = hashmap_put_strdup_full(&enumerator->match_property, &trivial_hash_ops_free_free, property, value);
         if (r <= 0)
                 return r;
 
