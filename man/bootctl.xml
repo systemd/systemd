@@ -102,6 +102,17 @@
         <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string as
         argument. The <option>set-oneshot</option> command will set the default entry only for the next boot,
         the <option>set-default</option> will set it persistently for all future boots.</para></listitem>
+
+        <listitem><para>Optionally, the boot loader entry ID may be specified as one of: <option>@default</option>,
+        <option>@oneshot</option> or <option>@current</option>, which correspond to the current default boot loader
+        entry for all future boots, the current default boot loader entry for the next boot, and the currently booted
+        boot loader entry. These special IDs are resolved to the current values of the EFI variables
+        <varname>LoaderEntryDefault</varname>, <varname>LoaderEntryOneShot</varname> and <varname>LoaderEntrySelected</varname>,
+        see <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> for details.
+        These special IDs are primarily useful as a quick way to persistently make the currently booted boot loader
+        entry the default choice, or to upgrade the default boot loader entry for the next boot to the default boot
+        loader entry for all future boots, but may be used for other operations too.
+        </para></listitem>
       </varlistentry>
 
     </variablelist>
