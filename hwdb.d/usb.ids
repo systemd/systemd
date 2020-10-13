@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2020.07.06
-# Date:    2020-07-06 20:34:08
+# Version: 2020.08.26
+# Date:    2020-08-26 20:34:09
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -469,6 +469,7 @@
 	3111  OfficeJet 4100 series
 	3117  EWS 2605dtn
 	311d  Atheros AR9285 Malbec Bluetooth Adapter
+	312a  LaserJet Pro M701n
 	3202  PhotoSmart 1215
 	3207  4 GB flash drive
 	3211  OfficeJet 4105 series
@@ -1373,6 +1374,7 @@
 	3220  Sound Blaster Tactic(3D) Sigma sound card
 	3232  Sound Blaster Premium HD [SBX]
 	3237  SB X-Fi Surround 5.1 Pro
+	3263  SB X-Fi Surround 5.1 Pro
 	3f00  E-Mu Xboard 25 MIDI Controller
 	3f02  E-Mu 0202
 	3f04  E-Mu 0404
@@ -2917,6 +2919,7 @@
 	c22d  G510 Gaming Keyboard
 	c22e  G510 Gaming Keyboard onboard audio
 	c231  G13 Virtual Mouse
+	c232  Gaming Virtual Keyboard
 	c245  G400 Optical Mouse
 	c246  Gaming Mouse G300
 	c247  G100S Optical Gaming Mouse
@@ -3314,6 +3317,7 @@
 	c008  Audio 655 DSP
 	c00e  Blackwire C310 headset
 	c03b  HD1
+	da60  DA60
 0480  Toshiba America Inc
 	0001  InTouch Module
 	0004  InTouch Module
@@ -3423,7 +3427,7 @@
 048d  Integrated Technology Express, Inc.
 	1165  IT1165 Flash Controller
 	1172  Flash Drive
-	1234  Mass storage
+	1234  Chipsbank CBM2199 Flash Drive
 	1336  SD/MMC Cardreader
 	1345  Multi Cardreader
 	8297  IT8297 RGB LED Controller
@@ -5081,6 +5085,7 @@
 	a050  Chatman V1
 	a052  USB-zyTemp
 	a055  Keyboard
+	a075  Optical Gaming Mouse
 	a096  Keyboard
 	a09f  E-Signal LUOM G10 Mechanical Gaming Mouse
 	a100  Mouse [HV-MS735]
@@ -5472,7 +5477,7 @@
 	685c  GT-I9250 Phone [Galaxy Nexus] (Mass storage mode)
 	685d  GT-I9100 Phone [Galaxy S II] (Download mode)
 	685e  GT-I9100 / GT-C3350 Phones (USB Debugging mode)
-	6860  Galaxy series, misc. (MTP mode)
+	6860  Galaxy A5 (MTP)
 	6863  Galaxy series, misc. (tethering mode)
 	6864  GT-I9070 (network tethering, USB debugging enabled)
 	6865  Galaxy (PTP mode)
@@ -6418,7 +6423,7 @@
 	1080  NET1080 USB-USB Bridge
 	1200  SSDC Adapter II
 	1265  File-backed Storage Gadget
-	3424  Lumidigm Venus fingerprint sensor
+	3424  V30x/V4xx fingerprint sensor [Lumidigm]
 	a0f0  Cambridge Electronic Devices Power1401 mk 2
 	a140  USB Clik! 40
 	a141  (OME) PocketZip 40 MP3 Player Driver
@@ -6428,7 +6433,7 @@
 	a4a2  Linux-USB Ethernet/RNDIS Gadget
 	a4a3  Linux-USB user-mode isochronous source/sink
 	a4a4  Linux-USB user-mode bulk source/sink
-	a4a5  Pocketbook Pro 903 / Mobius 2 Action Cam / xDuoo X3
+	a4a5  Pocketbook Pro 903 / Mobius 2 Action Cam / xDuoo X3 / PocketBook Pro 602
 	a4a6  Linux-USB Serial Gadget
 	a4a7  Linux-USB Serial Gadget (CDC ACM mode)
 	a4a8  Linux-USB Printer Gadget
@@ -6740,6 +6745,7 @@
 	035b  Walkman NWZ-A828
 	035c  NWZ-A726/A728/A729
 	035f  UP-DR200 Photo Printer
+	0360  M2 Card Reader
 	0382  Memory Stick PRO-HG Duo Adaptor (MSAC-UAH1)
 	0385  Walkman NWZ-E436F
 	0387  IC Recorder (P)
@@ -7909,6 +7915,7 @@
 	106d  Porsche Design Mobile Drive
 	106e  Porsche Design Desktop Drive
 	1094  Rugged THB
+	1095  Rugged
 	a601  HardDrive
 	a602  CD R/W
 05a0  Vetronix Corp.
@@ -7947,6 +7954,8 @@
 	4001  Bluetooth Headset in DFU mode
 	4002  Bluetooth Headset Series 2
 	4003  Bluetooth Headset Series 2 in DFU mode
+	400d  SoundLink Color II speaker in DFU mode
+	40fe  SoundLink Color II speaker
 	bc50  SoundLink Wireless Mobile speaker
 	bc51  SoundLink Wireless Mobile speaker in DFU mode
 05a8  Spacetec IMC Corp.
@@ -8285,6 +8294,7 @@
 	0361  SunplusIT INC. HP Truevision HD Webcam
 	036e  Webcam
 	0374  HP EliteBook integrated HD Webcam
+	038e  HP Wide Vision HD integrated webcam
 	03a1  XiaoMi Webcam
 	03b1  Webcam
 	03bc  HP Wide Vision HD Integrated Webcam
@@ -9180,7 +9190,7 @@
 	0610  Onext EG210U MODEM
 	0611  AlDiga AL-11U Quad-band GSM/GPRS/EDGE modem
 	1231  Orico SATA External Hard Disk Drive Lay-Flat Docking Station with USB 3.0 & eSATA interfaces.
-	2303  PL2303 Serial Port
+	2303  PL2303 Serial Port / Mobile Action MA-8910P
 	2305  PL2305 Parallel Port
 	2306  Raylink Bridge Controller
 	2307  PL2307 USB-ATAPI4 Bridge
@@ -9479,6 +9489,7 @@
 	01c9  OKI B430 Mono Printer
 	020b  OKI ES4140 Mono Printer
 	02bb  OKI PT390 POS Printer
+	0383  MC563 Multifunction Printer
 	0a91  B2500MFP (printer+scanner)
 	3801  B6100 Laser Printer
 06bd  AGFA-Gevaert NV
@@ -10321,6 +10332,7 @@
 	b4b5  SDDR-89 V4 ImageMate 12-in-1 Reader
 	b6b7  SDDR-99 V4 ImageMate 5-in-1 Reader
 	b6ba  CF SDDR-289
+	cfc9  SDDR-489 ImageMate Pro Reader
 0782  Trackerball
 0783  C3PO
 	0003  LTC31 SmartCard Reader
@@ -11997,6 +12009,7 @@
 0968  Catalyst Enterprises, Inc.
 096e  Feitian Technologies, Inc.
 	0005  ePass2000
+	0006  HID Dongle (for OEMs - manufacturer string is "OEM")
 	0120  Microcosm Ltd Dinkey
 	0305  ePass2000Auto
 	0309  ePass3000GM
@@ -12459,6 +12472,7 @@
 0a5f  Zebra
 	0009  LP2844 Printer
 	0050  P120i / WM120i
+	0080  GK420d Label Printer
 	0081  GK420t Label Printer
 	0084  GX420d Desktop Label Printer
 	008b  HC100 wristbands Printer
@@ -12498,6 +12512,7 @@
 	ff01  Wireless Missile Launcher
 0a82  Syscan
 	4600  TravelScan 460/464
+	6605  ScanShell 800N
 0a83  NextComm, Inc.
 0a84  Maui Innovative Peripherals
 0a85  Idexx Labs
@@ -13489,6 +13504,7 @@
 	b728  RTL8723B Bluetooth
 	b72a  RTL8723B Bluetooth
 	b812  RTL88x2bu [AC1200 Techkey]
+	f179  RTL8188FTV 802.11b/g/n 1T1R 2.4G WLAN Adapter
 0bdb  Ericsson Business Mobile Networks BV
 	1000  BV Bluetooth Device
 	1002  Bluetooth Device 1.2
@@ -13643,6 +13659,8 @@
 0c3c  Radius Co., Ltd
 0c3d  Innocom, Inc.
 0c3e  Nextcell, Inc.
+0c40  ELMCU
+	8000  2.4GHz receiver
 0c44  Motorola iDEN
 	0021  iDEN P2k0 Device
 	0022  iDEN P2k1 Device
@@ -13675,6 +13693,7 @@
 	1158  A56AK
 	184c  VoIP Phone
 	1a90  2M pixel Microscope Camera (with capture button) [Andonstar V160]
+	5004  Redragon Mitra RGB Keyboard
 	5101  2.4G Wireless Device [Rii MX3]
 	6001  Genius VideoCAM NB
 	6005  Sweex Mini Webcam
@@ -15140,15 +15159,17 @@
 0f69  Dionex Corp.
 0f6a  Vibren Technologies, Inc.
 0f6e  INTELLIGENT SYSTEMS
-	0100  GameBoy Color Emulator
+	0100  IS-CGB-EMULATOR
 	0201  GameBoy Advance Flash Gang Writer
-	0202  GameBoy Advance Capture
-	0300  Gamecube DOL Viewer
-	0400  NDS Emulator
-	0401  NDS UIC
-	0402  NDS Writer
-	0403  NDS Capture
-	0404  NDS Emulator (Lite)
+	0202  IS-AGB-CAPTURE
+	0300  IS-DOL-VIEWER
+	0400  IS-NITRO-EMULATOR
+	0401  IS-NITRO-UIC
+	0402  IS-NITRO-WRITER
+	0403  IS-NITRO-CAPTURE
+	0404  IS-NITRO-EMULATOR (DS Lite)
+	0500  IS-TWL-DEBUGGER
+	0501  IS-TWL-CAPTURE
 0f73  DFI
 0f78  Guntermann & Drunck GmbH
 0f7c  DQ Technology, Inc.
@@ -17599,6 +17620,7 @@
 1501  Pine-Tum Enterprise Co., Ltd.
 1504  Bixolon CO LTD
 	001f  SRP-350II Thermal Receipt Printer
+1508  Fibocom
 1509  First International Computer, Inc.
 	0a01  LI-3100 Area Meter
 	0a02  LI-7000 CO2/H2O Gas Analyzer
@@ -17772,6 +17794,7 @@
 	004a  RZ03-0133 Gaming Lapboard, Keyboard Mouse Combo, Dongle [Turret Dongle]
 	004c  Diamondback Chroma
 	004d  DeathAdder 2000 (Cynosa Pro Bundle)
+	004f  RZ01-0145, Gaming Mouse [DeathAdder 2000 (Alternate)]
 	0050  Naga Hex V2
 	0053  Naga Chroma
 	0054  DeathAdder 3500
@@ -17802,9 +17825,12 @@
 	007a  RC30-0305 Gaming Mouse [Viper Ultimate (Wired)]
 	007b  RC30-0305 Gaming Mouse Dongle [Viper Ultimate (Wireless)]
 	007e  RC30-030502 Mouse Dock
+	0083  RC30-0315, Gaming Mouse [Basilisk X HyperSpeed]
 	0084  RZ01-0321 Gaming Mouse [DeathAdder V2]
 	0085  RZ01-0316 Gaming Mouse [Basilisk V2]
-	0088  Razer Basilisk Ultimate Dongle
+	0086  Gaming Mouse [Basilisk Ultimate, Wired]
+	0088  Gaming Mouse [Basilisk Ultimate, Wireless, Receiver]
+	008a  RZ01-0325, Gaming Mouse [Viper Mini]
 	0101  Copperhead Mouse
 	0102  Tarantula Keyboard
 	0103  Gaming Keyboard [Reclusa]
@@ -17882,6 +17908,8 @@
 	024d  Blade 15 Studio Edition (2019)
 	0253  RZ09-0330, Gaming Laptop [Blade 15 Advanced (Early 2020)]
 	0255  RZ09-0328, Gaming Laptop [Blade 15 Base Model (2020)]
+	0256  RZ09--0329, Gaming Laptop [Blade Pro 17 Full HD (2020)]
+	025d  RZ03-0338, Gaming Keyboard [Ornata V2]
 	0300  RZ06-0063 Motion Sensing Controllers [Hydra]
 	0401  Gaming Arcade Stick [Panthera]
 	0501  Kraken 7.1
@@ -17896,6 +17924,8 @@
 	051a  Nari Ultimate
 	051c  Nari (Wireless)
 	051d  Nari (Wired)
+	051e  RC30-026902, Gaming Headset [Nari Essential, Wireless, Receiver]
+	051f  RC30-026901, Gaming Headset [Nari Essential, Wired]
 	0520  Kraken Tournament Edition
 	0521  Kraken Kitty Edition
 	0527  RZ04-0318 Gaming Headset [Kraken Ultimate]
@@ -17903,6 +17933,7 @@
 	0a00  Atrox Arcade Stick for Xbox One
 	0a02  ManO'War
 	0a03  Wildcat
+	0a15  RZ06-0199, Gaming Controller [Wolverine Tournament Edition]
 	0c00  RZ02-0135 Hard Gaming Mouse Mat [Firefly]
 	0c01  Goliathus
 	0c02  Goliathus Extended
@@ -18105,6 +18136,11 @@
 	8007  US-122 Audio/Midi Interface
 1605  ACCES I/O Products, Inc.
 	0001  DIO-32 (No Firmware Yet)
+	0002  USB-DIO-48 (No Firmware Yet)
+	0003  USB-DIO-96 (No Firmware Yet)
+	0004  USB-DIO-32I (No Firmware Yet)
+	0005  USB-DIO24 (based on -CTR6) (No Firmware Yet)
+	0006  USB-DIO24-CTR6 (No Firmware Yet)
 1606  Umax
 	0002  Astra 1236U Scanner
 	0010  Astra 1220U
