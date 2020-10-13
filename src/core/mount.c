@@ -1675,7 +1675,7 @@ static int mount_setup_unit(
                 const char *where,
                 const char *options,
                 const char *fstype,
-                bool set_flags, Mount **mu) {
+                bool set_flags, Mount **ret_mount) {
 
         _cleanup_free_ char *e = NULL;
         MountProcFlags flags;
@@ -1688,11 +1688,12 @@ static int mount_setup_unit(
         assert(options);
         assert(fstype);
 
-/* Test already done in mount_load_proc_self_mountinfo() */
-#if 0
-        if (ignore_mount(where, fstype))
+        /* mount_setup_unit() is called only from mount_load_proc_self_mountinfo(),
+         * which already skipped ignored mounts, so this check is not needed.
+         *
+         if (ignore_mount(where, fstype))
                 return 0;
-#endif
+         */
 
         /* Mount unit names have to be (like all other unit names) short enough to fit into file names. This
          * means there's a good chance that overly long mount point paths after mangling them to look like a
@@ -1736,7 +1737,7 @@ static int mount_setup_unit(
         if (set_flags)
                 MOUNT(u)->proc_flags = flags;
 
-        *mu = MOUNT(u);
+        *ret_mount = MOUNT(u);
 
         return 0;
 }
@@ -1745,16 +1746,12 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
-        static bool mountinfo_hashmap_initialized = false;
 
         assert(m);
 
-        if (!mountinfo_hashmap_initialized) {
-                r = hashmap_ensure_allocated(&mountinfo_hashmap, &string_hash_ops);
-                if (r < 0)
-                        return -ENOMEM;
-                mountinfo_hashmap_initialized = true;
-        }
+        r = hashmap_ensure_allocated(&mountinfo_hashmap, &string_hash_ops);
+        if (r < 0)
+                return -ENOMEM;
 
         r = libmount_parse(NULL, NULL, &table, &iter);
         if (r < 0)
@@ -1805,7 +1802,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                         assert(mu->mountinfo_key == key);
                         if (mu->state == MOUNT_MOUNTED) {
                                 mu->proc_flags |= MOUNT_PROC_IS_MOUNTED;
-                                log_debug("Mount entry '%s' already known, won't set device nor update mount unit", mount_entry);
+                                log_debug("Mount entry '%s' already known, won't set device or update mount unit", mount_entry);
                                 continue;
                         }
                 }
