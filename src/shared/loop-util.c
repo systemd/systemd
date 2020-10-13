@@ -24,6 +24,7 @@
 #include "loop-util.h"
 #include "missing_loop.h"
 #include "parse-util.h"
+#include "random-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -248,7 +249,10 @@ static int loop_configure(
                         goto fail;
                 }
 
-                (void) usleep(50 * USEC_PER_MSEC);
+                /* Sleep some random time, but at least 10ms, at most 250ms. Increase the delay the more
+                 * failed attempts we see */
+                (void) usleep(UINT64_C(10) * USEC_PER_MSEC +
+                              random_u64() % (UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
 
         return 0;
@@ -414,6 +418,11 @@ int loop_device_make(
                         return -EBUSY;
 
                 loopdev = mfree(loopdev);
+
+                /* Wait some random time, to make collision less likely. Let's pick a random time in the
+                 * range 0ms…250ms, linearly scaled by the number of failed attempts. */
+                (void) usleep(random_u64() % (UINT64_C(10) * USEC_PER_MSEC +
+                                              UINT64_C(240) * USEC_PER_MSEC * n_attempts/64));
         }
 
         d = new(LoopDevice, 1);
