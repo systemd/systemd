@@ -14,13 +14,13 @@
 #include "sd-dhcp-client.h"
 
 #include "alloc-util.h"
-#include "async.h"
 #include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-protocol.h"
 #include "dns-domain.h"
 #include "event-util.h"
+#include "fd-util.h"
 #include "hostname-util.h"
 #include "io-util.h"
 #include "memory-util.h"
@@ -693,7 +693,7 @@ static int client_initialize(sd_dhcp_client *client) {
 
         client->receive_message = sd_event_source_unref(client->receive_message);
 
-        client->fd = asynchronous_close(client->fd);
+        client->fd = safe_close(client->fd);
 
         (void) event_source_disable(client->timeout_resend);
         (void) event_source_disable(client->timeout_t1);
@@ -1419,7 +1419,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         assert(client);
 
         client->receive_message = sd_event_source_unref(client->receive_message);
-        client->fd = asynchronous_close(client->fd);
+        client->fd = safe_close(client->fd);
 
         client->state = DHCP_STATE_REBINDING;
         client->attempt = 0;
@@ -1776,7 +1776,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                         (void) event_source_disable(client->timeout_resend);
                         client->receive_message =
                                 sd_event_source_unref(client->receive_message);
-                        client->fd = asynchronous_close(client->fd);
+                        client->fd = safe_close(client->fd);
 
                         if (IN_SET(client->state, DHCP_STATE_REQUESTING,
                                    DHCP_STATE_REBOOTING))
