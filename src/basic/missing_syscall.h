@@ -734,3 +734,49 @@ static inline int missing_rt_sigqueueinfo(pid_t tgid, int sig, siginfo_t *info) 
 
 #  define rt_sigqueueinfo missing_rt_sigqueueinfo
 #endif
+
+/* ======================================================================= */
+
+#define systemd_NR_close_range systemd_SC_arch_bias(436)
+
+/* may be (invalid) negative number due to libseccomp, see PR 13319 */
+#if defined __NR_close_range && __NR_close_range >= 0
+#  if defined systemd_NR_close_range
+assert_cc(__NR_close_range == systemd_NR_close_range);
+#  endif
+#else
+#  if defined __NR_close_range
+#    undef __NR_close_range
+#  endif
+#  if defined systemd_NR_close_range
+#    define __NR_close_range systemd_NR_close_range
+#  endif
+#endif
+
+#if !HAVE_CLOSE_RANGE
+static inline int missing_close_range(int first_fd, int end_fd, unsigned flags) {
+#  ifdef __NR_close_range
+        /* Kernel-side the syscall expects fds as unsigned integers (just like close() actually), while
+         * userspace exclusively uses signed integers for fds. We don't know just yet how glibc is going to
+         * wrap this syscall, but let's assume it's going to be similar to what they do for close(),
+         * i.e. make the same unsigned → signed type change from the raw kernel syscall compared to the
+         * userspace wrapper. There's only one caveat for this: unlike for close() there's the special
+         * UINT_MAX fd value for the 'end_fd' argument. Let's safely map that to -1 here. And let's refuse
+         * any other negative values. */
+        if ((first_fd < 0) || (end_fd < 0 && end_fd != -1)) {
+                errno = -EBADF;
+                return -1;
+        }
+
+        return syscall(__NR_close_range,
+                       (unsigned) first_fd,
+                       end_fd == -1 ? UINT_MAX : (unsigned) end_fd, /* Of course, the compiler should figure out that this is the identity mapping IRL */
+                       flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define close_range missing_close_range
+#endif
