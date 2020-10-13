@@ -50,12 +50,12 @@ int address_new(Address **ret);
 Address *address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
 bool address_exists(Link *link, int family, const union in_addr_union *in_addr);
-int address_configure(Address *address, Link *link, link_netlink_message_handler_t callback, bool update, Address **ret);
-int address_remove(Address *address, Link *link, link_netlink_message_handler_t callback);
-bool address_equal(Address *a1, Address *a2);
+int address_configure(const Address *address, Link *link, link_netlink_message_handler_t callback, bool update, Address **ret);
+int address_remove(const Address *address, Link *link, link_netlink_message_handler_t callback);
+bool address_equal(const Address *a1, const Address *a2);
 bool address_is_ready(const Address *a);
 
-int generate_ipv6_eui_64_address(Link *link, struct in6_addr *ret);
+int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret);
 
 DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 

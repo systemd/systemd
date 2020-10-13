@@ -17,7 +17,7 @@
 #define ADDRESSES_PER_LINK_MAX 2048U
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
-int generate_ipv6_eui_64_address(Link *link, struct in6_addr *ret) {
+int generate_ipv6_eui_64_address(const Link *link, struct in6_addr *ret) {
         assert(link);
         assert(ret);
 
@@ -197,7 +197,7 @@ int address_compare_func(const Address *a1, const Address *a2) {
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(address_hash_ops, Address, address_hash_func, address_compare_func, address_free);
 
-bool address_equal(Address *a1, Address *a2) {
+bool address_equal(const Address *a1, const Address *a2) {
         if (a1 == a2)
                 return true;
 
@@ -467,7 +467,7 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 }
 
 int address_remove(
-                Address *address,
+                const Address *address,
                 Link *link,
                 link_netlink_message_handler_t callback) {
 
@@ -512,7 +512,7 @@ int address_remove(
         return 0;
 }
 
-static bool link_is_static_address_configured(Link *link, Address *address) {
+static bool link_is_static_address_configured(const Link *link, const Address *address) {
         Address *net_address;
 
         assert(link);
@@ -528,7 +528,7 @@ static bool link_is_static_address_configured(Link *link, Address *address) {
         return false;
 }
 
-static bool link_address_is_dynamic(Link *link, Address *address) {
+static bool link_address_is_dynamic(const Link *link, const Address *address) {
         Route *route;
 
         assert(link);
@@ -757,7 +757,7 @@ static int address_acquire(Link *link, const Address *original, Address **ret) {
 static int ipv4_dad_configure(Address *address);
 
 int address_configure(
-                Address *address,
+                const Address *address,
                 Link *link,
                 link_netlink_message_handler_t callback,
                 bool update,
@@ -956,7 +956,7 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         return 1;
 }
 
-static int static_address_configure(Address *address, Link *link, bool update) {
+static int static_address_configure(const Address *address, Link *link, bool update) {
         Address *ret;
         int r;
 
