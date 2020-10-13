@@ -1014,24 +1014,25 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s  [OPTIONS...] COMMAND ...\n"
-               "\n%sInstall/update/remove the systemd-boot EFI boot manager and list/select entries.%s\n"
-               "\nBoot Loader Commands:\n"
-               "  status              Show status of installed systemd-boot and EFI variables\n"
+        printf("%1$s  [OPTIONS...] COMMAND ...\n"
+               "\n%5$sControl EFI firmware boot settings and manage boot loader.%6$s\n"
+               "\n%3$sGeneric EFI Firmware/Boot Loader Commands:%4$s\n"
+               "  status              Show status of installed boot loader and EFI variables\n"
+               "  reboot-to-firmware [BOOL]\n"
+               "                      Query or set reboot-to-firmware EFI flag\n"
+               "  systemd-efi-options [STRING]\n"
+               "                      Query or set system options string in EFI variable\n"
+               "\n%3$sBoot Loader Specification Commands:%4$s\n"
+               "  list                List boot loader entries\n"
+               "  set-default ID      Set default boot loader entry\n"
+               "  set-oneshot ID      Set default boot loader entry, for next boot only\n"
+               "\n%3$ssystemd-boot Commands:%4$s\n"
                "  install             Install systemd-boot to the ESP and EFI variables\n"
                "  update              Update systemd-boot in the ESP and EFI variables\n"
                "  remove              Remove systemd-boot from the ESP and EFI variables\n"
                "  is-installed        Test whether systemd-boot is installed in the ESP\n"
                "  random-seed         Initialize random seed in ESP and EFI variables\n"
-               "  systemd-efi-options [STRING]\n"
-               "                      Query or set system options string in EFI variable\n"
-               "  reboot-to-firmware [BOOL]\n"
-               "                      Query or set reboot-to-firmware EFI flag\n"
-               "\nBoot Loader Entries Commands:\n"
-               "  list                List boot loader entries\n"
-               "  set-default ID      Set default boot loader entry\n"
-               "  set-oneshot ID      Set default boot loader entry, for next boot only\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help            Show this help\n"
                "     --version         Print version\n"
                "     --esp-path=PATH   Path to the EFI System Partition (ESP)\n"
@@ -1042,11 +1043,12 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager        Do not pipe output into a pager\n"
                "     --graceful        Don't fail when the ESP cannot be found or EFI\n"
                "                       variables cannot be written\n"
-               "\nSee the %s for details.\n"
+               "\nSee the %2$s for details.\n"
                , program_invocation_short_name
-               , ansi_highlight()
-               , ansi_normal()
-               , link);
+               , link
+               , ansi_underline(), ansi_normal()
+               , ansi_highlight(), ansi_normal()
+        );
 
         return 0;
 }
