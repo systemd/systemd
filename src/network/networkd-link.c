@@ -1758,6 +1758,11 @@ static int link_joined(Link *link) {
                 return 0;
 
         link_set_state(link, LINK_STATE_CONFIGURING);
+
+        r = link_acquire_conf(link);
+        if (r < 0)
+                return r;
+
         return link_set_static_configs(link);
 }
 
@@ -2037,12 +2042,6 @@ static int link_configure_continue(Link *link) {
         r = link_set_ipv6_mtu(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface, ignoring: %m");
-
-        if (link_has_carrier(link) || link->network->configure_without_carrier) {
-                r = link_acquire_conf(link);
-                if (r < 0)
-                        return r;
-        }
 
         return link_enter_join_netdev(link);
 }
