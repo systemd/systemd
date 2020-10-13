@@ -1941,7 +1941,7 @@
     <title>[DHCPv6PrefixDelegation] Section Options</title>
     <para>The [DHCPv6PrefixDelegation] section configures delegated prefix assigned by DHCPv6 server.
     The settings in this section are used only when <varname>IPv6PrefixDelegation=</varname> setting is
-    enabled, or set to <literal>dhcp6</literal>.</para>
+    enabled, or set to <literal>dhcpv6</literal>.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
