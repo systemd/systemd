@@ -605,7 +605,7 @@ static void link_enter_unmanaged(Link *link) {
         link_dirty(link);
 }
 
-int link_stop_clients(Link *link, bool may_keep_dhcp) {
+int link_stop_engines(Link *link, bool may_keep_dhcp) {
         int r = 0, k;
 
         assert(link);
@@ -626,6 +626,10 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
         k = sd_ipv4acd_stop(link->dhcp_acd);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client for DHCPv4: %m");
+
+        k = sd_dhcp_server_stop(link->dhcp_server);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop DHCPv4 server: %m");
 
         k = sd_ipv4ll_stop(link->ipv4ll);
         if (k < 0)
@@ -665,7 +669,7 @@ void link_enter_failed(Link *link) {
 
         link_set_state(link, LINK_STATE_FAILED);
 
-        (void) link_stop_clients(link, false);
+        (void) link_stop_engines(link, false);
 
         link_dirty(link);
 }
@@ -2080,11 +2084,9 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         log_link_info(link, "Re-configuring with %s", network->filename);
 
         /* Dropping old .network file */
-        r = link_stop_clients(link, false);
+        r = link_stop_engines(link, false);
         if (r < 0)
                 return r;
-
-        (void) sd_dhcp_server_stop(link->dhcp_server);
 
         r = link_drop_config(link);
         if (r < 0)
@@ -2530,13 +2532,11 @@ static int link_carrier_lost(Link *link) {
         if (link->setting_mtu)
                 return 0;
 
-        r = link_stop_clients(link, false);
+        r = link_stop_engines(link, false);
         if (r < 0) {
                 link_enter_failed(link);
                 return r;
         }
-
-        (void) sd_dhcp_server_stop(link->dhcp_server);
 
         r = link_drop_config(link);
         if (r < 0)

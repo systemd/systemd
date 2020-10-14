@@ -231,7 +231,7 @@ int link_set_mtu(Link *link, uint32_t mtu);
 
 bool link_ipv4ll_enabled(Link *link, AddressFamily mask);
 
-int link_stop_clients(Link *link, bool may_keep_dhcp);
+int link_stop_engines(Link *link, bool may_keep_dhcp);
 
 const char* link_state_to_string(LinkState s) _const_;
 LinkState link_state_from_string(const char *s) _pure_;
