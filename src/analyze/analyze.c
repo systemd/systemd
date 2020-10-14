@@ -1685,7 +1685,7 @@ static int load_kernel_syscalls(Set **ret) {
         return 0;
 }
 
-static void kernel_syscalls_remove(Set *s, const SyscallFilterSet *set) {
+static void syscall_set_remove(Set *s, const SyscallFilterSet *set) {
         const char *syscall;
 
         NULSTR_FOREACH(syscall, set->value) {
@@ -1716,8 +1716,13 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_pager_flags);
 
         if (strv_isempty(strv_skip(argv, 1))) {
-                _cleanup_set_free_ Set *kernel = NULL;
+                _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
+                const char *sys;
                 int i, k;
+
+                NULSTR_FOREACH(sys, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value)
+                        if (set_put_strdup(&known, sys) < 0)
+                                return log_oom();
 
                 k = load_kernel_syscalls(&kernel);
 
@@ -1727,8 +1732,28 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
                                 puts("");
 
                         dump_syscall_filter(set);
-                        kernel_syscalls_remove(kernel, set);
+                        syscall_set_remove(kernel, set);
+                        if (i != SYSCALL_FILTER_SET_KNOWN)
+                                syscall_set_remove(known, set);
                         first = false;
+                }
+
+                if (!set_isempty(known)) {
+                        _cleanup_free_ char **l = NULL;
+                        char **syscall;
+
+                        printf("\n"
+                               "# %sUngrouped System Calls%s (known but not included in any of the groups except @known):\n",
+                               ansi_highlight(), ansi_normal());
+
+                        l = set_get_strv(known);
+                        if (!l)
+                                return log_oom();
+
+                        strv_sort(l);
+
+                        STRV_FOREACH(syscall, l)
+                                printf("#   %s\n", *syscall);
                 }
 
                 if (k < 0) {
