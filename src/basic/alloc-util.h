@@ -27,7 +27,7 @@ typedef void (*free_func_t)(void *p);
                 size_t _n_ = n;                                         \
                 assert(!size_multiply_overflow(sizeof(t), _n_));        \
                 assert(sizeof(t)*_n_ <= ALLOCA_MAX);                    \
-                (t*) alloca(sizeof(t)*_n_);                             \
+                (t*) alloca((sizeof(t)*_n_) ?: 1);                      \
         })
 
 #define newa0(t, n)                                                     \
@@ -35,14 +35,14 @@ typedef void (*free_func_t)(void *p);
                 size_t _n_ = n;                                         \
                 assert(!size_multiply_overflow(sizeof(t), _n_));        \
                 assert(sizeof(t)*_n_ <= ALLOCA_MAX);                    \
-                (t*) alloca0(sizeof(t)*_n_);                            \
+                (t*) alloca0((sizeof(t)*_n_) ?: 1);                     \
         })
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
 #define newdup_suffix0(t, p, n) ((t*) memdup_suffix0_multiply(p, sizeof(t), (n)))
 
-#define malloc0(n) (calloc(1, (n)))
+#define malloc0(n) (calloc(1, (n) ?: 1))
 
 static inline void *mfree(void *memory) {
         free(memory);
@@ -65,7 +65,7 @@ void* memdup_suffix0(const void *p, size_t l); /* We can't use _alloc_() here, s
                 void *_q_;                      \
                 size_t _l_ = l;                 \
                 assert(_l_ <= ALLOCA_MAX);      \
-                _q_ = alloca(_l_);              \
+                _q_ = alloca(_l_ ?: 1);         \
                 memcpy(_q_, p, _l_);            \
         })
 
@@ -135,7 +135,7 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
                 char *_new_;                            \
                 size_t _len_ = n;                       \
                 assert(_len_ <= ALLOCA_MAX);            \
-                _new_ = alloca(_len_);                  \
+                _new_ = alloca(_len_ ?: 1);             \
                 (void *) memset(_new_, 0, _len_);       \
         })
 
@@ -146,7 +146,7 @@ void* greedy_realloc0(void **p, size_t *allocated, size_t need, size_t size);
                 size_t _mask_ = (align) - 1;                            \
                 size_t _size_ = size;                                   \
                 assert(_size_ <= ALLOCA_MAX);                           \
-                _ptr_ = alloca(_size_ + _mask_);                        \
+                _ptr_ = alloca((_size_ + _mask_) ?: 1);                 \
                 (void*)(((uintptr_t)_ptr_ + _mask_) & ~_mask_);         \
         })
 
