@@ -11,6 +11,7 @@
 #include "conf-files.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -447,8 +448,9 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
         execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
-        if (IN_SET(errno, ENOSYS, ENOENT))
-                /* Old kernel or a script? Let's fall back to execve().
+
+        if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE(errno))
+                /* Old kernel or a script or an overzealous seccomp filter? Let's fall back to execve().
                  *
                  * fexecve(3): "If fd refers to a script (i.e., it is an executable text file that names a
                  * script interpreter with a first line that begins with the characters #!) and the
