@@ -563,6 +563,9 @@ static int dhcp_lease_lost(Link *link) {
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
         link_dirty(link);
 
+        if (link->dhcp_acd)
+                (void) sd_ipv4acd_stop(link->dhcp_acd);
+
         return r;
 }
 
