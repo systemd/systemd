@@ -668,7 +668,7 @@ void link_enter_failed(Link *link) {
 
         link_set_state(link, LINK_STATE_FAILED);
 
-        link_stop_clients(link, false);
+        (void) link_stop_clients(link, false);
 
         link_dirty(link);
 }
