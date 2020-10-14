@@ -1742,6 +1742,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '25-address-dad-veth-peer.network',
         '25-address-dad-veth99.network',
         '25-address-link-section.network',
+        '25-address-peer-ipv4.network',
         '25-address-preferred-lifetime-zero.network',
         '25-address-static.network',
         '25-bind-carrier.network',
@@ -1885,6 +1886,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 address show dev veth-peer')
         print(output)
         self.assertNotRegex(output, '192.168.100.10/24')
+
+    def test_address_peer_ipv4(self):
+        # test for issue #17304
+        copy_unit_to_networkd_unit_path('25-address-peer-ipv4.network', '12-dummy.netdev')
+
+        for trial in range(2):
+            if trial == 0:
+                start_networkd()
+            else:
+                restart_networkd()
+
+            self.wait_online(['dummy98:routable'])
+
+            output = check_output('ip -4 address show dev dummy98')
+            self.assertIn('inet 100.64.0.1 peer 100.64.0.2/32 scope global', output)
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_prefix_route(self):
