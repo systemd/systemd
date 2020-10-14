@@ -493,8 +493,10 @@ static void link_free_engines(Link *link) {
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
+        link->dhcp_acd = sd_ipv4acd_unref(link->dhcp_acd);
 
         link->lldp = sd_lldp_unref(link->lldp);
+        link_lldp_emit_stop(link);
 
         ndisc_flush(link);
 
@@ -503,7 +505,6 @@ static void link_free_engines(Link *link) {
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
         link->ndisc = sd_ndisc_unref(link->ndisc);
         link->radv = sd_radv_unref(link->radv);
-        link->dhcp_acd = sd_ipv4acd_unref(link->dhcp_acd);
 }
 
 static Link *link_free(Link *link) {
@@ -538,7 +539,6 @@ static Link *link_free(Link *link) {
         link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
         link->ndisc_addresses = set_free(link->ndisc_addresses);
 
-        link_lldp_emit_stop(link);
         link_free_engines(link);
         free(link->lease_file);
         free(link->lldp_file);
