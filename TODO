@@ -24,8 +24,6 @@ Features:
 
 * in fd_get_path() if we see (deleted) then do stat and check for st_nlink
 
-* add support for close_range() added in kernel 5.9
-
 * Add service setting to run a service within the specified VRF. i.e. do the
   equivalent of "ip vrf exec".
 
