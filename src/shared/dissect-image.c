@@ -368,6 +368,86 @@ static void check_partition_flags(
         }
 }
 
+static int device_wait_for_initialization_harder(
+                sd_device *device,
+                const char *subsystem,
+                usec_t deadline,
+                sd_device **ret) {
+
+        _cleanup_free_ char *uevent = NULL;
+        usec_t start, left, retrigger_timeout;
+        int r;
+
+        start = now(CLOCK_MONOTONIC);
+        left = usec_sub_unsigned(deadline, start);
+
+        if (DEBUG_LOGGING) {
+                char buf[FORMAT_TIMESPAN_MAX];
+                const char *sn = NULL;
+
+                (void) sd_device_get_sysname(device, &sn);
+                log_debug("Waiting for device '%s' to initialize for %s.", strna(sn), format_timespan(buf, sizeof(buf), left, 0));
+        }
+
+        if (left != USEC_INFINITY)
+                retrigger_timeout = CLAMP(left / 4, 1 * USEC_PER_SEC, 5 * USEC_PER_SEC); /* A fourth of the total timeout, but let's clamp to 1s…5s range */
+        else
+                retrigger_timeout = 2 * USEC_PER_SEC;
+
+        for (;;) {
+                usec_t local_deadline, n;
+                bool last_try;
+
+                n = now(CLOCK_MONOTONIC);
+                assert(n >= start);
+
+                /* Find next deadline, when we'll retrigger */
+                local_deadline = start +
+                        DIV_ROUND_UP(n - start, retrigger_timeout) * retrigger_timeout;
+
+                if (deadline != USEC_INFINITY && deadline <= local_deadline) {
+                        local_deadline = deadline;
+                        last_try = true;
+                } else
+                        last_try = false;
+
+                r = device_wait_for_initialization(device, subsystem, local_deadline, ret);
+                if (r >= 0 && DEBUG_LOGGING) {
+                        char buf[FORMAT_TIMESPAN_MAX];
+                        const char *sn = NULL;
+
+                        (void) sd_device_get_sysname(device, &sn);
+                        log_debug("Successfully waited for device '%s' to initialize for %s.", strna(sn), format_timespan(buf, sizeof(buf), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0));
+
+                }
+                if (r != -ETIMEDOUT || last_try)
+                        return r;
+
+                if (!uevent) {
+                        const char *syspath;
+
+                        r = sd_device_get_syspath(device, &syspath);
+                        if (r < 0)
+                                return r;
+
+                        uevent = path_join(syspath, "uevent");
+                        if (!uevent)
+                                return -ENOMEM;
+                }
+
+                if (DEBUG_LOGGING) {
+                        char buf[FORMAT_TIMESPAN_MAX];
+
+                        log_debug("Device didn't initialize within %s, assuming lost event. Retriggering device through %s.",
+                                  format_timespan(buf, sizeof(buf), usec_sub_unsigned(now(CLOCK_MONOTONIC), start), 0),
+                                  uevent);
+                }
+
+                r = write_string_file(uevent, "change", WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        return r;
+        }
+}
 #endif
 
 #define DEVICE_TIMEOUT_USEC (45 * USEC_PER_SEC)
@@ -448,7 +528,11 @@ int dissect_image(
 
                 /* If udev support is enabled, then let's wait for the device to be initialized before we doing anything. */
 
-                r = device_wait_for_initialization(d, "block", DEVICE_TIMEOUT_USEC, &initialized);
+                r = device_wait_for_initialization_harder(
+                                d,
+                                "block",
+                                usec_add(now(CLOCK_MONOTONIC), DEVICE_TIMEOUT_USEC),
+                                &initialized);
                 if (r < 0)
                         return r;
 
