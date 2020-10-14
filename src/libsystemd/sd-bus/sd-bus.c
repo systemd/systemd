@@ -1156,6 +1156,16 @@ static int bus_start_fd(sd_bus *b) {
         assert(b->input_fd >= 0);
         assert(b->output_fd >= 0);
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *pi = NULL, *po = NULL;
+                (void) fd_get_path(b->input_fd, &pi);
+                (void) fd_get_path(b->output_fd, &po);
+                log_debug("sd-bus: starting bus%s%s on fds %d/%d (%s, %s)...",
+                          b->description ? " " : "", strempty(b->description),
+                          b->input_fd, b->output_fd,
+                          pi ?: "???", po ?: "???");
+        }
+
         r = fd_nonblock(b->input_fd, true);
         if (r < 0)
                 return r;
