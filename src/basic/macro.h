@@ -281,6 +281,12 @@ static inline size_t GREEDY_ALLOC_ROUND_UP(size_t l) {
                 MAX(_c, z);                             \
         })
 
+#define MAX4(x, y, z, a)                                \
+        ({                                              \
+                const typeof(x) _d = MAX3(x, y, z);     \
+                MAX(_d, a);                             \
+        })
+
 #undef MIN
 #define MIN(a, b) __MIN(UNIQ, (a), UNIQ, (b))
 #define __MIN(aq, a, bq, b)                             \
