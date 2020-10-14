@@ -330,6 +330,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .value =
                 "_llseek\0"
                 "close\0"
+                "close_range\0"
                 "dup\0"
                 "dup2\0"
                 "dup3\0"
