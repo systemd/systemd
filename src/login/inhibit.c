@@ -282,7 +282,7 @@ static int run(int argc, char *argv[]) {
 
         r = sd_bus_default_system(&bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to bus: %m");
+                return bus_log_connect_error(r);
 
         if (arg_action == ACTION_LIST)
                 return print_inhibitors(bus);
