@@ -885,6 +885,13 @@ int bus_socket_connect(sd_bus *b) {
                 assert(b->output_fd < 0);
                 assert(b->sockaddr.sa.sa_family != AF_UNSPEC);
 
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *pretty = NULL;
+                        (void) sockaddr_pretty(&b->sockaddr.sa, b->sockaddr_size, false, true, &pretty);
+                        log_debug("sd-bus: starting bus%s%s by connecting to %s...",
+                                  b->description ? " " : "", strempty(b->description), strnull(pretty));
+                }
+
                 b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
                 if (b->input_fd < 0)
                         return -errno;
@@ -955,6 +962,9 @@ int bus_socket_exec(sd_bus *b) {
         assert(b->output_fd < 0);
         assert(b->exec_path);
         assert(b->busexec_pid == 0);
+
+        log_debug("sd-bus: starting bus%s%s with %s...",
+                  b->description ? " " : "", strempty(b->description), b->exec_path);
 
         r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
         if (r < 0)
