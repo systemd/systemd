@@ -623,6 +623,12 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");
         }
 
+        if (link->dhcp_acd) {
+                k = sd_ipv4acd_stop(link->dhcp_acd);
+                if (k < 0)
+                        r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client for DHCPv4: %m");
+        }
+
         if (link->ipv4ll) {
                 k = sd_ipv4ll_stop(link->ipv4ll);
                 if (k < 0)
