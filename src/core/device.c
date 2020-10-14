@@ -894,6 +894,29 @@ static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
         }
 }
 
+static int device_remove_old(Manager *m, sd_device *dev) {
+        _cleanup_free_ char *syspath_old = NULL, *e = NULL;
+        const char *devpath_old;
+        int r;
+
+        r = sd_device_get_property_value(dev, "DEVPATH_OLD", &devpath_old);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to get DEVPATH_OLD= property on 'move' uevent, ignoring: %m");
+                return 0;
+        }
+
+        syspath_old = path_join("/sys", devpath_old);
+        if (!syspath_old)
+                return log_oom();
+
+        r = unit_name_from_path(syspath_old, ".device", &e);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to generate unit name from old device path: %m");
+
+        device_update_found_by_sysfs(m, syspath_old, 0, DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP);
+        return 0;
+}
+
 static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
         Manager *m = userdata;
         DeviceAction action;
@@ -917,6 +940,9 @@ static int device_dispatch_io(sd_device_monitor *monitor, sd_device *dev, void *
 
         if (!IN_SET(action, DEVICE_ACTION_ADD, DEVICE_ACTION_REMOVE, DEVICE_ACTION_MOVE))
                 device_propagate_reload_by_sysfs(m, sysfs);
+
+        if (action == DEVICE_ACTION_MOVE)
+                (void) device_remove_old(m, dev);
 
         /* A change event can signal that a device is becoming ready, in particular if the device is using
          * the SYSTEMD_READY logic in udev so we need to reach the else block of the following if, even for
