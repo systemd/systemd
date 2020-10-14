@@ -353,7 +353,8 @@ fail:
 _public_ int sd_radv_stop(sd_radv *ra) {
         int r;
 
-        assert_return(ra, -EINVAL);
+        if (!ra)
+                return 0;
 
         if (ra->state == SD_RADV_STATE_IDLE)
                 return 0;

@@ -89,7 +89,8 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
 }
 
 int sd_ipv4ll_stop(sd_ipv4ll *ll) {
-        assert_return(ll, -EINVAL);
+        if (!ll)
+                return 0;
 
         return sd_ipv4acd_stop(ll->acd);
 }

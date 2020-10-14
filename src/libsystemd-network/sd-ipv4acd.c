@@ -144,7 +144,8 @@ static void ipv4acd_client_notify(sd_ipv4acd *acd, int event) {
 int sd_ipv4acd_stop(sd_ipv4acd *acd) {
         IPv4ACDState old_state;
 
-        assert_return(acd, -EINVAL);
+        if (!acd)
+                return 0;
 
         old_state = acd->state;
 

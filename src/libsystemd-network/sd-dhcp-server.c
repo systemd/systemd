@@ -225,7 +225,8 @@ sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server) {
 }
 
 int sd_dhcp_server_stop(sd_dhcp_server *server) {
-        assert_return(server, -EINVAL);
+        if (!server)
+                return 0;
 
         server->receive_message =
                 sd_event_source_unref(server->receive_message);
