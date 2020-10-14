@@ -1443,9 +1443,6 @@ int ipv4_dad_stop(Link *link) {
         assert(link);
 
         SET_FOREACH(address, link->addresses) {
-                if (!address->acd)
-                        continue;
-
                 k = sd_ipv4acd_stop(address->acd);
                 if (k < 0 && r >= 0)
                         r = k;
