@@ -6068,7 +6068,12 @@ static int exec_runtime_add(
         return 0;
 }
 
-static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, ExecRuntime **ret) {
+static int exec_runtime_make(
+                Manager *m,
+                const ExecContext *c,
+                const char *id,
+                ExecRuntime **ret) {
+
         _cleanup_(namespace_cleanup_tmpdirp) char *tmp_dir = NULL, *var_tmp_dir = NULL;
         _cleanup_close_pair_ int netns_storage_socket[2] = { -1, -1 };
         int r;
@@ -6078,8 +6083,10 @@ static int exec_runtime_make(Manager *m, const ExecContext *c, const char *id, E
         assert(id);
 
         /* It is not necessary to create ExecRuntime object. */
-        if (!c->private_network && !c->private_tmp && !c->network_namespace_path)
+        if (!c->private_network && !c->private_tmp && !c->network_namespace_path) {
+                *ret = NULL;
                 return 0;
+        }
 
         if (c->private_tmp &&
             !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
@@ -6115,14 +6122,20 @@ int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool 
                 /* We already have a ExecRuntime object, let's increase the ref count and reuse it */
                 goto ref;
 
-        if (!create)
+        if (!create) {
+                *ret = NULL;
                 return 0;
+        }
 
         /* If not found, then create a new object. */
         r = exec_runtime_make(m, c, id, &rt);
-        if (r <= 0)
-                /* When r == 0, it is not necessary to create ExecRuntime object. */
+        if (r < 0)
                 return r;
+        if (r == 0) {
+                /* When r == 0, it is not necessary to create ExecRuntime object. */
+                *ret = NULL;
+                return 0;
+        }
 
 ref:
         /* increment reference counter. */
