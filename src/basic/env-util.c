@@ -16,20 +16,24 @@
 #include "strv.h"
 #include "utf8.h"
 
-#define VALID_CHARS_ENV_NAME                    \
+/* We follow bash for the character set. Different shells have different rules. */
+#define VALID_BASH_ENV_NAME_CHARS               \
         DIGITS LETTERS                          \
         "_"
 
-static bool env_name_is_valid_n(const char *e, size_t n) {
-        const char *p;
+static bool printable_portable_character(char c) {
+        /* POSIX.1-2008 specifies almost all ASCII characters as "portable". (Only DEL is excluded, and
+         * additionally NUL and = are not allowed in variable names). We are stricter, and additionally
+         * reject BEL, BS, HT, CR, LF, VT, FF and SPACE, i.e. all whitespace. */
 
+        return c >= '!' && c <= '~';
+}
+
+static bool env_name_is_valid_n(const char *e, size_t n) {
         if (!e)
                 return false;
 
         if (n <= 0)
-                return false;
-
-        if (e[0] >= '0' && e[0] <= '9')
                 return false;
 
         /* POSIX says the overall size of the environment block cannot
@@ -40,8 +44,8 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
         if (n > (size_t) sysconf(_SC_ARG_MAX) - 2)
                 return false;
 
-        for (p = e; p < e + n; p++)
-                if (!strchr(VALID_CHARS_ENV_NAME, *p))
+        for (const char *p = e; p < e + n; p++)
+                if (!printable_portable_character(*p) || *p == '=')
                         return false;
 
         return true;
@@ -546,7 +550,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                                 word = e+1;
                                 state = WORD;
 
-                        } else if (flags & REPLACE_ENV_ALLOW_BRACELESS && strchr(VALID_CHARS_ENV_NAME, *e)) {
+                        } else if (flags & REPLACE_ENV_ALLOW_BRACELESS && strchr(VALID_BASH_ENV_NAME_CHARS, *e)) {
                                 k = strnappend(r, word, e-word-1);
                                 if (!k)
                                         return NULL;
@@ -636,7 +640,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
                 case VARIABLE_RAW:
                         assert(flags & REPLACE_ENV_ALLOW_BRACELESS);
 
-                        if (!strchr(VALID_CHARS_ENV_NAME, *e)) {
+                        if (!strchr(VALID_BASH_ENV_NAME_CHARS, *e)) {
                                 const char *t;
 
                                 t = strv_env_get_n(env, word+1, e-word-1, flags);
