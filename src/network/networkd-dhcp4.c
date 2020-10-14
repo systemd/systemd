@@ -651,6 +651,34 @@ static int dhcp4_configure_dad(Link *link) {
         return 0;
 }
 
+static int dhcp4_dad_update_mac(Link *link) {
+        bool running;
+        int r;
+
+        assert(link);
+
+        if (!link->dhcp_acd)
+                return 0;
+
+        running = sd_ipv4acd_is_running(link->dhcp_acd);
+
+        r = sd_ipv4acd_stop(link->dhcp_acd);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->mac);
+        if (r < 0)
+                return r;
+
+        if (running) {
+                r = sd_ipv4acd_start(link->dhcp_acd, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int dhcp4_start_acd(Link *link) {
         union in_addr_union addr;
         struct in_addr old;
@@ -1459,6 +1487,10 @@ int dhcp4_update_mac(Link *link) {
                 return r;
 
         r = dhcp4_set_client_identifier(link);
+        if (r < 0)
+                return r;
+
+        r = dhcp4_dad_update_mac(link);
         if (r < 0)
                 return r;
 
