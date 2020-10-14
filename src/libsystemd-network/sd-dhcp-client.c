@@ -25,6 +25,8 @@
 #include "io-util.h"
 #include "memory-util.h"
 #include "random-util.h"
+#include "set.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -75,9 +77,7 @@ struct sd_dhcp_client {
         union sockaddr_union link;
         sd_event_source *receive_message;
         bool request_broadcast;
-        uint8_t *req_opts;
-        size_t req_opts_allocated;
-        size_t req_opts_size;
+        Set *req_opts;
         bool anonymize;
         be32_t last_addr;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
@@ -230,8 +230,6 @@ int sd_dhcp_client_set_request_broadcast(sd_dhcp_client *client, int broadcast) 
 }
 
 int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
-        size_t i;
-
         assert_return(client, -EINVAL);
         assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED), -EBUSY);
 
@@ -248,17 +246,7 @@ int sd_dhcp_client_set_request_option(sd_dhcp_client *client, uint8_t option) {
                 break;
         }
 
-        for (i = 0; i < client->req_opts_size; i++)
-                if (client->req_opts[i] == option)
-                        return -EEXIST;
-
-        if (!GREEDY_REALLOC(client->req_opts, client->req_opts_allocated,
-                            client->req_opts_size + 1))
-                return -ENOMEM;
-
-        client->req_opts[client->req_opts_size++] = option;
-
-        return 0;
+        return set_ensure_put(&client->req_opts, NULL, UINT8_TO_PTR(option));
 }
 
 int sd_dhcp_client_set_request_address(
@@ -725,6 +713,10 @@ static void client_stop(sd_dhcp_client *client, int error) {
         client_initialize(client);
 }
 
+static int cmp_uint8(const uint8_t *a, const uint8_t *b) {
+        return CMP(*a, *b);
+}
+
 static int client_message_init(
                 sd_dhcp_client *client,
                 DHCPPacket **ret,
@@ -835,10 +827,26 @@ static int client_message_init(
            MAY contain the Parameter Request List option. */
         /* NOTE: in case that there would be an option to do not send
          * any PRL at all, the size should be checked before sending */
-        if (client->req_opts_size > 0 && type != DHCP_RELEASE) {
+        if (!set_isempty(client->req_opts) && type != DHCP_RELEASE) {
+                _cleanup_free_ uint8_t *opts = NULL;
+                size_t n_opts, i = 0;
+                void *val;
+
+                n_opts = set_size(client->req_opts);
+                opts = new(uint8_t, n_opts);
+                if (!opts)
+                        return -ENOMEM;
+
+                SET_FOREACH(val, client->req_opts)
+                        opts[i++] = PTR_TO_UINT8(val);
+                assert(i == n_opts);
+
+                /* For anonymizing the request, let's sort the options. */
+                typesafe_qsort(opts, n_opts, cmp_uint8);
+
                 r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
                                        SD_DHCP_OPTION_PARAMETER_REQUEST_LIST,
-                                       client->req_opts_size, client->req_opts);
+                                       n_opts, opts);
                 if (r < 0)
                         return r;
         }
@@ -2187,7 +2195,7 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
 
         sd_dhcp_lease_unref(client->lease);
 
-        free(client->req_opts);
+        set_free(client->req_opts);
         free(client->hostname);
         free(client->vendor_class_identifier);
         free(client->mudurl);
@@ -2200,6 +2208,10 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client, sd_dhcp_client, dhcp_client_free);
 
 int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
+        const uint8_t *opts;
+        size_t n_opts;
+        int r;
+
         assert_return(ret, -EINVAL);
 
         _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = new(sd_dhcp_client, 1);
@@ -2219,14 +2231,18 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
         };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {
-                client->req_opts_size = ELEMENTSOF(default_req_opts_anonymize);
-                client->req_opts = memdup(default_req_opts_anonymize, client->req_opts_size);
+                n_opts = ELEMENTSOF(default_req_opts_anonymize);
+                opts = default_req_opts_anonymize;
         } else {
-                client->req_opts_size = ELEMENTSOF(default_req_opts);
-                client->req_opts = memdup(default_req_opts, client->req_opts_size);
+                n_opts = ELEMENTSOF(default_req_opts);
+                opts = default_req_opts;
         }
-        if (!client->req_opts)
-                return -ENOMEM;
+
+        for (size_t i = 0; i < n_opts; i++) {
+                r = sd_dhcp_client_set_request_option(client, opts[i]);
+                if (r < 0)
+                        return r;
+        }
 
         *ret = TAKE_PTR(client);
 
