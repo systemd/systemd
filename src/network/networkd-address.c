@@ -1402,11 +1402,9 @@ static int ipv4_dad_update_mac_one(Address *address) {
 
         running = sd_ipv4acd_is_running(address->acd);
 
-        if (running) {
-                r = sd_ipv4acd_stop(address->acd);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_ipv4acd_stop(address->acd);
+        if (r < 0)
+                return r;
 
         r = sd_ipv4acd_set_mac(address->acd, &address->link->mac);
         if (r < 0)

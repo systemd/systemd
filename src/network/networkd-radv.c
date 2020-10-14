@@ -697,11 +697,9 @@ int radv_update_mac(Link *link) {
 
         restart = sd_radv_is_running(link->radv);
 
-        if (restart) {
-                r = sd_radv_stop(link->radv);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_radv_stop(link->radv);
+        if (r < 0)
+                return r;
 
         r = sd_radv_set_mac(link->radv, &link->mac);
         if (r < 0)
