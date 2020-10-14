@@ -3492,6 +3492,24 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         assert(m);
         assert(f);
 
+        if (DEBUG_LOGGING) {
+                if (fdset_isempty(fds))
+                        log_debug("No file descriptors passed");
+                else {
+                        int fd;
+
+                        FDSET_FOREACH(fd, fds) {
+                                _cleanup_free_ char *fn = NULL;
+
+                                r = fd_get_path(fd, &fn);
+                                if (r < 0)
+                                        log_debug_errno(r, "Received serialized fd %i → %m", fd);
+                                else
+                                        log_debug("Received serialized fd %i → %s", fd, strna(fn));
+                        }
+                }
+        }
+
         log_debug("Deserializing state...");
 
         /* If we are not in reload mode yet, enter it now. Not that this is recursive, a caller might already have
