@@ -503,6 +503,7 @@ static void link_free_engines(Link *link) {
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
         link->ndisc = sd_ndisc_unref(link->ndisc);
         link->radv = sd_radv_unref(link->radv);
+        link->dhcp_acd = sd_ipv4acd_unref(link->dhcp_acd);
 }
 
 static Link *link_free(Link *link) {
@@ -622,6 +623,12 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");
         }
 
+        if (link->dhcp_acd) {
+                k = sd_ipv4acd_stop(link->dhcp_acd);
+                if (k < 0)
+                        r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client for DHCPv4: %m");
+        }
+
         if (link->ipv4ll) {
                 k = sd_ipv4ll_stop(link->ipv4ll);
                 if (k < 0)
@@ -668,7 +675,7 @@ void link_enter_failed(Link *link) {
 
         link_set_state(link, LINK_STATE_FAILED);
 
-        link_stop_clients(link, false);
+        (void) link_stop_clients(link, false);
 
         link_dirty(link);
 }

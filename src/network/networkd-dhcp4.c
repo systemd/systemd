@@ -563,6 +563,9 @@ static int dhcp_lease_lost(Link *link) {
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
         link_dirty(link);
 
+        if (link->dhcp_acd)
+                (void) sd_ipv4acd_stop(link->dhcp_acd);
+
         return r;
 }
 
@@ -617,26 +620,61 @@ static void dhcp_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         return;
 }
 
-static int configure_dhcpv4_duplicate_address_detection(Link *link) {
+static int dhcp4_configure_dad(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        if (!link->network->dhcp_send_decline)
+                return 0;
+
+        if (!link->dhcp_acd) {
+                r = sd_ipv4acd_new(&link->dhcp_acd);
+                if (r < 0)
+                        return r;
+
+                r = sd_ipv4acd_attach_event(link->dhcp_acd, link->manager->event, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_ipv4acd_set_ifindex(link->dhcp_acd, link->ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->mac);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int dhcp4_dad_update_mac(Link *link) {
+        bool running;
         int r;
 
         assert(link);
 
-        r = sd_ipv4acd_new(&link->network->dhcp_acd);
+        if (!link->dhcp_acd)
+                return 0;
+
+        running = sd_ipv4acd_is_running(link->dhcp_acd);
+
+        r = sd_ipv4acd_stop(link->dhcp_acd);
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_attach_event(link->network->dhcp_acd, link->manager->event, 0);
+        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->mac);
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_ifindex(link->network->dhcp_acd, link->ifindex);
-        if (r < 0)
-                return r;
-
-        r = sd_ipv4acd_set_mac(link->network->dhcp_acd, &link->mac);
-        if (r < 0)
-                return r;
+        if (running) {
+                r = sd_ipv4acd_start(link->dhcp_acd, true);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -652,7 +690,7 @@ static int dhcp4_start_acd(Link *link) {
         if (!link->dhcp_lease)
                 return 0;
 
-        (void) sd_ipv4acd_stop(link->network->dhcp_acd);
+        (void) sd_ipv4acd_stop(link->dhcp_acd);
 
         link->dhcp4_address_bind = false;
 
@@ -660,15 +698,15 @@ static int dhcp4_start_acd(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_get_address(link->network->dhcp_acd, &old);
+        r = sd_ipv4acd_get_address(link->dhcp_acd, &old);
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_address(link->network->dhcp_acd, &addr.in);
+        r = sd_ipv4acd_set_address(link->dhcp_acd, &addr.in);
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_callback(link->network->dhcp_acd, dhcp_address_on_acd, link);
+        r = sd_ipv4acd_set_callback(link->dhcp_acd, dhcp_address_on_acd, link);
         if (r < 0)
                 return r;
 
@@ -679,7 +717,7 @@ static int dhcp4_start_acd(Link *link) {
                 log_link_debug(link, "Starting IPv4ACD client. Probing DHCPv4 address %s", strna(pretty));
         }
 
-        r = sd_ipv4acd_start(link->network->dhcp_acd, !in4_addr_equal(&addr.in, &old));
+        r = sd_ipv4acd_start(link->dhcp_acd, !in4_addr_equal(&addr.in, &old));
         if (r < 0)
                 return r;
 
@@ -1425,11 +1463,9 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed set to lease lifetime: %m");
         }
 
-        if (link->network->dhcp_send_decline) {
-                r = configure_dhcpv4_duplicate_address_detection(link);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to configure service type: %m");
-        }
+        r = dhcp4_configure_dad(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to configure service type: %m");
 
         return dhcp4_set_client_identifier(link);
 }
@@ -1447,6 +1483,10 @@ int dhcp4_update_mac(Link *link) {
                 return r;
 
         r = dhcp4_set_client_identifier(link);
+        if (r < 0)
+                return r;
+
+        r = dhcp4_dad_update_mac(link);
         if (r < 0)
                 return r;
 

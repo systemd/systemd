@@ -5,7 +5,6 @@
 
 #include "sd-bus.h"
 #include "sd-device.h"
-#include "sd-ipv4acd.h"
 
 #include "bridge.h"
 #include "condition.h"
@@ -123,7 +122,6 @@ struct Network {
         bool dhcp_send_release;
         bool dhcp_send_decline;
         DHCPUseDomains dhcp_use_domains;
-        sd_ipv4acd *dhcp_acd;
         Set *dhcp_deny_listed_ip;
         Set *dhcp_allow_listed_ip;
         Set *dhcp_request_options;
