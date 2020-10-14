@@ -1429,6 +1429,8 @@ Manager* manager_free(Manager *m) {
                 m->prefix[dt] = mfree(m->prefix[dt]);
         free(m->received_credentials);
 
+        hashmap_free(m->mountinfo_cache);
+
         return mfree(m);
 }
 

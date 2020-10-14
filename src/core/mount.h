@@ -41,6 +41,13 @@ typedef enum MountProcFlags {
         MOUNT_PROC_JUST_CHANGED = 1 << 2,
 } MountProcFlags;
 
+typedef struct MountEntry {
+        char *device;
+        char *path;
+        char *fstype;
+        char *options;
+} MountEntry;
+
 struct Mount {
         Unit meta;
 
@@ -54,7 +61,7 @@ struct Mount {
 
         MountProcFlags proc_flags;
 
-        char *mountinfo_key;
+        MountEntry mountinfo_key;
 
         bool sloppy_options;
 

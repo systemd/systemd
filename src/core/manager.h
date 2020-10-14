@@ -434,6 +434,8 @@ struct Manager {
         bool honor_device_enumeration;
 
         VarlinkServer *varlink_server;
+
+        Hashmap *mountinfo_cache;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
