@@ -1341,7 +1341,8 @@ int bus_set_address_user(sd_bus *b) {
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
                 if (!e)
-                        return -ENOENT;
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                               "sd-bus: $XDG_RUNTIME_DIR not set, cannot connect to user bus.");
 
                 ee = bus_address_escape(e);
                 if (!ee)

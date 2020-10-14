@@ -37,13 +37,19 @@ int bus_connect_user_systemd(sd_bus **_bus);
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
-#define bus_log_connect_error(r) \
-        log_error_errno(r, "Failed to create bus connection: %m")
+#define bus_log_address_error(r)                                        \
+        log_error_errno(r,                                              \
+                r == -ENOMEDIUM ? "Failed to set bus address: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined" : \
+                                  "Failed to set bus address: %m")
+#define bus_log_connect_error(r)                                        \
+        log_error_errno(r,                                              \
+                r == -ENOMEDIUM ? "Failed to connect to bus: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined" : \
+                                  "Failed to connect to bus: %m")
 
-#define bus_log_parse_error(r) \
+#define bus_log_parse_error(r)                                  \
         log_error_errno(r, "Failed to parse bus message: %m")
 
-#define bus_log_create_error(r) \
+#define bus_log_create_error(r)                                 \
         log_error_errno(r, "Failed to create bus message: %m")
 
 int bus_path_encode_unique(sd_bus *b, const char *prefix, const char *sender_id, const char *external_id, char **ret_path);
