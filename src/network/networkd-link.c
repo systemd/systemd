@@ -631,6 +631,10 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop DHCPv4 server: %m");
 
+        k = sd_lldp_stop(link->lldp);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop LLDP: %m");
+
         k = sd_ipv4ll_stop(link->ipv4ll);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
