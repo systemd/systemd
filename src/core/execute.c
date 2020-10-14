@@ -5767,7 +5767,7 @@ int exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 r = safe_atoi(buf, &fdpair[1]);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to parse exec-runtime specification netns-socket-1=%s: %m", buf);
-                if (!fdset_contains(fds, fdpair[0]))
+                if (!fdset_contains(fds, fdpair[1]))
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
                                                "exec-runtime specification netns-socket-1= refers to unknown fd %d: %m", fdpair[1]);
                 fdpair[1] = fdset_remove(fds, fdpair[1]);
