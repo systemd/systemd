@@ -2120,12 +2120,17 @@ int bus_ensure_running(sd_bus *bus) {
 
         assert(bus);
 
-        if (IN_SET(bus->state, BUS_UNSET, BUS_CLOSED, BUS_CLOSING))
-                return -ENOTCONN;
         if (bus->state == BUS_RUNNING)
                 return 1;
 
+        /* sd_bus_process() may call user callbacks which may unref the bus.
+         * Make sure we still have a valid ref. */
+        BUS_DONT_DESTROY(bus);
+
         for (;;) {
+                if (IN_SET(bus->state, BUS_UNSET, BUS_CLOSED, BUS_CLOSING))
+                        return -ENOTCONN;
+
                 r = sd_bus_process(bus, NULL);
                 if (r < 0)
                         return r;
