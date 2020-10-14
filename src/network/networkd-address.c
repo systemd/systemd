@@ -1449,6 +1449,15 @@ int ipv4_dad_stop(Link *link) {
         return r;
 }
 
+void ipv4_dad_unref(Link *link) {
+        Address *address;
+
+        assert(link);
+
+        SET_FOREACH(address, link->addresses)
+                address->acd = sd_ipv4acd_unref(address->acd);
+}
+
 int config_parse_broadcast(
                 const char *unit,
                 const char *filename,

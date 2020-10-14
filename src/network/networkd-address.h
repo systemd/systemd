@@ -65,6 +65,7 @@ int link_drop_foreign_addresses(Link *link);
 int link_serialize_addresses(Link *link, FILE *f);
 int link_deserialize_addresses(Link *link, const char *addresses);
 
+void ipv4_dad_unref(Link *link);
 int ipv4_dad_stop(Link *link);
 int ipv4_dad_update_mac(Link *link);
 
