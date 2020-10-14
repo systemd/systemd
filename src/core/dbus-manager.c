@@ -496,7 +496,7 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
         /* Anyone can call this method */
 
         r = sd_bus_message_read_array(message, 'y', &a, &sz);
-        if (r < 0)
+        if (r <= 0)
                 return r;
         if (sz == 0)
                 id = SD_ID128_NULL;
