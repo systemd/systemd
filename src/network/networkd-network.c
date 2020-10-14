@@ -636,9 +636,6 @@ static Network *network_free(Network *network) {
         strv_free(network->dhcp6_user_class);
         strv_free(network->dhcp6_vendor_class);
 
-        if (network->dhcp_acd)
-                sd_ipv4acd_unref(network->dhcp_acd);
-
         strv_free(network->ntp);
         for (unsigned i = 0; i < network->n_dns; i++)
                 in_addr_full_free(network->dns[i]);

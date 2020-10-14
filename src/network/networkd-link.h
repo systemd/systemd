@@ -9,6 +9,7 @@
 #include "sd-dhcp-client.h"
 #include "sd-dhcp-server.h"
 #include "sd-dhcp6-client.h"
+#include "sd-ipv4acd.h"
 #include "sd-ipv4ll.h"
 #include "sd-lldp.h"
 #include "sd-ndisc.h"
@@ -105,6 +106,7 @@ typedef struct Link {
         uint32_t original_mtu;
         unsigned dhcp4_messages;
         unsigned dhcp4_remove_messages;
+        sd_ipv4acd *dhcp_acd;
         bool dhcp4_route_failed:1;
         bool dhcp4_route_retrying:1;
         bool dhcp4_configured:1;

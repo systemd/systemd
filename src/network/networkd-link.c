@@ -503,6 +503,7 @@ static void link_free_engines(Link *link) {
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
         link->ndisc = sd_ndisc_unref(link->ndisc);
         link->radv = sd_radv_unref(link->radv);
+        link->dhcp_acd = sd_ipv4acd_unref(link->dhcp_acd);
 }
 
 static Link *link_free(Link *link) {
