@@ -5,5 +5,5 @@ Name=veth99
 DHCP=ipv6
 
 [Route]
-Gateway=_dhcp
+Gateway=_ipv6ra
 Destination=2001:1234:5:9fff:ff:ff:ff:ff/128

@@ -1192,7 +1192,7 @@ int link_set_routes(Link *link) {
         /* First add the routes that enable us to talk to gateways, then add in the others that need a gateway. */
         for (phase = 0; phase < _PHASE_MAX; phase++)
                 HASHMAP_FOREACH(rt, link->network->routes_by_section) {
-                        if (rt->gateway_from_dhcp)
+                        if (rt->gateway_from_dhcp_or_ra)
                                 continue;
 
                         if ((in_addr_is_null(rt->gw_family, &rt->gw) && ordered_set_isempty(rt->multipath_routes)) != (phase == PHASE_NON_GATEWAY))
@@ -1723,7 +1723,7 @@ int config_parse_gateway(
                 }
 
                 if (isempty(rvalue)) {
-                        n->gateway_from_dhcp = false;
+                        n->gateway_from_dhcp_or_ra = false;
                         n->gw_family = AF_UNSPEC;
                         n->gw = IN_ADDR_NULL;
                         TAKE_PTR(n);
@@ -1731,21 +1731,21 @@ int config_parse_gateway(
                 }
 
                 if (streq(rvalue, "_dhcp")) {
-                        n->gateway_from_dhcp = true;
+                        n->gateway_from_dhcp_or_ra = true;
                         TAKE_PTR(n);
                         return 0;
                 }
 
                 if (streq(rvalue, "_dhcp4")) {
                         n->gw_family = AF_INET;
-                        n->gateway_from_dhcp = true;
+                        n->gateway_from_dhcp_or_ra = true;
                         TAKE_PTR(n);
                         return 0;
                 }
 
-                if (streq(rvalue, "_dhcp6")) {
+                if (streq(rvalue, "_ipv6ra")) {
                         n->gw_family = AF_INET6;
-                        n->gateway_from_dhcp = true;
+                        n->gateway_from_dhcp_or_ra = true;
                         TAKE_PTR(n);
                         return 0;
                 }
@@ -1758,7 +1758,7 @@ int config_parse_gateway(
                 return 0;
         }
 
-        n->gateway_from_dhcp = false;
+        n->gateway_from_dhcp_or_ra = false;
         TAKE_PTR(n);
         return 0;
 }
@@ -1902,6 +1902,7 @@ int config_parse_route_priority(
                 return 0;
         }
 
+        n->priority_set = true;
         TAKE_PTR(n);
         return 0;
 }
@@ -2086,6 +2087,7 @@ int config_parse_ipv6_route_preference(
                 return 0;
         }
 
+        n->pref_set = true;
         TAKE_PTR(n);
         return 0;
 }
@@ -2380,25 +2382,55 @@ static int route_section_verify(Route *route, Network *network) {
         if (section_is_invalid(route->section))
                 return -EINVAL;
 
+        if (route->gateway_from_dhcp_or_ra) {
+                if (route->gw_family == AF_UNSPEC) {
+                        /* When deprecated Gateway=_dhcp is set, then assume gateway family based on other settings. */
+                        switch (route->family) {
+                        case AF_UNSPEC:
+                                log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
+                                            "Please use \"_dhcp4\" or \"_ipv6ra\" instead. Assuming \"_dhcp4\".",
+                                            route->section->filename, route->section->line);
+                                route->family = AF_INET;
+                                break;
+                        case AF_INET:
+                        case AF_INET6:
+                                log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
+                                            "Assuming \"%s\" based on Destination=, Source=, or PreferredSource= setting.",
+                                            route->section->filename, route->section->line, route->family == AF_INET ? "_dhcp4" : "_ipv6ra");
+                                break;
+                        default:
+                                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                         "%s: Invalid route family. Ignoring [Route] section from line %u.",
+                                                         route->section->filename, route->section->line);
+                        }
+                        route->gw_family = route->family;
+                }
+
+                if (route->gw_family == AF_INET && !FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV4))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: Gateway=\"_dhcp4\" is specified but DHCPv4 client is disabled. "
+                                                 "Ignoring [Route] section from line %u.",
+                                                 route->section->filename, route->section->line);
+
+                if (route->gw_family == AF_INET6 && !network->ipv6_accept_ra)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: Gateway=\"_ipv6ra\" is specified but IPv6AcceptRA= is disabled. "
+                                                 "Ignoring [Route] section from line %u.",
+                                                 route->section->filename, route->section->line);
+        }
+
+        /* When only Gateway= is specified, assume the route family based on the Gateway address. */
         if (route->family == AF_UNSPEC)
                 route->family = route->gw_family;
 
         if (route->family == AF_UNSPEC) {
                 assert(route->section);
 
-                if (route->gateway_from_dhcp) {
-                        log_warning("%s: Deprecated value \"_dhcp\" is specified for Gateway= in [Route] section from line %u. "
-                                    "Please use \"_dhcp4\" or \"_dhcp6\" instead. Assuming \"_dhcp4\".",
-                                    route->section->filename, route->section->line);
-
-                        route->family = AF_INET;
-                        route->gw_family = AF_INET;
-                } else
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "%s: Route section without Gateway=, Destination=, Source=, "
-                                                 "or PreferredSource= field configured. "
-                                                 "Ignoring [Route] section from line %u.",
-                                                 route->section->filename, route->section->line);
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Route section without Gateway=, Destination=, Source=, "
+                                         "or PreferredSource= field configured. "
+                                         "Ignoring [Route] section from line %u.",
+                                         route->section->filename, route->section->line);
         }
 
         if (route->family == AF_INET6 && route->gw_family == AF_INET)

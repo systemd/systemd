@@ -9,6 +9,7 @@
 
 typedef struct Link Link;
 typedef struct Manager Manager;
+typedef struct Network Network;
 
 typedef enum DHCPUseDomains {
         DHCP_USE_DOMAINS_NO,
@@ -45,6 +46,8 @@ static inline bool link_dhcp4_enabled(Link *link) {
 static inline bool link_dhcp6_enabled(Link *link) {
         return link_dhcp_enabled(link, AF_INET6);
 }
+
+void network_adjust_dhcp(Network *network);
 
 DUID* link_get_duid(Link *link);
 int link_configure_duid(Link *link);

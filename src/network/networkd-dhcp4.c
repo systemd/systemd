@@ -388,14 +388,21 @@ static int link_set_dhcp_routes(Link *link) {
                                 return log_link_error_errno(link, r, "Could not set router: %m");
 
                         HASHMAP_FOREACH(rt, link->network->routes_by_section) {
-                                if (!rt->gateway_from_dhcp)
+                                if (!rt->gateway_from_dhcp_or_ra)
                                         continue;
 
-                                if (rt->family != AF_INET)
+                                if (rt->gw_family != AF_INET)
                                         continue;
 
-                                rt->gw_family = AF_INET;
                                 rt->gw.in = router[0];
+                                if (!rt->protocol_set)
+                                        rt->protocol = RTPROT_DHCP;
+                                if (!rt->priority_set)
+                                        rt->priority = link->network->dhcp_route_metric;
+                                if (!rt->table_set)
+                                        rt->table = table;
+                                if (rt->mtu == 0)
+                                        rt->mtu = link->network->dhcp_route_mtu;
 
                                 r = dhcp_route_configure(rt, link);
                                 if (r < 0)

@@ -26,16 +26,36 @@ bool link_dhcp_enabled(Link *link, int family) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
-        if (!link->network)
-                return false;
-
-        if (link->network->bond)
-                return false;
-
         if (link->iftype == ARPHRD_CAN)
                 return false;
 
+        if (!link->network)
+                return false;
+
         return link->network->dhcp & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
+}
+
+void network_adjust_dhcp(Network *network) {
+        assert(network);
+        assert(network->dhcp >= 0);
+
+        if (network->dhcp == ADDRESS_FAMILY_NO)
+                return;
+
+        /* Bonding slave does not support addressing. */
+        if (network->bond) {
+                log_warning("%s: Cannot enable DHCP= when Bond= is specified, disabling DHCP=.",
+                            network->filename);
+                network->dhcp = ADDRESS_FAMILY_NO;
+                return;
+        }
+
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6) &&
+            FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV6)) {
+                log_warning("%s: DHCPv6 client is enabled but IPv6 link local addressing is disabled. "
+                            "Disabling DHCPv6 client.", network->filename);
+                SET_FLAG(network->dhcp, ADDRESS_FAMILY_IPV6, false);
+        }
 }
 
 DUID* link_get_duid(Link *link) {

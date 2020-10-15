@@ -14,7 +14,6 @@
 #include "networkd-dhcp6.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
-#include "networkd-sysctl.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -52,19 +51,23 @@ bool link_ipv6_accept_ra_enabled(Link *link) {
         if (!link_ipv6ll_enabled(link))
                 return false;
 
-        /* If unset use system default (enabled if local forwarding is disabled.
-         * disabled if local forwarding is enabled).
-         * If set, ignore or enforce RA independent of local forwarding state.
-         */
-        if (link->network->ipv6_accept_ra < 0)
+        assert(link->network->ipv6_accept_ra >= 0);
+        return link->network->ipv6_accept_ra;
+}
+
+void network_adjust_ipv6_accept_ra(Network *network) {
+        assert(network);
+
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
+                if (network->ipv6_accept_ra > 0)
+                        log_warning("%s: IPv6AcceptRA= is enabled but IPv6 link local addressing is disabled or not supported. "
+                                    "Disabling IPv6AcceptRA=.", network->filename);
+                network->ipv6_accept_ra = false;
+        }
+
+        if (network->ipv6_accept_ra < 0)
                 /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
-                return !link_ip_forward_enabled(link, AF_INET6);
-        else if (link->network->ipv6_accept_ra > 0)
-                /* accept RA even if ip_forward is enabled */
-                return true;
-        else
-                /* ignore RA */
-                return false;
+                network->ipv6_accept_ra = !FLAGS_SET(network->ip_forward, ADDRESS_FAMILY_IPV6);
 }
 
 static int ndisc_remove_old_one(Link *link, const struct in6_addr *router, bool force);
@@ -461,7 +464,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         union in_addr_union gateway;
         uint16_t lifetime;
         unsigned preference;
-        uint32_t mtu;
+        uint32_t table, mtu;
         usec_t time_now;
         int r;
 
@@ -504,12 +507,14 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         else if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get default router MTU from RA: %m");
 
+        table = link_get_ipv6_accept_ra_route_table(link);
+
         r = route_new(&route);
         if (r < 0)
                 return log_oom();
 
         route->family = AF_INET6;
-        route->table = link_get_ipv6_accept_ra_route_table(link);
+        route->table = table;
         route->priority = link->network->dhcp6_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
@@ -524,14 +529,24 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
-                if (!route_gw->gateway_from_dhcp)
+                if (!route_gw->gateway_from_dhcp_or_ra)
                         continue;
 
-                if (route_gw->family != AF_INET6)
+                if (route_gw->gw_family != AF_INET6)
                         continue;
 
                 route_gw->gw = gateway;
-                route_gw->gw_family = AF_INET6;
+                if (!route_gw->table_set)
+                        route_gw->table = table;
+                if (!route_gw->priority_set)
+                        route_gw->priority = link->network->dhcp6_route_metric;
+                if (!route_gw->protocol_set)
+                        route_gw->protocol = RTPROT_RA;
+                if (!route_gw->pref_set)
+                        route->pref = preference;
+                route_gw->lifetime = time_now + lifetime * USEC_PER_SEC;
+                if (route_gw->mtu == 0)
+                        route_gw->mtu = mtu;
 
                 r = ndisc_route_configure(route_gw, link, rt);
                 if (r < 0)
