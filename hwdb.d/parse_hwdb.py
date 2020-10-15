@@ -201,8 +201,9 @@ def check_matches(groups):
             except ParseBaseException as e:
                 error('Pattern {!r} is invalid: {}', rest, e)
                 continue
-            if rest[-1] not in '*:':
-                error('pattern {} does not end with "*" or ":"', match)
+
+        if not rest.endswith(':*'):
+            error("pattern {!r} does not end with ':*'", match)
 
     matches.sort()
     prev = None
