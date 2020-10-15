@@ -922,14 +922,13 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 LIST_REMOVE(gc_queue, m->session_gc_queue, session);
                 session->in_gc_queue = false;
 
-                /* First, if we are not closing yet, initiate stopping */
+                /* First, if we are not closing yet, initiate stopping. */
                 if (session_may_gc(session, drop_not_started) &&
                     session_get_state(session) != SESSION_CLOSING)
                         (void) session_stop(session, /* force = */ false);
 
-                /* Normally, this should make the session referenced
-                 * again, if it doesn't then let's get rid of it
-                 * immediately */
+                /* Normally, this should make the session referenced again, if it doesn't then let's get rid
+                 * of it immediately. */
                 if (session_may_gc(session, drop_not_started)) {
                         (void) session_finalize(session);
                         session_free(session);
@@ -1177,9 +1176,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        /* Always create the directories people can create inotify watches in. Note that some applications might check
-         * for the existence of /run/systemd/seats/ to determine whether logind is available, so please always make
-         * sure these directories are created early on and unconditionally. */
+        /* Always create the directories people can create inotify watches in. Note that some applications
+         * might check for the existence of /run/systemd/seats/ to determine whether logind is available, so
+         * please always make sure these directories are created early on and unconditionally. */
         (void) mkdir_label("/run/systemd/seats", 0755);
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
