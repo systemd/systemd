@@ -86,7 +86,7 @@ msgstr "Der kræves godkendelse for at fjerne en brugers hjemmeområde."
 msgid "Check credentials of a home area"
 msgstr "Tjek loginoplysninger for et hjemmeområde"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
@@ -98,7 +98,7 @@ msgstr ""
 msgid "Update a home area"
 msgstr "Opdater et hjemmeområde"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
 msgstr "Der kræves godkendelse for at opdatere en brugers hjemmeområde."
@@ -116,7 +116,7 @@ msgstr ""
 msgid "Change password of a home area"
 msgstr "Skift adgangskode for et hjemmeområde"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:64
 msgid ""
 "Authentication is required to change the password of a user's home area."
@@ -315,22 +315,22 @@ msgstr ""
 "Der kræves godkendelse for at brugere, som ikke er logget ind, kan køre "
 "programmer."
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:137
 msgid "Allow attaching devices to seats"
 msgstr "Tillad at montere af enheder til arbejdsstationer"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Authentication is required to attach a device to a seat."
 msgstr "Der kræves godkendelse for at montere en enhed til en arbejdsstation."
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Flush device to seat attachments"
 msgstr "Nulstil enhed monteret til en arbejdsstation"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
@@ -502,7 +502,7 @@ msgstr ""
 msgid "Manage active sessions, users and seats"
 msgstr "Håndter aktive sessioner, brugere og arbejdsstationer"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:322
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
@@ -802,7 +802,7 @@ msgstr ""
 msgid "Attach or detach a portable service image"
 msgstr "Tilslut eller frakobl et transportabel tjeneste-aftryk"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."

@@ -102,7 +102,7 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 | [Journal Export Format](https://www.freedesktop.org/wiki/Software/systemd/export) | File format | yes | yes | - | yes | - | no |
 | [Cooperation in cgroup tree](https://www.freedesktop.org/wiki/Software/systemd/PaxControlGroups) | Treaty | yes | yes | libvirt | yes | libvirt | no |
 | [Password Agents](https://systemd.io/PASSWORD_AGENTS/) | Socket+Files | yes | yes | - | yes | - | no |
-| [udev multi-seat properties](https://www.freedesktop.org/wiki/Software/systemd/multiseat) | udev Property | yes | yes | X11, gdm | no | - | no |
+| [udev multi-seat properties](https://www.freedesktop.org/software/systemd/man/sd-login.html) | udev Property | yes | yes | X11, gdm | no | - | no |
 | udev session switch ACL properties | udev Property | no | no | - | no | - | no |
 | [CLI of systemctl,...](https://www.freedesktop.org/software/systemd/man/systemctl.html) | CLI | yes | yes | numerous | no | - | no |
 | [tmpfiles.d](https://www.freedesktop.org/software/systemd/man/tmpfiles.d.html) | File format | yes | yes | numerous | yes | ArchLinux | partially |
