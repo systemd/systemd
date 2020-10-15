@@ -43,25 +43,28 @@ static int help(void) {
                 return log_oom();
 
         printf("%s [OPTIONS...]\n\n"
-                        "Run the userspace out-of-memory (OOM) killer.\n\n"
-                        "  -h --help     Show this help\n"
-                        "     --dry-run  Log write/destructive actions instead of doing them\n"
-                        "\nSee the %s for details.\n"
-                        , program_invocation_short_name
-                        , link
-              );
+               "Run the userspace out-of-memory (OOM) killer.\n\n"
+               "  -h --help                 Show this help\n"
+               "     --version              Show package version\n"
+               "     --dry-run              Only print destructive actions instead of doing them\n"
+               "\nSee the %s for details.\n"
+               , program_invocation_short_name
+               , link
+        );
 
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
+                ARG_VERSION = 0x100,
                 ARG_DRY_RUN,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "dry-run", no_argument, NULL, ARG_DRY_RUN },
+                { "help",           no_argument,       NULL, 'h'                },
+                { "version",        no_argument,       NULL, ARG_VERSION        },
+                { "dry-run",        no_argument,       NULL, ARG_DRY_RUN        },
                 {}
         };
 
@@ -74,19 +77,26 @@ static int parse_argv(int argc, char *argv[]) {
 
                 switch (c) {
 
-                        case 'h':
-                                return help();
+                case 'h':
+                        return help();
 
-                        case ARG_DRY_RUN:
-                                arg_dry_run = true;
-                                break;
+                case ARG_VERSION:
+                        return version();
 
-                        case '?':
-                                return -EINVAL;
+                case ARG_DRY_RUN:
+                        arg_dry_run = true;
+                        break;
 
-                        default:
-                                assert_not_reached("Invalid option passed.");
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached("Unknown option code.");
                 }
+
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes no arguments.");
 
         return 1;
 }
