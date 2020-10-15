@@ -857,7 +857,7 @@ int config_parse_radv_search_domains(
                         /* transfer ownership to simplify subsequent operations */
                         idna = TAKE_PTR(w);
 
-                r = ordered_set_ensure_allocated(&n->router_search_domains, &string_hash_ops);
+                r = ordered_set_ensure_allocated(&n->router_search_domains, &string_hash_ops_free);
                 if (r < 0)
                         return log_oom();
 

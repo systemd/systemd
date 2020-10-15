@@ -620,11 +620,11 @@ static Network *network_free(Network *network) {
         for (unsigned i = 0; i < network->n_dns; i++)
                 in_addr_full_free(network->dns[i]);
         free(network->dns);
-        ordered_set_free_free(network->search_domains);
-        ordered_set_free_free(network->route_domains);
+        ordered_set_free(network->search_domains);
+        ordered_set_free(network->route_domains);
         strv_free(network->bind_carrier);
 
-        ordered_set_free_free(network->router_search_domains);
+        ordered_set_free(network->router_search_domains);
         free(network->router_dns);
         set_free_free(network->ndisc_deny_listed_prefix);
 
@@ -864,8 +864,8 @@ int config_parse_domains(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                n->search_domains = ordered_set_free_free(n->search_domains);
-                n->route_domains = ordered_set_free_free(n->route_domains);
+                n->search_domains = ordered_set_free(n->search_domains);
+                n->route_domains = ordered_set_free(n->route_domains);
                 return 0;
         }
 
@@ -913,7 +913,7 @@ int config_parse_domains(
                 }
 
                 OrderedSet **set = is_route ? &n->route_domains : &n->search_domains;
-                r = ordered_set_ensure_allocated(set, &string_hash_ops);
+                r = ordered_set_ensure_allocated(set, &string_hash_ops_free);
                 if (r < 0)
                         return log_oom();
 
