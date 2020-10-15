@@ -128,6 +128,9 @@ void cgroup_context_init(CGroupContext *c) {
                 .startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
 
                 .tasks_max = TASKS_MAX_UNSET,
+
+                .moom_swap = MANAGED_OOM_AUTO,
+                .moom_mem_pressure = MANAGED_OOM_AUTO,
         };
 }
 
@@ -411,7 +414,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sTasksMax: %" PRIu64 "\n"
                 "%sDevicePolicy: %s\n"
                 "%sDisableControllers: %s\n"
-                "%sDelegate: %s\n",
+                "%sDelegate: %s\n"
+                "%sManagedOOMSwap: %s\n"
+                "%sManagedOOMMemoryPressure: %s\n"
+                "%sManagedOOMMemoryPressureLimitPercent: %d%%\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
@@ -441,7 +447,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
-                prefix, yes_no(c->delegate));
+                prefix, yes_no(c->delegate),
+                prefix, managed_oom_mode_to_string(c->moom_swap),
+                prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
+                prefix, c->moom_mem_pressure_limit);
 
         if (c->delegate) {
                 _cleanup_free_ char *t = NULL;
@@ -2670,6 +2679,47 @@ static void unit_remove_from_cgroup_empty_queue(Unit *u) {
 
         LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
         u->in_cgroup_empty_queue = false;
+}
+
+int unit_check_oomd_kill(Unit *u) {
+        _cleanup_free_ char *value = NULL;
+        bool increased;
+        uint64_t n = 0;
+        int r;
+
+        if (!u->cgroup_path)
+                return 0;
+
+        r = cg_all_unified();
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Couldn't determine whether we are in all unified mode: %m");
+        else if (r == 0)
+                return 0;
+
+        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.systemd_oomd_kill", &value);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        if (!isempty(value)) {
+                 r = safe_atou64(value, &n);
+                 if (r < 0)
+                         return r;
+        }
+
+        increased = n > u->managed_oom_kill_last;
+        u->managed_oom_kill_last = n;
+
+        if (!increased)
+                return 0;
+
+        if (n > 0)
+                log_struct(LOG_NOTICE,
+                           "MESSAGE_ID=" SD_MESSAGE_UNIT_OOMD_KILL_STR,
+                           LOG_UNIT_ID(u),
+                           LOG_UNIT_INVOCATION_ID(u),
+                           LOG_UNIT_MESSAGE(u, "systemd-oomd killed %"PRIu64" process(es) in this unit.", n));
+
+        return 1;
 }
 
 int unit_check_oom(Unit *u) {

@@ -2,6 +2,7 @@
 
 #include "bus-get-properties.h"
 #include "rlimit-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 
 int bus_property_get_bool(
@@ -52,6 +53,23 @@ int bus_property_get_id128(
                 return sd_bus_message_append(reply, "ay", 0);
         else
                 return sd_bus_message_append_array(reply, 'y', id->bytes, 16);
+}
+
+int bus_property_get_percent(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        char pstr[DECIMAL_STR_MAX(int) + 2];
+        int p = *(int*) userdata;
+
+        xsprintf(pstr, "%d%%", p);
+
+        return sd_bus_message_append_basic(reply, 's', pstr);
 }
 
 #if __SIZEOF_SIZE_T__ != 8

@@ -189,6 +189,8 @@ shared_sources = files('''
         pkcs11-util.h
         pretty-print.c
         pretty-print.h
+        psi-util.c
+        psi-util.h
         ptyfwd.c
         ptyfwd.h
         pwquality-util.c

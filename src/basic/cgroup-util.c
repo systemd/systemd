@@ -1685,6 +1685,26 @@ int cg_get_attribute_as_uint64(const char *controller, const char *path, const c
         return 0;
 }
 
+int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute, bool *ret) {
+        _cleanup_free_ char *value = NULL;
+        int r;
+
+        assert(ret);
+
+        r = cg_get_attribute(controller, path, attribute, &value);
+        if (r == -ENOENT)
+                return -ENODATA;
+        if (r < 0)
+                return r;
+
+        r = parse_boolean(value);
+        if (r < 0)
+                return r;
+
+        *ret = r;
+        return 0;
+}
+
 int cg_get_keyed_attribute_full(
                 const char *controller,
                 const char *path,
@@ -2161,3 +2181,10 @@ CGroupMask get_cpu_accounting_mask(void) {
 bool cpu_accounting_is_cheap(void) {
         return get_cpu_accounting_mask() == 0;
 }
+
+static const char* const managed_oom_mode_table[_MANAGED_OOM_MODE_MAX] = {
+        [MANAGED_OOM_AUTO] = "auto",
+        [MANAGED_OOM_KILL] = "kill",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(managed_oom_mode, ManagedOOMMode);

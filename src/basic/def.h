@@ -63,3 +63,5 @@
                 .un.sun_family = AF_UNIX,                       \
                 .un.sun_path = "\0/org/freedesktop/plymouthd",  \
         }
+
+#define VARLINK_ADDR_PATH_MANAGED_OOM "/run/systemd/io.system.ManagedOOM"

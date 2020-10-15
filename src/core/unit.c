@@ -15,6 +15,7 @@
 #include "bus-util.h"
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
+#include "core-varlink.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dropin.h"
@@ -1573,6 +1574,31 @@ static int unit_add_mount_dependencies(Unit *u) {
         return 0;
 }
 
+static int unit_add_oomd_dependencies(Unit *u) {
+        CGroupContext *c;
+        bool wants_oomd;
+        int r;
+
+        assert(u);
+
+        if (!u->default_dependencies)
+                return 0;
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return 0;
+
+        wants_oomd = (c->moom_swap == MANAGED_OOM_KILL || c->moom_mem_pressure == MANAGED_OOM_KILL);
+        if (!wants_oomd)
+                return 0;
+
+        r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "systemd-oomd.service", true, UNIT_DEPENDENCY_FILE);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int unit_add_startup_units(Unit *u) {
         CGroupContext *c;
 
@@ -1630,6 +1656,10 @@ int unit_load(Unit *u) {
                         goto fail;
 
                 r = unit_add_mount_dependencies(u);
+                if (r < 0)
+                        goto fail;
+
+                r = unit_add_oomd_dependencies(u);
                 if (r < 0)
                         goto fail;
 
@@ -2591,6 +2621,18 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
         /* Let's enqueue the change signal early. In case this unit has a job associated we want that this unit is in
          * the bus queue, so that any job change signal queued will force out the unit change signal first. */
         unit_add_to_dbus_queue(u);
+
+        /* Update systemd-oomd on the property/state change */
+        if (os != ns) {
+                /* Always send an update if the unit is going into an inactive state so systemd-oomd knows to stop
+                 * monitoring.
+                 * Also send an update whenever the unit goes active; this is to handle a case where an override file
+                 * sets one of the ManagedOOM*= properties to "kill", then later removes it. systemd-oomd needs to
+                 * know to stop monitoring when the unit changes from "kill" -> "auto" on daemon-reload, but we don't
+                 * have the information on the property. Thus, indiscriminately send an update. */
+                if (UNIT_IS_INACTIVE_OR_FAILED(ns) || ns == UNIT_ACTIVE)
+                        (void) manager_varlink_send_managed_oom_update(u);
+        }
 
         /* Update timestamps for state changes */
         if (!MANAGER_IS_RELOADING(m)) {
@@ -3558,6 +3600,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         if (u->cpu_usage_last != NSEC_INFINITY)
                 (void) serialize_item_format(f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
 
+        if (u->managed_oom_kill_last > 0)
+                (void) serialize_item_format(f, "managed-oom-kill-last", "%" PRIu64, u->managed_oom_kill_last);
+
         if (u->oom_kill_last > 0)
                 (void) serialize_item_format(f, "oom-kill-last", "%" PRIu64, u->oom_kill_last);
 
@@ -3800,6 +3845,14 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         r = safe_atou64(v, &u->cpu_usage_last);
                         if (r < 0)
                                 log_unit_debug(u, "Failed to read CPU usage last %s, ignoring.", v);
+
+                        continue;
+
+                } else if (streq(l, "managed-oom-kill-last")) {
+
+                        r = safe_atou64(v, &u->managed_oom_kill_last);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to read managed OOM kill last %s, ignoring.", v);
 
                         continue;
 

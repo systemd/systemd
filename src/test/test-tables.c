@@ -3,6 +3,7 @@
 #include "architecture.h"
 #include "automount.h"
 #include "cgroup.h"
+#include "cgroup-util.h"
 #include "compress.h"
 #include "condition.h"
 #include "device-private.h"
@@ -71,6 +72,7 @@ int main(int argc, char **argv) {
         test_table(locale_variable, VARIABLE_LC);
         test_table(log_target, LOG_TARGET);
         test_table(mac_address_policy, MAC_ADDRESS_POLICY);
+        test_table(managed_oom_mode, MANAGED_OOM_MODE);
         test_table(manager_state, MANAGER_STATE);
         test_table(manager_timestamp, MANAGER_TIMESTAMP);
         test_table(mount_exec_command, MOUNT_EXEC_COMMAND);

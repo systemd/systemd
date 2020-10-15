@@ -26,6 +26,7 @@
 #include "capability-util.h"
 #include "cgroup-setup.h"
 #include "conf-parser.h"
+#include "core-varlink.h"
 #include "cpu-set-util.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -3809,6 +3810,86 @@ int config_parse_delegate(
                 c->delegate_controllers = 0;
         }
 
+        return 0;
+}
+
+int config_parse_managed_oom_mode(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Unit *u = userdata;
+        ManagedOOMMode *mode = data, m;
+        UnitType t;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_set_managed_oom)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
+
+        if (isempty(rvalue)) {
+                *mode = MANAGED_OOM_AUTO;
+                goto finish;
+        }
+
+        m = managed_oom_mode_from_string(rvalue);
+        if (m < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+        *mode = m;
+
+finish:
+        (void) manager_varlink_send_managed_oom_update(u);
+        return 0;
+}
+
+int config_parse_managed_oom_mem_pressure_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Unit *u = userdata;
+        CGroupContext *c = data;
+        UnitType t;
+        int r;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_set_managed_oom)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
+
+        if (isempty(rvalue)) {
+                c->moom_mem_pressure_limit = 0;
+                goto finish;
+        }
+
+        r = parse_percent(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse limit percent value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        c->moom_mem_pressure_limit = r;
+
+finish:
+        /* Only update the limit if memory pressure detection is enabled because the information is irrelevant otherwise */
+        if (c->moom_mem_pressure == MANAGED_OOM_KILL)
+                (void) manager_varlink_send_managed_oom_update(u);
         return 0;
 }
 

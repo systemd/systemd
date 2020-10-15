@@ -1412,6 +1412,9 @@ conf.set10('ENABLE_HOMED', have)
 have = have and conf.get('HAVE_PAM') == 1
 conf.set10('ENABLE_PAM_HOME', have)
 
+have = get_option('oomd') and get_option('mode') == 'developer'
+conf.set10('ENABLE_OOMD', have)
+
 want_remote = get_option('remote')
 if want_remote != 'false'
         have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
@@ -1451,6 +1454,7 @@ foreach term : ['analyze',
                 'networkd',
                 'nss-myhostname',
                 'nss-systemd',
+                'oomd',
                 'portabled',
                 'pstore',
                 'quotacheck',
@@ -1671,6 +1675,7 @@ subdir('src/analyze')
 subdir('src/journal-remote')
 subdir('src/coredump')
 subdir('src/pstore')
+subdir('src/oom')
 subdir('src/hostname')
 subdir('src/import')
 subdir('src/partition')
@@ -2730,6 +2735,27 @@ if conf.get('ENABLE_PSTORE') == 1
                 install_dir : rootlibexecdir)
 endif
 
+if conf.get('ENABLE_OOMD') == 1
+        executable('systemd-oomd',
+                   systemd_oomd_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+        public_programs += executable(
+                   'oomctl',
+                   oomctl_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootbindir)
+endif
+
 if conf.get('ENABLE_BINFMT') == 1
         public_programs += executable(
                 'systemd-binfmt',
@@ -3748,6 +3774,7 @@ foreach tuple : [
         ['DNS-over-TLS(openssl)', conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1],
         ['coredump'],
         ['pstore'],
+        ['oomd'],
         ['polkit'],
         ['legacy pkla',      install_polkit_pkla],
         ['efi'],

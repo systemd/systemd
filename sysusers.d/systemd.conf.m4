@@ -9,6 +9,9 @@ g systemd-journal   - -
 m4_ifdef(`ENABLE_NETWORKD',
 u systemd-network   - "systemd Network Management"
 )m4_dnl
+m4_ifdef(`ENABLE_OOMD',
+u systemd-oom       - "systemd Userspace OOM Killer"
+)m4_dnl
 m4_ifdef(`ENABLE_RESOLVE',
 u systemd-resolve   - "systemd Resolver"
 )m4_dnl
