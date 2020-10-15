@@ -13,10 +13,10 @@
 # The lookup keys are composed in:
 #   60-evdev.rules
 #
-# Note: The format of the "evdev:" prefix match key is a
-# contract between the rules file and the hardware data, it might
-# change in later revisions to support more or better matches, it
-# is not necessarily expected to be a stable ABI.
+# Note: The format of the "evdev:" prefix match key is a contract between the
+# rules file and the hardware data, it might change in later revisions to
+# support more or better matches, it is not necessarily expected to be a stable
+# ABI.
 #
 # Supported hardware matches are:
 #  - Generic input devices match:
@@ -47,7 +47,8 @@
 #    /sys/class/input/input?/capabilities/ev" and <vendor> is the
 #    firmware-provided string exported by the kernel DMI modalias,
 #    see /sys/class/dmi/id/modalias
-
+#
+# All matches should end in ':*' to allow future expansions of the match key.
 
 # ######################### KEY MAPPING ######################################
 #

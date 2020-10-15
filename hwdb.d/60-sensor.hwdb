@@ -3,17 +3,17 @@
 # The lookup keys are composed in:
 #   60-sensor.rules
 #
-# Note: The format of the "sensor:" prefix match key is a
-# contract between the rules file and the hardware data, it might
-# change in later revisions to support more or better matches, it
-# is not necessarily expected to be a stable ABI.
+# Note: The format of the "sensor:" prefix match key is a contract between the
+# rules file and the hardware data, it might change in later revisions to
+# support more or better matches, it is not necessarily expected to be a stable
+# ABI.
 #
 # Match string formats:
-# sensor:modalias:<parent device modalias>:dmi:<dmi string>
+# sensor:modalias:<parent modalias pattern>:dmi:<dmi pattern>
 #
-# The device modalias can be seen in the `modalias` file
-# of the sensor parent, for example:
-# cat /sys/`udevadm info -q path -n /dev/iio:device0`/../modalias
+# The device modalias can be seen in the `modalias` file of the sensor parent,
+# for example:
+#   cat /sys/`udevadm info -q path -n /dev/iio:device0`/../modalias
 #
 # The full DMI string of the running machine can be read from
 #   /sys/class/dmi/id/modalias
@@ -46,7 +46,7 @@
 # where <matrix> is a mount-matrix in the format specified in the IIO
 # subsystem[1]. The default, when unset, is equivalent to:
 #   ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, 1
-# eg. the identity matrix.
+# eg. the identity matrix,
 # and <value> is an integer value above which an object is considered
 # close by a proximity sensor:
 #   PROXIMITY_NEAR_LEVEL=100
@@ -67,6 +67,8 @@
 # or 'display'. The default, when unset, is equivalent to:
 #    ACCEL_LOCATION=display
 #
+# All matches should end in ':*' to allow future expansions of the match key.
+
 # Sort by brand, model
 
 #########################################

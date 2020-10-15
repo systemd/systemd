@@ -3,10 +3,10 @@
 # The lookup keys are composed in:
 #   60-evdev.rules
 #
-# Note: The format of the "evdev:" prefix match key is a
-# contract between the rules file and the hardware data, it might
-# change in later revisions to support more or better matches, it
-# is not necessarily expected to be a stable ABI.
+# Note: The format of the "evdev:" prefix match key is a contract between the
+# rules file and the hardware data, it might change in later revisions to
+# support more or better matches, it is not necessarily expected to be a stable
+# ABI.
 #
 # Match string formats:
 # evdev:<modalias>
@@ -17,8 +17,8 @@
 # and add your rules there. To load the new rules execute (as root):
 #   systemd-hwdb update
 #   udevadm trigger /dev/input/eventXX
-# where /dev/input/eventXX is the device in question. If in
-# doubt, simply use /dev/input/event* to reload all input rules.
+# where /dev/input/eventXX is the device in question. If in doubt, simply use
+# /dev/input/event* to reload all input rules.
 #
 # If your changes are generally applicable, preferably send them as a pull
 # request to
@@ -30,13 +30,14 @@
 # Allowed properties are:
 #    EVDEV_ABS_<axis>=<min>:<max>:<res>:<fuzz>:<flat>
 #
-# where <axis> is the hexadecimal EV_ABS code as listed in linux/input.h
-# and min, max, res, fuzz, flat are the decimal values to the respective
-# fields of the struct input_absinfo as listed in linux/input.h.
-# If a field is missing the field will be left as-is. Not all fields need to
-# be present. e.g. ::45 sets the resolution to 45 units/mm.
-
+# where <axis> is the hexadecimal EV_ABS code as listed in linux/input.h and
+# min, max, res, fuzz, flat are the decimal values to the respective fields of
+# the struct input_absinfo as listed in linux/input.h. If a field is missing
+# the field will be left as-is. Not all fields need to be present. e.g. ::45
+# sets the resolution to 45 units/mm.
 #
+# All matches should end in ':*' to allow future expansions of the match key.
+
 # Sort by brand, model
 
 #########################################

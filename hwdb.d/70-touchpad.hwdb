@@ -15,6 +15,8 @@
 #
 # vid/pid as 4-digit hex lowercase vendor/product
 #
+# All matches should end in ':*' to allow future expansions of the match key.
+#
 # To add local entries, create a new file
 #   /etc/udev/hwdb.d/71-touchpad-local.hwdb
 # and add your rules there. To load the new rules execute (as root):

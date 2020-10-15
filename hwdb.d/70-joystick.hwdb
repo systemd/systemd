@@ -36,6 +36,8 @@
 #
 #   If the property is missing, user-space can assume:
 #   ID_INPUT_JOYSTICK_INTEGRATION=external
+#
+# All matches should end in ':*' to allow future expansions of the match key.
 
 joystick:bluetooth:*
  ID_INPUT_JOYSTICK_INTEGRATION=external
