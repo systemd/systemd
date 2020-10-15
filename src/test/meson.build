@@ -329,7 +329,7 @@ tests += [
 
         [['src/test/test-parse-util.c'],
          [],
-         []],
+         [libseccomp]],
 
         [['src/test/test-sysctl-util.c'],
          [],
