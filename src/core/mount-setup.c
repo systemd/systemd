@@ -109,17 +109,6 @@ static const MountPoint mount_table[] = {
           NULL,          MNT_NONE,                  },
 };
 
-/* These are API file systems that might be mounted by other software,
- * we just list them here so that we know that we should ignore them */
-
-static const char ignore_paths[] =
-        /* SELinux file systems */
-        "/sys/fs/selinux\0"
-        /* Container bind mounts */
-        "/proc/sys\0"
-        "/dev/console\0"
-        "/proc/kmsg\0";
-
 bool mount_point_is_api(const char *path) {
         unsigned i;
 
@@ -134,11 +123,25 @@ bool mount_point_is_api(const char *path) {
 }
 
 bool mount_point_ignore(const char *path) {
+
         const char *i;
 
-        NULSTR_FOREACH(i, ignore_paths)
+        /* These are API file systems that might be mounted by other software, we just list them here so that
+         * we know that we should ignore them. */
+        FOREACH_STRING(i,
+                       /* SELinux file systems */
+                       "/sys/fs/selinux",
+                       /* Container bind mounts */
+                       "/dev/console",
+                       "/proc/kmsg",
+                       "/proc/sys",
+                       "/proc/sys/kernel/random/boot_id")
                 if (path_equal(path, i))
                         return true;
+
+        if (path_startswith(path, "/run/host")) /* All mounts passed in from the container manager are
+                                                 * something we better ignore. */
+                return true;
 
         return false;
 }
