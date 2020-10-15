@@ -773,6 +773,12 @@ int config_parse_radv_dns(
         assert(lvalue);
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                n->n_router_dns = 0;
+                n->router_dns = mfree(n->router_dns);
+                return 0;
+        }
+
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
                 union in_addr_union a;
@@ -833,6 +839,11 @@ int config_parse_radv_search_domains(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        if (isempty(rvalue)) {
+                n->router_search_domains = ordered_set_free(n->router_search_domains);
+                return 0;
+        }
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL, *idna = NULL;
