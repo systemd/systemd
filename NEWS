@@ -495,23 +495,50 @@ CHANGES WITH 247 in spe:
           such as replay debuggers where non-deterministic behaviour is not
           desirable.
 
-        * When building systemd the Meson option
-          -Dcompat-mutable-uid-boundaries may now be specified. If enabled,
-          systemd reads the system UID boundaries from /etc/login.defs, instead
-          of using the built-in values selected during build-time. This is an
-          option to improve compatibility for upgrades from old systems. It's
-          strongly recommended not to make use of this functionality on new
-          systems (or even enable it during build), as it makes something
-          runtime-configurable that is mostly an implementation detail of the
-          OS, and permits avoidable differences in deployments that create all
-          kinds of problems in the long run.
-
         * The autopaging logic in systemd's various tools (such as systemctl)
           has been updated to turn on "secure" mode in "less"
           (i.e. $LESSECURE=1) if execution in a "sudo" environment is
           detected. This disables invoking external programs from the pager,
           via the pipe logic. This behaviour may be overridden via the new
           $SYSTEMD_PAGERSECURE environment variable.
+
+        * Units which have resource limits (.service, .mount, .swap, .slice,
+          .socket, and .slice) gained new configuration settings
+          ManagedOOMSwap=, ManagedOOMMemoryPressure=, and
+          ManagedOOMMemoryPressureLimitPercent= that speicify resource pressure
+          limits and optional action taken by systemd-oomd.
+
+        * A new service systemd-oomd has been added. It monitors resource
+          contention for selected parts of the unit hierarchy using the PSI
+          information reported by the kernel, and kills processes when memory
+          or swap pressure is above configured limits. This service is only
+          enabled in developer mode (see below) and should be considered a
+          preview in this release. Behaviour details and option names are
+          subject to change without the usual backwards-compatibility promises.
+
+        * A new helper oomctl has been added to introspect systemd-oomd state.
+          If also is only available in developer mode and should be considered
+          a preview without the usual backwards-compatibility promises.
+
+        * New meson option -Dcompat-mutable-uid-boundaries= has been added. If
+          enabled, systemd reads the system UID boundaries from /etc/login.defs
+          at runtime, instead of using the built-in values selected during
+          build. This is an option to improve compatibility for upgrades from
+          old systems. It's strongly recommended not to make use of this
+          functionality on new systems (or even enable it during build), as it
+          makes something runtime-configurable that is mostly an implementation
+          detail of the OS, and permits avoidable differences in deployments
+          that create all kinds of problems in the long run.
+
+        * New meson option '-Dmode=developer|release' has been added. When
+          'developer', additional checks and features are enabled that are
+          relevant during upstream development, e.g. verification that
+          semi-automatically-generated documentation has been properly updated
+          following API changes. Those checks are considered hints for
+          developers and are not actionable in downstream builds. In addition,
+          extra features that are not ready for general consumption may be
+          enabled in developer mode. It is thus recommended to set
+          '-Dmode=release' in end-user and distro builds.
 
 CHANGES WITH 246:
 
