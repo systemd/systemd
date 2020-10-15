@@ -14,6 +14,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "cgroup-util.h"
+#include "daemon-util.h"
 #include "def.h"
 #include "device-util.h"
 #include "dirent-util.h"
@@ -1157,6 +1158,7 @@ static int manager_run(Manager *m) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
+        _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
         int r;
 
         log_set_facility(LOG_AUTH);
@@ -1195,19 +1197,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fully start up daemon: %m");
 
-        log_debug("systemd-logind running as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "READY=1\n"
-                         "STATUS=Processing requests...");
-
-        r = manager_run(m);
-
-        log_debug("systemd-logind stopped as pid "PID_FMT, getpid_cached());
-        (void) sd_notify(false,
-                         "STOPPING=1\n"
-                         "STATUS=Shutting down...");
-
-        return r;
+        notify_message = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        return manager_run(m);
 }
 
 DEFINE_MAIN_FUNCTION(run);
