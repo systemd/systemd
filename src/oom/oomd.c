@@ -2,12 +2,15 @@
 
 #include <getopt.h>
 
+#include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
 #include "daemon-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "oomd-manager.h"
+#include "oomd-manager-bus.h"
 #include "parse-util.h"
 #include "pretty-print.c"
 #include "psi-util.h"
@@ -47,6 +50,7 @@ static int help(void) {
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "     --dry-run              Only print destructive actions instead of doing them\n"
+               "     --bus-introspect=PATH  Write D-Bus XML introspection data\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , link
@@ -59,12 +63,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_DRY_RUN,
+                ARG_BUS_INTROSPECT,
         };
 
         static const struct option options[] = {
                 { "help",           no_argument,       NULL, 'h'                },
                 { "version",        no_argument,       NULL, ARG_VERSION        },
                 { "dry-run",        no_argument,       NULL, ARG_DRY_RUN        },
+                { "bus-introspect", required_argument, NULL, ARG_BUS_INTROSPECT },
                 {}
         };
 
@@ -86,6 +92,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_DRY_RUN:
                         arg_dry_run = true;
                         break;
+
+                case ARG_BUS_INTROSPECT:
+                        return bus_introspect_implementations(
+                                        stdout,
+                                        optarg,
+                                        BUS_IMPLEMENTATIONS(&manager_object,
+                                                            &log_control_object));
 
                 case '?':
                         return -EINVAL;
