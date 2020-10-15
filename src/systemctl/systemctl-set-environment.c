@@ -63,7 +63,7 @@ int show_environment(int argc, char *argv[], void *userdata) {
 
 static void invalid_callback(const char *p, void *userdata) {
         _cleanup_free_ char *t = cescape(p);
- 
+
         log_debug("Ignoring invalid environment assignment \"%s\".", strnull(t));
 }
 
@@ -120,13 +120,13 @@ int import_environment(int argc, char *argv[], void *userdata) {
 
         if (argc < 2) {
                 _cleanup_strv_free_ char **copy = NULL;
- 
+
                 copy = strv_copy(environ);
                 if (!copy)
                         return log_oom();
- 
+
                 strv_env_clean_with_callback(copy, invalid_callback, NULL);
- 
+
                 r = sd_bus_message_append_strv(m, copy);
 
         } else {
