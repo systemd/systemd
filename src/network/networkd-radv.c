@@ -180,6 +180,26 @@ void network_drop_invalid_route_prefixes(Network *network) {
                         route_prefix_free(prefix);
 }
 
+void network_adjust_radv(Network *network) {
+        assert(network);
+
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
+                if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE)
+                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link local addressing is disabled. "
+                                    "Disabling IPv6PrefixDelegation=.", network->filename);
+
+                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
+        }
+
+        if (network->router_prefix_delegation == RADV_PREFIX_DELEGATION_NONE) {
+                network->n_router_dns = 0;
+                network->router_dns = mfree(network->router_dns);
+                network->router_search_domains = ordered_set_free(network->router_search_domains);
+                network->prefixes_by_section = hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
+                network->route_prefixes_by_section = hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
+        }
+}
+
 int config_parse_prefix(
                 const char *unit,
                 const char *filename,

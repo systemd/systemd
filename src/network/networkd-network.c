@@ -214,14 +214,6 @@ int network_verify(Network *network) {
         if (network->link_local < 0)
                 network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
 
-        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
-                if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE) {
-                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link local addressing is disabled. "
-                                    "Disabling IPv6PrefixDelegation=.", network->filename);
-                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
-                }
-        }
-
         if (FLAGS_SET(network->link_local, ADDRESS_FAMILY_FALLBACK_IPV4) &&
             !FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV4)) {
                 log_warning("%s: fallback assignment of IPv4 link local address is enabled but DHCPv4 is disabled. "
@@ -235,6 +227,7 @@ int network_verify(Network *network) {
 
         network_adjust_ipv6_accept_ra(network);
         network_adjust_dhcp(network);
+        network_adjust_radv(network);
 
         if (network->mtu > 0 && network->dhcp_use_mtu) {
                 log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
