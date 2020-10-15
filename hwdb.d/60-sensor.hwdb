@@ -169,6 +169,10 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnD2D3_Vi8A1:*
 sensor:modalias:acpi:BMA250E*:dmi:bvnINSYDECorp.:bvrG1D_S165*:svnilife:pnS165:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
+# Chuwi Hi8 (CWI509)
+sensor:modalias:acpi:BMA250E*:dmi:*svnilife*:pnS806:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
 # Chuwi Hi8 Pro (CWI513)
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnX1D3_C806N:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
