@@ -343,7 +343,7 @@ static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monoto
 }
 
 static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, OutputFlags flags, const char *realtime) {
-        char buf[MAX(FORMAT_TIMESTAMP_MAX, 64)];
+        char buf[MAX(FORMAT_TIMESTAMP_MAX, 64U)];
         struct tm *(*gettime_r)(const time_t *, struct tm *);
         struct tm tm;
         uint64_t x;

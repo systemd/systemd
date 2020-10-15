@@ -587,7 +587,7 @@ static void display(Hashmap *a) {
         Group **array;
         signed path_columns;
         unsigned rows, n = 0, j, maxtcpu = 0, maxtpath = 3; /* 3 for ellipsize() to work properly */
-        char buffer[MAX3(21, FORMAT_BYTES_MAX, FORMAT_TIMESPAN_MAX)];
+        char buffer[MAX3(21U, FORMAT_BYTES_MAX, FORMAT_TIMESPAN_MAX)];
 
         assert(a);
 
