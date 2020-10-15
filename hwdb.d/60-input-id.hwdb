@@ -51,25 +51,25 @@
 # All matches should end in ':*' to allow future expansions of the match key.
 
 # Example:
-# id-input:modalias:input:b0003v1234pABCD*
+# id-input:modalias:input:b0003v1234pABCD:*
 #  ID_INPUT_TOUCHPAD=1
 #  ID_INPUT=1
 
 # Sort by brand, model
 
 # UC-Logic TABLET 1060N Pad
-id-input:modalias:input:b0003v5543p0081*
+id-input:modalias:input:b0003v5543p0081:*
  ID_INPUT_TABLET=1
  ID_INPUT_TABLET_PAD=1
 
 # XP-PEN STAR 06
-id-input:modalias:input:b0003v28bdp0078*
+id-input:modalias:input:b0003v28bdp0078:*
  ID_INPUT_TABLET=1
 
 # Lite-On Tech IBM USB Travel Keyboard with Ultra Nav Mouse
-id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*
+id-input:modalias:input:b0003v04B3p301Ee0100-e0,1,2,4*:*
  ID_INPUT_POINTINGSTICK=1
 
 # Logitech Ultrathin Touch Mouse
-id-input:modalias:input:b0005v046DpB00De0700*
+id-input:modalias:input:b0005v046DpB00De0700:*
  ID_INPUT_MOUSE=1

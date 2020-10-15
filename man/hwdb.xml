@@ -79,13 +79,13 @@
 # it defines, and the ordering convention.
 
 # A record with three matches and one property
-mouse:*:name:*Trackball*:
-mouse:*:name:*trackball*:
-mouse:*:name:*TrackBall*:
+mouse:*:name:*Trackball*:*
+mouse:*:name:*trackball*:*
+mouse:*:name:*TrackBall*:*
  ID_INPUT_TRACKBALL=1
 
 # A record with a single match and five properties
-mouse:usb:v046dp4041:name:Logitech MX Master:
+mouse:usb:v046dp4041:name:Logitech MX Master:*
  MOUSE_DPI=1000@166
  MOUSE_WHEEL_CLICK_ANGLE=15
  MOUSE_WHEEL_CLICK_ANGLE_HORIZONTAL=26
@@ -98,12 +98,12 @@ mouse:usb:v046dp4041:name:Logitech MX Master:
       <title>Overriding of properties</title>
 
       <programlisting># /usr/lib/udev/hwdb.d/60-keyboard.hwdb
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn*:*
  KEYBOARD_KEY_a1=help
  KEYBOARD_KEY_a2=setup
  KEYBOARD_KEY_a3=battery
 
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn123*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pn123*:*
  KEYBOARD_KEY_a2=wlan
 
 # /etc/udev/hwdb.d/70-keyboard.hwdb

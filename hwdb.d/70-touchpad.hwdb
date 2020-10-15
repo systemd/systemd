@@ -61,11 +61,11 @@ touchpad:usb:v044ep1221:*
 ###########################################################
 # Logitech
 ###########################################################
-touchpad:usb:v046d*
+touchpad:usb:v046dp????:*
  ID_INPUT_TOUCHPAD_INTEGRATION=external
 
 ###########################################################
 # Wacom
 ###########################################################
-touchpad:usb:v056a*
+touchpad:usb:v056ap????:*
  ID_INPUT_TOUCHPAD_INTEGRATION=external

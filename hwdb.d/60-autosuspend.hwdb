@@ -34,7 +34,7 @@
 #########################################
 
 # AU9540 Smartcard Reader
-usb:v058Fp9540*
+usb:v058Fp9540:*
  ID_AUTOSUSPEND=1
 
 #########################################
@@ -42,9 +42,9 @@ usb:v058Fp9540*
 #########################################
 
 # X1C8 Touchscreen
-usb:v04F3p2B7C*
+usb:v04F3p2B7C:*
 # T14 Gen 1 Touchscreen
-usb:v04F3p2ACC*
+usb:v04F3p2ACC:*
  ID_AUTOSUSPEND=1
 
 #########################################
@@ -52,14 +52,14 @@ usb:v04F3p2ACC*
 #########################################
 
 # Emulated USB HID devices
-usb:v0627p0001:*QEMU USB Keyboard*
-usb:v0627p0001:*QEMU USB Mouse*
-usb:v0627p0001:*QEMU USB Tablet*
+usb:v0627p0001:*QEMU USB Keyboard*:*
+usb:v0627p0001:*QEMU USB Mouse*:*
+usb:v0627p0001:*QEMU USB Tablet*:*
  ID_AUTOSUSPEND=1
 
 #########################################
 # Wacom
 #########################################
 
-usb:v056Ap51A0*
+usb:v056Ap51A0:*
  ID_AUTOSUSPEND=1
