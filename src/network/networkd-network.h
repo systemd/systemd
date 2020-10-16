@@ -202,6 +202,7 @@ struct Network {
 
         /* DHCPv6 Prefix Delegation support */
         int dhcp6_pd;
+        bool dhcp6_pd_announce;
         bool dhcp6_pd_assign;
         int64_t dhcp6_pd_subnet_id;
         union in_addr_union dhcp6_pd_token;

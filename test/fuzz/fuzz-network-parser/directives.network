@@ -137,6 +137,7 @@ SendVendorOption=
 RouteMetric=
 [DHCPv6PrefixDelegation]
 SubnetId=
+Announce=
 Assign=
 Token=
 [Route]

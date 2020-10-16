@@ -421,11 +421,14 @@ static int dhcp6_pd_assign_prefix(Link *link, const union in_addr_union *prefix,
         int r;
 
         assert(link);
+        assert(link->network);
         assert(prefix);
 
-        r = radv_add_prefix(link, &prefix->in6, prefix_len, lifetime_preferred, lifetime_valid);
-        if (r < 0)
-                return r;
+        if (link->network->dhcp6_pd_announce) {
+                r = radv_add_prefix(link, &prefix->in6, prefix_len, lifetime_preferred, lifetime_valid);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp6_set_pd_route(link, prefix, pd_prefix);
         if (r < 0)
