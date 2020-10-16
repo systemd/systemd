@@ -54,6 +54,7 @@ manpages = [
  ['org.freedesktop.locale1', '5', [], 'ENABLE_LOCALED'],
  ['org.freedesktop.login1', '5', [], 'ENABLE_LOGIND'],
  ['org.freedesktop.machine1', '5', [], 'ENABLE_MACHINED'],
+ ['org.freedesktop.oom1', '5', [], 'ENABLE_OOMD'],
  ['org.freedesktop.resolve1', '5', [], 'ENABLE_RESOLVE'],
  ['org.freedesktop.systemd1', '5', [], ''],
  ['org.freedesktop.timedate1', '5', [], 'ENABLE_TIMEDATED'],

@@ -29,8 +29,19 @@ static int bus_method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus
         return sd_bus_reply_method_return(message, "h", fd);
 }
 
-const sd_bus_vtable manager_vtable[] = {
+static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_METHOD("DumpByFileDescriptor", NULL, "h", bus_method_dump_by_fd, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_NAMES("DumpByFileDescriptor",
+                                 NULL,,
+                                 "h",
+                                 SD_BUS_PARAM(fd),
+                                 bus_method_dump_by_fd,
+                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
+};
+
+const BusObjectImplementation manager_object = {
+        "/org/freedesktop/oom1",
+        "org.freedesktop.oom1.Manager",
+        .vtables = BUS_VTABLES(manager_vtable),
 };
