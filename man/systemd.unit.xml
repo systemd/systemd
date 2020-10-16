@@ -1209,7 +1209,10 @@
           argument must either be a single word, or an assignment (i.e. two words, separated by
           <literal>=</literal>). In the former case the kernel command line is searched for the word
           appearing as is, or as left hand side of an assignment. In the latter case, the exact assignment is
-          looked for with right and left hand side matching.</para>
+          looked for with right and left hand side matching. This operates on the kernel command line
+          communicated to userspace via <filename>/proc/cmdline</filename>, except when the service manager
+          is invoked as payload of a container manager, in which case the command line of <filename>PID
+          1</filename> is used instead (i.e. <filename>/proc/1/cmdline</filename>).</para>
           </listitem>
         </varlistentry>
 
