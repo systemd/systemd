@@ -4331,17 +4331,21 @@ int unit_kill_common(
         int r = 0;
         bool killed = false;
 
+        /* This is the common implementation for explicit user-requested killing of unit processes, shared by
+         * various unit types. Do not confuse with unit_kill_context(), which is what we use when we want to
+         * stop a service ourselves. */
+
         if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (main_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
-                else if (main_pid == 0)
+                if (main_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
         }
 
         if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL)) {
                 if (control_pid < 0)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
-                else if (control_pid == 0)
+                if (control_pid == 0)
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
@@ -4964,8 +4968,9 @@ int unit_kill_context(
         assert(u);
         assert(c);
 
-        /* Kill the processes belonging to this unit, in preparation for shutting the unit down.
-         * Returns > 0 if we killed something worth waiting for, 0 otherwise. */
+        /* Kill the processes belonging to this unit, in preparation for shutting the unit down.  Returns > 0
+         * if we killed something worth waiting for, 0 otherwise. Do not confuse with unit_kill_common()
+         * which is used for user-requested killing of unit processes. */
 
         if (c->kill_mode == KILL_NONE)
                 return 0;
