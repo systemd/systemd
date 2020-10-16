@@ -4211,8 +4211,9 @@ int unit_kill_common(
                         killed = true;
         }
 
-        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL))
-                return -ESRCH;
+        /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
+        if (r == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
+                return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
 
         return r;
 }
