@@ -183,6 +183,12 @@ void network_drop_invalid_route_prefixes(Network *network) {
 void network_adjust_radv(Network *network) {
         assert(network);
 
+        /* After this function is called, network->router_prefix_delegation can be treated as a boolean. */
+
+        if (network->dhcp6_pd < 0)
+                /* For backward compatibility. */
+                network->dhcp6_pd = FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_DHCP6);
+
         if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
                 if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE)
                         log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link local addressing is disabled. "
@@ -631,7 +637,7 @@ static bool link_radv_enabled(Link *link) {
         if (!link_ipv6ll_enabled(link))
                 return false;
 
-        return link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE;
+        return link->network->router_prefix_delegation;
 }
 
 int radv_configure(Link *link) {

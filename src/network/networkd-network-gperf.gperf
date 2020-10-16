@@ -126,6 +126,8 @@ Network.BindCarrier,                         config_parse_strv,                 
 Network.ConfigureWithoutCarrier,             config_parse_bool,                                        0,                             offsetof(Network, configure_without_carrier)
 Network.IgnoreCarrierLoss,                   config_parse_tristate,                                    0,                             offsetof(Network, ignore_carrier_loss)
 Network.KeepConfiguration,                   config_parse_keep_configuration,                          0,                             offsetof(Network, keep_configuration)
+Network.IPv6PrefixDelegation,                config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
+Network.DHCPv6PrefixDelegation,              config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_pd)
 Address.Address,                             config_parse_address,                                     0,                             0
 Address.Peer,                                config_parse_address,                                     0,                             0
 Address.Broadcast,                           config_parse_broadcast,                                   0,                             0
@@ -280,7 +282,6 @@ BridgeMDB.VLANId,                            config_parse_mdb_vlan_id,          
 BridgeVLAN.PVID,                             config_parse_brvlan_pvid,                                 0,                             0
 BridgeVLAN.VLAN,                             config_parse_brvlan_vlan,                                 0,                             0
 BridgeVLAN.EgressUntagged,                   config_parse_brvlan_untagged,                             0,                             0
-Network.IPv6PrefixDelegation,                config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
 DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp6_pd_subnet_id,                          0,                             offsetof(Network, dhcp6_pd_subnet_id)
 DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign)
 DHCPv6PrefixDelegation.Token,                config_parse_dhcp6_pd_token,                              0,                             offsetof(Network, dhcp6_pd_token)

@@ -367,6 +367,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_dns = true,
 
+                .dhcp6_pd = -1,
                 .dhcp6_pd_subnet_id = -1,
                 .dhcp6_pd_assign = true,
 

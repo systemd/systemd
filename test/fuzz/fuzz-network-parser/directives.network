@@ -214,6 +214,7 @@ BindCarrier=
 VRF=
 IgnoreCarrierLoss=
 KeepConfiguration=
+DHCPv6PrefixDelegation=
 [IPv6Prefix]
 Prefix=
 OnLink=

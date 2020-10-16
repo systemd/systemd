@@ -31,7 +31,7 @@ bool link_dhcp6_pd_is_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_DHCP6;
+        return link->network->dhcp6_pd;
 }
 
 static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {

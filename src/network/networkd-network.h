@@ -201,7 +201,7 @@ struct Network {
         OrderedSet *router_search_domains;
 
         /* DHCPv6 Prefix Delegation support */
-        bool dhcp6_pd;
+        int dhcp6_pd;
         bool dhcp6_pd_assign;
         int64_t dhcp6_pd_subnet_id;
         union in_addr_union dhcp6_pd_token;
