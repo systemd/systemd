@@ -203,12 +203,18 @@
             has <varname>RemainAfterExit=</varname> not set) it will not show up as started afterwards, but
             as dead.</para></listitem>
 
-            <listitem><para>Behavior of <option>dbus</option> is similar to <option>simple</option>; however, it is
-            expected that the service acquires a name on the D-Bus bus, as configured by
-            <varname>BusName=</varname>. systemd will proceed with starting follow-up units after the D-Bus bus name
-            has been acquired. Service units with this option configured implicitly gain dependencies on the
-            <filename>dbus.socket</filename> unit. This type is the default if <varname>BusName=</varname> is
-            specified.</para></listitem>
+            <listitem><para>Behavior of <option>dbus</option> is similar to <option>simple</option>; however,
+            it is expected that the service acquires a name on the D-Bus bus, as configured by
+            <varname>BusName=</varname>. systemd will proceed with starting follow-up units after the D-Bus
+            bus name has been acquired. Service units with this option configured implicitly gain
+            dependencies on the <filename>dbus.socket</filename> unit. This type is the default if
+            <varname>BusName=</varname> is specified. A service unit of this type is considered to be in the
+            activating state until the specified bus name is acquired. It is considered activated while the
+            bus name is taken. Once the bus name is released the service is considered being no longer
+            functional which has the effect that the service manager attempts to terminate any remaining
+            processes belonging to the service. Services that drop their bus name as part of their shutdown
+            logic thus should be prepared to receive a <constant>SIGTERM</constant> (or whichever signal is
+            configured in <varname>KillSignal=</varname>) as result.</para></listitem>
 
             <listitem><para>Behavior of <option>notify</option> is similar to <option>exec</option>; however, it is
             expected that the service sends a notification message via
