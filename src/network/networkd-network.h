@@ -57,12 +57,14 @@ typedef struct NetworkDHCPServerEmitAddress {
 struct Network {
         Manager *manager;
 
-        char *filename;
-        char *name;
-        usec_t timestamp;
-
         unsigned n_ref;
 
+        char *name;
+        char *filename;
+        usec_t timestamp;
+        char *description;
+
+        /* [Match] section */
         Set *match_mac;
         Set *match_permanent_mac;
         char **match_path;
@@ -75,8 +77,7 @@ struct Network {
         Set *match_bssid;
         LIST_HEAD(Condition, conditions);
 
-        char *description;
-
+        /* Master or stacked netdevs */
         NetDev *bridge;
         NetDev *bond;
         NetDev *vrf;
@@ -87,9 +88,31 @@ struct Network {
         char *vrf_name;
         Hashmap *stacked_netdev_names;
 
+        /* [Link] section */
+        struct ether_addr *mac;
+        uint32_t mtu;
+        uint32_t group;
+        int arp;
+        int multicast;
+        int allmulticast;
+        bool unmanaged;
+        bool required_for_online; /* Is this network required to be considered online? */
+        LinkOperationalStateRange required_operstate_for_online;
+
+        /* misc settings */
+        bool configure_without_carrier;
+        int ignore_carrier_loss;
+        KeepConfiguration keep_configuration;
+        char **bind_carrier;
+        bool default_route_on_device;
+        bool ip_masquerade;
+
         /* DHCP Client Support */
         AddressFamily dhcp;
         DHCPClientIdentifier dhcp_client_identifier;
+        DUID duid;
+        uint32_t iaid;
+        bool iaid_set;
         char *dhcp_vendor_class_identifier;
         char *dhcp_mudurl;
         char **dhcp_user_class;
@@ -102,7 +125,7 @@ struct Network {
         uint32_t dhcp_route_mtu;
         uint16_t dhcp_client_port;
         int dhcp_critical;
-        int ip_service_type;
+        int dhcp_ip_service_type;
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
         bool dhcp_broadcast;
@@ -116,7 +139,6 @@ struct Network {
         bool dhcp_use_routes;
         int dhcp_use_gateway;
         bool dhcp_use_timezone;
-        bool rapid_commit;
         bool dhcp_use_hostname;
         bool dhcp_route_table_set;
         bool dhcp_send_release;
@@ -127,14 +149,13 @@ struct Network {
         Set *dhcp_request_options;
         OrderedHashmap *dhcp_client_send_options;
         OrderedHashmap *dhcp_client_send_vendor_options;
-        OrderedHashmap *dhcp_server_send_options;
-        OrderedHashmap *dhcp_server_send_vendor_options;
 
         /* DHCPv6 Client support*/
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
+        bool dhcp6_rapid_commit;
         uint8_t dhcp6_pd_length;
         uint32_t dhcp6_route_metric;
         bool dhcp6_route_metric_set;
@@ -146,6 +167,8 @@ struct Network {
         OrderedHashmap *dhcp6_client_send_options;
         OrderedHashmap *dhcp6_client_send_vendor_options;
         Set *dhcp6_request_options;
+        /* Start DHCPv6 PD also when 'O' RA flag is set, see RFC 7084, WPD-4 */
+        bool dhcp6_force_pd_other_information;
 
         /* DHCP Server Support */
         bool dhcp_server;
@@ -156,13 +179,13 @@ struct Network {
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
         uint32_t dhcp_server_pool_offset;
         uint32_t dhcp_server_pool_size;
+        OrderedHashmap *dhcp_server_send_options;
+        OrderedHashmap *dhcp_server_send_vendor_options;
 
         /* link local addressing support */
         AddressFamily link_local;
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
         bool ipv4ll_route;
-
-        bool default_route_on_device;
 
         /* IPv6 prefix delegation support */
         RADVPrefixDelegation router_prefix_delegation;
@@ -176,13 +199,11 @@ struct Network {
         struct in6_addr *router_dns;
         unsigned n_router_dns;
         OrderedSet *router_search_domains;
-        bool dhcp6_force_pd_other_information; /* Start DHCPv6 PD also when 'O'
-                                                  RA flag is set, see RFC 7084,
-                                                  WPD-4 */
 
         /* DHCPv6 Prefix Delegation support */
-        int64_t dhcp6_pd_subnet_id;
+        bool dhcp6_pd;
         bool dhcp6_pd_assign;
+        int64_t dhcp6_pd_subnet_id;
         union in_addr_union dhcp6_pd_token;
 
         /* Bridge Support */
@@ -201,6 +222,7 @@ struct Network {
         uint16_t priority;
         MulticastRouter multicast_router;
 
+        /* Bridge VLAN */
         bool use_br_vlan;
         uint16_t pvid;
         uint32_t br_vid_bitmap[BRIDGE_VLAN_BITMAP_LEN];
@@ -218,18 +240,19 @@ struct Network {
         int can_fd_mode;
         int can_non_iso;
 
+        /* sysctl settings */
         AddressFamily ip_forward;
-        bool ip_masquerade;
         int ipv4_accept_local;
-
-        int ipv6_accept_ra;
         int ipv6_dad_transmits;
         int ipv6_hop_limit;
-        int ipv6_proxy_ndp;
-        Set *ipv6_proxy_ndp_addresses;
         int proxy_arp;
         uint32_t ipv6_mtu;
+        IPv6PrivacyExtensions ipv6_privacy_extensions;
+        int ipv6_proxy_ndp;
+        Set *ipv6_proxy_ndp_addresses;
 
+        /* IPv6 accept RA */
+        int ipv6_accept_ra;
         bool ipv6_accept_ra_use_dns;
         bool ipv6_accept_ra_use_autonomous_prefix;
         bool ipv6_accept_ra_use_onlink_prefix;
@@ -241,26 +264,6 @@ struct Network {
         uint32_t ipv6_accept_ra_route_table;
         Set *ndisc_deny_listed_prefix;
         OrderedSet *ipv6_tokens;
-
-        IPv6PrivacyExtensions ipv6_privacy_extensions;
-
-        struct ether_addr *mac;
-        uint32_t mtu;
-        uint32_t group;
-        int arp;
-        int multicast;
-        int allmulticast;
-        bool unmanaged;
-        bool configure_without_carrier;
-        int ignore_carrier_loss;
-        KeepConfiguration keep_configuration;
-        uint32_t iaid;
-        DUID duid;
-
-        bool iaid_set;
-
-        bool required_for_online; /* Is this network required to be considered online? */
-        LinkOperationalStateRange required_operstate_for_online;
 
         /* LLDP support */
         LLDPMode lldp_mode; /* LLDP reception */
@@ -284,7 +287,6 @@ struct Network {
         struct in_addr_full **dns;
         unsigned n_dns;
         OrderedSet *search_domains, *route_domains;
-
         int dns_default_route;
         ResolveSupport llmnr;
         ResolveSupport mdns;
@@ -292,8 +294,8 @@ struct Network {
         DnsOverTlsMode dns_over_tls_mode;
         Set *dnssec_negative_trust_anchors;
 
+        /* NTP */
         char **ntp;
-        char **bind_carrier;
 };
 
 Network *network_ref(Network *network);

@@ -329,7 +329,16 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .required_for_online = true,
                 .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
+                .arp = -1,
+                .multicast = -1,
+                .allmulticast = -1,
+
+                .configure_without_carrier = false,
+                .ignore_carrier_loss = -1,
+                .keep_configuration = _KEEP_CONFIGURATION_INVALID,
+
                 .dhcp = ADDRESS_FAMILY_NO,
+                .duid.type = _DUID_TYPE_INVALID,
                 .dhcp_critical = -1,
                 .dhcp_use_ntp = true,
                 .dhcp_use_sip = true,
@@ -351,8 +360,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_mtu = false,
                 /* NOTE: from man: UseTimezone=... Defaults to "no".*/
                 .dhcp_use_timezone = false,
-                .rapid_commit = true,
+                .dhcp_ip_service_type = -1,
 
+                .dhcp6_rapid_commit = true,
                 .dhcp6_route_metric = DHCP_ROUTE_METRIC,
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_dns = true,
@@ -397,17 +407,13 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
                 .ipv4_accept_local = -1,
-
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .ipv6_accept_ra = -1,
                 .ipv6_dad_transmits = -1,
                 .ipv6_hop_limit = -1,
                 .ipv6_proxy_ndp = -1,
-                .duid.type = _DUID_TYPE_INVALID,
                 .proxy_arp = -1,
-                .arp = -1,
-                .multicast = -1,
-                .allmulticast = -1,
+
                 .ipv6_accept_ra_use_dns = true,
                 .ipv6_accept_ra_use_autonomous_prefix = true,
                 .ipv6_accept_ra_use_onlink_prefix = true,
@@ -415,15 +421,11 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_route_table_set = false,
                 .ipv6_accept_ra_start_dhcp6_client = true,
 
-                .configure_without_carrier = false,
-                .ignore_carrier_loss = -1,
-                .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .can_triple_sampling = -1,
                 .can_termination = -1,
                 .can_listen_only = -1,
                 .can_fd_mode = -1,
                 .can_non_iso = -1,
-                .ip_service_type = -1,
         };
 
         r = config_parse_many(

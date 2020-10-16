@@ -1424,7 +1424,7 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set ifindex: %m");
 
-        if (link->network->rapid_commit) {
+        if (link->network->dhcp6_rapid_commit) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_RAPID_COMMIT);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set request flag for rapid commit: %m");
