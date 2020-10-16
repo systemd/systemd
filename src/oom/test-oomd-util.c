@@ -39,6 +39,7 @@ static int fork_and_sleep(unsigned sleep_min) {
 static void test_oomd_cgroup_kill(void) {
         _cleanup_free_ char *cgroup_root = NULL, *cgroup = NULL;
         int pid[2];
+        int r;
 
         if (geteuid() != 0)
                 return (void) log_tests_skipped("not root");
@@ -52,19 +53,20 @@ static void test_oomd_cgroup_kill(void) {
          * by the test so that pid1 doesn't delete it before we can read the xattrs. */
         cgroup = path_join(cgroup_root, "oomdkilltest");
         assert(cgroup);
+        assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, cgroup) >= 0);
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
-        if (cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "test", 4, 0) == -EPERM)
-                return (void) log_tests_skipped("no permissions to set user xattrs");
+        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "test", 4, 0);
+        if (IN_SET(r, -EPERM, -ENOTSUP))
+                return (void) log_tests_skipped("Cannot set user xattrs");
 
         /* Do this twice to also check the increment behavior on the xattrs */
         for (int i = 0; i < 2; i++) {
                 _cleanup_free_ char *v = NULL;
-                int r;
 
                 for (int j = 0; j < 2; j++) {
                         pid[j] = fork_and_sleep(5);
-                        assert_se(cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, cgroup, pid[j]) >= 0);
+                        assert_se(cg_attach(SYSTEMD_CGROUP_CONTROLLER, cgroup, pid[j]) >= 0);
                 }
 
                 r = oomd_cgroup_kill(cgroup, false /* recurse */, false /* dry run */);
