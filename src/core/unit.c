@@ -4297,6 +4297,19 @@ static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
         return TAKE_PTR(pid_set);
 }
 
+static int kill_common_log(pid_t pid, int signo, void *userdata) {
+        _cleanup_free_ char *comm = NULL;
+        Unit *u = userdata;
+
+        assert(u);
+
+        (void) get_process_comm(pid, &comm);
+        log_unit_info(u, "Sending signal SIG%s to process " PID_FMT " (%s) on client request.",
+                      signal_to_string(signo), pid, strna(comm));
+
+        return 1;
+}
+
 int unit_kill_common(
                 Unit *u,
                 KillWho who,
@@ -4324,18 +4337,47 @@ int unit_kill_common(
 
         if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL))
                 if (control_pid > 0) {
-                        if (kill(control_pid, signo) < 0)
-                                r = -errno;
-                        else
+                        _cleanup_free_ char *comm = NULL;
+                        (void) get_process_comm(control_pid, &comm);
+
+                        if (kill(control_pid, signo) < 0) {
+                                /* Report this failure both to the logs and to the client */
+                                sd_bus_error_set_errnof(
+                                                error, errno,
+                                                "Failed to send signal SIG%s to control process " PID_FMT " (%s): %m",
+                                                signal_to_string(signo), control_pid, strna(comm));
+                                r = log_unit_warning_errno(
+                                                u, errno,
+                                                "Failed to send signal SIG%s to control process " PID_FMT " (%s) on client request: %m",
+                                                signal_to_string(signo), control_pid, strna(comm));
+                        } else {
+                                log_unit_info(u, "Sent signal SIG%s to control process " PID_FMT " (%s) on client request.",
+                                              signal_to_string(signo), control_pid, strna(comm));
                                 killed = true;
+                        }
                 }
 
         if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL))
                 if (main_pid > 0) {
-                        if (kill(main_pid, signo) < 0)
-                                r = -errno;
-                        else
+                        _cleanup_free_ char *comm = NULL;
+                        (void) get_process_comm(main_pid, &comm);
+
+                        if (kill(main_pid, signo) < 0) {
+                                if (r == 0)
+                                        sd_bus_error_set_errnof(
+                                                        error, errno,
+                                                        "Failed to send signal SIG%s to main process " PID_FMT " (%s): %m",
+                                                        signal_to_string(signo), main_pid, strna(comm));
+
+                                r = log_unit_warning_errno(
+                                                u, errno,
+                                                "Failed to send signal SIG%s to main process " PID_FMT " (%s) on client request: %m",
+                                                signal_to_string(signo), main_pid, strna(comm));
+                        } else {
+                                log_unit_info(u, "Sent signal SIG%s to main process " PID_FMT " (%s) on client request.",
+                                              signal_to_string(signo), main_pid, strna(comm));
                                 killed = true;
+                        }
                 }
 
         if (IN_SET(who, KILL_ALL, KILL_ALL_FAIL) && u->cgroup_path) {
@@ -4345,12 +4387,23 @@ int unit_kill_common(
                 /* Exclude the main/control pids from being killed via the cgroup */
                 pid_set = unit_pid_set(main_pid, control_pid);
                 if (!pid_set)
-                        return -ENOMEM;
+                        return log_oom();
 
-                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, 0, pid_set, NULL, NULL);
-                if (q < 0 && !IN_SET(q, -EAGAIN, -ESRCH, -ENOENT))
-                        r = q;
-                else
+                q = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
+                if (q < 0) {
+                        if (!IN_SET(q, -ESRCH, -ENOENT)) {
+                                if (r == 0)
+                                        sd_bus_error_set_errnof(
+                                                        error, q,
+                                                        "Failed to send signal SIG%s to auxiliary processes: %m",
+                                                        signal_to_string(signo));
+
+                                r = log_unit_warning_errno(
+                                                u, q,
+                                                "Failed to send signal SIG%s to auxiliary processes on client request: %m",
+                                                signal_to_string(signo));
+                        }
+                } else
                         killed = true;
         }
 
