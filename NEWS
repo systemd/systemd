@@ -505,7 +505,7 @@ CHANGES WITH 247 in spe:
         * Units which have resource limits (.service, .mount, .swap, .slice,
           .socket, and .slice) gained new configuration settings
           ManagedOOMSwap=, ManagedOOMMemoryPressure=, and
-          ManagedOOMMemoryPressureLimitPercent= that speicify resource pressure
+          ManagedOOMMemoryPressureLimitPercent= that specify resource pressure
           limits and optional action taken by systemd-oomd.
 
         * A new service systemd-oomd has been added. It monitors resource
