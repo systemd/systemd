@@ -102,7 +102,7 @@ if [ ${root_size} -ge 1024 ]; then
 else
     root_size="${root_size}KiB"
 fi
-verity_size="${verity_size}KiB"
+verity_size="$((${verity_size} * 2))KiB"
 uuid="$(head -c 32 ${image}.roothash | cut -c -8)-$(head -c 32 ${image}.roothash | cut -c 9-12)-$(head -c 32 ${image}.roothash | cut -c 13-16)-$(head -c 32 ${image}.roothash | cut -c 17-20)-$(head -c 32 ${image}.roothash | cut -c 21-)"
 echo -e "label: gpt\nsize=${root_size}, type=${root_guid}, uuid=${uuid}" | sfdisk ${image}.gpt
 uuid="$(tail -c 32 ${image}.roothash | cut -c -8)-$(tail -c 32 ${image}.roothash | cut -c 9-12)-$(tail -c 32 ${image}.roothash | cut -c 13-16)-$(tail -c 32 ${image}.roothash | cut -c 17-20)-$(tail -c 32 ${image}.roothash | cut -c 21-)"
