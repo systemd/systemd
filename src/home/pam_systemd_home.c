@@ -833,8 +833,6 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                 pam_syslog(handle, LOG_DEBUG, "pam-systemd-homed account management");
 
         r = acquire_home(handle, /* please_authenticate = */ false, please_suspend, debug);
-        if (r == PAM_USER_UNKNOWN)
-                return PAM_SUCCESS; /* we don't have anything to say about users we don't manage */
         if (r != PAM_SUCCESS)
                 return r;
 
