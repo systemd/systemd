@@ -74,18 +74,27 @@ machine="$(uname -m)"
 if [ "${machine}" = "x86_64" ]; then
     root_guid=4f68bce3-e8cd-4db1-96e7-fbcaf984b709
     verity_guid=2c7357ed-ebd2-46d9-aec1-23d437ec2bf5
+    architecture="x86-64"
 elif [ "${machine}" = "i386" ] || [ "${machine}" = "i686" ] || [ "${machine}" = "x86" ]; then
     root_guid=44479540-f297-41b2-9af7-d131d5f0458a
     verity_guid=d13c5d3b-b5d1-422a-b29f-9454fdc89d76
+    architecture="x86"
 elif [ "${machine}" = "aarch64" ] || [ "${machine}" = "aarch64_be" ] || [ "${machine}" = "armv8b" ] || [ "${machine}" = "armv8l" ]; then
     root_guid=b921b045-1df0-41c3-af44-4c6f280d3fae
     verity_guid=df3300ce-d69f-4c92-978c-9bfb0f38d820
+    architecture="arm64"
 elif [ "${machine}" = "arm" ]; then
     root_guid=69dad710-2ce4-4e3c-b16c-21a1d49abed3
     verity_guid=7386cdf2-203c-47a9-a498-f2ecce45a2d6
+    architecture="arm"
 elif [ "${machine}" = "ia64" ]; then
     root_guid=993d8d3d-f80e-4225-855a-9daf8ed7ea97
     verity_guid=86ed10d5-b607-45bb-8957-d350f23d0571
+    architecture="ia64"
+elif [ "${machine}" = "ppc64le" ]; then
+    # There's no support of PPC in the discoverable partitions specification yet, so skip the rest for now
+    echo OK >/testok
+    exit 0
 else
     echo "Unexpected uname -m: ${machine} in testsuite-50.sh, please fix me"
     exit 1
@@ -118,8 +127,8 @@ losetup -d ${loop}
 ROOT_UUID=$(systemd-id128 -u show $(head -c 32 ${image}.roothash) -u | tail -n 1 | cut -b 6-)
 VERITY_UUID=$(systemd-id128 -u show $(tail -c 32 ${image}.roothash) -u | tail -n 1 | cut -b 6-)
 
-systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'$ROOT_UUID'","fstype":"squashfs","architecture":"x86-64","verity":"yes","node":'
-systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'$VERITY_UUID'","fstype":"DM_verity_hash","architecture":"x86-64","verity":null,"node":'
+systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root","partition_uuid":"'$ROOT_UUID'","fstype":"squashfs","architecture":"'$architecture'","verity":"yes","node":'
+systemd-dissect --json=short --root-hash ${roothash} ${image}.gpt | grep -q '{"rw":"ro","designator":"root-verity","partition_uuid":"'$VERITY_UUID'","fstype":"DM_verity_hash","architecture":"'$architecture'","verity":null,"node":'
 systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F "MARKER=1"
 systemd-dissect --root-hash ${roothash} ${image}.gpt | grep -q -F -f $os_release
 
