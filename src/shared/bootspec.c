@@ -80,7 +80,7 @@ static int boot_entry_load(
                 return log_oom();
 
         if (!efi_loader_entry_name_valid(tmp.id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry: %s", tmp.id);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
 
         tmp.path = strdup(path);
         if (!tmp.path)
@@ -327,7 +327,7 @@ static int boot_entry_load_unified(
                 return log_oom();
 
         if (!efi_loader_entry_name_valid(tmp.id))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry: %s", tmp.id);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid loader entry name: %s", tmp.id);
 
         tmp.path = strdup(path);
         if (!tmp.path)
