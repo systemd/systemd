@@ -124,6 +124,7 @@ typedef enum NamingSchemeFlags {
         /* First, the individual features */
         NAMING_SR_IOV_V        = 1 << 0, /* Use "v" suffix for SR-IOV, see 609948c7043a40008b8299529c978ed8e11de8f6*/
         NAMING_NPAR_ARI        = 1 << 1, /* Use NPAR "ARI", see 6bc04997b6eab35d1cb9fa73889892702c27be09 */
+        NAMING_BRIDGE_NO_SLOT  = 1 << 9, /* Don't use PCI hotplug slot information if the corresponding device is a PCI bridge */
 
         /* And now the masks that combine the features above */
         NAMING_V238 = 0,
@@ -132,6 +133,7 @@ typedef enum NamingSchemeFlags {
         NAMING_RHEL_8_1 = NAMING_V239,
         NAMING_RHEL_8_2 = NAMING_V239,
         NAMING_RHEL_8_3 = NAMING_V239,
+        NAMING_RHEL_8_4 = NAMING_V239|NAMING_BRIDGE_NO_SLOT,
 
         _NAMING_SCHEME_FLAGS_INVALID = -1,
 } NamingSchemeFlags;
@@ -389,6 +391,26 @@ static bool is_pci_ari_enabled(struct udev_device *dev) {
         return streq_ptr(udev_device_get_sysattr_value(dev, "ari_enabled"), "1");
 }
 
+static bool is_pci_bridge(struct udev_device *dev) {
+        const char *v, *p;
+
+        v = udev_device_get_sysattr_value(dev, "modalias");
+        if (!v)
+                return false;
+
+        if (!startswith(v, "pci:"))
+                return false;
+
+        p = strrchr(v, 's');
+        if (!p)
+                return false;
+        if (p[1] != 'c')
+                return false;
+
+        /* PCI device subclass 04 corresponds to PCI bridge */
+        return strneq(p + 2, "04", 2);
+}
+
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         struct udev *udev = udev_device_get_udev(names->pcidev);
         unsigned domain, bus, slot, func, dev_port = 0;
@@ -461,16 +483,23 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                         if (r < 0 || i <= 0)
                                 continue;
 
+                        /* match slot address with device by stripping the function */
                         if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
-                            read_one_line_file(str, &address) >= 0)
-                                /* match slot address with device by stripping the function */
-                                if (startswith(udev_device_get_sysname(hotplug_slot_dev), address))
-                                        hotplug_slot = i;
+                            read_one_line_file(str, &address) >= 0 &&
+                            startswith(udev_device_get_sysname(hotplug_slot_dev), address)) {
+                                hotplug_slot = i;
 
-                        if (hotplug_slot > 0)
+                                /* We found the match between PCI device and slot. However, we won't use the
+                                 * slot index if the device is a PCI bridge, because it can have other child
+                                 * devices that will try to claim the same index and that would create name
+                                 * collision. */
+                                if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev))
+                                        hotplug_slot = 0;
+
                                 break;
+                        }
                 }
-                if (hotplug_slot > 0)
+                if (hotplug_slot >= 0)
                         break;
                 rewinddir(dir);
                 hotplug_slot_dev = udev_device_get_parent_with_subsystem_devtype(hotplug_slot_dev, "pci", NULL);

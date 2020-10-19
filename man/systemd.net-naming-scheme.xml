@@ -176,7 +176,10 @@
 
           <para>SR-IOV virtual devices are named based on the name of the parent interface, with a suffix of
           <constant>v</constant> and the virtual device number, with any leading zeros removed. The bus
-          number is ignored. This device type is found in IBM PowerVMs.</para>
+          number is ignored.</para>
+
+          <para>In some configurations a parent PCI bridge of a given network controller may be associated
+          with a slot. In such case we don't generate this device property to avoid possible naming conflicts.</para>
         </varlistentry>
 
         <varlistentry>
@@ -286,6 +289,16 @@
           <term><constant>rhel-8.3</constant></term>
 
           <para>Same as naming scheme <constant>rhel-8.0</constant>.</para>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>rhel-8.4</constant></term>
+
+          <listitem><para>If the PCI slot is assocated with PCI bridge and that has multiple child network
+          controllers then all of them might derive the same value of <varname>ID_NET_NAME_SLOT</varname>
+          property. That could cause naming conflict if the property is selected as a device name. Now, we detect the
+          situation, slot - bridge relation, and we don't produce the <varname>ID_NET_NAME_SLOT</varname> property to
+          avoid possible naming conflict.</para></listitem>
         </varlistentry>
 
         <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this
