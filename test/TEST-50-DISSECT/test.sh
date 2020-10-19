@@ -37,7 +37,7 @@ test_create_image() {
         )
         oldinitdir=$initdir
         export initdir=$TESTDIR/minimal
-        mkdir -p $initdir
+        mkdir -p $initdir/usr/lib $initdir/etc
         setup_basic_dirs
         install_basic_tools
         cp $os_release $initdir/usr/lib/os-release

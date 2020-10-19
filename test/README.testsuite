@@ -120,3 +120,12 @@ https://wiki.debian.org/ArchitectureSpecificsMemo
 
 For PRs that fix a currently deny-listed test, the PR should include removal
 of the deny-list file.
+
+In case a test fails, the full set of artifacts, including the journal of the
+failed run, can be downloaded from the artifacts.tar.gz archive which will be
+reachable in the same URL parent directory as the logs.gz that gets linked on
+the Github CI status.
+
+To add new dependencies or new binaries to the packages used during the tests,
+a merge request can be sent to: https://salsa.debian.org/systemd-team/systemd
+targeting the 'upstream-ci' branch.
