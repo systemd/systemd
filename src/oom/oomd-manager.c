@@ -170,15 +170,12 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
                 if (r < 0)
                         return (r == -ENOMEM) ? r : 0;
 
-                if (oom_group) {
+                if (oom_group)
                         r = oomd_insert_cgroup_context(NULL, new_h, cg_path);
-                        if (r == -ENOMEM)
-                                return r;
-                } else {
+                else
                         r = recursively_get_cgroup_context(new_h, cg_path);
-                        if (r == -ENOMEM)
-                                return r;
-                }
+                if (r == -ENOMEM)
+                        return r;
         } while ((r = cg_read_subgroup(d, &subpath)) > 0);
 
         return 0;
