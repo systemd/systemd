@@ -126,7 +126,7 @@ Network.BindCarrier,                         config_parse_strv,                 
 Network.ConfigureWithoutCarrier,             config_parse_bool,                                        0,                             offsetof(Network, configure_without_carrier)
 Network.IgnoreCarrierLoss,                   config_parse_tristate,                                    0,                             offsetof(Network, ignore_carrier_loss)
 Network.KeepConfiguration,                   config_parse_keep_configuration,                          0,                             offsetof(Network, keep_configuration)
-Network.IPv6PrefixDelegation,                config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
+Network.IPv6SendRA,                          config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
 Network.DHCPv6PrefixDelegation,              config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_pd)
 Address.Address,                             config_parse_address,                                     0,                             0
 Address.Peer,                                config_parse_address,                                     0,                             0
@@ -286,15 +286,15 @@ DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp6_pd_subnet_id,   
 DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_announce)
 DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_pd_assign)
 DHCPv6PrefixDelegation.Token,                config_parse_dhcp6_pd_token,                              0,                             offsetof(Network, dhcp6_pd_token)
-IPv6PrefixDelegation.RouterLifetimeSec,      config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
-IPv6PrefixDelegation.Managed,                config_parse_bool,                                        0,                             offsetof(Network, router_managed)
-IPv6PrefixDelegation.OtherInformation,       config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
-IPv6PrefixDelegation.RouterPreference,       config_parse_router_preference,                           0,                             0
-IPv6PrefixDelegation.EmitDNS,                config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
-IPv6PrefixDelegation.DNS,                    config_parse_radv_dns,                                    0,                             0
-IPv6PrefixDelegation.EmitDomains,            config_parse_bool,                                        0,                             offsetof(Network, router_emit_domains)
-IPv6PrefixDelegation.Domains,                config_parse_radv_search_domains,                         0,                             0
-IPv6PrefixDelegation.DNSLifetimeSec,         config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
+IPv6SendRA.RouterLifetimeSec,                config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
+IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
+IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
+IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             0
+IPv6SendRA.EmitDNS,                          config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
+IPv6SendRA.DNS,                              config_parse_radv_dns,                                    0,                             0
+IPv6SendRA.EmitDomains,                      config_parse_bool,                                        0,                             offsetof(Network, router_emit_domains)
+IPv6SendRA.Domains,                          config_parse_radv_search_domains,                         0,                             0
+IPv6SendRA.DNSLifetimeSec,                   config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
 IPv6Prefix.Prefix,                           config_parse_prefix,                                      0,                             0
 IPv6Prefix.OnLink,                           config_parse_prefix_flags,                                0,                             0
 IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_flags,                                0,                             0
@@ -431,6 +431,16 @@ TrivialLinkEqualizer.Handle,                 config_parse_qdisc_handle,         
 TrivialLinkEqualizer.Id,                     config_parse_trivial_link_equalizer_id,                   QDISC_KIND_TEQL,               0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                              config_parse_ipv4ll,                                      0,                             offsetof(Network, link_local)
+Network.IPv6PrefixDelegation,                config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
+IPv6PrefixDelegation.RouterLifetimeSec,      config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
+IPv6PrefixDelegation.Managed,                config_parse_bool,                                        0,                             offsetof(Network, router_managed)
+IPv6PrefixDelegation.OtherInformation,       config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
+IPv6PrefixDelegation.RouterPreference,       config_parse_router_preference,                           0,                             0
+IPv6PrefixDelegation.EmitDNS,                config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
+IPv6PrefixDelegation.DNS,                    config_parse_radv_dns,                                    0,                             0
+IPv6PrefixDelegation.EmitDomains,            config_parse_bool,                                        0,                             offsetof(Network, router_emit_domains)
+IPv6PrefixDelegation.Domains,                config_parse_radv_search_domains,                         0,                             0
+IPv6PrefixDelegation.DNSLifetimeSec,         config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
 DHCPv4.BlackList,                            config_parse_dhcp_acl_ip_address,                         0,                             0
 DHCP.ClientIdentifier,                       config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)
 DHCP.UseDNS,                                 config_parse_dhcp_use_dns,                                0,                             0

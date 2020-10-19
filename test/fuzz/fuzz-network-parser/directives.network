@@ -208,6 +208,7 @@ ConfigureWithoutCarrier=
 NTP=
 DHCP=
 Domains=
+IPv6SendRA=
 IPv6PrefixDelegation=
 VLAN=
 DHCPServer=
@@ -272,6 +273,16 @@ InvertRule=
 Family=
 SuppressPrefixLength=
 User=
+[IPv6SendRA]
+RouterPreference=
+DNSLifetimeSec=
+DNS=
+RouterLifetimeSec=
+Domains=
+EmitDNS=
+EmitDomains=
+Managed=
+OtherInformation=
 [IPv6PrefixDelegation]
 RouterPreference=
 DNSLifetimeSec=

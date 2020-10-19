@@ -187,7 +187,7 @@ struct Network {
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
         bool ipv4ll_route;
 
-        /* IPv6 prefix delegation support */
+        /* IPv6 RA support */
         RADVPrefixDelegation router_prefix_delegation;
         usec_t router_lifetime_usec;
         uint8_t router_preference;
