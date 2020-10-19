@@ -36,6 +36,8 @@ layout: default
           int a, b, c;
   ```
 
+  (i.e. use double indentation — 16 spaces — for the parameter list.)
+
 - Try to write this:
 
   ```c
@@ -84,7 +86,27 @@ layout: default
 
 - Do not write functions that clobber call-by-reference variables on
   failure. Use temporary variables for these cases and change the passed in
-  variables only on success.
+  variables only on success. The rule is: never clobber return parameters on
+  failure, always initialize return parameters on success.
+
+- Typically, function parameters fit into three categories: input parameters,
+  mutable objects, and call-by-reference return parameters. Input parameters
+  should always carry suitable "const" declarators if they are pointers, to
+  indicate they are input-only and not changed by the function. Return
+  parameters are best prefixed with "ret_", to clarify they are return
+  parameters. (Conversely, please do not prefix parameters that aren't
+  output-only with "ret_", in particular not mutable parameters that are both
+  input as well as output). Example:
+
+  ```c
+  static int foobar_frobnicate(
+                  Foobar* object,            /* the associated mutable object */
+                  const char *input,         /* immutable input parameter */
+                  char **ret_frobnicated) {  /* return parameter */
+          …
+          return 0;
+  }
+  ```
 
 - The order in which header files are included doesn't matter too
   much. systemd-internal headers must not rely on an include order, so it is
@@ -307,13 +329,16 @@ layout: default
 ## Logging
 
 - For every function you add, think about whether it is a "logging" function or
-  a "non-logging" function. "Logging" functions do logging on their own,
-  "non-logging" function never log on their own and expect their callers to
-  log. All functions in "library" code, i.e. in `src/shared/` and suchlike must
-  be "non-logging". Every time a "logging" function calls a "non-logging"
-  function, it should log about the resulting errors. If a "logging" function
-  calls another "logging" function, then it should not generate log messages,
-  so that log messages are not generated twice for the same errors.
+  a "non-logging" function. "Logging" functions do (non-debug) logging on their
+  own, "non-logging" function never log on their own (except at debug level)
+  and expect their callers to log. All functions in "library" code, i.e. in
+  `src/shared/` and suchlike must be "non-logging". Every time a "logging"
+  function calls a "non-logging" function, it should log about the resulting
+  errors. If a "logging" function calls another "logging" function, then it
+  should not generate log messages, so that log messages are not generated
+  twice for the same errors. (Note that debug level logging — at syslog level
+  `LOG_DEBUG` — is not considered logging in this context, debug logging is
+  generally always fine and welcome.)
 
 - If possible, do a combined log & return operation:
 
