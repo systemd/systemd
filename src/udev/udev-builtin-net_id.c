@@ -391,7 +391,8 @@ static bool is_pci_ari_enabled(struct udev_device *dev) {
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         struct udev *udev = udev_device_get_udev(names->pcidev);
-        unsigned domain, bus, slot, func, dev_port = 0, hotplug_slot = 0;
+        unsigned domain, bus, slot, func, dev_port = 0;
+        int hotplug_slot = -1;
         size_t l;
         char *s;
         const char *attr, *port_name;
@@ -449,15 +450,15 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         hotplug_slot_dev = names->pcidev;
         while (hotplug_slot_dev) {
                 FOREACH_DIRENT_ALL(dent, dir, break) {
-                        unsigned i;
-                        int r;
+                        int i, r;
                         char str[PATH_MAX];
                         _cleanup_free_ char *address = NULL;
 
                         if (dent->d_name[0] == '.')
                                 continue;
-                        r = safe_atou_full(dent->d_name, 10, &i);
-                        if (i < 1 || r < 0)
+
+                        r = safe_atoi(dent->d_name, &i);
+                        if (r < 0 || i <= 0)
                                 continue;
 
                         if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
