@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         r = sd_bus_open_user(&a);
-        if (IN_SET(r, -ECONNREFUSED, -ENOENT)) {
+        if (IN_SET(r, -ECONNREFUSED, -ENOENT, -ENOMEDIUM)) {
                 r = sd_bus_open_system(&a);
                 if (IN_SET(r, -ECONNREFUSED, -ENOENT))
                         return log_tests_skipped("Failed to connect to bus");

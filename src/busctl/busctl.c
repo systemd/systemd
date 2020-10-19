@@ -129,11 +129,11 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                 }
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to set address: %m");
+                return bus_log_address_error(r);
 
         r = sd_bus_start(bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to bus: %m");
+                return bus_log_connect_error(r);
 
         *ret = TAKE_PTR(bus);
 

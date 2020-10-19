@@ -23,7 +23,7 @@ static int test_bus_open(void) {
         int r;
 
         r = sd_bus_open_user(&bus);
-        if (IN_SET(r, -ECONNREFUSED, -ENOENT)) {
+        if (IN_SET(r, -ECONNREFUSED, -ENOENT, -ENOMEDIUM)) {
                 r = sd_bus_open_system(&bus);
                 if (IN_SET(r, -ECONNREFUSED, -ENOENT))
                         return r;

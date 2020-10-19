@@ -276,11 +276,18 @@
       <para>Returned errors may indicate the following problems:</para>
 
       <variablelist>
-
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The specified parameters are invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEDIUM</constant></term>
+
+          <listitem><para>The requested bus type is not available because of invalid environment (for example
+          the user session bus is not available because <varname>$XDG_RUNTIME_DIR</varname> is not set).
+          </para></listitem>
         </varlistentry>
 
         <varlistentry>
