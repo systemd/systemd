@@ -2,9 +2,9 @@
 Name=veth-peer
 
 [Network]
-IPv6PrefixDelegation=yes
+IPv6SendRA=yes
 
-[IPv6PrefixDelegation]
+[IPv6SendRA]
 DNS=_link_local 2002:da8:1:0::1
 DNSLifetimeSec=1min
 
