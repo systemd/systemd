@@ -245,7 +245,8 @@ static bool is_pci_ari_enabled(sd_device *dev) {
 
 static int dev_pci_slot(sd_device *dev, struct netnames *names) {
         unsigned long dev_port = 0;
-        unsigned domain, bus, slot, func, hotplug_slot = 0;
+        unsigned domain, bus, slot, func;
+        int hotplug_slot = -1;
         size_t l;
         char *s;
         const char *sysname, *attr, *port_name = NULL, *syspath;
@@ -326,14 +327,14 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                         continue;
 
                 FOREACH_DIRENT_ALL(dent, dir, break) {
-                        unsigned i;
+                        int i;
                         char str[PATH_MAX];
                         _cleanup_free_ char *address = NULL;
 
                         if (dot_or_dot_dot(dent->d_name))
                                 continue;
 
-                        r = safe_atou_full(dent->d_name, 10, &i);
+                        r = safe_atoi(dent->d_name, &i);
                         if (r < 0 || i <= 0)
                                 continue;
 
