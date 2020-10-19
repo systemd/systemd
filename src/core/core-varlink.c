@@ -52,10 +52,9 @@ static bool user_match_lookup_parameters(LookupParameters *p, const char *name, 
 }
 
 static int build_managed_oom_json_array_element(Unit *u, const char *property, JsonVariant **ret_v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        bool use_limit = false;
         CGroupContext *c;
         const char *mode;
-        int r;
 
         assert(u);
         assert(property);
@@ -74,19 +73,17 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, J
                 mode = managed_oom_mode_to_string(MANAGED_OOM_AUTO);
         else if (streq(property, "ManagedOOMSwap"))
                 mode = managed_oom_mode_to_string(c->moom_swap);
-        else if (streq(property, "ManagedOOMMemoryPressure"))
+        else if (streq(property, "ManagedOOMMemoryPressure")) {
                 mode = managed_oom_mode_to_string(c->moom_mem_pressure);
-        else
+                use_limit = true;
+        } else
                 return -EINVAL;
 
-        r = json_build(&v, JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR("mode", JSON_BUILD_STRING(mode)),
-                                JSON_BUILD_PAIR("path", JSON_BUILD_STRING(u->cgroup_path)),
-                                JSON_BUILD_PAIR("property", JSON_BUILD_STRING(property)),
-                                JSON_BUILD_PAIR("limit", JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit))));
-
-        *ret_v = TAKE_PTR(v);
-        return r;
+        return json_build(ret_v, JSON_BUILD_OBJECT(
+                                 JSON_BUILD_PAIR("mode", JSON_BUILD_STRING(mode)),
+                                 JSON_BUILD_PAIR("path", JSON_BUILD_STRING(u->cgroup_path)),
+                                 JSON_BUILD_PAIR("property", JSON_BUILD_STRING(property)),
+                                 JSON_BUILD_PAIR_CONDITION(use_limit, "limit", JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit))));
 }
 
 int manager_varlink_send_managed_oom_update(Unit *u) {
@@ -478,10 +475,8 @@ void manager_varlink_done(Manager *m) {
         assert(m);
 
         /* Send the final message if we still have a subscribe request open. */
-        if (m->managed_oom_varlink_request) {
-                (void) varlink_error(m->managed_oom_varlink_request, VARLINK_ERROR_DISCONNECTED, NULL);
-                m->managed_oom_varlink_request = varlink_unref(m->managed_oom_varlink_request);
-        }
+        if (m->managed_oom_varlink_request)
+                m->managed_oom_varlink_request = varlink_close_unref(m->managed_oom_varlink_request);
 
         m->varlink_server = varlink_server_unref(m->varlink_server);
 }

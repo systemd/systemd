@@ -1684,6 +1684,7 @@ int unit_load(Unit *u) {
 
         unit_add_to_dbus_queue(unit_follow_merge(u));
         unit_add_to_gc_queue(u);
+        (void) manager_varlink_send_managed_oom_update(u);
 
         return 0;
 
@@ -2630,7 +2631,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlag
                  * sets one of the ManagedOOM*= properties to "kill", then later removes it. systemd-oomd needs to
                  * know to stop monitoring when the unit changes from "kill" -> "auto" on daemon-reload, but we don't
                  * have the information on the property. Thus, indiscriminately send an update. */
-                if (UNIT_IS_INACTIVE_OR_FAILED(ns) || ns == UNIT_ACTIVE)
+                if (UNIT_IS_INACTIVE_OR_FAILED(ns) || UNIT_IS_ACTIVE_OR_RELOADING(ns))
                         (void) manager_varlink_send_managed_oom_update(u);
         }
 

@@ -3824,7 +3824,6 @@ int config_parse_managed_oom_mode(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Unit *u = userdata;
         ManagedOOMMode *mode = data, m;
         UnitType t;
 
@@ -3836,7 +3835,7 @@ int config_parse_managed_oom_mode(
 
         if (isempty(rvalue)) {
                 *mode = MANAGED_OOM_AUTO;
-                goto finish;
+                return 0;
         }
 
         m = managed_oom_mode_from_string(rvalue);
@@ -3845,9 +3844,6 @@ int config_parse_managed_oom_mode(
                 return 0;
         }
         *mode = m;
-
-finish:
-        (void) manager_varlink_send_managed_oom_update(u);
         return 0;
 }
 
@@ -3862,8 +3858,7 @@ int config_parse_managed_oom_mem_pressure_limit(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Unit *u = userdata;
-        CGroupContext *c = data;
+        int *limit = data;
         UnitType t;
         int r;
 
@@ -3874,8 +3869,8 @@ int config_parse_managed_oom_mem_pressure_limit(
                 return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
 
         if (isempty(rvalue)) {
-                c->moom_mem_pressure_limit = 0;
-                goto finish;
+                *limit = 0;
+                return 0;
         }
 
         r = parse_percent(rvalue);
@@ -3884,12 +3879,7 @@ int config_parse_managed_oom_mem_pressure_limit(
                 return 0;
         }
 
-        c->moom_mem_pressure_limit = r;
-
-finish:
-        /* Only update the limit if memory pressure detection is enabled because the information is irrelevant otherwise */
-        if (c->moom_mem_pressure == MANAGED_OOM_KILL)
-                (void) manager_varlink_send_managed_oom_update(u);
+        *limit = r;
         return 0;
 }
 
