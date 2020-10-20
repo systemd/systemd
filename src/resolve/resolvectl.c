@@ -1418,7 +1418,7 @@ static int strv_extend_extended_bool(char ***strv, const char *name, const char 
         return strv_extendf(strv, "%s=%s", name, value ?: "???");
 }
 
-static char* link_protocol_status(const LinkInfo *info) {
+static char** link_protocol_status(const LinkInfo *info) {
         _cleanup_strv_free_ char **s = NULL;
 
         if (strv_extendf(&s, "%sDefaultRoute", plus_minus(info->default_route)) < 0)
@@ -1438,10 +1438,10 @@ static char* link_protocol_status(const LinkInfo *info) {
                          info->dnssec_supported ? "supported" : "unsupported") < 0)
                 return NULL;
 
-        return strv_join(s, " ");
+        return TAKE_PTR(s);
 }
 
-static char* global_protocol_status(const GlobalInfo *info) {
+static char** global_protocol_status(const GlobalInfo *info) {
         _cleanup_strv_free_ char **s = NULL;
 
         if (strv_extend_extended_bool(&s, "LLMNR", info->llmnr) < 0)
@@ -1458,7 +1458,7 @@ static char* global_protocol_status(const GlobalInfo *info) {
                          info->dnssec_supported ? "supported" : "unsupported") < 0)
                 return NULL;
 
-        return strv_join(s, " ");
+        return TAKE_PTR(s);
 }
 
 static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
@@ -1604,13 +1604,13 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (r < 0)
                 return table_log_add_error(r);
 
-        _cleanup_free_ char *pstatus = link_protocol_status(&link_info);
+        _cleanup_strv_free_ char **pstatus = link_protocol_status(&link_info);
         if (!pstatus)
                 return log_oom();
 
         r = table_add_many(table,
-                           TABLE_STRING, "Protocols:",
-                           TABLE_STRING, pstatus);
+                           TABLE_STRING,       "Protocols:",
+                           TABLE_STRV_WRAPPED, pstatus);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -1823,14 +1823,14 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         table_set_header(table, false);
 
-        _cleanup_free_ char *pstatus = global_protocol_status(&global_info);
+        _cleanup_strv_free_ char **pstatus = global_protocol_status(&global_info);
         if (!pstatus)
                 return log_oom();
 
         r = table_add_many(table,
-                           TABLE_STRING, "Protocols:",
+                           TABLE_STRING,            "Protocols:",
                            TABLE_SET_ALIGN_PERCENT, 100,
-                           TABLE_STRING, pstatus);
+                           TABLE_STRV_WRAPPED,      pstatus);
         if (r < 0)
                 return table_log_add_error(r);
 
