@@ -20,7 +20,7 @@ create_container() {
     # GPG key from keyserver", so retry a few times with different keyservers.
     for keyserver in "" "keys.gnupg.net" "keys.openpgp.org" "keyserver.ubuntu.com"; do
         for retry in {1..5}; do
-            sudo lxc-create -n $CONTAINER -t download -- -d $DISTRO -r $RELEASE -a $ARCH ${keyserver:+--keyserver "$keyserver"} && break 2
+            sudo lxc-create -n $CONTAINER -t download -- -d $DISTRO -r $RELEASE -a $ARCH --server us.images.linuxcontainers.org ${keyserver:+--keyserver "$keyserver"} && break 2
             sleep $((retry*retry))
         done
     done
