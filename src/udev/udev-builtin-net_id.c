@@ -243,9 +243,29 @@ static bool is_pci_ari_enabled(sd_device *dev) {
         return streq(a, "1");
 }
 
+static bool is_pci_bridge(sd_device *dev) {
+        const char *v, *p;
+
+        if (sd_device_get_sysattr_value(dev, "modalias", &v) < 0)
+                return false;
+
+        if (!startswith(v, "pci:"))
+                return false;
+
+        p = strrchr(v, 's');
+        if (!p)
+                return false;
+        if (p[1] != 'c')
+                return false;
+
+        /* PCI device subclass 04 corresponds to PCI bridge */
+        return strneq(p + 2, "04", 2);
+}
+
 static int dev_pci_slot(sd_device *dev, struct netnames *names) {
         unsigned long dev_port = 0;
-        unsigned domain, bus, slot, func, hotplug_slot = 0;
+        unsigned domain, bus, slot, func;
+        int hotplug_slot = -1;
         size_t l;
         char *s;
         const char *sysname, *attr, *port_name = NULL, *syspath;
@@ -326,14 +346,14 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                         continue;
 
                 FOREACH_DIRENT_ALL(dent, dir, break) {
-                        unsigned i;
+                        int i;
                         char str[PATH_MAX];
                         _cleanup_free_ char *address = NULL;
 
                         if (dot_or_dot_dot(dent->d_name))
                                 continue;
 
-                        r = safe_atou_full(dent->d_name, 10, &i);
+                        r = safe_atoi(dent->d_name, &i);
                         if (r < 0 || i <= 0)
                                 continue;
 
@@ -342,10 +362,18 @@ static int dev_pci_slot(sd_device *dev, struct netnames *names) {
                             read_one_line_file(str, &address) >= 0 &&
                             startswith(sysname, address)) {
                                 hotplug_slot = i;
+
+                                /* We found the match between PCI device and slot. However, we won't use the
+                                 * slot index if the device is a PCI bridge, because it can have other child
+                                 * devices that will try to claim the same index and that would create name
+                                 * collision. */
+                                if (naming_scheme_has(NAMING_BRIDGE_NO_SLOT) && is_pci_bridge(hotplug_slot_dev))
+                                        hotplug_slot = 0;
+
                                 break;
                         }
                 }
-                if (hotplug_slot > 0)
+                if (hotplug_slot >= 0)
                         break;
                 if (sd_device_get_parent_with_subsystem_devtype(hotplug_slot_dev, "pci", NULL, &hotplug_slot_dev) < 0)
                         break;
