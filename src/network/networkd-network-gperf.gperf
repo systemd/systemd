@@ -519,6 +519,13 @@ TokenBucketFilter.LatencySec,                config_parse_token_bucket_filter_la
 TrivialLinkEqualizer.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_TEQL,               0
 TrivialLinkEqualizer.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_TEQL,               0
 TrivialLinkEqualizer.Id,                     config_parse_trivial_link_equalizer_id,                   QDISC_KIND_TEQL,               0
+EarliestTxTimeFirst.Parent,                  config_parse_qdisc_parent,                                QDISC_KIND_ETF,                0
+EarliestTxTimeFirst.Handle,                  config_parse_qdisc_handle,                                QDISC_KIND_ETF,                0
+EarliestTxTimeFirst.Clockid,                 config_parse_tc_etf_clockid,                              QDISC_KIND_ETF,                0
+EarliestTxTimeFirst.Delta,                   config_parse_tc_etf_delay_nsec,                           QDISC_KIND_ETF,                0
+EarliestTxTimeFirst.Deadline,                config_parse_tc_etf_bool,                                 QDISC_KIND_ETF,                0
+EarliestTxTimeFirst.Offload,                 config_parse_tc_etf_bool,                                 QDISC_KIND_ETF,                0
+EarliestTxTimeFirst.Skipsock,                config_parse_tc_etf_bool,                                 QDISC_KIND_ETF,                0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                              config_parse_ipv4ll,                                      0,                             offsetof(Network, link_local)
 Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             offsetof(Network, ndisc_tokens)

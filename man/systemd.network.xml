@@ -4452,6 +4452,79 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
   </refsect1>
 
   <refsect1>
+    <title>[EarliestTxTimeFirst] Section Options</title>
+    <para>The [EarliestTxTimeFirst] section manages the queueing discipline (qdisc) of Earliest TxTime First
+    (etf).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+
+      <varlistentry>
+        <term><varname>Clockid=</varname></term>
+        <listitem>
+          <para>The ETF (Earliest TxTime First) qdisc allows applications to control
+          the instant when a packet should be dequeued from the traffic control
+          layer into the netdevice.
+          Specifies the clock to be used by qdisc's internal timer for measuring
+          time and scheduling events. The qdisc expects that packets passing
+          through it to be using this same as the reference of their txtime timestamps.
+          It will drop packets coming from sockets that do not comply with that.
+          See tc-etf(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Delta=</varname></term>
+        <listitem>
+          <para>After enqueueing or dequeueing a packet, the ETF qdisc will schedule its
+          next wake-up time for the next txtime minus this delta value. This means
+          can be used as a fudge factor for the scheduler latency of a system.
+          This value must be specified in nanoseconds.
+          The default value is 0 nanoseconds.
+          See tc-etf(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Deadline=</varname></term>
+        <listitem>
+          <para> When option is set Y, the ETF disc will handle txtime with a different semantics,
+          changed from a 'strict' transmission time to a deadline. In practice, this means
+          during the dequeue flow will set the txtime of the packet being dequeued to 'now'.
+          The default is for this option to be disabled.
+          See tc-etf(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Offload=</varname></term>
+        <listitem>
+          <para> When option is set Y, the ETF disc will try to configure the network interface
+          so time-based transmission arbitration is enabled in the controller.
+          This feature is commonly referred to as "Launch Time" or "Time-Based Scheduling" by the
+          documentation of network interface controllers.
+          The default is for this option to be disabled.
+          See tc-etf(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+ 
+      <varlistentry>
+       <term><varname>Skipsock=</varname></term>
+        <listitem>
+          <para>When option is set N, the ETF disc currently drops any packet which does not have a
+          socket associated with it or if the socket does not have SO_TXTIME socket option set.
+          But, this will not work if the launchtime is set by another entity inside the kernel (e.g. some
+          other Qdisc).
+          Setting the option is set Y will skip checking for a socket associated with the packet.
+          The default is for this option to be disabled.
+          See tc-etf(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The [BridgeVLAN] section manages the VLAN ID configuration of a bridge port and accepts the
       following keys. Specify several [BridgeVLAN] sections to configure several VLAN entries. The
