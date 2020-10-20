@@ -1130,7 +1130,7 @@ int route_configure(
                 }
         }
 
-        return 1;
+        return 0;
 }
 
 static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1201,8 +1201,8 @@ int link_set_routes(Link *link) {
                         r = route_configure(rt, link, route_handler, NULL);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Could not set routes: %m");
-                        if (r > 0)
-                                link->route_messages++;
+
+                        link->route_messages++;
                 }
 
         if (link->route_messages == 0) {
