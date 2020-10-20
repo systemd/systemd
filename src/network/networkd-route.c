@@ -299,9 +299,10 @@ void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress(&route->src, FAMILY_ADDRESS_SIZE(route->family), state);
 
                 siphash24_compress(&route->gw_family, sizeof(route->gw_family), state);
-                if (IN_SET(route->gw_family, AF_INET, AF_INET6))
+                if (IN_SET(route->gw_family, AF_INET, AF_INET6)) {
                         siphash24_compress(&route->gw, FAMILY_ADDRESS_SIZE(route->gw_family), state);
-
+                        siphash24_compress(&route->gw_weight, sizeof(route->gw_weight), state);
+                }
 
                 siphash24_compress(&route->prefsrc, FAMILY_ADDRESS_SIZE(route->family), state);
 
@@ -354,6 +355,10 @@ int route_compare_func(const Route *a, const Route *b) {
 
                 if (IN_SET(a->gw_family, AF_INET, AF_INET6)) {
                         r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                        if (r != 0)
+                                return r;
+
+                        r = CMP(a->gw_weight, b->gw_weight);
                         if (r != 0)
                                 return r;
                 }
@@ -484,6 +489,7 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m) {
         } else {
                 dest->gw_family = src->gw_family;
                 dest->gw = src->gw;
+                dest->gw_weight = src->gw_weight;
         }
 }
 
