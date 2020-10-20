@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <sched.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
@@ -257,6 +258,16 @@ static void test_path_is_mount_point(void) {
 
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
+
+        /* let's move into our own mount namespace with all propagation from the host turned off, so that
+         * /proc/self/mountinfo is static and constant for the whole time our test runs. */
+        if (unshare(CLONE_NEWNS) < 0) {
+                if (!ERRNO_IS_PRIVILEGE(errno))
+                        return log_error_errno(errno, "Failed to detach mount namespace: %m");
+
+                log_notice("Lacking privilege to create separate mount namespace, proceeding in originating mount namespace.");
+        } else
+                assert_se(mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) >= 0);
 
         test_mount_propagation_flags("shared", 0, MS_SHARED);
         test_mount_propagation_flags("slave", 0, MS_SLAVE);
