@@ -94,7 +94,7 @@ msgstr "Legitimierung ist zum erneuten Laden des systemd-Zustands notwendig."
 msgid "Check credentials of a home area"
 msgstr ""
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:34
 #, fuzzy
 #| msgid ""
@@ -109,7 +109,7 @@ msgstr ""
 msgid "Update a home area"
 msgstr ""
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:44
 #, fuzzy
 #| msgid "Authentication is required to attach a device to a seat."
@@ -132,7 +132,7 @@ msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 msgid "Change password of a home area"
 msgstr ""
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/home/org.freedesktop.home1.policy:64
 #, fuzzy
 #| msgid ""
@@ -364,24 +364,24 @@ msgstr ""
 "Legitimierung ist erforderlich, damit nicht angemeldete Benutzer Programme "
 "ausführen dürfen."
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:137
 msgid "Allow attaching devices to seats"
 msgstr "Das Anschließen von Geräten an Arbeitsstationen erlauben"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Authentication is required to attach a device to a seat."
 msgstr ""
 "Legitimierung ist zum Anschließen eines Geräts an eine Arbeitsstation "
 "notwendig."
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Flush device to seat attachments"
 msgstr "Zurücksetzen der an eine Arbeitsstation angeschlossenen Geräte"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
@@ -584,7 +584,7 @@ msgstr ""
 msgid "Manage active sessions, users and seats"
 msgstr "Aktive Sitzungen, Benutzer und Arbeitsstationen verwalten"
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/login/org.freedesktop.login1.policy:322
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
@@ -941,7 +941,7 @@ msgstr ""
 msgid "Attach or detach a portable service image"
 msgstr ""
 
-# www.freedesktop.org/wiki/Software/systemd/multiseat/
+# https://www.freedesktop.org/software/systemd/man/sd-login.html
 #: src/portable/org.freedesktop.portable1.policy:24
 #, fuzzy
 #| msgid "Authentication is required to attach a device to a seat."

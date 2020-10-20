@@ -3798,7 +3798,6 @@ _public_ int sd_event_loop(sd_event *e) {
 }
 
 _public_ int sd_event_get_fd(sd_event *e) {
-
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(!event_pid_changed(e), -ECHILD);

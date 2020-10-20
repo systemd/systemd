@@ -509,8 +509,7 @@ node /org/freedesktop/login1 {
       and a boolean for controlling polkit interactivity (see below). Device assignments are persistently
       stored on disk. To create a new seat, simply specify a previously unused seat id. For more information
       about the seat assignment logic see
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat for Linux</ulink>.
-      </para>
+      <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
       <para><function>FlushDevices()</function> removes all explicit seat assignments for devices, resetting
       all assignments to the automatic defaults. The only argument it takes is the polkit interactivity
