@@ -2536,6 +2536,29 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
   </refsect1>
 
   <refsect1>
+    <title>[DHCPServerStaticLease] Section Options</title>
+    <para>The <literal>[DHCPServerStaticLease]</literal> section configures a static DHCP lease to
+    assign a pre-set IPv4 address to a specific device based on its MAC address. This section can be
+    specified multiple times.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+
+        <listitem><para>The hardware address of a device which should be assigned IPv4 address
+        specified in <varname>Address=</varname>. This key is mandatory.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Address=</varname></term>
+
+        <listitem><para>IPv4 address that should be assigned to a device with a hardware address
+        specified in <varname>MACAddress=</varname>. This key is mandatory.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[IPv6SendRA] Section Options</title>
     <para>The [IPv6SendRA] section contains settings for sending IPv6 Router Advertisements and whether
     to act as a router, if enabled via the <varname>IPv6SendRA=</varname> option described above. IPv6

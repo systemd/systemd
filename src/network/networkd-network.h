@@ -315,6 +315,7 @@ struct Network {
         Hashmap *prefixes_by_section;
         Hashmap *route_prefixes_by_section;
         Hashmap *rules_by_section;
+        Hashmap *dhcp_static_leases_by_section;
         OrderedHashmap *tc_by_section;
         OrderedHashmap *sr_iov_by_section;
 

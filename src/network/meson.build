@@ -69,6 +69,8 @@ sources = files('''
         networkd-dhcp-common.h
         networkd-dhcp-server-bus.c
         networkd-dhcp-server-bus.h
+        networkd-dhcp-server-static-lease.c
+        networkd-dhcp-server-static-lease.h
         networkd-dhcp-server.c
         networkd-dhcp-server.h
         networkd-dhcp4.c
