@@ -41,6 +41,7 @@
     <filename>hybrid-sleep.target</filename>,
     <filename>suspend-then-hibernate.target</filename>,
     <filename>initrd.target</filename>,
+    <filename>initrd-cryptsetup.target</filename>,
     <filename>initrd-fs.target</filename>,
     <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
@@ -182,8 +183,10 @@
         <varlistentry>
           <term><filename>cryptsetup.target</filename></term>
           <listitem>
-            <para>A target that pulls in setup services for all
-            encrypted block devices.</para>
+            <para>A target that pulls in setup services for local encrypted block devices.
+            See <filename>remote-cryptsetup.target</filename> below for the equivalent target for remote
+            volumes, and <filename>initrd-cryptsetup.target</filename> below for the equivalent target in the
+            initrd.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -352,10 +355,18 @@
         <varlistentry>
           <term><filename>initrd.target</filename></term>
           <listitem>
-            <para>This is the default target in the initramfs, similar to <filename>default.target</filename>
+            <para>This is the default target in the initrd, similar to <filename>default.target</filename>
             in the main system. It is used to mount the real root and transition to it. See
             <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
             more discussion.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>initrd-cryptsetup.target</filename></term>
+          <listitem>
+            <para>A target that pulls in setup services for all encrypted block devices. See
+            <filename>cryptsetup.target</filename> and <filename>remote-cryptsetup.target</filename> for the
+            equivalent targets in the real root.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -549,7 +560,9 @@
             <para>Similar to <filename>cryptsetup.target</filename>, but for encrypted
             devices which are accessed over the network. It is used for
             <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            entries marked with <option>_netdev</option>.</para>
+            entries marked with <option>_netdev</option>.
+            See <filename>cryptsetup.target</filename> for the equivalent target for local volumes, and
+            <filename>initrd-cryptsetup.target</filename> for the equivalent target in the initrd.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

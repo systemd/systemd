@@ -455,10 +455,16 @@ static int create_disk(
                 }
         }
 
+        const char *target;
+        if (in_initrd())
+                target = "initrd-cryptsetup.target";
+        else if (netdev)
+                target = "remote-cryptsetup.target";
+        else
+                target = "cryptsetup.target";
+
         if (!nofail)
-                fprintf(f,
-                        "Before=%s\n",
-                        netdev ? "remote-cryptsetup.target" : "cryptsetup.target");
+                fprintf(f, "Before=%s\n", target);
 
         if (password && !keydev) {
                 r = print_dependencies(f, password);
@@ -521,8 +527,7 @@ static int create_disk(
                 return log_error_errno(r, "Failed to write unit file %s: %m", n);
 
         if (!noauto) {
-                r = generator_add_symlink(arg_dest,
-                                          netdev ? "remote-cryptsetup.target" : "cryptsetup.target",
+                r = generator_add_symlink(arg_dest, target,
                                           nofail ? "wants" : "requires", n);
                 if (r < 0)
                         return r;

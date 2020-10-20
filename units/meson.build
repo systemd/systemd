@@ -28,6 +28,8 @@ units = [
         ['hybrid-sleep.target',                 'ENABLE_HIBERNATE'],
         ['suspend-then-hibernate.target',       'ENABLE_HIBERNATE'],
         ['initrd-cleanup.service',              'ENABLE_INITRD'],
+        ['initrd-cryptsetup.target',            'HAVE_LIBCRYPTSETUP ENABLE_INITRD',
+         'sysinit.target.wants/'],
         ['initrd-fs.target',                    'ENABLE_INITRD'],
         ['initrd-parse-etc.service',            'ENABLE_INITRD'],
         ['initrd-root-device.target',           'ENABLE_INITRD'],
