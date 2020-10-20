@@ -6,13 +6,16 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "env-file.h"
+#include "escape.h"
 #include "log.h"
+#include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
+#include "utf8.h"
 
 static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
         [RESOLVE_NAME_NEVER] = "never",
@@ -318,4 +321,50 @@ bool device_for_action(sd_device *dev, DeviceAction action) {
                 return false;
 
         return a == action;
+}
+
+int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
+        char *i, *j;
+        int r;
+        bool is_escaped;
+
+        /* value must be double quotated */
+        is_escaped = str[0] == 'e';
+        str += is_escaped;
+        if (str[0] != '"')
+                return -EINVAL;
+        str++;
+
+        if (!is_escaped) {
+                /* unescape double quotation '\"'->'"' */
+                for (i = j = str; *i != '"'; i++, j++) {
+                        if (*i == '\0')
+                                return -EINVAL;
+                        if (i[0] == '\\' && i[1] == '"')
+                                i++;
+                        *j = *i;
+                }
+                j[0] = '\0';
+        } else {
+                _cleanup_free_ char *unescaped = NULL;
+
+                /* find the end position of value */
+                for (i = str; *i != '"'; i++) {
+                        if (i[0] == '\\')
+                                i++;
+                        if (*i == '\0')
+                                return -EINVAL;
+                }
+                i[0] = '\0';
+
+                r = cunescape_length(str, i - str, 0, &unescaped);
+                if (r < 0)
+                        return r;
+                assert(r <= i - str);
+                memcpy(str, unescaped, r + 1);
+        }
+
+        *ret_value = str;
+        *ret_endpos = i + 1;
+        return 0;
 }
