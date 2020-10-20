@@ -16,11 +16,13 @@ PHASES=(${@:-SETUP RUN})
 UBUNTU_RELEASE="$(lsb_release -cs)"
 
 create_container() {
-    # create autopkgtest LXC image; this sometimes fails with "Unable to fetch
-    # GPG key from keyserver", so retry a few times
-    for retry in {1..5}; do
-        sudo lxc-create -n $CONTAINER -t download -- -d $DISTRO -r $RELEASE -a $ARCH --keyserver hkp://keyserver.ubuntu.com:80 && break
-        sleep $((retry*retry))
+    # Create autopkgtest LXC image; this sometimes fails with "Unable to fetch
+    # GPG key from keyserver", so retry a few times with different keyservers.
+    for keyserver in "" "keys.gnupg.net" "keys.openpgp.org" "keyserver.ubuntu.com"; do
+        for retry in {1..5}; do
+            sudo lxc-create -n $CONTAINER -t download -- -d $DISTRO -r $RELEASE -a $ARCH --server us.images.linuxcontainers.org ${keyserver:+--keyserver "$keyserver"} && break 2
+            sleep $((retry*retry))
+        done
     done
 
     # unconfine the container, otherwise some tests fail
