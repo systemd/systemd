@@ -32,6 +32,7 @@
     <filename>emergency.target</filename>,
     <filename>exit.target</filename>,
     <filename>final.target</filename>,
+    <filename>first-boot-complete.target</filename>,
     <filename>getty.target</filename>,
     <filename>getty-pre.target</filename>,
     <filename>graphical.target</filename>,
@@ -876,6 +877,17 @@
             particularly useful to ensure that a service is shut down
             only after all encrypted block devices are fully
             stopped.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>first-boot-complete.target</filename></term>
+          <listitem>
+            <para>This passive target is intended as a synchronization point for units that need to run once
+            during the first boot.  Only after all units ordered before this target have finished, will the
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            be committed to disk, marking the first boot as completed.  If the boot is aborted at any time
+            before that, the next boot will re-run any units with <varname>ConditionFirstBoot=yes</varname>.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>

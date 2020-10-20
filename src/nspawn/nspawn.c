@@ -2726,7 +2726,7 @@ static int setup_machine_id(const char *directory) {
 
         etc_machine_id = prefix_roota(directory, "/etc/machine-id");
 
-        r = id128_read(etc_machine_id, ID128_PLAIN, &id);
+        r = id128_read(etc_machine_id, ID128_PLAIN_OR_UNINIT, &id);
         if (r < 0) {
                 if (!IN_SET(r, -ENOENT, -ENOMEDIUM)) /* If the file is missing or empty, we don't mind */
                         return log_error_errno(r, "Failed to read machine ID from container image: %m");

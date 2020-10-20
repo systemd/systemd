@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "id128-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "machine-id-setup.h"
 #include "macro.h"
@@ -86,7 +87,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
         return 0;
 }
 
-int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
+int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_id, sd_id128_t *ret) {
         const char *etc_machine_id, *run_machine_id;
         _cleanup_close_ int fd = -1;
         bool writable;
@@ -143,13 +144,31 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
                 if (ftruncate(fd, 0) < 0)
                         return log_error_errno(errno, "Failed to truncate %s: %m", etc_machine_id);
 
-                if (id128_write_fd(fd, ID128_PLAIN, machine_id, true) >= 0)
-                        goto finish;
+                /* If the caller requested a transient machine-id, write the string "uninitialized\n" to
+                 * disk and overmount it with a transient file.
+                 *
+                 * Otherwise write the machine-id directly to disk. */
+                if (force_transient) {
+                        r = loop_write(fd, "uninitialized\n", strlen("uninitialized\n"), false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write uninitialized %s: %m", etc_machine_id);
+
+                        r = fsync_full(fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to sync %s: %m", etc_machine_id);
+                } else {
+                        r = id128_write_fd(fd, ID128_PLAIN, machine_id, true);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write %s: %m", etc_machine_id);
+                        else
+                                goto finish;
+                }
         }
 
         fd = safe_close(fd);
 
-        /* Hmm, we couldn't write it? So let's write it to /run/machine-id as a replacement */
+        /* Hmm, we couldn't or shouldn't write the machine-id to /etc?
+         * So let's write it to /run/machine-id as a replacement */
 
         run_machine_id = prefix_roota(root, "/run/machine-id");
 
@@ -167,7 +186,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
                 return r;
         }
 
-        log_info("Installed transient %s file.", etc_machine_id);
+        log_full(force_transient ? LOG_DEBUG : LOG_INFO, "Installed transient %s file.", etc_machine_id);
 
         /* Mark the mount read-only */
         r = mount_follow_verbose(LOG_WARNING, NULL, etc_machine_id, NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, NULL);
@@ -183,9 +202,21 @@ finish:
 
 int machine_id_commit(const char *root) {
         _cleanup_close_ int fd = -1, initial_mntns_fd = -1;
-        const char *etc_machine_id;
+        const char *etc_machine_id, *sync_path;
         sd_id128_t id;
         int r;
+
+        /* Before doing anything, sync everything to ensure any changes by first-boot units are persisted.
+         *
+         * First, explicitly sync the file systems we care about and check if it worked. */
+        FOREACH_STRING(sync_path, "/etc/", "/var/") {
+                r = syncfs_path(AT_FDCWD, sync_path);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot sync %s: %m", sync_path);
+        }
+
+        /* Afterwards, sync() the rest too, but we can't check the return value for these. */
+        sync();
 
         /* Replaces a tmpfs bind mount of /etc/machine-id by a proper file, atomically. For this, the umount is removed
          * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
