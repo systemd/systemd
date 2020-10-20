@@ -1154,6 +1154,10 @@ static const NLType rtnl_tca_option_data_tbf_types[] = {
         [TCA_TBF_PBURST]  = { .type = NETLINK_TYPE_U32 },
 };
 
+static const NLType rtnl_tca_option_data_etf_types[] = {
+        [TCA_ETF_PARMS]   = { .size = sizeof(struct tc_etf_qopt) },
+};
+
 static const NLTypeSystemUnionElement rtnl_tca_option_data_type_systems[] = {
         { .name = "cake",     .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_cake),     },
         { .name = "codel",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_codel),    },
@@ -1169,6 +1173,7 @@ static const NLTypeSystemUnionElement rtnl_tca_option_data_type_systems[] = {
         { .name = "qfq",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_qfq),      },
         { .name = "sfb",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_sfb),      },
         { .name = "tbf",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_tbf),      },
+        { .name = "etf",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_etf),      },
 };
 
 DEFINE_TYPE_SYSTEM_UNION_MATCH_SIBLING(rtnl_tca_option_data, TCA_KIND);

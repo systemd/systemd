@@ -587,3 +587,11 @@ PacketLimit=
 Parent=
 Handle=
 PacketLimit=
+[EarliestTxTimeFirst]
+Parent=
+Handle=
+Clockid=
+Delta=
+Deadline=
+Offload=
+Skipsock=
