@@ -160,6 +160,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
                 free(server->servers[i].addr);
 
         hashmap_free(server->leases_by_client_id);
+        hashmap_free(server->static_leases_by_client_id);
 
         ordered_set_free(server->extra_options);
         ordered_set_free(server->vendor_options);
