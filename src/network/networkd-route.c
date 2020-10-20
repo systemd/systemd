@@ -1119,13 +1119,6 @@ int route_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
         if (ordered_set_isempty(route->multipath_routes)) {
                 Route *nr;
 
@@ -1146,6 +1139,13 @@ int route_configure(
                                 return r;
                 }
         }
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
 
         return 0;
 }
