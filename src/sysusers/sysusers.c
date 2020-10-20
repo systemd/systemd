@@ -1825,10 +1825,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_IMAGE:
+#ifdef STANDALONE
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "This systemd-sysusers version is compiled without support for --image=.");
+#else
                         r = parse_path_argument_and_warn(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
+#endif
 
                 case ARG_REPLACE:
                         if (!path_is_absolute(optarg) ||
@@ -1916,9 +1921,11 @@ static int read_config_files(char **args) {
 }
 
 static int run(int argc, char *argv[]) {
+#ifndef STANDALONE
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unlink_dir = NULL;
+#endif
         _cleanup_close_ int lock = -1;
         Item *i;
         int r;
@@ -1938,6 +1945,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+#ifndef STANDALONE
         if (arg_image) {
                 assert(!arg_root);
 
@@ -1954,6 +1962,9 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         }
+#else
+        assert(!arg_image);
+#endif
 
         /* If command line arguments are specified along with --replace, read all
          * configuration files and insert the positional arguments at the specified
