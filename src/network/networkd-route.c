@@ -487,20 +487,19 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m) {
         }
 }
 
-static int route_add_internal(Manager *manager, Link *link, Set **routes, const Route *in, const MultipathRoute *m, Route **ret) {
+static int route_add_internal(Manager *manager, Link *link, Set **routes, const Route *in, Route **ret) {
         _cleanup_(route_freep) Route *route = NULL;
         int r;
 
         assert(manager || link);
         assert(routes);
         assert(in);
-        assert(!m || (link && (m->ifindex == 0 || m->ifindex == link->ifindex)));
 
         r = route_new(&route);
         if (r < 0)
                 return r;
 
-        route_copy(route, in, m);
+        route_copy(route, in, NULL);
 
         r = set_ensure_put(routes, &route_hash_ops, route);
         if (r < 0)
@@ -521,20 +520,32 @@ static int route_add_internal(Manager *manager, Link *link, Set **routes, const 
 
 static int route_add_foreign(Manager *manager, Link *link, const Route *in, Route **ret) {
         assert(manager || link);
-        return route_add_internal(manager, link, link ? &link->routes_foreign : &manager->routes_foreign, in, NULL, ret);
+        return route_add_internal(manager, link, link ? &link->routes_foreign : &manager->routes_foreign, in, ret);
 }
 
 static int route_add(Manager *manager, Link *link, const Route *in, const MultipathRoute *m, Route **ret) {
+        _cleanup_(route_freep) Route *tmp = NULL;
         Route *route;
         int r;
 
         assert(manager || link);
         assert(in);
 
+        if (m) {
+                assert(link && (m->ifindex == 0 || m->ifindex == link->ifindex));
+
+                r = route_new(&tmp);
+                if (r < 0)
+                        return r;
+
+                route_copy(tmp, in, m);
+                in = tmp;
+        }
+
         r = route_get(manager, link, in, &route);
         if (r == -ENOENT) {
                 /* Route does not exist, create a new one */
-                r = route_add_internal(manager, link, link ? &link->routes : &manager->routes, in, m, &route);
+                r = route_add_internal(manager, link, link ? &link->routes : &manager->routes, in, &route);
                 if (r < 0)
                         return r;
         } else if (r == 0) {
