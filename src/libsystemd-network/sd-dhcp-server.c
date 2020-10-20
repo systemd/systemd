@@ -566,7 +566,7 @@ static int server_send_nak(sd_dhcp_server *server, DHCPRequest *req) {
 }
 
 static int server_send_forcerenew(sd_dhcp_server *server, be32_t address,
-                                  be32_t gateway, uint8_t chaddr[]) {
+                                  be32_t gateway, const uint8_t chaddr[]) {
         _cleanup_free_ DHCPPacket *packet = NULL;
         size_t optoffset = 0;
         int r;
