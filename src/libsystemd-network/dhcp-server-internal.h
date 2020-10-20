@@ -65,6 +65,7 @@ struct sd_dhcp_server {
         bool emit_router;
 
         Hashmap *leases_by_client_id;
+        Hashmap *static_leases_by_client_id;
         DHCPLease **bound_leases;
         DHCPLease invalid_lease;
 
@@ -85,6 +86,17 @@ typedef struct DHCPRequest {
         be32_t requested_ip;
         uint32_t lifetime;
 } DHCPRequest;
+
+typedef struct sd_dhcp_static_lease {
+        unsigned n_ref;
+        be32_t address;
+        DHCPClientId client_id;
+} sd_dhcp_static_lease;
+
+extern const struct hash_ops dhcp_static_lease_hash_ops;
+
+#define log_dhcp_server(client, fmt, ...) log_internal(LOG_DEBUG, 0, PROJECT_FILE, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
+#define log_dhcp_server_errno(client, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "DHCP SERVER: " fmt, ##__VA_ARGS__)
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length);
