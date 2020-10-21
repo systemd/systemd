@@ -264,6 +264,7 @@ static void test_env_clean(void) {
                                                 "xyz=xyz\n",
                                                 "another=one",
                                                 "another=final one",
+                                                "CRLF=\r\n",
                                                 "BASH_FUNC_foo%%=() {  echo foo\n}");
         assert_se(e);
         assert_se(!strv_env_is_valid(e));
@@ -306,6 +307,8 @@ static void test_env_value_is_valid(void) {
         assert_se(env_value_is_valid("printf \"\\x1b]0;<mock-chroot>\\x07<mock-chroot>\""));
         assert_se(env_value_is_valid("tab\tcharacter"));
         assert_se(env_value_is_valid("new\nline"));
+        assert_se(!env_value_is_valid("Show this?\rNope. Show that!"));
+        assert_se(!env_value_is_valid("new DOS\r\nline"));
 }
 
 static void test_env_assignment_is_valid(void) {
