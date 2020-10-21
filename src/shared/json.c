@@ -3892,7 +3892,7 @@ int json_dispatch(JsonVariant *v, const JsonDispatch table[], JsonDispatchCallba
                 assert_se(value = json_variant_by_index(v, i+1));
 
                 for (p = table; p->name; p++)
-                        if (p->name == (const char*) -1 ||
+                        if (p->name == POINTER_MAX ||
                             streq_ptr(json_variant_string(key), p->name))
                                 break;
 

@@ -550,7 +550,7 @@ char* path_join_internal(const char *first, ...) {
 
         sz = strlen_ptr(first);
         va_start(ap, first);
-        while ((p = va_arg(ap, char*)) != (const char*) -1)
+        while ((p = va_arg(ap, char*)) != POINTER_MAX)
                 if (!isempty(p))
                         sz += 1 + strlen(p);
         va_end(ap);
@@ -570,7 +570,7 @@ char* path_join_internal(const char *first, ...) {
         }
 
         va_start(ap, first);
-        while ((p = va_arg(ap, char*)) != (const char*) -1) {
+        while ((p = va_arg(ap, char*)) != POINTER_MAX) {
                 if (isempty(p))
                         continue;
 
