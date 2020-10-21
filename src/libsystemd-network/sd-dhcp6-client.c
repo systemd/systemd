@@ -1676,7 +1676,8 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
 }
 
 int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
-        assert_return(client, -EINVAL);
+        if (!client)
+                return 0;
 
         client_stop(client, SD_DHCP6_CLIENT_EVENT_STOP);
 

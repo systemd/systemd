@@ -1341,7 +1341,7 @@ static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
                 assert_not_reached("Invalid IPv4ACD event.");
         }
 
-        sd_ipv4acd_stop(acd);
+        (void) sd_ipv4acd_stop(acd);
 
         return;
 }
@@ -1402,11 +1402,9 @@ static int ipv4_dad_update_mac_one(Address *address) {
 
         running = sd_ipv4acd_is_running(address->acd);
 
-        if (running) {
-                r = sd_ipv4acd_stop(address->acd);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_ipv4acd_stop(address->acd);
+        if (r < 0)
+                return r;
 
         r = sd_ipv4acd_set_mac(address->acd, &address->link->mac);
         if (r < 0)
@@ -1443,15 +1441,21 @@ int ipv4_dad_stop(Link *link) {
         assert(link);
 
         SET_FOREACH(address, link->addresses) {
-                if (!address->acd)
-                        continue;
-
                 k = sd_ipv4acd_stop(address->acd);
                 if (k < 0 && r >= 0)
                         r = k;
         }
 
         return r;
+}
+
+void ipv4_dad_unref(Link *link) {
+        Address *address;
+
+        assert(link);
+
+        SET_FOREACH(address, link->addresses)
+                address->acd = sd_ipv4acd_unref(address->acd);
 }
 
 int config_parse_broadcast(

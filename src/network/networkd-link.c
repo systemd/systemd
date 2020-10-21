@@ -493,8 +493,10 @@ static void link_free_engines(Link *link) {
         link->dhcp_server = sd_dhcp_server_unref(link->dhcp_server);
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
+        link->dhcp_acd = sd_ipv4acd_unref(link->dhcp_acd);
 
         link->lldp = sd_lldp_unref(link->lldp);
+        link_lldp_emit_stop(link);
 
         ndisc_flush(link);
 
@@ -503,7 +505,8 @@ static void link_free_engines(Link *link) {
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
         link->ndisc = sd_ndisc_unref(link->ndisc);
         link->radv = sd_radv_unref(link->radv);
-        link->dhcp_acd = sd_ipv4acd_unref(link->dhcp_acd);
+
+        ipv4_dad_unref(link);
 }
 
 static Link *link_free(Link *link) {
@@ -538,7 +541,6 @@ static Link *link_free(Link *link) {
         link->dhcp6_pd_addresses_old = set_free(link->dhcp6_pd_addresses_old);
         link->ndisc_addresses = set_free(link->ndisc_addresses);
 
-        link_lldp_emit_stop(link);
         link_free_engines(link);
         free(link->lease_file);
         free(link->lldp_file);
@@ -605,7 +607,7 @@ static void link_enter_unmanaged(Link *link) {
         link_dirty(link);
 }
 
-int link_stop_clients(Link *link, bool may_keep_dhcp) {
+int link_stop_engines(Link *link, bool may_keep_dhcp) {
         int r = 0, k;
 
         assert(link);
@@ -617,49 +619,47 @@ int link_stop_clients(Link *link, bool may_keep_dhcp) {
                          (link->manager->restarting ||
                           FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
 
-        if (link->dhcp_client && !keep_dhcp) {
+        if (!keep_dhcp) {
                 k = sd_dhcp_client_stop(link->dhcp_client);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");
         }
 
-        if (link->dhcp_acd) {
-                k = sd_ipv4acd_stop(link->dhcp_acd);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client for DHCPv4: %m");
-        }
+        k = sd_ipv4acd_stop(link->dhcp_acd);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client for DHCPv4: %m");
 
-        if (link->ipv4ll) {
-                k = sd_ipv4ll_stop(link->ipv4ll);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
-        }
+        k = sd_dhcp_server_stop(link->dhcp_server);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop DHCPv4 server: %m");
+
+        k = sd_lldp_stop(link->lldp);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop LLDP: %m");
+
+        k = sd_ipv4ll_stop(link->ipv4ll);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
 
         k = ipv4_dad_stop(link);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client: %m");
 
-        if (link->dhcp6_client) {
-                k = sd_dhcp6_client_stop(link->dhcp6_client);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
-        }
+        k = sd_dhcp6_client_stop(link->dhcp6_client);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
 
         k = dhcp6_pd_remove(link);
         if (k < 0)
                 r = log_link_warning_errno(link, k, "Could not remove DHCPv6 PD addresses and routes: %m");
 
-        if (link->ndisc) {
-                k = sd_ndisc_stop(link->ndisc);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
-        }
+        k = sd_ndisc_stop(link->ndisc);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
 
-        if (link->radv) {
-                k = sd_radv_stop(link->radv);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Advertisement: %m");
-        }
+        k = sd_radv_stop(link->radv);
+        if (k < 0)
+                r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Advertisement: %m");
 
         link_lldp_emit_stop(link);
         return r;
@@ -675,7 +675,7 @@ void link_enter_failed(Link *link) {
 
         link_set_state(link, LINK_STATE_FAILED);
 
-        (void) link_stop_clients(link, false);
+        (void) link_stop_engines(link, false);
 
         link_dirty(link);
 }
@@ -2090,12 +2090,9 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         log_link_info(link, "Re-configuring with %s", network->filename);
 
         /* Dropping old .network file */
-        r = link_stop_clients(link, false);
+        r = link_stop_engines(link, false);
         if (r < 0)
                 return r;
-
-        if (link->dhcp_server)
-                (void) sd_dhcp_server_stop(link->dhcp_server);
 
         r = link_drop_config(link);
         if (r < 0)
@@ -2541,14 +2538,11 @@ static int link_carrier_lost(Link *link) {
         if (link->setting_mtu)
                 return 0;
 
-        r = link_stop_clients(link, false);
+        r = link_stop_engines(link, false);
         if (r < 0) {
                 link_enter_failed(link);
                 return r;
         }
-
-        if (link->dhcp_server)
-                (void) sd_dhcp_server_stop(link->dhcp_server);
 
         r = link_drop_config(link);
         if (r < 0)

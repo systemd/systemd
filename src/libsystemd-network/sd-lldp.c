@@ -276,7 +276,8 @@ fail:
 }
 
 _public_ int sd_lldp_stop(sd_lldp *lldp) {
-        assert_return(lldp, -EINVAL);
+        if (!lldp)
+                return 0;
 
         if (lldp->fd < 0)
                 return 0;

@@ -207,11 +207,9 @@ int ipv4ll_update_mac(Link *link) {
 
         restart = sd_ipv4ll_is_running(link->ipv4ll) > 0;
 
-        if (restart) {
-                r = sd_ipv4ll_stop(link->ipv4ll);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_ipv4ll_stop(link->ipv4ll);
+        if (r < 0)
+                return r;
 
         r = sd_ipv4ll_set_mac(link->ipv4ll, &link->mac);
         if (r < 0)

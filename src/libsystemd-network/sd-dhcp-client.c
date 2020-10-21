@@ -2135,9 +2135,10 @@ int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
-        DHCP_CLIENT_DONT_DESTROY(client);
+        if (!client)
+                return 0;
 
-        assert_return(client, -EINVAL);
+        DHCP_CLIENT_DONT_DESTROY(client);
 
         client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
         client->state = DHCP_STATE_STOPPED;
