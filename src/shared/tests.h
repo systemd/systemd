@@ -40,3 +40,6 @@ bool can_memlock(void);
         } else {                                                    \
                 printf("systemd not booted skipping '%s'\n", #x);   \
         }
+
+/* Provide a convenient way to check if we're running in CI. */
+const char *ci_environment(void);
