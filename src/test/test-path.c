@@ -103,10 +103,11 @@ static int _check_states(unsigned line,
                          service_result_to_string(service->result));
 
                 if (service->state == SERVICE_FAILED &&
-                    service->main_exec_status.status == EXIT_CGROUP)
+                    service->main_exec_status.status == EXIT_CGROUP &&
+                    !ci_environment())
                         /* On a general purpose system we may fail to start the service for reasons which are
                          * not under our control: permission limits, resource exhaustion, etc. Let's skip the
-                         * test in those cases. */
+                         * test in those cases. On developer machines we require proper setup. */
                         return log_notice_errno(SYNTHETIC_ERRNO(ECANCELED),
                                                 "Failed to start service %s, aborting test: %s/%s",
                                                 UNIT(service)->id,
