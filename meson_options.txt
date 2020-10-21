@@ -5,7 +5,7 @@ option('version-tag', type : 'string',
        description : 'override the git version string')
 
 option('mode', type : 'combo', choices : ['developer', 'release'],
-       description : 'enable additional checks suitable for systemd development')
+       description : 'autoenable features suitable for systemd development/release builds')
 
 option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],
        description : '''/bin, /sbin aren't symlinks into /usr''')

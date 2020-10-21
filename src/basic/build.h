@@ -161,3 +161,8 @@
         _IDN_FEATURE_ " "                                               \
         _PCRE2_FEATURE_ " "                                             \
         _CGROUP_HIERARCHY_
+
+enum {
+        BUILD_MODE_DEVELOPER,
+        BUILD_MODE_RELEASE,
+};

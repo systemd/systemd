@@ -38,8 +38,8 @@ relative_source_path = run_command('realpath',
                                    project_source_root).stdout().strip()
 conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
-conf.set10('DEVELOPER_MODE', get_option('mode') == 'developer',
-           description : 'enable additional checks only suitable in development')
+conf.set('BUILD_MODE', 'BUILD_MODE_' + get_option('mode').to_upper(),
+         description : 'tailor build to development or release builds')
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
