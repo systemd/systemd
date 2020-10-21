@@ -554,10 +554,13 @@ static inline int __coverity_check_and_return__(int condition) {
 #define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
 #define STRV_MAKE_EMPTY ((char*[1]) { NULL })
 
-/* Iterates through a specified list of pointers. Accepts NULL pointers, but uses (void*) -1 as internal marker for EOL. */
-#define FOREACH_POINTER(p, x, ...)                                                      \
-        for (typeof(p) *_l = (typeof(p)[]) { ({ p = x; }), ##__VA_ARGS__, (void*) -1 }; \
-             p != (typeof(p)) (void*) -1;                                               \
+/* Pointers range from NULL to POINTER_MAX */
+#define POINTER_MAX ((void*) UINTPTR_MAX)
+
+/* Iterates through a specified list of pointers. Accepts NULL pointers, but uses POINTER_MAX as internal marker for EOL. */
+#define FOREACH_POINTER(p, x, ...)                                                       \
+        for (typeof(p) *_l = (typeof(p)[]) { ({ p = x; }), ##__VA_ARGS__, POINTER_MAX }; \
+             p != (typeof(p)) POINTER_MAX;                                               \
              p = *(++_l))
 
 /* Define C11 thread_local attribute even on older gcc compiler

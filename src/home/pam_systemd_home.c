@@ -142,7 +142,7 @@ static int acquire_user_record(
         if (r == PAM_SUCCESS && json) {
                 /* We determined earlier that this is not a homed user? Then exit early. (We use -1 as
                  * negative cache indicator) */
-                if (json == (void*) -1)
+                if (json == POINTER_MAX)
                         return PAM_USER_UNKNOWN;
         } else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -235,7 +235,7 @@ static int acquire_user_record(
 
 user_unknown:
         /* Cache this, so that we don't check again */
-        r = pam_set_data(handle, homed_field, (void*) -1, NULL);
+        r = pam_set_data(handle, homed_field, POINTER_MAX, NULL);
         if (r != PAM_SUCCESS)
                 pam_syslog(handle, LOG_ERR, "Failed to set PAM user record data '%s' to invalid, ignoring: %s",
                            homed_field, pam_strerror(handle, r));
