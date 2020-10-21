@@ -299,9 +299,10 @@ void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress(&route->src, FAMILY_ADDRESS_SIZE(route->family), state);
 
                 siphash24_compress(&route->gw_family, sizeof(route->gw_family), state);
-                if (IN_SET(route->gw_family, AF_INET, AF_INET6))
+                if (IN_SET(route->gw_family, AF_INET, AF_INET6)) {
                         siphash24_compress(&route->gw, FAMILY_ADDRESS_SIZE(route->gw_family), state);
-
+                        siphash24_compress(&route->gw_weight, sizeof(route->gw_weight), state);
+                }
 
                 siphash24_compress(&route->prefsrc, FAMILY_ADDRESS_SIZE(route->family), state);
 
@@ -354,6 +355,10 @@ int route_compare_func(const Route *a, const Route *b) {
 
                 if (IN_SET(a->gw_family, AF_INET, AF_INET6)) {
                         r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                        if (r != 0)
+                                return r;
+
+                        r = CMP(a->gw_weight, b->gw_weight);
                         if (r != 0)
                                 return r;
                 }
@@ -484,23 +489,23 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m) {
         } else {
                 dest->gw_family = src->gw_family;
                 dest->gw = src->gw;
+                dest->gw_weight = src->gw_weight;
         }
 }
 
-static int route_add_internal(Manager *manager, Link *link, Set **routes, const Route *in, const MultipathRoute *m, Route **ret) {
+static int route_add_internal(Manager *manager, Link *link, Set **routes, const Route *in, Route **ret) {
         _cleanup_(route_freep) Route *route = NULL;
         int r;
 
         assert(manager || link);
         assert(routes);
         assert(in);
-        assert(!m || (link && (m->ifindex == 0 || m->ifindex == link->ifindex)));
 
         r = route_new(&route);
         if (r < 0)
                 return r;
 
-        route_copy(route, in, m);
+        route_copy(route, in, NULL);
 
         r = set_ensure_put(routes, &route_hash_ops, route);
         if (r < 0)
@@ -521,20 +526,32 @@ static int route_add_internal(Manager *manager, Link *link, Set **routes, const 
 
 static int route_add_foreign(Manager *manager, Link *link, const Route *in, Route **ret) {
         assert(manager || link);
-        return route_add_internal(manager, link, link ? &link->routes_foreign : &manager->routes_foreign, in, NULL, ret);
+        return route_add_internal(manager, link, link ? &link->routes_foreign : &manager->routes_foreign, in, ret);
 }
 
 static int route_add(Manager *manager, Link *link, const Route *in, const MultipathRoute *m, Route **ret) {
+        _cleanup_(route_freep) Route *tmp = NULL;
         Route *route;
         int r;
 
         assert(manager || link);
         assert(in);
 
+        if (m) {
+                assert(link && (m->ifindex == 0 || m->ifindex == link->ifindex));
+
+                r = route_new(&tmp);
+                if (r < 0)
+                        return r;
+
+                route_copy(tmp, in, m);
+                in = tmp;
+        }
+
         r = route_get(manager, link, in, &route);
         if (r == -ENOENT) {
                 /* Route does not exist, create a new one */
-                r = route_add_internal(manager, link, link ? &link->routes : &manager->routes, in, m, &route);
+                r = route_add_internal(manager, link, link ? &link->routes : &manager->routes, in, &route);
                 if (r < 0)
                         return r;
         } else if (r == 0) {
@@ -1102,13 +1119,6 @@ int route_configure(
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append RTA_MULTIPATH attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
-                               link_netlink_destroy_callback, link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
         if (ordered_set_isempty(route->multipath_routes)) {
                 Route *nr;
 
@@ -1130,7 +1140,14 @@ int route_configure(
                 }
         }
 
-        return 1;
+        r = netlink_call_async(link->manager->rtnl, NULL, req, callback,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
 }
 
 static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
@@ -1201,8 +1218,8 @@ int link_set_routes(Link *link) {
                         r = route_configure(rt, link, route_handler, NULL);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Could not set routes: %m");
-                        if (r > 0)
-                                link->route_messages++;
+
+                        link->route_messages++;
                 }
 
         if (link->route_messages == 0) {
