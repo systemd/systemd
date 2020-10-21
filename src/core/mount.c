@@ -1712,8 +1712,10 @@ static int mount_setup_unit(
                 return log_warning_errno(r, "Failed to set up mount unit for '%s': %m", where);
 
         /* If the mount changed properties or state, let's notify our clients */
-        if (flags & (MOUNT_PROC_JUST_CHANGED|MOUNT_PROC_JUST_MOUNTED))
+        if (flags & (MOUNT_PROC_JUST_CHANGED|MOUNT_PROC_JUST_MOUNTED)) {
+                device_found_node(m, what, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
                 unit_add_to_dbus_queue(u);
+        }
 
         if (set_flags)
                 MOUNT(u)->proc_flags = flags;
@@ -1749,8 +1751,6 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 
                 if (!device || !path)
                         continue;
-
-                device_found_node(m, device, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
                 (void) mount_setup_unit(m, device, path, options, fstype, set_flags);
         }
