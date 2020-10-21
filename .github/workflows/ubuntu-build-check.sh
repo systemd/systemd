@@ -19,7 +19,6 @@ PACKAGES=(
     expect
     fdisk
     gettext
-    iptables-dev
     iputils-ping
     isc-dhcp-client
     itstool
@@ -39,6 +38,7 @@ PACKAGES=(
     libssl-dev
     libxkbcommon-dev
     libzstd-dev
+    libxtables-dev
     mount
     net-tools
     perl
