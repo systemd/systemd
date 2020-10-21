@@ -273,8 +273,8 @@ static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSe
         }
 
         if (ordered_set_isempty(domains))
-                fputs("search .", f); /* Make sure that if the local hostname is chosen as fqdn this does not
-                                       * imply a search domain */
+                fputs("search .\n", f); /* Make sure that if the local hostname is chosen as fqdn this does not
+                                         * imply a search domain */
         else
                 write_resolv_conf_search(domains, f);
 
@@ -302,8 +302,8 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
               "options edns0 trust-ad\n", f);
 
         if (ordered_set_isempty(domains))
-                fputs("search .", f); /* Make sure that if the local hostname is chosen as fqdn this does not
-                                       * imply a search domain */
+                fputs("search .\n", f); /* Make sure that if the local hostname is chosen as fqdn this does not
+                                         * imply a search domain */
         else
                 write_resolv_conf_search(domains, f);
 
