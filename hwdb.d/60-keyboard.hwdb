@@ -72,14 +72,14 @@
 
 # A device with a fixed keyboard layout that must not be changed by
 # the desktop environment may specify that layout as:
-#   XKB_FIXED_LAYOUT="us"
-#   XKB_FIXED_VARIANT=""
+#   XKB_FIXED_LAYOUT=us
+#   XKB_FIXED_VARIANT=
 # Examples of such devices: the Yubikey or other key-code generating
 # devices.
 
 # A device where the scan code to key code mapping is insufficient and
 # requires a special key code to symbol configuration may specify that with:
-#   XKB_FIXED_MODEL="xkbmodel"
+#   XKB_FIXED_MODEL=xkbmodel
 # Examples of such devices: Chromebooks where the top row is used for both
 # media and F1-F10 keys.
 
@@ -1796,8 +1796,8 @@ evdev:input:b0003v1050p0111:*
 evdev:input:b0003v1050p0116:*
 # OKE Electron Company USB barcode reader
 evdev:input:b0003v05FEp1010:*
- XKB_FIXED_LAYOUT="us"
- XKB_FIXED_VARIANT=""
+ XKB_FIXED_LAYOUT=us
+ XKB_FIXED_VARIANT=
 
 ######################### LACK OF MODIFIER LEDS ############################
 # This section lists keyboard which do not have their own LEDs for some
@@ -1846,4 +1846,4 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon3rd:*
 # Chromebooks
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnFalco:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPeppy:*
- XKB_FIXED_MODEL="chromebook"
+ XKB_FIXED_MODEL=chromebook
