@@ -813,9 +813,6 @@ Features:
 
 * systemctl: if some operation fails, show log output?
 
-* systemctl edit: use equivalent of cat() to insert existing config as a comment, prepended with #.
-  Upon editor exit, lines with one # are removed, lines with two # are left with one #, etc.
-
 * exponential backoff in timesyncd when we cannot reach a server
 
 * timesyncd: add ugly bus calls to set NTP servers per-interface, for usage by NM
