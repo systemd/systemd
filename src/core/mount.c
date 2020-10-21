@@ -278,7 +278,17 @@ static int update_parameters_proc_self_mountinfo(
         if (w < 0)
                 return w;
 
-        if (r > 0 || q > 0 || w > 0)
+        /* Set flag MOUNT_PROC_JUST_CHANGED if any parameters have
+         * changed as a call to unit_add_to_dbus_queue() is needed in
+         * all cases of changed parameters.
+         *
+         * Also set flag MOUNT_PROC_JUST_CHANGED_WHAT if the "what"
+         * parameter has changed so that we know device_found_node()
+         * needs to be called.
+         */
+        if (r > 0)
+                changed = MOUNT_PROC_JUST_CHANGED_WHAT|MOUNT_PROC_JUST_CHANGED;
+        else if (q > 0 || w > 0)
                 changed = MOUNT_PROC_JUST_CHANGED;
 
         return changed;
@@ -1578,7 +1588,8 @@ static int mount_setup_new_unit(
          * loaded in now. */
         unit_add_to_load_queue(u);
 
-        *ret_flags = MOUNT_PROC_IS_MOUNTED | MOUNT_PROC_JUST_MOUNTED | MOUNT_PROC_JUST_CHANGED;
+        *ret_flags = MOUNT_PROC_JUST_CHANGED_WHAT |
+                     MOUNT_PROC_IS_MOUNTED | MOUNT_PROC_JUST_MOUNTED | MOUNT_PROC_JUST_CHANGED;
         *ret = TAKE_PTR(u);
         return 0;
 }
@@ -1717,11 +1728,13 @@ static int mount_setup_unit(
         if (r < 0)
                 return log_warning_errno(r, "Failed to set up mount unit for '%s': %m", where);
 
+        /* Only call device_found_node() if the mount unit "what" has changed */
+        if (flags & MOUNT_PROC_JUST_CHANGED_WHAT)
+                 device_found_node(m, what, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+
         /* If the mount changed properties or state, let's notify our clients */
-        if (flags & (MOUNT_PROC_JUST_CHANGED|MOUNT_PROC_JUST_MOUNTED)) {
-                device_found_node(m, what, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
+        if (flags & (MOUNT_PROC_JUST_CHANGED|MOUNT_PROC_JUST_MOUNTED))
                 unit_add_to_dbus_queue(u);
-        }
 
         if (set_flags)
                 MOUNT(u)->proc_flags = flags;

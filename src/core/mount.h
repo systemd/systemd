@@ -36,9 +36,15 @@ typedef struct MountParameters {
 
 /* Used while looking for mount points that vanished or got added from/to /proc/self/mountinfo */
 typedef enum MountProcFlags {
-        MOUNT_PROC_IS_MOUNTED   = 1 << 0,
-        MOUNT_PROC_JUST_MOUNTED = 1 << 1,
-        MOUNT_PROC_JUST_CHANGED = 1 << 2,
+        MOUNT_PROC_IS_MOUNTED      = 1 << 0,
+        MOUNT_PROC_JUST_MOUNTED    = 1 << 1,
+        MOUNT_PROC_JUST_CHANGED    = 1 << 2,
+        /*
+         * Since the mount unit "what" parameter changing results in a distinct function
+         * call use a flag to indicate it has changed so the function call can be avoided
+         * when it's not needed.
+         */
+        MOUNT_PROC_JUST_CHANGED_WHAT = 1 << 3,
 } MountProcFlags;
 
 struct Mount {
