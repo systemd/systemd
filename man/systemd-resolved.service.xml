@@ -183,7 +183,9 @@
       domain configured, in which case the query is sent to all of them in parallel).</para>
 
       <para>In case of single-label names, when search domains are defined, the same logic applies, except
-      that the name is first suffixed by each of the search domains in turn.</para></listitem>
+      that the name is first suffixed by each of the search domains in turn. Note that this search logic
+      doesn't apply to any names with at least one dot. Also see the discussion about compatiblity with
+      the traditional glibc resolver below.</para></listitem>
 
       <listitem><para>If a query does not match any configured routing domain (either per-link or global), it
       is sent to all DNS servers that are configured on links with the <varname>DefaultRoute=</varname>
@@ -214,6 +216,63 @@
     <para>See the <ulink url="https://www.freedesktop.org/wiki/Software/systemd/resolved">resolved D-Bus API
     Documentation</ulink> for information about the APIs <filename>systemd-resolved</filename> provides.
     </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Compatibility with the traditional glibc stub resolver</title>
+
+    <para>This section provides a short summary of differences in the stub resolver implemented by
+    <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry> together
+    with <command>systemd-resolved</command> and the tranditional stub resolver implemented in
+    <citerefentry><refentrytitle>nss-dns</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <itemizedlist>
+      <listitem><para>Some names are always resolved internally (see Synthetic Records above). Traditionally
+      they would be resolved by <filename>nss-files</filename>, and only if provided in
+      <filename>/etc/hosts</filename>.</para></listitem>
+
+      <listitem><para>Single-label names are not resolved for A and AAAA records using unicast DNS (unless
+      overriden with <varname>ResolveUnicastSingleLabel=</varname>, see
+      <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+      This is similar to the <option>no-tld-query</option> option being set in
+      <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      </para></listitem>
+
+      <listitem><para>Search domains are not used for <emphasis>suffixing</emphasis> of multi-label names.
+      (Search domains are nevertheless used for lookup <emphasis>routing</emphasis>, for names that were
+      originally specified as single-label or multi-label.) Any name with at least one dot is always
+      interpreted as a FQDN. <filename>nss-dns</filename> would resolve names both as relative (using search
+      domains) and absolute FQDN names. Some names would be resolved as relative first, and after that query
+      has failed, as absolute, while other names would be resolved in opposite order. The
+      <varname>ndots</varname> option in <filename>/etc/resolv.conf</filename> was used to control how many
+      dots the name needs to have to be resolved as relative first. This stub resolver does not implement
+      this at all: multi-label names are only resolved as FQDNs. (There are currently more than 1500
+      top-level domain names defined, and new ones are added regularly, often using "attractive" names that
+      are also likely to be used locally. Not looking up multi-label names in this fashion avoids fragility
+      in both directions: a valid global name could be obscured by a local name, and resolution of a relative
+      local name could suddenly break when a new top-level domain is created, or when a new subdomain of a
+      top-level domain in registered. Resolving any given name as either relative or absolute avoids this
+      ambiguity.)</para></listitem>
+
+      <listitem><para>This resolver has a notion of the special <literal>.local</literal> domain used for
+      MulticastDNS, and will not route queries with that suffix to unicast DNS servers unless explicitly
+      configured, see above. Also, reverse lookups for link-local addresses are not sent to unicast DNS
+      servers.</para></listitem>
+
+      <listitem><para>This resolver reads and caches <filename>/etc/hosts</filename> internally. (In other
+      words, <filename>nss-resolve</filename> replaces <filename>nss-files</filename> in addition to
+      <filename>nss-dns</filename>). Entries in <filename>/etc/hosts</filename> have highest priority.</para>
+      </listitem>
+
+      <listitem><para>This resolver also implements LLMNR and MulticastDNS in addition to the classic unicast
+      DNS protocol, and will resolve single-label names using LLMNR (when enabled) and names ending in
+      <literal>.local</literal> using MulticastDNS (when enabled).</para></listitem>
+
+      <listitem><para>Environment variables <varname>$LOCALDOMAIN</varname> and
+      <varname>$RES_OPTIONS</varname> described in
+      <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> are not
+      supported currently.</para></listitem>
+    </itemizedlist>
   </refsect1>
 
   <refsect1>
@@ -302,7 +361,6 @@
         synchronous way.</para></listitem>
       </varlistentry>
     </variablelist>
-
   </refsect1>
 
   <refsect1>
