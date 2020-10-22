@@ -207,7 +207,7 @@ if dbus_docs.length() > 0
                            '@INPUT@'],
                 input : dbus_docs)
 
-        if conf.get('DEVELOPER_MODE') == 1
+        if conf.get('BUILD_MODE') == 'BUILD_MODE_DEVELOPER'
                 test('dbus-docs-fresh',
                      update_dbus_docs_py,
                      args : ['--build-dir=@0@'.format(project_build_root),

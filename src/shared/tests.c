@@ -301,3 +301,43 @@ int enter_cgroup_subroot(char **ret_cgroup) {
 int enter_cgroup_root(char **ret_cgroup) {
         return enter_cgroup(ret_cgroup, false);
 }
+
+const char *ci_environment(void) {
+        /* We return a string because we might want to provide multiple bits of information later on: not
+         * just the general CI environment type, but also whether we're sanitizing or not, etc. The caller is
+         * expected to use strstr on the returned value. */
+        static const char *ans = POINTER_MAX;
+        const char *p;
+        int r;
+
+        if (ans != POINTER_MAX)
+                return ans;
+
+        /* We allow specifying the environment with $CITYPE. Nobody uses this so far, but we are ready. */
+        p = getenv("CITYPE");
+        if (!isempty(p))
+                return (ans = p);
+
+        if (getenv_bool("TRAVIS") > 0)
+                return (ans = "travis");
+        if (getenv_bool("SEMAPHORE") > 0)
+                return (ans = "semaphore");
+        if (getenv_bool("GITHUB_ACTIONS") > 0)
+                return (ans = "github-actions");
+        if (getenv("AUTOPKGTEST_ARTIFACTS") || getenv("AUTOPKGTEST_TMP"))
+                return (ans = "autopkgtest");
+
+        FOREACH_STRING(p, "CI", "CONTINOUS_INTEGRATION") {
+                /* Those vars are booleans according to Semaphore and Travis docs:
+                 * https://docs.travis-ci.com/user/environment-variables/#default-environment-variables
+                 * https://docs.semaphoreci.com/ci-cd-environment/environment-variables/#ci
+                 */
+                r = getenv_bool(p);
+                if (r > 0)
+                        return (ans = "unknown"); /* Some other unknown thing */
+                if (r == 0)
+                        return (ans = NULL);
+        }
+
+        return (ans = NULL);
+}

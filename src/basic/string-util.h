@@ -33,6 +33,12 @@ static inline bool streq_ptr(const char *a, const char *b) {
         return strcmp_ptr(a, b) == 0;
 }
 
+static inline char* strstr_ptr(const char *haystack, const char *needle) {
+        if (!haystack || !needle)
+                return NULL;
+        return strstr(haystack, needle);
+}
+
 static inline const char* strempty(const char *s) {
         return s ?: "";
 }
