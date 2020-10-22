@@ -27,6 +27,8 @@ int dlopen_idn(void) {
         if (idn_dl)
                 return 0; /* Already loaded */
 
+        DECLARE_DLOPEN_DEP("libidn2.so.0");
+
         dl = dlopen("libidn2.so.0", RTLD_LAZY);
         if (!dl)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -62,6 +64,8 @@ int dlopen_idn(void) {
 
         if (idn_dl)
                 return 0; /* Already loaded */
+
+        DECLARE_DLOPEN_DEP("libidn.so.12|libidn.so.11");
 
         dl = dlopen("libidn.so.12", RTLD_LAZY);
         if (!dl) {

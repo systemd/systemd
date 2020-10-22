@@ -22,6 +22,8 @@ int dlopen_pcre2(void) {
         if (pcre2_dl)
                 return 0; /* Already loaded */
 
+        DECLARE_DLOPEN_DEP("libpcre2-8.so.0");
+
         dl = dlopen("libpcre2-8.so.0", RTLD_LAZY);
         if (!dl)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),

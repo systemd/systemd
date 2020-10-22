@@ -536,6 +536,8 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
 
         /* Compile keymap from RMLVO information to check out its validity */
 
+        DECLARE_DLOPEN_DEP("libxkbcommon.so.0");
+
         dl = dlopen("libxkbcommon.so.0", RTLD_LAZY);
         if (!dl)
                 return -EOPNOTSUPP;

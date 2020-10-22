@@ -30,6 +30,8 @@ int dlopen_pwquality(void) {
         if (pwquality_dl)
                 return 0; /* Already loaded */
 
+        DECLARE_DLOPEN_DEP("libpwquality.so.1");
+
         dl = dlopen("libpwquality.so.1", RTLD_LAZY);
         if (!dl)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),

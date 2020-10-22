@@ -35,6 +35,8 @@ int dlopen_cryptsetup(void) {
         if (cryptsetup_dl)
                 return 0; /* Already loaded */
 
+        DECLARE_DLOPEN_DEP("libcryptsetup.so.12");
+
         dl = dlopen("libcryptsetup.so.12", RTLD_LAZY);
         if (!dl)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),

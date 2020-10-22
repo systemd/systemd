@@ -153,6 +153,8 @@ static int print_qr_code(const char *secret) {
         if (!is_locale_utf8() || !colors_enabled())
                 return -EOPNOTSUPP;
 
+        DECLARE_DLOPEN_DEP("libqrencode.so.4");
+
         dl = dlopen("libqrencode.so.4", RTLD_LAZY);
         if (!dl)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
