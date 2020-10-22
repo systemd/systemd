@@ -540,6 +540,53 @@ CHANGES WITH 247 in spe:
           enabled in developer mode. It is thus recommended to set
           '-Dmode=release' in end-user and distro builds.
 
+        * systemd-cryptsetup gained support for processing detached LUKS
+          headers specified on the kernel command line via the header=
+          parameter of the luks.options= kernel command line option. The same
+          device/path syntax as for key files is supported for header files
+          like this.
+
+        * The "net_id" built-in of udev has been updated to ignore ACPI _SUN
+          slot index data for devices that are connected through a PCI bridge
+          where the _SUN index is associated with the bridge instead of the
+          network device itself. Previously this would create ambiguous device
+          naming if multiple network interfaces were connected to the same PCI
+          bridge. Since this is a naming scheme incompatibility on systems that
+          possess hardware like this it has been introduced as new naming
+          scheme "v247". The previous scheme can be selected via the
+          "net.naming-scheme=v245" kernel command line parameter.
+
+        * ConditionFirstBoot= semantics have been modified to be safe towards
+          abnormal system power-off during first boot. Specifically, the
+          "systemd-machine-id-commit.service" service now acts as boot
+          milestone indicating when the first boot process is sufficiently
+          complete in order to not consider the next following boot also a
+          first boot. If the system is reset before this unit is reached the
+          first time, the next boot will still be considered a first boot; once
+          it has been reached, no further boots will be considered a first
+          boot. The "first-boot-complete.target" unit now acts as official hook
+          point to order against this. If a service shall be run on every boot
+          until the first boot fully succeeds it may thus be ordered before
+          this target unit (and pull it in) and carry ConditionFirstBoot=
+          appropriately.
+
+        * bootctl's set-default and set-oneshot commands now accept the three
+          special strings "@default", "@oneshot", "@current" in place of a boot
+          entry id. These strings are resolved to the current default and
+          oneshot boot loader entry, as well as the currently booted one. Thus
+          a command "bootctl set-default @current" may be used to make the
+          currently boot menu item the new default for all subsequent boots.
+
+        * A new generic target unit "initrd-cryptsetup.target" has been added
+          that is supposed to pull in all encrypted volumes that shall be set
+          up during the initrd phase. It takes the place of "cryptsetup.target"
+          and "remote-cryptsetup.target" that exist during the host boot
+          phase. In other words, the new "initrd-cryptsetup.target" is supposed
+          to take the role for "initrd-fs.target", but for encrypted volumes.
+
+        * "systemctl edit" has been updated to show the original effective unit
+          contents in commented form in the text editor.
+
 CHANGES WITH 246:
 
         * The service manager gained basic support for cgroup v2 freezer. Units
