@@ -35,6 +35,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "utf8.h"
 #include "verbs.h"
 
 static int arg_family = AF_UNSPEC;
@@ -1296,24 +1297,46 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
         if (r < 0)
                 return r;
 
+        strv_sort(*l);
+
         return 0;
 }
 
 static int status_print_strv_ifindex(int ifindex, const char *ifname, char **p) {
+        const unsigned indent = strlen("Global: "); /* Use the same indentation everywhere to make things nice */
+        int pos1, pos2;
+
+        if (ifname)
+                printf("%s%nLink %i (%s)%n%s:", ansi_highlight(), &pos1, ifindex, ifname, &pos2, ansi_normal());
+        else
+                printf("%s%nGlobal%n%s:", ansi_highlight(), &pos1, &pos2, ansi_normal());
+
+        size_t cols = columns(), position = pos2 - pos1 + 2;
         char **i;
 
-        printf("%sLink %i (%s)%s:",
-               ansi_highlight(), ifindex, ifname, ansi_normal());
+        STRV_FOREACH(i, p) {
+                size_t our_len = utf8_console_width(*i); /* This returns -1 on invalid utf-8 (which shouldn't happen).
+                                                          * If that happens, we'll just print one item per line. */
 
-        STRV_FOREACH(i, p)
-                printf(" %s", *i);
+                if (position <= indent || size_add(size_add(position, 1), our_len) < cols) {
+                        printf(" %s", *i);
+                        position = size_add(size_add(position, 1), our_len);
+                } else {
+                        printf("\n%*s%s", indent, "", *i);
+                        position = size_add(our_len, indent);
+                }
+        }
 
         printf("\n");
 
         return 0;
 }
 
-struct link_info {
+static int status_print_strv_global(char **p) {
+        return status_print_strv_ifindex(0, NULL, p);
+}
+
+typedef struct LinkInfo {
         uint64_t scopes_mask;
         const char *llmnr;
         const char *mdns;
@@ -1327,13 +1350,41 @@ struct link_info {
         char **ntas;
         bool dnssec_supported;
         bool default_route;
-};
+} LinkInfo;
 
-static void link_info_clear(struct link_info *p) {
+typedef struct GlobalInfo {
+        char *current_dns;
+        char *current_dns_ex;
+        char **dns;
+        char **dns_ex;
+        char **fallback_dns;
+        char **fallback_dns_ex;
+        char **domains;
+        char **ntas;
+        const char *llmnr;
+        const char *mdns;
+        const char *dns_over_tls;
+        const char *dnssec;
+        const char *resolv_conf_mode;
+        bool dnssec_supported;
+} GlobalInfo;
+
+static void link_info_clear(LinkInfo *p) {
         free(p->current_dns);
         free(p->current_dns_ex);
         strv_free(p->dns);
         strv_free(p->dns_ex);
+        strv_free(p->domains);
+        strv_free(p->ntas);
+}
+
+static void global_info_clear(GlobalInfo *p) {
+        free(p->current_dns);
+        free(p->current_dns_ex);
+        strv_free(p->dns);
+        strv_free(p->dns_ex);
+        strv_free(p->fallback_dns);
+        strv_free(p->fallback_dns_ex);
         strv_free(p->domains);
         strv_free(p->ntas);
 }
@@ -1346,33 +1397,88 @@ static int dump_list(Table *table, const char *prefix, char * const *l) {
 
         r = table_add_many(table,
                            TABLE_STRING, prefix,
-                           TABLE_STRV, l);
+                           TABLE_STRV_WRAPPED, l);
         if (r < 0)
                 return table_log_add_error(r);
 
         return 0;
 }
 
+static int strv_extend_extended_bool(char ***strv, const char *name, const char *value) {
+        int r;
+
+        if (value) {
+                r = parse_boolean(value);
+                if (r >= 0)
+                        return strv_extendf(strv, "%s%s", plus_minus(r), name);
+        }
+
+        return strv_extendf(strv, "%s=%s", name, value ?: "???");
+}
+
+static char** link_protocol_status(const LinkInfo *info) {
+        _cleanup_strv_free_ char **s = NULL;
+
+        if (strv_extendf(&s, "%sDefaultRoute", plus_minus(info->default_route)) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "LLMNR", info->llmnr) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "mDNS", info->mdns) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "DNSOverTLS", info->dns_over_tls) < 0)
+                return NULL;
+
+        if (strv_extendf(&s, "DNSSEC=%s/%s",
+                         info->dnssec ?: "???",
+                         info->dnssec_supported ? "supported" : "unsupported") < 0)
+                return NULL;
+
+        return TAKE_PTR(s);
+}
+
+static char** global_protocol_status(const GlobalInfo *info) {
+        _cleanup_strv_free_ char **s = NULL;
+
+        if (strv_extend_extended_bool(&s, "LLMNR", info->llmnr) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "mDNS", info->mdns) < 0)
+                return NULL;
+
+        if (strv_extend_extended_bool(&s, "DNSOverTLS", info->dns_over_tls) < 0)
+                return NULL;
+
+        if (strv_extendf(&s, "DNSSEC=%s/%s",
+                         info->dnssec ?: "???",
+                         info->dnssec_supported ? "supported" : "unsupported") < 0)
+                return NULL;
+
+        return TAKE_PTR(s);
+}
+
 static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
-                { "ScopesMask",                 "t",        NULL,                           offsetof(struct link_info, scopes_mask)      },
-                { "DNS",                        "a(iay)",   map_link_dns_servers,           offsetof(struct link_info, dns)              },
-                { "DNSEx",                      "a(iayqs)", map_link_dns_servers_ex,        offsetof(struct link_info, dns_ex)           },
-                { "CurrentDNSServer",           "(iay)",    map_link_current_dns_server,    offsetof(struct link_info, current_dns)      },
-                { "CurrentDNSServerEx",         "(iayqs)",  map_link_current_dns_server_ex, offsetof(struct link_info, current_dns_ex)   },
-                { "Domains",                    "a(sb)",    map_link_domains,               offsetof(struct link_info, domains)          },
-                { "DefaultRoute",               "b",        NULL,                           offsetof(struct link_info, default_route)    },
-                { "LLMNR",                      "s",        NULL,                           offsetof(struct link_info, llmnr)            },
-                { "MulticastDNS",               "s",        NULL,                           offsetof(struct link_info, mdns)             },
-                { "DNSOverTLS",                 "s",        NULL,                           offsetof(struct link_info, dns_over_tls)     },
-                { "DNSSEC",                     "s",        NULL,                           offsetof(struct link_info, dnssec)           },
-                { "DNSSECNegativeTrustAnchors", "as",       NULL,                           offsetof(struct link_info, ntas)             },
-                { "DNSSECSupported",            "b",        NULL,                           offsetof(struct link_info, dnssec_supported) },
+                { "ScopesMask",                 "t",        NULL,                           offsetof(LinkInfo, scopes_mask)      },
+                { "DNS",                        "a(iay)",   map_link_dns_servers,           offsetof(LinkInfo, dns)              },
+                { "DNSEx",                      "a(iayqs)", map_link_dns_servers_ex,        offsetof(LinkInfo, dns_ex)           },
+                { "CurrentDNSServer",           "(iay)",    map_link_current_dns_server,    offsetof(LinkInfo, current_dns)      },
+                { "CurrentDNSServerEx",         "(iayqs)",  map_link_current_dns_server_ex, offsetof(LinkInfo, current_dns_ex)   },
+                { "Domains",                    "a(sb)",    map_link_domains,               offsetof(LinkInfo, domains)          },
+                { "DefaultRoute",               "b",        NULL,                           offsetof(LinkInfo, default_route)    },
+                { "LLMNR",                      "s",        NULL,                           offsetof(LinkInfo, llmnr)            },
+                { "MulticastDNS",               "s",        NULL,                           offsetof(LinkInfo, mdns)             },
+                { "DNSOverTLS",                 "s",        NULL,                           offsetof(LinkInfo, dns_over_tls)     },
+                { "DNSSEC",                     "s",        NULL,                           offsetof(LinkInfo, dnssec)           },
+                { "DNSSECNegativeTrustAnchors", "as",       bus_map_strv_sort,              offsetof(LinkInfo, ntas)             },
+                { "DNSSECSupported",            "b",        NULL,                           offsetof(LinkInfo, dnssec_supported) },
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(link_info_clear) struct link_info link_info = {};
+        _cleanup_(link_info_clear) LinkInfo link_info = {};
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_free_ char *p = NULL;
         char ifi[DECIMAL_STR_MAX(int)], ifname[IF_NAMESIZE + 1] = "";
@@ -1496,19 +1602,13 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (r < 0)
                 return table_log_add_error(r);
 
+        _cleanup_strv_free_ char **pstatus = link_protocol_status(&link_info);
+        if (!pstatus)
+                return log_oom();
+
         r = table_add_many(table,
-                           TABLE_STRING, "DefaultRoute setting:",
-                           TABLE_BOOLEAN, link_info.default_route,
-                           TABLE_STRING, "LLMNR setting:",
-                           TABLE_STRING, strna(link_info.llmnr),
-                           TABLE_STRING, "MulticastDNS setting:",
-                           TABLE_STRING, strna(link_info.mdns),
-                           TABLE_STRING, "DNSOverTLS setting:",
-                           TABLE_STRING, strna(link_info.dns_over_tls),
-                           TABLE_STRING, "DNSSEC setting:",
-                           TABLE_STRING, strna(link_info.dnssec),
-                           TABLE_STRING, "DNSSEC supported:",
-                           TABLE_BOOLEAN, link_info.dnssec_supported);
+                           TABLE_STRING,       "Protocols:",
+                           TABLE_STRV_WRAPPED, pstatus);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -1631,71 +1731,32 @@ static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m
         if (r < 0)
                 return r;
 
-        return 0;
-}
-
-static int status_print_strv_global(char **p) {
-        char **i;
-
-        printf("%sGlobal%s:", ansi_highlight(), ansi_normal());
-
-        STRV_FOREACH(i, p)
-                printf(" %s", *i);
-
-        printf("\n");
+        strv_sort(*l);
 
         return 0;
-}
-
-struct global_info {
-        char *current_dns;
-        char *current_dns_ex;
-        char **dns;
-        char **dns_ex;
-        char **fallback_dns;
-        char **fallback_dns_ex;
-        char **domains;
-        char **ntas;
-        const char *llmnr;
-        const char *mdns;
-        const char *dns_over_tls;
-        const char *dnssec;
-        const char *resolv_conf_mode;
-        bool dnssec_supported;
-};
-
-static void global_info_clear(struct global_info *p) {
-        free(p->current_dns);
-        free(p->current_dns_ex);
-        strv_free(p->dns);
-        strv_free(p->dns_ex);
-        strv_free(p->fallback_dns);
-        strv_free(p->fallback_dns_ex);
-        strv_free(p->domains);
-        strv_free(p->ntas);
 }
 
 static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
-                { "DNS",                        "a(iiay)",   map_global_dns_servers,           offsetof(struct global_info, dns)              },
-                { "DNSEx",                      "a(iiayqs)", map_global_dns_servers_ex,        offsetof(struct global_info, dns_ex)           },
-                { "FallbackDNS",                "a(iiay)",   map_global_dns_servers,           offsetof(struct global_info, fallback_dns)     },
-                { "FallbackDNSEx",              "a(iiayqs)", map_global_dns_servers_ex,        offsetof(struct global_info, fallback_dns_ex)  },
-                { "CurrentDNSServer",           "(iiay)",    map_global_current_dns_server,    offsetof(struct global_info, current_dns)      },
-                { "CurrentDNSServerEx",         "(iiayqs)",  map_global_current_dns_server_ex, offsetof(struct global_info, current_dns_ex)   },
-                { "Domains",                    "a(isb)",    map_global_domains,               offsetof(struct global_info, domains)          },
-                { "DNSSECNegativeTrustAnchors", "as",        NULL,                             offsetof(struct global_info, ntas)             },
-                { "LLMNR",                      "s",         NULL,                             offsetof(struct global_info, llmnr)            },
-                { "MulticastDNS",               "s",         NULL,                             offsetof(struct global_info, mdns)             },
-                { "DNSOverTLS",                 "s",         NULL,                             offsetof(struct global_info, dns_over_tls)     },
-                { "DNSSEC",                     "s",         NULL,                             offsetof(struct global_info, dnssec)           },
-                { "DNSSECSupported",            "b",         NULL,                             offsetof(struct global_info, dnssec_supported) },
-                { "ResolvConfMode",             "s",         NULL,                             offsetof(struct global_info, resolv_conf_mode) },
+                { "DNS",                        "a(iiay)",   map_global_dns_servers,           offsetof(GlobalInfo, dns)              },
+                { "DNSEx",                      "a(iiayqs)", map_global_dns_servers_ex,        offsetof(GlobalInfo, dns_ex)           },
+                { "FallbackDNS",                "a(iiay)",   map_global_dns_servers,           offsetof(GlobalInfo, fallback_dns)     },
+                { "FallbackDNSEx",              "a(iiayqs)", map_global_dns_servers_ex,        offsetof(GlobalInfo, fallback_dns_ex)  },
+                { "CurrentDNSServer",           "(iiay)",    map_global_current_dns_server,    offsetof(GlobalInfo, current_dns)      },
+                { "CurrentDNSServerEx",         "(iiayqs)",  map_global_current_dns_server_ex, offsetof(GlobalInfo, current_dns_ex)   },
+                { "Domains",                    "a(isb)",    map_global_domains,               offsetof(GlobalInfo, domains)          },
+                { "DNSSECNegativeTrustAnchors", "as",        bus_map_strv_sort,                offsetof(GlobalInfo, ntas)             },
+                { "LLMNR",                      "s",         NULL,                             offsetof(GlobalInfo, llmnr)            },
+                { "MulticastDNS",               "s",         NULL,                             offsetof(GlobalInfo, mdns)             },
+                { "DNSOverTLS",                 "s",         NULL,                             offsetof(GlobalInfo, dns_over_tls)     },
+                { "DNSSEC",                     "s",         NULL,                             offsetof(GlobalInfo, dnssec)           },
+                { "DNSSECSupported",            "b",         NULL,                             offsetof(GlobalInfo, dnssec_supported) },
+                { "ResolvConfMode",             "s",         NULL,                             offsetof(GlobalInfo, resolv_conf_mode) },
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(global_info_clear) struct global_info global_info = {};
+        _cleanup_(global_info_clear) GlobalInfo global_info = {};
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
@@ -1760,18 +1821,14 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         table_set_header(table, false);
 
+        _cleanup_strv_free_ char **pstatus = global_protocol_status(&global_info);
+        if (!pstatus)
+                return log_oom();
+
         r = table_add_many(table,
-                           TABLE_STRING, "LLMNR setting:",
+                           TABLE_STRING,            "Protocols:",
                            TABLE_SET_ALIGN_PERCENT, 100,
-                           TABLE_STRING, strna(global_info.llmnr),
-                           TABLE_STRING, "MulticastDNS setting:",
-                           TABLE_STRING, strna(global_info.mdns),
-                           TABLE_STRING, "DNSOverTLS setting:",
-                           TABLE_STRING, strna(global_info.dns_over_tls),
-                           TABLE_STRING, "DNSSEC setting:",
-                           TABLE_STRING, strna(global_info.dnssec),
-                           TABLE_STRING, "DNSSEC supported:",
-                           TABLE_BOOLEAN, global_info.dnssec_supported);
+                           TABLE_STRV_WRAPPED,      pstatus);
         if (r < 0)
                 return table_log_add_error(r);
 
