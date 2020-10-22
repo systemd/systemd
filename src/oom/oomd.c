@@ -117,6 +117,8 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         _cleanup_(notify_on_cleanup) const char *notify_msg = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free_ char *swap = NULL;
+        unsigned long long s = 0;
         int r;
 
         log_setup_service();
@@ -131,8 +133,17 @@ static int run(int argc, char *argv[]) {
 
         /* Do some basic requirement checks for running systemd-oomd. It's not exhaustive as some of the other
          * requirements do not have a reliable means to check for in code. */
-        if (access("/proc/swaps", F_OK) < 0)
-                return log_error_errno(errno, "Swap not enabled: %m");
+
+        /* SwapTotal is always available in /proc/meminfo and defaults to 0, even on swap-disabled kernels. */
+        r = get_proc_field("/proc/meminfo", "SwapTotal", WHITESPACE, &swap);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get SwapTotal from /proc/meminfo: %m");
+
+        r = safe_atollu(swap, &s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse SwapTotal from /proc/meminfo: %s: %m", swap);
+        if (s == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires swap to operate");
 
         if (!is_pressure_supported())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Pressure Stall Information (PSI) is not supported");
