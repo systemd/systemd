@@ -2,6 +2,8 @@
 
 #include "bus-error.h"
 #include "copy.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "fs-util.h"
 #include "mkdir.h"
 #include "pager.h"
@@ -16,6 +18,9 @@
 #include "systemctl.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+
+#define EDIT_MARKER_START "### Anything between here and the comment below will become the new contents of the file"
+#define EDIT_MARKER_END "### Lines below this comment will be discarded"
 
 int cat(int argc, char *argv[], void *userdata) {
         _cleanup_(hashmap_freep) Hashmap *cached_name_map = NULL, *cached_id_map = NULL;
@@ -106,12 +111,11 @@ int cat(int argc, char *argv[], void *userdata) {
         return rc;
 }
 
-static int create_edit_temp_file(const char *new_path, const char *original_path, char **ret_tmp_fn) {
+static int create_edit_temp_file(const char *new_path, const char *original_path, char ** const original_unit_paths, char **ret_tmp_fn) {
         _cleanup_free_ char *t = NULL;
         int r;
 
         assert(new_path);
-        assert(original_path);
         assert(ret_tmp_fn);
 
         r = tempfn_random(new_path, NULL, &t);
@@ -122,25 +126,78 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         if (r < 0)
                 return log_error_errno(r, "Failed to create directories for \"%s\": %m", new_path);
 
-        r = mac_selinux_create_file_prepare(original_path, S_IFREG);
-        if (r < 0)
-                return r;
+        if (original_path) {
+                r = mac_selinux_create_file_prepare(new_path, S_IFREG);
+                if (r < 0)
+                        return r;
 
-        r = copy_file(original_path, t, 0, 0644, 0, 0, COPY_REFLINK);
-        if (r == -ENOENT) {
+                r = copy_file(original_path, t, 0, 0644, 0, 0, COPY_REFLINK);
+                if (r == -ENOENT) {
+                        r = touch(t);
+                        mac_selinux_create_file_clear();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
+                } else {
+                        mac_selinux_create_file_clear();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", new_path);
+                }
+        } else if (original_unit_paths) {
+                _cleanup_free_ char *new_contents = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                char **path;
+                size_t size;
 
-                r = touch(t);
+                r = mac_selinux_create_file_prepare(new_path, S_IFREG);
+                if (r < 0)
+                        return r;
 
+                f = fopen(t, "we");
                 mac_selinux_create_file_clear();
+                if (!f)
+                        return log_error_errno(errno, "Failed to open \"%s\": %m", t);
 
+                r = fchmod(fileno(f), 0644);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to change mode of \"%s\": %m", t);
+
+                r = read_full_file(new_path, &new_contents, &size);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to read \"%s\": %m", new_path);
+
+                fprintf(f,
+                        "### Editing %s\n"
+                        EDIT_MARKER_START
+                        "\n\n%s%s\n"
+                        EDIT_MARKER_END,
+                        new_path,
+                        strempty(new_contents),
+                        new_contents && endswith(new_contents, "\n") ? "" : "\n");
+
+                /* Add a comment with the contents of the original unit files */
+                STRV_FOREACH(path, original_unit_paths) {
+                        _cleanup_free_ char *contents = NULL;
+
+                        /* Skip the file that's being edited */
+                        if (path_equal(*path, new_path))
+                                continue;
+
+                        r = read_full_file(*path, &contents, &size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read \"%s\": %m", *path);
+
+                        fprintf(f, "\n\n### %s", *path);
+                        if (!isempty(contents)) {
+                                contents = strreplace(strstrip(contents), "\n", "\n# ");
+                                if (!contents)
+                                        return log_oom();
+                                fprintf(f, "\n# %s", contents);
+                        }
+                }
+
+                r = fflush_and_check(f);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create temporary file \"%s\": %m", t);
-
-        } else {
-                mac_selinux_create_file_clear();
-
-                if (r < 0)
-                         return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", new_path);
         }
 
         *ret_tmp_fn = TAKE_PTR(t);
@@ -185,6 +242,7 @@ static int unit_file_create_new(
                 const LookupPaths *paths,
                 const char *unit_name,
                 const char *suffix,
+                char ** const original_unit_paths,
                 char **ret_new_path,
                 char **ret_tmp_path) {
 
@@ -201,7 +259,7 @@ static int unit_file_create_new(
         if (r < 0)
                 return r;
 
-        r = create_edit_temp_file(new_path, new_path, &tmp_path);
+        r = create_edit_temp_file(new_path, NULL, original_unit_paths, &tmp_path);
         if (r < 0)
                 return r;
 
@@ -240,7 +298,7 @@ static int unit_file_create_copy(
                         return log_warning_errno(SYNTHETIC_ERRNO(EKEYREJECTED), "%s skipped.", unit_name);
         }
 
-        r = create_edit_temp_file(new_path, fragment_path, &tmp_path);
+        r = create_edit_temp_file(new_path, fragment_path, NULL, &tmp_path);
         if (r < 0)
                 return r;
 
@@ -332,9 +390,10 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL, *new_path = NULL, *tmp_path = NULL, *tmp_name = NULL;
+                _cleanup_strv_free_ char **unit_paths = NULL;
                 const char *unit_name;
 
-                r = unit_find_paths(bus, *name, &lp, false, &cached_name_map, &cached_id_map, &path, NULL);
+                r = unit_find_paths(bus, *name, &lp, false, &cached_name_map, &cached_id_map, &path, &unit_paths);
                 if (r == -EKEYREJECTED) {
                         /* If loading of the unit failed server side complete, then the server won't tell us
                          * the unit file path. In that case, find the file client side. */
@@ -361,7 +420,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                         unit_name = *name;
                         r = unit_file_create_new(&lp, unit_name,
                                                  arg_full ? NULL : ".d/override.conf",
-                                                 &new_path, &tmp_path);
+                                                 NULL, &new_path, &tmp_path);
                 } else {
                         assert(path);
 
@@ -384,8 +443,13 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
 
                         if (arg_full)
                                 r = unit_file_create_copy(&lp, unit_name, path, &new_path, &tmp_path);
-                        else
-                                r = unit_file_create_new(&lp, unit_name, ".d/override.conf", &new_path, &tmp_path);
+                        else {
+                                r = strv_prepend(&unit_paths, path);
+                                if (r < 0)
+                                        return log_oom();
+
+                                r = unit_file_create_new(&lp, unit_name, ".d/override.conf", unit_paths, &new_path, &tmp_path);
+                        }
                 }
                 if (r < 0)
                         return r;
@@ -395,6 +459,40 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                         return log_oom();
 
                 new_path = tmp_path = NULL;
+        }
+
+        return 0;
+}
+
+static int trim_edit_markers(const char *path) {
+        _cleanup_free_ char *contents = NULL;
+        char *contents_start = NULL;
+        const char *contents_end = NULL;
+        size_t size;
+        int r;
+
+        /* Trim out the lines between the two markers */
+        r = read_full_file(path, &contents, &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read temporary file \"%s\": %m", path);
+
+        contents_start = strstr(contents, EDIT_MARKER_START);
+        if (contents_start)
+                contents_start += strlen(EDIT_MARKER_START);
+        else
+                contents_start = contents;
+
+        contents_end = strstr(contents_start, EDIT_MARKER_END);
+        if (contents_end)
+                strshorten(contents_start, contents_end - contents_start);
+
+        contents_start = strstrip(contents_start);
+
+        /* Write new contents if the trimming actually changed anything */
+        if (strlen(contents) != size) {
+                r = write_string_file(path, contents_start, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to modify temporary file \"%s\": %m", path);
         }
 
         return 0;
@@ -452,6 +550,10 @@ int edit(int argc, char *argv[], void *userdata) {
         STRV_FOREACH_PAIR(original, tmp, paths) {
                 /* If the temporary file is empty we ignore it. This allows the user to cancel the
                  * modification. */
+                r = trim_edit_markers(*tmp);
+                if (r < 0)
+                        continue;
+
                 if (null_or_empty_path(*tmp)) {
                         log_warning("Editing \"%s\" canceled: temporary file is empty.", *original);
                         continue;
