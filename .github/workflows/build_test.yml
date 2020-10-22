@@ -13,13 +13,14 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
         env:
           - { COMPILER: "gcc",   COMPILER_VERSION: "10" }
           - { COMPILER: "clang", COMPILER_VERSION: "10" }
+          - { COMPILER: "clang", COMPILER_VERSION: "11" }
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
