@@ -25,5 +25,6 @@
 #LLMNR=@DEFAULT_LLMNR_MODE@
 #Cache=yes
 #DNSStubListener=yes
+#DNSStubListenerExtra=
 #ReadEtcHosts=yes
 #ResolveUnicastSingleLabel=no
