@@ -270,7 +270,8 @@
   <refsect1>
     <title>History</title>
 
-    <para>The following "naming schemes" have been defined:</para>
+    <para>The following "naming schemes" have been defined (which may be chosen at system boot-up time via
+    the <varname>net.naming-scheme=</varname> kernel command line switch, see above:</para>
 
     <variablelist>
         <varlistentry>
@@ -359,7 +360,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><constant>v246</constant></term>
+          <term><constant>v247</constant></term>
 
           <listitem><para>If the PCI slot is assocated with PCI bridge and that has multiple child network
           controllers then all of them might derive the same value of <varname>ID_NET_NAME_SLOT</varname>
