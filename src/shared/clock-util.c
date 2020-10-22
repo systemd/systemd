@@ -151,9 +151,9 @@ int clock_apply_epoch(void) {
 
         if (stat(EPOCH_FILE, &st) < 0) {
                 if (errno != ENOENT)
-                        log_warning_errno(errno, "Cannot stat %s: %m\n", EPOCH_FILE);
+                        log_warning_errno(errno, "Cannot stat " EPOCH_FILE ": %m");
 
-                epoch_usec = ((usec_t) TIME_EPOCH * USEC_PER_SEC);
+                epoch_usec = (usec_t) TIME_EPOCH * USEC_PER_SEC;
         } else
                 epoch_usec = timespec_load(&st.st_mtim);
 
