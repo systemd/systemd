@@ -20,6 +20,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* teach LoadCredential= the ability to load all files from a specfied dir as
+  individual creds
+
 * systemd-analyze netif that explains predictable interface (or networkctl)
 
 * port selinux code from mallinfo() to mallinfo2() once added to glibc
