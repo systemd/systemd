@@ -761,7 +761,7 @@ int route_remove(
         return 0;
 }
 
-static bool link_is_static_route_configured(const Link *link, const Route *route) {
+static bool link_has_route(const Link *link, const Route *route) {
         Route *net_route;
 
         assert(link);
@@ -777,11 +777,78 @@ static bool link_is_static_route_configured(const Link *link, const Route *route
         return false;
 }
 
+static bool links_have_route(Manager *manager, const Route *route, const Link *except) {
+        Link *link;
+
+        assert(manager);
+
+        HASHMAP_FOREACH(link, manager->links) {
+                if (link == except)
+                        continue;
+
+                if (link_has_route(link, route))
+                        return true;
+        }
+
+        return false;
+}
+
+static int manager_drop_foreign_routes(Manager *manager) {
+        Route *route;
+        int k, r = 0;
+
+        assert(manager);
+
+        SET_FOREACH(route, manager->routes_foreign) {
+                /* do not touch routes managed by the kernel */
+                if (route->protocol == RTPROT_KERNEL)
+                        continue;
+
+                if (links_have_route(manager, route, NULL))
+                        /* The route will be configured later. */
+                        continue;
+
+                /* The existing links do not have the route. Let's drop this now. It may by
+                 * re-configured later. */
+                k = route_remove(route, manager, NULL, NULL);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
+static int manager_drop_routes(Manager *manager, Link *except) {
+        Route *route;
+        int k, r = 0;
+
+        assert(manager);
+
+        SET_FOREACH(route, manager->routes) {
+                /* do not touch routes managed by the kernel */
+                if (route->protocol == RTPROT_KERNEL)
+                        continue;
+
+                if (links_have_route(manager, route, except))
+                        /* The route will be configured later. */
+                        continue;
+
+                /* The existing links do not have the route. Let's drop this now. It may by
+                 * re-configured later. */
+                k = route_remove(route, manager, NULL, NULL);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
+}
+
 int link_drop_foreign_routes(Link *link) {
         Route *route;
         int k, r = 0;
 
         assert(link);
+        assert(link->manager);
 
         SET_FOREACH(route, link->routes_foreign) {
                 /* do not touch routes managed by the kernel */
@@ -805,13 +872,17 @@ int link_drop_foreign_routes(Link *link) {
                     FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
                         continue;
 
-                if (link_is_static_route_configured(link, route))
+                if (link_has_route(link, route))
                         k = route_add(NULL, link, route, NULL, NULL);
                 else
                         k = route_remove(route, NULL, link, NULL);
                 if (k < 0 && r >= 0)
                         r = k;
         }
+
+        k = manager_drop_foreign_routes(link->manager);
+        if (k < 0 && r >= 0)
+                r = k;
 
         return r;
 }
@@ -831,6 +902,10 @@ int link_drop_routes(Link *link) {
                 if (k < 0 && r >= 0)
                         r = k;
         }
+
+        k = manager_drop_routes(link->manager, link);
+        if (k < 0 && r >= 0)
+                r = k;
 
         return r;
 }
