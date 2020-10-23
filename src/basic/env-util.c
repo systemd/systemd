@@ -52,10 +52,7 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
 }
 
 bool env_name_is_valid(const char *e) {
-        if (!e)
-                return false;
-
-        return env_name_is_valid_n(e, strlen(e));
+        return env_name_is_valid_n(e, strlen_ptr(e));
 }
 
 bool env_value_is_valid(const char *e) {
