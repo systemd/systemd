@@ -21,19 +21,16 @@
         DIGITS LETTERS                          \
         "_"
 
-static bool printable_portable_character(char c) {
-        /* POSIX.1-2008 specifies almost all ASCII characters as "portable". (Only DEL is excluded, and
-         * additionally NUL and = are not allowed in variable names). We are stricter, and additionally
-         * reject BEL, BS, HT, CR, LF, VT, FF and SPACE, i.e. all whitespace. */
-
-        return c >= '!' && c <= '~';
-}
-
 static bool env_name_is_valid_n(const char *e, size_t n) {
+        const char *p;
+
         if (!e)
                 return false;
 
         if (n <= 0)
+                return false;
+
+        if (e[0] >= '0' && e[0] <= '9')
                 return false;
 
         /* POSIX says the overall size of the environment block cannot
@@ -44,8 +41,8 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
         if (n > (size_t) sysconf(_SC_ARG_MAX) - 2)
                 return false;
 
-        for (const char *p = e; p < e + n; p++)
-                if (!printable_portable_character(*p) || *p == '=')
+        for (p = e; p < e + n; p++)
+                if (!strchr(VALID_BASH_ENV_NAME_CHARS, *p))
                         return false;
 
         return true;
