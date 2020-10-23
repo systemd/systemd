@@ -889,6 +889,33 @@ static void event_gc_signal_data(sd_event *e, const int64_t *priority, int sig) 
                 event_unmask_signal_data(e, d, sig);
 }
 
+static void event_source_pp_prioq_reshuffle(sd_event_source *s) {
+        assert(s);
+
+        /* Reshuffles the pending + prepare prioqs. Called whenever the dispatch order changes, i.e. when
+         * they are enabled/disabled or marked pending and such. */
+
+        if (s->pending)
+                prioq_reshuffle(s->event->pending, s, &s->pending_index);
+
+        if (s->prepare)
+                prioq_reshuffle(s->event->prepare, s, &s->prepare_index);
+}
+
+static void event_source_time_prioq_reshuffle(sd_event_source *s) {
+        struct clock_data *d;
+
+        assert(s);
+        assert(EVENT_SOURCE_IS_TIME(s->type));
+
+        /* Called whenever the event source's timer ordering properties changed, i.e. time, accuracy,
+         * pending, enable state. Makes sure the two prioq's are ordered properly again. */
+        assert_se(d = event_get_clock_data(s->event, s->type));
+        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
+        prioq_reshuffle(d->latest, s, &s->time.latest_index);
+        d->needs_rearm = true;
+}
+
 static void source_disconnect(sd_event_source *s) {
         sd_event *event;
 
@@ -1052,16 +1079,8 @@ static int source_set_pending(sd_event_source *s, bool b) {
         } else
                 assert_se(prioq_remove(s->event->pending, s, &s->pending_index));
 
-        if (EVENT_SOURCE_IS_TIME(s->type)) {
-                struct clock_data *d;
-
-                d = event_get_clock_data(s->event, s->type);
-                assert(d);
-
-                prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-                prioq_reshuffle(d->latest, s, &s->time.latest_index);
-                d->needs_rearm = true;
-        }
+        if (EVENT_SOURCE_IS_TIME(s->type))
+                event_source_time_prioq_reshuffle(s);
 
         if (s->type == SOURCE_SIGNAL && !b) {
                 struct signal_data *d;
@@ -2215,11 +2234,7 @@ _public_ int sd_event_source_set_priority(sd_event_source *s, int64_t priority) 
         } else
                 s->priority = priority;
 
-        if (s->pending)
-                prioq_reshuffle(s->event->pending, s, &s->pending_index);
-
-        if (s->prepare)
-                prioq_reshuffle(s->event->prepare, s, &s->prepare_index);
+        event_source_pp_prioq_reshuffle(s);
 
         if (s->type == SOURCE_EXIT)
                 prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
@@ -2280,18 +2295,10 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                 case SOURCE_TIME_BOOTTIME:
                 case SOURCE_TIME_MONOTONIC:
                 case SOURCE_TIME_REALTIME_ALARM:
-                case SOURCE_TIME_BOOTTIME_ALARM: {
-                        struct clock_data *d;
-
+                case SOURCE_TIME_BOOTTIME_ALARM:
                         s->enabled = m;
-                        d = event_get_clock_data(s->event, s->type);
-                        assert(d);
-
-                        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-                        prioq_reshuffle(d->latest, s, &s->time.latest_index);
-                        d->needs_rearm = true;
+                        event_source_time_prioq_reshuffle(s);
                         break;
-                }
 
                 case SOURCE_SIGNAL:
                         s->enabled = m;
@@ -2346,18 +2353,10 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                 case SOURCE_TIME_BOOTTIME:
                 case SOURCE_TIME_MONOTONIC:
                 case SOURCE_TIME_REALTIME_ALARM:
-                case SOURCE_TIME_BOOTTIME_ALARM: {
-                        struct clock_data *d;
-
+                case SOURCE_TIME_BOOTTIME_ALARM:
                         s->enabled = m;
-                        d = event_get_clock_data(s->event, s->type);
-                        assert(d);
-
-                        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-                        prioq_reshuffle(d->latest, s, &s->time.latest_index);
-                        d->needs_rearm = true;
+                        event_source_time_prioq_reshuffle(s);
                         break;
-                }
 
                 case SOURCE_SIGNAL:
 
@@ -2405,11 +2404,7 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                 }
         }
 
-        if (s->pending)
-                prioq_reshuffle(s->event->pending, s, &s->pending_index);
-
-        if (s->prepare)
-                prioq_reshuffle(s->event->prepare, s, &s->prepare_index);
+        event_source_pp_prioq_reshuffle(s);
 
         return 0;
 }
@@ -2425,7 +2420,6 @@ _public_ int sd_event_source_get_time(sd_event_source *s, uint64_t *usec) {
 }
 
 _public_ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
-        struct clock_data *d;
         int r;
 
         assert_return(s, -EINVAL);
@@ -2439,13 +2433,7 @@ _public_ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
 
         s->time.next = usec;
 
-        d = event_get_clock_data(s->event, s->type);
-        assert(d);
-
-        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-        prioq_reshuffle(d->latest, s, &s->time.latest_index);
-        d->needs_rearm = true;
-
+        event_source_time_prioq_reshuffle(s);
         return 0;
 }
 
@@ -2460,7 +2448,6 @@ _public_ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *use
 }
 
 _public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec) {
-        struct clock_data *d;
         int r;
 
         assert_return(s, -EINVAL);
@@ -2478,12 +2465,7 @@ _public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec
 
         s->time.accuracy = usec;
 
-        d = event_get_clock_data(s->event, s->type);
-        assert(d);
-
-        prioq_reshuffle(d->latest, s, &s->time.latest_index);
-        d->needs_rearm = true;
-
+        event_source_time_prioq_reshuffle(s);
         return 0;
 }
 
@@ -2773,9 +2755,7 @@ static int process_timer(
                 if (r < 0)
                         return r;
 
-                prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-                prioq_reshuffle(d->latest, s, &s->time.latest_index);
-                d->needs_rearm = true;
+                event_source_time_prioq_reshuffle(s);
         }
 
         return 0;
