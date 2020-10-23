@@ -1983,13 +1983,18 @@ SystemCallErrorNumber=EPERM</programlisting>
       <varlistentry>
         <term><varname>Environment=</varname></term>
 
-        <listitem><para>Sets environment variables for executed processes. Takes a space-separated list of variable
-        assignments. This option may be specified more than once, in which case all listed variables will be set. If
-        the same variable is set twice, the later setting will override the earlier setting. If the empty string is
-        assigned to this option, the list of environment variables is reset, all prior assignments have no
-        effect. Variable expansion is not performed inside the strings, however, specifier expansion is possible. The $
-        character has no special meaning. If you need to assign a value containing spaces or the equals sign to a
-        variable, use double quotes (") for the assignment.</para>
+        <listitem><para>Sets environment variables for executed processes. Takes a space-separated list of
+        variable assignments. This option may be specified more than once, in which case all listed variables
+        will be set. If the same variable is set twice, the later setting will override the earlier
+        setting. If the empty string is assigned to this option, the list of environment variables is reset,
+        all prior assignments have no effect. Variable expansion is not performed inside the strings,
+        however, specifier expansion is possible. The <literal>$</literal> character has no special
+        meaning. If you need to assign a value containing spaces or the equals sign to a variable, use double
+        quotes (") for the assignment.</para>
+
+        <para>The names of the variables can contain ASCII letters, digits, and the underscore
+        character. Variable names cannot be empty or start with a digit. In variable values, most characters
+        are allowed, but non-printable characters are currently rejected.</para>
 
         <para>Example:
         <programlisting>Environment="VAR1=word1 word2" VAR2=word3 "VAR3=$word 5 6"</programlisting>

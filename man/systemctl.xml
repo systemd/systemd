@@ -997,6 +997,14 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
     <refsect2>
       <title>Environment Commands</title>
 
+      <para><command>systemd</command> supports an environment block that is passed to processes the manager
+      spawns. The names of the variables can contain ASCII letters, digits, and the underscore
+      character. Variable names cannot be empty or start with a digit. In variable values, most characters
+      are allowed, but non-printable characters are currently rejected. The total length of the environment
+      block is limited to <constant>_SC_ARG_MAX</constant> value defined by
+      <citerefentry project='man-pages'><refentrytitle>sysconf</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      </para>
+
       <variablelist>
         <varlistentry>
           <term><command>show-environment</command></term>
@@ -1028,8 +1036,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>set-environment <replaceable>VARIABLE=VALUE</replaceable>…</command></term>
 
           <listitem>
-            <para>Set one or more systemd manager environment variables,
-            as specified on the command line.</para>
+            <para>Set one or more systemd manager environment variables, as specified on the command
+            line. This command will fail if variable names and values do not conform to the rules listed
+            above.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1050,13 +1059,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </term>
 
           <listitem>
-            <para>Import all, one or more environment variables set on
-            the client into the systemd manager environment block. If
-            no arguments are passed, the entire environment block is
-            imported. Otherwise, a list of one or more environment
-            variable names should be passed, whose client-side values
-            are then imported into the manager's environment
-            block.</para>
+            <para>Import all, one or more environment variables set on the client into the systemd manager
+            environment block. If no arguments are passed, the entire environment block is imported.
+            Otherwise, a list of one or more environment variable names should be passed, whose client-side
+            values are then imported into the manager's environment block. This command will silently ignore
+            any assignments which do not conform to the rules listed above.</para>
           </listitem>
         </varlistentry>
       </variablelist>
