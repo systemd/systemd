@@ -2260,6 +2260,137 @@ _public_ int sd_event_source_get_enabled(sd_event_source *s, int *m) {
         return 0;
 }
 
+static int event_source_disable(sd_event_source *s) {
+        int r;
+
+        assert(s);
+        assert(s->enabled != SD_EVENT_OFF);
+
+        /* Unset the pending flag when this event source is disabled */
+        if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                r = source_set_pending(s, false);
+                if (r < 0)
+                        return r;
+        }
+
+        s->enabled = SD_EVENT_OFF;
+
+        switch (s->type) {
+
+        case SOURCE_IO:
+                source_io_unregister(s);
+                break;
+
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM:
+                event_source_time_prioq_reshuffle(s);
+                break;
+
+        case SOURCE_SIGNAL:
+                event_gc_signal_data(s->event, &s->priority, s->signal.sig);
+                break;
+
+        case SOURCE_CHILD:
+                assert(s->event->n_enabled_child_sources > 0);
+                s->event->n_enabled_child_sources--;
+
+                event_gc_signal_data(s->event, &s->priority, SIGCHLD);
+                break;
+
+        case SOURCE_EXIT:
+                prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
+                break;
+
+        case SOURCE_DEFER:
+        case SOURCE_POST:
+        case SOURCE_INOTIFY:
+                break;
+
+        default:
+                assert_not_reached("Wut? I shouldn't exist.");
+        }
+
+        return 0;
+}
+
+static int event_source_enable(sd_event_source *s, int m) {
+        int r;
+
+        assert(s);
+        assert(IN_SET(m, SD_EVENT_ON, SD_EVENT_ONESHOT));
+        assert(s->enabled == SD_EVENT_OFF);
+
+        /* Unset the pending flag when this event source is enabled */
+        if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                r = source_set_pending(s, false);
+                if (r < 0)
+                        return r;
+        }
+
+        s->enabled = m;
+
+        switch (s->type) {
+
+        case SOURCE_IO:
+                r = source_io_register(s, m, s->io.events);
+                if (r < 0) {
+                        s->enabled = SD_EVENT_OFF;
+                        return r;
+                }
+
+                break;
+
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM:
+                event_source_time_prioq_reshuffle(s);
+                break;
+
+        case SOURCE_SIGNAL:
+                r = event_make_signal_data(s->event, s->signal.sig, NULL);
+                if (r < 0) {
+                        s->enabled = SD_EVENT_OFF;
+                        event_gc_signal_data(s->event, &s->priority, s->signal.sig);
+                        return r;
+                }
+
+                break;
+
+        case SOURCE_CHILD:
+                s->event->n_enabled_child_sources++;
+
+                r = event_make_signal_data(s->event, SIGCHLD, NULL);
+                if (r < 0) {
+                        s->enabled = SD_EVENT_OFF;
+                        s->event->n_enabled_child_sources--;
+                        event_gc_signal_data(s->event, &s->priority, SIGCHLD);
+                        return r;
+                }
+
+
+                break;
+
+        case SOURCE_EXIT:
+                prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
+                break;
+
+        case SOURCE_DEFER:
+        case SOURCE_POST:
+        case SOURCE_INOTIFY:
+                break;
+
+        default:
+                assert_not_reached("Wut? I shouldn't exist.");
+        }
+
+        return 0;
+}
+
 _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         int r;
 
@@ -2267,145 +2398,29 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
         assert_return(IN_SET(m, SD_EVENT_OFF, SD_EVENT_ON, SD_EVENT_ONESHOT), -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        /* If we are dead anyway, we are fine with turning off
-         * sources, but everything else needs to fail. */
+        /* If we are dead anyway, we are fine with turning off sources, but everything else needs to fail. */
         if (s->event->state == SD_EVENT_FINISHED)
                 return m == SD_EVENT_OFF ? 0 : -ESTALE;
 
-        if (s->enabled == m)
+        if (s->enabled == m) /* No change? */
                 return 0;
 
-        if (m == SD_EVENT_OFF) {
-
-                /* Unset the pending flag when this event source is disabled */
-                if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
-                        r = source_set_pending(s, false);
-                        if (r < 0)
-                                return r;
+        if (m == SD_EVENT_OFF)
+                r = event_source_disable(s);
+        else {
+                if (s->enabled != SD_EVENT_OFF) {
+                        /* Switching from "on" to "oneshot" or back? If that's the case, we can take a shortcut, the
+                         * event source is already enabled after all. */
+                        s->enabled = m;
+                        return 0;
                 }
 
-                switch (s->type) {
-
-                case SOURCE_IO:
-                        source_io_unregister(s);
-                        s->enabled = m;
-                        break;
-
-                case SOURCE_TIME_REALTIME:
-                case SOURCE_TIME_BOOTTIME:
-                case SOURCE_TIME_MONOTONIC:
-                case SOURCE_TIME_REALTIME_ALARM:
-                case SOURCE_TIME_BOOTTIME_ALARM:
-                        s->enabled = m;
-                        event_source_time_prioq_reshuffle(s);
-                        break;
-
-                case SOURCE_SIGNAL:
-                        s->enabled = m;
-
-                        event_gc_signal_data(s->event, &s->priority, s->signal.sig);
-                        break;
-
-                case SOURCE_CHILD:
-                        s->enabled = m;
-
-                        assert(s->event->n_enabled_child_sources > 0);
-                        s->event->n_enabled_child_sources--;
-
-                        event_gc_signal_data(s->event, &s->priority, SIGCHLD);
-                        break;
-
-                case SOURCE_EXIT:
-                        s->enabled = m;
-                        prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
-                        break;
-
-                case SOURCE_DEFER:
-                case SOURCE_POST:
-                case SOURCE_INOTIFY:
-                        s->enabled = m;
-                        break;
-
-                default:
-                        assert_not_reached("Wut? I shouldn't exist.");
-                }
-
-        } else {
-
-                /* Unset the pending flag when this event source is enabled */
-                if (s->enabled == SD_EVENT_OFF && !IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
-                        r = source_set_pending(s, false);
-                        if (r < 0)
-                                return r;
-                }
-
-                switch (s->type) {
-
-                case SOURCE_IO:
-                        r = source_io_register(s, m, s->io.events);
-                        if (r < 0)
-                                return r;
-
-                        s->enabled = m;
-                        break;
-
-                case SOURCE_TIME_REALTIME:
-                case SOURCE_TIME_BOOTTIME:
-                case SOURCE_TIME_MONOTONIC:
-                case SOURCE_TIME_REALTIME_ALARM:
-                case SOURCE_TIME_BOOTTIME_ALARM:
-                        s->enabled = m;
-                        event_source_time_prioq_reshuffle(s);
-                        break;
-
-                case SOURCE_SIGNAL:
-
-                        s->enabled = m;
-
-                        r = event_make_signal_data(s->event, s->signal.sig, NULL);
-                        if (r < 0) {
-                                s->enabled = SD_EVENT_OFF;
-                                event_gc_signal_data(s->event, &s->priority, s->signal.sig);
-                                return r;
-                        }
-
-                        break;
-
-                case SOURCE_CHILD:
-
-                        if (s->enabled == SD_EVENT_OFF)
-                                s->event->n_enabled_child_sources++;
-
-                        s->enabled = m;
-
-                        r = event_make_signal_data(s->event, SIGCHLD, NULL);
-                        if (r < 0) {
-                                s->enabled = SD_EVENT_OFF;
-                                s->event->n_enabled_child_sources--;
-                                event_gc_signal_data(s->event, &s->priority, SIGCHLD);
-                                return r;
-                        }
-
-                        break;
-
-                case SOURCE_EXIT:
-                        s->enabled = m;
-                        prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
-                        break;
-
-                case SOURCE_DEFER:
-                case SOURCE_POST:
-                case SOURCE_INOTIFY:
-                        s->enabled = m;
-                        break;
-
-                default:
-                        assert_not_reached("Wut? I shouldn't exist.");
-                }
+                r = event_source_enable(s, m);
         }
+        if (r < 0)
+                return r;
 
         event_source_pp_prioq_reshuffle(s);
-
         return 0;
 }
 
