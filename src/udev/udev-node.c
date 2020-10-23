@@ -20,11 +20,14 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-node.h"
 #include "user-util.h"
+
+#define LINK_UPDATE_MAX_RETRIES 128
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
@@ -99,7 +102,9 @@ static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         if (rename(slink_tmp, slink) < 0) {
                 r = log_device_error_errno(dev, errno, "Failed to rename '%s' to '%s': %m", slink_tmp, slink);
                 (void) unlink(slink_tmp);
-        }
+        } else
+                /* Tell caller that we replaced already existing symlink. */
+                r = 1;
 
         return r;
 }
@@ -192,7 +197,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *target = NULL, *filename = NULL, *dirname = NULL;
         char name_enc[PATH_MAX];
         const char *id_filename;
-        int r;
+        int i, r, retries;
 
         assert(dev);
         assert(slink);
@@ -212,14 +217,6 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (!add && unlink(filename) == 0)
                 (void) rmdir(dirname);
 
-        r = link_find_prioritized(dev, add, dirname, &target);
-        if (r < 0) {
-                log_device_debug(dev, "No reference left, removing '%s'", slink);
-                if (unlink(slink) == 0)
-                        (void) rmdir_parents(slink, "/");
-        } else
-                (void) node_symlink(dev, target, slink);
-
         if (add)
                 do {
                         _cleanup_close_ int fd = -1;
@@ -232,7 +229,49 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                                 r = -errno;
                 } while (r == -ENOENT);
 
-        return r;
+        /* If the database entry is not written yet we will just do one iteration and possibly wrong symlink
+         * will be fixed in the second invocation. */
+        retries = sd_device_get_is_initialized(dev) > 0 ? LINK_UPDATE_MAX_RETRIES : 1;
+
+        for (i = 0; i < retries; i++) {
+                struct stat st1 = {}, st2 = {};
+
+                r = stat(dirname, &st1);
+                if (r < 0 && errno != ENOENT)
+                        return -errno;
+
+                r = link_find_prioritized(dev, add, dirname, &target);
+                if (r == -ENOENT) {
+                        log_device_debug(dev, "No reference left, removing '%s'", slink);
+                        if (unlink(slink) == 0)
+                                (void) rmdir_parents(slink, "/");
+
+                        break;
+                } else if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to determine highest priority symlink: %m");
+
+                r = node_symlink(dev, target, slink);
+                if (r < 0) {
+                        (void) unlink(filename);
+                        break;
+                } else if (r == 1)
+                        /* We have replaced already existing symlink, possibly there is some other device trying
+                         * to claim the same symlink. Let's do one more iteration to give us a chance to fix
+                         * the error if other device actually claims the symlink with higher priority. */
+                        continue;
+
+                /* Skip the second stat() if the first failed, stat_inode_unmodified() would return false regardless. */
+                if ((st1.st_mode & S_IFMT) != 0) {
+                        r = stat(dirname, &st2);
+                        if (r < 0 && errno != ENOENT)
+                                return -errno;
+
+                        if (stat_inode_unmodified(&st1, &st2))
+                                break;
+                }
+        }
+
+        return i < LINK_UPDATE_MAX_RETRIES ? 0 : -ELOOP;
 }
 
 int udev_node_update_old_links(sd_device *dev, sd_device *dev_old) {
@@ -451,8 +490,11 @@ int udev_node_add(sd_device *dev, bool apply,
         (void) node_symlink(dev, devnode, filename);
 
         /* create/update symlinks, add symlinks to name index */
-        FOREACH_DEVICE_DEVLINK(dev, devlink)
-                (void) link_update(dev, devlink, true);
+        FOREACH_DEVICE_DEVLINK(dev, devlink) {
+                r = link_update(dev, devlink, true);
+                if (r < 0)
+                        log_device_info_errno(dev, r, "Failed to update device symlinks: %m");
+        }
 
         return 0;
 }
@@ -465,8 +507,11 @@ int udev_node_remove(sd_device *dev) {
         assert(dev);
 
         /* remove/update symlinks, remove symlinks from name index */
-        FOREACH_DEVICE_DEVLINK(dev, devlink)
-                (void) link_update(dev, devlink, false);
+        FOREACH_DEVICE_DEVLINK(dev, devlink) {
+                r = link_update(dev, devlink, false);
+                if (r < 0)
+                        log_device_info_errno(dev, r, "Failed to update device symlinks: %m");
+        }
 
         r = xsprintf_dev_num_path_from_sd_device(dev, &filename);
         if (r < 0)
