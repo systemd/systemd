@@ -20,6 +20,7 @@ PAMName=systemd-user
 Type=notify
 ExecStart=@rootlibexecdir@/systemd --user
 Slice=user-%i.slice
+OOMScoreAdjust=500
 KillMode=mixed
 Delegate=pids memory
 TasksMax=infinity
