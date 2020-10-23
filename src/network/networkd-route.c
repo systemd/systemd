@@ -701,7 +701,7 @@ int route_remove(
                         return log_link_error_errno(link, r, "Could not append RTA_OIF attribute: %m");
         }
 
-        r = netlink_call_async(link->manager->rtnl, NULL, req,
+        r = netlink_call_async(manager->rtnl, NULL, req,
                                callback ?: route_remove_handler,
                                link_netlink_destroy_callback, link);
         if (r < 0)
