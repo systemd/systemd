@@ -217,36 +217,8 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         _cleanup_(blkid_free_probep) blkid_probe pr = NULL;
         bool noraid = false, is_gpt = false;
         _cleanup_close_ int fd = -1;
-        int64_t offset = 0;
         int nvals, i, r;
-
-        static const struct option options[] = {
-                { "offset", required_argument, NULL, 'o' },
-                { "noraid", no_argument, NULL, 'R' },
-                {}
-        };
-
-        for (;;) {
-                int option;
-
-                option = getopt_long(argc, argv, "o:R", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
-                case 'o':
-                        r = safe_atoi64(optarg, &offset);
-                        if (r < 0)
-                                return log_device_error_errno(dev, r, "Failed to parse '%s' as an integer: %m", optarg);
-                        if (offset < 0)
-                                return log_device_error_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid offset %"PRIi64": %m", offset);
-                        break;
-                case 'R':
-                        noraid = true;
-                        break;
-                }
-        }
-
+        
         errno = 0;
         pr = blkid_new_probe();
         if (!pr)
@@ -269,11 +241,9 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
                 return log_device_debug_errno(dev, errno, "Failed to open block device %s: %m", devnode);
 
         errno = 0;
-        r = blkid_probe_set_device(pr, fd, offset, 0);
+        r = blkid_probe_set_device(pr, fd, 0, 0);
         if (r < 0)
                 return log_device_debug_errno(dev, errno > 0 ? errno : ENOMEM, "Failed to set device to blkid prober: %m");
-
-        log_device_debug(dev, "Probe %s with %sraid and offset=%"PRIi64, devnode, noraid ? "no" : "", offset);
 
         r = probe_superblocks(pr);
         if (r < 0)
