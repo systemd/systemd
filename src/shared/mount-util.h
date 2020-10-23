@@ -89,10 +89,11 @@ int mount_option_mangle(
 int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest);
 
 /* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
-static inline void umount_and_rmdir_and_free(char *p) {
+static inline char* umount_and_rmdir_and_free(char *p) {
         PROTECT_ERRNO;
         (void) umount_recursive(p, 0);
         (void) rmdir(p);
         free(p);
+        return NULL;
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
