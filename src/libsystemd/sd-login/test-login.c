@@ -68,7 +68,7 @@ static void test_login(void) {
 
         r = sd_pid_get_cgroup(0, &cgroup);
         log_info("sd_pid_get_cgroup(0, …) → %s / \"%s\"", e(r), strnull(cgroup));
-        assert_se(r == 0);
+        assert_se(IN_SET(r, 0, -ENOMEDIUM));
 
         r = sd_uid_get_display(u2, &display_session);
         log_info("sd_uid_get_display("UID_FMT", …) → %s / \"%s\"", u2, e(r), strnull(display_session));
