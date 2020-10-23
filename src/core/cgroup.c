@@ -2422,6 +2422,29 @@ void unit_release_cgroup(Unit *u) {
         }
 }
 
+bool unit_maybe_release_cgroup(Unit *u) {
+        int r;
+
+        assert(u);
+
+        if (!u->cgroup_path)
+                return true;
+
+        /* Don't release the cgroup if there are still processes under it. If we get notified later when all the
+         * processes exit (e.g. the processes were in D-state and exited after the unit was marked as failed)
+         * we need the cgroup paths to continue to be tracked by the manager so they can be looked up and cleaned
+         * up later. */
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Error checking if the cgroup is recursively empty, ignoring: %m");
+        else if (r == 1) {
+                unit_release_cgroup(u);
+                return true;
+        }
+
+        return false;
+}
+
 void unit_prune_cgroup(Unit *u) {
         int r;
         bool is_root_slice;
@@ -2449,7 +2472,8 @@ void unit_prune_cgroup(Unit *u) {
         if (is_root_slice)
                 return;
 
-        unit_release_cgroup(u);
+        if (!unit_maybe_release_cgroup(u)) /* Returns true if the cgroup was released */
+                return;
 
         u->cgroup_realized = false;
         u->cgroup_realized_mask = 0;
