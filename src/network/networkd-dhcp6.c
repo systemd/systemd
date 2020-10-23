@@ -31,7 +31,7 @@ bool link_dhcp6_pd_is_enabled(Link *link) {
         if (!link->network)
                 return false;
 
-        return link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_DHCP6;
+        return link->network->dhcp6_pd;
 }
 
 static bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
@@ -421,11 +421,14 @@ static int dhcp6_pd_assign_prefix(Link *link, const union in_addr_union *prefix,
         int r;
 
         assert(link);
+        assert(link->network);
         assert(prefix);
 
-        r = radv_add_prefix(link, &prefix->in6, prefix_len, lifetime_preferred, lifetime_valid);
-        if (r < 0)
-                return r;
+        if (link->network->dhcp6_pd_announce) {
+                r = radv_add_prefix(link, &prefix->in6, prefix_len, lifetime_preferred, lifetime_valid);
+                if (r < 0)
+                        return r;
+        }
 
         r = dhcp6_set_pd_route(link, prefix, pd_prefix);
         if (r < 0)
@@ -1424,7 +1427,7 @@ int dhcp6_configure(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set ifindex: %m");
 
-        if (link->network->rapid_commit) {
+        if (link->network->dhcp6_rapid_commit) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_RAPID_COMMIT);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP6 CLIENT: Failed to set request flag for rapid commit: %m");

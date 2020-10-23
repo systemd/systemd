@@ -1457,8 +1457,8 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set max attempts: %m");
         }
 
-        if (link->network->ip_service_type > 0) {
-                r = sd_dhcp_client_set_service_type(link->dhcp_client, link->network->ip_service_type);
+        if (link->network->dhcp_ip_service_type > 0) {
+                r = sd_dhcp_client_set_service_type(link->dhcp_client, link->network->dhcp_ip_service_type);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set IP service type: %m");
         }

@@ -47,6 +47,7 @@ RoutePrefix *route_prefix_free(RoutePrefix *prefix);
 
 void network_drop_invalid_prefixes(Network *network);
 void network_drop_invalid_route_prefixes(Network *network);
+void network_adjust_radv(Network *network);
 
 int radv_emit_dns(Link *link);
 int radv_configure(Link *link);

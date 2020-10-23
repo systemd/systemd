@@ -137,6 +137,7 @@ SendVendorOption=
 RouteMetric=
 [DHCPv6PrefixDelegation]
 SubnetId=
+Announce=
 Assign=
 Token=
 [Route]
@@ -190,6 +191,7 @@ DNSOverTLS=
 Bond=
 IPv6ProxyNDP=
 DNS=
+DNSDefaultRoute=
 ActiveSlave=
 LLMNR=
 DNSSEC=
@@ -207,6 +209,7 @@ ConfigureWithoutCarrier=
 NTP=
 DHCP=
 Domains=
+IPv6SendRA=
 IPv6PrefixDelegation=
 VLAN=
 DHCPServer=
@@ -214,6 +217,7 @@ BindCarrier=
 VRF=
 IgnoreCarrierLoss=
 KeepConfiguration=
+DHCPv6PrefixDelegation=
 [IPv6Prefix]
 Prefix=
 OnLink=
@@ -270,11 +274,20 @@ InvertRule=
 Family=
 SuppressPrefixLength=
 User=
+[IPv6SendRA]
+RouterPreference=
+DNSLifetimeSec=
+DNS=
+RouterLifetimeSec=
+Domains=
+EmitDNS=
+EmitDomains=
+Managed=
+OtherInformation=
 [IPv6PrefixDelegation]
 RouterPreference=
 DNSLifetimeSec=
 DNS=
-DNSDefaultRoute=
 RouterLifetimeSec=
 Domains=
 EmitDNS=

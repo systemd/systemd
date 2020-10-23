@@ -980,6 +980,7 @@ static int static_address_configure(const Address *address, Link *link, bool upd
 
 int link_set_addresses(Link *link) {
         Address *ad;
+        Prefix *p;
         int r;
 
         assert(link);
@@ -1000,32 +1001,28 @@ int link_set_addresses(Link *link) {
                         return r;
         }
 
-        if (link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_STATIC) {
-                Prefix *p;
+        HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
+                _cleanup_(address_freep) Address *address = NULL;
 
-                HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
-                        _cleanup_(address_freep) Address *address = NULL;
+                if (!p->assign)
+                        continue;
 
-                        if (!p->assign)
-                                continue;
+                r = address_new(&address);
+                if (r < 0)
+                        return log_oom();
 
-                        r = address_new(&address);
-                        if (r < 0)
-                                return log_oom();
+                r = sd_radv_prefix_get_prefix(p->radv_prefix, &address->in_addr.in6, &address->prefixlen);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not get RA prefix: %m");
 
-                        r = sd_radv_prefix_get_prefix(p->radv_prefix, &address->in_addr.in6, &address->prefixlen);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not get RA prefix: %m");
+                r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Could not generate EUI64 address: %m");
 
-                        r = generate_ipv6_eui_64_address(link, &address->in_addr.in6);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not generate EUI64 address: %m");
-
-                        address->family = AF_INET6;
-                        r = static_address_configure(address, link, true);
-                        if (r < 0)
-                                return r;
-                }
+                address->family = AF_INET6;
+                r = static_address_configure(address, link, true);
+                if (r < 0)
+                        return r;
         }
 
         if (link->address_messages == 0) {

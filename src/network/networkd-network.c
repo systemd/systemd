@@ -214,14 +214,6 @@ int network_verify(Network *network) {
         if (network->link_local < 0)
                 network->link_local = network->bridge ? ADDRESS_FAMILY_NO : ADDRESS_FAMILY_IPV6;
 
-        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
-                if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE) {
-                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link local addressing is disabled. "
-                                    "Disabling IPv6PrefixDelegation=.", network->filename);
-                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
-                }
-        }
-
         if (FLAGS_SET(network->link_local, ADDRESS_FAMILY_FALLBACK_IPV4) &&
             !FLAGS_SET(network->dhcp, ADDRESS_FAMILY_IPV4)) {
                 log_warning("%s: fallback assignment of IPv4 link local address is enabled but DHCPv4 is disabled. "
@@ -235,6 +227,7 @@ int network_verify(Network *network) {
 
         network_adjust_ipv6_accept_ra(network);
         network_adjust_dhcp(network);
+        network_adjust_radv(network);
 
         if (network->mtu > 0 && network->dhcp_use_mtu) {
                 log_warning("%s: MTUBytes= in [Link] section and UseMTU= in [DHCP] section are set. "
@@ -336,7 +329,16 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .required_for_online = true,
                 .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
+                .arp = -1,
+                .multicast = -1,
+                .allmulticast = -1,
+
+                .configure_without_carrier = false,
+                .ignore_carrier_loss = -1,
+                .keep_configuration = _KEEP_CONFIGURATION_INVALID,
+
                 .dhcp = ADDRESS_FAMILY_NO,
+                .duid.type = _DUID_TYPE_INVALID,
                 .dhcp_critical = -1,
                 .dhcp_use_ntp = true,
                 .dhcp_use_sip = true,
@@ -358,14 +360,17 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_mtu = false,
                 /* NOTE: from man: UseTimezone=... Defaults to "no".*/
                 .dhcp_use_timezone = false,
-                .rapid_commit = true,
+                .dhcp_ip_service_type = -1,
 
+                .dhcp6_rapid_commit = true,
                 .dhcp6_route_metric = DHCP_ROUTE_METRIC,
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_dns = true,
 
-                .dhcp6_pd_subnet_id = -1,
+                .dhcp6_pd = -1,
+                .dhcp6_pd_announce = true,
                 .dhcp6_pd_assign = true,
+                .dhcp6_pd_subnet_id = -1,
 
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,
                 .dhcp_server_emit[SD_DHCP_LEASE_NTP].emit = true,
@@ -404,17 +409,13 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
                 .ipv4_accept_local = -1,
-
                 .ipv6_privacy_extensions = IPV6_PRIVACY_EXTENSIONS_NO,
                 .ipv6_accept_ra = -1,
                 .ipv6_dad_transmits = -1,
                 .ipv6_hop_limit = -1,
                 .ipv6_proxy_ndp = -1,
-                .duid.type = _DUID_TYPE_INVALID,
                 .proxy_arp = -1,
-                .arp = -1,
-                .multicast = -1,
-                .allmulticast = -1,
+
                 .ipv6_accept_ra_use_dns = true,
                 .ipv6_accept_ra_use_autonomous_prefix = true,
                 .ipv6_accept_ra_use_onlink_prefix = true,
@@ -422,15 +423,11 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_accept_ra_route_table_set = false,
                 .ipv6_accept_ra_start_dhcp6_client = true,
 
-                .configure_without_carrier = false,
-                .ignore_carrier_loss = -1,
-                .keep_configuration = _KEEP_CONFIGURATION_INVALID,
                 .can_triple_sampling = -1,
                 .can_termination = -1,
                 .can_listen_only = -1,
                 .can_fd_mode = -1,
                 .can_non_iso = -1,
-                .ip_service_type = -1,
         };
 
         r = config_parse_many(
@@ -456,6 +453,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "BridgeFDB\0"
                         "BridgeMDB\0"
                         "BridgeVLAN\0"
+                        "IPv6SendRA\0"
                         "IPv6PrefixDelegation\0"
                         "IPv6Prefix\0"
                         "IPv6RoutePrefix\0"
@@ -620,11 +618,11 @@ static Network *network_free(Network *network) {
         for (unsigned i = 0; i < network->n_dns; i++)
                 in_addr_full_free(network->dns[i]);
         free(network->dns);
-        ordered_set_free_free(network->search_domains);
-        ordered_set_free_free(network->route_domains);
+        ordered_set_free(network->search_domains);
+        ordered_set_free(network->route_domains);
         strv_free(network->bind_carrier);
 
-        ordered_set_free_free(network->router_search_domains);
+        ordered_set_free(network->router_search_domains);
         free(network->router_dns);
         set_free_free(network->ndisc_deny_listed_prefix);
 
@@ -864,8 +862,8 @@ int config_parse_domains(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                n->search_domains = ordered_set_free_free(n->search_domains);
-                n->route_domains = ordered_set_free_free(n->route_domains);
+                n->search_domains = ordered_set_free(n->search_domains);
+                n->route_domains = ordered_set_free(n->route_domains);
                 return 0;
         }
 
@@ -913,7 +911,7 @@ int config_parse_domains(
                 }
 
                 OrderedSet **set = is_route ? &n->route_domains : &n->search_domains;
-                r = ordered_set_ensure_allocated(set, &string_hash_ops);
+                r = ordered_set_ensure_allocated(set, &string_hash_ops_free);
                 if (r < 0)
                         return log_oom();
 

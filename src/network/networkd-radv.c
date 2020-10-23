@@ -180,6 +180,35 @@ void network_drop_invalid_route_prefixes(Network *network) {
                         route_prefix_free(prefix);
 }
 
+void network_adjust_radv(Network *network) {
+        assert(network);
+
+        /* After this function is called, network->router_prefix_delegation can be treated as a boolean. */
+
+        if (network->dhcp6_pd < 0)
+                /* For backward compatibility. */
+                network->dhcp6_pd = FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_DHCP6);
+
+        if (!FLAGS_SET(network->link_local, ADDRESS_FAMILY_IPV6)) {
+                if (network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE)
+                        log_warning("%s: IPv6PrefixDelegation= is enabled but IPv6 link local addressing is disabled. "
+                                    "Disabling IPv6PrefixDelegation=.", network->filename);
+
+                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
+        }
+
+        if (network->router_prefix_delegation == RADV_PREFIX_DELEGATION_NONE) {
+                network->n_router_dns = 0;
+                network->router_dns = mfree(network->router_dns);
+                network->router_search_domains = ordered_set_free(network->router_search_domains);
+        }
+
+        if (!FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_STATIC)) {
+                network->prefixes_by_section = hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
+                network->route_prefixes_by_section = hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
+        }
+}
+
 int config_parse_prefix(
                 const char *unit,
                 const char *filename,
@@ -608,10 +637,12 @@ static bool link_radv_enabled(Link *link) {
         if (!link_ipv6ll_enabled(link))
                 return false;
 
-        return link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE;
+        return link->network->router_prefix_delegation;
 }
 
 int radv_configure(Link *link) {
+        RoutePrefix *q;
+        Prefix *p;
         int r;
 
         assert(link);
@@ -658,29 +689,24 @@ int radv_configure(Link *link) {
                         return r;
         }
 
-        if (link->network->router_prefix_delegation & RADV_PREFIX_DELEGATION_STATIC) {
-                RoutePrefix *q;
-                Prefix *p;
-
-                HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
-                        r = sd_radv_add_prefix(link->radv, p->radv_prefix, false);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r == -ENOEXEC) {
-                                log_link_warning_errno(link, r, "[IPv6Prefix] section configured without Prefix= setting, ignoring section.");
-                                continue;
-                        }
-                        if (r < 0)
-                                return r;
+        HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
+                r = sd_radv_add_prefix(link->radv, p->radv_prefix, false);
+                if (r == -EEXIST)
+                        continue;
+                if (r == -ENOEXEC) {
+                        log_link_warning_errno(link, r, "[IPv6Prefix] section configured without Prefix= setting, ignoring section.");
+                        continue;
                 }
+                if (r < 0)
+                        return r;
+        }
 
-                HASHMAP_FOREACH(q, link->network->route_prefixes_by_section) {
-                        r = sd_radv_add_route_prefix(link->radv, q->radv_route_prefix, false);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return r;
-                }
+        HASHMAP_FOREACH(q, link->network->route_prefixes_by_section) {
+                r = sd_radv_add_route_prefix(link->radv, q->radv_route_prefix, false);
+                if (r == -EEXIST)
+                        continue;
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -771,6 +797,12 @@ int config_parse_radv_dns(
         assert(lvalue);
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                n->n_router_dns = 0;
+                n->router_dns = mfree(n->router_dns);
+                return 0;
+        }
+
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
                 union in_addr_union a;
@@ -832,6 +864,11 @@ int config_parse_radv_search_domains(
         assert(lvalue);
         assert(rvalue);
 
+        if (isempty(rvalue)) {
+                n->router_search_domains = ordered_set_free(n->router_search_domains);
+                return 0;
+        }
+
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL, *idna = NULL;
 
@@ -855,7 +892,7 @@ int config_parse_radv_search_domains(
                         /* transfer ownership to simplify subsequent operations */
                         idna = TAKE_PTR(w);
 
-                r = ordered_set_ensure_allocated(&n->router_search_domains, &string_hash_ops);
+                r = ordered_set_ensure_allocated(&n->router_search_domains, &string_hash_ops_free);
                 if (r < 0)
                         return log_oom();
 
@@ -877,11 +914,51 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(
                 RADVPrefixDelegation,
                 RADV_PREFIX_DELEGATION_BOTH);
 
-DEFINE_CONFIG_PARSE_ENUM(
-                config_parse_router_prefix_delegation,
-                radv_prefix_delegation,
-                RADVPrefixDelegation,
-                "Invalid router prefix delegation");
+int config_parse_router_prefix_delegation(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        RADVPrefixDelegation val, *ra = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(lvalue, "IPv6SendRA")) {
+                r = parse_boolean(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid %s= setting, ignoring assignment: %s", lvalue, rvalue);
+                        return 0;
+                }
+
+                /* When IPv6SendRA= is enabled, only static prefixes are sent by default, and users
+                 * need to explicitly enable DHCPv6PrefixDelegation=. */
+                *ra = r ? RADV_PREFIX_DELEGATION_STATIC : RADV_PREFIX_DELEGATION_NONE;
+                return 0;
+        }
+
+        /* For backward compatibility */
+        val = radv_prefix_delegation_from_string(rvalue);
+        if (val < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid %s= setting, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        *ra = val;
+        return 0;
+}
 
 int config_parse_router_preference(
                 const char *unit,

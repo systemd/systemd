@@ -810,16 +810,22 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </para></listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>IPv6PrefixDelegation=</varname></term>
-          <listitem><para>Whether to enable or disable Router Advertisement sending on a link.  Allowed
-          values are <literal>static</literal> which distributes prefixes as defined in the
-          [IPv6PrefixDelegation] and any [IPv6Prefix] sections, <literal>dhcpv6</literal> which requests
-          prefixes using a DHCPv6 client configured for another link and any values configured in the
-          [IPv6PrefixDelegation] section while ignoring all static prefix configuration sections,
-          <literal>yes</literal> which uses both static configuration and DHCPv6, and
-          <literal>false</literal> which turns off IPv6 prefix delegation altogether. Defaults to
-          <literal>false</literal>. See the [IPv6PrefixDelegation] and the [IPv6Prefix] sections for more
+          <term><varname>IPv6SendRA=</varname></term>
+          <listitem><para>Whether to enable or disable Router Advertisement sending on a link. Takes a
+          boolean value. When enabled, prefixes configured in [IPv6Prefix] sections and routes
+          configured in [IPv6RoutePrefix] sections are distributed as defined in the [IPv6SendRA]
+          section. If <varname>DHCPv6PrefixDelegation=</varname> is enabled, then the delegated
+          prefixes are also distributed. See <varname>DHCPv6PrefixDelegation=</varname> setting and the
+          [IPv6SendRA], [IPv6Prefix], [IPv6RoutePrefix], and [DHCPv6PrefixDelegation] sections for more
           configuration options.</para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>DHCPv6PrefixDelegation=</varname></term>
+          <listitem><para>Takes a boolean value. When enabled, requests prefixes using a DHCPv6 client
+          configured on another link. By default, an address within each delegated prefix will be
+          assigned, and the prefixes will be announced through IPv6 Router Advertisement when
+          <varname>IPv6SendRA=</varname> is enabled. Such default settings can be configured in
+          [DHCPv6PrefixDelegation] section.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6MTUBytes=</varname></term>
@@ -1957,9 +1963,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
 
   <refsect1>
     <title>[DHCPv6PrefixDelegation] Section Options</title>
-    <para>The [DHCPv6PrefixDelegation] section configures delegated prefix assigned by DHCPv6 server.
-    The settings in this section are used only when <varname>IPv6PrefixDelegation=</varname> setting is
-    enabled, or set to <literal>dhcpv6</literal>.</para>
+    <para>The [DHCPv6PrefixDelegation] section configures delegated prefixes assigned by DHCPv6 server.
+    The settings in this section are used only when <varname>DHCPv6PrefixDelegation=</varname> setting
+    is enabled.</para>
 
     <variablelist class='network-directives'>
       <varlistentry>
@@ -1969,9 +1975,16 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           delegation. You can either set "auto" (the default) or a specific subnet ID (as defined in
           <ulink url="https://tools.ietf.org/html/rfc4291#section-2.5.4">RFC 4291</ulink>, section
           2.5.4), in which case the allowed value is hexadecimal, from 0 to 0x7fffffffffffffff
-          inclusive. This option is only effective when used together with
-          <varname>IPv6PrefixDelegation=</varname> and the corresponding configuration on the upstream
-          interface.</para>
+          inclusive.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Announce=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When enabled, and <varname>IPv6SendRA=</varname> in [Network] section
+          is enabled, the delegated prefixes are distributed through the IPv6 Router Advertisement.
+          Defaults to yes.</para>
         </listitem>
       </varlistentry>
 
@@ -1979,19 +1992,22 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>Assign=</varname></term>
         <listitem>
           <para>Takes a boolean. Specifies whether to add an address from the delegated prefixes which
-          are received from the WAN interface by the <varname>IPv6PrefixDelegation=</varname>. When
-          true (on LAN interfce), the EUI-64 algorithm will be used to form an interface identifier
-          from the delegated prefixes. Defaults to true.</para>
+          are received from the WAN interface by the DHCPv6 Prefix Delegation. When true (on LAN
+          interfce), the EUI-64 algorithm will be used by default to form an interface identifier from
+          the delegated prefixes. See also <varname>Token=</varname> setting below. Defaults to yes.
+          </para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>Token=</varname></term>
         <listitem>
-          <para>Specifies an optional address generation mode for <varname>Assign=</varname>. Takes an
-          IPv6 address. When set, the lower bits of the supplied address are combined with the upper
-          bits of a delegatad prefix received from the WAN interface by the
-          <varname>IPv6PrefixDelegation=</varname> prefixes to form a complete address.</para>
+          <para>Specifies an optional address generation mode for assigning an address in each
+          delegated prefix. Takes an IPv6 address. When set, the lower bits of the supplied address is
+          combined with the upper bits of each delegatad prefix received from the WAN interface by the
+          DHCPv6 Prefix Delegation to form a complete address. When <varname>Assign=</varname> is
+          disabled, this setting is ignored. When unset, the EUI-64 algorithm will be used to form
+          addresses. Defaults to unset.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2213,10 +2229,11 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
   </refsect1>
 
   <refsect1>
-    <title>[IPv6PrefixDelegation] Section Options</title>
-    <para>The [IPv6PrefixDelegation] section contains settings for sending IPv6 Router Advertisements and
-    whether to act as a router, if enabled via the <varname>IPv6PrefixDelegation=</varname> option described
-    above. IPv6 network prefixes are defined with one or more [IPv6Prefix] sections.</para>
+    <title>[IPv6SendRA] Section Options</title>
+    <para>The [IPv6SendRA] section contains settings for sending IPv6 Router Advertisements and whether
+    to act as a router, if enabled via the <varname>IPv6SendRA=</varname> option described above. IPv6
+    network prefixes or routes are defined with one or more [IPv6Prefix] or [IPv6RoutePrefix] sections.
+    </para>
 
     <variablelist class='network-directives'>
 
@@ -3586,10 +3603,13 @@ DHCP=ipv6</programlisting>
 Name=enp2s0
 
 [Network]
-IPv6PrefixDelegation=dhcpv6</programlisting>
+IPv6SendRA=yes
+DHCPv6PrefixDelegation=yes</programlisting>
 
-      <para>This will enable IPv6 PD on the interface enp1s0 as an upstream interface where the
-      DHCPv6 client is running and enp2s0 as a downstream interface where the prefix is delegated to.</para>
+      <para>This will enable DHCPv6-PD on the interface enp1s0 as an upstream interface where the
+      DHCPv6 client is running and enp2s0 as a downstream interface where the prefix is delegated to.
+      The delegated prefixes are distributed by IPv6 Router Advertisement on the downstream network.
+      </para>
     </example>
 
     <example>
