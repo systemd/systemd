@@ -1,0 +1,7 @@
+[Unit]
+Description=TESTSUITE-56-OOMD
+
+[Service]
+ExecStartPre=rm -f /failed /skipped /testok
+ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+Type=oneshot

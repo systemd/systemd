@@ -57,7 +57,7 @@ static void test_oomd_cgroup_kill(void) {
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
         r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "test", 4, 0);
-        if (IN_SET(r, -EPERM, -ENOTSUP))
+        if (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))
                 return (void) log_tests_skipped("Cannot set user xattrs");
 
         /* Do this twice to also check the increment behavior on the xattrs */
