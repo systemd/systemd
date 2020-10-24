@@ -274,12 +274,10 @@ static void test_env_clean(void) {
         assert_se(streq(e[0], "FOOBAR=WALDO"));
         assert_se(streq(e[1], "X="));
         assert_se(streq(e[2], "F=F"));
-        assert_se(streq(e[3], "0000=000"));
-        assert_se(streq(e[4], "abcd=äöüß"));
-        assert_se(streq(e[5], "xyz=xyz\n"));
-        assert_se(streq(e[6], "another=final one"));
-        assert_se(streq(e[7], "BASH_FUNC_foo%%=() {  echo foo\n}"));
-        assert_se(e[8] == NULL);
+        assert_se(streq(e[3], "abcd=äöüß"));
+        assert_se(streq(e[4], "xyz=xyz\n"));
+        assert_se(streq(e[5], "another=final one"));
+        assert_se(e[6] == NULL);
 }
 
 static void test_env_name_is_valid(void) {
@@ -292,11 +290,8 @@ static void test_env_name_is_valid(void) {
         assert_se(!env_name_is_valid("xxx\a"));
         assert_se(!env_name_is_valid("xxx\007b"));
         assert_se(!env_name_is_valid("\007\009"));
-        assert_se( env_name_is_valid("5_starting_with_a_number_is_unexpected_but_valid"));
+        assert_se(!env_name_is_valid("5_starting_with_a_number_is_wrong"));
         assert_se(!env_name_is_valid("#¤%&?_only_numbers_letters_and_underscore_allowed"));
-        assert_se( env_name_is_valid("BASH_FUNC_foo%%"));
-        assert_se(!env_name_is_valid("with spaces%%"));
-        assert_se(!env_name_is_valid("with\nnewline%%"));
 }
 
 static void test_env_value_is_valid(void) {
@@ -325,13 +320,9 @@ static void test_env_assignment_is_valid(void) {
         assert_se(!env_assignment_is_valid("a b="));
         assert_se(!env_assignment_is_valid("a ="));
         assert_se(!env_assignment_is_valid(" b="));
-        /* Names with dots and dashes makes those variables inaccessible as bash variables (as the syntax
-         * simply does not allow such variable names, see http://tldp.org/LDP/abs/html/gotchas.html). They
-         * are still valid variables according to POSIX though. */
-        assert_se( env_assignment_is_valid("a.b="));
-        assert_se( env_assignment_is_valid("a-b="));
-        /* Those are not ASCII, so not valid according to POSIX (though zsh does allow unicode variable
-         * names…). */
+        /* no dots or dashes: http://tldp.org/LDP/abs/html/gotchas.html */
+        assert_se(!env_assignment_is_valid("a.b="));
+        assert_se(!env_assignment_is_valid("a-b="));
         assert_se(!env_assignment_is_valid("\007=głąb kapuściany"));
         assert_se(!env_assignment_is_valid("c\009=\007\009\011"));
         assert_se(!env_assignment_is_valid("głąb=printf \"\x1b]0;<mock-chroot>\x07<mock-chroot>\""));

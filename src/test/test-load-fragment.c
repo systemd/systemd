@@ -765,9 +765,8 @@ static void test_config_parse_pass_environ(void) {
                                       "PassEnvironment", 0, "'invalid name' 'normal_name' A=1 'special_name$$' \\",
                                       &passenv, NULL);
         assert_se(r >= 0);
-        assert_se(strv_length(passenv) == 2);
+        assert_se(strv_length(passenv) == 1);
         assert_se(streq(passenv[0], "normal_name"));
-        assert_se(streq(passenv[1], "special_name$$"));
 }
 
 static void test_unit_dump_config_items(void) {
