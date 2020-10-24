@@ -270,7 +270,7 @@ static int attach_empty_file(int loop, int nr) {
          * partitions results in immediatey IO errors. There's no pretty way to get rid of them
          * again. Neither LOOP_CLR_FD nor LOOP_CTL_REMOVE suffice (see above). What does work is to
          * reassociate them with a new fd however. This is what we do here hence: we associate the devices
-         * with an empty file (i.e. an image that definitely has no partitons). We then immediately clear it
+         * with an empty file (i.e. an image that definitely has no partitions). We then immediately clear it
          * again. This suffices to make the partitions go away. Ugly but appears to work. */
 
         log_debug("Found unattached loopback block device /dev/loop%i with partitions. Attaching empty file to remove them.", nr);

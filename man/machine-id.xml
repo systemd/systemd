@@ -124,7 +124,7 @@
 
     <orderedlist>
       <listitem><para>If <filename>/etc/machine-id</filename> does not exist, this is a first boot.  During
-      early boot, <command>systemd</command> will write <literal>unitialized\n</literal> to this file and overmount
+      early boot, <command>systemd</command> will write <literal>uninitialized\n</literal> to this file and overmount
       a temporary file which contains the actual machine ID.  Later (after <filename>first-boot-complete.target</filename>
       has been reached), the real machine ID will be written to disk.</para></listitem>
 

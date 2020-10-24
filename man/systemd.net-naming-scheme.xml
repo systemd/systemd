@@ -362,7 +362,7 @@
         <varlistentry>
           <term><constant>v247</constant></term>
 
-          <listitem><para>If the PCI slot is assocated with PCI bridge and that has multiple child network
+          <listitem><para>If the PCI slot is associated with PCI bridge and that has multiple child network
           controllers then all of them might derive the same value of <varname>ID_NET_NAME_SLOT</varname>
           property. That could cause naming conflict if the property is selected as a device name. Now, we detect the
           situation, slot - bridge relation, and we don't produce the <varname>ID_NET_NAME_SLOT</varname> property to

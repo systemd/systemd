@@ -125,7 +125,7 @@
         <varname>luks.uuid=</varname>, the data device will be set to the one specified by
         <varname>rd.luks.data=</varname> or <varname>luks.data=</varname> of the corresponding UUID.</para>
 
-        <para>LUKS data device parameter is usefull for specifying encrypted data devices with detached headers specified in
+        <para>LUKS data device parameter is useful for specifying encrypted data devices with detached headers specified in
         <varname>luks.options</varname> entry containing <literal>header=</literal> argument. For example,
         <varname>rd.luks.uuid=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40
         <varname>rd.luks.options=</varname>b40f1abf-2a53-400a-889a-2eccc27eaa40=header=/path/to/luks.hdr
