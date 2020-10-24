@@ -87,7 +87,7 @@
       pager may be enabled automatically as describe above. Setting <varname>SYSTEMD_PAGERSECURE=0</varname>
       or not removing it from the inherited environment allows the user to invoke arbitrary commands. Note
       that if the <varname>$SYSTEMD_PAGER</varname> or <varname>$PAGER</varname> variables are to be
-      honoured, <varname>$SYSTEMD_PAGERSECURE</varname> must be set too. It might be reasonable to completly
+      honoured, <varname>$SYSTEMD_PAGERSECURE</varname> must be set too. It might be reasonable to completely
       disable the pager using <option>--no-pager</option> instead.</para></listitem>
     </varlistentry>
 

@@ -127,7 +127,7 @@ identifier (The ID field of `/etc/os-release`). Example:
 
 In order to maximize compatibility with file system implementations and
 restricted boot loader environments, and to minimize conflicting character use
-with other progams, file names shall be chosen from a restricted character set:
+with other programs, file names shall be chosen from a restricted character set:
 ASCII upper and lower case characters, digits, "+", "-", "_" and ".". Also, the
 file names should have a length of at least one and at most 255 characters
 (including file name suffix).

@@ -20,7 +20,7 @@ Janitorial Clean-ups:
 
 Features:
 
-* teach LoadCredential= the ability to load all files from a specfied dir as
+* teach LoadCredential= the ability to load all files from a specified dir as
   individual creds
 
 * systemd-analyze netif that explains predictable interface (or networkctl)
@@ -49,7 +49,7 @@ Features:
   that the kernel does what we otherwise do.
 
 * homed: keep an fd to the homedir open at all times, to keep the fs pinned
-  (autofs and such) while user is loged in.
+  (autofs and such) while user is logged in.
 
 * nss-systemd: also synthesize shadow records for users/groups
 

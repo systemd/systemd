@@ -885,7 +885,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details. Defaults to 0022 for system units. For user units the default value is inherited from the
         per-user service manager (whose default is in turn inherited from the system service manager, and
-        thus typically also is 0022 — unless overriden by a PAM module). In order to change the per-user mask
+        thus typically also is 0022 — unless overridden by a PAM module). In order to change the per-user mask
         for all user services, consider setting the <varname>UMask=</varname> setting of the user's
         <filename>user@.service</filename> system service instance. The per-user umask may also be set via
         the <varname>umask</varname> field of a user's <ulink url="https://systemd.io/USER_RECORD">JSON User
