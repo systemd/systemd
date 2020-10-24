@@ -2230,6 +2230,66 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98')
         self.assertRegex(output, 'via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98')
 
+        copy_unit_to_networkd_unit_path('25-address-static.network')
+        check_output(*networkctl_cmd, 'reload', env=env)
+        self.wait_online(['dummy98:routable'])
+
+        # check all routes managed by Manager are removed
+        print('### ip route show type blackhole')
+        output = check_output('ip route show type blackhole')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip route show type unreachable')
+        output = check_output('ip route show type unreachable')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip route show type prohibit')
+        output = check_output('ip route show type prohibit')
+        print(output)
+        self.assertEqual(output, '')
+
+        remove_unit_from_networkd_path(['25-address-static.network'])
+        check_output(*networkctl_cmd, 'reload', env=env)
+        self.wait_online(['dummy98:routable'])
+
+        # check all routes managed by Manager are reconfigured
+        print('### ip route show type blackhole')
+        output = check_output('ip route show type blackhole')
+        print(output)
+        self.assertRegex(output, 'blackhole 202.54.1.2 proto static')
+
+        print('### ip route show type unreachable')
+        output = check_output('ip route show type unreachable')
+        print(output)
+        self.assertRegex(output, 'unreachable 202.54.1.3 proto static')
+
+        print('### ip route show type prohibit')
+        output = check_output('ip route show type prohibit')
+        print(output)
+        self.assertRegex(output, 'prohibit 202.54.1.4 proto static')
+
+        rc = call("ip link del dummy98")
+        self.assertEqual(rc, 0)
+        time.sleep(2)
+
+        # check all routes managed by Manager are removed
+        print('### ip route show type blackhole')
+        output = check_output('ip route show type blackhole')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip route show type unreachable')
+        output = check_output('ip route show type unreachable')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip route show type prohibit')
+        output = check_output('ip route show type prohibit')
+        print(output)
+        self.assertEqual(output, '')
+
     @expectedFailureIfRTA_VIAIsNotSupported()
     def test_route_via_ipv6(self):
         copy_unit_to_networkd_unit_path('25-route-via-ipv6.network', '12-dummy.netdev')
