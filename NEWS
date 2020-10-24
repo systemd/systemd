@@ -636,7 +636,7 @@ CHANGES WITH 245:
           configuration drop-ins are present, no action is taken.
 
         * A new component "userdb" has been added, along with a small daemon
-          "systemd-userdb.service" and a client tool "userdbctl". The framework
+          "systemd-userdbd.service" and a client tool "userdbctl". The framework
           allows defining rich user and group records in a JSON format,
           extending on the classic "struct passwd" and "struct group"
           structures. Various components in systemd have been updated to
