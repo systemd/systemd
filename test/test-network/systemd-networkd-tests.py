@@ -3314,6 +3314,10 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'fe80::')
         self.assertRegex(output, '2002:da8:1::1')
 
+        output = check_output(*resolvectl_cmd, 'domain', 'veth99', env=env)
+        print(output)
+        self.assertIn('hogehoge.test', output)
+
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
         print(output)
         self.assertRegex(output, '2002:da8:1:0')

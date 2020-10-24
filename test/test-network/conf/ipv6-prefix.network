@@ -7,6 +7,7 @@ IPv6SendRA=yes
 [IPv6SendRA]
 DNS=_link_local 2002:da8:1:0::1
 DNSLifetimeSec=1min
+Domains=hogehoge.test
 
 [IPv6Prefix]
 Prefix=2002:da8:1:0::/64
