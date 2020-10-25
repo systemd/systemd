@@ -526,6 +526,18 @@ EarliestTxTimeFirst.Delta,                   config_parse_tc_etf_delay_nsec,    
 EarliestTxTimeFirst.Deadline,                config_parse_tc_etf_bool,                                 QDISC_KIND_ETF,                0
 EarliestTxTimeFirst.Offload,                 config_parse_tc_etf_bool,                                 QDISC_KIND_ETF,                0
 EarliestTxTimeFirst.Skipsock,                config_parse_tc_etf_bool,                                 QDISC_KIND_ETF,                0
+TimeAwarePrioShaper.Parent,                  config_parse_qdisc_parent,                                QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.Handle,                  config_parse_qdisc_handle,                                QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.Numtc,                   config_parse_tc_taprio_num_tc,                            QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.Priomap,                 config_parse_tc_taprio_priomap,                           QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.Queues,                  config_parse_tc_taprio_queuemap,                          QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.SchedEntry,              config_parse_tc_taprio_sched_entry,                       QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.Basetime,                config_parse_tc_taprio_base_time,                         QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.Cycletime,               config_parse_tc_taprio_cycle_time,                        QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.CycletimeExtension,      config_parse_tc_taprio_cycle_time,                        QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.TxTimeMode,              config_parse_tc_taprio_flags,                             QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.TxTimeDelay,             config_parse_tc_taprio_txtime_delay,                      QDISC_KIND_TAPRIO,             0
+TimeAwarePrioShaper.Clockid,                 config_parse_tc_taprio_clockid,                           QDISC_KIND_TAPRIO,             0
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                              config_parse_ipv4ll,                                      0,                             offsetof(Network, link_local)
 Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             offsetof(Network, ndisc_tokens)

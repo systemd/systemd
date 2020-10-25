@@ -4525,6 +4525,130 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
   </refsect1>
 
   <refsect1>
+    <title>[TimeAwarePrioShaper] Section Options</title>
+    <para>The [TimeAwarePrioShaper] section manages the queueing discipline (qdisc) of Time Aware Priority Shaper
+    (taprio).</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="tc.xml" xpointer="qdisc-parent" />
+      <xi:include href="tc.xml" xpointer="qdisc-handle" />
+
+      <varlistentry>
+        <term><varname>Numtc=</varname></term>
+        <listitem>
+          <para> Takes an unsigned integer, number of traffic classes to use in TAPRIO qdisc.
+          Up to 16 classes supported. See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Priomap=</varname></term>
+        <listitem>
+          <para> Takes arrray if unsigned integer. The priority to traffic class map. Maps priorities 0..15 to a specified
+          traffic class. See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Queues=</varname></term>
+        <listitem>
+          <para> Provide count and offset tuple of network interface queues for each traffic class in a format count@offset.
+          Queue ranges for each traffic classes cannot overlap and must be a contiguous range of queues.
+          See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>SchedEntry=</varname></term>
+        <listitem>
+          <para> may Takes multiple 3-Tuple parameters definition of TAPRIO qdisc link interface IEEE 802.1Q-2018 EST policy.
+          Each one has the sched-entry [command] [gatemask] [interval] format.
+          [command] "S" is the only supported, which means "SetGateStates", following the IEEE 802.1Q-2018 definition (Table 8-7).
+          [gate mask] is a bitmask where each bit is a associated with a traffic class, so bit 0 (the least significant bit) being "on"
+          means that traffic class 0 is "active" for that schedule entry.
+          [interval] is a time duration, in nanoseconds, that specifies for how long that state defined by
+          [command] and [gate mask] should be held before moving to the next entry.
+          See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Basetime=</varname></term>
+        <listitem>
+          <para>Takes an epoch timestamp. Specifies the instant in nanoseconds, using the reference of clockid
+          defining the time when the TAPRIO qdisc schedule starts.
+          If 'base-time' is a time in the past, the schedule will start at base-time + (N * cycle-time)
+          where N is the smallest integer so the resulting time is greater than "now", and "cycle-time" is the sum
+          of all the intervals of the entries in the schedule.
+          See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Cycletime=</varname></term>
+        <listitem>
+          <para>Takes a timespan. This specifies an TAPRIO qdisc interval in nanoseconds, using the reference of Basetime
+          defining the network schedule cycle period of IEEE 802.1Q-2018 EST policy.
+          IEEE 802.1Q-2018 defines that a the cycle-time of a schedule may be
+          overridden, so the schedule is truncated to a determined "width".
+          See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CycletimeExtension=</varname></term>
+        <listitem>
+          <para>Takes a timespan. IEEE 802.1Q-2018 EST defines the concept of a cycle-time-extension, so the
+          last entry of a TAPRIO qdisc schedule before the start of a new schedule can be
+          extended, so "too-short" entries can be avoided.
+          See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TxTimeMode=</varname></term>
+        <listitem>
+          <para> Takes different modes for taprio [assisted|hwoffload].
+          Defaults to unset and kernel's default TAPRIO qdisc will run timer kthread to enqueue skb
+          depending on the interval in which the packet needs to be transmitted.
+
+          TAPRIO qdisc txtime-assist mode is supported which can be enabled by setting it to [assisted] will
+          set the transmit timestamp depending on the interval in which the packet needs to be transmitted.
+          It will then utililize the ETF qdisc to sort and transmit the packets under IEEE 802.1Q-2018 EST policy.
+
+          TAPRIO qdisc hardware-offload mode is supported which can be enabled by setting it to [hwoffload] will
+          set hw-queues TC_TAPRIO_CMD_SET_GATES, TC_TAPRIO_CMD_SET_AND_HOLD or TC_TAPRIO_CMD_SET_AND_RELEASE sched-entry
+          on the interval and traffic class in which the packet needs to be transmitted under IEEE 802.1Q-2018 EST policy.
+          See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TxTimeDelay=</varname></term>
+        <listitem>
+          <para>Specifies different modes for taprio. Currently, only txtime-assist is
+          supported which can be enabled by setting it to 0x1. In this mode, taprio will
+          set the transmit timestamp depending on the interval in which the packet needs
+          to be transmitted. It will then utililize the ETF qdisc to sort and transmit the
+          packets at the right time. The second example can be used as a reference to configure this mode.
+          See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Clockid=</varname></term>
+        <listitem>
+          <para>Specifies the clock to be used by qdisc's internal timer for measuring
+          time and scheduling events. The qdisc expects that packets passing
+          through it to be using this same as the reference of their txtime timestamps.
+          It will drop packets coming from sockets that do not comply with that.
+          See tc-taprio(8) for more details.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The [BridgeVLAN] section manages the VLAN ID configuration of a bridge port and accepts the
       following keys. Specify several [BridgeVLAN] sections to configure several VLAN entries. The
