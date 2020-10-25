@@ -117,7 +117,7 @@ int write_string_stream_ts(
                 FILE *f,
                 const char *line,
                 WriteStringFileFlags flags,
-                struct timespec *ts) {
+                const struct timespec *ts) {
 
         bool needs_nl;
         int r, fd;
@@ -161,7 +161,7 @@ int write_string_stream_ts(
                 return r;
 
         if (ts) {
-                struct timespec twice[2] = {*ts, *ts};
+                const struct timespec twice[2] = {*ts, *ts};
 
                 if (futimens(fd, twice) < 0)
                         return -errno;
@@ -174,7 +174,7 @@ static int write_string_file_atomic(
                 const char *fn,
                 const char *line,
                 WriteStringFileFlags flags,
-                struct timespec *ts) {
+                const struct timespec *ts) {
 
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
@@ -221,7 +221,7 @@ int write_string_file_ts(
                 const char *fn,
                 const char *line,
                 WriteStringFileFlags flags,
-                struct timespec *ts) {
+                const struct timespec *ts) {
 
         _cleanup_fclose_ FILE *f = NULL;
         int q, r, fd;
