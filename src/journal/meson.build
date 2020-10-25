@@ -107,11 +107,6 @@ journalctl_sources = files('''
         pcre2-dlopen.h
 '''.split())
 
-if conf.get('HAVE_QRENCODE') == 1
-        journalctl_sources += files('journal-qrcode.c',
-                                    'journal-qrcode.h')
-endif
-
 install_data('journald.conf',
              install_dir : pkgsysconfdir)
 
