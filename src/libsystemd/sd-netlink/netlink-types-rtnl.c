@@ -1158,6 +1158,29 @@ static const NLType rtnl_tca_option_data_etf_types[] = {
         [TCA_ETF_PARMS]   = { .size = sizeof(struct tc_etf_qopt) },
 };
 
+static const NLType rtnl_tca_option_data_taprio_sched_types[] = {
+        [TCA_TAPRIO_SCHED_ENTRY_INDEX]          = { .type = NETLINK_TYPE_U32 },
+        [TCA_TAPRIO_SCHED_ENTRY_CMD]            = { .type = NETLINK_TYPE_U8 },
+        [TCA_TAPRIO_SCHED_ENTRY_GATE_MASK]      = { .type = NETLINK_TYPE_U32 },
+        [TCA_TAPRIO_SCHED_ENTRY_INTERVAL]       = { .type = NETLINK_TYPE_U32 },
+};
+
+static const NLTypeSystem rtnl_tca_option_data_taprio_sched_type_system = {
+        .count = ELEMENTSOF(rtnl_tca_option_data_taprio_sched_types),
+        .types = rtnl_tca_option_data_taprio_sched_types,
+};
+
+static const NLType rtnl_tca_option_data_taprio_types[] = {
+        [TCA_TAPRIO_ATTR_PRIOMAP]                       = { .size = sizeof(struct tc_mqprio_qopt) },
+        [TCA_TAPRIO_ATTR_SCHED_ENTRY_LIST]              = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_tca_option_data_taprio_sched_type_system },
+        [TCA_TAPRIO_ATTR_SCHED_BASE_TIME]               = { .type = NETLINK_TYPE_S64 },
+        [TCA_TAPRIO_ATTR_SCHED_CLOCKID]                 = { .type = NETLINK_TYPE_U32 },
+        [TCA_TAPRIO_ATTR_SCHED_CYCLE_TIME]              = { .type = NETLINK_TYPE_S64 },
+        [TCA_TAPRIO_ATTR_SCHED_CYCLE_TIME_EXTENSION]    = { .type = NETLINK_TYPE_S64 },
+        [TCA_TAPRIO_ATTR_FLAGS]                         = { .type = NETLINK_TYPE_U32 },
+        [TCA_TAPRIO_ATTR_TXTIME_DELAY]                  = { .type = NETLINK_TYPE_S32 },
+};
+
 static const NLTypeSystemUnionElement rtnl_tca_option_data_type_systems[] = {
         { .name = "cake",     .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_cake),     },
         { .name = "codel",    .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_codel),    },
@@ -1174,6 +1197,7 @@ static const NLTypeSystemUnionElement rtnl_tca_option_data_type_systems[] = {
         { .name = "sfb",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_sfb),      },
         { .name = "tbf",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_tbf),      },
         { .name = "etf",      .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_etf),      },
+        { .name = "taprio",   .type_system = TYPE_SYSTEM_FROM_TYPE(rtnl_tca_option_data_taprio),   },
 };
 
 DEFINE_TYPE_SYSTEM_UNION_MATCH_SIBLING(rtnl_tca_option_data, TCA_KIND);

@@ -41,6 +41,7 @@ const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX] = {
         [QDISC_KIND_TBF] = &tbf_vtable,
         [QDISC_KIND_TEQL] = &teql_vtable,
         [QDISC_KIND_ETF] = &etf_vtable,
+        [QDISC_KIND_TAPRIO] = &taprio_vtable,
 };
 
 static int qdisc_new(QDiscKind kind, QDisc **ret) {

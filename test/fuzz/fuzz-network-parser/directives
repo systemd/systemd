@@ -595,3 +595,16 @@ Delta=
 Deadline=
 Offload=
 Skipsock=
+[TimeAwarePrioShaper]
+Parent=
+Handle=
+Numtc=
+Priomap=
+Queues=
+SchedEntry=
+Basetime=
+Cycletime=
+CycletimeExtension=
+TxTimeMode=
+TxTimeDelay=
+Clockid=
