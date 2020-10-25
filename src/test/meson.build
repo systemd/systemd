@@ -808,6 +808,10 @@ tests += [
         [['src/test/test-psi-util.c'],
          [],
          []],
+
+        [['src/test/test-qrcode-util.c'],
+         [libshared],
+         [libdl]],
 ]
 
 ############################################################
