@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-#pragma once
 
-#if HAVE_QRENCODE
-#include <qrencode.h>
+#pragma once
 #include <stdio.h>
 
-void write_qrcode(FILE *output, QRcode *qr);
-#endif
+int print_qrcode(FILE *out, const char *header, const char *string);

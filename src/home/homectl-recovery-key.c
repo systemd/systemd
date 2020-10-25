@@ -1,17 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-#if HAVE_QRENCODE
-#include <qrencode.h>
-#include "qrcode-util.h"
-#endif
-
-#include "dlfcn-util.h"
 #include "errno-util.h"
 #include "homectl-recovery-key.h"
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "memory-util.h"
 #include "modhex.h"
+#include "qrcode-util.h"
 #include "random-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -140,48 +135,6 @@ static int add_secret(JsonVariant **v, const char *password) {
         return 0;
 }
 
-static int print_qr_code(const char *secret) {
-#if HAVE_QRENCODE
-        QRcode* (*sym_QRcode_encodeString)(const char *string, int version, QRecLevel level, QRencodeMode hint, int casesensitive);
-        void (*sym_QRcode_free)(QRcode *qrcode);
-        _cleanup_(dlclosep) void *dl = NULL;
-        QRcode* qr;
-        int r;
-
-        /* If this is not an UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
-         * codes */
-        if (!is_locale_utf8() || !colors_enabled())
-                return -EOPNOTSUPP;
-
-        dl = dlopen("libqrencode.so.4", RTLD_LAZY);
-        if (!dl)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "QRCODE support is not installed: %s", dlerror());
-
-        r = dlsym_many_and_warn(
-                        dl,
-                        LOG_DEBUG,
-                        &sym_QRcode_encodeString, "QRcode_encodeString",
-                        &sym_QRcode_free, "QRcode_free",
-                        NULL);
-        if (r < 0)
-                return r;
-
-        qr = sym_QRcode_encodeString(secret, 0, QR_ECLEVEL_L, QR_MODE_8, 0);
-        if (!qr)
-                return -ENOMEM;
-
-        fprintf(stderr, "\nYou may optionally scan the recovery key off screen:\n\n");
-
-        write_qrcode(stderr, qr);
-
-        fputc('\n', stderr);
-
-        sym_QRcode_free(qr);
-#endif
-        return 0;
-}
-
 int identity_add_recovery_key(JsonVariant **v) {
         _cleanup_(erase_and_freep) char *password = NULL, *hashed = NULL;
         int r;
@@ -240,7 +193,7 @@ int identity_add_recovery_key(JsonVariant **v) {
               "whenever authentication is requested.\n", stderr);
         fflush(stderr);
 
-        print_qr_code(password);
+        (void) print_qrcode(stderr, "You may optionally scan the recovery key off screen", password);
 
         return 0;
 }

@@ -195,6 +195,8 @@ shared_sources = files('''
         ptyfwd.h
         pwquality-util.c
         pwquality-util.h
+        qrcode-util.c
+        qrcode-util.h
         reboot-util.c
         reboot-util.h
         resize-fs.c
@@ -301,13 +303,6 @@ if conf.get('HAVE_PAM') == 1
         shared_sources += files('''
         pam-util.c
         pam-util.h
-'''.split())
-endif
-
-if conf.get('HAVE_QRENCODE') == 1
-        shared_sources += files('''
-        qrcode-util.c
-        qrcode-util.h
 '''.split())
 endif
 
