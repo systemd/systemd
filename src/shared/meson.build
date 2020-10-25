@@ -1,5 +1,49 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
+# We use this for libshared and other similar objects that expose all symbols
+libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
+
+############################################################
+
+qrcode_symbols = ['QRcode_encodeString',
+                  'QRcode_free']
+
+if conf.get('HAVE_QRENCODE') == 1
+        fname = 'qrencode-wrapper.c'
+        qrencode_wrapper_c = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=qrencode.h',
+                           '--header=qrencode-wrapper.h',
+                           qrcode_symbols],
+                capture : true)
+
+        fname = 'qrencode-wrapper.h'
+        qrencode_wrapper_h = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=qrencode.h',
+                           qrcode_symbols],
+                capture : true)
+
+        libqrencode_wrapper = shared_library(
+                'qrencode-wrapper',
+                qrencode_wrapper_c,
+                qrencode_wrapper_h,
+                link_args : ['-shared',
+                             '-Wl,--version-script=' + libshared_sym_path],
+                c_args : ['-fvisibility=default'],
+                dependencies : libqrencode,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
+
+############################################################
+
 shared_sources = files('''
         acl-util.h
         acpi-fpdt.c
@@ -261,6 +305,10 @@ shared_sources = files('''
         xml.h
 '''.split())
 
+if conf.get('HAVE_QRENCODE') == 1
+        shared_sources += qrencode_wrapper_h
+endif
+
 if get_option('tests') != 'false'
         shared_sources += files('tests.c', 'tests.h')
 endif
@@ -366,8 +414,6 @@ libshared_deps = [threads,
                   libselinux,
                   libzstd,
                   libxz]
-
-libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
 libshared_static = static_library(
         libshared_name,
