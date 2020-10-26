@@ -629,6 +629,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, socket_fdname(s),
                 prefix, yes_no(s->selinux_context_from_net));
 
+        if (s->timestamping != SOCKET_TIMESTAMPING_OFF)
+                fprintf(f,
+                        "%sTimestamping: %s\n",
+                        prefix, socket_timestamping_to_string(s->timestamping));
+
         if (s->control_pid > 0)
                 fprintf(f,
                         "%sControl PID: "PID_FMT"\n",
@@ -1049,6 +1054,14 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
                 r = socket_set_recvpktinfo(fd, socket_address_family(&p->address), true);
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to enable packet info socket option: %m");
+        }
+
+        if (s->timestamping != SOCKET_TIMESTAMPING_OFF) {
+                r = setsockopt_int(fd, SOL_SOCKET,
+                                   s->timestamping == SOCKET_TIMESTAMPING_NS ? SO_TIMESTAMPNS : SO_TIMESTAMP,
+                                   true);
+                if (r < 0)
+                        log_unit_warning_errno(UNIT(s), r, "Failed to enable timestamping socket option, ignoring: %m");
         }
 
         if (s->priority >= 0) {
@@ -3408,6 +3421,39 @@ static const char* const socket_result_table[_SOCKET_RESULT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_result, SocketResult);
+
+static const char* const socket_timestamping_table[_SOCKET_TIMESTAMPING_MAX] = {
+        [SOCKET_TIMESTAMPING_OFF] = "off",
+        [SOCKET_TIMESTAMPING_US] = "us",
+        [SOCKET_TIMESTAMPING_NS] = "ns",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(socket_timestamping, SocketTimestamping);
+
+SocketTimestamping socket_timestamping_from_string_harder(const char *p) {
+        SocketTimestamping t;
+        int r;
+
+        if (!p)
+                return _SOCKET_TIMESTAMPING_INVALID;
+
+        t = socket_timestamping_from_string(p);
+        if (t >= 0)
+                return t;
+
+        /* Let's alternatively support the various other aliases parse_time() accepts for ns and µs here,
+         * too. */
+        if (streq(p, "nsec"))
+                return SOCKET_TIMESTAMPING_NS;
+        if (STR_IN_SET(p, "usec", "µs"))
+                return SOCKET_TIMESTAMPING_US;
+
+        r = parse_boolean(p);
+        if (r < 0)
+                return _SOCKET_TIMESTAMPING_INVALID;
+
+        return r ? SOCKET_TIMESTAMPING_NS : SOCKET_TIMESTAMPING_OFF; /* If boolean yes, default to ns accuracy */
+}
 
 const UnitVTable socket_vtable = {
         .object_size = sizeof(Socket),

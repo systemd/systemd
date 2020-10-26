@@ -2037,7 +2037,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "BindIPv6Only",
                               "FileDescriptorName",
                               "SocketUser",
-                              "SocketGroup"))
+                              "SocketGroup",
+                              "Timestamping"))
                 return bus_append_string(m, field, eq);
 
         if (streq(field, "Symlinks"))
