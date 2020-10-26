@@ -1240,6 +1240,9 @@ int socket_set_recvpktinfo(int fd, int af, bool b) {
         case AF_NETLINK:
                 return setsockopt_int(fd, SOL_NETLINK, NETLINK_PKTINFO, b);
 
+        case AF_PACKET:
+                return setsockopt_int(fd, SOL_PACKET, PACKET_AUXDATA, b);
+
         default:
                 return -EAFNOSUPPORT;
         }
