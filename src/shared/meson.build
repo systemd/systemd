@@ -5,6 +5,63 @@ libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
 ############################################################
 
+cryptsetup_symbols = ['crypt_activate_by_passphrase',
+                      'crypt_activate_by_volume_key',
+                      'crypt_deactivate_by_name',
+                      'crypt_format',
+                      'crypt_free',
+                      'crypt_get_dir',
+                      'crypt_get_verity_info',
+                      'crypt_init',
+                      'crypt_init_by_name',
+                      'crypt_keyslot_add_by_volume_key',
+                      'crypt_load',
+                      'crypt_resize',
+                      'crypt_set_data_device',
+                      'crypt_set_debug_level',
+                      'crypt_set_log_callback',
+                      'crypt_volume_key_get']
+
+if conf.get('HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY') == 1
+        cryptsetup_symbols += 'crypt_activate_by_signed_key'
+endif
+
+if conf.get('HAVE_LIBCRYPTSETUP') == 1
+        fname = 'cryptsetup-wrapper.c'
+        cryptsetup_wrapper_c = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=libcryptsetup.h',
+                           '--header=cryptsetup-wrapper.h',
+                           cryptsetup_symbols],
+                capture : true)
+
+        fname = 'cryptsetup-wrapper.h'
+        cryptsetup_wrapper_h = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=libcryptsetup.h',
+                           cryptsetup_symbols],
+                capture : true)
+
+        libcryptsetup_wrapper = shared_library(
+                'cryptsetup-wrapper',
+                cryptsetup_wrapper_c,
+                cryptsetup_wrapper_h,
+                link_args : ['-shared',
+                             '-Wl,--version-script=' + libshared_sym_path],
+                c_args : ['-fvisibility=default'],
+                dependencies : libcryptsetup,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
+
+############################################################
+
 pcre2_symbols = ['pcre2_match_data_create_8',
                  'pcre2_match_data_free_8',
                  'pcre2_code_free_8',
@@ -350,6 +407,10 @@ shared_sources = files('''
         xml.c
         xml.h
 '''.split())
+
+if conf.get('HAVE_LIBCRYPTSETUP') == 1
+        shared_sources += cryptsetup_wrapper_h
+endif
 
 if conf.get('HAVE_PCRE2') == 1
         shared_sources += pcre2_wrapper_h

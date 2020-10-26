@@ -3,30 +3,31 @@
 #if HAVE_LIBCRYPTSETUP
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
+#include "cryptsetup-wrapper.h"
 #include "dlfcn-util.h"
 #include "log.h"
 
 static void *cryptsetup_dl = NULL;
 
-int (*sym_crypt_activate_by_passphrase)(struct crypt_device *cd, const char *name, int keyslot, const char *passphrase, size_t passphrase_size, uint32_t flags);
+wrap_type_crypt_activate_by_passphrase sym_crypt_activate_by_passphrase;
+wrap_type_crypt_activate_by_volume_key sym_crypt_activate_by_volume_key;
+wrap_type_crypt_deactivate_by_name sym_crypt_deactivate_by_name;
+wrap_type_crypt_free sym_crypt_free;
+wrap_type_crypt_format sym_crypt_format;
+wrap_type_crypt_get_dir sym_crypt_get_dir;
+wrap_type_crypt_get_verity_info sym_crypt_get_verity_info;
+wrap_type_crypt_init sym_crypt_init;
+wrap_type_crypt_init_by_name sym_crypt_init_by_name;
+wrap_type_crypt_keyslot_add_by_volume_key sym_crypt_keyslot_add_by_volume_key;
+wrap_type_crypt_load sym_crypt_load;
+wrap_type_crypt_resize sym_crypt_resize;
+wrap_type_crypt_set_data_device sym_crypt_set_data_device;
+wrap_type_crypt_set_debug_level sym_crypt_set_debug_level;
+wrap_type_crypt_set_log_callback sym_crypt_set_log_callback;
+wrap_type_crypt_volume_key_get sym_crypt_volume_key_get;
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-int (*sym_crypt_activate_by_signed_key)(struct crypt_device *cd, const char *name, const char *volume_key, size_t volume_key_size, const char *signature, size_t signature_size, uint32_t flags);
+wrap_type_crypt_activate_by_signed_key sym_crypt_activate_by_signed_key;
 #endif
-int (*sym_crypt_activate_by_volume_key)(struct crypt_device *cd, const char *name, const char *volume_key, size_t volume_key_size, uint32_t flags);
-int (*sym_crypt_deactivate_by_name)(struct crypt_device *cd, const char *name, uint32_t flags);
-int (*sym_crypt_format)(struct crypt_device *cd, const char *type, const char *cipher, const char *cipher_mode, const char *uuid, const char *volume_key, size_t volume_key_size, void *params);
-void (*sym_crypt_free)(struct crypt_device *cd);
-const char *(*sym_crypt_get_dir)(void);
-int (*sym_crypt_get_verity_info)(struct crypt_device *cd, struct crypt_params_verity *vp);
-int (*sym_crypt_init)(struct crypt_device **cd, const char *device);
-int (*sym_crypt_init_by_name)(struct crypt_device **cd, const char *name);
-int (*sym_crypt_keyslot_add_by_volume_key)(struct crypt_device *cd, int keyslot, const char *volume_key, size_t volume_key_size, const char *passphrase, size_t passphrase_size);
-int (*sym_crypt_load)(struct crypt_device *cd, const char *requested_type, void *params);
-int (*sym_crypt_resize)(struct crypt_device *cd, const char *name, uint64_t new_size);
-int (*sym_crypt_set_data_device)(struct crypt_device *cd, const char *device);
-void (*sym_crypt_set_debug_level)(int level);
-void (*sym_crypt_set_log_callback)(struct crypt_device *cd, void (*log)(int level, const char *msg, void *usrptr), void *usrptr);
-int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
 
 int dlopen_cryptsetup(void) {
         _cleanup_(dlclosep) void *dl = NULL;
@@ -35,7 +36,7 @@ int dlopen_cryptsetup(void) {
         if (cryptsetup_dl)
                 return 0; /* Already loaded */
 
-        dl = dlopen("libcryptsetup.so.12", RTLD_LAZY);
+        dl = dlopen("libcryptsetup-wrapper.so", RTLD_LAZY);
         if (!dl)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "libcryptsetup support is not installed: %s", dlerror());
@@ -43,25 +44,25 @@ int dlopen_cryptsetup(void) {
         r = dlsym_many_and_warn(
                         dl,
                         LOG_DEBUG,
-                        &sym_crypt_activate_by_passphrase, "crypt_activate_by_passphrase",
+                        &sym_crypt_activate_by_passphrase,    "wrap_crypt_activate_by_passphrase",
+                        &sym_crypt_activate_by_volume_key,    "wrap_crypt_activate_by_volume_key",
+                        &sym_crypt_deactivate_by_name,        "wrap_crypt_deactivate_by_name",
+                        &sym_crypt_format,                    "wrap_crypt_format",
+                        &sym_crypt_free,                      "wrap_crypt_free",
+                        &sym_crypt_get_dir,                   "wrap_crypt_get_dir",
+                        &sym_crypt_get_verity_info,           "wrap_crypt_get_verity_info",
+                        &sym_crypt_init,                      "wrap_crypt_init",
+                        &sym_crypt_init_by_name,              "wrap_crypt_init_by_name",
+                        &sym_crypt_keyslot_add_by_volume_key, "wrap_crypt_keyslot_add_by_volume_key",
+                        &sym_crypt_load,                      "wrap_crypt_load",
+                        &sym_crypt_resize,                    "wrap_crypt_resize",
+                        &sym_crypt_set_data_device,           "wrap_crypt_set_data_device",
+                        &sym_crypt_set_debug_level,           "wrap_crypt_set_debug_level",
+                        &sym_crypt_set_log_callback,          "wrap_crypt_set_log_callback",
+                        &sym_crypt_volume_key_get,            "wrap_crypt_volume_key_get",
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-                        &sym_crypt_activate_by_signed_key, "crypt_activate_by_signed_key",
+                        &sym_crypt_activate_by_signed_key,    "wrap_crypt_activate_by_signed_key",
 #endif
-                        &sym_crypt_activate_by_volume_key, "crypt_activate_by_volume_key",
-                        &sym_crypt_deactivate_by_name, "crypt_deactivate_by_name",
-                        &sym_crypt_format, "crypt_format",
-                        &sym_crypt_free, "crypt_free",
-                        &sym_crypt_get_dir, "crypt_get_dir",
-                        &sym_crypt_get_verity_info, "crypt_get_verity_info",
-                        &sym_crypt_init, "crypt_init",
-                        &sym_crypt_init_by_name, "crypt_init_by_name",
-                        &sym_crypt_keyslot_add_by_volume_key, "crypt_keyslot_add_by_volume_key",
-                        &sym_crypt_load, "crypt_load",
-                        &sym_crypt_resize, "crypt_resize",
-                        &sym_crypt_set_data_device, "crypt_set_data_device",
-                        &sym_crypt_set_debug_level, "crypt_set_debug_level",
-                        &sym_crypt_set_log_callback, "crypt_set_log_callback",
-                        &sym_crypt_volume_key_get, "crypt_volume_key_get",
                         NULL);
         if (r < 0)
                 return r;
