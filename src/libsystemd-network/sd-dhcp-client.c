@@ -82,6 +82,8 @@ struct sd_dhcp_client {
         be32_t last_addr;
         uint8_t mac_addr[MAX_MAC_ADDR_LEN];
         size_t mac_addr_len;
+        uint8_t bcast_addr[MAX_MAC_ADDR_LEN];
+        size_t bcast_addr_len;
         uint16_t arp_type;
         sd_dhcp_client_id client_id;
         size_t client_id_len;
@@ -277,6 +279,7 @@ int sd_dhcp_client_set_ifindex(sd_dhcp_client *client, int ifindex) {
 int sd_dhcp_client_set_mac(
                 sd_dhcp_client *client,
                 const uint8_t *addr,
+                const uint8_t *bcast_addr,
                 size_t addr_len,
                 uint16_t arp_type) {
 
@@ -297,7 +300,9 @@ int sd_dhcp_client_set_mac(
                 return -EINVAL;
 
         if (client->mac_addr_len == addr_len &&
-            memcmp(&client->mac_addr, addr, addr_len) == 0)
+            memcmp(&client->mac_addr, addr, addr_len) == 0 &&
+            (client->bcast_addr_len > 0) == !!bcast_addr &&
+            (!bcast_addr || memcmp(&client->bcast_addr, bcast_addr, addr_len) == 0))
                 return 0;
 
         if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
@@ -309,6 +314,12 @@ int sd_dhcp_client_set_mac(
         memcpy(&client->mac_addr, addr, addr_len);
         client->mac_addr_len = addr_len;
         client->arp_type = arp_type;
+        client->bcast_addr_len = 0;
+
+        if (bcast_addr) {
+                memcpy(&client->bcast_addr, bcast_addr, addr_len);
+                client->bcast_addr_len = addr_len;
+        }
 
         if (need_restart && client->state != DHCP_STATE_STOPPED) {
                 r = sd_dhcp_client_start(client);
@@ -1381,9 +1392,10 @@ static int client_start_delayed(sd_dhcp_client *client) {
 
         client->xid = random_u32();
 
-        r = dhcp_network_bind_raw_socket(client->ifindex, &client->link,
-                                         client->xid, client->mac_addr,
-                                         client->mac_addr_len, client->arp_type, client->port);
+        r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
+                                         client->mac_addr, client->mac_addr_len,
+                                         client->bcast_addr, client->bcast_addr_len,
+                                         client->arp_type, client->port);
         if (r < 0) {
                 client_stop(client, r);
                 return r;
@@ -1431,10 +1443,10 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->state = DHCP_STATE_REBINDING;
         client->attempt = 0;
 
-        r = dhcp_network_bind_raw_socket(client->ifindex, &client->link,
-                                         client->xid, client->mac_addr,
-                                         client->mac_addr_len, client->arp_type,
-                                         client->port);
+        r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
+                                         client->mac_addr, client->mac_addr_len,
+                                         client->bcast_addr, client->bcast_addr_len,
+                                         client->arp_type, client->port);
         if (r < 0) {
                 client_stop(client, r);
                 return 0;

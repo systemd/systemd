@@ -23,6 +23,7 @@
 #include "util.h"
 
 static uint8_t mac_addr[] = {'A', 'B', 'C', '1', '2', '3'};
+static uint8_t bcast_addr[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
 typedef int (*test_callback_recv_t)(size_t size, DHCPMessage *dhcp);
 
@@ -247,6 +248,7 @@ int dhcp_network_bind_raw_socket(
                 union sockaddr_union *link,
                 uint32_t id,
                 const uint8_t *addr, size_t addr_len,
+                const uint8_t *bcaddr, size_t bcaddr_len,
                 uint16_t arp_type, uint16_t port) {
 
         if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
@@ -296,7 +298,7 @@ static void test_discover_message(sd_event *e) {
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
-        assert_se(sd_dhcp_client_set_mac(client, mac_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
+        assert_se(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp_client_set_request_option(client, 248) >= 0);
 
@@ -513,7 +515,7 @@ static void test_addr_acq(sd_event *e) {
         assert_se(r >= 0);
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
-        assert_se(sd_dhcp_client_set_mac(client, mac_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
+        assert_se(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
 
         assert_se(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, e) >= 0);
 

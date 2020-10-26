@@ -54,6 +54,7 @@ typedef struct Link {
         unsigned short iftype;
         char *state_file;
         hw_addr_data hw_addr;
+        hw_addr_data bcast_addr;
         struct ether_addr permanent_mac;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;
