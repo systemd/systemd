@@ -16,6 +16,7 @@
 #include "sd-radv.h"
 #include "sd-netlink.h"
 
+#include "ether-addr-util.h"
 #include "log-link.h"
 #include "network-util.h"
 #include "networkd-util.h"
@@ -52,7 +53,7 @@ typedef struct Link {
         char *kind;
         unsigned short iftype;
         char *state_file;
-        struct ether_addr mac;
+        hw_addr_data hw_addr;
         struct ether_addr permanent_mac;
         struct in6_addr ipv6ll_address;
         uint32_t mtu;

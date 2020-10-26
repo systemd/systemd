@@ -5,6 +5,7 @@
 
 #include <arpa/inet.h>
 #include <netinet/icmp6.h>
+#include <net/if_arp.h>
 #include <linux/if.h>
 
 #include "sd-ndisc.h"
@@ -593,7 +594,11 @@ static int make_stableprivate_address(Link *link, const struct in6_addr *prefix,
         l = MAX(DIV_ROUND_UP(prefix_len, 8), 8);
         siphash24_compress(prefix, l, &state);
         siphash24_compress_string(link->ifname, &state);
-        siphash24_compress(&link->mac, sizeof(struct ether_addr), &state);
+        /* Only last 8 bytes of IB MAC are stable */
+        if (link->iftype == ARPHRD_INFINIBAND)
+                siphash24_compress(&link->hw_addr.addr.infiniband[12], 8, &state);
+        else
+                siphash24_compress(link->hw_addr.addr.bytes, link->hw_addr.length, &state);
         siphash24_compress(&dad_counter, sizeof(uint8_t), &state);
 
         rid = htole64(siphash24_finalize(&state));
@@ -1257,7 +1262,7 @@ int ndisc_configure(Link *link) {
                         return r;
         }
 
-        r = sd_ndisc_set_mac(link->ndisc, &link->mac);
+        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.addr.ether);
         if (r < 0)
                 return r;
 

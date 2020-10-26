@@ -650,7 +650,7 @@ static int dhcp4_configure_dad(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->mac);
+        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->hw_addr.addr.ether);
         if (r < 0)
                 return r;
 
@@ -672,7 +672,7 @@ static int dhcp4_dad_update_mac(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->mac);
+        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->hw_addr.addr.ether);
         if (r < 0)
                 return r;
 
@@ -1274,8 +1274,8 @@ static int dhcp4_set_client_identifier(Link *link) {
         case DHCP_CLIENT_ID_MAC:
                 r = sd_dhcp_client_set_client_id(link->dhcp_client,
                                                  ARPHRD_ETHER,
-                                                 (const uint8_t *) &link->mac,
-                                                 sizeof(link->mac));
+                                                 link->hw_addr.addr.bytes,
+                                                 link->hw_addr.length);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set client ID: %m");
                 break;
@@ -1325,8 +1325,8 @@ int dhcp4_configure(Link *link) {
                 return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to initialize DHCP4 client: %m");
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
-                                   (const uint8_t *) &link->mac,
-                                   sizeof (link->mac), ARPHRD_ETHER);
+                                   link->hw_addr.addr.bytes,
+                                   link->hw_addr.length, ARPHRD_ETHER);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set MAC address: %m");
 
@@ -1484,7 +1484,7 @@ int dhcp4_update_mac(Link *link) {
         if (!link->dhcp_client)
                 return 0;
 
-        r = sd_dhcp_client_set_mac(link->dhcp_client, (const uint8_t *) &link->mac, sizeof (link->mac), ARPHRD_ETHER);
+        r = sd_dhcp_client_set_mac(link->dhcp_client, link->hw_addr.addr.bytes, link->hw_addr.length, ARPHRD_ETHER);
         if (r < 0)
                 return r;
 

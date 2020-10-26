@@ -93,7 +93,7 @@ int link_lldp_rx_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_lldp_set_filter_address(link->lldp, &link->mac);
+        r = sd_lldp_set_filter_address(link->lldp, &link->hw_addr.addr.ether);
         if (r < 0)
                 return r;
 

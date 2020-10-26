@@ -1357,7 +1357,7 @@ static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
         assert(link->network);
         assert(client);
 
-        r = sd_dhcp6_client_set_mac(client, (const uint8_t *) &link->mac, sizeof (link->mac), ARPHRD_ETHER);
+        r = sd_dhcp6_client_set_mac(client, link->hw_addr.addr.bytes, link->hw_addr.length, ARPHRD_ETHER);
         if (r < 0)
                 return r;
 
