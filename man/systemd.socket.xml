@@ -253,11 +253,10 @@
 
       <varlistentry>
         <term><varname>ListenFIFO=</varname></term>
-        <listitem><para>Specifies a file system FIFO to listen on.
-        This expects an absolute file system path as argument.
-        Behavior otherwise is very similar to the
-        <varname>ListenDatagram=</varname> directive
-        above.</para></listitem>
+        <listitem><para>Specifies a file system FIFO (see <citerefentry
+        project='man-pages'><refentrytitle>fifo</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details) to listen on.  This expects an absolute file system path as argument.  Behavior otherwise is
+        very similar to the <varname>ListenDatagram=</varname> directive above.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -285,12 +284,12 @@
 
       <varlistentry>
         <term><varname>ListenMessageQueue=</varname></term>
-        <listitem><para>Specifies a POSIX message queue name to listen
-        on. This expects a valid message queue name (i.e. beginning
-        with /). Behavior otherwise is very similar to the
-        <varname>ListenFIFO=</varname> directive above. On Linux
-        message queue descriptors are actually file descriptors and
-        can be inherited between processes.</para></listitem>
+        <listitem><para>Specifies a POSIX message queue name to listen on (see <citerefentry
+        project='man-pages'><refentrytitle>mq_overview</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details). This expects a valid message queue name (i.e. beginning with
+        <literal>/</literal>). Behavior otherwise is very similar to the <varname>ListenFIFO=</varname>
+        directive above. On Linux message queue descriptors are actually file descriptors and can be
+        inherited between processes.</para></listitem>
       </varlistentry>
 
       <varlistentry>
