@@ -3968,6 +3968,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b PassPacketInfo = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s Timestamping = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b RemoveOnStop = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly a(ss) Listen = [...];
@@ -4523,6 +4525,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property PassPacketInfo is not documented!-->
 
+    <!--property Timestamping is not documented!-->
+
     <!--property RemoveOnStop is not documented!-->
 
     <!--property Listen is not documented!-->
@@ -5064,6 +5068,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="PassSecurity"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PassPacketInfo"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="Timestamping"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RemoveOnStop"/>
 
