@@ -453,6 +453,11 @@ CHANGES WITH 247 in spe:
           defined, explicit routes to the gateway acquired via DHCP or IPv6
           Router Advertisements.
 
+        * systemd-networkd's [IPv6PrefixDelegation] section and
+          IPv6PrefixDelegation= options have been renamed as [IPv6SendRA] and
+          IPv6SendRA= (the old names are still accepted for backwards
+          compatibility).
+
         * systemctl gained support for two new verbs: "service-log-level" and
           "service-log-target" may be used on services that implement the
           generic org.freedesktop.LogControl1 D-Bus interface to dynamically
