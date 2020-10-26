@@ -5,6 +5,52 @@ libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 
 ############################################################
 
+pcre2_symbols = ['pcre2_match_data_create_8',
+                 'pcre2_match_data_free_8',
+                 'pcre2_code_free_8',
+                 'pcre2_compile_8',
+                 'pcre2_get_error_message_8',
+                 'pcre2_match_8',
+                 'pcre2_get_ovector_pointer_8']
+
+if conf.get('HAVE_PCRE2') == 1
+        fname = 'pcre2-wrapper.c'
+        pcre2_wrapper_c = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--define=PCRE2_CODE_UNIT_WIDTH=8',
+                           '--source=pcre2.h',
+                           '--header=pcre2-wrapper.h',
+                           pcre2_symbols],
+                capture : true)
+
+        fname = 'pcre2-wrapper.h'
+        pcre2_wrapper_h = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--define=PCRE2_CODE_UNIT_WIDTH=8',
+                           '--source=pcre2.h',
+                           pcre2_symbols],
+                capture : true)
+
+        libpcre2_wrapper = shared_library(
+                'pcre2-wrapper',
+                pcre2_wrapper_c,
+                pcre2_wrapper_h,
+                link_args : ['-shared',
+                             '-Wl,--version-script=' + libshared_sym_path],
+                c_args : ['-fvisibility=default'],
+                dependencies : libpcre2,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
+
+############################################################
+
 qrcode_symbols = ['QRcode_encodeString',
                   'QRcode_free']
 
@@ -304,6 +350,10 @@ shared_sources = files('''
         xml.c
         xml.h
 '''.split())
+
+if conf.get('HAVE_PCRE2') == 1
+        shared_sources += pcre2_wrapper_h
+endif
 
 if conf.get('HAVE_QRENCODE') == 1
         shared_sources += qrencode_wrapper_h
