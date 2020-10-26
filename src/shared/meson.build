@@ -108,6 +108,51 @@ endif
 
 ############################################################
 
+pwquality_symbols = ['pwquality_check',
+                     'pwquality_default_settings',
+                     'pwquality_free_settings',
+                     'pwquality_generate',
+                     'pwquality_get_str_value',
+                     'pwquality_read_config',
+                     'pwquality_set_int_value',
+                     'pwquality_strerror']
+
+if conf.get('HAVE_PWQUALITY') == 1
+        fname = 'pwquality-wrapper.c'
+        pwquality_wrapper_c = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=pwquality.h',
+                           '--header=pwquality-wrapper.h',
+                           pwquality_symbols],
+                capture : true)
+
+        fname = 'pwquality-wrapper.h'
+        pwquality_wrapper_h = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=pwquality.h',
+                           pwquality_symbols],
+                capture : true)
+
+        libpwquality_wrapper = shared_library(
+                'pwquality-wrapper',
+                pwquality_wrapper_c,
+                pwquality_wrapper_h,
+                link_args : ['-shared',
+                             '-Wl,--version-script=' + libshared_sym_path],
+                c_args : ['-fvisibility=default'],
+                dependencies : libpwquality,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
+
+############################################################
+
 qrcode_symbols = ['QRcode_encodeString',
                   'QRcode_free']
 
@@ -456,6 +501,10 @@ endif
 
 if conf.get('HAVE_PCRE2') == 1
         shared_sources += pcre2_wrapper_h
+endif
+
+if conf.get('HAVE_PWQUALITY') == 1
+        shared_sources += pwquality_wrapper_h
 endif
 
 if conf.get('HAVE_QRENCODE') == 1

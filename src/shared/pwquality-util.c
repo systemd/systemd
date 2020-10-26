@@ -14,14 +14,14 @@
 
 static void *pwquality_dl = NULL;
 
-int (*sym_pwquality_check)(pwquality_settings_t *pwq, const char *password, const char *oldpassword, const char *user, void **auxerror);
-pwquality_settings_t *(*sym_pwquality_default_settings)(void);
-void (*sym_pwquality_free_settings)(pwquality_settings_t *pwq);
-int (*sym_pwquality_generate)(pwquality_settings_t *pwq, int entropy_bits, char **password);
-int (*sym_pwquality_get_str_value)(pwquality_settings_t *pwq, int setting, const char **value);
-int (*sym_pwquality_read_config)(pwquality_settings_t *pwq, const char *cfgfile, void **auxerror);
-int (*sym_pwquality_set_int_value)(pwquality_settings_t *pwq, int setting, int value);
-const char* (*sym_pwquality_strerror)(char *buf, size_t len, int errcode, void *auxerror);
+wrap_type_pwquality_check sym_pwquality_check;
+wrap_type_pwquality_default_settings sym_pwquality_default_settings;
+wrap_type_pwquality_free_settings sym_pwquality_free_settings;
+wrap_type_pwquality_generate sym_pwquality_generate;
+wrap_type_pwquality_get_str_value sym_pwquality_get_str_value;
+wrap_type_pwquality_read_config sym_pwquality_read_config;
+wrap_type_pwquality_set_int_value sym_pwquality_set_int_value;
+wrap_type_pwquality_strerror sym_pwquality_strerror;
 
 int dlopen_pwquality(void) {
         _cleanup_(dlclosep) void *dl = NULL;
@@ -30,7 +30,7 @@ int dlopen_pwquality(void) {
         if (pwquality_dl)
                 return 0; /* Already loaded */
 
-        dl = dlopen("libpwquality.so.1", RTLD_LAZY);
+        dl = dlopen("libpwquality-wrapper.so", RTLD_LAZY);
         if (!dl)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "libpwquality support is not installed: %s", dlerror());
@@ -38,14 +38,14 @@ int dlopen_pwquality(void) {
         r = dlsym_many_and_warn(
                         dl,
                         LOG_DEBUG,
-                        &sym_pwquality_check, "pwquality_check",
-                        &sym_pwquality_default_settings, "pwquality_default_settings",
-                        &sym_pwquality_free_settings, "pwquality_free_settings",
-                        &sym_pwquality_generate, "pwquality_generate",
-                        &sym_pwquality_get_str_value, "pwquality_get_str_value",
-                        &sym_pwquality_read_config, "pwquality_read_config",
-                        &sym_pwquality_set_int_value, "pwquality_set_int_value",
-                        &sym_pwquality_strerror, "pwquality_strerror",
+                        &sym_pwquality_check,            "wrap_pwquality_check",
+                        &sym_pwquality_default_settings, "wrap_pwquality_default_settings",
+                        &sym_pwquality_free_settings,    "wrap_pwquality_free_settings",
+                        &sym_pwquality_generate,         "wrap_pwquality_generate",
+                        &sym_pwquality_get_str_value,    "wrap_pwquality_get_str_value",
+                        &sym_pwquality_read_config,      "wrap_pwquality_read_config",
+                        &sym_pwquality_set_int_value,    "wrap_pwquality_set_int_value",
+                        &sym_pwquality_strerror,         "wrap_pwquality_strerror",
                         NULL);
         if (r < 0)
                 return r;
