@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 # https://stackoverflow.com/a/45866339/405505
-FUNC_PATTERN = r'(?:^|;)\s*(?:(?:extern)\s+)?(?!else|typedef|return)((?:const\s+)?(?:struct\s+)?\w+(?:\s+|\s*\*?\s*))(\w+)\s*\(([^0]+)\)\s*'
+FUNC_PATTERN = r'(?:^|;)\s*(?:(?:extern)\s+)?(?!else|typedef|return)((?:__attribute__\s*\(\((?:const|pure)\)\)\s+)?(?:const\s+)?(?:struct\s+)?\w+(?:\s+|\s*\*?\s*))(\w+)\s*\(([^0]+)\)\s*'
 
 Definition = collections.namedtuple('Definition', 'line return_type name arguments')
 

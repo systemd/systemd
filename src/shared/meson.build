@@ -62,6 +62,89 @@ endif
 
 ############################################################
 
+idn_symbols = ['idna_to_ascii_4i',
+               'idna_to_unicode_44i',
+               'stringprep_ucs4_to_utf8',
+               'stringprep_utf8_to_ucs4']
+
+if conf.get('HAVE_LIBIDN') == 1
+        fname = 'idn-wrapper.c'
+        idn_wrapper_c = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=idna.h',
+                           '--source=stringprep.h',
+                           '--header=idn-wrapper.h',
+                           idn_symbols],
+                capture : true)
+
+        fname = 'idn-wrapper.h'
+        idn_wrapper_h = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=idna.h',
+                           '--source=stringprep.h',
+                           idn_symbols],
+                capture : true)
+
+        libidn_wrapper = shared_library(
+                'idn-wrapper',
+                idn_wrapper_c,
+                idn_wrapper_h,
+                link_args : ['-shared',
+                             '-Wl,--version-script=' + libshared_sym_path],
+                c_args : ['-fvisibility=default'],
+                dependencies : libidn,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
+
+############################################################
+
+idn2_symbols = ['idn2_lookup_u8',
+                'idn2_strerror',
+                'idn2_to_unicode_8z8z']
+
+if conf.get('HAVE_LIBIDN2') == 1
+        fname = 'idn2-wrapper.c'
+        idn2_wrapper_c = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=idn2.h',
+                           '--header=idn2-wrapper.h',
+                           idn2_symbols],
+                capture : true)
+
+        fname = 'idn2-wrapper.h'
+        idn2_wrapper_h = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=idn2.h',
+                           idn2_symbols],
+                capture : true)
+
+        libidn2_wrapper = shared_library(
+                'idn2-wrapper',
+                idn2_wrapper_c,
+                idn2_wrapper_h,
+                link_args : ['-shared',
+                             '-Wl,--version-script=' + libshared_sym_path],
+                c_args : ['-fvisibility=default'],
+                dependencies : libidn,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
+
+############################################################
+
 pcre2_symbols = ['pcre2_match_data_create_8',
                  'pcre2_match_data_free_8',
                  'pcre2_code_free_8',
@@ -497,6 +580,14 @@ shared_sources = files('''
 
 if conf.get('HAVE_LIBCRYPTSETUP') == 1
         shared_sources += cryptsetup_wrapper_h
+endif
+
+if conf.get('HAVE_LIBIDN') == 1
+        shared_sources += idn_wrapper_h
+endif
+
+if conf.get('HAVE_LIBIDN2') == 1
+        shared_sources += idn2_wrapper_h
 endif
 
 if conf.get('HAVE_PCRE2') == 1

@@ -16,9 +16,9 @@ static void* idn_dl = NULL;
 #endif
 
 #if HAVE_LIBIDN2
-int (*sym_idn2_lookup_u8)(const uint8_t* src, uint8_t** lookupname, int flags) = NULL;
-const char *(*sym_idn2_strerror)(int rc) = NULL;
-int (*sym_idn2_to_unicode_8z8z)(const char * input, char ** output, int flags) = NULL;
+wrap_type_idn2_lookup_u8 sym_idn2_lookup_u8;
+wrap_type_idn2_strerror sym_idn2_strerror;
+wrap_type_idn2_to_unicode_8z8z sym_idn2_to_unicode_8z8z;
 
 int dlopen_idn(void) {
         _cleanup_(dlclosep) void *dl = NULL;
@@ -27,7 +27,7 @@ int dlopen_idn(void) {
         if (idn_dl)
                 return 0; /* Already loaded */
 
-        dl = dlopen("libidn2.so.0", RTLD_LAZY);
+        dl = dlopen("libidn2-wrapper.so", RTLD_LAZY);
         if (!dl)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "libidn2 support is not installed: %s", dlerror());
@@ -35,9 +35,9 @@ int dlopen_idn(void) {
         r = dlsym_many_and_warn(
                         dl,
                         LOG_DEBUG,
-                        &sym_idn2_lookup_u8, "idn2_lookup_u8",
-                        &sym_idn2_strerror, "idn2_strerror",
-                        &sym_idn2_to_unicode_8z8z, "idn2_to_unicode_8z8z",
+                        &sym_idn2_lookup_u8,       "wrap_idn2_lookup_u8",
+                        &sym_idn2_strerror,        "wrap_idn2_strerror",
+                        &sym_idn2_to_unicode_8z8z, "wrap_idn2_to_unicode_8z8z",
                         NULL);
         if (r < 0)
                 return r;
@@ -51,10 +51,10 @@ int dlopen_idn(void) {
 #endif
 
 #if HAVE_LIBIDN
-int (*sym_idna_to_ascii_4i)(const uint32_t * in, size_t inlen, char *out, int flags);
-int (*sym_idna_to_unicode_44i)(const uint32_t * in, size_t inlen,uint32_t * out, size_t * outlen, int flags);
-char* (*sym_stringprep_ucs4_to_utf8)(const uint32_t * str, ssize_t len, size_t * items_read, size_t * items_written);
-uint32_t* (*sym_stringprep_utf8_to_ucs4)(const char *str, ssize_t len, size_t *items_written);
+wrap_type_idna_to_ascii_4i sym_idna_to_ascii_4i;
+wrap_type_idna_to_unicode_44i sym_idna_to_unicode_44i;
+wrap_type_stringprep_ucs4_to_utf8 sym_stringprep_ucs4_to_utf8;
+wrap_type_stringprep_utf8_to_ucs4 sym_stringprep_utf8_to_ucs4;
 
 int dlopen_idn(void) {
         _cleanup_(dlclosep) void *dl = NULL;
@@ -63,23 +63,18 @@ int dlopen_idn(void) {
         if (idn_dl)
                 return 0; /* Already loaded */
 
-        dl = dlopen("libidn.so.12", RTLD_LAZY);
-        if (!dl) {
-                /* libidn broke ABI in 1.34, but not in a way we care about (a new field got added to an
-                 * open-coded struct we do not use), hence support both versions. */
-                dl = dlopen("libidn.so.11", RTLD_LAZY);
-                if (!dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "libidn support is not installed: %s", dlerror());
-        }
+        dl = dlopen("libidn-wrapper.so", RTLD_LAZY);
+        if (!dl)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "libidn support is not installed: %s", dlerror());
 
         r = dlsym_many_and_warn(
                         dl,
                         LOG_DEBUG,
-                        &sym_idna_to_ascii_4i, "idna_to_ascii_4i",
-                        &sym_idna_to_unicode_44i, "idna_to_unicode_44i",
-                        &sym_stringprep_ucs4_to_utf8, "stringprep_ucs4_to_utf8",
-                        &sym_stringprep_utf8_to_ucs4, "stringprep_utf8_to_ucs4",
+                        &sym_idna_to_ascii_4i,        "wrap_idna_to_ascii_4i",
+                        &sym_idna_to_unicode_44i,     "wrap_idna_to_unicode_44i",
+                        &sym_stringprep_ucs4_to_utf8, "wrap_stringprep_ucs4_to_utf8",
+                        &sym_stringprep_utf8_to_ucs4, "wrap_stringprep_utf8_to_ucs4",
                         NULL);
         if (r < 0)
                 return r;
