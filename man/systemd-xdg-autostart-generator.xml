@@ -21,7 +21,7 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/usr/lib/systemd/system-generators/systemd-xdg-autostart-generator</filename></para>
+    <para><filename>/usr/lib/systemd/user-generators/systemd-xdg-autostart-generator</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
