@@ -495,6 +495,25 @@ int sd_netlink_message_append_ether_addr(sd_netlink_message *m, unsigned short t
         return 0;
 }
 
+int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, const hw_addr_data *data) {
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(data, -EINVAL);
+        assert_return(data->length > 0, -EINVAL);
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_ETHER_ADDR);
+        if (r < 0)
+                return r;
+
+        r = add_rtattr(m, type, data->addr.bytes, data->length);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int sd_netlink_message_append_cache_info(sd_netlink_message *m, unsigned short type, const struct ifa_cacheinfo *info) {
         int r;
 
@@ -860,6 +879,30 @@ int sd_netlink_message_read_ether_addr(sd_netlink_message *m, unsigned short typ
 
         if (data)
                 memcpy(data, attr_data, sizeof(struct ether_addr));
+
+        return 0;
+}
+
+int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, hw_addr_data *data) {
+        int r;
+        void *attr_data;
+
+        assert_return(m, -EINVAL);
+
+        r = message_attribute_has_type(m, NULL, type, NETLINK_TYPE_ETHER_ADDR);
+        if (r < 0)
+                return r;
+
+        r = netlink_message_read_internal(m, type, &attr_data, NULL);
+        if (r < 0)
+                return r;
+        else if ((size_t) r > sizeof(union hw_addr_union))
+                return -EIO;
+
+        if (data) {
+                memcpy(data->addr.bytes, attr_data, r);
+                data->length = r;
+        }
 
         return 0;
 }
