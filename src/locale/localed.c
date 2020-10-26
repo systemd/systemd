@@ -6,8 +6,8 @@
 #include <unistd.h>
 
 #if HAVE_XKBCOMMON
-#include <xkbcommon/xkbcommon.h>
-#include <dlfcn.h>
+#  include <xkbcommon/xkbcommon.h>
+#  include <dlfcn.h>
 #endif
 
 #include "sd-bus.h"
@@ -31,6 +31,10 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+
+#if HAVE_XKBCOMMON
+#  include "xkbcommon-wrapper.h"
+#endif
 
 static int locale_update_system_manager(Context *c, sd_bus *bus) {
         _cleanup_free_ char **l_unset = NULL;
@@ -517,11 +521,32 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
          * after all, hence let's support XKB maps when the library is around, and refuse otherwise. The function
          * pointers to the shared library are below: */
 
-        struct xkb_context* (*symbol_xkb_context_new)(enum xkb_context_flags flags) = NULL;
-        void (*symbol_xkb_context_unref)(struct xkb_context *context) = NULL;
-        void (*symbol_xkb_context_set_log_fn)(struct xkb_context *context, void (*log_fn)(struct xkb_context *context, enum xkb_log_level level, const char *format, va_list args)) = NULL;
-        struct xkb_keymap* (*symbol_xkb_keymap_new_from_names)(struct xkb_context *context, const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags) = NULL;
-        void (*symbol_xkb_keymap_unref)(struct xkb_keymap *keymap) = NULL;
+        wrap_type_xkb_context_new sym_xkb_context_new;
+        wrap_type_xkb_context_unref sym_xkb_context_unref;
+        wrap_type_xkb_context_set_log_fn sym_xkb_context_set_log_fn;
+        wrap_type_xkb_keymap_new_from_names sym_xkb_keymap_new_from_names;
+        wrap_type_xkb_keymap_unref sym_xkb_keymap_unref;
+
+        _cleanup_(dlclosep) void *dl = NULL;
+        int r;
+
+        /* Compile keymap from RMLVO information to check out its validity */
+
+        dl = dlopen("libxkbcommon-wrapper.so", RTLD_LAZY);
+        if (!dl)
+                return -EOPNOTSUPP;
+
+        r = dlsym_many_and_warn(
+                        dl,
+                        LOG_ERR,
+                        &sym_xkb_context_new,           "wrap_xkb_context_new",
+                        &sym_xkb_context_unref,         "wrap_xkb_context_unref",
+                        &sym_xkb_context_set_log_fn,    "wrap_xkb_context_set_log_fn",
+                        &sym_xkb_keymap_new_from_names, "wrap_keymap_new_from_names",
+                        &sym_xkb_keymap_unref,          "wrap_xkb_keymap_unref",
+                        NULL);
+        if (r < 0)
+                return r;
 
         const struct xkb_rule_names rmlvo = {
                 .model          = model,
@@ -531,44 +556,16 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
         };
         struct xkb_context *ctx = NULL;
         struct xkb_keymap *km = NULL;
-        _cleanup_(dlclosep) void *dl = NULL;
-        int r;
 
-        /* Compile keymap from RMLVO information to check out its validity */
-
-        dl = dlopen("libxkbcommon.so.0", RTLD_LAZY);
-        if (!dl)
-                return -EOPNOTSUPP;
-
-        r = LOAD_SYMBOL(symbol_xkb_context_new, dl, "xkb_context_new");
-        if (r < 0)
-                goto finish;
-
-        r = LOAD_SYMBOL(symbol_xkb_context_unref, dl, "xkb_context_unref");
-        if (r < 0)
-                goto finish;
-
-        r = LOAD_SYMBOL(symbol_xkb_context_set_log_fn, dl, "xkb_context_set_log_fn");
-        if (r < 0)
-                goto finish;
-
-        r = LOAD_SYMBOL(symbol_xkb_keymap_new_from_names, dl, "xkb_keymap_new_from_names");
-        if (r < 0)
-                goto finish;
-
-        r = LOAD_SYMBOL(symbol_xkb_keymap_unref, dl, "xkb_keymap_unref");
-        if (r < 0)
-                goto finish;
-
-        ctx = symbol_xkb_context_new(XKB_CONTEXT_NO_ENVIRONMENT_NAMES);
+        ctx = sym_xkb_context_new(XKB_CONTEXT_NO_ENVIRONMENT_NAMES);
         if (!ctx) {
                 r = -ENOMEM;
                 goto finish;
         }
 
-        symbol_xkb_context_set_log_fn(ctx, log_xkb);
+        sym_xkb_context_set_log_fn(ctx, log_xkb);
 
-        km = symbol_xkb_keymap_new_from_names(ctx, &rmlvo, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        km = sym_xkb_keymap_new_from_names(ctx, &rmlvo, XKB_KEYMAP_COMPILE_NO_FLAGS);
         if (!km) {
                 r = -EINVAL;
                 goto finish;
@@ -577,11 +574,11 @@ static int verify_xkb_rmlvo(const char *model, const char *layout, const char *v
         r = 0;
 
 finish:
-        if (symbol_xkb_keymap_unref && km)
-                symbol_xkb_keymap_unref(km);
+        if (sym_xkb_keymap_unref && km)
+                sym_xkb_keymap_unref(km);
 
-        if (symbol_xkb_context_unref && ctx)
-                symbol_xkb_context_unref(ctx);
+        if (sym_xkb_context_unref && ctx)
+                sym_xkb_context_unref(ctx);
 
         return r;
 }

@@ -147,6 +147,48 @@ endif
 
 ############################################################
 
+xkbcommon_symbols = ['xkb_context_new',
+                     'xkb_context_unref',
+                     'xkb_context_set_log_fn',
+                     'xkb_keymap_new_from_names',
+                     'xkb_keymap_unref']
+
+if conf.get('HAVE_XKBCOMMON') == 1
+        fname = 'xkbcommon-wrapper.c'
+        xkbcommon_wrapper_c = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=xkbcommon/xkbcommon.h',
+                           '--header=xkbcommon-wrapper.h',
+                           xkbcommon_symbols],
+                capture : true)
+
+        fname = 'xkbcommon-wrapper.h'
+        xkbcommon_wrapper_h = custom_target(
+                fname,
+                output : fname,
+                command : [generate_wrapper_py,
+                           '--cpp=@0@'.format(cpp),
+                           '--source=xkbcommon/xkbcommon.h',
+                           xkbcommon_symbols],
+                capture : true)
+
+        libxkbcommon_wrapper = shared_library(
+                'xkbcommon-wrapper',
+                xkbcommon_wrapper_c,
+                xkbcommon_wrapper_h,
+                link_args : ['-shared',
+                             '-Wl,--version-script=' + libshared_sym_path],
+                c_args : ['-fvisibility=default'],
+                dependencies : libxkbcommon,
+                install : true,
+                install_dir : rootlibexecdir)
+endif
+
+############################################################
+
 shared_sources = files('''
         acl-util.h
         acpi-fpdt.c
@@ -418,6 +460,10 @@ endif
 
 if conf.get('HAVE_QRENCODE') == 1
         shared_sources += qrencode_wrapper_h
+endif
+
+if conf.get('HAVE_XKBCOMMON') == 1
+        shared_sources += xkbcommon_wrapper_h
 endif
 
 if get_option('tests') != 'false'
