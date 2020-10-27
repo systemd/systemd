@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: MIT */
+
 #ifndef __LINUX_NL80211_H
 #define __LINUX_NL80211_H
 /*

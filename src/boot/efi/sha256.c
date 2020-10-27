@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
 /* Stolen from glibc and converted to UEFI style. In glibc it comes with the following copyright blurb: */
 
 /* Functions to compute SHA256 message digest of files or memory blocks.
