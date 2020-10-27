@@ -2782,7 +2782,7 @@ int link_update(Link *link, sd_netlink_message *m) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not update MAC address in DHCPv6 client: %m");
 
-                r = dhcp6_update_mac(link);
+                r = radv_update_mac(link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not update MAC address for Router Advertisement: %m");
 
