@@ -150,6 +150,12 @@ void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);
 int dns_transaction_validate_dnssec(DnsTransaction *t);
 int dns_transaction_request_dnssec_keys(DnsTransaction *t);
 
+static inline DnsResourceKey *dns_transaction_key(DnsTransaction *t) {
+        assert(t);
+
+        return t->key;
+}
+
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
 
