@@ -1635,16 +1635,20 @@ int show_journal_by_unit(
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
-        r = add_match_this_boot(j, NULL);
-        if (r < 0)
-                return r;
-
         if (system_unit)
                 r = add_matches_for_unit(j, unit);
         else
                 r = add_matches_for_user_unit(j, unit, uid);
         if (r < 0)
                 return log_error_errno(r, "Failed to add unit matches: %m");
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add conjunction: %m");
+
+        r = add_match_this_boot(j, NULL);
+        if (r < 0)
+                return r;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *filter;
