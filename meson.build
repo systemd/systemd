@@ -1422,6 +1422,7 @@ else
         endif
 endif
 conf.set10('ENABLE_OOMD', have)
+substs.set10('ENABLE_OOMD', have)
 
 want_remote = get_option('remote')
 if want_remote != 'false'
@@ -1462,7 +1463,6 @@ foreach term : ['analyze',
                 'networkd',
                 'nss-myhostname',
                 'nss-systemd',
-                'oomd',
                 'portabled',
                 'pstore',
                 'quotacheck',
