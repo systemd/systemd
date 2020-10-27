@@ -576,7 +576,7 @@ int take_etc_passwd_lock(const char *root) {
         return fd;
 }
 
-bool valid_user_group_name(const char *u) {
+bool valid_user_group_name_full(const char *u, bool strict) {
         const char *i;
         long sz;
 
@@ -585,12 +585,12 @@ bool valid_user_group_name(const char *u) {
          *
          * - We require that names fit into the appropriate utmp field
          * - We don't allow empty user names
+         * - No dots or digits in the first character
+         *
+         * If strict==true, additionally:
+         * - We don't allow any dots (this conflicts with chown syntax which permits dots as user/group name separator)
          *
          * Note that other systems are even more restrictive, and don't permit underscores or uppercase characters.
-         *
-         * jsynacek: We now allow dots in user names. The checks are not exhaustive as user names like "..." are allowed
-         * and valid according to POSIX, but can't be created using useradd. However, ".user" can be created. Let's not
-         * complicate the code by adding additional checks for weird corner cases like these,  as they don't really matter here.
          */
 
         if (isempty(u))
@@ -598,16 +598,16 @@ bool valid_user_group_name(const char *u) {
 
         if (!(u[0] >= 'a' && u[0] <= 'z') &&
             !(u[0] >= 'A' && u[0] <= 'Z') &&
-            u[0] != '_' && u[0] != '.')
+            u[0] != '_')
                 return false;
 
-        for (i = u+1; *i; i++) {
-                if (!(*i >= 'a' && *i <= 'z') &&
-                    !(*i >= 'A' && *i <= 'Z') &&
-                    !(*i >= '0' && *i <= '9') &&
-                    !IN_SET(*i, '_', '-', '.'))
+        for (i = u+1; *i; i++)
+                if (!((*i >= 'a' && *i <= 'z') ||
+                      (*i >= 'A' && *i <= 'Z') ||
+                      (*i >= '0' && *i <= '9') ||
+                      IN_SET(*i, '_', '-') ||
+                      (!strict && *i == '.')))
                         return false;
-        }
 
         sz = sysconf(_SC_LOGIN_NAME_MAX);
         assert_se(sz > 0);
@@ -621,15 +621,15 @@ bool valid_user_group_name(const char *u) {
         return true;
 }
 
-bool valid_user_group_name_or_id(const char *u) {
+bool valid_user_group_name_or_id_full(const char *u, bool strict) {
 
-        /* Similar as above, but is also fine with numeric UID/GID specifications, as long as they are in the right
-         * range, and not the invalid user ids. */
+        /* Similar as above, but is also fine with numeric UID/GID specifications, as long as they are in the
+         * right range, and not the invalid user ids. */
 
         if (isempty(u))
                 return false;
 
-        if (valid_user_group_name(u))
+        if (valid_user_group_name_full(u, strict))
                 return true;
 
         return parse_uid(u, NULL) >= 0;
