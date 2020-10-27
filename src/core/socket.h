@@ -58,6 +58,14 @@ typedef struct SocketPort {
         LIST_FIELDS(struct SocketPort, port);
 } SocketPort;
 
+typedef enum SocketTimestamping {
+        SOCKET_TIMESTAMPING_OFF,
+        SOCKET_TIMESTAMPING_US,  /* SO_TIMESTAMP */
+        SOCKET_TIMESTAMPING_NS,  /* SO_TIMESTAMPNS */
+        _SOCKET_TIMESTAMPING_MAX,
+        _SOCKET_TIMESTAMPING_INVALID = -1,
+} SocketTimestamping;
+
 struct Socket {
         Unit meta;
 
@@ -123,6 +131,7 @@ struct Socket {
         bool pass_cred;
         bool pass_sec;
         bool pass_pktinfo;
+        SocketTimestamping timestamping;
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
         SocketAddressBindIPv6Only bind_ipv6_only;
@@ -181,5 +190,9 @@ SocketResult socket_result_from_string(const char *s) _pure_;
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
 SocketType socket_port_type_from_string(const char *p) _pure_;
+
+const char* socket_timestamping_to_string(SocketTimestamping p) _const_;
+SocketTimestamping socket_timestamping_from_string(const char *p) _pure_;
+SocketTimestamping socket_timestamping_from_string_harder(const char *p) _pure_;
 
 DEFINE_CAST(SOCKET, Socket);

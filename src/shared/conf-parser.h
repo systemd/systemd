@@ -193,7 +193,7 @@ typedef enum Disabled {
                 return 0;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
+#define DEFINE_CONFIG_PARSE_ENUM_FULL(function, from_string, type, msg) \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = data, x;                                      \
                                                                         \
@@ -202,7 +202,7 @@ typedef enum Disabled {
                 assert(rvalue);                                         \
                 assert(data);                                           \
                                                                         \
-                x = name##_from_string(rvalue);                         \
+                x = from_string(rvalue);                                \
                 if (x < 0) {                                            \
                         log_syntax(unit, LOG_WARNING, filename, line, 0, \
                                    msg ", ignoring: %s", rvalue);       \
@@ -212,6 +212,9 @@ typedef enum Disabled {
                 *i = x;                                                 \
                 return 0;                                               \
         }
+
+#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
+        DEFINE_CONFIG_PARSE_ENUM_FULL(function, name##_from_string, type, msg)
 
 #define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value, msg) \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
