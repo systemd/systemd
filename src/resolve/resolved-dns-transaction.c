@@ -194,19 +194,20 @@ int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key) 
         if (r < 0)
                 return r;
 
-        t = new0(DnsTransaction, 1);
+        t = new(DnsTransaction, 1);
         if (!t)
                 return -ENOMEM;
 
-        t->dns_udp_fd = -1;
-        t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
-        t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
-        t->answer_nsec_ttl = (uint32_t) -1;
-        t->key = dns_resource_key_ref(key);
-        t->current_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
-        t->clamp_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
-
-        t->id = pick_new_id(s->manager);
+        *t = (DnsTransaction) {
+                .dns_udp_fd = -1,
+                .answer_source = _DNS_TRANSACTION_SOURCE_INVALID,
+                .answer_dnssec_result = _DNSSEC_RESULT_INVALID,
+                .answer_nsec_ttl = (uint32_t) -1,
+                .key = dns_resource_key_ref(key),
+                .current_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID,
+                .clamp_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID,
+                .id = pick_new_id(s->manager),
+        };
 
         r = hashmap_put(s->manager->dns_transactions, UINT_TO_PTR(t->id), t);
         if (r < 0) {

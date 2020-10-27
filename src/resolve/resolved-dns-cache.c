@@ -436,20 +436,22 @@ static int dns_cache_put_positive(
 
         dns_cache_make_space(c, 1);
 
-        i = new0(DnsCacheItem, 1);
+        i = new(DnsCacheItem, 1);
         if (!i)
                 return -ENOMEM;
 
-        i->type = DNS_CACHE_POSITIVE;
-        i->key = dns_resource_key_ref(rr->key);
-        i->rr = dns_resource_record_ref(rr);
-        i->until = calculate_until(rr, (uint32_t) -1, timestamp, false);
-        i->authenticated = authenticated;
-        i->shared_owner = shared_owner;
-        i->ifindex = ifindex;
-        i->owner_family = owner_family;
-        i->owner_address = *owner_address;
-        i->prioq_idx = PRIOQ_IDX_NULL;
+        *i = (DnsCacheItem) {
+                .type = DNS_CACHE_POSITIVE,
+                .key = dns_resource_key_ref(rr->key),
+                .rr = dns_resource_record_ref(rr),
+                .until = calculate_until(rr, (uint32_t) -1, timestamp, false),
+                .authenticated = authenticated,
+                .shared_owner = shared_owner,
+                .ifindex = ifindex,
+                .owner_family = owner_family,
+                .owner_address = *owner_address,
+                .prioq_idx = PRIOQ_IDX_NULL,
+        };
 
         r = dns_cache_link_item(c, i);
         if (r < 0)
@@ -521,21 +523,23 @@ static int dns_cache_put_negative(
 
         dns_cache_make_space(c, 1);
 
-        i = new0(DnsCacheItem, 1);
+        i = new(DnsCacheItem, 1);
         if (!i)
                 return -ENOMEM;
 
-        i->type =
-                rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA :
-                rcode == DNS_RCODE_NXDOMAIN ? DNS_CACHE_NXDOMAIN : DNS_CACHE_RCODE;
-        i->until =
-                i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
-                calculate_until(soa, nsec_ttl, timestamp, true);
-        i->authenticated = authenticated;
-        i->owner_family = owner_family;
-        i->owner_address = *owner_address;
-        i->prioq_idx = PRIOQ_IDX_NULL;
-        i->rcode = rcode;
+        *i = (DnsCacheItem) {
+                .type =
+                        rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA :
+                        rcode == DNS_RCODE_NXDOMAIN ? DNS_CACHE_NXDOMAIN : DNS_CACHE_RCODE,
+                .until =
+                        i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
+                        calculate_until(soa, nsec_ttl, timestamp, true),
+                .authenticated = authenticated,
+                .owner_family = owner_family,
+                .owner_address = *owner_address,
+                .prioq_idx = PRIOQ_IDX_NULL,
+                .rcode = rcode,
+        };
 
         if (i->type == DNS_CACHE_NXDOMAIN) {
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as

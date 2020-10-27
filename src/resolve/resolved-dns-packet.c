@@ -75,12 +75,16 @@ int dns_packet_new(
         if (!p)
                 return -ENOMEM;
 
-        p->size = p->rindex = DNS_PACKET_HEADER_SIZE;
-        p->allocated = a;
-        p->max_size = max_size;
-        p->protocol = protocol;
-        p->opt_start = p->opt_size = (size_t) -1;
-        p->n_ref = 1;
+        *p = (DnsPacket) {
+                .n_ref = 1,
+                .protocol = protocol,
+                .size = DNS_PACKET_HEADER_SIZE,
+                .rindex = DNS_PACKET_HEADER_SIZE,
+                .allocated = a,
+                .max_size = max_size,
+                .opt_start = (size_t) -1,
+                .opt_size = (size_t) -1,
+        };
 
         *ret = p;
 

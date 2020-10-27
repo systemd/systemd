@@ -80,11 +80,13 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         if (r < 0)
                                 return log_oom();
 
-                        item = new0(EtcHostsItem, 1);
+                        item = new(EtcHostsItem, 1);
                         if (!item)
                                 return log_oom();
 
-                        item->address = address;
+                        *item = (EtcHostsItem) {
+                                .address = address,
+                        };
 
                         r = hashmap_put(hosts->by_address, &item->address, item);
                         if (r < 0) {
