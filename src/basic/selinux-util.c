@@ -133,6 +133,7 @@ static int open_label_db(void) {
 int mac_selinux_init(void) {
 #if HAVE_SELINUX
         int r;
+        bool have_status_page = false;
 
         if (initialized)
                 return 0;
@@ -140,9 +141,15 @@ int mac_selinux_init(void) {
         if (!mac_selinux_use())
                 return 0;
 
-        r = selinux_status_open(/* no netlink fallback */ 0);
-        if (r < 0)
-                return log_enforcing_errno(errno, "Failed to open SELinux status page: %m");
+        r = selinux_status_open(/* netlink fallback */ 1);
+        if (r < 0) {
+                if (!ERRNO_IS_PRIVILEGE(errno))
+                        return log_enforcing_errno(errno, "Failed to open SELinux status page: %m");
+                log_warning_errno(errno, "selinux_status_open() with netlink fallback failed, not checking for policy reloads: %m");
+        } else if (r == 1)
+                log_warning("selinux_status_open() failed to open the status page, using the netlink fallback.");
+        else
+                have_status_page = true;
 
         r = open_label_db();
         if (r < 0) {
@@ -150,13 +157,14 @@ int mac_selinux_init(void) {
                 return r;
         }
 
-        /* save the current policyload sequence number, so `mac_selinux_maybe_reload()` does
-           not trigger on first call without any actual change */
+        /* Save the current policyload sequence number, so mac_selinux_maybe_reload() does not trigger on
+         * first call without any actual change. */
         last_policyload = selinux_status_policyload();
 
-        /* now that the SELinux status page has been successfully opened,
-           retrieve the enforcing status over it (to avoid system calls in `security_getenforce()`) */
-        enforcing_status_func = selinux_status_getenforce;
+        if (have_status_page)
+                /* Now that the SELinux status page has been successfully opened, retrieve the enforcing
+                 * status over it (to avoid system calls in security_getenforce()). */
+                enforcing_status_func = selinux_status_getenforce;
 
         initialized = true;
 #endif
