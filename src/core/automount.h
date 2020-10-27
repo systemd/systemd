@@ -8,6 +8,7 @@ typedef struct Automount Automount;
 typedef enum AutomountResult {
         AUTOMOUNT_SUCCESS,
         AUTOMOUNT_FAILURE_RESOURCES,
+        AUTOMOUNT_FAILURE_UNMOUNTED,
         AUTOMOUNT_FAILURE_START_LIMIT_HIT,
         AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT,
         _AUTOMOUNT_RESULT_MAX,
