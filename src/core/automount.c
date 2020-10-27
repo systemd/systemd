@@ -971,6 +971,12 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
         assert(a);
         assert(fd == a->pipe_fd);
 
+        if (events & (EPOLLHUP|EPOLLERR)) {
+                log_unit_error(UNIT(a), "Got hangup/error on autofs pipe from kernel. Likely our automount point has been unmounted by someone or something else?");
+                automount_enter_dead(a, AUTOMOUNT_FAILURE_UNMOUNTED);
+                return 0;
+        }
+
         if (events != EPOLLIN) {
                 log_unit_error(UNIT(a), "Got invalid poll event %"PRIu32" on pipe (fd=%d)", events, fd);
                 goto fail;
@@ -1070,6 +1076,7 @@ static const char* const automount_result_table[_AUTOMOUNT_RESULT_MAX] = {
         [AUTOMOUNT_FAILURE_RESOURCES] = "resources",
         [AUTOMOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
         [AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT] = "mount-start-limit-hit",
+        [AUTOMOUNT_FAILURE_UNMOUNTED] = "unmounted",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(automount_result, AutomountResult);
