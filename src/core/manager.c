@@ -2938,7 +2938,7 @@ int manager_loop(Manager *m) {
 
                 watchdog_usec = manager_get_watchdog(m, WATCHDOG_RUNTIME);
                 if (timestamp_is_set(watchdog_usec))
-                        watchdog_ping();
+                        (void) watchdog_ping();
 
                 if (!ratelimit_below(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
