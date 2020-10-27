@@ -176,6 +176,8 @@ static inline unsigned DNS_PACKET_RRCOUNT(DnsPacket *p) {
 int dns_packet_new(DnsPacket **p, DnsProtocol protocol, size_t min_alloc_dsize, size_t max_size);
 int dns_packet_new_query(DnsPacket **p, DnsProtocol protocol, size_t min_alloc_dsize, bool dnssec_checking_disabled);
 
+int dns_packet_dup(DnsPacket **ret, DnsPacket *p);
+
 void dns_packet_set_flags(DnsPacket *p, bool dnssec_checking_disabled, bool truncated);
 
 DnsPacket *dns_packet_ref(DnsPacket *p);
