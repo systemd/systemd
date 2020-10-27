@@ -214,7 +214,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 if (sig == SIGKILL) {
                         _cleanup_free_ char *s = NULL;
 
-                        get_process_comm(pid, &s);
+                        (void) get_process_comm(pid, &s);
                         log_notice("Sending SIGKILL to PID "PID_FMT" (%s).", pid, strna(s));
                 }
 
