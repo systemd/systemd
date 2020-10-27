@@ -160,6 +160,38 @@ int dns_packet_new_query(DnsPacket **ret, DnsProtocol protocol, size_t min_alloc
         return 0;
 }
 
+int dns_packet_dup(DnsPacket **ret, DnsPacket *p) {
+        DnsPacket *c;
+        int r;
+
+        assert(ret);
+        assert(p);
+
+        r = dns_packet_validate(p);
+        if (r < 0)
+                return r;
+
+        c = malloc(ALIGN(sizeof(DnsPacket)) + p->size);
+        if (!c)
+                return -ENOMEM;
+
+        *c = (DnsPacket) {
+                .n_ref = 1,
+                .protocol = p->protocol,
+                .size = p->size,
+                .rindex = DNS_PACKET_HEADER_SIZE,
+                .allocated = p->size,
+                .max_size = p->max_size,
+                .opt_start = (size_t) -1,
+                .opt_size = (size_t) -1,
+        };
+
+        memcpy(DNS_PACKET_DATA(c), DNS_PACKET_DATA(p), p->size);
+
+        *ret = c;
+        return 0;
+}
+
 DnsPacket *dns_packet_ref(DnsPacket *p) {
 
         if (!p)
