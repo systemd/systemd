@@ -485,7 +485,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 
                 printf("\t  Leader: %"PRIu32, i.leader);
 
-                get_process_comm(i.leader, &t);
+                (void) get_process_comm(i.leader, &t);
                 if (t)
                         printf(" (%s)", t);
 
