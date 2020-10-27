@@ -318,6 +318,14 @@ layout: default
   unlink("/foo/bar/baz");
   ```
 
+  When returning from a `void` function, you may also want to shorten the error
+  path boilerplate by returning a function invocation cast to `(void)` like so:
+
+  ```c
+  if (condition_not_met)
+          return (void) log_tests_skipped("Cannot run ...");
+  ```
+
   Don't cast function calls to `(void)` that return no error
   conditions. Specifically, the various `xyz_unref()` calls that return a
   `NULL` object shouldn't be cast to `(void)`, since not using the return value
