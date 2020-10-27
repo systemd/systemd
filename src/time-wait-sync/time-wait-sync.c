@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
 /*
  * systemd service to wait until kernel realtime clock is synchronized
  *

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
 #include "bond.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-protocol.h"

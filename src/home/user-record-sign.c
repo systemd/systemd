@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
 #include <openssl/pem.h>
 
 #include "fd-util.h"
