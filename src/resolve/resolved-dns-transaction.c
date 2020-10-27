@@ -1113,58 +1113,52 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         if (r > 0) /* Transaction got restarted... */
                 return;
 
-        if (IN_SET(t->scope->protocol, DNS_PROTOCOL_DNS, DNS_PROTOCOL_LLMNR, DNS_PROTOCOL_MDNS)) {
-
-                /* When dealing with protocols other than mDNS only consider responses with
-                 * equivalent query section to the request. For mDNS this check doesn't make
-                 * sense, because the section 6 of RFC6762 states that "Multicast DNS responses MUST NOT
-                 * contain any questions in the Question Section". */
-                if (t->scope->protocol != DNS_PROTOCOL_MDNS) {
-                        r = dns_packet_is_reply_for(p, t->key);
-                        if (r < 0)
-                                goto fail;
-                        if (r == 0) {
-                                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
-                                return;
-                        }
-                }
-
-                /* Install the answer as answer to the transaction */
-                dns_answer_unref(t->answer);
-                t->answer = dns_answer_ref(p->answer);
-                t->answer_rcode = DNS_PACKET_RCODE(p);
-                t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
-                t->answer_authenticated = false;
-
-                r = dns_transaction_fix_rcode(t);
+        /* When dealing with protocols other than mDNS only consider responses with equivalent query section
+         * to the request. For mDNS this check doesn't make sense, because the section 6 of RFC6762 states
+         * that "Multicast DNS responses MUST NOT contain any questions in the Question Section". */
+        if (t->scope->protocol != DNS_PROTOCOL_MDNS) {
+                r = dns_packet_is_reply_for(p, t->key);
                 if (r < 0)
                         goto fail;
-
-                /* Block GC while starting requests for additional DNSSEC RRs */
-                t->block_gc++;
-                r = dns_transaction_request_dnssec_keys(t);
-                t->block_gc--;
-
-                /* Maybe the transaction is ready for GC'ing now? If so, free it and return. */
-                if (!dns_transaction_gc(t))
-                        return;
-
-                /* Requesting additional keys might have resulted in
-                 * this transaction to fail, since the auxiliary
-                 * request failed for some reason. If so, we are not
-                 * in pending state anymore, and we should exit
-                 * quickly. */
-                if (t->state != DNS_TRANSACTION_PENDING)
-                        return;
-                if (r < 0)
-                        goto fail;
-                if (r > 0) {
-                        /* There are DNSSEC transactions pending now. Update the state accordingly. */
-                        t->state = DNS_TRANSACTION_VALIDATING;
-                        dns_transaction_close_connection(t);
-                        dns_transaction_stop_timeout(t);
+                if (r == 0) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                         return;
                 }
+        }
+
+        /* Install the answer as answer to the transaction */
+        dns_answer_unref(t->answer);
+        t->answer = dns_answer_ref(p->answer);
+        t->answer_rcode = DNS_PACKET_RCODE(p);
+        t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
+        t->answer_authenticated = false;
+
+        r = dns_transaction_fix_rcode(t);
+        if (r < 0)
+                goto fail;
+
+        /* Block GC while starting requests for additional DNSSEC RRs */
+        t->block_gc++;
+        r = dns_transaction_request_dnssec_keys(t);
+        t->block_gc--;
+
+        /* Maybe the transaction is ready for GC'ing now? If so, free it and return. */
+        if (!dns_transaction_gc(t))
+                return;
+
+        /* Requesting additional keys might have resulted in this transaction to fail, since the auxiliary
+         * request failed for some reason. If so, we are not in pending state anymore, and we should exit
+         * quickly. */
+        if (t->state != DNS_TRANSACTION_PENDING)
+                return;
+        if (r < 0)
+                goto fail;
+        if (r > 0) {
+                /* There are DNSSEC transactions pending now. Update the state accordingly. */
+                t->state = DNS_TRANSACTION_VALIDATING;
+                dns_transaction_close_connection(t);
+                dns_transaction_stop_timeout(t);
+                return;
         }
 
         dns_transaction_process_dnssec(t);
