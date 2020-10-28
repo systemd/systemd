@@ -2415,7 +2415,6 @@ static int link_load(Link *link) {
         _cleanup_free_ char *network_file = NULL,
                             *addresses = NULL,
                             *routes = NULL,
-                            *dhcp4_address = NULL,
                             *ipv4ll_address = NULL;
         int r;
 
@@ -2425,7 +2424,6 @@ static int link_load(Link *link) {
                            "NETWORK_FILE", &network_file,
                            "ADDRESSES", &addresses,
                            "ROUTES", &routes,
-                           "DHCP4_ADDRESS", &dhcp4_address,
                            "IPV4LL_ADDRESS", &ipv4ll_address);
         if (r < 0 && r != -ENOENT)
                 return log_link_error_errno(link, r, "Failed to read %s: %m", link->state_file);
@@ -2462,10 +2460,6 @@ network_file_fail:
         r = link_deserialize_routes(link, routes);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to load routes from %s, ignoring: %m", link->state_file);
-
-        r = link_deserialize_dhcp4(link, dhcp4_address);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to load DHCPv4 address from %s, ignoring: %m", link->state_file);
 
         r = link_deserialize_ipv4ll(link, ipv4ll_address);
         if (r < 0)

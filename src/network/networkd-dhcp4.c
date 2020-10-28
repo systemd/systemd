@@ -1286,6 +1286,29 @@ static int dhcp4_set_client_identifier(Link *link) {
         return 0;
 }
 
+static int dhcp4_set_request_address(Link *link) {
+        Address *a;
+
+        assert(link);
+        assert(link->network);
+        assert(link->dhcp_client);
+
+        if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                return 0;
+
+        SET_FOREACH(a, link->addresses_foreign) {
+                if (a->family != AF_INET)
+                        continue;
+                if (link_address_is_dynamic(link, a))
+                        break;
+        }
+
+        if (!a)
+                return 0;
+
+        return sd_dhcp_client_set_request_address(link->dhcp_client, &a->in_addr.in);
+}
+
 static int dhcp4_init(Link *link) {
         int r;
 
@@ -1469,6 +1492,10 @@ int dhcp4_configure(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed set to lease lifetime: %m");
         }
 
+        r = dhcp4_set_request_address(link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set initial DHCPv4 address: %m");
+
         r = dhcp4_configure_dad(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to configure service type: %m");
@@ -1495,30 +1522,6 @@ int dhcp4_update_mac(Link *link) {
         r = dhcp4_dad_update_mac(link);
         if (r < 0)
                 return r;
-
-        return 0;
-}
-
-int link_deserialize_dhcp4(Link *link, const char *dhcp4_address) {
-        union in_addr_union address;
-        int r;
-
-        assert(link);
-
-        if (isempty(dhcp4_address))
-                return 0;
-
-        r = in_addr_from_string(AF_INET, dhcp4_address, &address);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to parse DHCPv4 address: %s", dhcp4_address);
-
-        r = dhcp4_init(link);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to initialize DHCPv4 client: %m");
-
-        r = sd_dhcp_client_set_request_address(link->dhcp_client, &address.in);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to set initial DHCPv4 address %s: %m", dhcp4_address);
 
         return 0;
 }

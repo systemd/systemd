@@ -528,7 +528,7 @@ static bool link_is_static_address_configured(const Link *link, const Address *a
         return false;
 }
 
-static bool link_address_is_dynamic(const Link *link, const Address *address) {
+bool link_address_is_dynamic(const Link *link, const Address *address) {
         Route *route;
 
         assert(link);
