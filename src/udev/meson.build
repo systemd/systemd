@@ -202,7 +202,6 @@ fuzzers += [
           'src/fuzz/fuzz.h'],
          [libudev_core,
           libudev_static,
-          libsystemd_network,
           libshared],
          [threads,
           libacl]],

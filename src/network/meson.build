@@ -171,7 +171,7 @@ systemd_networkd_wait_online_sources = files('''
         wait-online/manager.c
         wait-online/manager.h
         wait-online/wait-online.c
-'''.split()) + network_internal_h
+'''.split())
 
 networkctl_sources = files('networkctl.c')
 
@@ -214,7 +214,6 @@ if conf.get('ENABLE_NETWORKD') == 1
         libnetworkd_core = static_library(
                 'networkd-core',
                 sources,
-                network_internal_h,
                 networkd_gperf_c,
                 networkd_network_gperf_c,
                 netdev_gperf_c,
