@@ -2414,8 +2414,7 @@ int link_initialized(Link *link, sd_device *device) {
 static int link_load(Link *link) {
         _cleanup_free_ char *network_file = NULL,
                             *addresses = NULL,
-                            *routes = NULL,
-                            *ipv4ll_address = NULL;
+                            *routes = NULL;
         int r;
 
         assert(link);
@@ -2423,8 +2422,7 @@ static int link_load(Link *link) {
         r = parse_env_file(NULL, link->state_file,
                            "NETWORK_FILE", &network_file,
                            "ADDRESSES", &addresses,
-                           "ROUTES", &routes,
-                           "IPV4LL_ADDRESS", &ipv4ll_address);
+                           "ROUTES", &routes);
         if (r < 0 && r != -ENOENT)
                 return log_link_error_errno(link, r, "Failed to read %s: %m", link->state_file);
 
@@ -2460,10 +2458,6 @@ network_file_fail:
         r = link_deserialize_routes(link, routes);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to load routes from %s, ignoring: %m", link->state_file);
-
-        r = link_deserialize_ipv4ll(link, ipv4ll_address);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to load IPv4LL address from %s, ignoring: %m", link->state_file);
 
         return 0;
 }
@@ -3169,10 +3163,6 @@ int link_save(Link *link) {
                         link->lease_file);
         } else
                 (void) unlink(link->lease_file);
-
-        r = link_serialize_ipv4ll(link, f);
-        if (r < 0)
-                goto fail;
 
         r = link_serialize_dhcp6_client(link, f);
         if (r < 0)
