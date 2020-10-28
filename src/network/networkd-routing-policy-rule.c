@@ -739,63 +739,28 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        switch (tmp->family) {
-        case AF_INET:
-                r = sd_netlink_message_read_in_addr(message, FRA_SRC, &tmp->from.in);
-                if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
+        r = netlink_message_read_in_addr_union(message, FRA_SRC, tmp->family, &tmp->from);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0) {
+                r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &tmp->from_prefixlen);
+                if (r < 0) {
+                        log_warning_errno(r, "rtnl: received rule message without valid source prefix length, ignoring: %m");
                         return 0;
-                } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &tmp->from_prefixlen);
-                        if (r < 0) {
-                                log_warning_errno(r, "rtnl: received rule message without valid source prefix length, ignoring: %m");
-                                return 0;
-                        }
                 }
+        }
 
-                r = sd_netlink_message_read_in_addr(message, FRA_DST, &tmp->to.in);
-                if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
+        r = netlink_message_read_in_addr_union(message, FRA_DST, tmp->family, &tmp->to);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0) {
+                r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &tmp->to_prefixlen);
+                if (r < 0) {
+                        log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");
                         return 0;
-                } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &tmp->to_prefixlen);
-                        if (r < 0) {
-                                log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");
-                                return 0;
-                        }
                 }
-
-                break;
-
-        case AF_INET6:
-                r = sd_netlink_message_read_in6_addr(message, FRA_SRC, &tmp->from.in6);
-                if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
-                        return 0;
-                } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &tmp->from_prefixlen);
-                        if (r < 0) {
-                                log_warning_errno(r, "rtnl: received rule message without valid source prefix length, ignoring: %m");
-                                return 0;
-                        }
-                }
-
-                r = sd_netlink_message_read_in6_addr(message, FRA_DST, &tmp->to.in6);
-                if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
-                        return 0;
-                } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &tmp->to_prefixlen);
-                        if (r < 0) {
-                                log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");
-                                return 0;
-                        }
-                }
-
-                break;
-
-        default:
-                assert_not_reached("Received rule message with unsupported address family");
         }
 
         r = sd_rtnl_message_routing_policy_rule_get_flags(message, &flags);
