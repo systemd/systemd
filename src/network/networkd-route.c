@@ -1370,7 +1370,6 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         uint32_t ifindex;
         uint16_t type;
         unsigned char table;
-        RouteVia via;
         size_t rta_len;
         int r;
 
@@ -1434,20 +1433,20 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
-        switch (tmp->family) {
-        case AF_INET:
-                r = sd_netlink_message_read_in_addr(message, RTA_DST, &tmp->dst.in);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message without valid destination, ignoring: %m");
-                        return 0;
-                }
+        r = netlink_message_read_in_addr_union(message, RTA_DST, tmp->family, &tmp->dst);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: received route message without valid destination, ignoring: %m");
+                return 0;
+        }
 
-                r = sd_netlink_message_read_in_addr(message, RTA_GATEWAY, &tmp->gw.in);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
-                        return 0;
-                } else if (r >= 0)
-                        tmp->gw_family = AF_INET;
+        r = netlink_message_read_in_addr_union(message, RTA_GATEWAY, tmp->family, &tmp->gw);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
+                return 0;
+        } else if (r >= 0)
+                tmp->gw_family = tmp->family;
+        else if (tmp->family == AF_INET) {
+                RouteVia via;
 
                 r = sd_netlink_message_read(message, RTA_VIA, sizeof(via), &via);
                 if (r < 0 && r != -ENODATA) {
@@ -1457,51 +1456,17 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         tmp->gw_family = via.family;
                         tmp->gw = via.address;
                 }
+        }
 
-                r = sd_netlink_message_read_in_addr(message, RTA_SRC, &tmp->src.in);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
-                        return 0;
-                }
+        r = netlink_message_read_in_addr_union(message, RTA_SRC, tmp->family, &tmp->src);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
+                return 0;
+        }
 
-                r = sd_netlink_message_read_in_addr(message, RTA_PREFSRC, &tmp->prefsrc.in);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message without valid preferred source, ignoring: %m");
-                        return 0;
-                }
-
-                break;
-
-        case AF_INET6:
-                r = sd_netlink_message_read_in6_addr(message, RTA_DST, &tmp->dst.in6);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message without valid destination, ignoring: %m");
-                        return 0;
-                }
-
-                r = sd_netlink_message_read_in6_addr(message, RTA_GATEWAY, &tmp->gw.in6);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
-                        return 0;
-                } else if (r >= 0)
-                        tmp->gw_family = AF_INET6;
-
-                r = sd_netlink_message_read_in6_addr(message, RTA_SRC, &tmp->src.in6);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
-                        return 0;
-                }
-
-                r = sd_netlink_message_read_in6_addr(message, RTA_PREFSRC, &tmp->prefsrc.in6);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message without valid preferred source, ignoring: %m");
-                        return 0;
-                }
-
-                break;
-
-        default:
-                assert_not_reached("Received route message with unsupported address family");
+        r = netlink_message_read_in_addr_union(message, RTA_PREFSRC, tmp->family, &tmp->prefsrc);
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: received route message without valid preferred source, ignoring: %m");
                 return 0;
         }
 
