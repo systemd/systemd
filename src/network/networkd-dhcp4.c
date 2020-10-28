@@ -1309,25 +1309,6 @@ static int dhcp4_set_request_address(Link *link) {
         return sd_dhcp_client_set_request_address(link->dhcp_client, &a->in_addr.in);
 }
 
-static int dhcp4_init(Link *link) {
-        int r;
-
-        assert(link);
-
-        if (link->dhcp_client)
-                return 0;
-
-        r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
-        if (r < 0)
-                return r;
-
-        r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 int dhcp4_configure(Link *link) {
         sd_dhcp_option *send_option;
         void *request_options;
@@ -1343,9 +1324,15 @@ int dhcp4_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = dhcp4_init(link);
-        if (r < 0)
-                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to initialize DHCP4 client: %m");
+        if (!link->dhcp_client) {
+                r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to allocate DHCP4 client: %m");
+
+                r = sd_dhcp_client_attach_event(link->dhcp_client, link->manager->event, 0);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to attach event to DHCP4 client: %m");
+        }
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    (const uint8_t *) &link->mac,
