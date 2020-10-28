@@ -60,7 +60,6 @@ struct Manager {
 
         Set *rules;
         Set *rules_foreign;
-        Set *rules_saved;
 
         /* Manager stores routes without RTA_OIF attribute. */
         Set *routes;
