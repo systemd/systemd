@@ -8,7 +8,6 @@
 #include "link.h"
 #include "manager.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "strv.h"
 #include "time-util.h"
 #include "util.h"

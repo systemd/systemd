@@ -20,7 +20,6 @@
 #include "io-util.h"
 #include "missing_network.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "random-util.h"

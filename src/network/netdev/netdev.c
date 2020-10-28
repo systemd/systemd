@@ -23,7 +23,6 @@
 #include "netdev.h"
 #include "netdevsim.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "networkd-manager.h"
 #include "nlmon.h"
 #include "path-lookup.h"
