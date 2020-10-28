@@ -1,6 +1,9 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
 <refentry id="machinectl" conditional='ENABLE_MACHINED'
@@ -939,14 +942,16 @@
 
     <example>
       <title>Download a Fedora image, set a root password in it, start
-      it as service</title>
+      it as a service</title>
 
-      <programlisting># machinectl pull-raw --verify=no https://dl.fedoraproject.org/pub/fedora/linux/releases/27/CloudImages/x86_64/images/Fedora-Cloud-Base-27-1.6.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-27-1.6.x86_64
+      <programlisting># machinectl pull-raw --verify=no \
+      https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz \
+      Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
+# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
 # passwd
 # exit
-# machinectl start Fedora-Cloud-Base-27-1.6.x86_64
-# machinectl login Fedora-Cloud-Base-27-1.6.x86_64</programlisting>
+# machinectl start Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64
+# machinectl login Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86-64</programlisting>
 
       <para>This downloads the specified <filename>.raw</filename>
       image with verification disabled. Then, a shell is opened in it
