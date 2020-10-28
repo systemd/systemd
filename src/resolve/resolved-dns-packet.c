@@ -1334,7 +1334,8 @@ int dns_packet_read_uint16(DnsPacket *p, uint16_t *ret, size_t *start) {
         if (r < 0)
                 return r;
 
-        *ret = unaligned_read_be16(d);
+        if (ret)
+                *ret = unaligned_read_be16(d);
 
         return 0;
 }
@@ -1420,19 +1421,19 @@ int dns_packet_read_raw_string(DnsPacket *p, const void **ret, size_t *size, siz
 
 int dns_packet_read_name(
                 DnsPacket *p,
-                char **_ret,
+                char **ret,
                 bool allow_compression,
-                size_t *start) {
+                size_t *ret_start) {
 
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
         size_t after_rindex = 0, jump_barrier;
-        _cleanup_free_ char *ret = NULL;
+        _cleanup_free_ char *name = NULL;
         size_t n = 0, allocated = 0;
         bool first = true;
         int r;
 
         assert(p);
-        assert(_ret);
+
         INIT_REWINDER(rewinder, p);
         jump_barrier = p->rindex;
 
@@ -1457,15 +1458,15 @@ int dns_packet_read_name(
                         if (r < 0)
                                 return r;
 
-                        if (!GREEDY_REALLOC(ret, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
+                        if (!GREEDY_REALLOC(name, allocated, n + !first + DNS_LABEL_ESCAPED_MAX))
                                 return -ENOMEM;
 
                         if (first)
                                 first = false;
                         else
-                                ret[n++] = '.';
+                                name[n++] = '.';
 
-                        r = dns_label_escape(label, c, ret + n, DNS_LABEL_ESCAPED_MAX);
+                        r = dns_label_escape(label, c, name + n, DNS_LABEL_ESCAPED_MAX);
                         if (r < 0)
                                 return r;
 
@@ -1493,18 +1494,19 @@ int dns_packet_read_name(
                         return -EBADMSG;
         }
 
-        if (!GREEDY_REALLOC(ret, allocated, n + 1))
+        if (!GREEDY_REALLOC(name, allocated, n + 1))
                 return -ENOMEM;
 
-        ret[n] = 0;
+        name[n] = 0;
 
         if (after_rindex != 0)
                 p->rindex= after_rindex;
 
-        *_ret = TAKE_PTR(ret);
+        if (ret)
+                *ret = TAKE_PTR(name);
+        if (ret_start)
+                *ret_start = rewinder.saved_rindex;
 
-        if (start)
-                *start = rewinder.saved_rindex;
         CANCEL_REWINDER(rewinder);
 
         return 0;
@@ -1606,16 +1608,19 @@ static int dns_packet_read_type_windows(DnsPacket *p, Bitmap **types, size_t siz
         return 0;
 }
 
-int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, bool *ret_cache_flush, size_t *start) {
+int dns_packet_read_key(
+                DnsPacket *p,
+                DnsResourceKey **ret,
+                bool *ret_cache_flush,
+                size_t *ret_start) {
+
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
         _cleanup_free_ char *name = NULL;
         bool cache_flush = false;
         uint16_t class, type;
-        DnsResourceKey *key;
         int r;
 
         assert(p);
-        assert(ret);
         INIT_REWINDER(rewinder, p);
 
         r = dns_packet_read_name(p, &name, true, NULL);
@@ -1639,19 +1644,23 @@ int dns_packet_read_key(DnsPacket *p, DnsResourceKey **ret, bool *ret_cache_flus
                 }
         }
 
-        key = dns_resource_key_new_consume(class, type, name);
-        if (!key)
-                return -ENOMEM;
+        if (ret) {
+                DnsResourceKey *key;
 
-        name = NULL;
-        *ret = key;
+                key = dns_resource_key_new_consume(class, type, name);
+                if (!key)
+                        return -ENOMEM;
+
+                TAKE_PTR(name);
+                *ret = key;
+        }
 
         if (ret_cache_flush)
                 *ret_cache_flush = cache_flush;
-        if (start)
-                *start = rewinder.saved_rindex;
-        CANCEL_REWINDER(rewinder);
+        if (ret_start)
+                *ret_start = rewinder.saved_rindex;
 
+        CANCEL_REWINDER(rewinder);
         return 0;
 }
 
@@ -1661,7 +1670,12 @@ static bool loc_size_ok(uint8_t size) {
         return m <= 9 && e <= 9 && (m > 0 || e == 0);
 }
 
-int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_flush, size_t *start) {
+int dns_packet_read_rr(
+                DnsPacket *p,
+                DnsResourceRecord **ret,
+                bool *ret_cache_flush,
+                size_t *ret_start) {
+
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
         _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
@@ -1671,7 +1685,6 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         int r;
 
         assert(p);
-        assert(ret);
 
         INIT_REWINDER(rewinder, p);
 
@@ -2112,14 +2125,14 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         if (p->rindex != offset + rdlength)
                 return -EBADMSG;
 
-        *ret = TAKE_PTR(rr);
-
+        if (ret)
+                *ret = TAKE_PTR(rr);
         if (ret_cache_flush)
                 *ret_cache_flush = cache_flush;
-        if (start)
-                *start = rewinder.saved_rindex;
-        CANCEL_REWINDER(rewinder);
+        if (ret_start)
+                *ret_start = rewinder.saved_rindex;
 
+        CANCEL_REWINDER(rewinder);
         return 0;
 }
 
@@ -2408,6 +2421,92 @@ int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size) {
 
         unaligned_write_be16(DNS_PACKET_DATA(p) + p->opt_start + 3, max_udp_size);
         return 1;
+}
+
+static int patch_rr(DnsPacket *p, usec_t age) {
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder;
+        size_t ttl_index;
+        uint32_t ttl;
+        uint16_t type, rdlength;
+        int r;
+
+        INIT_REWINDER(rewinder, p);
+
+        /* Patches the RR at the current rindex, substracts the specified time from the TTL */
+
+        r = dns_packet_read_name(p, NULL, true, NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_read_uint16(p, &type, NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_read_uint16(p, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_read_uint32(p, &ttl, &ttl_index);
+        if (r < 0)
+                return r;
+
+        if (type != DNS_TYPE_OPT) { /* The TTL of the OPT field is not actually a TTL, skip it */
+                ttl = LESS_BY(ttl * USEC_PER_SEC, age) / USEC_PER_SEC;
+                unaligned_write_be32(DNS_PACKET_DATA(p) + ttl_index, ttl);
+        }
+
+        r = dns_packet_read_uint16(p, &rdlength, NULL);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_read(p, rdlength, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        CANCEL_REWINDER(rewinder);
+        return 0;
+}
+
+int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = {};
+        unsigned i, n;
+        usec_t k;
+        int r;
+
+        assert(p);
+        assert(timestamp_is_set(timestamp));
+
+        /* Adjusts all TTLs in the packet by subtracting the time difference between now and the specified timestamp */
+
+        k = now(clock_boottime_or_monotonic());
+        assert(k >= timestamp);
+        k -= timestamp;
+
+        INIT_REWINDER(rewinder, p);
+
+        dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
+
+        n = DNS_PACKET_QDCOUNT(p);
+        for (i = 0; i < n; i++) {
+                r = dns_packet_read_key(p, NULL, NULL, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        n = DNS_PACKET_RRCOUNT(p);
+        for (i = 0; i < n; i++) {
+
+                /* DNS servers suck, hence the RR count is in many servers off. If we reached the end
+                 * prematurely, accept that, exit early */
+                if (p->rindex == p->size)
+                        break;
+
+                r = patch_rr(p, k);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static void dns_packet_hash_func(const DnsPacket *s, struct siphash *state) {
