@@ -152,25 +152,19 @@ static const char *format_route_protocol(int protocol, char *buf, size_t size) {
 
 static unsigned routes_max(void) {
         static thread_local unsigned cached = 0;
-
         _cleanup_free_ char *s4 = NULL, *s6 = NULL;
         unsigned val4 = ROUTES_DEFAULT_MAX_PER_FAMILY, val6 = ROUTES_DEFAULT_MAX_PER_FAMILY;
 
         if (cached > 0)
                 return cached;
 
-        if (sysctl_read("net/ipv4/route/max_size", &s4) >= 0) {
-                truncate_nl(s4);
-                if (safe_atou(s4, &val4) >= 0 &&
-                    val4 == 2147483647U)
+        if (sysctl_read_ip_property(AF_INET, NULL, "route/max_size", &s4) >= 0)
+                if (safe_atou(s4, &val4) >= 0 && val4 == 2147483647U)
                         /* This is the default "no limit" value in the kernel */
                         val4 = ROUTES_DEFAULT_MAX_PER_FAMILY;
-        }
 
-        if (sysctl_read("net/ipv6/route/max_size", &s6) >= 0) {
-                truncate_nl(s6);
+        if (sysctl_read_ip_property(AF_INET6, NULL, "route/max_size", &s6) >= 0)
                 (void) safe_atou(s6, &val6);
-        }
 
         cached = MAX(ROUTES_DEFAULT_MAX_PER_FAMILY, val4) +
                  MAX(ROUTES_DEFAULT_MAX_PER_FAMILY, val6);
