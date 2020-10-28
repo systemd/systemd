@@ -23,7 +23,8 @@ typedef struct RoutingPolicyRule {
         bool invert_rule;
 
         uint8_t tos;
-        uint8_t protocol;
+        uint8_t ipproto; /* FRA_IP_PROTO */
+        uint8_t protocol; /* FRA_PROTOCOL */
 
         uint32_t table;
         uint32_t fwmark;
