@@ -617,7 +617,7 @@ static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link) {
         return 0;
 }
 
-static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule *rule) {
+static bool links_have_routing_policy_rule(const Manager *m, const RoutingPolicyRule *rule, const Link *except) {
         Link *link;
 
         assert(m);
@@ -625,6 +625,9 @@ static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule
 
         HASHMAP_FOREACH(link, m->links) {
                 RoutingPolicyRule *link_rule;
+
+                if (link == except)
+                        continue;
 
                 if (!link->network)
                         continue;
@@ -635,6 +638,31 @@ static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule
         }
 
         return false;
+}
+
+int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except) {
+        RoutingPolicyRule *rule;
+        int k, r = 0;
+        Set *rules;
+
+        assert(m);
+
+        rules = foreign ? m->rules_foreign : m->rules;
+        SET_FOREACH(rule, rules) {
+                /* Do not touch rules managed by kernel. */
+                if (rule->protocol == RTPROT_KERNEL)
+                        continue;
+
+                /* The rule will be configured later, or already configured by a link. */
+                if (links_have_routing_policy_rule(m, rule, except))
+                        continue;
+
+                k = routing_policy_rule_remove(rule, m);
+                if (k < 0 && r >= 0)
+                        r = k;
+        }
+
+        return r;
 }
 
 static void routing_policy_rule_purge(Manager *m) {
@@ -650,7 +678,7 @@ static void routing_policy_rule_purge(Manager *m) {
                 if (!existing)
                         continue; /* Saved rule does not exist anymore. */
 
-                if (manager_links_have_routing_policy_rule(m, existing))
+                if (links_have_routing_policy_rule(m, existing, NULL))
                         continue; /* Existing links have the saved rule. */
 
                 /* Existing links do not have the saved rule. Let's drop the rule now, and re-configure it

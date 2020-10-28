@@ -2001,37 +2001,51 @@ static int link_enter_join_netdev(Link *link) {
 }
 
 static int link_drop_foreign_config(Link *link) {
-        int r;
+        int k, r;
+
+        assert(link);
+        assert(link->manager);
 
         r = link_drop_foreign_addresses(link);
-        if (r < 0)
-                return r;
 
-        r = link_drop_foreign_neighbors(link);
-        if (r < 0)
-                return r;
+        k = link_drop_foreign_neighbors(link);
+        if (k < 0 && r >= 0)
+                r = k;
 
-        return link_drop_foreign_routes(link);
+        k = link_drop_foreign_routes(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = manager_drop_foreign_routing_policy_rules(link->manager);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        return r;
 }
 
 static int link_drop_config(Link *link) {
-        int r;
+        int k, r;
+
+        assert(link);
+        assert(link->manager);
 
         r = link_drop_addresses(link);
-        if (r < 0)
-                return r;
 
-        r = link_drop_neighbors(link);
-        if (r < 0)
-                return r;
+        k = link_drop_neighbors(link);
+        if (k < 0 && r >= 0)
+                r = k;
 
-        r = link_drop_routes(link);
-        if (r < 0)
-                return r;
+        k = link_drop_routes(link);
+        if (k < 0 && r >= 0)
+                r = k;
+
+        k = manager_drop_routing_policy_rules(link->manager, link);
+        if (k < 0 && r >= 0)
+                r = k;
 
         ndisc_flush(link);
 
-        return 0;
+        return r;
 }
 
 int link_configure(Link *link) {

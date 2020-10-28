@@ -57,6 +57,13 @@ void network_drop_invalid_routing_policy_rules(Network *network);
 int link_set_routing_policy_rules(Link *link);
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const Link *except);
+static inline int manager_drop_foreign_routing_policy_rules(Manager *m) {
+        return manager_drop_routing_policy_rules_internal(m, true, NULL);
+}
+static inline int manager_drop_routing_policy_rules(Manager *m, const Link *except) {
+        return manager_drop_routing_policy_rules_internal(m, false, except);
+}
 
 int routing_policy_serialize_rules(Set *rules, FILE *f);
 int routing_policy_load_rules(const char *state_file, Set **rules);
