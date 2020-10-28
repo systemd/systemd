@@ -38,6 +38,7 @@
 #include "ordered-set.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "selinux-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
@@ -971,7 +972,7 @@ static int manager_enumerate_internal(
 
         r = sd_netlink_call(m->rtnl, req, 0, &reply);
         if (r < 0) {
-                if (r == -EOPNOTSUPP && name) {
+                if (name && (r == -EOPNOTSUPP || (r == -EINVAL && mac_selinux_enforcing()))) {
                         log_debug_errno(r, "%s are not supported by the kernel. Ignoring.", name);
                         return 0;
                 }
