@@ -2235,8 +2235,9 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         for (i = 0; i < n; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 bool cache_flush = false;
+                size_t start;
 
-                r = dns_packet_read_rr(p, &rr, &cache_flush, NULL);
+                r = dns_packet_read_rr(p, &rr, &cache_flush, &start);
                 if (r < 0)
                         return r;
 
@@ -2304,6 +2305,9 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                         }
 
                         p->opt = dns_resource_record_ref(rr);
+                        p->opt_start = start;
+                        assert(p->rindex >= start);
+                        p->opt_size = p->rindex - start;
                 } else {
                         /* According to RFC 4795, section 2.9. only the RRs from the Answer section
                          * shall be cached. Hence mark only those RRs as cacheable by default, but
@@ -2386,6 +2390,20 @@ int dns_packet_is_reply_for(DnsPacket *p, const DnsResourceKey *key) {
                 return 0;
 
         return dns_resource_key_equal(p->question->keys[0], key);
+}
+
+int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size) {
+        assert(p);
+        assert(max_udp_size >= DNS_PACKET_UNICAST_SIZE_MAX);
+
+        if (p->opt_start == (size_t) -1) /* No OPT section, nothing to patch */
+                return 0;
+
+        assert(p->opt_size != (size_t) -1);
+        assert(p->opt_size >= 5);
+
+        unaligned_write_be16(DNS_PACKET_DATA(p) + p->opt_start + 3, max_udp_size);
+        return 1;
 }
 
 static void dns_packet_hash_func(const DnsPacket *s, struct siphash *state) {
