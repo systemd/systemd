@@ -260,7 +260,8 @@ node /org/freedesktop/hostname1 {
       <interfacename>org.freedesktop.hostname1.set-hostname</interfacename>. For
       <function>SetStaticHostname()</function> and <function>SetPrettyHostname()</function> it is
       <interfacename>org.freedesktop.hostname1.set-static-hostname</interfacename>. For
-      <function>SetIconName()</function> and <function>SetChassis()</function> it is
+      <function>SetIconName()</function>, <function>SetChassis()</function>, <function>SetDeployment()</function>
+      and <function>SetLocation()</function> it is
       <interfacename>org.freedesktop.hostname1.set-machine-info</interfacename>.</para>
     </refsect2>
   </refsect1>
