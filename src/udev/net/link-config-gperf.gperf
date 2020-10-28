@@ -6,7 +6,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "link-config.h"
-#include "network-internal.h"
+#include "net-condition.h"
 #include "socket-util.h"
 %}
 struct ConfigPerfItem;

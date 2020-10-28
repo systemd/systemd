@@ -5,7 +5,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include <stddef.h>
 #include "conf-parser.h"
 #include "netem.h"
-#include "network-internal.h"
+#include "net-condition.h"
 #include "networkd-address-label.h"
 #include "networkd-address.h"
 #include "networkd-can.h"

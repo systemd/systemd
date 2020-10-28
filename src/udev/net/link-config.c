@@ -18,6 +18,7 @@
 #include "link-config.h"
 #include "log.h"
 #include "memory-util.h"
+#include "net-condition.h"
 #include "netif-naming-scheme.h"
 #include "netlink-util.h"
 #include "network-internal.h"
