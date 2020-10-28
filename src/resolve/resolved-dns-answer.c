@@ -706,7 +706,7 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
                         fputs("\t;", f);
 
                 if (ifindex != 0)
-                        printf(" ifindex=%i", ifindex);
+                        fprintf(f, " ifindex=%i", ifindex);
                 if (flags & DNS_ANSWER_AUTHENTICATED)
                         fputs(" authenticated", f);
                 if (flags & DNS_ANSWER_CACHEABLE)
