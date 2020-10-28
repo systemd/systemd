@@ -787,7 +787,7 @@ static bool link_has_route(const Link *link, const Route *route) {
         return false;
 }
 
-static bool links_have_route(Manager *manager, const Route *route, const Link *except) {
+static bool links_have_route(const Manager *manager, const Route *route, const Link *except) {
         Link *link;
 
         assert(manager);
@@ -803,19 +803,21 @@ static bool links_have_route(Manager *manager, const Route *route, const Link *e
         return false;
 }
 
-static int manager_drop_foreign_routes(Manager *manager) {
+static int manager_drop_routes_internal(Manager *manager, bool foreign, const Link *except) {
         Route *route;
         int k, r = 0;
+        Set *routes;
 
         assert(manager);
 
-        SET_FOREACH(route, manager->routes_foreign) {
-                /* do not touch routes managed by the kernel */
+        routes = foreign ? manager->routes_foreign : manager->routes;
+        SET_FOREACH(route, routes) {
+                /* Do not touch routes managed by the kernel */
                 if (route->protocol == RTPROT_KERNEL)
                         continue;
 
-                if (links_have_route(manager, route, NULL))
-                        /* The route will be configured later. */
+                /* The route will be configured later, or already configured by a link */
+                if (links_have_route(manager, route, except))
                         continue;
 
                 /* The existing links do not have the route. Let's drop this now. It may by
@@ -828,29 +830,12 @@ static int manager_drop_foreign_routes(Manager *manager) {
         return r;
 }
 
-static int manager_drop_routes(Manager *manager, Link *except) {
-        Route *route;
-        int k, r = 0;
+static int manager_drop_foreign_routes(Manager *manager) {
+        return manager_drop_routes_internal(manager, true, NULL);
+}
 
-        assert(manager);
-
-        SET_FOREACH(route, manager->routes) {
-                /* do not touch routes managed by the kernel */
-                if (route->protocol == RTPROT_KERNEL)
-                        continue;
-
-                if (links_have_route(manager, route, except))
-                        /* The route will be configured later. */
-                        continue;
-
-                /* The existing links do not have the route. Let's drop this now. It may by
-                 * re-configured later. */
-                k = route_remove(route, manager, NULL, NULL);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
-
-        return r;
+static int manager_drop_routes(Manager *manager, const Link *except) {
+        return manager_drop_routes_internal(manager, false, except);
 }
 
 int link_drop_foreign_routes(Link *link) {
