@@ -342,7 +342,8 @@ int config_parse_match_strv(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
 
@@ -380,6 +381,11 @@ int config_parse_match_ifnames(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (isempty(rvalue)) {
+                *sv = strv_free(*sv);
+                return 0;
+        }
 
         invert = *p == '!';
         p += invert;
@@ -439,6 +445,11 @@ int config_parse_match_property(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                *sv = strv_free(*sv);
+                return 0;
+        }
+
         invert = *p == '!';
         p += invert;
 
@@ -487,26 +498,31 @@ int config_parse_ifalias(const char *unit,
                          void *userdata) {
 
         char **s = data;
-        _cleanup_free_ char *n = NULL;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        n = strdup(rvalue);
-        if (!n)
-                return log_oom();
-
-        if (!ascii_is_valid(n) || strlen(n) >= IFALIASZ) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Interface alias is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
+        if (!isempty(rvalue)) {
+                *s = mfree(*s);
                 return 0;
         }
 
-        if (isempty(n))
-                *s = mfree(*s);
-        else
-                free_and_replace(*s, n);
+        if (!ascii_is_valid(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Interface alias is not ASCII clean, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (strlen(rvalue) >= IFALIASZ) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Interface alias is too long, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (free_and_strdup(s, rvalue) < 0)
+                return log_oom();
 
         return 0;
 }
@@ -531,13 +547,19 @@ int config_parse_hwaddr(const char *unit,
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                *hwaddr = mfree(*hwaddr);
+                return 0;
+        }
+
         n = new0(struct ether_addr, 1);
         if (!n)
                 return log_oom();
 
         r = ether_addr_from_string(rvalue, n);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Not a valid MAC address, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -557,8 +579,6 @@ int config_parse_hwaddrs(const char *unit,
                          void *data,
                          void *userdata) {
 
-        _cleanup_set_free_free_ Set *s = NULL;
-        const char *p = rvalue;
         Set **hwaddrs = data;
         int r;
 
@@ -573,21 +593,18 @@ int config_parse_hwaddrs(const char *unit,
                 return 0;
         }
 
-        s = set_new(&ether_addr_hash_ops);
-        if (!s)
-                return log_oom();
-
-        for (;;) {
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
                 _cleanup_free_ struct ether_addr *n = NULL;
 
                 r = extract_first_word(&p, &word, NULL, 0);
                 if (r == 0)
-                        break;
+                        return 0;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
 
@@ -597,26 +614,17 @@ int config_parse_hwaddrs(const char *unit,
 
                 r = ether_addr_from_string(word, n);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Not a valid MAC address, ignoring: %s", word);
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Not a valid MAC address, ignoring: %s", word);
                         continue;
                 }
 
-                r = set_put(s, n);
+                r = set_ensure_put(hwaddrs, &ether_addr_hash_ops, n);
                 if (r < 0)
                         return log_oom();
                 if (r > 0)
-                        n = NULL; /* avoid cleanup */
+                        TAKE_PTR(n); /* avoid cleanup */
         }
-
-        r = set_ensure_allocated(hwaddrs, &ether_addr_hash_ops);
-        if (r < 0)
-                return log_oom();
-
-        r = set_move(*hwaddrs, s);
-        if (r < 0)
-                return log_oom();
-
-        return 0;
 }
 
 int config_parse_bridge_port_priority(
@@ -647,8 +655,9 @@ int config_parse_bridge_port_priority(
         }
 
         if (i > LINK_BRIDGE_PORT_PRIORITY_MAX) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Bridge port priority is larger than maximum %u, ignoring: %s", LINK_BRIDGE_PORT_PRIORITY_MAX, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Bridge port priority is larger than maximum %u, ignoring: %s",
+                           LINK_BRIDGE_PORT_PRIORITY_MAX, rvalue);
                 return 0;
         }
 
