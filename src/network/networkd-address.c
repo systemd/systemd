@@ -1248,60 +1248,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         return 1;
 }
 
-int link_serialize_addresses(Link *link, FILE *f) {
-        bool space = false;
-        Address *a;
-
-        assert(link);
-
-        fputs("ADDRESSES=", f);
-        SET_FOREACH(a, link->addresses) {
-                _cleanup_free_ char *address_str = NULL;
-
-                if (in_addr_to_string(a->family, &a->in_addr, &address_str) < 0)
-                        continue;
-
-                fprintf(f, "%s%s/%u", space ? " " : "", address_str, a->prefixlen);
-                space = true;
-        }
-        fputc('\n', f);
-
-        return 0;
-}
-
-int link_deserialize_addresses(Link *link, const char *addresses) {
-        int r;
-
-        assert(link);
-
-        for (const char *p = addresses;; ) {
-                _cleanup_(address_freep) Address *tmp = NULL;
-                _cleanup_free_ char *address_str = NULL;
-
-                r = extract_first_word(&p, &address_str, NULL, 0);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to parse ADDRESSES=: %m");
-                if (r == 0)
-                        return 0;
-
-                r = address_new(&tmp);
-                if (r < 0)
-                        return log_oom();
-
-                r = in_addr_prefix_from_string_auto(address_str, &tmp->family, &tmp->in_addr, &tmp->prefixlen);
-                if (r < 0) {
-                        log_link_debug_errno(link, r, "Failed to parse address, ignoring: %s", address_str);
-                        continue;
-                }
-
-                r = address_add(link, tmp, NULL);
-                if (r < 0)
-                        log_link_debug_errno(link, r, "Failed to add address %s, ignoring: %m", address_str);
-        }
-
-        return 0;
-}
-
 static void static_address_on_acd(sd_ipv4acd *acd, int event, void *userdata) {
         _cleanup_free_ char *pretty = NULL;
         Address *address;

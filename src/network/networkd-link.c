@@ -2413,7 +2413,6 @@ int link_initialized(Link *link, sd_device *device) {
 
 static int link_load(Link *link) {
         _cleanup_free_ char *network_file = NULL,
-                            *addresses = NULL,
                             *routes = NULL;
         int r;
 
@@ -2421,7 +2420,6 @@ static int link_load(Link *link) {
 
         r = parse_env_file(NULL, link->state_file,
                            "NETWORK_FILE", &network_file,
-                           "ADDRESSES", &addresses,
                            "ROUTES", &routes);
         if (r < 0 && r != -ENOENT)
                 return log_link_error_errno(link, r, "Failed to read %s: %m", link->state_file);
@@ -2450,10 +2448,6 @@ static int link_load(Link *link) {
         }
 
 network_file_fail:
-
-        r = link_deserialize_addresses(link, addresses);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to load addresses from %s, ignoring: %m", link->state_file);
 
         r = link_deserialize_routes(link, routes);
         if (r < 0)
@@ -3136,12 +3130,6 @@ int link_save(Link *link) {
                                 fputs_with_space(f, n, NULL, &space);
                         fputc('\n', f);
                 }
-
-                /************************************************************/
-
-                r = link_serialize_addresses(link, f);
-                if (r < 0)
-                        goto fail;
 
                 /************************************************************/
 

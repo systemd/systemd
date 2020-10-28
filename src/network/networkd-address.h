@@ -62,8 +62,6 @@ DEFINE_NETWORK_SECTION_FUNCTIONS(Address, address_free);
 int link_set_addresses(Link *link);
 int link_drop_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
-int link_serialize_addresses(Link *link, FILE *f);
-int link_deserialize_addresses(Link *link, const char *addresses);
 bool link_address_is_dynamic(const Link *link, const Address *address);
 
 void ipv4_dad_unref(Link *link);
