@@ -581,6 +581,37 @@ static bool route_type_is_reject(const Route *route) {
         return IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW);
 }
 
+static void log_route_debug(const Route *route, const char *str, const Link *link) {
+        assert(route);
+        assert(str);
+
+        /* link may be NULL. */
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
+                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
+
+                if (!in_addr_is_null(route->family, &route->dst)) {
+                        (void) in_addr_to_string(route->family, &route->dst, &dst);
+                        (void) asprintf(&dst_prefixlen, "/%u", route->dst_prefixlen);
+                }
+                if (!in_addr_is_null(route->family, &route->src))
+                        (void) in_addr_to_string(route->family, &route->src, &src);
+                if (!in_addr_is_null(route->gw_family, &route->gw))
+                        (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
+                if (!in_addr_is_null(route->family, &route->prefsrc))
+                        (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
+
+                log_link_debug(link,
+                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
+                               str, strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
+                               format_route_scope(route->scope, scope, sizeof(scope)),
+                               format_route_table(route->table, table, sizeof(table)),
+                               format_route_protocol(route->protocol, protocol, sizeof(protocol)),
+                               strna(route_type_to_string(route->type)));
+        }
+}
+
 static int route_set_netlink_message(const Route *route, sd_netlink_message *req, Link *link) {
         unsigned flags;
         int r;
@@ -717,34 +748,13 @@ int route_remove(
                 manager = link->manager;
         /* link may be NULL! */
 
+        log_route_debug(route, "Removing", link);
+
         r = sd_rtnl_message_new_route(manager->rtnl, &req,
                                       RTM_DELROUTE, route->family,
                                       route->protocol);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_DELROUTE message: %m");
-
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
-                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
-
-                if (!in_addr_is_null(route->family, &route->dst)) {
-                        (void) in_addr_to_string(route->family, &route->dst, &dst);
-                        (void) asprintf(&dst_prefixlen, "/%u", route->dst_prefixlen);
-                }
-                if (!in_addr_is_null(route->family, &route->src))
-                        (void) in_addr_to_string(route->family, &route->src, &src);
-                if (!in_addr_is_null(route->gw_family, &route->gw))
-                        (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
-                if (!in_addr_is_null(route->family, &route->prefsrc))
-                        (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
-
-                log_link_debug(link, "Removing route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
-                               format_route_scope(route->scope, scope, sizeof(scope)),
-                               format_route_table(route->table, table, sizeof(table)),
-                               format_route_protocol(route->protocol, protocol, sizeof(protocol)),
-                               strna(route_type_to_string(route->type)));
-        }
 
         r = route_set_netlink_message(route, req, link);
         if (r < 0)
@@ -1068,28 +1078,7 @@ int route_configure(
                 return log_link_error_errno(link, SYNTHETIC_ERRNO(E2BIG),
                                             "Too many routes are configured, refusing: %m");
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *dst = NULL, *dst_prefixlen = NULL, *src = NULL, *gw = NULL, *prefsrc = NULL;
-                char scope[ROUTE_SCOPE_STR_MAX], table[ROUTE_TABLE_STR_MAX], protocol[ROUTE_PROTOCOL_STR_MAX];
-
-                if (!in_addr_is_null(route->family, &route->dst)) {
-                        (void) in_addr_to_string(route->family, &route->dst, &dst);
-                        (void) asprintf(&dst_prefixlen, "/%u", route->dst_prefixlen);
-                }
-                if (!in_addr_is_null(route->family, &route->src))
-                        (void) in_addr_to_string(route->family, &route->src, &src);
-                if (!in_addr_is_null(route->gw_family, &route->gw))
-                        (void) in_addr_to_string(route->gw_family, &route->gw, &gw);
-                if (!in_addr_is_null(route->family, &route->prefsrc))
-                        (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
-
-                log_link_debug(link, "Configuring route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               strna(dst), strempty(dst_prefixlen), strna(src), strna(gw), strna(prefsrc),
-                               format_route_scope(route->scope, scope, sizeof(scope)),
-                               format_route_table(route->table, table, sizeof(table)),
-                               format_route_protocol(route->protocol, protocol, sizeof(protocol)),
-                               strna(route_type_to_string(route->type)));
-        }
+        log_route_debug(route, "Configuring", link);
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &req,
                                       RTM_NEWROUTE, route->family,
@@ -1308,50 +1297,29 @@ static int process_route_one(Manager *manager, Link *link, uint16_t type, const 
 
         (void) route_get(manager, link, tmp, &route);
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *buf_dst = NULL, *buf_dst_prefixlen = NULL,
-                        *buf_src = NULL, *buf_gw = NULL, *buf_prefsrc = NULL;
-                char buf_scope[ROUTE_SCOPE_STR_MAX], buf_table[ROUTE_TABLE_STR_MAX],
-                        buf_protocol[ROUTE_PROTOCOL_STR_MAX];
-
-                if (!in_addr_is_null(tmp->family, &tmp->dst)) {
-                        (void) in_addr_to_string(tmp->family, &tmp->dst, &buf_dst);
-                        (void) asprintf(&buf_dst_prefixlen, "/%u", tmp->dst_prefixlen);
-                }
-                if (!in_addr_is_null(tmp->family, &tmp->src))
-                        (void) in_addr_to_string(tmp->family, &tmp->src, &buf_src);
-                if (!in_addr_is_null(tmp->gw_family, &tmp->gw))
-                        (void) in_addr_to_string(tmp->gw_family, &tmp->gw, &buf_gw);
-                if (!in_addr_is_null(tmp->family, &tmp->prefsrc))
-                        (void) in_addr_to_string(tmp->family, &tmp->prefsrc, &buf_prefsrc);
-
-                log_link_debug(link,
-                               "%s route: dst: %s%s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, proto: %s, type: %s",
-                               (!route && !manager->manage_foreign_routes) ? "Ignoring received foreign" :
-                               type == RTM_DELROUTE ? "Forgetting" :
-                               route ? "Received remembered" : "Remembering",
-                               strna(buf_dst), strempty(buf_dst_prefixlen),
-                               strna(buf_src), strna(buf_gw), strna(buf_prefsrc),
-                               format_route_scope(tmp->scope, buf_scope, sizeof buf_scope),
-                               format_route_table(tmp->table, buf_table, sizeof buf_table),
-                               format_route_protocol(tmp->protocol, buf_protocol, sizeof buf_protocol),
-                               strna(route_type_to_string(tmp->type)));
-        }
-
         switch (type) {
         case RTM_NEWROUTE:
-                if (!route && manager->manage_foreign_routes) {
-                        /* A route appeared that we did not request */
-                        r = route_add_foreign(manager, link, tmp, NULL);
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
-                                return 0;
+                if (!route) {
+                        if (!manager->manage_foreign_routes)
+                                log_route_debug(tmp, "Ignoring received foreign", link);
+                        else {
+                                /* A route appeared that we did not request */
+                                log_route_debug(tmp, "Remembering foreign", link);
+                                r = route_add_foreign(manager, link, tmp, NULL);
+                                if (r < 0) {
+                                        log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
+                                        return 0;
+                                }
                         }
-                }
+                } else
+                        log_route_debug(tmp, "Received remembered", link);
 
                 break;
 
         case RTM_DELROUTE:
+                log_route_debug(tmp,
+                                route ? "Forgetting" :
+                                manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring received foreign", link);
                 route_free(route);
                 break;
 
