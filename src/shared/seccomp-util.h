@@ -100,12 +100,20 @@ int seccomp_lock_personality(unsigned long personality);
 int seccomp_protect_hostname(void);
 int seccomp_restrict_suid_sgid(void);
 
-extern const uint32_t seccomp_local_archs[];
+extern uint32_t seccomp_local_archs[];
+
+#define SECCOMP_LOCAL_ARCH_END UINT32_MAX
+
+/* Note: 0 is safe to use here because although SCMP_ARCH_NATIVE is 0, it would
+ * never be in the seccomp_local_archs array anyway so we can use it as a
+ * marker. */
+#define SECCOMP_LOCAL_ARCH_BLOCKED 0
 
 #define SECCOMP_FOREACH_LOCAL_ARCH(arch) \
         for (unsigned _i = ({ (arch) = seccomp_local_archs[0]; 0; });   \
-             seccomp_local_archs[_i] != (uint32_t) -1;                  \
-             (arch) = seccomp_local_archs[++_i])
+             (arch) != SECCOMP_LOCAL_ARCH_END;                          \
+             (arch) = seccomp_local_archs[++_i])                        \
+                if ((arch) != SECCOMP_LOCAL_ARCH_BLOCKED)
 
 /* EACCES: does not have the CAP_SYS_ADMIN or no_new_privs == 1
  * ENOMEM: out of memory, failed to allocate space for a libseccomp structure, or would exceed a defined constant

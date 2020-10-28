@@ -135,10 +135,6 @@ Features:
   o move into separate libsystemd-shared-iptables.so .so
     - iptables-libs (only used by nspawn + networkd)
 
-* seccomp: when SystemCallArchitectures=native is set then don't install any
-  other seccomp filters for any of the other archs, in order to reduce the
-  number of seccomp filters we install needlessly.
-
 * seccomp: maybe use seccomp_merge() to merge our filters per-arch if we can.
   Apparently kernel performance is much better with fewer larger seccomp
   filters than with more smaller seccomp filters.

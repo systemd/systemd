@@ -23,7 +23,8 @@
 #include "string-util.h"
 #include "strv.h"
 
-const uint32_t seccomp_local_archs[] = {
+/* This array will be modified at runtime as seccomp_restrict_archs is called. */
+uint32_t seccomp_local_archs[] = {
 
         /* Note: always list the native arch we are compiled as last, so that users can deny-list seccomp(), but our own calls to it still succeed */
 
@@ -94,7 +95,7 @@ const uint32_t seccomp_local_archs[] = {
 #elif defined(__s390__)
                 SCMP_ARCH_S390,
 #endif
-                (uint32_t) -1
+                SECCOMP_LOCAL_ARCH_END
         };
 
 const char* seccomp_arch_to_string(uint32_t c) {
@@ -1758,8 +1759,8 @@ int seccomp_memory_deny_write_execute(void) {
 
 int seccomp_restrict_archs(Set *archs) {
         _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
-        void *id;
         int r;
+        bool blocked_new = false;
 
         /* This installs a filter with no rules, but that restricts the system call architectures to the specified
          * list.
@@ -1775,24 +1776,36 @@ int seccomp_restrict_archs(Set *archs) {
         if (!seccomp)
                 return -ENOMEM;
 
-        SET_FOREACH(id, archs) {
-                r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
-                if (r < 0 && r != -EEXIST)
-                        return r;
+        for (unsigned i = 0; seccomp_local_archs[i] != SECCOMP_LOCAL_ARCH_END; ++i) {
+                uint32_t arch = seccomp_local_archs[i];
+
+                /* That architecture might have already been blocked by a previous call to seccomp_restrict_archs. */
+                if (arch == SECCOMP_LOCAL_ARCH_BLOCKED)
+                        continue;
+
+                bool block = !set_contains(archs, UINT32_TO_PTR(arch + 1));
+
+                /* The vdso for x32 assumes that x86-64 syscalls are available.  Let's allow them, since x32
+                 * x32 syscalls should basically match x86-64 for everything except the pointer type.
+                 * The important thing is that you can block the old 32-bit x86 syscalls.
+                 * https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=850047 */
+                if (block && arch == SCMP_ARCH_X86_64 && seccomp_arch_native() == SCMP_ARCH_X32)
+                        block = !set_contains(archs, UINT32_TO_PTR(SCMP_ARCH_X32 + 1));
+
+                if (block) {
+                        seccomp_local_archs[i] = SECCOMP_LOCAL_ARCH_BLOCKED;
+                        blocked_new = true;
+                } else {
+                        r = seccomp_arch_add(seccomp, arch);
+                        if (r < 0 && r != -EEXIST)
+                                return r;
+                }
         }
 
-        /* The vdso for x32 assumes that x86-64 syscalls are available.  Let's allow them, since x32
-         * x32 syscalls should basically match x86-64 for everything except the pointer type.
-         * The important thing is that you can block the old 32-bit x86 syscalls.
-         * https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=850047 */
-
-        if (seccomp_arch_native() == SCMP_ARCH_X32 ||
-            set_contains(archs, UINT32_TO_PTR(SCMP_ARCH_X32 + 1))) {
-
-                r = seccomp_arch_add(seccomp, SCMP_ARCH_X86_64);
-                if (r < 0 && r != -EEXIST)
-                        return r;
-        }
+        /* All architectures that will be blocked by the seccomp program were
+         * already blocked. */
+        if (!blocked_new)
+                return 0;
 
         r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_NNP, 0);
         if (r < 0)
