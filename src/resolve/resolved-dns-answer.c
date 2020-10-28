@@ -284,6 +284,16 @@ int dns_answer_contains_zone_nsec3(DnsAnswer *answer, const char *zone) {
         return false;
 }
 
+int dns_answer_contains(DnsAnswer *answer, DnsResourceRecord *rr) {
+        DnsResourceRecord *i;
+
+        DNS_ANSWER_FOREACH(i, answer)
+                if (dns_resource_record_equal(i, rr))
+                        return true;
+
+        return false;
+}
+
 int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
         DnsResourceRecord *rr, *soa = NULL;
         DnsAnswerFlags rr_flags, soa_flags = 0;
