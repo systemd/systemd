@@ -342,7 +342,8 @@ static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_n
 
         assert(rule);
         assert(m);
-        assert(link);
+
+        /* link may be NULL. */
 
         if (in_addr_is_null(rule->family, &rule->from) == 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
@@ -447,34 +448,25 @@ static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_n
         return 0;
 }
 
-static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         int r;
 
         assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        link->routing_policy_rule_remove_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not drop routing policy rule");
+                log_message_warning_errno(m, r, "Could not drop routing policy rule");
 
         return 1;
 }
 
-static int routing_policy_rule_remove(RoutingPolicyRule *rule, Link *link) {
+static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(rule);
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(link->ifindex > 0);
+        assert(manager);
+        assert(manager->rtnl);
         assert(IN_SET(rule->family, AF_INET, AF_INET6));
 
         if (DEBUG_LOGGING) {
@@ -483,26 +475,23 @@ static int routing_policy_rule_remove(RoutingPolicyRule *rule, Link *link) {
                 (void) in_addr_to_string(rule->family, &rule->from, &from);
                 (void) in_addr_to_string(rule->family, &rule->to, &to);
 
-                log_link_debug(link,
-                               "Removing routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                               rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
+                log_debug("Removing routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                          rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
         }
 
-        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_DELRULE, rule->family);
+        r = sd_rtnl_message_new_routing_policy_rule(manager->rtnl, &m, RTM_DELRULE, rule->family);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_DELRULE message: %m");
+                return log_error_errno(r, "Could not allocate RTM_DELRULE message: %m");
 
-        r = routing_policy_rule_set_netlink_message(rule, m, link);
+        r = routing_policy_rule_set_netlink_message(rule, m, NULL);
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m,
-                               routing_policy_rule_remove_handler,
-                               link_netlink_destroy_callback, link);
+        r = sd_netlink_call_async(manager->rtnl, NULL, m,
+                                  routing_policy_rule_remove_handler,
+                                  NULL, NULL, 0, __func__);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
+                return log_error_errno(r, "Could not send rtnetlink message: %m");
 
         return 0;
 }
@@ -623,12 +612,11 @@ static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule
         return false;
 }
 
-static void routing_policy_rule_purge(Manager *m, Link *link) {
+static void routing_policy_rule_purge(Manager *m) {
         RoutingPolicyRule *rule;
         int r;
 
         assert(m);
-        assert(link);
 
         SET_FOREACH(rule, m->rules_saved) {
                 RoutingPolicyRule *existing;
@@ -643,13 +631,11 @@ static void routing_policy_rule_purge(Manager *m, Link *link) {
                 /* Existing links do not have the saved rule. Let's drop the rule now, and re-configure it
                  * later when it is requested. */
 
-                r = routing_policy_rule_remove(existing, link);
+                r = routing_policy_rule_remove(existing, m);
                 if (r < 0) {
                         log_warning_errno(r, "Could not remove routing policy rules: %m");
                         continue;
                 }
-
-                link->routing_policy_rule_remove_messages++;
 
                 assert_se(set_remove(m->rules_foreign, existing) == existing);
                 routing_policy_rule_free(existing);
@@ -685,7 +671,7 @@ int link_set_routing_policy_rules(Link *link) {
                         return log_link_warning_errno(link, r, "Could not set routing policy rule: %m");
         }
 
-        routing_policy_rule_purge(link->manager, link);
+        routing_policy_rule_purge(link->manager);
         if (link->routing_policy_rule_messages == 0)
                 link->routing_policy_rules_configured = true;
         else {
