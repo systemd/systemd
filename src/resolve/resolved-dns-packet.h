@@ -71,6 +71,7 @@ struct DnsPacket {
         union in_addr_union sender, destination;
         uint16_t sender_port, destination_port;
         uint32_t ttl;
+        usec_t timestamp; /* CLOCK_BOOTTIME (or CLOCK_MONOTONIC if the former doesn't exist) */
 
         /* For support of truncated packets */
         DnsPacket *more;
