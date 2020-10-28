@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "alloc-util.h"
+#include "arphrd-list.h"
 #include "fd-util.h"
 #include "network-util.h"
 #include "string-table.h"
@@ -102,4 +103,24 @@ int parse_operational_state_range(const char *str, LinkOperationalStateRange *ou
         *out = range;
 
         return 0;
+}
+
+char *link_get_type_string(sd_device *device, unsigned short iftype) {
+        const char *t;
+        char *p;
+
+        if (device &&
+            sd_device_get_devtype(device, &t) >= 0 &&
+            !isempty(t))
+                return strdup(t);
+
+        t = arphrd_to_name(iftype);
+        if (!t)
+                return NULL;
+
+        p = strdup(t);
+        if (!p)
+                return NULL;
+
+        return ascii_strlower(p);
 }
