@@ -1220,7 +1220,7 @@ static int dhcp4_set_promote_secondaries(Link *link) {
                 promote_secondaries_path = strjoina("net/ipv4/conf/", link->ifname, "/promote_secondaries");
                 r = sysctl_write(promote_secondaries_path, "1");
                 if (r < 0)
-                        log_link_warning_errno(link, r, "cannot set sysctl %s to 1", promote_secondaries_path);
+                        log_link_warning_errno(link, r, "Failed to set sysctl %s to 1, ignoring", promote_secondaries_path);
                 return r > 0;
         }
 
