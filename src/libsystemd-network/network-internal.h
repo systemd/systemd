@@ -39,7 +39,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_hwaddrs);
 CONFIG_PARSER_PROTOTYPE(config_parse_match_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_match_ifnames);
 CONFIG_PARSER_PROTOTYPE(config_parse_match_property);
-CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
 
 int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *result);
 const char *net_get_name_persistent(sd_device *device);

@@ -24,7 +24,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "utf8.h"
 #include "util.h"
 
 const char *net_get_name_persistent(sd_device *device) {
@@ -484,47 +483,6 @@ int config_parse_match_property(
                 if (r < 0)
                         return log_oom();
         }
-}
-
-int config_parse_ifalias(const char *unit,
-                         const char *filename,
-                         unsigned line,
-                         const char *section,
-                         unsigned section_line,
-                         const char *lvalue,
-                         int ltype,
-                         const char *rvalue,
-                         void *data,
-                         void *userdata) {
-
-        char **s = data;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (!isempty(rvalue)) {
-                *s = mfree(*s);
-                return 0;
-        }
-
-        if (!ascii_is_valid(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Interface alias is not ASCII clean, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (strlen(rvalue) >= IFALIASZ) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Interface alias is too long, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (free_and_strdup(s, rvalue) < 0)
-                return log_oom();
-
-        return 0;
 }
 
 int config_parse_hwaddr(const char *unit,
