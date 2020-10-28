@@ -4,7 +4,6 @@
 
 #include "bridge.h"
 #include "netlink-util.h"
-#include "network-internal.h"
 #include "networkd-manager.h"
 #include "string-table.h"
 #include "vlan-util.h"
@@ -338,6 +337,47 @@ int config_parse_bridge_igmp_version(
         }
 
         b->igmp_version = u;
+
+        return 0;
+}
+
+int config_parse_bridge_port_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint16_t i;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* This is used in networkd-network-gperf.gperf. */
+
+        r = safe_atou16(rvalue, &i);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse bridge port priority, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (i > LINK_BRIDGE_PORT_PRIORITY_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Bridge port priority is larger than maximum %u, ignoring: %s",
+                           LINK_BRIDGE_PORT_PRIORITY_MAX, rvalue);
+                return 0;
+        }
+
+        *((uint16_t *)data) = i;
 
         return 0;
 }
