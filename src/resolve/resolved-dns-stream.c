@@ -377,6 +377,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                         s->read_packet->family = s->peer.sa.sa_family;
                                         s->read_packet->ttl = s->ttl;
                                         s->read_packet->ifindex = s->ifindex;
+                                        s->read_packet->timestamp = now(clock_boottime_or_monotonic());
 
                                         if (s->read_packet->family == AF_INET) {
                                                 s->read_packet->sender.in = s->peer.in.sin_addr;

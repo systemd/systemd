@@ -854,6 +854,8 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         } else
                 return -EAFNOSUPPORT;
 
+        p->timestamp = now(clock_boottime_or_monotonic());
+
         CMSG_FOREACH(cmsg, &mh) {
 
                 if (cmsg->cmsg_level == IPPROTO_IPV6) {

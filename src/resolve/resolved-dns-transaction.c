@@ -890,7 +890,6 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
 }
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
-        usec_t ts;
         int r;
 
         assert(t);
@@ -973,8 +972,6 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                 }
         }
 
-        assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &ts) >= 0);
-
         switch (t->scope->protocol) {
 
         case DNS_PROTOCOL_DNS:
@@ -1039,7 +1036,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
 
         case DNS_PROTOCOL_LLMNR:
         case DNS_PROTOCOL_MDNS:
-                dns_scope_packet_received(t->scope, ts - t->start_usec);
+                dns_scope_packet_received(t->scope, p->timestamp - t->start_usec);
                 break;
 
         default:
