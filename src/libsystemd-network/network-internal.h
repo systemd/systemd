@@ -4,11 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "sd-device.h"
 #include "sd-dhcp-lease.h"
-
-int net_get_unique_predictable_data(sd_device *device, bool use_sysname, uint64_t *result);
-const char *net_get_name_persistent(sd_device *device);
 
 size_t serialize_in_addrs(FILE *f,
                           const struct in_addr *addresses,

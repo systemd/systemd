@@ -21,7 +21,7 @@
 #include "net-condition.h"
 #include "netif-naming-scheme.h"
 #include "netlink-util.h"
-#include "network-internal.h"
+#include "network-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
