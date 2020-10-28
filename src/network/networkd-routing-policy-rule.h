@@ -65,9 +65,6 @@ static inline int manager_drop_routing_policy_rules(Manager *m, const Link *exce
         return manager_drop_routing_policy_rules_internal(m, false, except);
 }
 
-int routing_policy_serialize_rules(Set *rules, FILE *f);
-int routing_policy_load_rules(const char *state_file, Set **rules);
-
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_fwmark_mask);

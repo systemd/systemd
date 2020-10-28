@@ -705,10 +705,6 @@ static int manager_save(Manager *m) {
         ordered_set_print(f, "DOMAINS=", search_domains);
         ordered_set_print(f, "ROUTE_DOMAINS=", route_domains);
 
-        r = routing_policy_serialize_rules(m->rules, f);
-        if (r < 0)
-                goto fail;
-
         r = fflush_and_check(f);
         if (r < 0)
                 goto fail;
@@ -849,8 +845,6 @@ int manager_new(Manager **ret) {
 
         m->duid.type = DUID_TYPE_EN;
 
-        (void) routing_policy_load_rules(m->state_file, &m->rules_saved);
-
         *ret = TAKE_PTR(m);
 
         return 0;
@@ -885,7 +879,6 @@ void manager_free(Manager *m) {
          * So, it is necessary to set NULL after the sets are freed. */
         m->rules = set_free(m->rules);
         m->rules_foreign = set_free(m->rules_foreign);
-        set_free(m->rules_saved);
 
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
