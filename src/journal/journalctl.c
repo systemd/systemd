@@ -2672,8 +2672,8 @@ int main(int argc, char *argv[]) {
                                 if (r >= 0) {
                                         if (previous_boot_id_valid &&
                                             !sd_id128_equal(boot_id, previous_boot_id))
-                                                printf("%s-- Reboot --%s\n",
-                                                       ansi_highlight(), ansi_normal());
+                                                printf("%s-- Boot "SD_ID128_FORMAT_STR" --%s\n",
+                                                       ansi_highlight(), SD_ID128_FORMAT_VAL(boot_id), ansi_normal());
 
                                         previous_boot_id = boot_id;
                                         previous_boot_id_valid = true;
