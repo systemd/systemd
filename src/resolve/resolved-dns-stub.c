@@ -15,6 +15,9 @@
  * IP and UDP header sizes */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)
 
+/* On the extra stubs, use a more conservative choice */
+#define ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX DNS_PACKET_UNICAST_SIZE_LARGE_MAX
+
 static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int type);
 
 static void dns_stub_listener_extra_hash_func(const DnsStubListenerExtra *a, struct siphash *state) {
@@ -155,14 +158,15 @@ static int dns_stub_finish_reply_packet(
                 bool tc,        /* set the Truncated bit? */
                 bool add_opt,   /* add an OPT RR to this packet? */
                 bool edns0_do,  /* set the EDNS0 DNSSEC OK bit? */
-                bool ad) {      /* set the DNSSEC authenticated data bit? */
+                bool ad,        /* set the DNSSEC authenticated data bit? */
+                uint16_t max_udp_size) { /* The maximum UDP datagram size to advertise to clients */
 
         int r;
 
         assert(p);
 
         if (add_opt) {
-                r = dns_packet_append_opt(p, ADVERTISE_DATAGRAM_SIZE_MAX, edns0_do, /* include_rfc6975 = */ false, rcode, NULL);
+                r = dns_packet_append_opt(p, max_udp_size, edns0_do, /* include_rfc6975 = */ false, rcode, NULL);
                 if (r == -EMSGSIZE) /* Hit the size limit? then indicate truncation */
                         tc = true;
                 else if (r < 0)
@@ -245,7 +249,15 @@ static int dns_stub_send_failure(
         if (r < 0)
                 return log_debug_errno(r, "Failed to make failure packet: %m");
 
-        r = dns_stub_finish_reply_packet(reply, DNS_PACKET_ID(p), rcode, false, !!p->opt, DNS_PACKET_DO(p), authenticated);
+        r = dns_stub_finish_reply_packet(
+                        reply,
+                        DNS_PACKET_ID(p),
+                        rcode,
+                        /* truncated = */ false,
+                        !!p->opt,
+                        DNS_PACKET_DO(p),
+                        authenticated,
+                        l ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX);
         if (r < 0)
                 return log_debug_errno(r, "Failed to build failure packet: %m");
 
@@ -290,7 +302,8 @@ static void dns_stub_query_complete(DnsQuery *q) {
                                 truncated,
                                 !!q->request_dns_packet->opt,
                                 DNS_PACKET_DO(q->request_dns_packet),
-                                dns_query_fully_authenticated(q));
+                                dns_query_fully_authenticated(q),
+                                q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to finish reply packet: %m");
                         break;
