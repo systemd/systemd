@@ -342,7 +342,7 @@ int config_parse_match_strv(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
 
@@ -393,13 +393,13 @@ int config_parse_match_ifnames(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Failed to parse interface name list: %s", rvalue);
                         return 0;
                 }
 
                 if (!ifname_valid_full(word, ltype)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Interface name is not valid or too long, ignoring assignment: %s", word);
                         continue;
                 }
@@ -451,13 +451,13 @@ int config_parse_match_property(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid syntax, ignoring: %s", rvalue);
                         return 0;
                 }
 
                 if (!env_assignment_is_valid(word)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid property or value, ignoring assignment: %s", word);
                         continue;
                 }
@@ -499,7 +499,7 @@ int config_parse_ifalias(const char *unit,
                 return log_oom();
 
         if (!ascii_is_valid(n) || strlen(n) >= IFALIASZ) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Interface alias is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Interface alias is not ASCII clean or is too long, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -537,7 +537,7 @@ int config_parse_hwaddr(const char *unit,
 
         r = ether_addr_from_string(rvalue, n);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Not a valid MAC address, ignoring assignment: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Not a valid MAC address, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
@@ -597,7 +597,7 @@ int config_parse_hwaddrs(const char *unit,
 
                 r = ether_addr_from_string(word, n);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring: %s", word);
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Not a valid MAC address, ignoring: %s", word);
                         continue;
                 }
 
@@ -641,13 +641,13 @@ int config_parse_bridge_port_priority(
 
         r = safe_atou16(rvalue, &i);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse bridge port priority, ignoring: %s", rvalue);
                 return 0;
         }
 
         if (i > LINK_BRIDGE_PORT_PRIORITY_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, r,
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Bridge port priority is larger than maximum %u, ignoring: %s", LINK_BRIDGE_PORT_PRIORITY_MAX, rvalue);
                 return 0;
         }
