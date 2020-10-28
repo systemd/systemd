@@ -260,6 +260,9 @@ static int update_parameters_proc_self_mountinfo(
 
         MountParameters *p;
         int r, q, w;
+        int changed;
+
+        changed = 0;
 
         p = &m->parameters_proc_self_mountinfo;
 
@@ -275,7 +278,10 @@ static int update_parameters_proc_self_mountinfo(
         if (w < 0)
                 return w;
 
-        return r > 0 || q > 0 || w > 0;
+        if (r > 0 || q > 0 || w > 0)
+                changed = MOUNT_PROC_JUST_CHANGED;
+
+        return changed;
 }
 
 static int mount_add_mount_dependencies(Mount *m) {
@@ -1607,7 +1613,7 @@ static int mount_setup_existing_unit(
         if (r < 0)
                 return r;
         if (r > 0)
-                flags |= MOUNT_PROC_JUST_CHANGED;
+                flags |= r;
 
         /* There are two conditions when we consider a mount point just mounted: when we haven't seen it in
          * /proc/self/mountinfo before or when MOUNT_MOUNTING is our current state. Why bother with the
