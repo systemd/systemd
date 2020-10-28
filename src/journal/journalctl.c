@@ -43,7 +43,6 @@
 #include "io-util.h"
 #include "journal-def.h"
 #include "journal-internal.h"
-#include "journal-qrcode.h"
 #include "journal-util.h"
 #include "journal-vacuum.h"
 #include "journal-verify.h"
@@ -60,6 +59,7 @@
 #include "path-util.h"
 #include "pcre2-dlopen.h"
 #include "pretty-print.h"
+#include "qrcode-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
 #include "set.h"
@@ -1779,6 +1779,53 @@ static int add_syslog_identifier(sd_journal *j) {
         return 0;
 }
 
+static int format_journal_url(
+                const void *seed,
+                size_t seed_size,
+                uint64_t start,
+                uint64_t interval,
+                const char *hn,
+                sd_id128_t machine,
+                bool full,
+                char **ret_url) {
+        _cleanup_free_ char *url = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t url_size = 0;
+        int r;
+
+        assert(seed);
+        assert(seed_size > 0);
+
+        f = open_memstream_unlocked(&url, &url_size);
+        if (!f)
+                return -ENOMEM;
+
+        if (full)
+                fputs("fss://", f);
+
+        for (size_t i = 0; i < seed_size; i++) {
+                if (i > 0 && i % 3 == 0)
+                        fputc('-', f);
+                fprintf(f, "%02x", ((uint8_t*) seed)[i]);
+        }
+
+        fprintf(f, "/%"PRIx64"-%"PRIx64, start, interval);
+
+        if (full) {
+                fprintf(f, "?machine=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(machine));
+                if (hn)
+                        fprintf(f, ";hostname=%s", hn);
+        }
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
+        f = safe_fclose(f);
+        *ret_url = TAKE_PTR(url);
+        return 0;
+}
+
 static int setup_keys(void) {
 #if HAVE_GCRYPT
         size_t mpk_size, seed_size, state_size;
@@ -1893,7 +1940,11 @@ static int setup_keys(void) {
 
         k = mfree(k);
 
-        _cleanup_free_ char *hn = NULL;
+        _cleanup_free_ char *hn = NULL, *key = NULL;
+
+        r = format_journal_url(seed, seed_size, n, arg_interval, hn, machine, false, &key);
+        if (r < 0)
+                return r;
 
         if (on_tty()) {
                 hn = gethostname_malloc();
@@ -1925,21 +1976,19 @@ static int setup_keys(void) {
                 fflush(stderr);
         }
 
-        for (size_t i = 0; i < seed_size; i++) {
-                if (i > 0 && i % 3 == 0)
-                        putchar('-');
-                printf("%02x", ((uint8_t*) seed)[i]);
-        }
-        printf("/%llx-%llx\n", (unsigned long long) n, (unsigned long long) arg_interval);
+        puts(key);
 
         if (on_tty()) {
                 fprintf(stderr, "%s", ansi_normal());
 #if HAVE_QRENCODE
-                (void) print_qr_code(stderr,
-                                     "\nTo transfer the verification key to your phone scan the QR code below:\n",
-                                     seed, seed_size,
-                                     n, arg_interval,
-                                     hn, machine);
+                _cleanup_free_ char *url = NULL;
+                r = format_journal_url(seed, seed_size, n, arg_interval, hn, machine, true, &url);
+                if (r < 0)
+                        return r;
+
+                (void) print_qrcode(stderr,
+                                    "To transfer the verification key to your phone scan the QR code below",
+                                    url);
 #endif
         }
 
