@@ -405,7 +405,8 @@ static int address_drop(Address *address) {
         bool ready;
         int r;
 
-        assert(address);
+        if (!address)
+                return 0;
 
         ready = address_is_ready(address);
         link = address->link;
@@ -1245,8 +1246,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         case RTM_DELADDR:
                 log_address_debug(tmp, address ? "Forgetting" : "Kernel removed unknown", link);
-                if (address)
-                        (void) address_drop(address);
+                (void) address_drop(address);
 
                 break;
 
