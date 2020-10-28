@@ -135,7 +135,7 @@ typedef struct LinkInfo {
         sd_device *sd_device;
         int ifindex;
         unsigned short iftype;
-        struct ether_addr mac_address;
+        hw_addr_data hw_address;
         struct ether_addr permanent_mac_address;
         uint32_t master;
         uint32_t mtu;
@@ -416,13 +416,14 @@ static int decode_link(sd_netlink_message *m, LinkInfo *info, char **patterns, b
         info->alternative_names = TAKE_PTR(altnames);
 
         info->has_mac_address =
-                sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &info->mac_address) >= 0 &&
-                memcmp(&info->mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0;
+                netlink_message_read_hw_addr(m, IFLA_ADDRESS, &info->hw_address) >= 0 &&
+                memcmp(&info->hw_address, &HW_ADDR_NULL, sizeof(hw_addr_data)) != 0;
 
         info->has_permanent_mac_address =
                 ethtool_get_permanent_macaddr(NULL, info->name, &info->permanent_mac_address) >= 0 &&
                 memcmp(&info->permanent_mac_address, &ETHER_ADDR_NULL, sizeof(struct ether_addr)) != 0 &&
-                memcmp(&info->permanent_mac_address, &info->mac_address, sizeof(struct ether_addr)) != 0;
+                (info->hw_address.length != sizeof(struct ether_addr) ||
+                 memcmp(&info->permanent_mac_address, info->hw_address.addr.bytes, sizeof(struct ether_addr)) != 0);
 
         (void) sd_netlink_message_read_u32(m, IFLA_MTU, &info->mtu);
         (void) sd_netlink_message_read_u32(m, IFLA_MIN_MTU, &info->min_mtu);
@@ -1526,9 +1527,9 @@ static int link_status_one(
 
         if (info->has_mac_address) {
                 _cleanup_free_ char *description = NULL;
-                char ea[ETHER_ADDR_TO_STRING_MAX];
 
-                (void) ieee_oui(hwdb, &info->mac_address, &description);
+                if (info->hw_address.length == ETH_ALEN)
+                        (void) ieee_oui(hwdb, &info->hw_address.addr.ether, &description);
 
                 r = table_add_many(table,
                                    TABLE_EMPTY,
@@ -1536,7 +1537,7 @@ static int link_status_one(
                 if (r < 0)
                         return table_log_add_error(r);
                 r = table_add_cell_stringf(table, NULL, "%s%s%s%s",
-                                           ether_addr_to_string(&info->mac_address, ea),
+                                           HW_ADDR_TO_STR(&info->hw_address),
                                            description ? " (" : "",
                                            strempty(description),
                                            description ? ")" : "");
