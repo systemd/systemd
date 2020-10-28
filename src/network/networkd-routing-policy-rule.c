@@ -66,6 +66,7 @@ static int routing_policy_rule_new(RoutingPolicyRule **ret) {
                 .uid_range.start = UID_INVALID,
                 .uid_range.end = UID_INVALID,
                 .suppress_prefixlen = -1,
+                .protocol = RTPROT_UNSPEC,
                 .type = FR_ACT_TO_TBL,
         };
 
@@ -99,6 +100,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
 
         rule->network = network;
         rule->section = TAKE_PTR(n);
+        rule->protocol = RTPROT_STATIC;
 
         r = hashmap_ensure_allocated(&network->rules_by_section, &network_config_hash_ops);
         if (r < 0)
@@ -144,6 +146,7 @@ static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *
         dest->table = src->table;
         dest->iif = TAKE_PTR(iif);
         dest->oif = TAKE_PTR(oif);
+        dest->ipproto = src->ipproto;
         dest->protocol = src->protocol;
         dest->sport = src->sport;
         dest->dport = src->dport;
@@ -177,6 +180,7 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
                 siphash24_compress(&rule->table, sizeof(rule->table), state);
                 siphash24_compress(&rule->suppress_prefixlen, sizeof(rule->suppress_prefixlen), state);
 
+                siphash24_compress(&rule->ipproto, sizeof(rule->ipproto), state);
                 siphash24_compress(&rule->protocol, sizeof(rule->protocol), state);
                 siphash24_compress(&rule->sport, sizeof(rule->sport), state);
                 siphash24_compress(&rule->dport, sizeof(rule->dport), state);
@@ -247,6 +251,10 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                         return r;
 
                 r = CMP(a->suppress_prefixlen, b->suppress_prefixlen);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->ipproto, b->ipproto);
                 if (r != 0)
                         return r;
 
@@ -458,9 +466,13 @@ static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_n
                         return log_link_error_errno(link, r, "Could not append FRA_OIFNAME attribute: %m");
         }
 
-        r = sd_netlink_message_append_u8(m, FRA_IP_PROTO, rule->protocol);
+        r = sd_netlink_message_append_u8(m, FRA_IP_PROTO, rule->ipproto);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append FRA_IP_PROTO attribute: %m");
+
+        r = sd_netlink_message_append_u8(m, FRA_PROTOCOL, rule->protocol);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append FRA_PROTOCOL attribute: %m");
 
         if (rule->sport.start != 0 || rule->sport.end != 0) {
                 r = sd_netlink_message_append_data(m, FRA_SPORT_RANGE, &rule->sport, sizeof(rule->sport));
@@ -852,9 +864,15 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         if (r < 0)
                 return log_oom();
 
-        r = sd_netlink_message_read_u8(message, FRA_IP_PROTO, &tmp->protocol);
+        r = sd_netlink_message_read_u8(message, FRA_IP_PROTO, &tmp->ipproto);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_IP_PROTO attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u8(message, FRA_PROTOCOL, &tmp->protocol);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_PROTOCOL attribute, ignoring: %m");
                 return 0;
         }
 
@@ -1271,7 +1289,7 @@ int config_parse_routing_policy_rule_ip_protocol(
                 return 0;
         }
 
-        n->protocol = r;
+        n->ipproto = r;
 
         n = NULL;
 
@@ -1599,10 +1617,10 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         space = true;
                 }
 
-                if (rule->protocol != 0) {
-                        fprintf(f, "%sprotocol=%hhu",
+                if (rule->ipproto != 0) {
+                        fprintf(f, "%sipproto=%hhu",
                                 space ? " " : "",
-                                rule->protocol);
+                                rule->ipproto);
                         space = true;
                 }
 
@@ -1777,10 +1795,10 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
 
                                 if (free_and_strdup(&rule->oif, b) < 0)
                                         return log_oom();
-                        } else if (streq(a, "protocol")) {
-                                r = safe_atou8(b, &rule->protocol);
+                        } else if (streq(a, "ipproto")) {
+                                r = safe_atou8(b, &rule->ipproto);
                                 if (r < 0) {
-                                        log_warning_errno(r, "Failed to parse RPDB rule protocol, ignoring: %s", b);
+                                        log_warning_errno(r, "Failed to parse RPDB rule IP protocol, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "sourceport")) {
