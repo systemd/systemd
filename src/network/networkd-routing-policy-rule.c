@@ -347,6 +347,26 @@ static int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, 
         return routing_policy_rule_add_internal(m, &m->rules_foreign, rule, rule->family, ret);
 }
 
+static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int family, const char *str, const Link *link) {
+        assert(rule);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(str);
+
+        /* link may be NULL. */
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *from = NULL, *to = NULL;
+
+                (void) in_addr_to_string(family, &rule->from, &from);
+                (void) in_addr_to_string(family, &rule->to, &to);
+
+                log_link_debug(link,
+                               "%s routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                               str, rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen,
+                               strna(rule->iif), strna(rule->oif), rule->table);
+        }
+}
+
 static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -479,15 +499,7 @@ static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager)
         assert(manager->rtnl);
         assert(IN_SET(rule->family, AF_INET, AF_INET6));
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *from = NULL, *to = NULL;
-
-                (void) in_addr_to_string(rule->family, &rule->from, &from);
-                (void) in_addr_to_string(rule->family, &rule->to, &to);
-
-                log_debug("Removing routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                          rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
-        }
+        log_routing_policy_rule_debug(rule, rule->family, "Removing", NULL);
 
         r = sd_rtnl_message_new_routing_policy_rule(manager->rtnl, &m, RTM_DELRULE, rule->family);
         if (r < 0)
@@ -546,16 +558,7 @@ static int routing_policy_rule_configure_internal(RoutingPolicyRule *rule, int f
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *from = NULL, *to = NULL;
-
-                (void) in_addr_to_string(family, &rule->from, &from);
-                (void) in_addr_to_string(family, &rule->to, &to);
-
-                log_link_debug(link,
-                               "Configuring routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                               rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
-        }
+        log_routing_policy_rule_debug(rule, family, "Configuring", link);
 
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, family);
         if (r < 0)
@@ -694,7 +697,6 @@ int link_set_routing_policy_rules(Link *link) {
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
-        _cleanup_free_ char *from = NULL, *to = NULL;
         RoutingPolicyRule *rule = NULL;
         const char *iif = NULL, *oif = NULL;
         uint32_t suppress_prefixlen;
@@ -885,19 +887,12 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
 
         (void) routing_policy_rule_get(m, tmp, &rule);
 
-        if (DEBUG_LOGGING) {
-                (void) in_addr_to_string(tmp->family, &tmp->from, &from);
-                (void) in_addr_to_string(tmp->family, &tmp->to, &to);
-        }
-
         switch (type) {
         case RTM_NEWRULE:
                 if (rule)
-                        log_debug("Received remembered routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Received remembered", NULL);
                 else {
-                        log_debug("Remembering foreign routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Remembering foreign", NULL);
                         r = routing_policy_rule_add_foreign(m, tmp, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
@@ -907,12 +902,10 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 break;
         case RTM_DELRULE:
                 if (rule) {
-                        log_debug("Forgetting routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Forgetting", NULL);
                         routing_policy_rule_free(rule);
                 } else
-                        log_debug("Kernel removed a routing policy rule we don't remember: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32", ignoring.",
-                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Kernel removed unknown", NULL);
                 break;
 
         default:
