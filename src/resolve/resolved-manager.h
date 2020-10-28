@@ -185,7 +185,7 @@ DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m);
 
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);
 
-bool manager_routable(Manager *m, int family);
+bool manager_routable(Manager *m);
 
 void manager_flush_caches(Manager *m);
 void manager_reset_server_features(Manager *m);
