@@ -650,7 +650,7 @@ static int dhcp4_configure_dad(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->mac);
+        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->hw_addr.addr.ether);
         if (r < 0)
                 return r;
 
@@ -672,7 +672,7 @@ static int dhcp4_dad_update_mac(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->mac);
+        r = sd_ipv4acd_set_mac(link->dhcp_acd, &link->hw_addr.addr.ether);
         if (r < 0)
                 return r;
 
@@ -1271,14 +1271,24 @@ static int dhcp4_set_client_identifier(Link *link) {
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set DUID: %m");
                 break;
         }
-        case DHCP_CLIENT_ID_MAC:
+        case DHCP_CLIENT_ID_MAC: {
+                const uint8_t *hw_addr = link->hw_addr.addr.bytes;
+                size_t hw_addr_len = link->hw_addr.length;
+
+                if (link->iftype == ARPHRD_INFINIBAND && hw_addr_len == INFINIBAND_ALEN) {
+                        /* set_client_id expects only last 8 bytes of an IB address */
+                        hw_addr += INFINIBAND_ALEN - 8;
+                        hw_addr_len -= INFINIBAND_ALEN - 8;
+                }
+
                 r = sd_dhcp_client_set_client_id(link->dhcp_client,
-                                                 ARPHRD_ETHER,
-                                                 (const uint8_t *) &link->mac,
-                                                 sizeof(link->mac));
+                                                 link->iftype,
+                                                 hw_addr,
+                                                 hw_addr_len);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set client ID: %m");
                 break;
+        }
         default:
                 assert_not_reached("Unknown client identifier type.");
         }
@@ -1325,8 +1335,9 @@ int dhcp4_configure(Link *link) {
                 return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to initialize DHCP4 client: %m");
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
-                                   (const uint8_t *) &link->mac,
-                                   sizeof (link->mac), ARPHRD_ETHER);
+                                   link->hw_addr.addr.bytes,
+                                   link->bcast_addr.length > 0 ? link->bcast_addr.addr.bytes : NULL,
+                                   link->hw_addr.length, link->iftype);
         if (r < 0)
                 return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set MAC address: %m");
 
@@ -1484,7 +1495,9 @@ int dhcp4_update_mac(Link *link) {
         if (!link->dhcp_client)
                 return 0;
 
-        r = sd_dhcp_client_set_mac(link->dhcp_client, (const uint8_t *) &link->mac, sizeof (link->mac), ARPHRD_ETHER);
+        r = sd_dhcp_client_set_mac(link->dhcp_client, link->hw_addr.addr.bytes,
+                                   link->bcast_addr.length > 0 ? link->bcast_addr.addr.bytes : NULL,
+                                   link->hw_addr.length, link->iftype);
         if (r < 0)
                 return r;
 

@@ -421,9 +421,13 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 log_link_debug_errno(link, r, "New device has no master, continuing without");
 
-        r = sd_netlink_message_read_ether_addr(message, IFLA_ADDRESS, &link->mac);
+        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, &link->hw_addr);
         if (r < 0)
-                log_link_debug_errno(link, r, "MAC address not found for new device, continuing without");
+                log_link_debug_errno(link, r, "Hardware address not found for new device, continuing without");
+
+        r = netlink_message_read_hw_addr(message, IFLA_BROADCAST, &link->bcast_addr);
+        if (r < 0)
+                log_link_debug_errno(link, r, "Broadcast address not found for new device, continuing without");
 
         r = ethtool_get_permanent_macaddr(&manager->ethtool_fd, link->ifname, &link->permanent_mac);
         if (r < 0)
@@ -2167,7 +2171,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
 
         r = network_get(link->manager, link->iftype, link->sd_device,
                         link->ifname, link->alternative_names, link->driver,
-                        &link->mac, &link->permanent_mac,
+                        &link->hw_addr.addr.ether, &link->permanent_mac,
                         link->wlan_iftype, link->ssid, &link->bssid, &network);
         if (r == -ENOENT) {
                 link_enter_unmanaged(link);
@@ -2302,7 +2306,7 @@ static int link_initialized_and_synced(Link *link) {
 
                 r = network_get(link->manager, link->iftype, link->sd_device,
                                 link->ifname, link->alternative_names, link->driver,
-                                &link->mac, &link->permanent_mac,
+                                &link->hw_addr.addr.ether, &link->permanent_mac,
                                 link->wlan_iftype, link->ssid, &link->bssid, &network);
                 if (r == -ENOENT) {
                         link_enter_unmanaged(link);
@@ -2697,7 +2701,7 @@ static int link_admin_state_up(Link *link) {
 
 int link_update(Link *link, sd_netlink_message *m) {
         _cleanup_strv_free_ char **s = NULL;
-        struct ether_addr mac;
+        hw_addr_data hw_addr;
         const char *ifname;
         uint32_t mtu;
         bool had_carrier, carrier_gained, carrier_lost, link_was_admin_up;
@@ -2756,19 +2760,13 @@ int link_update(Link *link, sd_netlink_message *m) {
 
         /* The kernel may broadcast NEWLINK messages without the MAC address
            set, simply ignore them. */
-        r = sd_netlink_message_read_ether_addr(m, IFLA_ADDRESS, &mac);
-        if (r >= 0 && memcmp(link->mac.ether_addr_octet, mac.ether_addr_octet, ETH_ALEN) != 0) {
+        r = netlink_message_read_hw_addr(m, IFLA_ADDRESS, &hw_addr);
+        if (r >= 0 && (link->hw_addr.length != hw_addr.length ||
+                       memcmp(link->hw_addr.addr.bytes, hw_addr.addr.bytes, hw_addr.length) != 0)) {
 
-                memcpy(link->mac.ether_addr_octet, mac.ether_addr_octet, ETH_ALEN);
+                memcpy(link->hw_addr.addr.bytes, hw_addr.addr.bytes, hw_addr.length);
 
-                log_link_debug(link, "Gained new MAC address: "
-                               "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
-                               mac.ether_addr_octet[0],
-                               mac.ether_addr_octet[1],
-                               mac.ether_addr_octet[2],
-                               mac.ether_addr_octet[3],
-                               mac.ether_addr_octet[4],
-                               mac.ether_addr_octet[5]);
+                log_link_debug(link, "Gained new hardware address: %s", HW_ADDR_TO_STR(&hw_addr));
 
                 r = ipv4ll_update_mac(link);
                 if (r < 0)
@@ -2787,7 +2785,7 @@ int link_update(Link *link, sd_netlink_message *m) {
                         return log_link_warning_errno(link, r, "Could not update MAC address for Router Advertisement: %m");
 
                 if (link->ndisc) {
-                        r = sd_ndisc_set_mac(link->ndisc, &link->mac);
+                        r = sd_ndisc_set_mac(link->ndisc, &link->hw_addr.addr.ether);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Could not update MAC for NDisc: %m");
                 }
