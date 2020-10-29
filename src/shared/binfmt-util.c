@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/vfs.h>

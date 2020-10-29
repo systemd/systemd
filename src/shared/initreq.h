@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LGPL-2+ */
 /*
  * initreq.h	Interface to talk to init through /dev/initctl.
  *

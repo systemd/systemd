@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
+
 #include "qrcode-util.h"
 
 #if HAVE_QRENCODE

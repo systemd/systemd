@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LicenseRef-lookup3-public-domain */
 #pragma once
 
 #include <inttypes.h>
