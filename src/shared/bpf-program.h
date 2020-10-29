@@ -28,6 +28,7 @@ struct BPFProgram {
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret);
 BPFProgram *bpf_program_unref(BPFProgram *p);
 BPFProgram *bpf_program_ref(BPFProgram *p);
+void bpf_program_skeletonize(BPFProgram *p);
 
 int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *insn, size_t count);
 int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size);

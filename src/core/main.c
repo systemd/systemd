@@ -1144,6 +1144,14 @@ static int prepare_reexecute(
         if (!fds)
                 return log_oom();
 
+        /* We need existing BPF programs to survive reload, otherwise there will be a period where no BPF
+         * program is active during task execution within a cgroup. This would be bad since this may have
+         * security or reliability implications: devices we should filter won't be filtered, network activity
+         * we should filter won't be filtered, etc. We pin all the existing devices by bumping their
+         * refcount, and then storing them to later have it decremented. */
+        _cleanup_(manager_unpin_all_cgroup_bpf_programsp) Manager *m_unpin =
+                manager_pin_all_cgroup_bpf_programs(m);
+
         r = manager_serialize(m, f, fds, switching_root);
         if (r < 0)
                 return r;
@@ -1159,6 +1167,7 @@ static int prepare_reexecute(
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for serialization fds: %m");
 
+        TAKE_PTR(m_unpin);
         *ret_f = TAKE_PTR(f);
         *ret_fds = TAKE_PTR(fds);
 
