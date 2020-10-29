@@ -363,6 +363,13 @@ _job_modes() {
     _values -s , "${_modes[@]}"
 }
 
+(( $+functions[_systemctl_check_inhibitors] )) ||
+    _systemctl_check_inhibitors() {
+        local -a _modes
+        _modes=(auto yes no)
+        _values -s , "${_modes[@]}"
+    }
+
 # Build arguments for "systemctl" to be used in completion.
 local -a _modes; _modes=("--user" "--system")
 # Use the last mode (they are exclusive and the last one is used).
@@ -380,7 +387,7 @@ _arguments -s \
     '--before[Show units ordered before]' \
     {-l,--full}"[Don't ellipsize unit names on output]" \
     '--show-types[When showing sockets, show socket type]' \
-    {-i,--ignore-inhibitors}'[When executing a job, ignore jobs dependencies]' \
+    '--check-inhibitors[Specify if inhibitors should be checked]:mode:_systemctl_check_inhibitors' \
     {-q,--quiet}'[Suppress output]' \
     '--no-block[Do not wait until operation finished]' \
     '--no-legend[Do not print a legend, i.e. the column headers and the footer with hints]' \

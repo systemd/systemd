@@ -324,22 +324,34 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-i</option></term>
-        <term><option>--ignore-inhibitors</option></term>
+        <term><option>--check-inhibitors=</option></term>
 
         <listitem>
-          <para>When system shutdown or a sleep state is requested,
-          ignore inhibitor locks. Applications can establish inhibitor
-          locks to avoid that certain important operations (such as CD
-          burning or suchlike) are interrupted by system shutdown or a
-          sleep state. Any user may take these locks and privileged
-          users may override these locks. If any locks are taken,
-          shutdown and sleep state requests will normally fail
-          (regardless of whether privileged or not) and a list of active locks
-          is printed. However, if <option>--ignore-inhibitors</option>
-          is specified, the locks are ignored and not printed, and the
-          operation attempted anyway, possibly requiring additional
-          privileges.</para>
+          <para>When system shutdown or sleep state is request, this option controls how to deal with
+          inhibitor locks. It takes one of <literal>auto</literal>, <literal>yes</literal> or
+          <literal>no</literal>. Defaults to <literal>auto</literal>, which will behave like
+          <literal>yes</literal> for interactive invocations (i.e. from a TTY) and <literal>no</literal>
+          for non-interactive invocations.
+          <literal>yes</literal> will let the request respect inhibitor locks.
+          <literal>no</literal> will let the request ignore inhibitor locks.
+          </para>
+          <para>Applications can establish inhibitor locks to avoid that certain important operations
+          (such as CD burning or suchlike) are interrupted by system shutdown or a sleep state. Any user may
+          take these locks and privileged users may override these locks.
+          If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged)
+          and a list of active locks is printed.
+          However, if <literal>no</literal> is specified or <literal>auto</literal> is specified on a
+          non-interactive requests, the established locks are ignored and not shown, and the operation
+          attempted anyway, possibly requiring additional privileges.
+          May be overriden by <option>--force</option>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+
+        <listitem>
+          <para>Shortcut for <option>--check-inhibitors=no</option>.</para>
         </listitem>
       </varlistentry>
 
