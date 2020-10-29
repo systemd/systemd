@@ -74,7 +74,7 @@ bool arg_no_wall = false;
 bool arg_no_reload = false;
 bool arg_value = false;
 bool arg_show_types = false;
-bool arg_ignore_inhibitors = false;
+int arg_check_inhibitors = -1;
 bool arg_dry_run = false;
 bool arg_quiet = false;
 bool arg_full = false;
@@ -241,7 +241,10 @@ static int systemctl_help(void) {
                "  -T --show-transaction  When enqueuing a unit job, show full transaction\n"
                "     --show-types        When showing sockets, explicitly show their type\n"
                "     --value             When showing properties, only print the value\n"
-               "  -i --ignore-inhibitors When shutting down or sleeping, ignore inhibitors\n"
+               "     --check-inhibitors=MODE\n"
+               "                         Specify if checking inhibitors before shutting down,\n"
+               "                         sleeping or hibernating\n"
+               "  -i                     Shortcut for --check-inhibitors=no\n"
                "     --kill-who=WHO      Whom to send signal to\n"
                "  -s --signal=SIGNAL     Which signal to send\n"
                "     --what=RESOURCES    Which types of resources to remove\n"
@@ -364,6 +367,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_REVERSE,
                 ARG_AFTER,
                 ARG_BEFORE,
+                ARG_CHECK_INHIBITORS,
                 ARG_DRY_RUN,
                 ARG_SHOW_TYPES,
                 ARG_IRREVERSIBLE,
@@ -415,7 +419,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "fail",                no_argument,       NULL, ARG_FAIL                }, /* compatibility only */
                 { "irreversible",        no_argument,       NULL, ARG_IRREVERSIBLE        }, /* compatibility only */
                 { "ignore-dependencies", no_argument,       NULL, ARG_IGNORE_DEPENDENCIES }, /* compatibility only */
-                { "ignore-inhibitors",   no_argument,       NULL, 'i'                     },
+                { "ignore-inhibitors",   no_argument,       NULL, 'i'                     }, /* compatibility only */
+                { "check-inhibitors",    required_argument, NULL, ARG_CHECK_INHIBITORS    },
                 { "value",               no_argument,       NULL, ARG_VALUE               },
                 { "user",                no_argument,       NULL, ARG_USER                },
                 { "system",              no_argument,       NULL, ARG_SYSTEM              },
@@ -716,7 +721,18 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'i':
-                        arg_ignore_inhibitors = true;
+                        arg_check_inhibitors = 0;
+                        break;
+
+                case ARG_CHECK_INHIBITORS:
+                        if (streq(optarg, "auto"))
+                                arg_check_inhibitors = -1;
+                        else {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --check-inhibitors= argument: %s", optarg);
+                                arg_check_inhibitors = r;
+                        }
                         break;
 
                 case ARG_PLAIN:
