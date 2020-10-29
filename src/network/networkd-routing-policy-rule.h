@@ -25,6 +25,7 @@ typedef struct RoutingPolicyRule {
         uint8_t tos;
         uint8_t ipproto; /* FRA_IP_PROTO */
         uint8_t protocol; /* FRA_PROTOCOL */
+        uint8_t l3mdev; /* FRA_L3MDEV */
 
         uint32_t table;
         uint32_t fwmark;

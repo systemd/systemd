@@ -718,6 +718,11 @@ static const RoutingPolicyRule kernel_rules[] = {
 static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *rule) {
         assert(rule);
 
+        if (rule->l3mdev > 0)
+                /* Currently, [RoutingPolicyRule] does not explicitly set FRA_L3MDEV. So, if the flag
+                 * is set, it is safe to treat the rule as created by kernel. */
+                return true;
+
         for (size_t i = 0; i < ELEMENTSOF(kernel_rules); i++)
                 if (routing_policy_rule_equal(rule, &kernel_rules[i]))
                         return true;
@@ -863,6 +868,12 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 adjust_protocol = true;
         else if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get FRA_PROTOCOL attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u8(message, FRA_L3MDEV, &tmp->l3mdev);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_L3MDEV attribute, ignoring: %m");
                 return 0;
         }
 
@@ -1470,6 +1481,12 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
 
         if (rule->family == AF_UNSPEC && rule->address_family == ADDRESS_FAMILY_NO)
                 rule->family = AF_INET;
+
+        /* Currently, [RoutingPolicyRule] does not have a setting to set FRA_L3MDEV flag. Please also
+         * update routing_policy_rule_is_created_by_kernel() when a new setting which sets the flag is
+         * added in the future. */
+        if (rule->l3mdev > 0)
+                assert_not_reached("FRA_L3MDEV flag should not be configured.");
 
         return 0;
 }
