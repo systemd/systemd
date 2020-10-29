@@ -125,9 +125,9 @@ _systemctl () {
         [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall --now
                              --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
-                             --show-types -i --ignore-inhibitors --plain --failed --value --fail --dry-run --wait'
+                             --show-types --plain --failed --value --fail --dry-run --wait'
         [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root
-                             --preset-mode -n --lines -o --output -M --machine --message --timestamp'
+                             --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors'
     )
 
     if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -178,6 +178,9 @@ _systemctl () {
                 ;;
             --timestamp)
                 comps='pretty us µs utc us+utc µs+utc'
+                ;;
+            --check-inhibitors)
+                comps='auto yes no'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
