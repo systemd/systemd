@@ -161,11 +161,7 @@ int network_verify(Network *network) {
         assert(network);
         assert(network->filename);
 
-        if (set_isempty(network->match_mac) && set_isempty(network->match_permanent_mac) &&
-            strv_isempty(network->match_path) && strv_isempty(network->match_driver) &&
-            strv_isempty(network->match_type) && strv_isempty(network->match_name) &&
-            strv_isempty(network->match_property) && strv_isempty(network->match_wlan_iftype) &&
-            strv_isempty(network->match_ssid) && !network->conditions)
+        if (net_match_is_empty(&network->match) && !network->conditions)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: No valid settings found in the [Match] section, ignoring file. "
                                          "To match all interfaces, add Name=* in the [Match] section.",
@@ -588,16 +584,7 @@ static Network *network_free(Network *network) {
 
         free(network->filename);
 
-        set_free_free(network->match_mac);
-        set_free_free(network->match_permanent_mac);
-        strv_free(network->match_path);
-        strv_free(network->match_driver);
-        strv_free(network->match_type);
-        strv_free(network->match_name);
-        strv_free(network->match_property);
-        strv_free(network->match_wlan_iftype);
-        strv_free(network->match_ssid);
-        set_free_free(network->match_bssid);
+        net_match_clear(&network->match);
         condition_free_list(network->conditions);
 
         free(network->description);
@@ -704,13 +691,9 @@ int network_get(Manager *manager, unsigned short iftype, sd_device *device,
         assert(ret);
 
         ORDERED_HASHMAP_FOREACH(network, manager->networks)
-                if (net_match_config(network->match_mac, network->match_permanent_mac,
-                                     network->match_path, network->match_driver,
-                                     network->match_type, network->match_name, network->match_property,
-                                     network->match_wlan_iftype, network->match_ssid, network->match_bssid,
-                                     device, mac, permanent_mac, driver, iftype,
+                if (net_match_config(&network->match, device, mac, permanent_mac, driver, iftype,
                                      ifname, alternative_names, wlan_iftype, ssid, bssid)) {
-                        if (network->match_name && device) {
+                        if (network->match.ifname && device) {
                                 const char *attr;
                                 uint8_t name_assign_type = NET_NAME_UNKNOWN;
 

@@ -10,6 +10,7 @@
 #include "condition.h"
 #include "conf-parser.h"
 #include "hashmap.h"
+#include "net-condition.h"
 #include "netdev.h"
 #include "networkd-brvlan.h"
 #include "networkd-dhcp-common.h"
@@ -65,16 +66,7 @@ struct Network {
         char *description;
 
         /* [Match] section */
-        Set *match_mac;
-        Set *match_permanent_mac;
-        char **match_path;
-        char **match_driver;
-        char **match_type;
-        char **match_name;
-        char **match_property;
-        char **match_wlan_iftype;
-        char **match_ssid;
-        Set *match_bssid;
+        NetMatch match;
         LIST_HEAD(Condition, conditions);
 
         /* Master or stacked netdevs */

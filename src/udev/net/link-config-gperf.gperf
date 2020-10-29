@@ -20,13 +20,13 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.MACAddress,                config_parse_hwaddrs,                  0,                             offsetof(link_config, match_mac)
-Match.PermanentMACAddress,       config_parse_hwaddrs,                  0,                             offsetof(link_config, match_permanent_mac)
-Match.OriginalName,              config_parse_match_ifnames,            0,                             offsetof(link_config, match_name)
-Match.Path,                      config_parse_match_strv,               0,                             offsetof(link_config, match_path)
-Match.Driver,                    config_parse_match_strv,               0,                             offsetof(link_config, match_driver)
-Match.Type,                      config_parse_match_strv,               0,                             offsetof(link_config, match_type)
-Match.Property,                  config_parse_match_property,           0,                             offsetof(link_config, match_property)
+Match.MACAddress,                config_parse_hwaddrs,                  0,                             offsetof(link_config, match.mac)
+Match.PermanentMACAddress,       config_parse_hwaddrs,                  0,                             offsetof(link_config, match.permanent_mac)
+Match.OriginalName,              config_parse_match_ifnames,            0,                             offsetof(link_config, match.ifname)
+Match.Path,                      config_parse_match_strv,               0,                             offsetof(link_config, match.path)
+Match.Driver,                    config_parse_match_strv,               0,                             offsetof(link_config, match.driver)
+Match.Type,                      config_parse_match_strv,               0,                             offsetof(link_config, match.iftype)
+Match.Property,                  config_parse_match_property,           0,                             offsetof(link_config, match.property)
 Match.Host,                      config_parse_net_condition,            CONDITION_HOST,                offsetof(link_config, conditions)
 Match.Virtualization,            config_parse_net_condition,            CONDITION_VIRTUALIZATION,      offsetof(link_config, conditions)
 Match.KernelCommandLine,         config_parse_net_condition,            CONDITION_KERNEL_COMMAND_LINE, offsetof(link_config, conditions)

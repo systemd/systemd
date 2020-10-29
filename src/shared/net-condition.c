@@ -11,6 +11,38 @@
 #include "string-table.h"
 #include "strv.h"
 
+void net_match_clear(NetMatch *match) {
+        if (!match)
+                return;
+
+        match->mac = set_free_free(match->mac);
+        match->permanent_mac = set_free_free(match->permanent_mac);
+        match->path = strv_free(match->path);
+        match->driver = strv_free(match->driver);
+        match->iftype = strv_free(match->iftype);
+        match->ifname = strv_free(match->ifname);
+        match->property = strv_free(match->property);
+        match->wifi_iftype = strv_free(match->wifi_iftype);
+        match->ssid = strv_free(match->ssid);
+        match->bssid = set_free_free(match->bssid);
+}
+
+bool net_match_is_empty(const NetMatch *match) {
+        assert(match);
+
+        return
+                set_isempty(match->mac) &&
+                set_isempty(match->permanent_mac) &&
+                strv_isempty(match->path) &&
+                strv_isempty(match->driver) &&
+                strv_isempty(match->iftype) &&
+                strv_isempty(match->ifname) &&
+                strv_isempty(match->property) &&
+                strv_isempty(match->wifi_iftype) &&
+                strv_isempty(match->ssid) &&
+                set_isempty(match->bssid);
+}
+
 static bool net_condition_test_strv(char * const *patterns, const char *string) {
         char * const *p;
         bool match = false, has_positive_rule = false;
@@ -103,76 +135,69 @@ static const char *const wifi_iftype_table[NL80211_IFTYPE_MAX+1] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wifi_iftype, enum nl80211_iftype);
 
 bool net_match_config(
-                Set *match_mac,
-                Set *match_permanent_mac,
-                char * const *match_paths,
-                char * const *match_drivers,
-                char * const *match_iftypes,
-                char * const *match_names,
-                char * const *match_property,
-                char * const *match_wifi_iftype,
-                char * const *match_ssid,
-                Set *match_bssid,
+                const NetMatch *match,
                 sd_device *device,
-                const struct ether_addr *dev_mac,
-                const struct ether_addr *dev_permanent_mac,
-                const char *dev_driver,
-                unsigned short dev_iftype,
-                const char *dev_name,
+                const struct ether_addr *mac,
+                const struct ether_addr *permanent_mac,
+                const char *driver,
+                unsigned short iftype,
+                const char *ifname,
                 char * const *alternative_names,
-                enum nl80211_iftype dev_wifi_iftype,
-                const char *dev_ssid,
-                const struct ether_addr *dev_bssid) {
+                enum nl80211_iftype wifi_iftype,
+                const char *ssid,
+                const struct ether_addr *bssid) {
 
-        _cleanup_free_ char *dev_iftype_str;
-        const char *dev_path = NULL;
+        _cleanup_free_ char *iftype_str;
+        const char *path = NULL;
 
-        dev_iftype_str = link_get_type_string(device, dev_iftype);
+        assert(match);
+
+        iftype_str = link_get_type_string(device, iftype);
 
         if (device) {
                 const char *mac_str;
 
-                (void) sd_device_get_property_value(device, "ID_PATH", &dev_path);
-                if (!dev_driver)
-                        (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &dev_driver);
-                if (!dev_name)
-                        (void) sd_device_get_sysname(device, &dev_name);
-                if (!dev_mac &&
+                (void) sd_device_get_property_value(device, "ID_PATH", &path);
+                if (!driver)
+                        (void) sd_device_get_property_value(device, "ID_NET_DRIVER", &driver);
+                if (!ifname)
+                        (void) sd_device_get_sysname(device, &ifname);
+                if (!mac &&
                     sd_device_get_sysattr_value(device, "address", &mac_str) >= 0)
-                        dev_mac = ether_aton(mac_str);
+                        mac = ether_aton(mac_str);
         }
 
-        if (match_mac && (!dev_mac || !set_contains(match_mac, dev_mac)))
+        if (match->mac && (!mac || !set_contains(match->mac, mac)))
                 return false;
 
-        if (match_permanent_mac &&
-            (!dev_permanent_mac ||
-             ether_addr_is_null(dev_permanent_mac) ||
-             !set_contains(match_permanent_mac, dev_permanent_mac)))
+        if (match->permanent_mac &&
+            (!permanent_mac ||
+             ether_addr_is_null(permanent_mac) ||
+             !set_contains(match->permanent_mac, permanent_mac)))
                 return false;
 
-        if (!net_condition_test_strv(match_paths, dev_path))
+        if (!net_condition_test_strv(match->path, path))
                 return false;
 
-        if (!net_condition_test_strv(match_drivers, dev_driver))
+        if (!net_condition_test_strv(match->driver, driver))
                 return false;
 
-        if (!net_condition_test_strv(match_iftypes, dev_iftype_str))
+        if (!net_condition_test_strv(match->iftype, iftype_str))
                 return false;
 
-        if (!net_condition_test_ifname(match_names, dev_name, alternative_names))
+        if (!net_condition_test_ifname(match->ifname, ifname, alternative_names))
                 return false;
 
-        if (!net_condition_test_property(match_property, device))
+        if (!net_condition_test_property(match->property, device))
                 return false;
 
-        if (!net_condition_test_strv(match_wifi_iftype, wifi_iftype_to_string(dev_wifi_iftype)))
+        if (!net_condition_test_strv(match->wifi_iftype, wifi_iftype_to_string(wifi_iftype)))
                 return false;
 
-        if (!net_condition_test_strv(match_ssid, dev_ssid))
+        if (!net_condition_test_strv(match->ssid, ssid))
                 return false;
 
-        if (match_bssid && (!dev_bssid || !set_contains(match_bssid, dev_bssid)))
+        if (match->bssid && (!bssid || !set_contains(match->bssid, bssid)))
                 return false;
 
         return true;

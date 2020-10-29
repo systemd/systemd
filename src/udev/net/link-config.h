@@ -7,7 +7,7 @@
 #include "conf-parser.h"
 #include "ethtool-util.h"
 #include "list.h"
-#include "set.h"
+#include "net-condition.h"
 
 typedef struct link_config_ctx link_config_ctx;
 typedef struct link_config link_config;
@@ -35,13 +35,7 @@ typedef enum NamePolicy {
 struct link_config {
         char *filename;
 
-        Set *match_mac;
-        Set *match_permanent_mac;
-        char **match_path;
-        char **match_driver;
-        char **match_type;
-        char **match_name;
-        char **match_property;
+        NetMatch match;
         LIST_HEAD(Condition, conditions);
 
         char *description;
