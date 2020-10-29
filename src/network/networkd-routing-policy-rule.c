@@ -707,10 +707,29 @@ int link_set_routing_policy_rules(Link *link) {
         return 0;
 }
 
+static const RoutingPolicyRule kernel_rules[] = {
+        { .family = AF_INET,  .priority = 0,     .table = RT_TABLE_LOCAL,   .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
+        { .family = AF_INET,  .priority = 32766, .table = RT_TABLE_MAIN,    .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
+        { .family = AF_INET,  .priority = 32767, .table = RT_TABLE_DEFAULT, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
+        { .family = AF_INET6, .priority = 0,     .table = RT_TABLE_LOCAL,   .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
+        { .family = AF_INET6, .priority = 32766, .table = RT_TABLE_MAIN,    .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, },
+};
+
+static bool routing_policy_rule_is_created_by_kernel(const RoutingPolicyRule *rule) {
+        assert(rule);
+
+        for (size_t i = 0; i < ELEMENTSOF(kernel_rules); i++)
+                if (routing_policy_rule_equal(rule, &kernel_rules[i]))
+                        return true;
+
+        return false;
+}
+
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
         RoutingPolicyRule *rule = NULL;
         const char *iif = NULL, *oif = NULL;
+        bool adjust_protocol = false;
         uint32_t suppress_prefixlen;
         unsigned flags;
         uint16_t type;
@@ -837,7 +856,12 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         }
 
         r = sd_netlink_message_read_u8(message, FRA_PROTOCOL, &tmp->protocol);
-        if (r < 0 && r != -ENODATA) {
+        if (r == -ENODATA)
+                /* If FRA_PROTOCOL is supported by kernel, then the attribute is always appended.
+                 * When the received message does not have FRA_PROTOCOL, then we need to adjust the
+                 * protocol of the rule later. */
+                adjust_protocol = true;
+        else if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get FRA_PROTOCOL attribute, ignoring: %m");
                 return 0;
         }
@@ -867,6 +891,11 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
         }
         if (r >= 0)
                 tmp->suppress_prefixlen = (int) suppress_prefixlen;
+
+        if (adjust_protocol)
+                /* As .network files does not have setting to specify protocol, we can assume the
+                 * protocol of the received rule is RTPROT_KERNEL or RTPROT_STATIC. */
+                tmp->protocol = routing_policy_rule_is_created_by_kernel(tmp) ? RTPROT_KERNEL : RTPROT_STATIC;
 
         (void) routing_policy_rule_get(m, tmp, &rule);
 
