@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LicenseRef-lookup3-public-domain */
 /* Slightly modified by Lennart Poettering, to avoid name clashes, and
  * unexport a few functions. */
 

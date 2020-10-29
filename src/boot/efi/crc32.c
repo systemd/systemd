@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: LicenseRef-crc32-no-restriction */
 /* This is copied from util-linux, which in turn copied in the version from Gary S. Brown */
 
 /*
