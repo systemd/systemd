@@ -96,17 +96,19 @@ int logind_check_inhibitors(enum action a) {
         char **s;
         int r;
 
-        if (arg_ignore_inhibitors || arg_force > 0)
+        if (arg_check_inhibitors == 0 || arg_force > 0)
                 return 0;
 
         if (arg_when > 0)
                 return 0;
 
-        if (geteuid() == 0)
-                return 0;
+        if (arg_check_inhibitors < 0) {
+                if (geteuid() == 0)
+                        return 0;
 
-        if (!on_tty())
-                return 0;
+                if (!on_tty())
+                        return 0;
+        }
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return 0;
