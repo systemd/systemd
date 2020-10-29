@@ -1779,6 +1779,7 @@ static int add_syslog_identifier(sd_journal *j) {
         return 0;
 }
 
+#if HAVE_GCRYPT
 static int format_journal_url(
                 const void *seed,
                 size_t seed_size,
@@ -1825,6 +1826,7 @@ static int format_journal_url(
         *ret_url = TAKE_PTR(url);
         return 0;
 }
+#endif
 
 static int setup_keys(void) {
 #if HAVE_GCRYPT
