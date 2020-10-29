@@ -231,13 +231,15 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
         if (r < 0)
                 return r;
 
-        i = new0(DnsZoneItem, 1);
+        i = new(DnsZoneItem, 1);
         if (!i)
                 return -ENOMEM;
 
-        i->scope = s;
-        i->rr = dns_resource_record_ref(rr);
-        i->probing_enabled = probe;
+        *i = (DnsZoneItem) {
+                .scope = s,
+                .rr = dns_resource_record_ref(rr),
+                .probing_enabled = probe,
+        };
 
         r = dns_zone_link_item(z, i);
         if (r < 0)

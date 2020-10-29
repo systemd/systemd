@@ -21,12 +21,14 @@ static int dns_query_candidate_new(DnsQueryCandidate **ret, DnsQuery *q, DnsScop
         assert(q);
         assert(s);
 
-        c = new0(DnsQueryCandidate, 1);
+        c = new(DnsQueryCandidate, 1);
         if (!c)
                 return -ENOMEM;
 
-        c->query = q;
-        c->scope = s;
+        *c = (DnsQueryCandidate) {
+                .query = q,
+                .scope = s,
+        };
 
         LIST_PREPEND(candidates_by_query, q->candidates, c);
         LIST_PREPEND(candidates_by_scope, s->query_candidates, c);
@@ -413,17 +415,19 @@ int dns_query_new(
         if (m->n_dns_queries >= QUERIES_MAX)
                 return -EBUSY;
 
-        q = new0(DnsQuery, 1);
+        q = new(DnsQuery, 1);
         if (!q)
                 return -ENOMEM;
 
-        q->question_utf8 = dns_question_ref(question_utf8);
-        q->question_idna = dns_question_ref(question_idna);
-        q->ifindex = ifindex;
-        q->flags = flags;
-        q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
-        q->answer_protocol = _DNS_PROTOCOL_INVALID;
-        q->answer_family = AF_UNSPEC;
+        *q = (DnsQuery) {
+                .question_utf8 = dns_question_ref(question_utf8),
+                .question_idna = dns_question_ref(question_idna),
+                .ifindex = ifindex,
+                .flags = flags,
+                .answer_dnssec_result = _DNSSEC_RESULT_INVALID,
+                .answer_protocol = _DNS_PROTOCOL_INVALID,
+                .answer_family = AF_UNSPEC,
+        };
 
         /* First dump UTF8  question */
         DNS_QUESTION_FOREACH(key, question_utf8)
