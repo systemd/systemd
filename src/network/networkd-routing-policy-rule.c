@@ -264,6 +264,16 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
         }
 }
 
+static bool routing_policy_rule_equal(const RoutingPolicyRule *rule1, const RoutingPolicyRule *rule2) {
+        if (rule1 == rule2)
+                return true;
+
+        if (!rule1 || !rule2)
+                return false;
+
+        return routing_policy_rule_compare_func(rule1, rule2) == 0;
+}
+
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 routing_policy_rule_hash_ops,
                 RoutingPolicyRule,
@@ -605,7 +615,7 @@ static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule
                         continue;
 
                 HASHMAP_FOREACH(link_rule, link->network->rules_by_section)
-                        if (routing_policy_rule_compare_func(link_rule, rule) == 0)
+                        if (routing_policy_rule_equal(link_rule, rule))
                                 return true;
         }
 
