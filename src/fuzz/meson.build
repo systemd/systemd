@@ -152,4 +152,8 @@ fuzzers += [
           'src/xdg-autostart-generator/xdg-autostart-service.c'],
          [],
          []],
+
+        [['src/fuzz/fuzz-udev-rule-parse-value.c'],
+         [libshared],
+         []],
 ]

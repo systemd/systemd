@@ -990,8 +990,9 @@ static UdevRuleOperatorType parse_operator(const char *op) {
 }
 
 static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOperatorType *ret_op, char **ret_value) {
-        char *key_begin, *key_end, *attr, *tmp, *value, *i, *j;
+        char *key_begin, *key_end, *attr, *tmp;
         UdevRuleOperatorType op;
+        int r;
 
         assert(line);
         assert(*line);
@@ -1031,30 +1032,14 @@ static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOper
         key_end[0] = '\0';
 
         tmp += op == OP_ASSIGN ? 1 : 2;
-        value = skip_leading_chars(tmp, NULL);
+        tmp = skip_leading_chars(tmp, NULL);
+        r = udev_rule_parse_value(tmp, ret_value, line);
+        if (r < 0)
+                return r;
 
-        /* value must be double quotated */
-        if (value[0] != '"')
-                return -EINVAL;
-        value++;
-
-        /* unescape double quotation '\"' -> '"' */
-        for (i = j = value; ; i++, j++) {
-                if (*i == '"')
-                        break;
-                if (*i == '\0')
-                        return -EINVAL;
-                if (i[0] == '\\' && i[1] == '"')
-                        i++;
-                *j = *i;
-        }
-        j[0] = '\0';
-
-        *line = i+1;
         *ret_key = key_begin;
         *ret_attr = attr;
         *ret_op = op;
-        *ret_value = value;
         return 1;
 }
 
