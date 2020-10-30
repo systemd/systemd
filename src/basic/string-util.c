@@ -145,7 +145,7 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
 
 char *strjoin_real(const char *x, ...) {
         va_list ap;
-        size_t l = 0;
+        size_t l = 1;
         char *r, *p;
 
         va_start(ap, x);
@@ -161,7 +161,7 @@ char *strjoin_real(const char *x, ...) {
         }
         va_end(ap);
 
-        p = r = new(char, l+1);
+        p = r = new(char, l);
         if (!r)
                 return NULL;
 
