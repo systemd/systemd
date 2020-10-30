@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "logind-brightness.h"
 #include "logind-dbus.h"
+#include "logind-polkit.h"
 #include "logind-seat-dbus.h"
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
@@ -192,15 +193,7 @@ int bus_session_method_activate(sd_bus_message *message, void *userdata, sd_bus_
         assert(message);
         assert(s);
 
-        r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.login1.chvt",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &s->manager->polkit_registry,
-                        error);
+        r = check_polkit_chvt(message, s->manager, error);
         if (r < 0)
                 return r;
         if (r == 0)
