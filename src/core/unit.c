@@ -5798,9 +5798,6 @@ static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
         if (u->exported_log_ratelimit_interval)
                 return 0;
 
-        if (c->log_ratelimit_interval_usec == 0)
-                return 0;
-
         p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
 
         if (asprintf(&buf, "%" PRIu64, c->log_ratelimit_interval_usec) < 0)
@@ -5823,9 +5820,6 @@ static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
         assert(c);
 
         if (u->exported_log_ratelimit_burst)
-                return 0;
-
-        if (c->log_ratelimit_burst == 0)
                 return 0;
 
         p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
