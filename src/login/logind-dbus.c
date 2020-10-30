@@ -30,6 +30,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "logind-dbus.h"
+#include "logind-polkit.h"
 #include "logind-seat-dbus.h"
 #include "logind-session-dbus.h"
 #include "logind-user-dbus.h"
@@ -1047,15 +1048,7 @@ static int method_activate_session_on_seat(sd_bus_message *message, void *userda
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_NOT_ON_SEAT,
                                          "Session %s not on seat %s", session_name, seat_name);
 
-        r = bus_verify_polkit_async(
-                        message,
-                        CAP_SYS_ADMIN,
-                        "org.freedesktop.login1.chvt",
-                        NULL,
-                        false,
-                        UID_INVALID,
-                        &m->polkit_registry,
-                        error);
+        r = check_polkit_chvt(message, m, error);
         if (r < 0)
                 return r;
         if (r == 0)
