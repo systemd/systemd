@@ -703,13 +703,13 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
 
         if (dns_type_is_obsolete(p->question->keys[0]->type)) {
                 log_debug("Got message with obsolete key type, refusing.");
-                dns_stub_send_failure(m, l, s, p, DNS_RCODE_NOTIMP, false);
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;
         }
 
         if (dns_type_is_zone_transer(p->question->keys[0]->type)) {
                 log_debug("Got request for zone transfer, refusing.");
-                dns_stub_send_failure(m, l, s, p, DNS_RCODE_NOTIMP, false);
+                dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
                 return;
         }
 
