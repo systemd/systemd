@@ -75,6 +75,7 @@ bool arg_no_reload = false;
 bool arg_value = false;
 bool arg_show_types = false;
 bool arg_ignore_inhibitors = false;
+bool arg_no_block_inhibitors = false;
 bool arg_dry_run = false;
 bool arg_quiet = false;
 bool arg_full = false;
@@ -242,6 +243,9 @@ static int systemctl_help(void) {
                "     --show-types        When showing sockets, explicitly show their type\n"
                "     --value             When showing properties, only print the value\n"
                "  -i --ignore-inhibitors When shutting down or sleeping, ignore inhibitors\n"
+               "  -I --no-block-inhibitors\n"
+               "                         When shutting down or sleeping, do not block for\n"
+               "                             inhibitors\n"
                "     --kill-who=WHO      Whom to send signal to\n"
                "  -s --signal=SIGNAL     Which signal to send\n"
                "     --what=RESOURCES    Which types of resources to remove\n"
@@ -416,6 +420,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "irreversible",        no_argument,       NULL, ARG_IRREVERSIBLE        }, /* compatibility only */
                 { "ignore-dependencies", no_argument,       NULL, ARG_IGNORE_DEPENDENCIES }, /* compatibility only */
                 { "ignore-inhibitors",   no_argument,       NULL, 'i'                     },
+                { "no-block-inhibitors", no_argument,       NULL, 'I'                     },
                 { "value",               no_argument,       NULL, ARG_VALUE               },
                 { "user",                no_argument,       NULL, ARG_USER                },
                 { "system",              no_argument,       NULL, ARG_SYSTEM              },
@@ -717,6 +722,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'i':
                         arg_ignore_inhibitors = true;
+                        break;
+
+                case 'I':
+                        arg_no_block_inhibitors = true;
                         break;
 
                 case ARG_PLAIN:

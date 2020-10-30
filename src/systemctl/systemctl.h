@@ -60,6 +60,7 @@ extern bool arg_no_reload;
 extern bool arg_value;
 extern bool arg_show_types;
 extern bool arg_ignore_inhibitors;
+extern bool arg_no_block_inhibitors;
 extern bool arg_dry_run;
 extern bool arg_quiet;
 extern bool arg_full;

@@ -90,6 +90,7 @@ int logind_check_inhibitors(enum action a) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
+        sd_bus_error err = SD_BUS_ERROR_NULL;
         uint32_t uid, pid;
         sd_bus *bus;
         unsigned c = 0;
@@ -102,7 +103,7 @@ int logind_check_inhibitors(enum action a) {
         if (arg_when > 0)
                 return 0;
 
-        if (geteuid() == 0)
+        if (arg_no_block_inhibitors && geteuid() == 0)
                 return 0;
 
         if (!on_tty())
@@ -115,51 +116,107 @@ int logind_check_inhibitors(enum action a) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", NULL, &reply, NULL);
-        if (r < 0)
-                /* If logind is not around, then there are no inhibitors... */
-                return 0;
+        if (arg_no_block_inhibitors) {
+                r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", NULL, &reply, NULL);
+                if (r < 0)
+                        /* If logind is not around, then there are no inhibitors... */
+                        return 0;
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
-        if (r < 0)
-                return bus_log_parse_error(r);
+                r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssuu)");
+                if (r < 0)
+                        return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
-                _cleanup_free_ char *comm = NULL, *user = NULL;
-                _cleanup_strv_free_ char **sv = NULL;
+                while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
+                        _cleanup_free_ char *comm = NULL, *user = NULL;
+                        _cleanup_strv_free_ char **sv = NULL;
 
-                if (!streq(mode, "block"))
-                        continue;
+                        if (!streq(mode, "block"))
+                                continue;
 
-                sv = strv_split(what, ":");
-                if (!sv)
-                        return log_oom();
+                        sv = strv_split(what, ":");
+                        if (!sv)
+                                return log_oom();
 
-                if (!pid_is_valid((pid_t) pid))
-                        return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid PID "PID_FMT".", (pid_t) pid);
+                        if (!pid_is_valid((pid_t) pid))
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Invalid PID "PID_FMT".", (pid_t) pid);
 
-                if (!strv_contains(sv,
-                                   IN_SET(a,
-                                          ACTION_HALT,
-                                          ACTION_POWEROFF,
-                                          ACTION_REBOOT,
-                                          ACTION_KEXEC) ? "shutdown" : "sleep"))
-                        continue;
+                        if (!strv_contains(sv,
+                                           IN_SET(a,
+                                                  ACTION_HALT,
+                                                  ACTION_POWEROFF,
+                                                  ACTION_REBOOT,
+                                                  ACTION_KEXEC) ? "shutdown" : "sleep"))
+                                continue;
 
-                (void) get_process_comm(pid, &comm);
-                user = uid_to_name(uid);
+                        get_process_comm(pid, &comm);
+                        user = uid_to_name(uid);
 
-                log_warning("Operation inhibited by \"%s\" (PID "PID_FMT" \"%s\", user %s), reason is \"%s\".",
-                            who, (pid_t) pid, strna(comm), strna(user), why);
+                        log_warning("Operation inhibited by \"%s\" (PID "PID_FMT" \"%s\", user %s), reason is \"%s\".",
+                                    who, (pid_t) pid, strna(comm), strna(user), why);
 
-                c++;
+                        c++;
+                }
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        } else {
+                r = sd_bus_match_signal(bus, NULL, NULL,
+                                        "/org/freedesktop/login1",
+                                        "org.freedesktop.DBus.Properties",
+                                        "PropertiesChanged",
+                                        NULL, NULL);
+                if (r < 0)
+                        return r;
+
+                while (1) {
+                        char **sv = NULL;
+                        char *msg = NULL;
+
+                        r = sd_bus_wait(bus, UINT64_MAX);
+                        if (r < 0)
+                                return r;
+
+                        while ((r = sd_bus_process(bus, NULL)) > 0) {  }
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_get_property_string(bus,
+                                                       "org.freedesktop.login1",
+                                                       "/org/freedesktop/login1",
+                                                       "org.freedesktop.login1.Manager",
+                                                       "BlockInhibited",
+                                                       &err, &msg);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        sv = strv_split(msg, ":");
+                        if (!sv)
+                                return log_oom();
+
+                        if (!strv_contains(sv,
+                                           IN_SET(a,
+                                                  ACTION_HALT,
+                                                  ACTION_POWEROFF,
+                                                  ACTION_REBOOT,
+                                                  ACTION_KEXEC) ? "shutdown" : "sleep")) {
+                                strv_free(sv);
+                                free(msg);
+
+                                if (geteuid() == 0) {
+                                        sd_bus_error_free(&err);
+                                        return 0;
+                                }
+
+                                break;
+                        }
+                        strv_free(sv);
+                        free(msg);
+                }
+                sd_bus_error_free(&err);
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         /* Check for current sessions */
         sd_get_sessions(&sessions);
