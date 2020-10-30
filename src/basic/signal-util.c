@@ -49,16 +49,7 @@ static int sigaction_many_ap(const struct sigaction *sa, int sig, va_list ap) {
         int r = 0;
 
         /* negative signal ends the list. 0 signal is skipped. */
-
-        if (sig < 0)
-                return 0;
-
-        if (sig > 0) {
-                if (sigaction(sig, sa, NULL) < 0)
-                        r = -errno;
-        }
-
-        while ((sig = va_arg(ap, int)) >= 0) {
+        for (; sig >= 0; sig = va_arg(ap, int)) {
 
                 if (sig == 0)
                         continue;
