@@ -249,10 +249,9 @@ int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags
 int dns_answer_contains_nsec_or_nsec3(DnsAnswer *a) {
         DnsResourceRecord *i;
 
-        DNS_ANSWER_FOREACH(i, a) {
+        DNS_ANSWER_FOREACH(i, a)
                 if (IN_SET(i->key->type, DNS_TYPE_NSEC, DNS_TYPE_NSEC3))
                         return true;
-        }
 
         return false;
 }
@@ -294,7 +293,12 @@ int dns_answer_contains(DnsAnswer *answer, DnsResourceRecord *rr) {
         return false;
 }
 
-int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
+int dns_answer_find_soa(
+                DnsAnswer *a,
+                const DnsResourceKey *key,
+                DnsResourceRecord **ret,
+                DnsAnswerFlags *ret_flags) {
+
         DnsResourceRecord *rr, *soa = NULL;
         DnsAnswerFlags rr_flags, soa_flags = 0;
         int r;
@@ -303,7 +307,7 @@ int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceReco
 
         /* For a SOA record we can never find a matching SOA record */
         if (key->type == DNS_TYPE_SOA)
-                return 0;
+                goto not_found;
 
         DNS_ANSWER_FOREACH_FLAGS(rr, rr_flags, a) {
                 r = dns_resource_key_match_soa(key, rr->key);
@@ -325,17 +329,30 @@ int dns_answer_find_soa(DnsAnswer *a, const DnsResourceKey *key, DnsResourceReco
         }
 
         if (!soa)
-                return 0;
+                goto not_found;
 
         if (ret)
                 *ret = soa;
-        if (flags)
-                *flags = soa_flags;
+        if (ret_flags)
+                *ret_flags = soa_flags;
 
         return 1;
+
+not_found:
+        if (ret)
+                *ret = NULL;
+        if (ret_flags)
+                *ret_flags = 0;
+
+        return 0;
 }
 
-int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsResourceRecord **ret, DnsAnswerFlags *flags) {
+int dns_answer_find_cname_or_dname(
+                DnsAnswer *a,
+                const DnsResourceKey *key,
+                DnsResourceRecord **ret,
+                DnsAnswerFlags *ret_flags) {
+
         DnsResourceRecord *rr;
         DnsAnswerFlags rr_flags;
         int r;
@@ -353,11 +370,16 @@ int dns_answer_find_cname_or_dname(DnsAnswer *a, const DnsResourceKey *key, DnsR
                 if (r > 0) {
                         if (ret)
                                 *ret = rr;
-                        if (flags)
-                                *flags = rr_flags;
+                        if (ret_flags)
+                                *ret_flags = rr_flags;
                         return 1;
                 }
         }
+
+        if (ret)
+                *ret = NULL;
+        if (ret_flags)
+                *ret_flags = 0;
 
         return 0;
 }
