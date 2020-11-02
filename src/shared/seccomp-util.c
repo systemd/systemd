@@ -259,10 +259,20 @@ static bool is_seccomp_filter_available(void) {
 bool is_seccomp_available(void) {
         static int cached_enabled = -1;
 
-        if (cached_enabled < 0)
-                cached_enabled =
-                        is_basic_seccomp_available() &&
-                        is_seccomp_filter_available();
+        if (cached_enabled < 0) {
+                int b;
+
+                b = getenv_bool_secure("SYSTEMD_SECCOMP");
+                if (b != 0) {
+                        if (b < 0 && b != -ENXIO) /* ENXIO: env var unset */
+                                log_debug_errno(b, "Failed to parse $SYSTEMD_SECCOMP value, ignoring.");
+
+                        cached_enabled =
+                                is_basic_seccomp_available() &&
+                                is_seccomp_filter_available();
+                } else
+                        cached_enabled = false;
+        }
 
         return cached_enabled;
 }
