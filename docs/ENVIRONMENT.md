@@ -83,6 +83,13 @@ All tools:
 * `$SYSTEMD_RDRAND=0` — if set, the RDRAND instruction will never be used,
   even if the CPU supports it.
 
+* `$SYSTEMD_SECCOMP=0` – if set, seccomp filters will not be enforced, even if
+  support for it is compiled in and available in the kernel.
+
+* `$SYSTEMD_LOG_SECCOMP=1` — if set, system calls blocked by seccomp filtering,
+  for example in systemd-nspawn, will be logged to the audit log, if the current
+  kernel version supports this.
+
 systemctl:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus
@@ -92,10 +99,6 @@ systemctl:
   the client side, instead of asking PID 1 to do this.
 
 * `$SYSTEMCTL_SKIP_SYSV=1` — if set, do not call out to SysV compatibility hooks.
-
-* `$SYSTEMD_LOG_SECCOMP=1` — if set, system calls blocked by seccomp filtering,
-  for example in systemd-nspawn, will be logged to the audit log, if the current
-  kernel version supports this.
 
 systemd-nspawn:
 
