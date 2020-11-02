@@ -383,7 +383,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "clock_settime\0"
                 "clock_settime64\0"
                 "settimeofday\0"
-                "stime\0"
         },
         [SYSCALL_FILTER_SET_CPU_EMULATION] = {
                 .name = "@cpu-emulation",
@@ -639,6 +638,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "security\0"
                 "sgetmask\0"
                 "ssetmask\0"
+                "stime\0"
                 "stty\0"
                 "sysfs\0"
                 "tuxcall\0"
