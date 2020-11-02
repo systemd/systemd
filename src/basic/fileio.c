@@ -602,7 +602,13 @@ finalize:
         return r;
 }
 
-int read_full_file_full(int dir_fd, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size) {
+int read_full_file_full(
+                int dir_fd,
+                const char *filename,
+                ReadFullFileFlags flags,
+                const char *bind_name,
+                char **contents, size_t *size) {
+
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -644,6 +650,20 @@ int read_full_file_full(int dir_fd, const char *filename, ReadFullFileFlags flag
                 sk = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
                 if (sk < 0)
                         return -errno;
+
+                if (bind_name) {
+                        /* If the caller specified a socket name to bind to, do so before connecting. This is
+                         * useful to communicate some minor, short meta-information token from the client to
+                         * the server. */
+                        union sockaddr_union bsa;
+
+                        r = sockaddr_un_set_path(&bsa.un, bind_name);
+                        if (r < 0)
+                                return r;
+
+                        if (bind(sk, &bsa.sa, r) < 0)
+                                return r;
+                }
 
                 if (connect(sk, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
                         return errno == ENOTSOCK ? -ENXIO : -errno; /* propagate original error if this is

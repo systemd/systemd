@@ -60,9 +60,9 @@ static inline int write_string_file(const char *fn, const char *line, WriteStrin
 int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
 
 int read_one_line_file(const char *filename, char **line);
-int read_full_file_full(int dir_fd, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);
+int read_full_file_full(int dir_fd, const char *filename, ReadFullFileFlags flags, const char *bind_name, char **contents, size_t *size);
 static inline int read_full_file(const char *filename, char **contents, size_t *size) {
-        return read_full_file_full(AT_FDCWD, filename, 0, contents, size);
+        return read_full_file_full(AT_FDCWD, filename, 0, NULL, contents, size);
 }
 int read_full_virtual_file(const char *filename, char **ret_contents, size_t *ret_size);
 int read_full_stream_full(FILE *f, const char *filename, ReadFullFileFlags flags, char **contents, size_t *size);

@@ -1589,7 +1589,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_oom();
                         }
 
-                        r = read_full_file_full(AT_FDCWD, j ?: p, flags, &data, &size);
+                        r = read_full_file_full(AT_FDCWD, j ?: p, flags, NULL, &data, &size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read credential '%s': %m", j ?: p);
 
