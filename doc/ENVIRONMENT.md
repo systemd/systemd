@@ -117,3 +117,6 @@ systemd-sulogin-shell:
 * `$SYSTEMD_SULOGIN_FORCE=1` — This skips asking for the root password if the
   root password is not available (such as when the root account is locked).
   See `sulogin(8)` for more details.
+
+* `$SYSTEMD_SECCOMP=0` – if set, seccomp filters will not be enforced, even if
+  support for it is compiled in and available in the kernel.

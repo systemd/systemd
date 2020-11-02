@@ -172,7 +172,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_whitelist, char **sys
         int r;
 
         if (!is_seccomp_available()) {
-                log_debug("SECCOMP features not detected in the kernel, disabling SECCOMP filterering");
+                log_debug("SECCOMP features not detected in the kernel or disabled at runtime, disabling SECCOMP filtering");
                 return 0;
         }
 
