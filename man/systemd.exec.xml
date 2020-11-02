@@ -2706,15 +2706,16 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         credential plus a file system path. The ID must be a short ASCII string suitable as filename in the
         filesystem, and may be chosen freely by the user. If the specified path is absolute it is opened as
         regular file and the credential data is read from it. If the absolute path refers to an
-        <constant>AF_UNIX</constant> stream socket in the file system a connection is made to it and the
-        credential data read from the connection, providing an easy IPC integration point for dynamically
-        providing credentials from other services. If the specified path is not absolute and itself qualifies
-        as valid credential identifier it is understood to refer to a credential that the service manager
-        itself received via the <varname>$CREDENTIALS_DIRECTORY</varname> environment variable, which may be
-        used to propagate credentials from an invoking environment (e.g. a container manager that invoked the
-        service manager) into a service. The contents of the file/socket may be arbitrary binary or textual
-        data, including newline characters and NUL bytes. This option may be used multiple times, each time
-        defining an additional credential to pass to the unit.</para>
+        <constant>AF_UNIX</constant> stream socket in the file system a connection is made to it (only once
+        at unit start-up) and the credential data read from the connection, providing an easy IPC integration
+        point for dynamically providing credentials from other services. If the specified path is not
+        absolute and itself qualifies as valid credential identifier it is understood to refer to a
+        credential that the service manager itself received via the <varname>$CREDENTIALS_DIRECTORY</varname>
+        environment variable, which may be used to propagate credentials from an invoking environment (e.g. a
+        container manager that invoked the service manager) into a service. The contents of the file/socket
+        may be arbitrary binary or textual data, including newline characters and <constant>NUL</constant>
+        bytes. This option may be used multiple times, each time defining an additional credential to pass to
+        the unit.</para>
 
         <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
         be directly accessible to the unit's processes: the credential data is read and copied into separate,
@@ -2728,7 +2729,22 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         e.g. <literal>ExecStart=cat ${CREDENTIALS_DIRECTORY}/mycred</literal>.</para>
 
         <para>Currently, an accumulated credential size limit of 1M bytes per unit is
-        enforced.</para></listitem>
+        enforced.</para>
+
+        <para>If referencing an <constant>AF_UNIX</constant> stream socket to connect to, the connection will
+        originate from an abstract namespace socket, that includes information about the unit and the
+        credential ID in its socket name. Use <citerefentry
+        project='man-pages'><refentrytitle>getpeername</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        to query this information. The returned socket name is formatted as <constant>NUL</constant>
+        <replaceable>RANDOM</replaceable> <literal>/unit/</literal> <replaceable>UNIT</replaceable>
+        <literal>/</literal> <replaceable>ID</replaceable>, i.e. a <constant>NUL</constant> byte (as required
+        for abstract namespace socket names), followed by a random string (consisting of alphadecimal
+        characters), followed by the literal string <literal>/unit/</literal>, followed by the requesting
+        unit name, followed by the literal character <literal>/</literal>, followed by the textual credential
+        ID requested. Example: <literal>\0adf9d86b6eda275e/unit/foobar.service/credx</literal> in case the
+        credential <literal>credx</literal> is requested for a unit <literal>foobar.service</literal>. This
+        functionality is useful for using a single listening socket to serve credentials to multiple
+        consumers.</para></listitem>
       </varlistentry>
 
       <varlistentry>

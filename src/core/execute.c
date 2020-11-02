@@ -73,6 +73,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
 #if HAVE_SECCOMP
@@ -2509,6 +2510,7 @@ static int write_credential(
 static int acquire_credentials(
                 const ExecContext *context,
                 const ExecParameters *params,
+                const char *unit,
                 const char *p,
                 uid_t uid,
                 bool ownership_ok) {
@@ -2546,7 +2548,7 @@ static int acquire_credentials(
         STRV_FOREACH_PAIR(id, fn, context->load_credentials) {
                 ReadFullFileFlags flags = READ_FULL_FILE_SECURE;
                 _cleanup_(erase_and_freep) char *data = NULL;
-                _cleanup_free_ char *j = NULL;
+                _cleanup_free_ char *j = NULL, *bindname = NULL;
                 const char *source;
                 size_t size, add;
 
@@ -2554,6 +2556,12 @@ static int acquire_credentials(
                         /* If this is an absolute path, read the data directly from it, and support AF_UNIX sockets */
                         source = *fn;
                         flags |= READ_FULL_FILE_CONNECT_SOCKET;
+
+                        /* Pass some minimal info about the unit and the credential name we are looking to acquire
+                         * via the source socket address in case we read off an AF_UNIX socket. */
+                        if (asprintf(&bindname, "@%" PRIx64"/unit/%s/%s", random_u64(), unit, *id) < 0)
+                                return -ENOMEM;
+
                 } else if (params->received_credentials) {
                         /* If this is a relative path, take it relative to the credentials we received
                          * ourselves. We don't support the AF_UNIX stuff in this mode, since we are operating
@@ -2566,8 +2574,9 @@ static int acquire_credentials(
                 } else
                         source = NULL;
 
+
                 if (source)
-                        r = read_full_file_full(AT_FDCWD, source, flags, &data, &size);
+                        r = read_full_file_full(AT_FDCWD, source, flags, bindname, &data, &size);
                 else
                         r = -ENOENT;
                 if (r == -ENOENT &&
@@ -2613,6 +2622,7 @@ static int acquire_credentials(
 static int setup_credentials_internal(
                 const ExecContext *context,
                 const ExecParameters *params,
+                const char *unit,
                 const char *final,        /* This is where the credential store shall eventually end up at */
                 const char *workspace,    /* This is where we can prepare it before moving it to the final place */
                 bool reuse_workspace,     /* Whether to reuse any existing workspace mount if it already is a mount */
@@ -2724,7 +2734,7 @@ static int setup_credentials_internal(
         assert(!must_mount || workspace_mounted > 0);
         where = workspace_mounted ? workspace : final;
 
-        r = acquire_credentials(context, params, where, uid, workspace_mounted);
+        r = acquire_credentials(context, params, unit, where, uid, workspace_mounted);
         if (r < 0)
                 return r;
 
@@ -2824,6 +2834,7 @@ static int setup_credentials(
                 r = setup_credentials_internal(
                                 context,
                                 params,
+                                unit,
                                 p,       /* final mount point */
                                 u,       /* temporary workspace to overmount */
                                 true,    /* reuse the workspace if it is already a mount */
@@ -2861,6 +2872,7 @@ static int setup_credentials(
                 r = setup_credentials_internal(
                                 context,
                                 params,
+                                unit,
                                 p,           /* final mount point */
                                 "/dev/shm",  /* temporary workspace to overmount */
                                 false,       /* do not reuse /dev/shm if it is already a mount, under no circumstances */
