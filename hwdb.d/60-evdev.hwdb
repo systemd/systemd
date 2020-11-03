@@ -35,8 +35,6 @@
 # the struct input_absinfo as listed in linux/input.h. If a field is missing
 # the field will be left as-is. Not all fields need to be present. e.g. ::45
 # sets the resolution to 45 units/mm.
-#
-# All matches should end in ':*' to allow future expansions of the match key.
 
 # Sort by brand, model
 

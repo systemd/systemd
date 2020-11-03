@@ -9,7 +9,7 @@
 # ABI.
 #
 # Match string formats:
-# id-input:modalias:<modalias pattern>
+# id-input:modalias:<modalias>
 #
 # To add local entries, create a new file
 #   /etc/udev/hwdb.d/61-input-id-local.hwdb
@@ -48,7 +48,6 @@
 # NOT allowed in this file are:
 #    ID_INPUT_WIDTH_MM, ID_INPUT_HEIGHT_MM, ID_INPUT_TOUCHPAD_INTEGRATION
 #
-# All matches should end in ':*' to allow future expansions of the match key.
 
 # Example:
 # id-input:modalias:input:b0003v1234pABCD*

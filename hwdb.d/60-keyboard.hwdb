@@ -47,8 +47,6 @@
 #    /sys/class/input/input?/capabilities/ev" and <vendor> is the
 #    firmware-provided string exported by the kernel DMI modalias,
 #    see /sys/class/dmi/id/modalias
-#
-# All matches should end in ':*' to allow future expansions of the match key.
 
 # ######################### KEY MAPPING ######################################
 #

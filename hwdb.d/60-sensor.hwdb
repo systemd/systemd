@@ -67,8 +67,6 @@
 # or 'display'. The default, when unset, is equivalent to:
 #    ACCEL_LOCATION=display
 #
-# All matches should end in ':*' to allow future expansions of the match key.
-
 # Sort by brand, model
 
 #########################################
