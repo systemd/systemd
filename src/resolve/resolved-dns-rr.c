@@ -1646,7 +1646,7 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                         return NULL;
                 copy->nsec3.salt_size = rr->nsec3.salt_size;
                 copy->nsec3.next_hashed_name = memdup(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size);
-                if (!copy->nsec3.next_hashed_name_size)
+                if (!copy->nsec3.next_hashed_name)
                         return NULL;
                 copy->nsec3.next_hashed_name_size = rr->nsec3.next_hashed_name_size;
                 copy->nsec3.types = bitmap_copy(rr->nsec3.types);
