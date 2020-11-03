@@ -11,6 +11,9 @@
 DnsAnswer *dns_answer_new(size_t n) {
         DnsAnswer *a;
 
+        if (n > UINT16_MAX) /* We can only place 64K RRs in an answer at max */
+                n = UINT16_MAX;
+
         a = malloc0(offsetof(DnsAnswer, items) + sizeof(DnsAnswerItem) * n);
         if (!a)
                 return NULL;
@@ -624,12 +627,16 @@ int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
                         return -EBUSY;
 
                 ns = (*a)->n_rrs + n_free;
+                if (ns > UINT16_MAX) /* Maximum number of RRs we can stick into a DNS packet section */
+                        ns = UINT16_MAX;
 
                 if ((*a)->n_allocated >= ns)
                         return 0;
 
                 /* Allocate more than we need */
                 ns *= 2;
+                if (ns > UINT16_MAX)
+                        ns = UINT16_MAX;
 
                 n = realloc(*a, offsetof(DnsAnswer, items) + sizeof(DnsAnswerItem) * ns);
                 if (!n)
