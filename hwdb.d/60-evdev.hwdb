@@ -45,9 +45,9 @@
 #########################################
 
 # Hyperpen 12000U
-evdev:input:b0003v08CAp0010:*
+evdev:input:b0003v08CAp0010*
 # Hyperpen 6000U
-evdev:input:b0003v08CAp0020:*
+evdev:input:b0003v08CAp0020*
  EVDEV_ABS_00=::20
  EVDEV_ABS_01=::20
 
@@ -56,48 +56,48 @@ evdev:input:b0003v08CAp0020:*
 #########################################
 
 # Macbook2,1 (late 2006), single-button touchpad
-evdev:input:b0003v05ACp021B:*
+evdev:input:b0003v05ACp021B*
 # Macbook4,1
-evdev:input:b0003v05ACp0229:*
-evdev:input:b0003v05ACp022A:*
+evdev:input:b0003v05ACp0229*
+evdev:input:b0003v05ACp022A*
  EVDEV_ABS_00=256:1471:12
  EVDEV_ABS_01=256:831:12
 
 # Macbook5,1 (unibody), aka wellspring3
-evdev:input:b0003v05ACp0236:*
-evdev:input:b0003v05ACp0237:*
-evdev:input:b0003v05ACp0238:*
+evdev:input:b0003v05ACp0236*
+evdev:input:b0003v05ACp0237*
+evdev:input:b0003v05ACp0238*
  EVDEV_ABS_00=::92
  EVDEV_ABS_01=::90
  EVDEV_ABS_35=::92
  EVDEV_ABS_36=::90
 
 # Macbook8 (unibody, March 2011)
-evdev:input:b0003v05ACp0245:*
-evdev:input:b0003v05ACp0246:*
-evdev:input:b0003v05ACp0247:*
+evdev:input:b0003v05ACp0245*
+evdev:input:b0003v05ACp0246*
+evdev:input:b0003v05ACp0247*
  EVDEV_ABS_00=::92
  EVDEV_ABS_01=::91
  EVDEV_ABS_35=::92
  EVDEV_ABS_36=::91
 
 # Macbook8,2 (unibody)
-evdev:input:b0003v05ACp0252:*
-evdev:input:b0003v05ACp0253:*
-evdev:input:b0003v05ACp0254:*
+evdev:input:b0003v05ACp0252*
+evdev:input:b0003v05ACp0253*
+evdev:input:b0003v05ACp0254*
  EVDEV_ABS_00=::94
  EVDEV_ABS_01=::92
  EVDEV_ABS_35=::94
  EVDEV_ABS_36=::92
 
 # MacbookPro10,1 (unibody, June 2012)
-evdev:input:b0003v05ACp0262:*
-evdev:input:b0003v05ACp0263:*
-evdev:input:b0003v05ACp0264:*
+evdev:input:b0003v05ACp0262*
+evdev:input:b0003v05ACp0263*
+evdev:input:b0003v05ACp0264*
 # MacbookPro10,2 (unibody, October 2012)
-evdev:input:b0003v05ACp0259:*
-evdev:input:b0003v05ACp025A:*
-evdev:input:b0003v05ACp025B:*
+evdev:input:b0003v05ACp0259*
+evdev:input:b0003v05ACp025A*
+evdev:input:b0003v05ACp025B*
  EVDEV_ABS_00=::94
  EVDEV_ABS_01=::92
  EVDEV_ABS_35=::94
@@ -294,7 +294,7 @@ evdev:name:AlpsPS/2 ALPS GlidePoint:dmi:bvn*:bvr*:bd*:svnDellInc.:pnXPSM1530:*
 #####
 
 # Fujitsu Component - USB Touch Panel
-evdev:input:b0003v0430p0530:*
+evdev:input:b0003v0430p0530*
  EVDEV_ABS_00=0:4096:16
  EVDEV_ABS_01=0:4096:16
 
@@ -446,7 +446,7 @@ evdev:name:Synaptics TM3289-002:dmi:*svnLENOVO*:pvrThinkPadX1Carbon5th:*
  EVDEV_ABS_36=::19
 
 # Lenovo Thinkpad X1 Tablet Gen3
-evdev:input:b0003v17EFp60B5:*
+evdev:input:b0003v17EFp60B5*
  EVDEV_ABS_00=::12
  EVDEV_ABS_01=::11
  EVDEV_ABS_35=::12
@@ -639,7 +639,7 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnTOSHIBA:pnSATELLITER830:*
 #########################################
 
 # Trust Flex Graphics Tablet
-evdev:input:b0003v2179p0004:*
+evdev:input:b0003v2179p0004*
  EVDEV_ABS_00=::234
  EVDEV_ABS_01=::328
 
@@ -648,11 +648,11 @@ evdev:input:b0003v2179p0004:*
 #########################################
 
 # WALTOP International Corp. Slim Tablet
-evdev:input:b0003v172Fp0031:*
+evdev:input:b0003v172Fp0031*
  EVDEV_ABS_00=0:10000:400
  EVDEV_ABS_01=0:6250:400
 
 #WALTOP International Corp. Graphics Tablet
-evdev:input:b0003v172Fp0047:*
+evdev:input:b0003v172Fp0047*
  EVDEV_ABS_00=0:20000:80
  EVDEV_ABS_01=0:12500:80

@@ -230,7 +230,7 @@ evdev:name:Asus Laptop extra buttons:dmi:bvn*:bvr*:bd*:svnASUS*:pn*:*
  KEYBOARD_KEY_6b=f21                                    # Touchpad Toggle
 
 # USB keyboard in Asus FX503VD
-evdev:input:b0003v0B05p1869:*
+evdev:input:b0003v0B05p1869*
  KEYBOARD_KEY_ff31007c=f20                              # Remap micmute to f20
 
 ###########################################################
@@ -268,7 +268,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnCompaq*:pn*Evo*N*:*
  KEYBOARD_KEY_9e=email
  KEYBOARD_KEY_9f=homepage
 
-evdev:input:b0003v049Fp0051:*
+evdev:input:b0003v049Fp0051*
  KEYBOARD_KEY_0c0011=presentation
  KEYBOARD_KEY_0c0012=addressbook
  KEYBOARD_KEY_0c0013=info
@@ -465,7 +465,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGeminiDevices:pnNC14V1006:*
 ###########################################################
 
 # Slimstar 320
-evdev:input:b0003v0458p0708:*
+evdev:input:b0003v0458p0708*
  KEYBOARD_KEY_0900f0=scrollup
  KEYBOARD_KEY_0900f1=scrolldown
  KEYBOARD_KEY_0900f3=back
@@ -715,7 +715,7 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnIBM*:pn*:*
  KEYBOARD_KEY_17=prog1                                  # ThinkPad/ThinkVantage button (high keycode: "vendor")
 
 # IBM Thinkpad USB Keyboard Trackpoint
-evdev:input:b0003v04B3p301[89]:*
+evdev:input:b0003v04B3p301[89]*
  KEYBOARD_KEY_900f0=screenlock
  KEYBOARD_KEY_900f1=wlan
  KEYBOARD_KEY_900f2=switchvideomode
@@ -759,7 +759,7 @@ evdev:name:ThinkPad Extra Buttons:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_45=bookmarks
 
 # ThinkPad Keyboard with TrackPoint
-evdev:input:b0003v17EFp6009:*
+evdev:input:b0003v17EFp6009*
  KEYBOARD_KEY_090012=screenlock                         # Fn+F2
  KEYBOARD_KEY_090013=battery                            # Fn+F3
  KEYBOARD_KEY_090014=wlan                               # Fn+F5
@@ -866,7 +866,7 @@ evdev:name:Microphone Mute Button:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*:*
  KEYBOARD_KEY_00=f20
 
 # enhanced USB keyboard
-evdev:input:b0003v04B3p301B:*
+evdev:input:b0003v04B3p301B*
  KEYBOARD_KEY_90001=prog1 # ThinkVantage
  KEYBOARD_KEY_90002=screenlock
  KEYBOARD_KEY_90003=file
@@ -884,7 +884,7 @@ evdev:input:b0003v04B3p301B:*
 # 27MHz wireless keyboards, these all have a PID of 00?? and all send c10xx
 # logitech custom consumer usage-page codes. The mappings below are the most
 # common, but some mapping may differ, especially the Fn F1-F12 mappings
-evdev:input:b0003v046Dp00??:*
+evdev:input:b0003v046Dp00*
  KEYBOARD_KEY_c0183=media           # HUT:config, kbd:Media/Music player button
  KEYBOARD_KEY_c1001=chat            # Messenger button
  KEYBOARD_KEY_c1002=camera          # Webcam button
@@ -934,7 +934,7 @@ evdev:input:b0003v046Dp00??:*
  KEYBOARD_KEY_c104c=prog4           # Smartkey D (Fn + F12) → XF86Launch4
 
 # Cordless Access Keyboard (27 MHz, modelnumber Y-RH35)
-evdev:input:b0003v046Dp0042:*
+evdev:input:b0003v046Dp0042*
  KEYBOARD_KEY_c1041=new
  KEYBOARD_KEY_c1042=reply
  KEYBOARD_KEY_c1043=forward
@@ -949,7 +949,7 @@ evdev:input:b0003v046Dp0042:*
  KEYBOARD_KEY_c104c=audio
 
 # "Cordless Rechargeable Desktop" keyboard (27 MHz, modelnumber Y-RK49)
-evdev:input:b0003v046Dp0045:*
+evdev:input:b0003v046Dp0045*
  KEYBOARD_KEY_c1041=new
  KEYBOARD_KEY_c1042=reply
  KEYBOARD_KEY_c1043=forward
@@ -960,7 +960,7 @@ evdev:input:b0003v046Dp0045:*
  KEYBOARD_KEY_c104c=audio
 
 # S510 keyboard (27 MHz, modelnumber Y-RAK73)
-evdev:input:b0003v046Dp0056:*
+evdev:input:b0003v046Dp0056*
  KEYBOARD_KEY_c1041=battery      # Battery icon (Fn + F1)
 
 # MX3000 keyboard (27 MHz, modelnumber Y-RAM74)
@@ -969,7 +969,7 @@ evdev:input:b0003v046Dp0056:*
 # Note if the "Special Button Function" in the HID++ features register gets
 # cleared then the scroll-wheel events for these buttons go away and then
 # tilting the scrollwheel left/right starts sending c1022 / c1024 events
-evdev:input:b0003v046Dp0057:*
+evdev:input:b0003v046Dp0057*
  KEYBOARD_KEY_c1041=battery      # Battery icon (Fn + F1)
 
 #KEYBOARD_KEY_c101d=scrolldown   # Button below scrollwheel (see note above)
@@ -978,7 +978,7 @@ evdev:input:b0003v046Dp0057:*
 #KEYBOARD_KEY_c1024=scrollright  # Right click on scroll-wheel (see note above)
 
 # MX3200 keyboard (27 MHz, modelnumber Y-RAV80)
-evdev:input:b0003v046Dp005C:*
+evdev:input:b0003v046Dp005C*
  KEYBOARD_KEY_c1001=phone           # VOIP button
  KEYBOARD_KEY_c1016=record          # Record button
  KEYBOARD_KEY_c1041=wordprocessor   # Word icon (Fn + F1)
@@ -991,13 +991,13 @@ evdev:input:b0003v046Dp005C:*
  KEYBOARD_KEY_c1048=prog4           # Smartkey D (Fn + F8) → XF86Launch4
 
 # EX100 keyboard (27 MHz, modelnumber Y-RBH94)
-evdev:input:b0003v046Dp0065:*
+evdev:input:b0003v046Dp0065*
  KEYBOARD_KEY_c104b=battery         # Battery icon (Fn + F11)
  KEYBOARD_KEY_c104c=ejectcd         # Eject icon (Fn + F12)
 
 # S520 keyboard (27 MHz, modelnumber Y-RBA97)
 # Note this one uses non-standard codes for FN + F9 - Fn + F12?
-evdev:input:b0003v046Dp0066:*
+evdev:input:b0003v046Dp0066*
  KEYBOARD_KEY_c100e=prog4           # Smartkey D (Fn + F12) → XF86Launch4
  KEYBOARD_KEY_c1019=prog1           # Smartkey A (Fn + F9)  → XF86Launch1
  KEYBOARD_KEY_c101a=prog2           # Smartkey B (Fn + F10) → XF86Launch2
@@ -1013,12 +1013,12 @@ evdev:input:b0003v046Dp0066:*
  KEYBOARD_KEY_c106f=battery         # Battery icon
 
 # S510 remote control (27 MHz)
-evdev:input:b0003v046Dp00FE:*
+evdev:input:b0003v046Dp00FE*
  KEYBOARD_KEY_c1018=media           # Media button
 
 # MX5000 keyboard (HID proxy mode and bluetooth matches)
-evdev:input:b0003v046DpB305:*
-evdev:input:b0005v046DpB305:*
+evdev:input:b0003v046DpB305*
+evdev:input:b0005v046DpB305*
  KEYBOARD_KEY_c0230=zoomreset	# HUT says fullscreen, kbd says 100%
  KEYBOARD_KEY_c1004=send	# Send and receive / sync button
  KEYBOARD_KEY_c1006=coffee	# Status (online/away) button
@@ -1033,8 +1033,8 @@ evdev:input:b0005v046DpB305:*
  KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
 
 # MX5500 keyboard (HID proxy mode and bluetooth matches)
-evdev:input:b0003v046DpB30B:*
-evdev:input:b0005v046DpB30B:*
+evdev:input:b0003v046DpB30B*
+evdev:input:b0005v046DpB30B*
  KEYBOARD_KEY_c0183=media	# HUT says consumer control configuration, kbd says Media Center
  KEYBOARD_KEY_c100e=images      # Camera icon, "Photo Gallery"
  KEYBOARD_KEY_c100f=config      # Window with gear icon
@@ -1044,12 +1044,12 @@ evdev:input:b0005v046DpB30B:*
  KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
 
 # Logitech K811
-evdev:input:b0005v046DpB317:*
+evdev:input:b0005v046DpB317*
  KEYBOARD_KEY_70047=brightnessdown
  KEYBOARD_KEY_70048=brightnessup
 
 # iTouch
-evdev:input:b0003v046DpC308:*
+evdev:input:b0003v046DpC308*
  KEYBOARD_KEY_90001=shop                                # Shopping
  KEYBOARD_KEY_90002=config                              # iTouch
  KEYBOARD_KEY_90003=finance                             # Finance
@@ -1058,12 +1058,12 @@ evdev:input:b0003v046DpC308:*
  KEYBOARD_KEY_c0183=media                               # Media
 
 # Cordless Desktop S510
-evdev:input:b0003v046DpC50C:*
+evdev:input:b0003v046DpC50C*
  KEYBOARD_KEY_d4=up                                     # zoomin
  KEYBOARD_KEY_cc=down                                   # zoomout
 
 # Wave cordless
-evdev:input:b0003v046DpC317:*
+evdev:input:b0003v046DpC317*
  KEYBOARD_KEY_9001c=scale                               # expo
  KEYBOARD_KEY_9001f=down                                # zoomout
  KEYBOARD_KEY_90020=up                                  # zoomin
@@ -1082,7 +1082,7 @@ evdev:input:b0003v046DpC317:*
  KEYBOARD_KEY_9004c=ejectclosecd
 
 # Wave cordless
-evdev:input:b0003v046DpC517:*
+evdev:input:b0003v046DpC517*
  KEYBOARD_KEY_c101f=down                                # zoomout
  KEYBOARD_KEY_c1020=up                                  # zoomin
  KEYBOARD_KEY_c1005=camera
@@ -1098,7 +1098,7 @@ evdev:input:b0003v046DpC517:*
  KEYBOARD_KEY_c104c=ejectclosecd
 
 # Cordless Wave Pro
-evdev:input:b0003v046DpC529:*
+evdev:input:b0003v046DpC529*
  KEYBOARD_KEY_0c01b6=camera
  KEYBOARD_KEY_0c0183=media
  KEYBOARD_KEY_0c0184=wordprocessor
@@ -1113,13 +1113,13 @@ evdev:input:b0003v046DpC529:*
  KEYBOARD_KEY_0c022e=down                               # zoomout
 
 # Logitech Presenter R400
-evdev:input:b0003v046DpC52D:*
+evdev:input:b0003v046DpC52D*
  KEYBOARD_KEY_070029=presentation
  KEYBOARD_KEY_07003e=presentation
  KEYBOARD_KEY_070037=displaytoggle
 
 # Internet Navigator
-evdev:input:b0003v046DpC309:*
+evdev:input:b0003v046DpC309*
  KEYBOARD_KEY_90001=chat         # Messenger/SMS
  KEYBOARD_KEY_90002=camera       # webcam
  KEYBOARD_KEY_90003=prog1        # iTouch
@@ -1191,12 +1191,12 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMedion*:pnErazer*:*
 ###########################################################
 
 # Microsoft Natural Ergonomic Keyboard 4000
-evdev:input:b0003v045Ep00DB:*
+evdev:input:b0003v045Ep00DB*
  KEYBOARD_KEY_c022d=up                                  # zoomin
  KEYBOARD_KEY_c022e=down                                # zoomout
 
 # Microsoft (Razer produced) Reclusa keyboard
-evdev:input:b0003v1532p0200:*
+evdev:input:b0003v1532p0200*
  KEYBOARD_KEY_c01c9=shuffle
  KEYBOARD_KEY_c01ca=up                                  # zoomin
  KEYBOARD_KEY_c01cb=down                                # zoomout
@@ -1259,7 +1259,7 @@ evdev:name:MSI Laptop hotkeys:dmi:bvn*:bvr*:bd*:svn*:pnM[iI][cC][rR][oO]-S[tT][a
 ###########################################################
 
 # Teres-I
-evdev:input:b0003v15BAp003C:*
+evdev:input:b0003v15BAp003C*
  KEYBOARD_KEY_70066=sleep                               # Fn+F1
  KEYBOARD_KEY_700f6=wlan                                # Fn+F2
  KEYBOARD_KEY_700c7=f21                                 # Fn+F3 touchpad toggle
@@ -1371,7 +1371,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOQO*Inc.*:pnOQO*Model*2*:*
 # The key code identifiers used below exactly match the text
 # labels on the keys/buttons (or standard icons on the buttons
 # that have no text labels), except as noted.
-evdev:input:b0003v05A4p9735:*
+evdev:input:b0003v05A4p9735*
  KEYBOARD_KEY_c0015=back
  KEYBOARD_KEY_c0012=forward
  KEYBOARD_KEY_c000c=stop
@@ -1402,7 +1402,7 @@ evdev:input:b0003v05A4p9735:*
 ###########################################################
 
 # Plantronics .Audio 626 DSP
-evdev:input:b0003v047FpC006:*
+evdev:input:b0003v047FpC006*
  KEYBOARD_KEY_b002f=f20                                # Microphone mute button; should be micmute
 
 ###########################################################
@@ -1699,7 +1699,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote*6615WD:*
 ##########################################
 
 # Ideazon Zboard Merc
-evdev:input:b0003v1038p0210:*
+evdev:input:b0003v1038p0210*
  KEYBOARD_KEY_c0227=q
  KEYBOARD_KEY_c0223=w
  KEYBOARD_KEY_c0221=e
@@ -1737,7 +1737,7 @@ evdev:input:b0003v1038p0210:*
  KEYBOARD_KEY_70079=f6
 
 # Ideazon Zboard Fang
-evdev:input:b0003v1038p0310:*
+evdev:input:b0003v1038p0310*
  KEYBOARD_KEY_70059=1
  KEYBOARD_KEY_7005b=3
  KEYBOARD_KEY_70040=equal
@@ -1789,13 +1789,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDIXONSP:pnDIXON*:*
 # with an accompanying variant (defined with XKB_FIXED_VARIANT) if necessary.
 
 # Yubico Yubico Yubikey II"
-evdev:input:b0003v1050p0010:*
+evdev:input:b0003v1050p0010*
 # Yubico Yubikey NEO OTP+CCID
-evdev:input:b0003v1050p0111:*
+evdev:input:b0003v1050p0111*
 # Yubico Yubikey NEO OTP+U2F+CCID
-evdev:input:b0003v1050p0116:*
+evdev:input:b0003v1050p0116*
 # OKE Electron Company USB barcode reader
-evdev:input:b0003v05FEp1010:*
+evdev:input:b0003v05FEp1010*
  XKB_FIXED_LAYOUT=us
  XKB_FIXED_VARIANT=
 
@@ -1808,12 +1808,12 @@ evdev:input:b0003v05FEp1010:*
 # Presence of a LED is implicit when the property is absent.
 
 # Logitech K750
-evdev:input:b0003v046Dp4002:*
+evdev:input:b0003v046Dp4002*
  KEYBOARD_LED_NUMLOCK=0
  KEYBOARD_LED_CAPSLOCK=0
 
 # PFU Limited HHKB Professional JP
-evdev:input:b0003v04FEp000D:*
+evdev:input:b0003v04FEp000D*
  KEYBOARD_LED_NUMLOCK=0
  KEYBOARD_LED_CAPSLOCK=0
 
