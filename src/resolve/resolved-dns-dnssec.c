@@ -1862,6 +1862,8 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
                 /* The following checks only make sense for NSEC RRs that are not expanded from a wildcard */
                 r = dns_resource_record_is_synthetic(rr);
+                if (r == -ENODATA) /* No signing RR known. */
+                        continue;
                 if (r < 0)
                         return r;
                 if (r > 0)
