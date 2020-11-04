@@ -321,6 +321,11 @@ int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
 
         assert(ret);
 
+        if (a == b) {
+                *ret = dns_answer_ref(a);
+                return 0;
+        }
+
         if (dns_answer_size(a) <= 0) {
                 *ret = dns_answer_ref(b);
                 return 0;
