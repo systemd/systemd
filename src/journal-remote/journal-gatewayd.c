@@ -929,7 +929,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 #else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --trust is not available.");
+                                               "Option --trust= is not available.");
 #endif
                 case 'D':
                         arg_directory = optarg;
