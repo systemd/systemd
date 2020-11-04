@@ -636,11 +636,12 @@ int dns_cache_put(
                 int owner_family,
                 const union in_addr_union *owner_address) {
 
-        DnsResourceRecord *soa = NULL, *rr;
+        DnsResourceRecord *soa = NULL;
         bool weird_rcode = false;
+        DnsAnswerItem *item;
         DnsAnswerFlags flags;
         unsigned cache_keys;
-        int r, ifindex;
+        int r;
 
         assert(c);
         assert(owner_address);
@@ -683,18 +684,18 @@ int dns_cache_put(
                 timestamp = now(clock_boottime_or_monotonic());
 
         /* Second, add in positive entries for all contained RRs */
-        DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
-                if ((flags & DNS_ANSWER_CACHEABLE) == 0 ||
-                    !rr_eligible(rr))
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                if ((item->flags & DNS_ANSWER_CACHEABLE) == 0 ||
+                    !rr_eligible(item->rr))
                         continue;
 
                 r = dns_cache_put_positive(
                                 c,
-                                rr,
-                                flags & DNS_ANSWER_AUTHENTICATED,
-                                flags & DNS_ANSWER_SHARED_OWNER,
+                                item->rr,
+                                item->flags & DNS_ANSWER_AUTHENTICATED,
+                                item->flags & DNS_ANSWER_SHARED_OWNER,
                                 timestamp,
-                                ifindex,
+                                item->ifindex,
                                 owner_family, owner_address);
                 if (r < 0)
                         goto fail;
@@ -762,11 +763,11 @@ fail:
         if (key)
                 dns_cache_remove_by_key(c, key);
 
-        DNS_ANSWER_FOREACH_FLAGS(rr, flags, answer) {
-                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
+        DNS_ANSWER_FOREACH_ITEM(item, answer) {
+                if ((item->flags & DNS_ANSWER_CACHEABLE) == 0)
                         continue;
 
-                dns_cache_remove_by_key(c, rr->key);
+                dns_cache_remove_by_key(c, item->rr->key);
         }
 
         return r;
