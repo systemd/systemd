@@ -1042,6 +1042,16 @@ evdev:input:b0005v046DpB305*
  KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
  KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
 
+# Dinovo Edge (HID proxy mode and bluetooth matches)
+evdev:input:b0003v046DpB309*
+evdev:input:b0005v046DpB309*
+ KEYBOARD_KEY_c102c=fn		# Fn key
+ KEYBOARD_KEY_c1038=prog1	# Fn + F9  Smartkey A → XF86Launch1
+ KEYBOARD_KEY_c1039=prog2	# Fn + F10 Smartkey B → XF86Launch2
+ KEYBOARD_KEY_c103a=prog3	# Fn + F11 Smartkey C → XF86Launch3
+ KEYBOARD_KEY_c103b=prog4	# Fn + F12 Smartkey D → XF86Launch4
+ KEYBOARD_KEY_c1050=phone	# Fn + F1  Phone button
+
 # MX5500 keyboard (HID proxy mode and bluetooth matches)
 evdev:input:b0003v046DpB30B*
 evdev:input:b0005v046DpB30B*
