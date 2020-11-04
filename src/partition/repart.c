@@ -3622,7 +3622,7 @@ static int parse_argv(int argc, char *argv[]) {
                         size_t n = 0;
 
                         r = read_full_file_full(
-                                        AT_FDCWD, optarg,
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
                                         NULL,
                                         &k, &n);

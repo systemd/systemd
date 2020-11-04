@@ -2576,7 +2576,7 @@ static int acquire_credentials(
 
 
                 if (source)
-                        r = read_full_file_full(AT_FDCWD, source, flags, bindname, &data, &size);
+                        r = read_full_file_full(AT_FDCWD, source, UINT64_MAX, SIZE_MAX, flags, bindname, &data, &size);
                 else
                         r = -ENOENT;
                 if (r == -ENOENT &&

@@ -898,7 +898,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Key file specified twice");
                         r = read_full_file_full(
-                                        AT_FDCWD, optarg,
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
                                         NULL,
                                         &arg_key_pem, NULL);
@@ -911,7 +911,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_cert_pem)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Certificate file specified twice");
-                        r = read_full_file_full(AT_FDCWD, optarg, READ_FULL_FILE_CONNECT_SOCKET, NULL, &arg_cert_pem, NULL);
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &arg_cert_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read certificate file: %m");
                         assert(arg_cert_pem);
@@ -922,7 +926,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_trust_pem)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "CA certificate file specified twice");
-                        r = read_full_file_full(AT_FDCWD, optarg, READ_FULL_FILE_CONNECT_SOCKET, NULL, &arg_trust_pem, NULL);
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &arg_trust_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read CA certificate file: %m");
                         assert(arg_trust_pem);
