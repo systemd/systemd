@@ -68,8 +68,8 @@
         <term><option>--key=</option></term>
 
         <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read the
-        server key corresponding to the certificate specified with <option>--cert=</option> from. The key
-        must be in PEM format.</para></listitem>
+        secret server key corresponding to the certificate specified with <option>--cert=</option> from. The
+        key must be in PEM format.</para></listitem>
       </varlistentry>
 
       <varlistentry>
