@@ -1289,7 +1289,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         else
                                 flags = goodbye ? (DNS_ANSWER_GOODBYE|DNS_ANSWER_CACHE_FLUSH) : DNS_ANSWER_CACHE_FLUSH;
 
-                        r = dns_answer_add(answer, i->rr, 0 , flags);
+                        r = dns_answer_add(answer, i->rr, 0, flags, NULL);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to add RR to announce: %m");
                 }
@@ -1307,7 +1307,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to add DNS-SD PTR record to MDNS zone: %m");
 
-                r = dns_answer_add(answer, rr, 0 , 0);
+                r = dns_answer_add(answer, rr, 0, 0, NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add RR to announce: %m");
         }
