@@ -29,6 +29,7 @@
 #include "path-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
+#include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -550,6 +551,15 @@ static int attach_tcrypt(
         return 0;
 }
 
+static char *make_bindname(const char *volume) {
+        char *s;
+
+        if (asprintf(&s, "@%" PRIx64"/cryptsetup/%s", random_u64(), volume) < 0)
+                return NULL;
+
+        return s;
+}
+
 static int attach_luks_or_plain_or_bitlk(
                 struct crypt_device *cd,
                 const char *name,
@@ -736,13 +746,30 @@ static int attach_luks_or_plain_or_bitlk(
                         return log_error_errno(r, "Failed to activate: %m");
 
         } else if (key_file) {
-                r = crypt_activate_by_keyfile_device_offset(cd, name, arg_key_slot, key_file, arg_keyfile_size, arg_keyfile_offset, flags);
-                if (r == -EPERM) {
-                        log_error_errno(r, "Failed to activate with key file '%s'. (Key data incorrect?)", key_file);
+                _cleanup_(erase_and_freep) char *kfdata = NULL;
+                _cleanup_free_ char *bindname = NULL;
+                size_t kfsize;
+
+                /* If we read the key via AF_UNIX, make this client recognizable */
+                bindname = make_bindname(name);
+                if (!bindname)
+                        return log_oom();
+
+                r = read_full_file_full(
+                                AT_FDCWD, key_file,
+                                arg_keyfile_offset == 0 ? UINT64_MAX : arg_keyfile_offset,
+                                arg_keyfile_size == 0 ? SIZE_MAX : arg_keyfile_size,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                bindname,
+                                &kfdata, &kfsize);
+                if (r == -ENOENT) {
+                        log_error_errno(r, "Failed to activate, key file '%s' missing.", key_file);
                         return -EAGAIN; /* Log actual error, but return EAGAIN */
                 }
-                if (r == -EINVAL) {
-                        log_error_errno(r, "Failed to activate with key file '%s'. (Key file missing?)", key_file);
+
+                r = crypt_activate_by_passphrase(cd, name, arg_key_slot, kfdata, kfsize, flags);
+                if (r == -EPERM) {
+                        log_error_errno(r, "Failed to activate with key file '%s'. (Key data incorrect?)", key_file);
                         return -EAGAIN; /* Log actual error, but return EAGAIN */
                 }
                 if (r < 0)
