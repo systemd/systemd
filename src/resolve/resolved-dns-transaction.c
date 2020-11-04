@@ -2313,8 +2313,8 @@ void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source) {
 }
 
 static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
-        DnsResourceRecord *rr;
-        int ifindex, r;
+        DnsAnswerItem *item;
+        int r;
 
         assert(t);
 
@@ -2322,16 +2322,16 @@ static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
          * RRs from the list of validated keys to the list of
          * validated keys. */
 
-        DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, t->answer) {
+        DNS_ANSWER_FOREACH_ITEM(item, t->answer) {
 
-                r = dnssec_verify_dnskey_by_ds_search(rr, t->validated_keys);
+                r = dnssec_verify_dnskey_by_ds_search(item->rr, t->validated_keys);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
                 /* If so, the DNSKEY is validated too. */
-                r = dns_answer_add_extend(&t->validated_keys, rr, ifindex, DNS_ANSWER_AUTHENTICATED);
+                r = dns_answer_add_extend(&t->validated_keys, item->rr, item->ifindex, item->flags|DNS_ANSWER_AUTHENTICATED, item->rrsig);
                 if (r < 0)
                         return r;
         }
@@ -2822,19 +2822,26 @@ static int dnssec_validate_records(
                                 continue;
                 }
 
-                r = dnssec_verify_rrset_search(t->answer, rr->key, t->validated_keys, USEC_INFINITY, &result, &rrsig);
+                r = dnssec_verify_rrset_search(
+                                t->answer,
+                                rr->key,
+                                t->validated_keys,
+                                USEC_INFINITY,
+                                &result,
+                                &rrsig);
                 if (r < 0)
                         return r;
 
                 log_debug("Looking at %s: %s", strna(dns_resource_record_to_string(rr)), dnssec_result_to_string(result));
 
                 if (result == DNSSEC_VALIDATED) {
+                        assert(rrsig);
 
                         if (rr->key->type == DNS_TYPE_DNSKEY) {
                                 /* If we just validated a DNSKEY RRset, then let's add these keys to
                                  * the set of validated keys for this transaction. */
 
-                                r = dns_answer_copy_by_key(&t->validated_keys, t->answer, rr->key, DNS_ANSWER_AUTHENTICATED);
+                                r = dns_answer_copy_by_key(&t->validated_keys, t->answer, rr->key, DNS_ANSWER_AUTHENTICATED, rrsig);
                                 if (r < 0)
                                         return r;
 
@@ -2845,10 +2852,9 @@ static int dnssec_validate_records(
                                         return r;
                         }
 
-                        /* Add the validated RRset to the new list of validated
-                         * RRsets, and remove it from the unvalidated RRsets.
-                         * We mark the RRset as authenticated and cacheable. */
-                        r = dns_answer_move_by_key(validated, &t->answer, rr->key, DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE);
+                        /* Add the validated RRset to the new list of validated RRsets, and remove it from
+                         * the unvalidated RRsets.  We mark the RRset as authenticated and cacheable. */
+                        r = dns_answer_move_by_key(validated, &t->answer, rr->key, DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE, rrsig);
                         if (r < 0)
                                 return r;
 
@@ -2868,6 +2874,8 @@ static int dnssec_validate_records(
                         bool authenticated = false;
                         const char *source;
 
+                        assert(rrsig);
+
                         /* This RRset validated, but as a wildcard. This means we need
                          * to prove via NSEC/NSEC3 that no matching non-wildcard RR exists. */
 
@@ -2886,8 +2894,12 @@ static int dnssec_validate_records(
                         if (r == 0)
                                 result = DNSSEC_INVALID;
                         else {
-                                r = dns_answer_move_by_key(validated, &t->answer, rr->key,
-                                                           authenticated ? (DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE) : 0);
+                                r = dns_answer_move_by_key(
+                                                validated,
+                                                &t->answer,
+                                                rr->key,
+                                                authenticated ? (DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE) : 0,
+                                                rrsig);
                                 if (r < 0)
                                         return r;
 
@@ -2905,7 +2917,12 @@ static int dnssec_validate_records(
                         if (r == 0) {
                                 /* Data does not require signing. In that case, just copy it over,
                                  * but remember that this is by no means authenticated. */
-                                r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0);
+                                r = dns_answer_move_by_key(
+                                                validated,
+                                                &t->answer,
+                                                rr->key,
+                                                0,
+                                                NULL);
                                 if (r < 0)
                                         return r;
 
@@ -2926,7 +2943,7 @@ static int dnssec_validate_records(
 
                                         /* Downgrading is OK? If so, just consider the information unsigned */
 
-                                        r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0);
+                                        r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0, NULL);
                                         if (r < 0)
                                                 return r;
 
@@ -2951,7 +2968,7 @@ static int dnssec_validate_records(
                                 log_info("Detected RRset %s is in a private DNS zone, permitting unsigned RRs.",
                                          dns_resource_key_to_string(rr->key, s, sizeof s));
 
-                                r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0);
+                                r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -2972,7 +2989,7 @@ static int dnssec_validate_records(
                                 /* The DNSKEY transaction was not authenticated, this means there's
                                  * no DS for this, which means it's OK if no keys are found for this signature. */
 
-                                r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0);
+                                r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0, NULL);
                                 if (r < 0)
                                         return r;
 

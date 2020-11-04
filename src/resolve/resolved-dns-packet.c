@@ -2337,7 +2337,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                         else
                                 flags |= DNS_ANSWER_SECTION_ADDITIONAL;
 
-                        r = dns_answer_add(answer, rr, p->ifindex, flags);
+                        r = dns_answer_add(answer, rr, p->ifindex, flags, NULL);
                         if (r < 0)
                                 return r;
                 }

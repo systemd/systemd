@@ -26,6 +26,7 @@ typedef enum DnsAnswerFlags {
 
 struct DnsAnswerItem {
         DnsResourceRecord *rr;
+        DnsResourceRecord *rrsig; /* Optionally, also store RRSIG RR that successfully validates this item */
         int ifindex;
         DnsAnswerFlags flags;
 };
@@ -41,8 +42,8 @@ DnsAnswer *dns_answer_new(size_t n);
 DnsAnswer *dns_answer_ref(DnsAnswer *a);
 DnsAnswer *dns_answer_unref(DnsAnswer *a);
 
-int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags);
-int dns_answer_add_extend(DnsAnswer **a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags);
+int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig);
+int dns_answer_add_extend(DnsAnswer **a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig);
 int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl, int ifindex);
 
 int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags *combined_flags);
@@ -64,8 +65,8 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free);
 int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key);
 int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rr);
 
-int dns_answer_copy_by_key(DnsAnswer **a, DnsAnswer *source, const DnsResourceKey *key, DnsAnswerFlags or_flags);
-int dns_answer_move_by_key(DnsAnswer **to, DnsAnswer **from, const DnsResourceKey *key, DnsAnswerFlags or_flags);
+int dns_answer_copy_by_key(DnsAnswer **a, DnsAnswer *source, const DnsResourceKey *key, DnsAnswerFlags or_flags, DnsResourceRecord *rrsig);
+int dns_answer_move_by_key(DnsAnswer **to, DnsAnswer **from, const DnsResourceKey *key, DnsAnswerFlags or_flags, DnsResourceRecord *rrsig);
 
 int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname);
 
