@@ -145,57 +145,32 @@ char *strnappend(const char *s, const char *suffix, size_t b) {
 
 char *strjoin_real(const char *x, ...) {
         va_list ap;
-        size_t l;
+        size_t l = 1;
         char *r, *p;
 
         va_start(ap, x);
+        for (const char *t = x; t; t = va_arg(ap, const char *)) {
+                size_t n;
 
-        if (x) {
-                l = strlen(x);
-
-                for (;;) {
-                        const char *t;
-                        size_t n;
-
-                        t = va_arg(ap, const char *);
-                        if (!t)
-                                break;
-
-                        n = strlen(t);
-                        if (n > ((size_t) -1) - l) {
-                                va_end(ap);
-                                return NULL;
-                        }
-
-                        l += n;
+                n = strlen(t);
+                if (n > SIZE_MAX - l) {
+                        va_end(ap);
+                        return NULL;
                 }
-        } else
-                l = 0;
-
+                l += n;
+        }
         va_end(ap);
 
-        r = new(char, l+1);
+        p = r = new(char, l);
         if (!r)
                 return NULL;
 
-        if (x) {
-                p = stpcpy(r, x);
+        va_start(ap, x);
+        for (const char *t = x; t; t = va_arg(ap, const char *))
+                p = stpcpy(p, t);
+        va_end(ap);
 
-                va_start(ap, x);
-
-                for (;;) {
-                        const char *t;
-
-                        t = va_arg(ap, const char *);
-                        if (!t)
-                                break;
-
-                        p = stpcpy(p, t);
-                }
-
-                va_end(ap);
-        } else
-                r[0] = 0;
+        *p = 0;
 
         return r;
 }

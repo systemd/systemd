@@ -123,7 +123,6 @@ size_t strv_length(char * const *l) {
 }
 
 char **strv_new_ap(const char *x, va_list ap) {
-        const char *s;
         _cleanup_strv_free_ char **a = NULL;
         size_t n = 0, i = 0;
         va_list aq;
@@ -133,43 +132,28 @@ char **strv_new_ap(const char *x, va_list ap) {
          * STRV_IFNOTNULL() macro to include possibly NULL strings in
          * the string list. */
 
-        if (x) {
-                n = x == STRV_IGNORE ? 0 : 1;
+        va_copy(aq, ap);
+        for (const char *s = x; s; s = va_arg(aq, const char*)) {
+                if (s == STRV_IGNORE)
+                        continue;
 
-                va_copy(aq, ap);
-                while ((s = va_arg(aq, const char*))) {
-                        if (s == STRV_IGNORE)
-                                continue;
-
-                        n++;
-                }
-
-                va_end(aq);
+                n++;
         }
+        va_end(aq);
 
         a = new(char*, n+1);
         if (!a)
                 return NULL;
 
-        if (x) {
-                if (x != STRV_IGNORE) {
-                        a[i] = strdup(x);
-                        if (!a[i])
-                                return NULL;
-                        i++;
-                }
+        for (const char *s = x; s; s = va_arg(ap, const char*)) {
+                if (s == STRV_IGNORE)
+                        continue;
 
-                while ((s = va_arg(ap, const char*))) {
+                a[i] = strdup(s);
+                if (!a[i])
+                        return NULL;
 
-                        if (s == STRV_IGNORE)
-                                continue;
-
-                        a[i] = strdup(s);
-                        if (!a[i])
-                                return NULL;
-
-                        i++;
-                }
+                i++;
         }
 
         a[i] = NULL;
