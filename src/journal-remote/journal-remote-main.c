@@ -13,6 +13,7 @@
 #include "journal-remote-write.h"
 #include "journal-remote.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
@@ -1106,7 +1107,8 @@ static int load_certificates(char **key, char **cert, char **trust) {
 static int run(int argc, char **argv) {
         _cleanup_(journal_remote_server_destroy) RemoteServer s = {};
         _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
-        _cleanup_free_ char *key = NULL, *cert = NULL, *trust = NULL;
+        _cleanup_(erase_and_freep) char *key = NULL;
+        _cleanup_free_ char *cert = NULL, *trust = NULL;
         int r;
 
         log_show_color(true);

@@ -22,6 +22,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
+#include "memory-util.h"
 #include "microhttpd-util.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -37,7 +38,7 @@ static char *arg_cert_pem = NULL;
 static char *arg_trust_pem = NULL;
 static const char *arg_directory = NULL;
 
-STATIC_DESTRUCTOR_REGISTER(arg_key_pem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key_pem, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert_pem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
 
