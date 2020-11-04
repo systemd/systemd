@@ -897,7 +897,11 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_key_pem)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Key file specified twice");
-                        r = read_full_file_full(AT_FDCWD, optarg, READ_FULL_FILE_CONNECT_SOCKET, NULL, &arg_key_pem, NULL);
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg,
+                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &arg_key_pem, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read key file: %m");
                         assert(arg_key_pem);

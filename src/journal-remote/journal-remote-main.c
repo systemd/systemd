@@ -1078,7 +1078,11 @@ static int parse_argv(int argc, char *argv[]) {
 static int load_certificates(char **key, char **cert, char **trust) {
         int r;
 
-        r = read_full_file_full(AT_FDCWD, arg_key ?: PRIV_KEY_FILE, READ_FULL_FILE_CONNECT_SOCKET, NULL, key, NULL);
+        r = read_full_file_full(
+                        AT_FDCWD, arg_key ?: PRIV_KEY_FILE,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        NULL,
+                        key, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to read key from file '%s': %m",
                                        arg_key ?: PRIV_KEY_FILE);
