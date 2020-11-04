@@ -116,17 +116,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 
 #define DNS_ANSWER_FOREACH_FLAGS(kk, flags, a) _DNS_ANSWER_FOREACH_FLAGS(UNIQ, kk, flags, a)
 
-#define _DNS_ANSWER_FOREACH_FULL(q, kk, ifi, fl, a)                     \
+#define _DNS_ANSWER_FOREACH_ITEM(q, item, a)                            \
         for (size_t UNIQ_T(i, q) = ({                                   \
-                                (kk) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].rr : NULL; \
-                                (ifi) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].ifindex : 0; \
-                                (fl) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].flags : 0; \
+                                (item) = dns_answer_isempty(a) ? NULL : (a)->items; \
                                 0;                                      \
                         });                                             \
-             (a) && (UNIQ_T(i, q) < (a)->n_rrs);                        \
+             UNIQ_T(i, q) < dns_answer_size(a);                         \
              UNIQ_T(i, q)++,                                            \
-                     (kk) = ((UNIQ_T(i, q) < (a)->n_rrs) ? (a)->items[UNIQ_T(i, q)].rr : NULL), \
-                     (ifi) = ((UNIQ_T(i, q) < (a)->n_rrs) ? (a)->items[UNIQ_T(i, q)].ifindex : 0), \
-                     (fl) = ((UNIQ_T(i, q) < (a)->n_rrs) ? (a)->items[UNIQ_T(i, q)].flags : 0))
+                     (item) = ((UNIQ_T(i, q) < dns_answer_size(a)) ? (a)->items + UNIQ_T(i, q) : NULL))
 
-#define DNS_ANSWER_FOREACH_FULL(kk, ifindex, flags, a) _DNS_ANSWER_FOREACH_FULL(UNIQ, kk, ifindex, flags, a)
+#define DNS_ANSWER_FOREACH_ITEM(item, a) _DNS_ANSWER_FOREACH_ITEM(UNIQ, item, a)
