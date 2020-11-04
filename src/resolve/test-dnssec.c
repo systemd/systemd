@@ -170,7 +170,7 @@ static void test_dnssec_verify_rfc8080_ed25519_example1(void) {
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
+        assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
                                 rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
@@ -262,7 +262,7 @@ static void test_dnssec_verify_rfc8080_ed25519_example2(void) {
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
+        assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
                                 rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
@@ -344,7 +344,7 @@ static void test_dnssec_verify_rrset(void) {
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
+        assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
         /* Validate the RR as it if was 2015-12-2 today */
         assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey, 1449092754*USEC_PER_SEC, &result) >= 0);
@@ -436,7 +436,7 @@ static void test_dnssec_verify_rrset2(void) {
 
         answer = dns_answer_new(1);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, nsec, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
+        assert_se(dns_answer_add(answer, nsec, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
         /* Validate the RR as it if was 2015-12-11 today */
         assert_se(dnssec_verify_rrset(answer, nsec->key, rrsig, dnskey, 1449849318*USEC_PER_SEC, &result) >= 0);
@@ -563,10 +563,10 @@ static void test_dnssec_verify_rrset3(void) {
 
         answer = dns_answer_new(4);
         assert_se(answer);
-        assert_se(dns_answer_add(answer, mx1, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
-        assert_se(dns_answer_add(answer, mx2, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
-        assert_se(dns_answer_add(answer, mx3, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
-        assert_se(dns_answer_add(answer, mx4, 0, DNS_ANSWER_AUTHENTICATED) >= 0);
+        assert_se(dns_answer_add(answer, mx1, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx2, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx3, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+        assert_se(dns_answer_add(answer, mx4, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
         /* Validate the RR as it if was 2020-02-24 today */
         assert_se(dnssec_verify_rrset(answer, mx1->key, rrsig, dnskey, 1582534685*USEC_PER_SEC, &result) >= 0);
