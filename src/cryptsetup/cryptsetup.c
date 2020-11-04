@@ -636,6 +636,7 @@ static int attach_luks_or_plain_or_bitlk(
                         bool processed = false;
 
                         r = decrypt_pkcs11_key(
+                                        name,
                                         friendly,
                                         arg_pkcs11_uri,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,

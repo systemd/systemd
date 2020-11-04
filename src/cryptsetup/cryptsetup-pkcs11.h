@@ -9,6 +9,7 @@
 #if HAVE_P11KIT
 
 int decrypt_pkcs11_key(
+                const char *volume_name,
                 const char *friendly_name,
                 const char *pkcs11_uri,
                 const char *key_file,
@@ -23,6 +24,7 @@ int decrypt_pkcs11_key(
 #else
 
 static inline int decrypt_pkcs11_key(
+                const char *volume_name,
                 const char *friendly_name,
                 const char *pkcs11_uri,
                 const char *key_file,
