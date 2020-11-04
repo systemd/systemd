@@ -807,6 +807,12 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
                         fputs(" cache-flush", f);
                 if (item->flags & DNS_ANSWER_GOODBYE)
                         fputs(" goodbye", f);
+                if (item->flags & DNS_ANSWER_SECTION_ANSWER)
+                        fputs(" section-answer", f);
+                if (item->flags & DNS_ANSWER_SECTION_AUTHORITY)
+                        fputs(" section-authority", f);
+                if (item->flags & DNS_ANSWER_SECTION_ADDITIONAL)
+                        fputs(" section-additional", f);
 
                 fputc('\n', f);
         }

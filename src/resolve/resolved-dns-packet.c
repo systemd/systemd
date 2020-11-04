@@ -2322,12 +2322,20 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                         assert(p->rindex >= start);
                         p->opt_size = p->rindex - start;
                 } else {
-                        /* According to RFC 4795, section 2.9. only the RRs from the Answer section
-                         * shall be cached. Hence mark only those RRs as cacheable by default, but
-                         * not the ones from the Additional or Authority sections. */
-                        DnsAnswerFlags flags =
-                                (i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0) |
-                                (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush ? DNS_ANSWER_SHARED_OWNER : 0);
+                        DnsAnswerFlags flags = 0;
+
+                        if (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush)
+                                flags |= DNS_ANSWER_SHARED_OWNER;
+
+                        /* According to RFC 4795, section 2.9. only the RRs from the Answer section shall be
+                         * cached. Hence mark only those RRs as cacheable by default, but not the ones from
+                         * the Additional or Authority sections. */
+                        if (i < DNS_PACKET_ANCOUNT(p))
+                                flags |= DNS_ANSWER_CACHEABLE|DNS_ANSWER_SECTION_ANSWER;
+                        else if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p))
+                                flags |= DNS_ANSWER_SECTION_AUTHORITY;
+                        else
+                                flags |= DNS_ANSWER_SECTION_ADDITIONAL;
 
                         r = dns_answer_add(answer, rr, p->ifindex, flags);
                         if (r < 0)
