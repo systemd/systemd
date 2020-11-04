@@ -908,16 +908,22 @@ static int run(int argc, char *argv[]) {
                 (void) mlockall(MCL_FUTURE);
 
                 if (!key_file) {
+                        _cleanup_free_ char *bindname = NULL;
                         const char *fn;
+
+                        bindname = make_bindname(argv[2]);
+                        if (!bindname)
+                                return log_oom();
 
                         /* If a key file is not explicitly specified, search for a key in a well defined
                          * search path, and load it. */
 
                         fn = strjoina(argv[2], ".key");
-                        r = load_key_file(fn,
-                                          STRV_MAKE("/etc/cryptsetup-keys.d", "/run/cryptsetup-keys.d"),
-                                          0, 0,  /* Note we leave arg_keyfile_offset/arg_keyfile_size as something that only applies to arg_keyfile! */
-                                          &key_data, &key_data_size);
+                        r = find_key_file(
+                                        fn,
+                                        STRV_MAKE("/etc/cryptsetup-keys.d", "/run/cryptsetup-keys.d"),
+                                        bindname,
+                                        &key_data, &key_data_size);
                         if (r < 0)
                                 return r;
                         if (r > 0)
