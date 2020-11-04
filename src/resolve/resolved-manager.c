@@ -1418,15 +1418,15 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
         m->n_dnssec_verdict[verdict]++;
 }
 
-bool manager_routable(Manager *m, int family) {
+bool manager_routable(Manager *m) {
         Link *l;
 
         assert(m);
 
-        /* Returns true if the host has at least one interface with a routable address of the specified type */
+        /* Returns true if the host has at least one interface with a routable address (regardless if IPv4 or IPv6) */
 
         HASHMAP_FOREACH(l, m->links)
-                if (link_relevant(l, family, false))
+                if (link_relevant(l, AF_UNSPEC, false))
                         return true;
 
         return false;

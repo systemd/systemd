@@ -1156,12 +1156,16 @@ bool dns_scope_name_wants_search_domain(DnsScope *s, const char *name) {
 bool dns_scope_network_good(DnsScope *s) {
         /* Checks whether the network is in good state for lookups on this scope. For mDNS/LLMNR/Classic DNS scopes
          * bound to links this is easy, as they don't even exist if the link isn't in a suitable state. For the global
-         * DNS scope we check whether there are any links that are up and have an address. */
+         * DNS scope we check whether there are any links that are up and have an address.
+         *
+         * Note that Linux routing is complex and even systems that superficially have no IPv4 address might
+         * be able to route IPv4 (and similar for IPv6), hence let's make a check here independent of address
+         * family. */
 
         if (s->link)
                 return true;
 
-        return manager_routable(s->manager, AF_UNSPEC);
+        return manager_routable(s->manager);
 }
 
 int dns_scope_ifindex(DnsScope *s) {
