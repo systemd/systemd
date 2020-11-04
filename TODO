@@ -20,6 +20,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* homed: try to unmount in regular intervals when home dir was busy when we
+  tried because idle.
+
 * sd-bus: when connecting to some dbus server socker, set originating AF_UNIX
   socket name in abstract namespace to include "description" string, and pick
   it up from there in sd_bus_creds logic. i.e. we can use the socket peer
