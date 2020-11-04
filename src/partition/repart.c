@@ -3621,7 +3621,11 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_(erase_and_freep) char *k = NULL;
                         size_t n = 0;
 
-                        r = read_full_file_full(AT_FDCWD, optarg, READ_FULL_FILE_SECURE|READ_FULL_FILE_CONNECT_SOCKET, NULL, &k, &n);
+                        r = read_full_file_full(
+                                        AT_FDCWD, optarg,
+                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &k, &n);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read key file '%s': %m", optarg);
 
