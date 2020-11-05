@@ -688,6 +688,11 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 return;
         }
 
+        if (manager_packet_from_our_transaction(m, p)) {
+                log_debug("Got our own packet looped back, ignoring.");
+                return;
+        }
+
         r = dns_packet_extract(p);
         if (r < 0) {
                 log_debug_errno(r, "Failed to extract resources from incoming packet, ignoring packet: %m");

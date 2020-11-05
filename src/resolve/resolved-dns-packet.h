@@ -227,6 +227,8 @@ void dns_packet_rewind(DnsPacket *p, size_t idx);
 int dns_packet_skip_question(DnsPacket *p);
 int dns_packet_extract(DnsPacket *p);
 
+bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b);
+
 /* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6 */
 enum {
         DNS_RCODE_SUCCESS = 0,
