@@ -33,6 +33,7 @@ extern const struct hash_ops dns_stub_listener_extra_hash_ops;
 
 int dns_stub_listener_extra_new(Manager *m, DnsStubListenerExtra **ret);
 DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p);
+uint16_t dns_stub_listener_extra_port(DnsStubListenerExtra *p);
 
 void manager_dns_stub_stop(Manager *m);
 int manager_dns_stub_start(Manager *m);

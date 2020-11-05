@@ -197,3 +197,5 @@ void manager_reset_server_features(Manager *m);
 void manager_cleanup_saved_user(Manager *m);
 
 bool manager_next_dnssd_names(Manager *m);
+
+bool manager_server_is_stub(Manager *m, DnsServer *s);
