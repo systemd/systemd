@@ -143,6 +143,8 @@ struct Manager {
         Hashmap *polkit_registry;
 
         VarlinkServer *varlink_server;
+
+        sd_event_source *clock_change_event_source;
 };
 
 /* Manager */
@@ -188,7 +190,7 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
 
 bool manager_routable(Manager *m);
 
-void manager_flush_caches(Manager *m);
+void manager_flush_caches(Manager *m, int log_level);
 void manager_reset_server_features(Manager *m);
 
 void manager_cleanup_saved_user(Manager *m);

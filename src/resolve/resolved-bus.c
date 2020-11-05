@@ -1762,7 +1762,7 @@ static int bus_method_flush_caches(sd_bus_message *message, void *userdata, sd_b
         assert(message);
         assert(m);
 
-        manager_flush_caches(m);
+        manager_flush_caches(m, LOG_INFO);
 
         return sd_bus_reply_method_return(message, NULL);
 }

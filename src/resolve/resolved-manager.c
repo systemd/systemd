@@ -313,6 +313,54 @@ static int manager_network_monitor_listen(Manager *m) {
         return 0;
 }
 
+static int manager_clock_change_listen(Manager *m);
+
+static int on_clock_change(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        Manager *m = userdata;
+
+        assert(m);
+
+        /* The clock has changed, let's flush all caches. Why that? That's because DNSSEC validation takes
+         * the system clock into consideration, and if the clock changes the old validations might have been
+         * wrong. Let's redo all validation with the new, correct time.
+         *
+         * (Also, this is triggered after system suspend, which is also a good reason to drop caches, since
+         * we might be connected to a different network now without this being visible in a dropped link
+         * carrier or so.) */
+
+        log_info("Clock change detected. Flushing caches.");
+        manager_flush_caches(m, LOG_DEBUG /* downgrade the functions own log message, since we already logged here at LOG_INFO level */);
+
+        /* The clock change timerfd is unusable after it triggered once, create a new one. */
+        return manager_clock_change_listen(m);
+}
+
+static int manager_clock_change_listen(Manager *m) {
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        assert(m);
+
+        m->clock_change_event_source = sd_event_source_unref(m->clock_change_event_source);
+
+        fd = time_change_fd();
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to allocate clock change timer fd: %m");
+
+        r = sd_event_add_io(m->event, &m->clock_change_event_source, fd, EPOLLIN, on_clock_change, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create clock change event source: %m");
+
+        r = sd_event_source_set_io_fd_own(m->clock_change_event_source, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pass ownership of clock fd to event source: %m");
+        TAKE_FD(fd);
+
+        (void) sd_event_source_set_description(m->clock_change_event_source, "clock-change");
+
+        return 0;
+}
+
 static int determine_hostname(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
         _cleanup_free_ char *h = NULL, *n = NULL;
 #if HAVE_LIBIDN2
@@ -549,7 +597,7 @@ static int manager_sigusr2(sd_event_source *s, const struct signalfd_siginfo *si
         assert(si);
         assert(m);
 
-        manager_flush_caches(m);
+        manager_flush_caches(m, LOG_INFO);
 
         return 0;
 }
@@ -642,6 +690,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = manager_clock_change_listen(m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_bus(m);
         if (r < 0)
                 return r;
@@ -709,6 +761,7 @@ Manager *manager_free(Manager *m) {
 
         sd_netlink_unref(m->rtnl);
         sd_event_source_unref(m->rtnl_event_source);
+        sd_event_source_unref(m->clock_change_event_source);
 
         manager_llmnr_stop(m);
         manager_mdns_stop(m);
@@ -1440,7 +1493,7 @@ bool manager_routable(Manager *m) {
         return false;
 }
 
-void manager_flush_caches(Manager *m) {
+void manager_flush_caches(Manager *m, int log_level) {
         DnsScope *scope;
 
         assert(m);
@@ -1448,7 +1501,7 @@ void manager_flush_caches(Manager *m) {
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_cache_flush(&scope->cache);
 
-        log_info("Flushed all caches.");
+        log_full(log_level, "Flushed all caches.");
 }
 
 void manager_reset_server_features(Manager *m) {
