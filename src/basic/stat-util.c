@@ -408,7 +408,8 @@ bool stat_inode_unmodified(const struct stat *a, const struct stat *b) {
         return a && b &&
                 (a->st_mode & S_IFMT) != 0 && /* We use the check for .st_mode if the structure was ever initialized */
                 ((a->st_mode ^ b->st_mode) & S_IFMT) == 0 &&  /* same inode type */
-                a->st_mtime == b->st_mtime &&
+                a->st_mtim.tv_sec == b->st_mtim.tv_sec &&
+                a->st_mtim.tv_nsec == b->st_mtim.tv_nsec &&
                 (!S_ISREG(a->st_mode) || a->st_size == b->st_size) && /* if regular file, compare file size */
                 a->st_dev == b->st_dev &&
                 a->st_ino == b->st_ino &&
