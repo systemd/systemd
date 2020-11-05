@@ -156,6 +156,8 @@ int manager_read_resolv_conf(Manager *m) {
                         r = manager_parse_search_domains_and_warn(m, a);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse search domain string '%s', ignoring.", a);
+
+                        continue;
                 }
 
                 log_syntax(NULL, LOG_DEBUG, "/etc/resolv.conf", n, 0, "Ignoring resolv.conf line: %s", l);
