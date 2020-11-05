@@ -1618,3 +1618,27 @@ bool manager_next_dnssd_names(Manager *m) {
 
         return tried;
 }
+
+bool manager_server_is_stub(Manager *m, DnsServer *s) {
+        DnsStubListenerExtra *l;
+
+        assert(m);
+        assert(s);
+
+        /* Safety check: we generally already skip the main stub when parsing configuration. But let's be
+         * extra careful, and check here again */
+        if (s->family == AF_INET &&
+            s->address.in.s_addr == htobe32(INADDR_DNS_STUB) &&
+            dns_server_port(s) == 53)
+                return true;
+
+        /* Main reason to call this is to check server data against the extra listeners, and filter things
+         * out. */
+        ORDERED_SET_FOREACH(l, m->dns_extra_stub_listeners)
+                if (s->family == l->family &&
+                    in_addr_equal(s->family, &s->address, &l->address) &&
+                    dns_server_port(s) == dns_stub_listener_extra_port(l))
+                        return true;
+
+        return false;
+}

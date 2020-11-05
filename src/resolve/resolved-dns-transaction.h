@@ -33,6 +33,7 @@ enum DnsTransactionState {
         DNS_TRANSACTION_NETWORK_DOWN,
         DNS_TRANSACTION_NOT_FOUND, /* like NXDOMAIN, but when LLMNR/TCP connections fail */
         DNS_TRANSACTION_NO_SOURCE, /* All suitable DnsTransactionSource turned off */
+        DNS_TRANSACTION_STUB_LOOP,
         _DNS_TRANSACTION_STATE_MAX,
         _DNS_TRANSACTION_STATE_INVALID = -EINVAL,
 };
