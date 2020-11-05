@@ -925,26 +925,50 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         }
 }
 
-DnsTransaction *dns_scope_find_transaction(DnsScope *scope, DnsResourceKey *key, bool cache_ok) {
-        DnsTransaction *t;
+DnsTransaction *dns_scope_find_transaction(
+                DnsScope *scope,
+                DnsResourceKey *key,
+                uint64_t query_flags) {
+
+        DnsTransaction *first, *t;
 
         assert(scope);
         assert(key);
 
-        /* Try to find an ongoing transaction that is a equal to the
-         * specified question */
-        t = hashmap_get(scope->transactions_by_key, key);
-        if (!t)
-                return NULL;
+        /* Iterate through the list of transactions with a matching key */
+        first = hashmap_get(scope->transactions_by_key, key);
+        LIST_FOREACH(transactions_by_key, t, first) {
 
-        /* Refuse reusing transactions that completed based on cached
-         * data instead of a real packet, if that's requested. */
-        if (!cache_ok &&
-            IN_SET(t->state, DNS_TRANSACTION_SUCCESS, DNS_TRANSACTION_RCODE_FAILURE) &&
-            t->answer_source != DNS_TRANSACTION_NETWORK)
-                return NULL;
+                /* These four flags must match exactly: we cannot use a validated response for a
+                 * non-validating client, and we cannot use a non-validated response for a validating
+                 * client. Similar, if the sources don't match things aren't usable either. */
+                if (((query_flags ^ t->query_flags) &
+                     (SD_RESOLVED_NO_VALIDATE|
+                     SD_RESOLVED_NO_ZONE|
+                      SD_RESOLVED_NO_TRUST_ANCHOR|
+                      SD_RESOLVED_NO_NETWORK)) != 0)
+                        continue;
 
-        return t;
+                /* We can reuse a primary query if a regular one is requested, but not vice versa */
+                if ((query_flags & SD_RESOLVED_REQUIRE_PRIMARY) &&
+                    !(t->query_flags & SD_RESOLVED_REQUIRE_PRIMARY))
+                        continue;
+
+                /* Don't reuse a transaction that allowed caching when we got told not to use it */
+                if ((query_flags & SD_RESOLVED_NO_CACHE) &&
+                    !(t->query_flags & SD_RESOLVED_NO_CACHE))
+                        continue;
+
+                /* If we are are asked to clamp ttls an the existing transaction doesn't do it, we can't
+                 * reuse */
+                if ((query_flags & SD_RESOLVED_CLAMP_TTL) &&
+                    !(t->query_flags & SD_RESOLVED_CLAMP_TTL))
+                        continue;
+
+                return t;
+        }
+
+        return NULL;
 }
 
 static int dns_scope_make_conflict_packet(

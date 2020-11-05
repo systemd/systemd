@@ -101,6 +101,9 @@ static int reply_query_state(DnsQuery *q) {
                  * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */
                 return sd_bus_reply_method_errorf(q->bus_request, _BUS_ERROR_DNS "NXDOMAIN", "'%s' not found", dns_query_string(q));
 
+        case DNS_TRANSACTION_NO_SOURCE:
+                return sd_bus_reply_method_errorf(q->bus_request, BUS_ERROR_NO_SOURCE, "All suitable resolution sources turned off");
+
         case DNS_TRANSACTION_RCODE_FAILURE: {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
@@ -274,8 +277,8 @@ static int validate_and_mangle_flags(
          *
          * 1. Checks that the interface index is either 0 (meaning *all* interfaces) or positive
          *
-         * 2. Only the protocols flags and the NO_CNAME flag are set, at most. Plus additional flags specific
-         *    to our method, passed in the "ok" parameter.
+         * 2. Only the protocols flags and a bunch of NO_XYZ flags are set, at most. Plus additional flags
+         *    specific to our method, passed in the "ok" parameter.
          *
          * 3. If zero protocol flags are specified it is automatically turned into *all* protocols. This way
          *    clients can simply pass 0 as flags and all will work as it should. They can also use this so
@@ -283,7 +286,15 @@ static int validate_and_mangle_flags(
          *    to mean "all supported protocols".
          */
 
-        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|SD_RESOLVED_NO_CNAME|ok))
+        if (*flags & ~(SD_RESOLVED_PROTOCOLS_ALL|
+                       SD_RESOLVED_NO_CNAME|
+                       SD_RESOLVED_NO_VALIDATE|
+                       SD_RESOLVED_NO_SYNTHESIZE|
+                       SD_RESOLVED_NO_CACHE|
+                       SD_RESOLVED_NO_ZONE|
+                       SD_RESOLVED_NO_TRUST_ANCHOR|
+                       SD_RESOLVED_NO_NETWORK|
+                       ok))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags parameter");
 
         if ((*flags & SD_RESOLVED_PROTOCOLS_ALL) == 0) /* If no protocol is enabled, enable all */
@@ -406,7 +417,7 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         if (r < 0 && r != -EALREADY)
                 return r;
 
-        r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, ifindex, flags);
+        r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, NULL, ifindex, flags);
         if (r < 0)
                 return r;
 
@@ -548,7 +559,7 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, question, ifindex, flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new(m, &q, question, question, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
@@ -724,13 +735,11 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question, question, ifindex, flags|SD_RESOLVED_NO_SEARCH);
+        /* Setting SD_RESOLVED_CLAMP_TTL: let's request that the TTL is fixed up for locally cached entries,
+         * after all we return it in the wire format blob. */
+        r = dns_query_new(m, &q, question, question, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH|SD_RESOLVED_CLAMP_TTL);
         if (r < 0)
                 return r;
-
-        /* Let's request that the TTL is fixed up for locally cached entries, after all we return it in the wire format
-         * blob */
-        q->clamp_ttl = true;
 
         q->bus_request = sd_bus_message_ref(message);
         q->complete = bus_method_resolve_record_complete;
@@ -1088,7 +1097,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
         if (r < 0)
                 return r;
 
-        r = dns_query_new(q->manager, &aux, question, question, ifindex, q->flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new(q->manager, &aux, question, question, NULL, ifindex, q->flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
@@ -1258,7 +1267,7 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = dns_query_new(m, &q, question_utf8, question_idna, ifindex, flags|SD_RESOLVED_NO_SEARCH);
+        r = dns_query_new(m, &q, question_utf8, question_idna, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
 
