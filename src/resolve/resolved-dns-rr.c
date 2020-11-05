@@ -1721,6 +1721,20 @@ int dns_resource_record_clamp_ttl(DnsResourceRecord **rr, uint32_t max_ttl) {
         return 1;
 }
 
+bool dns_resource_record_is_link_local_address(DnsResourceRecord *rr) {
+
+        if (rr->key->class != DNS_CLASS_IN)
+                return false;
+
+        if (rr->key->type == DNS_TYPE_A)
+                return in4_addr_is_link_local(&rr->a.in_addr);
+
+        if (rr->key->type == DNS_TYPE_AAAA)
+                return IN6_IS_ADDR_LINKLOCAL(&rr->aaaa.in6_addr);
+
+        return false;
+}
+
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i) {
         DnsTxtItem *n;
 
