@@ -646,11 +646,10 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
         assert(s);
         assert(key);
 
-        /* Check if it makes sense to resolve the specified key on
-         * this scope. Note that this call assumes as fully qualified
-         * name, i.e. the search suffixes already appended. */
+        /* Check if it makes sense to resolve the specified key on this scope. Note that this call assumes a
+         * fully qualified name, i.e. the search suffixes already appended. */
 
-        if (key->class != DNS_CLASS_IN)
+        if (!IN_SET(key->class, DNS_CLASS_IN, DNS_CLASS_ANY))
                 return false;
 
         if (s->protocol == DNS_PROTOCOL_DNS) {
@@ -672,8 +671,7 @@ bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key) {
                 return !dns_name_is_root(name);
         }
 
-        /* On mDNS and LLMNR, send A and AAAA queries only on the
-         * respective scopes */
+        /* On mDNS and LLMNR, send A and AAAA queries only on the respective scopes */
 
         key_family = dns_type_to_af(key->type);
         if (key_family < 0)
