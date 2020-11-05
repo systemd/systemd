@@ -1255,9 +1255,11 @@ LinkAddress* manager_find_link_address(Manager *m, int family, const union in_ad
         return NULL;
 }
 
-bool manager_our_packet(Manager *m, DnsPacket *p) {
+bool manager_packet_from_local_address(Manager *m, DnsPacket *p) {
         assert(m);
         assert(p);
+
+        /* Let's see if this packet comes from an IP address we have on any local interface */
 
         return !!manager_find_link_address(m, p->family, &p->sender);
 }

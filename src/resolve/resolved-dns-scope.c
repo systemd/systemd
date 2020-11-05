@@ -1126,7 +1126,7 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
                         return;
         }
 
-        if (manager_our_packet(scope->manager, p))
+        if (manager_packet_from_local_address(scope->manager, p))
                 return;
 
         r = dns_packet_extract(p);
