@@ -484,7 +484,7 @@ static void dns_transaction_retry(DnsTransaction *t, bool next_server) {
 
         /* Before we try again, switch to a new server. */
         if (next_server)
-                dns_scope_next_dns_server(t->scope);
+                dns_scope_next_dns_server(t->scope, t->server);
 
         r = dns_transaction_go(t);
         if (r < 0)
@@ -1859,7 +1859,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 /* One of our own stub listeners */
                 log_debug_errno(r, "Detected that specified DNS server is our own extra listener, switching DNS servers.");
 
-                dns_scope_next_dns_server(t->scope);
+                dns_scope_next_dns_server(t->scope, t->server);
 
                 if (dns_scope_get_dns_server(t->scope) == t->server) {
                         log_debug_errno(r, "Still pointing to extra listener after switching DNS servers, refusing operation.");
@@ -1890,7 +1890,7 @@ int dns_transaction_go(DnsTransaction *t) {
                         return r;
 
                 /* Couldn't send? Try immediately again, with a new server */
-                dns_scope_next_dns_server(t->scope);
+                dns_scope_next_dns_server(t->scope, t->server);
 
                 return dns_transaction_go(t);
         }
