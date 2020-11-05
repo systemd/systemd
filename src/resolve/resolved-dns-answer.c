@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "random-util.h"
 #include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
 #include "string-util.h"
@@ -897,4 +898,24 @@ int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
         }
 
         return 0;
+}
+
+void dns_answer_randomize(DnsAnswer *a) {
+        size_t n;
+
+        /* Permutes the answer list randomly (Knuth shuffle) */
+
+        n = dns_answer_size(a);
+        if (n <= 1)
+                return;
+
+        for (size_t i = 0; i < n; i++) {
+                size_t k;
+
+                k = random_u64_range(n);
+                if (k == i)
+                        continue;
+
+                SWAP_TWO(a->items[i], a->items[k]);
+        }
 }
