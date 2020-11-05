@@ -203,7 +203,7 @@ int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, const DnsAnsw
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start);
 int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, bool include_rfc6975, int rcode, size_t *start);
 int dns_packet_append_question(DnsPacket *p, DnsQuestion *q);
-int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a);
+int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed);
 
 int dns_packet_patch_max_udp_size(DnsPacket *p, uint16_t max_udp_size);
 int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp);
