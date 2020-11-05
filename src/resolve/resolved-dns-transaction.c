@@ -317,8 +317,9 @@ static void dns_transaction_tentative(DnsTransaction *t, DnsPacket *p) {
 
         assert(t);
         assert(p);
+        assert(t->scope->protocol == DNS_PROTOCOL_LLMNR);
 
-        if (manager_our_packet(t->scope->manager, p) != 0)
+        if (manager_packet_from_local_address(t->scope->manager, p) != 0)
                 return;
 
         (void) in_addr_to_string(p->family, &p->sender, &pretty);
