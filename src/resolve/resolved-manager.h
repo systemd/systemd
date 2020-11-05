@@ -166,6 +166,8 @@ void manager_refresh_rrs(Manager *m);
 int manager_next_hostname(Manager *m);
 
 bool manager_packet_from_local_address(Manager *m, DnsPacket *p);
+bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p);
+
 DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
 
 void manager_verify_all(Manager *m);

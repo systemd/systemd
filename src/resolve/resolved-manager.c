@@ -1264,6 +1264,22 @@ bool manager_packet_from_local_address(Manager *m, DnsPacket *p) {
         return !!manager_find_link_address(m, p->family, &p->sender);
 }
 
+bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p) {
+        DnsTransaction *t;
+
+        assert(m);
+        assert(p);
+
+        /* Let's see if we have a transaction with a query message with the exact same binary contents as the
+         * one we just got. If so, it's almost definitely a packet loop of some kind. */
+
+        t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
+        if (!t)
+                return false;
+
+        return t->sent && dns_packet_equal(t->sent, p);
+}
+
 DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
         Link *l;
 
