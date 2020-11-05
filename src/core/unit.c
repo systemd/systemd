@@ -1988,6 +1988,10 @@ int unit_stop(Unit *u) {
 bool unit_can_stop(Unit *u) {
         assert(u);
 
+        /* Note: if we return true here, it does not mean that the unit may be successfully stopped.
+         * Extrinsic units follow external state and they may stop following external state changes
+         * (hence we return true here), but an attempt to do this through the manager will fail. */
+
         if (!unit_type_supported(u->type))
                 return false;
 

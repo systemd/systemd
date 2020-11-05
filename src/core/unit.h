@@ -531,6 +531,9 @@ typedef struct UnitVTable {
          * even though nothing references it and it isn't active in any way. */
         bool (*may_gc)(Unit *u);
 
+        /* Return true when the unit is not controlled by the manager (e.g. extrinsic mounts). */
+        bool (*is_extrinsic)(Unit *u);
+
         /* When the unit is not running and no job for it queued we shall release its runtime resources */
         void (*release_resources)(Unit *u);
 
@@ -683,6 +686,11 @@ int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
 
 bool unit_may_gc(Unit *u);
+
+static inline bool unit_is_extrinsic(Unit *u) {
+        return u->perpetual ||
+                (UNIT_VTABLE(u)->is_extrinsic && UNIT_VTABLE(u)->is_extrinsic(u));
+}
 
 void unit_add_to_load_queue(Unit *u);
 void unit_add_to_dbus_queue(Unit *u);

@@ -412,8 +412,9 @@ static int mount_add_quota_dependencies(Mount *m) {
         return 0;
 }
 
-static bool mount_is_extrinsic(Mount *m) {
+static bool mount_is_extrinsic(Unit *u) {
         MountParameters *p;
+        Mount *m = MOUNT(u);
         assert(m);
 
         /* Returns true for all units that are "magic" and should be excluded from the usual
@@ -422,10 +423,7 @@ static bool mount_is_extrinsic(Mount *m) {
          * ourselves but it's fine if the user operates on them with us. */
 
         /* We only automatically manage mounts if we are in system mode */
-        if (!MANAGER_IS_SYSTEM(UNIT(m)->manager))
-                return true;
-
-        if (UNIT(m)->perpetual) /* All perpetual units never change state */
+        if (MANAGER_IS_USER(u->manager))
                 return true;
 
         p = get_mount_parameters(m);
@@ -493,7 +491,7 @@ static int mount_add_default_dependencies(Mount *m) {
          * guaranteed to stay mounted the whole time, since our system is on it.  Also, don't
          * bother with anything mounted below virtual file systems, it's also going to be virtual,
          * and hence not worth the effort. */
-        if (mount_is_extrinsic(m))
+        if (mount_is_extrinsic(UNIT(m)))
                 return 0;
 
         p = get_mount_parameters(m);
@@ -790,7 +788,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, p ? strna(p->options) : "n/a",
                 prefix, yes_no(m->from_proc_self_mountinfo),
                 prefix, yes_no(m->from_fragment),
-                prefix, yes_no(mount_is_extrinsic(m)),
+                prefix, yes_no(mount_is_extrinsic(u)),
                 prefix, m->directory_mode,
                 prefix, yes_no(m->sloppy_options),
                 prefix, yes_no(m->lazy_unmount),
@@ -2161,6 +2159,7 @@ const UnitVTable mount_vtable = {
         .will_restart = unit_will_restart_default,
 
         .may_gc = mount_may_gc,
+        .is_extrinsic = mount_is_extrinsic,
 
         .sigchld_event = mount_sigchld_event,
 
