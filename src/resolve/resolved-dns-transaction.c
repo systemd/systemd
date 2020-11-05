@@ -1410,6 +1410,30 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         }
 }
 
+static void dns_transaction_randomize_answer(DnsTransaction *t) {
+        int r;
+
+        assert(t);
+
+        /* Randomizes the order of the answer array. This is done for all cached responses, so that we return
+         * a different order each time. We do this only for DNS traffic, in order to do some minimal, crappy
+         * load balancing. We don't do this for LLMNR or mDNS, since the order (preferring link-local
+         * addresses, and such like) might have meaning there, and load balancing is pointless. */
+
+        if (t->scope->protocol != DNS_PROTOCOL_DNS)
+                return;
+
+        /* No point in randomizing, if there's just one RR */
+        if (dns_answer_size(t->answer) <= 1)
+                return;
+
+        r = dns_answer_reserve_or_clone(&t->answer, 0);
+        if (r < 0) /* If this fails, just don't randomize, this is non-essential stuff after all */
+                return (void) log_debug_errno(r, "Failed to clone answer record, not randomizing RR order of answer: %m");
+
+        dns_answer_randomize(t->answer);
+}
+
 static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
         int r;
 
@@ -1530,6 +1554,8 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 if (r < 0)
                         return r;
                 if (r > 0) {
+                        dns_transaction_randomize_answer(t);
+
                         if (t->bypass && t->scope->protocol == DNS_PROTOCOL_DNS && !t->received)
                                 /* When bypass mode is on, do not use cached data unless it came with a full
                                  * packet. */
