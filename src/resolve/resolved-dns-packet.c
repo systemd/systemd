@@ -1219,7 +1219,7 @@ int dns_packet_append_question(DnsPacket *p, DnsQuestion *q) {
         return 0;
 }
 
-int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a) {
+int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed) {
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
         int r;
@@ -1230,6 +1230,9 @@ int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a) {
                 r = dns_packet_append_rr(p, rr, flags, NULL, NULL);
                 if (r < 0)
                         return r;
+
+                if (completed)
+                        (*completed)++;
         }
 
         return 0;
