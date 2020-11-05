@@ -80,6 +80,8 @@ static inline bool dns_answer_isempty(DnsAnswer *a) {
 
 void dns_answer_dump(DnsAnswer *answer, FILE *f);
 
+void dns_answer_randomize(DnsAnswer *a);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 
 #define _DNS_ANSWER_FOREACH(q, kk, a)                                   \
