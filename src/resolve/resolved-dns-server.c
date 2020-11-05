@@ -771,23 +771,25 @@ DnsServer *manager_get_dns_server(Manager *m) {
         return m->current_dns_server;
 }
 
-void manager_next_dns_server(Manager *m) {
+void manager_next_dns_server(Manager *m, DnsServer *if_current) {
         assert(m);
 
-        /* If there's currently no DNS server set, then the next
-         * manager_get_dns_server() will find one */
+        /* If the DNS server is already a different one than the one specified in 'if_current' don't do anything */
+        if (if_current && m->current_dns_server != if_current)
+                return;
+
+        /* If there's currently no DNS server set, then the next manager_get_dns_server() will find one */
         if (!m->current_dns_server)
                 return;
 
-        /* Change to the next one, but make sure to follow the linked
-         * list only if the server is still linked. */
+        /* Change to the next one, but make sure to follow the linked list only if the server is still
+         * linked. */
         if (m->current_dns_server->linked && m->current_dns_server->servers_next) {
                 manager_set_dns_server(m, m->current_dns_server->servers_next);
                 return;
         }
 
-        /* If there was no next one, then start from the beginning of
-         * the list */
+        /* If there was no next one, then start from the beginning of the list */
         if (m->current_dns_server->type == DNS_SERVER_FALLBACK)
                 manager_set_dns_server(m, m->fallback_dns_servers);
         else

@@ -153,16 +153,19 @@ unsigned dns_scope_get_n_dns_servers(DnsScope *s) {
         return n;
 }
 
-void dns_scope_next_dns_server(DnsScope *s) {
+void dns_scope_next_dns_server(DnsScope *s, DnsServer *if_current) {
         assert(s);
 
         if (s->protocol != DNS_PROTOCOL_DNS)
                 return;
 
+        /* Changes to the next DNS server in the list. If 'if_current' is passed will do so only if the
+         * current DNS server still matches it. */
+
         if (s->link)
-                link_next_dns_server(s->link);
+                link_next_dns_server(s->link, if_current);
         else
-                manager_next_dns_server(s->manager);
+                manager_next_dns_server(s->manager, if_current);
 }
 
 void dns_scope_packet_received(DnsScope *s, usec_t rtt) {
