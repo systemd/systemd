@@ -301,25 +301,25 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 rr->ttl = 1;
                         }
 
-                        t = dns_scope_find_transaction(scope, rr->key, false);
+                        t = dns_scope_find_transaction(scope, rr->key, SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                         if (t)
                                 dns_transaction_process_reply(t, p);
 
                         /* Also look for the various types of ANY transactions */
-                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
+                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(rr->key->class, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                         if (t)
                                 dns_transaction_process_reply(t, p);
 
-                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, rr->key->type, dns_resource_key_name(rr->key)), false);
+                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, rr->key->type, dns_resource_key_name(rr->key)), SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                         if (t)
                                 dns_transaction_process_reply(t, p);
 
-                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), false);
+                        t = dns_scope_find_transaction(scope, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_ANY, DNS_TYPE_ANY, dns_resource_key_name(rr->key)), SD_RESOLVED_NO_CACHE|SD_RESOLVED_NO_ZONE);
                         if (t)
                                 dns_transaction_process_reply(t, p);
                 }
 
-                dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, false, (uint32_t) -1, 0, p->family, &p->sender);
+                dns_cache_put(&scope->cache, scope->manager->enable_cache, NULL, DNS_PACKET_RCODE(p), p->answer, NULL, 0, _DNSSEC_RESULT_INVALID, (uint32_t) -1, 0, p->family, &p->sender);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));

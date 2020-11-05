@@ -34,13 +34,16 @@ enum DnsCacheItemType {
 
 struct DnsCacheItem {
         DnsCacheItemType type;
-        DnsResourceKey *key;
-        DnsResourceRecord *rr;
+        DnsResourceKey *key;     /* The key for this item, i.e. the lookup key */
+        DnsResourceRecord *rr;   /* The RR for this item, i.e. the lookup value for positive queries */
+        DnsAnswer *answer;       /* The full validated answer, if this is an RRset acquired via a "primary" lookup */
+        DnsPacket *full_packet;  /* The full packet this information was acquired with */
         int rcode;
 
         usec_t until;
         bool authenticated:1;
         bool shared_owner:1;
+        DnssecResult dnssec_result;
 
         int ifindex;
         int owner_family;
@@ -49,6 +52,12 @@ struct DnsCacheItem {
         unsigned prioq_idx;
         LIST_FIELDS(DnsCacheItem, by_key);
 };
+
+/* Returns true if this is a cache item created as result of an explicit lookup, or created as "side-effect"
+ * of another request. "Primary" entries will carry the full answer data (with NSEC, …) that can aso prove
+ * wildcard expansion, non-existance and such, while entries that were created as "side-effect" just contain
+ * immediate RR data for the specified RR key, but nothing else. */
+#define DNS_CACHE_ITEM_IS_PRIMARY(item) (!!(item)->answer)
 
 static const char *dns_cache_item_type_to_string(DnsCacheItem *item) {
         assert(item);
@@ -77,6 +86,8 @@ static void dns_cache_item_free(DnsCacheItem *i) {
 
         dns_resource_record_unref(i->rr);
         dns_resource_key_unref(i->key);
+        dns_answer_unref(i->answer);
+        dns_packet_unref(i->full_packet);
         free(i);
 }
 
@@ -340,8 +351,11 @@ static void dns_cache_item_update_positive(
                 DnsCache *c,
                 DnsCacheItem *i,
                 DnsResourceRecord *rr,
+                DnsAnswer *answer,
+                DnsPacket *full_packet,
                 bool authenticated,
                 bool shared_owner,
+                DnssecResult dnssec_result,
                 usec_t timestamp,
                 int ifindex,
                 int owner_family,
@@ -367,9 +381,18 @@ static void dns_cache_item_update_positive(
         dns_resource_key_unref(i->key);
         i->key = dns_resource_key_ref(rr->key);
 
-        i->until = calculate_until(rr, (uint32_t) -1, timestamp, false);
+        dns_answer_ref(answer);
+        dns_answer_unref(i->answer);
+        i->answer = answer;
+
+        dns_packet_ref(full_packet);
+        dns_packet_unref(i->full_packet);
+        i->full_packet = full_packet;
+
+        i->until = calculate_until(rr, UINT32_MAX, timestamp, false);
         i->authenticated = authenticated;
         i->shared_owner = shared_owner;
+        i->dnssec_result = dnssec_result;
 
         i->ifindex = ifindex;
 
@@ -382,8 +405,11 @@ static void dns_cache_item_update_positive(
 static int dns_cache_put_positive(
                 DnsCache *c,
                 DnsResourceRecord *rr,
+                DnsAnswer *answer,
+                DnsPacket *full_packet,
                 bool authenticated,
                 bool shared_owner,
+                DnssecResult dnssec_result,
                 usec_t timestamp,
                 int ifindex,
                 int owner_family,
@@ -420,8 +446,11 @@ static int dns_cache_put_positive(
                                 c,
                                 existing,
                                 rr,
+                                answer,
+                                full_packet,
                                 authenticated,
                                 shared_owner,
+                                dnssec_result,
                                 timestamp,
                                 ifindex,
                                 owner_family,
@@ -444,9 +473,12 @@ static int dns_cache_put_positive(
                 .type = DNS_CACHE_POSITIVE,
                 .key = dns_resource_key_ref(rr->key),
                 .rr = dns_resource_record_ref(rr),
+                .answer = dns_answer_ref(answer),
+                .full_packet = dns_packet_ref(full_packet),
                 .until = calculate_until(rr, (uint32_t) -1, timestamp, false),
                 .authenticated = authenticated,
                 .shared_owner = shared_owner,
+                .dnssec_result = dnssec_result,
                 .ifindex = ifindex,
                 .owner_family = owner_family,
                 .owner_address = *owner_address,
@@ -481,7 +513,10 @@ static int dns_cache_put_negative(
                 DnsCache *c,
                 DnsResourceKey *key,
                 int rcode,
+                DnsAnswer *answer,
+                DnsPacket *full_packet,
                 bool authenticated,
+                DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
                 usec_t timestamp,
                 DnsResourceRecord *soa,
@@ -532,10 +567,13 @@ static int dns_cache_put_negative(
                         rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA :
                         rcode == DNS_RCODE_NXDOMAIN ? DNS_CACHE_NXDOMAIN : DNS_CACHE_RCODE,
                 .authenticated = authenticated,
+                .dnssec_result = dnssec_result,
                 .owner_family = owner_family,
                 .owner_address = *owner_address,
                 .prioq_idx = PRIOQ_IDX_NULL,
                 .rcode = rcode,
+                .answer = dns_answer_ref(answer),
+                .full_packet = dns_packet_ref(full_packet),
         };
 
         i->until =
@@ -630,7 +668,9 @@ int dns_cache_put(
                 DnsResourceKey *key,
                 int rcode,
                 DnsAnswer *answer,
+                DnsPacket *full_packet,
                 bool authenticated,
+                DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
                 usec_t timestamp,
                 int owner_family,
@@ -661,6 +701,7 @@ int dns_cache_put(
                                 log_debug("Not caching negative entry without a SOA record: %s",
                                           dns_resource_key_to_string(key, key_str, sizeof key_str));
                         }
+
                         return 0;
                 }
 
@@ -685,18 +726,49 @@ int dns_cache_put(
 
         /* Second, add in positive entries for all contained RRs */
         DNS_ANSWER_FOREACH_ITEM(item, answer) {
-                if ((item->flags & DNS_ANSWER_CACHEABLE) == 0 ||
+                int primary = false;
+
+                if (!FLAGS_SET(item->flags, DNS_ANSWER_CACHEABLE) ||
                     !rr_eligible(item->rr))
                         continue;
+
+                if (key) {
+                        /* We store the auxiliary RRs and packet data in the cache only if they were in
+                         * direct response to the original query. If we cache an RR we also received, and
+                         * that is just auxiliary information we can't use the data, hence don't. */
+
+                        primary = dns_resource_key_match_rr(key, item->rr, NULL);
+                        if (primary < 0)
+                                return primary;
+                        if (primary == 0) {
+                                primary = dns_resource_key_match_cname_or_dname(key, item->rr->key, NULL);
+                                if (primary < 0)
+                                        return primary;
+                        }
+                }
+
+                if (!primary) {
+                        DnsCacheItem *first;
+
+                        /* Do not replace existing cache items for primary lookups with non-primary
+                         * data. After all the primary lookup data is a lot more useful. */
+                        first = hashmap_get(c->by_key, item->rr->key);
+                        if (first && DNS_CACHE_ITEM_IS_PRIMARY(first))
+                                return 0;
+                }
 
                 r = dns_cache_put_positive(
                                 c,
                                 item->rr,
+                                primary ? answer : NULL,
+                                primary ? full_packet : NULL,
                                 item->flags & DNS_ANSWER_AUTHENTICATED,
                                 item->flags & DNS_ANSWER_SHARED_OWNER,
+                                dnssec_result,
                                 timestamp,
                                 item->ifindex,
-                                owner_family, owner_address);
+                                owner_family,
+                                owner_address);
                 if (r < 0)
                         goto fail;
         }
@@ -746,7 +818,10 @@ int dns_cache_put(
                         c,
                         key,
                         rcode,
+                        answer,
+                        full_packet,
                         authenticated,
+                        dnssec_result,
                         nsec_ttl,
                         timestamp,
                         soa,
@@ -828,7 +903,59 @@ static DnsCacheItem *dns_cache_get_by_key_follow_cname_dname_nsec(DnsCache *c, D
         return NULL;
 }
 
-int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcode, DnsAnswer **ret, bool *authenticated) {
+static int answer_add_clamp_ttl(
+                DnsAnswer **answer,
+                DnsResourceRecord *rr,
+                int ifindex,
+                DnsAnswerFlags answer_flags,
+                DnsResourceRecord *rrsig,
+                uint64_t query_flags,
+                usec_t until,
+                usec_t current) {
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *patched = NULL, *patched_rrsig = NULL;
+        int r;
+
+        assert(answer);
+        assert(rr);
+
+        if (FLAGS_SET(query_flags, SD_RESOLVED_CLAMP_TTL)) {
+                patched = dns_resource_record_ref(rr);
+
+                r = dns_resource_record_clamp_ttl(&patched, LESS_BY(until, current) / USEC_PER_SEC);
+                if (r < 0)
+                        return r;
+
+                rr = patched;
+
+                if (rrsig) {
+                        patched_rrsig = dns_resource_record_ref(rrsig);
+                        r = dns_resource_record_clamp_ttl(&patched_rrsig, LESS_BY(until, current) / USEC_PER_SEC);
+                        if (r < 0)
+                                return r;
+
+                        rrsig = patched_rrsig;
+                }
+        }
+
+        r = dns_answer_add_extend(answer, rr, ifindex, answer_flags, rrsig);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int dns_cache_lookup(
+                DnsCache *c,
+                DnsResourceKey *key,
+                uint64_t query_flags,
+                int *ret_rcode,
+                DnsAnswer **ret_answer,
+                DnsPacket **ret_full_packet,
+                bool *ret_authenticated,
+                DnssecResult *ret_dnssec_result) {
+
+        _cleanup_(dns_packet_unrefp) DnsPacket *full_packet = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
         unsigned n = 0;
@@ -838,27 +965,19 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
         bool have_authenticated = false, have_non_authenticated = false;
         usec_t current;
         int found_rcode = -1;
+        DnssecResult dnssec_result = -1;
+        int have_dnssec_result = -1;
 
         assert(c);
         assert(key);
-        assert(rcode);
-        assert(ret);
-        assert(authenticated);
 
         if (key->type == DNS_TYPE_ANY || key->class == DNS_CLASS_ANY) {
-                /* If we have ANY lookups we don't use the cache, so
-                 * that the caller refreshes via the network. */
+                /* If we have ANY lookups we don't use the cache, so that the caller refreshes via the
+                 * network. */
 
                 log_debug("Ignoring cache for ANY lookup: %s",
                           dns_resource_key_to_string(key, key_str, sizeof key_str));
-
-                c->n_miss++;
-
-                *ret = NULL;
-                *rcode = DNS_RCODE_SUCCESS;
-                *authenticated = false;
-
-                return 0;
+                goto miss;
         }
 
         first = dns_cache_get_by_key_follow_cname_dname_nsec(c, key);
@@ -867,31 +986,80 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
 
                 log_debug("Cache miss for %s",
                           dns_resource_key_to_string(key, key_str, sizeof key_str));
-
-                c->n_miss++;
-
-                *ret = NULL;
-                *rcode = DNS_RCODE_SUCCESS;
-                *authenticated = false;
-
-                return 0;
+                goto miss;
         }
 
+        if (FLAGS_SET(query_flags, SD_RESOLVED_CLAMP_TTL))
+                current = now(clock_boottime_or_monotonic());
+
         LIST_FOREACH(by_key, j, first) {
-                if (j->rr) {
+                /* If the caller doesn't allow us to answer questions from cache data learned from
+                 * "side-effect", skip this entry. */
+                if (FLAGS_SET(query_flags, SD_RESOLVED_REQUIRE_PRIMARY) &&
+                    !DNS_CACHE_ITEM_IS_PRIMARY(j)) {
+                        log_debug("Primary answer was requested for cache lookup for %s, which we don't have.",
+                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+
+                        goto miss;
+                }
+
+                if (j->type == DNS_CACHE_NXDOMAIN)
+                        nxdomain = true;
+                else if (j->type == DNS_CACHE_RCODE)
+                        found_rcode = j->rcode;
+                else if (j->rr) {
                         if (j->rr->key->type == DNS_TYPE_NSEC)
                                 nsec = j;
 
                         n++;
-                } else if (j->type == DNS_CACHE_NXDOMAIN)
-                        nxdomain = true;
-                else if (j->type == DNS_CACHE_RCODE)
-                        found_rcode = j->rcode;
+                }
 
                 if (j->authenticated)
                         have_authenticated = true;
                 else
                         have_non_authenticated = true;
+
+                if (j->dnssec_result < 0) {
+                        have_dnssec_result = false; /* an entry without dnssec result? then invalidate things for good */
+                        dnssec_result = _DNSSEC_RESULT_INVALID;
+                } else if (have_dnssec_result < 0) {
+                        have_dnssec_result = true; /* So far no result seen, let's pick this one up */
+                        dnssec_result = j->dnssec_result;
+                } else if (have_dnssec_result > 0 && j->dnssec_result != dnssec_result) {
+                        have_dnssec_result = false; /* conflicting result seen? then invalidate for good */
+                        dnssec_result = _DNSSEC_RESULT_INVALID;
+                }
+
+                /* Append the answer RRs to our answer. Ideally we have the answer object, which we
+                 * preferably use. But if the cached entry was generated as "side-effect" of a reply,
+                 * i.e. from validated auxiliary records rather than from the main reply, then we use the
+                 * individual RRs only instead. */
+                if (j->answer) {
+
+                        /* Minor optimization, if the full answer object of this and the previous RR is the
+                         * same, don't bother adding it again. Typically we store a full RRset here, hence
+                         * that should be the case. */
+                        if (!j->by_key_prev || j->answer != j->by_key_prev->answer) {
+                                DnsAnswerItem *item;
+
+                                DNS_ANSWER_FOREACH_ITEM(item, j->answer) {
+                                        r = answer_add_clamp_ttl(&answer, item->rr, item->ifindex, item->flags, item->rrsig, query_flags, j->until, current);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                } else if (j->rr) {
+                        r = answer_add_clamp_ttl(&answer, j->rr, 0, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0, NULL, query_flags, j->until, current);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* We'll return any packet we have for this. Typically all cache entries for the same key
+                 * should come from the same packet anyway, hence it doesn't really matter which packet we
+                 * return here, they should all resolve to the same anyway. */
+                if (!full_packet && j->full_packet)
+                        full_packet = dns_packet_ref(j->full_packet);
         }
 
         if (found_rcode >= 0) {
@@ -899,28 +1067,41 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
                           dns_rcode_to_string(found_rcode),
                           dns_resource_key_to_string(key, key_str, sizeof(key_str)));
 
-                *ret = NULL;
-                *rcode = found_rcode;
-                *authenticated = false;
+                if (ret_rcode)
+                        *ret_rcode = found_rcode;
+                if (ret_answer)
+                        *ret_answer = TAKE_PTR(answer);
+                if (ret_full_packet)
+                        *ret_full_packet = TAKE_PTR(full_packet);
+                if (ret_authenticated)
+                        *ret_authenticated = false;
+                if (ret_dnssec_result)
+                        *ret_dnssec_result = dnssec_result;
 
                 c->n_hit++;
                 return 1;
         }
 
         if (nsec && !IN_SET(key->type, DNS_TYPE_NSEC, DNS_TYPE_DS)) {
-                /* Note that we won't derive information for DS RRs from an NSEC, because we only cache NSEC RRs from
-                 * the lower-zone of a zone cut, but the DS RRs are on the upper zone. */
+                /* Note that we won't derive information for DS RRs from an NSEC, because we only cache NSEC
+                 * RRs from the lower-zone of a zone cut, but the DS RRs are on the upper zone. */
 
                 log_debug("NSEC NODATA cache hit for %s",
                           dns_resource_key_to_string(key, key_str, sizeof key_str));
 
-                /* We only found an NSEC record that matches our name.
-                 * If it says the type doesn't exist report
-                 * NODATA. Otherwise report a cache miss. */
+                /* We only found an NSEC record that matches our name.  If it says the type doesn't exist
+                 * report NODATA. Otherwise report a cache miss. */
 
-                *ret = NULL;
-                *rcode = DNS_RCODE_SUCCESS;
-                *authenticated = nsec->authenticated;
+                if (ret_rcode)
+                        *ret_rcode = DNS_RCODE_SUCCESS;
+                if (ret_answer)
+                        *ret_answer = TAKE_PTR(answer);
+                if (ret_full_packet)
+                        *ret_full_packet = TAKE_PTR(full_packet);
+                if (ret_authenticated)
+                        *ret_authenticated = nsec->authenticated;
+                if (ret_dnssec_result)
+                        *ret_dnssec_result = nsec->dnssec_result;
 
                 if (!bitmap_isset(nsec->rr->nsec.types, key->type) &&
                     !bitmap_isset(nsec->rr->nsec.types, DNS_TYPE_CNAME) &&
@@ -941,46 +1122,49 @@ int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcod
         if (n <= 0) {
                 c->n_hit++;
 
-                *ret = NULL;
-                *rcode = nxdomain ? DNS_RCODE_NXDOMAIN : DNS_RCODE_SUCCESS;
-                *authenticated = have_authenticated && !have_non_authenticated;
+                if (ret_rcode)
+                        *ret_rcode = nxdomain ? DNS_RCODE_NXDOMAIN : DNS_RCODE_SUCCESS;
+                if (ret_answer)
+                        *ret_answer = TAKE_PTR(answer);
+                if (ret_full_packet)
+                        *ret_full_packet = TAKE_PTR(full_packet);
+                if (ret_authenticated)
+                        *ret_authenticated = have_authenticated && !have_non_authenticated;
+                if (ret_dnssec_result)
+                        *ret_dnssec_result = dnssec_result;
+
                 return 1;
-        }
-
-        answer = dns_answer_new(n);
-        if (!answer)
-                return -ENOMEM;
-
-        if (clamp_ttl)
-                current = now(clock_boottime_or_monotonic());
-
-        LIST_FOREACH(by_key, j, first) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-
-                if (!j->rr)
-                        continue;
-
-                if (clamp_ttl) {
-                        rr = dns_resource_record_ref(j->rr);
-
-                        r = dns_resource_record_clamp_ttl(&rr, LESS_BY(j->until, current) / USEC_PER_SEC);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = dns_answer_add(answer, rr ?: j->rr, j->ifindex, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0, NULL);
-                if (r < 0)
-                        return r;
         }
 
         c->n_hit++;
 
-        *ret = answer;
-        *rcode = DNS_RCODE_SUCCESS;
-        *authenticated = have_authenticated && !have_non_authenticated;
-        answer = NULL;
+        if (ret_rcode)
+                *ret_rcode = DNS_RCODE_SUCCESS;
+        if (ret_answer)
+                *ret_answer = TAKE_PTR(answer);
+        if (ret_full_packet)
+                *ret_full_packet = TAKE_PTR(full_packet);
+        if (ret_authenticated)
+                *ret_authenticated = have_authenticated && !have_non_authenticated;
+        if (ret_dnssec_result)
+                *ret_dnssec_result = dnssec_result;
 
         return n;
+
+miss:
+        if (ret_rcode)
+                *ret_rcode = DNS_RCODE_SUCCESS;
+        if (ret_answer)
+                *ret_answer = NULL;
+        if (ret_full_packet)
+                *ret_full_packet = NULL;
+        if (ret_authenticated)
+                *ret_authenticated = false;
+        if (ret_dnssec_result)
+                *ret_dnssec_result = _DNSSEC_RESULT_INVALID;
+
+        c->n_miss++;
+        return 0;
 }
 
 int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address) {

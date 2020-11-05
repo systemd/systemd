@@ -5,6 +5,7 @@
 #include "list.h"
 #include "prioq.h"
 #include "resolve-util.h"
+#include "resolved-dns-dnssec.h"
 #include "time-util.h"
 
 typedef struct DnsCache {
@@ -22,8 +23,29 @@ typedef struct DnsCache {
 void dns_cache_flush(DnsCache *c);
 void dns_cache_prune(DnsCache *c);
 
-int dns_cache_put(DnsCache *c, DnsCacheMode cache_mode, DnsResourceKey *key, int rcode, DnsAnswer *answer, bool authenticated, uint32_t nsec_ttl, usec_t timestamp, int owner_family, const union in_addr_union *owner_address);
-int dns_cache_lookup(DnsCache *c, DnsResourceKey *key, bool clamp_ttl, int *rcode, DnsAnswer **answer, bool *authenticated);
+int dns_cache_put(
+                DnsCache *c,
+                DnsCacheMode cache_mode,
+                DnsResourceKey *key,
+                int rcode,
+                DnsAnswer *answer,
+                DnsPacket *full_packet,
+                bool authenticated,
+                DnssecResult dnssec_result,
+                uint32_t nsec_ttl,
+                usec_t timestamp,
+                int owner_family,
+                const union in_addr_union *owner_address);
+
+int dns_cache_lookup(
+                DnsCache *c,
+                DnsResourceKey *key,
+                uint64_t query_flags,
+                int *ret_rcode,
+                DnsAnswer **ret_answer,
+                DnsPacket **ret_full_packet,
+                bool *ret_authenticated,
+                DnssecResult *ret_dnssec_result);
 
 int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);
 
