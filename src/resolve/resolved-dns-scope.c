@@ -616,6 +616,7 @@ DnsScopeMatch dns_scope_good_domain(
 
                 if ((dns_name_is_single_label(domain) && /* only resolve single label names via LLMNR */
                      !is_gateway_hostname(domain) && /* don't resolve "gateway" with LLMNR, let nss-myhostname handle this */
+                     dns_name_equal(domain, "local") == 0 && /* don't resolve "local" with LLMNR, it's the top-level domain of mDNS after all, see above */
                      manager_is_own_hostname(s->manager, domain) <= 0))  /* never resolve the local hostname via LLMNR */
                         return DNS_SCOPE_YES_BASE + 1; /* Return +1, as we consider ourselves authoritative
                                                         * for single-label names, i.e. one label. This is
