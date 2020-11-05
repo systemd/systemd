@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "env-util.h"
 #include "errno-util.h"
 #include "in-addr-util.h"
 #include "macro.h"
@@ -184,6 +185,21 @@ static const JsonDispatch address_parameters_dispatch_table[] = {
         {}
 };
 
+static uint64_t query_flags(void) {
+        uint64_t f = 0;
+        int r;
+
+        /* Allow callers to turn off validation, when we resolve via nss-resolve */
+
+        r = getenv_bool_secure("SYSTEMD_NSS_RESOLVE_VALIDATE");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_NSS_RESOLVE_VALIDATE value, ignoring.");
+        else if (r == 0)
+                f |= SD_RESOLVED_NO_VALIDATE;
+
+        return f;
+}
+
 enum nss_status _nss_resolve_gethostbyname4_r(
                 const char *name,
                 struct gaih_addrtuple **pat,
@@ -215,7 +231,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 goto fail;
 
         r = json_build(&cparams, JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR("name", JSON_BUILD_STRING(name))));
+                                       JSON_BUILD_PAIR("name", JSON_BUILD_STRING(name)),
+                                       JSON_BUILD_PAIR("flags", JSON_BUILD_UNSIGNED(query_flags()))));
         if (r < 0)
                 goto fail;
 
@@ -367,7 +384,8 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 goto fail;
 
         r = json_build(&cparams, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("name", JSON_BUILD_STRING(name)),
-                                                   JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(af))));
+                                                   JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(af)),
+                                                   JSON_BUILD_PAIR("flags", JSON_BUILD_UNSIGNED(query_flags()))));
         if (r < 0)
                 goto fail;
 
@@ -571,7 +589,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 goto fail;
 
         r = json_build(&cparams, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(addr, len)),
-                                                   JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(af))));
+                                                   JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(af)),
+                                                   JSON_BUILD_PAIR("flags", JSON_BUILD_UNSIGNED(query_flags()))));
         if (r < 0)
                 goto fail;
 
