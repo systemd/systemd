@@ -1396,6 +1396,16 @@ evdev:input:b0003v05A4p9735*
  KEYBOARD_KEY_c00b8=prog3        # Key labeled "pf3"
 
 ###########################################################
+# Pine64
+###########################################################
+
+# Pinebook Pro
+evdev:input:b0003v258Ap001E*
+ KEYBOARD_KEY_700a5=brightnessdown
+ KEYBOARD_KEY_700a6=brightnessup
+ KEYBOARD_KEY_70066=sleep
+
+###########################################################
 # Plantronics
 ###########################################################
 
