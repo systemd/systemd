@@ -740,16 +740,21 @@ int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
                 if ((*a)->n_ref > 1)
                         return -EBUSY;
 
-                ns = (*a)->n_rrs + n_free;
-                if (ns > UINT16_MAX) /* Maximum number of RRs we can stick into a DNS packet section */
+                ns = (*a)->n_rrs;
+                assert(ns <= UINT16_MAX); /* Maximum number of RRs we can stick into a DNS packet section */
+
+                if (n_free > UINT16_MAX - ns) /* overflow check */
                         ns = UINT16_MAX;
+                else
+                        ns += n_free;
 
                 if ((*a)->n_allocated >= ns)
                         return 0;
 
-                /* Allocate more than we need */
-                ns *= 2;
-                if (ns > UINT16_MAX)
+                /* Allocate more than we need, but not more than UINT16_MAX */
+                if (ns <= UINT16_MAX/2)
+                        ns *= 2;
+                else
                         ns = UINT16_MAX;
 
                 /* This must be done before realloc() below. Otherwise, the original DnsAnswer object
@@ -780,33 +785,50 @@ int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
 }
 
 int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *n = NULL;
         int r;
 
         assert(a);
 
-        /* Tries to extend the DnsAnswer object. And if that's not
-         * possible, since we are not the sole owner, then allocate a
-         * new, appropriately sized one. Either way, after this call
-         * the object will only have a single reference, and has room
-         * for at least the specified number of RRs. */
+        /* Tries to extend the DnsAnswer object. And if that's not possible, since we are not the sole owner,
+         * then allocate a new, appropriately sized one. Either way, after this call the object will only
+         * have a single reference, and has room for at least the specified number of RRs. */
 
-        r = dns_answer_reserve(a, n_free);
-        if (r != -EBUSY)
-                return r;
+        if (*a && (*a)->n_ref > 1) {
+                _cleanup_(dns_answer_unrefp) DnsAnswer *n = NULL;
+                size_t ns;
 
-        assert(*a);
+                ns = (*a)->n_rrs;
+                assert(ns <= UINT16_MAX); /* Maximum number of RRs we can stick into a DNS packet section */
 
-        n = dns_answer_new(((*a)->n_rrs + n_free) * 2);
-        if (!n)
-                return -ENOMEM;
+                if (n_free > UINT16_MAX - ns) /* overflow check */
+                        ns = UINT16_MAX;
+                else if (n_free > 0) { /* Increase size and double the result, just in case — except if the
+                                        * increase is specified as 0, in which case we just allocate the
+                                        * exact amount as before, under the assumption this is just a request
+                                        * to copy the answer. */
+                        ns += n_free;
 
-        r = dns_answer_add_raw_all(n, *a);
-        if (r < 0)
-                return r;
+                        if (ns <= UINT16_MAX/2) /* overflow check */
+                                ns *= 2;
+                        else
+                                ns = UINT16_MAX;
+                }
 
-        dns_answer_unref(*a);
-        *a = TAKE_PTR(n);
+                n = dns_answer_new(ns);
+                if (!n)
+                        return -ENOMEM;
+
+                r = dns_answer_add_raw_all(n, *a);
+                if (r < 0)
+                        return r;
+
+                dns_answer_unref(*a);
+                assert_se(*a = TAKE_PTR(n));
+        } else if (n_free > 0) {
+                r = dns_answer_reserve(a, n_free);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
