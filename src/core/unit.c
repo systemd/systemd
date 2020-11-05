@@ -3350,15 +3350,16 @@ int unit_set_default_slice(Unit *u) {
                         slice_name = strjoina("system-", escaped, ".slice");
                 else
                         slice_name = strjoina("app-", escaped, ".slice");
-        } else {
-                if (MANAGER_IS_SYSTEM(u->manager))
-                        slice_name =
-                                unit_has_name(u, SPECIAL_INIT_SCOPE)
-                                ? SPECIAL_ROOT_SLICE
-                                : SPECIAL_SYSTEM_SLICE;
-                else
-                        slice_name = SPECIAL_APP_SLICE;
-        }
+
+        } else if (unit_is_extrinsic(u))
+                /* Keep all extrinsic units (e.g. perpetual units and swap and mount units in user mode) in
+                 * the root slice. They don't really belong in one of the subslices. */
+                slice_name = SPECIAL_ROOT_SLICE;
+
+        else if (MANAGER_IS_SYSTEM(u->manager))
+                slice_name = SPECIAL_SYSTEM_SLICE;
+        else
+                slice_name = SPECIAL_APP_SLICE;
 
         r = manager_load_unit(u->manager, slice_name, NULL, NULL, &slice);
         if (r < 0)
