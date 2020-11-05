@@ -371,12 +371,12 @@ static int dns_stub_finish_reply_packet(
                         rcode = DNS_RCODE_SERVFAIL;
         }
 
-        /* Don't set the AD or CD bit unless DO is on, too */
-        if (!edns0_do) {
-                ad = false;
+        /* Don't set the CD bit unless DO is on, too */
+        if (!edns0_do)
                 cd = false;
 
-        }
+        /* Note that we allow the AD bit to be set even if client didn't signal DO, as per RFC 6840, section
+         * 5.7 */
 
         DNS_PACKET_HEADER(p)->id = id;
 
@@ -475,7 +475,7 @@ static int dns_stub_send_reply(
                         truncated,
                         !!q->request_packet->opt,
                         edns0_do,
-                        dns_query_fully_authenticated(q),
+                        DNS_PACKET_AD(q->request_packet) && dns_query_fully_authenticated(q),
                         DNS_PACKET_CD(q->request_packet),
                         q->stub_listener_extra ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX);
         if (r < 0)
@@ -514,7 +514,7 @@ static int dns_stub_send_failure(
                         truncated,
                         !!p->opt,
                         DNS_PACKET_DO(p),
-                        authenticated,
+                        DNS_PACKET_AD(p) && authenticated,
                         DNS_PACKET_CD(p),
                         l ? ADVERTISE_EXTRA_DATAGRAM_SIZE_MAX : ADVERTISE_DATAGRAM_SIZE_MAX);
         if (r < 0)
