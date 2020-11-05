@@ -1583,11 +1583,9 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                r = dns_packet_append_answer(p, answer);
+                r = dns_packet_append_answer(p, answer, &nscount);
                 if (r < 0)
                         return r;
-
-                nscount += dns_answer_size(answer);
         }
         DNS_PACKET_HEADER(p)->nscount = htobe16(nscount);
 

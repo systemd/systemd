@@ -765,6 +765,7 @@ int dns_scope_make_reply_packet(
                 DnsPacket **ret) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        unsigned n_answer = 0, n_soa = 0;
         int r;
 
         assert(s);
@@ -796,15 +797,15 @@ int dns_scope_make_reply_packet(
                 return r;
         DNS_PACKET_HEADER(p)->qdcount = htobe16(dns_question_size(q));
 
-        r = dns_packet_append_answer(p, answer);
+        r = dns_packet_append_answer(p, answer, &n_answer);
         if (r < 0)
                 return r;
-        DNS_PACKET_HEADER(p)->ancount = htobe16(dns_answer_size(answer));
+        DNS_PACKET_HEADER(p)->ancount = htobe16(n_answer);
 
-        r = dns_packet_append_answer(p, soa);
+        r = dns_packet_append_answer(p, soa, &n_soa);
         if (r < 0)
                 return r;
-        DNS_PACKET_HEADER(p)->arcount = htobe16(dns_answer_size(soa));
+        DNS_PACKET_HEADER(p)->arcount = htobe16(n_soa);
 
         *ret = TAKE_PTR(p);
 
