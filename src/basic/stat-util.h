@@ -58,3 +58,5 @@ int path_is_temporary_fs(const char *path);
 
 int stat_verify_regular(const struct stat *st);
 int fd_verify_regular(int fd);
+
+bool stat_inode_unmodified(const struct stat *a, const struct stat *b);

@@ -287,3 +287,25 @@ int fd_verify_regular(int fd) {
 
         return stat_verify_regular(&st);
 }
+
+bool stat_inode_unmodified(const struct stat *a, const struct stat *b) {
+
+        /* Returns if the specified stat structures reference the same, unmodified inode. This check tries to
+         * be reasonably careful when detecting changes: we check both inode and mtime, to cater for file
+         * systems where mtimes are fixed to 0 (think: ostree/nixos type installations). We also check file
+         * size, backing device, inode type and if this refers to a device not the major/minor.
+         *
+         * Note that we don't care if file attributes such as ownership or access mode change, this here is
+         * about contents of the file. The purpose here is to detect file contents changes, and nothing
+         * else. */
+
+        return a && b &&
+                (a->st_mode & S_IFMT) != 0 && /* We use the check for .st_mode if the structure was ever initialized */
+                ((a->st_mode ^ b->st_mode) & S_IFMT) == 0 &&  /* same inode type */
+                a->st_mtim.tv_sec == b->st_mtim.tv_sec &&
+                a->st_mtim.tv_nsec == b->st_mtim.tv_nsec &&
+                (!S_ISREG(a->st_mode) || a->st_size == b->st_size) && /* if regular file, compare file size */
+                a->st_dev == b->st_dev &&
+                a->st_ino == b->st_ino &&
+                (!(S_ISCHR(a->st_mode) || S_ISBLK(a->st_mode)) || a->st_rdev == b->st_rdev); /* if device node, also compare major/minor, because we can */
+}
