@@ -379,8 +379,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
         if (!l && /* l == NULL if this is the main stub */
             (in_addr_is_localhost(p->family, &p->sender) <= 0 ||
              in_addr_is_localhost(p->family, &p->destination) <= 0)) {
-                log_error("Got packet on unexpected IP range, refusing.");
-                dns_stub_send_failure(m, l, s, p, DNS_RCODE_SERVFAIL, false);
+                log_warning("Got packet on unexpected (i.e. non-localhost) IP range, ignoring.");
                 return;
         }
 
