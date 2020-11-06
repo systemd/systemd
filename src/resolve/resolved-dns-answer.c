@@ -321,6 +321,11 @@ int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
 
         assert(ret);
 
+        if (a == b) {
+                *ret = dns_answer_ref(a);
+                return 0;
+        }
+
         if (dns_answer_size(a) <= 0) {
                 *ret = dns_answer_ref(b);
                 return 0;
@@ -709,7 +714,7 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
 
                 fputs(t, f);
 
-                if (ifindex != 0 || flags & (DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHEABLE|DNS_ANSWER_SHARED_OWNER))
+                if (ifindex != 0 || flags != 0)
                         fputs("\t;", f);
 
                 if (ifindex != 0)
@@ -720,6 +725,10 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
                         fputs(" cacheable", f);
                 if (flags & DNS_ANSWER_SHARED_OWNER)
                         fputs(" shared-owner", f);
+                if (flags & DNS_ANSWER_CACHE_FLUSH)
+                        fputs(" cache-flush", f);
+                if (flags & DNS_ANSWER_GOODBYE)
+                        fputs(" goodbye", f);
 
                 fputc('\n', f);
         }
