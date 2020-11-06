@@ -41,8 +41,6 @@ int local_addresses(sd_netlink *context, int ifindex, int af, struct local_addre
         sd_netlink_message *m;
         int r;
 
-        assert(ret);
-
         if (context)
                 rtnl = sd_netlink_ref(context);
         else {
@@ -135,9 +133,10 @@ int local_addresses(sd_netlink *context, int ifindex, int af, struct local_addre
                 n_list++;
         };
 
-        typesafe_qsort(list, n_list, address_compare);
-
-        *ret = TAKE_PTR(list);
+        if (ret) {
+                typesafe_qsort(list, n_list, address_compare);
+                *ret = TAKE_PTR(list);
+        }
 
         return (int) n_list;
 }
@@ -178,8 +177,6 @@ int local_gateways(sd_netlink *context, int ifindex, int af, struct local_addres
         _cleanup_free_ struct local_address *list = NULL;
         size_t n_list = 0, n_allocated = 0;
         int r;
-
-        assert(ret);
 
         if (context)
                 rtnl = sd_netlink_ref(context);
@@ -309,9 +306,10 @@ int local_gateways(sd_netlink *context, int ifindex, int af, struct local_addres
                 }
         }
 
-        typesafe_qsort(list, n_list, address_compare);
-
-        *ret = TAKE_PTR(list);
+        if (ret) {
+                typesafe_qsort(list, n_list, address_compare);
+                *ret = TAKE_PTR(list);
+        }
 
         return (int) n_list;
 }
