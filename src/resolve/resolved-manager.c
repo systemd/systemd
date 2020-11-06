@@ -765,6 +765,8 @@ Manager *manager_free(Manager *m) {
         manager_dns_stub_stop(m);
         manager_varlink_done(m);
 
+        manager_socket_graveyard_clear(m);
+
         ordered_set_free(m->dns_extra_stub_listeners);
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
