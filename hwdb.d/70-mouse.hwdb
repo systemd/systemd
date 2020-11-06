@@ -343,6 +343,10 @@ mouse:usb:v046dpc24c:name:Logitech G400s Optical Gaming Mouse:*
 mouse:usb:v046dpc07e:name:Logitech Gaming Mouse G402:*
  MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000
 
+# Logitech G403 Prodigy (Wired)
+mouse:usb:v046dpc083:name:Logitech G403 Prodigy Gaming Mouse:*
+ MOUSE_DPI=400@1000 *800@1000 1600@1000 3200@1000
+ 
 # Logitech G500 Mouse
 mouse:usb:v046dpc068:name:Logitech G500:*
  MOUSE_DPI=*1600@500 2600@500 3600@500
