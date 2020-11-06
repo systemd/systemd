@@ -10,6 +10,7 @@
 #include "resolved-dns-synthesize.h"
 #include "resolved-etc-hosts.h"
 #include "socket-netlink.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -36,9 +37,7 @@ void etc_hosts_free(EtcHosts *hosts) {
 
 void manager_etc_hosts_flush(Manager *m) {
         etc_hosts_free(&m->etc_hosts);
-        m->etc_hosts_mtime = USEC_INFINITY;
-        m->etc_hosts_ino = 0;
-        m->etc_hosts_dev = 0;
+        m->etc_hosts_stat = (struct stat) {};
 }
 
 static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
@@ -212,7 +211,7 @@ static int manager_etc_hosts_read(Manager *m) {
 
         m->etc_hosts_last = ts;
 
-        if (m->etc_hosts_mtime != USEC_INFINITY) {
+        if (m->etc_hosts_stat.st_mode != 0) {
                 if (stat("/etc/hosts", &st) < 0) {
                         if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to stat /etc/hosts: %m");
@@ -222,8 +221,7 @@ static int manager_etc_hosts_read(Manager *m) {
                 }
 
                 /* Did the mtime or ino/dev change? If not, there's no point in re-reading the file. */
-                if (timespec_load(&st.st_mtim) == m->etc_hosts_mtime &&
-                    st.st_ino == m->etc_hosts_ino && st.st_dev == m->etc_hosts_dev)
+                if (stat_inode_unmodified(&m->etc_hosts_stat, &st))
                         return 0;
         }
 
@@ -246,9 +244,7 @@ static int manager_etc_hosts_read(Manager *m) {
         if (r < 0)
                 return r;
 
-        m->etc_hosts_mtime = timespec_load(&st.st_mtim);
-        m->etc_hosts_ino = st.st_ino;
-        m->etc_hosts_dev = st.st_dev;
+        m->etc_hosts_stat = st;
         m->etc_hosts_last = ts;
 
         return 1;

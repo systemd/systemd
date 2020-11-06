@@ -127,9 +127,8 @@ struct Manager {
 
         /* Data from /etc/hosts */
         EtcHosts etc_hosts;
-        usec_t etc_hosts_last, etc_hosts_mtime;
-        ino_t etc_hosts_ino;
-        dev_t etc_hosts_dev;
+        usec_t etc_hosts_last;
+        struct stat etc_hosts_stat;
         bool read_etc_hosts;
 
         /* Local DNS stub on 127.0.0.53:53 */
