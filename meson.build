@@ -215,6 +215,7 @@ conf.set_quoted('SYSTEM_SYSVRCND_PATH',                       sysvrcnd_path)
 conf.set_quoted('RC_LOCAL_PATH',                              get_option('rc-local'))
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
+conf.set10('ENABLE_FEXECVE',                                  get_option('fexecve'))
 
 conf.set_quoted('USER_CONFIG_UNIT_DIR',                       join_paths(pkgsysconfdir, 'user'))
 conf.set_quoted('USER_DATA_UNIT_DIR',                         userunitdir)
@@ -3787,6 +3788,7 @@ foreach tuple : [
         ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
         ['kernel-install',        get_option('kernel-install')],
         ['systemd-analyze',  conf.get('ENABLE_ANALYZE') == 1],
+        ['fexecve'],
 ]
 
         if tuple.length() >= 2

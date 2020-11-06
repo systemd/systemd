@@ -447,6 +447,7 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
 }
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
+#if ENABLE_FEXECVE
         execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
 
         if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE(errno))
@@ -463,6 +464,7 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
                  * least in case of bash) the script name, $0, will be shown as /dev/fd/nnn, which breaks
                  * scripts which make use of $0. Thus, let's fall back to execve() in this case.
                  */
+#endif
                 execve(executable, argv, envp);
         return -errno;
 }

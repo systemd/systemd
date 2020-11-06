@@ -371,13 +371,15 @@ option('fuzz-tests', type : 'boolean', value : 'false',
 option('install-tests', type : 'boolean', value : 'false',
        description : 'install test executables')
 
-option('ok-color', type: 'combo',
+option('ok-color', type : 'combo',
        choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
                   'white', 'highlight-black', 'highlight-red', 'highlight-green',
                   'highlight-yellow', 'highlight-blue', 'highlight-magenta',
                   'highlight-cyan', 'highlight-white'],
        value : 'green',
        description: 'color of the "OK" status message')
+option('fexecve', type : 'boolean', value : 'false',
+       description : 'use fexecve() to spawn children')
 
 option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')
