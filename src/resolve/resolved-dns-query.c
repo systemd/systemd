@@ -382,6 +382,13 @@ DnsQuery *dns_query_free(DnsQuery *q) {
                 varlink_unref(q->varlink_request);
         }
 
+        if (q->request_packet)
+                hashmap_remove_value(q->stub_listener_extra ?
+                                     q->stub_listener_extra->queries_by_packet :
+                                     q->manager->stub_queries_by_packet,
+                                     q->request_packet,
+                                     q);
+
         dns_packet_unref(q->request_packet);
         dns_answer_unref(q->reply_answer);
         dns_answer_unref(q->reply_authoritative);
