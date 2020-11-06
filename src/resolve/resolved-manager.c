@@ -739,6 +739,8 @@ Manager *manager_free(Manager *m) {
         while (m->dns_queries)
                 dns_query_free(m->dns_queries);
 
+        m->stub_queries_by_packet = hashmap_free(m->stub_queries_by_packet);
+
         dns_scope_free(m->unicast_scope);
 
         /* At this point only orphaned streams should remain. All others should have been freed already by their
