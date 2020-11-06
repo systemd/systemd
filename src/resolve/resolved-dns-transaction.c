@@ -1287,6 +1287,8 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
                 dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
 
+                dns_transaction_close_connection(t, /* use_graveyard = */ false);
+
                 dns_transaction_retry(t, true);
                 return 0;
         }
