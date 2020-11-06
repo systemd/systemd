@@ -21,6 +21,7 @@ typedef struct Manager Manager;
 #include "resolved-dns-stub.h"
 #include "resolved-dns-trust-anchor.h"
 #include "resolved-link.h"
+#include "resolved-socket-graveyard.h"
 
 #define MANAGER_SEARCH_DOMAINS_MAX 256
 #define MANAGER_DNS_SERVERS_MAX 256
@@ -144,6 +145,10 @@ struct Manager {
         VarlinkServer *varlink_server;
 
         sd_event_source *clock_change_event_source;
+
+        LIST_HEAD(SocketGraveyard, socket_graveyard);
+        SocketGraveyard *socket_graveyard_oldest;
+        size_t n_socket_graveyard;
 };
 
 /* Manager */
