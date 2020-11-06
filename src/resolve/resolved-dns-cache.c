@@ -531,15 +531,16 @@ static int dns_cache_put_negative(
                 .type =
                         rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA :
                         rcode == DNS_RCODE_NXDOMAIN ? DNS_CACHE_NXDOMAIN : DNS_CACHE_RCODE,
-                .until =
-                        i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
-                        calculate_until(soa, nsec_ttl, timestamp, true),
                 .authenticated = authenticated,
                 .owner_family = owner_family,
                 .owner_address = *owner_address,
                 .prioq_idx = PRIOQ_IDX_NULL,
                 .rcode = rcode,
         };
+
+        i->until =
+                i->type == DNS_CACHE_RCODE ? timestamp + CACHE_TTL_STRANGE_RCODE_USEC :
+                calculate_until(soa, nsec_ttl, timestamp, true);
 
         if (i->type == DNS_CACHE_NXDOMAIN) {
                 /* NXDOMAIN entries should apply equally to all types, so we use ANY as
