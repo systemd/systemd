@@ -82,6 +82,8 @@ DnsStubListenerExtra *dns_stub_listener_extra_free(DnsStubListenerExtra *p) {
         p->udp_event_source = sd_event_source_unref(p->udp_event_source);
         p->tcp_event_source = sd_event_source_unref(p->tcp_event_source);
 
+        hashmap_free(p->queries_by_packet);
+
         return mfree(p);
 }
 
@@ -93,6 +95,47 @@ uint16_t dns_stub_listener_extra_port(DnsStubListenerExtra *p) {
 
         return 53;
 }
+
+static void stub_packet_hash_func(const DnsPacket *p, struct siphash *state) {
+        assert(p);
+
+        siphash24_compress(&p->protocol, sizeof(p->protocol), state);
+        siphash24_compress(&p->family, sizeof(p->family), state);
+        siphash24_compress(&p->sender, sizeof(p->sender), state);
+        siphash24_compress(&p->ipproto, sizeof(p->ipproto), state);
+        siphash24_compress(&p->sender_port, sizeof(p->sender_port), state);
+        siphash24_compress(DNS_PACKET_HEADER(p), sizeof(DnsPacketHeader), state);
+
+        /* We don't bother hashing the full packet here, just the header */
+}
+
+static int stub_packet_compare_func(const DnsPacket *x, const DnsPacket *y) {
+        int r;
+
+        r = CMP(x->protocol, y->protocol);
+        if (r != 0)
+                return r;
+
+        r = CMP(x->family, y->family);
+        if (r != 0)
+                return r;
+
+        r = memcmp(&x->sender, &y->sender, sizeof(x->sender));
+        if (r != 0)
+                return r;
+
+        r = CMP(x->ipproto, y->ipproto);
+        if (r != 0)
+                return r;
+
+        r = CMP(x->sender_port, y->sender_port);
+        if (r != 0)
+                return r;
+
+        return memcmp(DNS_PACKET_HEADER(x), DNS_PACKET_HEADER(y), sizeof(DnsPacketHeader));
+}
+
+DEFINE_HASH_OPS(stub_packet_hash_ops, DnsPacket, stub_packet_hash_func, stub_packet_compare_func);
 
 static int dns_stub_collect_answer_by_question(
                 DnsAnswer **reply,
@@ -685,6 +728,8 @@ static int dns_stub_stream_complete(DnsStream *s, int error) {
 
 static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStream *s, DnsPacket *p) {
         _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        Hashmap **queries_by_packet;
+        DnsQuery *existing;
         int r;
 
         assert(m);
@@ -700,6 +745,13 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
 
         if (manager_packet_from_our_transaction(m, p)) {
                 log_debug("Got our own packet looped back, ignoring.");
+                return;
+        }
+
+        queries_by_packet = l ? &l->queries_by_packet : &m->stub_queries_by_packet;
+        existing = hashmap_get(*queries_by_packet, p);
+        if (existing && dns_packet_equal(existing->request_packet, p)) {
+                log_debug("Got repeat packet from client, ignoring.");
                 return;
         }
 
@@ -732,6 +784,12 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 /* If the "rd" bit is off (i.e. recursion was not requested), then refuse operation */
                 log_debug("Got request with recursion disabled, refusing.");
                 dns_stub_send_failure(m, l, s, p, DNS_RCODE_REFUSED, false);
+                return;
+        }
+
+        r = hashmap_ensure_allocated(queries_by_packet, &stub_packet_hash_ops);
+        if (r < 0) {
+                log_oom();
                 return;
         }
 
@@ -773,6 +831,11 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
                 }
                 assert(r > 0);
         }
+
+        /* Add the query to the hash table we use to determine repeat packets now. We don't care about
+         * failures here, since in the worst case we'll not recognize duplicate incoming requests, which
+         * isn't particularly bad. */
+        (void) hashmap_put(*queries_by_packet, q->request_packet, q);
 
         r = dns_query_go(q);
         if (r < 0) {
