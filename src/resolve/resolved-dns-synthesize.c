@@ -322,8 +322,24 @@ static int synthesize_gateway_rr(Manager *m, const DnsResourceKey *key, int ifin
         af = dns_type_to_af(key->type);
         if (af >= 0) {
                 n = local_gateways(m->rtnl, ifindex, af, &addresses);
-                if (n <= 0)
-                        return n;  /* < 0 means: error; == 0 means we have no gateway */
+                if (n < 0) /* < 0 means: error */
+                        return n;
+
+                if (n == 0) { /* == 0 means we have no gateway */
+                        /* See if there's a gateway on the other protocol */
+                        if (af == AF_INET)
+                                n = local_gateways(m->rtnl, ifindex, AF_INET6, NULL);
+                        else {
+                                assert(af == AF_INET6);
+                                n = local_gateways(m->rtnl, ifindex, AF_INET, NULL);
+                        }
+                        if (n <= 0) /* error (if < 0) or really no gateway at all (if == 0) */
+                                return n;
+
+                        /* We have a gateway on the other protocol. Let's return > 0 without adding any RR to
+                         * the answer, i.e. synthesize NODATA (and not NXDOMAIN!) */
+                        return 1;
+                }
         }
 
         r = answer_add_addresses_rr(answer, dns_resource_key_name(key), addresses, n);
