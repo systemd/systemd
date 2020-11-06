@@ -32,6 +32,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "virt.h"
 #include "xattr-util.h"
 
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
@@ -47,6 +48,7 @@
  * from the file system size */
 #define MAX_USE_LOWER (1 * 1024 * 1024ULL)                /* 1 MiB */
 #define MAX_USE_UPPER (4 * 1024 * 1024 * 1024ULL)         /* 4 GiB */
+#define CONTAINER_MAX_USE_UPPER (6 * 1024 * 1024ULL)      /* 6 MiB */
 
 /* Those are the lower and upper bounds for the minimal use limit,
  * i.e. how much we'll use even if keep_free suggests otherwise. */
@@ -3917,10 +3919,11 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
 
         if (m->max_use == (uint64_t) -1) {
 
-                if (fs_size > 0)
+                if (fs_size > 0) {
+                        int v = detect_virtualization();
                         m->max_use = CLAMP(PAGE_ALIGN(fs_size / 10), /* 10% of file system size */
-                                           MAX_USE_LOWER, MAX_USE_UPPER);
-                else
+                                           MAX_USE_LOWER, VIRTUALIZATION_IS_CONTAINER(v) ? CONTAINER_MAX_USE_UPPER : MAX_USE_UPPER);
+                } else
                         m->max_use = MAX_USE_LOWER;
         } else {
                 m->max_use = PAGE_ALIGN(m->max_use);
