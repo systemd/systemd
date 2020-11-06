@@ -1308,18 +1308,19 @@ int dns_name_apply_idna(const char *name, char **ret) {
                         if (r != IDN2_OK) {
                                 log_debug("idn2_to_unicode_8z8z(\"%s\") failed: %d/%s",
                                           t, r, sym_idn2_strerror(r));
+                                *ret = NULL;
                                 return 0;
                         }
 
                         if (!streq_ptr(name, s)) {
                                 log_debug("idn2 roundtrip failed: \"%s\" → \"%s\" → \"%s\", ignoring.",
                                           name, t, s);
+                                *ret = NULL;
                                 return 0;
                         }
                 }
 
                 *ret = TAKE_PTR(t);
-
                 return 1; /* *ret has been written */
         }
 
@@ -1329,6 +1330,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
                 return 0;
         if (IN_SET(r, IDN2_TOO_BIG_DOMAIN, IDN2_TOO_BIG_LABEL))
                 return -ENOSPC;
+
         return -EINVAL;
 #elif HAVE_LIBIDN
         _cleanup_free_ char *buf = NULL;
