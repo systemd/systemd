@@ -82,7 +82,7 @@ struct DnsPacket {
         bool canonical_form:1;
 };
 
-static inline uint8_t* DNS_PACKET_DATA(DnsPacket *p) {
+static inline uint8_t* DNS_PACKET_DATA(const DnsPacket *p) {
         if (_unlikely_(!p))
                 return NULL;
 
