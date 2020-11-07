@@ -102,7 +102,7 @@ int user_new(User **ret,
         return 0;
 }
 
-User *user_free(User *u) {
+User *user_free(User *u, bool drop_resources) {
         if (!u)
                 return NULL;
 
@@ -110,7 +110,7 @@ User *user_free(User *u) {
                 LIST_REMOVE(gc_queue, u->manager->user_gc_queue, u);
 
         while (u->sessions)
-                session_free(u->sessions, true);
+                session_free(u->sessions, drop_resources);
 
         if (u->service)
                 hashmap_remove_value(u->manager->user_units, u->service, u);

@@ -105,7 +105,7 @@ static Manager* manager_unref(Manager *m) {
                 session_free(session, true);
 
         while ((u = hashmap_first(m->users)))
-                user_free(u);
+                user_free(u, true);
 
         while ((d = hashmap_first(m->devices)))
                 device_free(d);
@@ -946,7 +946,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 /* Second step: finalize user */
                 if (user_may_gc(user, drop_not_started)) {
                         (void) user_finalize(user);
-                        user_free(user);
+                        user_free(user, true);
                 }
         }
 }
