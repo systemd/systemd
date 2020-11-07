@@ -466,7 +466,7 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
         return 1;
 
 error:
-        session_device_free(sd);
+        session_device_free(sd, true);
         return r;
 }
 
@@ -495,7 +495,7 @@ static int method_release_device(sd_bus_message *message, void *userdata, sd_bus
         if (!sd)
                 return sd_bus_error_setf(error, BUS_ERROR_DEVICE_NOT_TAKEN, "Device not taken");
 
-        session_device_free(sd);
+        session_device_free(sd, true);
         session_save(s);
 
         return sd_bus_reply_method_return(message, NULL);

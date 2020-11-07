@@ -98,7 +98,7 @@ Session* session_free(Session *s) {
         session_drop_controller(s);
 
         while ((sd = hashmap_first(s->devices)))
-                session_device_free(sd);
+                session_device_free(sd, true);
 
         hashmap_free(s->devices);
 
@@ -851,7 +851,7 @@ int session_finalize(Session *s) {
 
         /* Kill session devices */
         while ((sd = hashmap_first(s->devices)))
-                session_device_free(sd);
+                session_device_free(sd, true);
 
         (void) unlink(s->state_file);
         session_add_to_gc_queue(s);
@@ -1337,7 +1337,7 @@ static void session_release_controller(Session *s, bool notify) {
                 s->controller = NULL;
 
         while ((sd = hashmap_first(s->devices)))
-                session_device_free(sd);
+                session_device_free(sd, true);
 
         s->controller = NULL;
         s->track = sd_bus_track_unref(s->track);
