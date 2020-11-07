@@ -620,6 +620,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
 
+# HP ZBook Studio G5
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBookStudioG5*:*
+ KEYBOARD_KEY_64=calendar                               # Calendar icon (Fn + F12)
+ KEYBOARD_KEY_6d=displaytoggle                          # Display icon
+ KEYBOARD_KEY_66=connect                                # Pickup phone button → connect → XF86Go
+ KEYBOARD_KEY_65=cancel                                 # Hangup phone button → cancel → Cancel
+
 # HP ZBook 15 G2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook15G2:*
  KEYBOARD_KEY_f8=wlan                                   # Wireless HW switch button
