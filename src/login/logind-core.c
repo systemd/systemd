@@ -259,7 +259,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
                         return 0;
 
                 seat_add_to_gc_queue(device->seat);
-                device_free(device);
+                device_free(device, true);
 
         } else {
                 const char *sn, *syspath;
@@ -293,7 +293,7 @@ int manager_process_seat_device(Manager *m, sd_device *d) {
                         r = manager_add_seat(m, sn, &seat);
                         if (r < 0) {
                                 if (!device->seat)
-                                        device_free(device);
+                                        device_free(device, true);
 
                                 return r;
                         }

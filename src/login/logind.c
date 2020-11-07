@@ -108,7 +108,7 @@ static Manager* manager_unref(Manager *m) {
                 user_free(u, true);
 
         while ((d = hashmap_first(m->devices)))
-                device_free(d);
+                device_free(d, true);
 
         while ((s = hashmap_first(m->seats)))
                 seat_free(s);

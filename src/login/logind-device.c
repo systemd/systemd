@@ -33,32 +33,29 @@ Device* device_new(Manager *m, const char *sysfs, bool master) {
         return d;
 }
 
-static void device_detach(Device *d) {
-        Seat *s;
-        SessionDevice *sd;
-
+static void device_detach(Device *d, bool drop_resources) {
         assert(d);
 
         if (!d->seat)
                 return;
 
-        while ((sd = d->session_devices))
-                session_device_free(sd, true);
+        for (SessionDevice *sd; (sd = d->session_devices); )
+                session_device_free(sd, drop_resources);
 
-        s = d->seat;
+        Seat *s = d->seat;
         LIST_REMOVE(devices, d->seat->devices, d);
         d->seat = NULL;
 
-        if (!seat_has_master_device(s)) {
+        if (drop_resources && !seat_has_master_device(s)) {
                 seat_add_to_gc_queue(s);
                 seat_send_changed(s, "CanGraphical", NULL);
         }
 }
 
-void device_free(Device *d) {
+void device_free(Device *d, bool drop_resources) {
         assert(d);
 
-        device_detach(d);
+        device_detach(d, drop_resources);
 
         hashmap_remove(d->manager->devices, d->sysfs);
 
@@ -77,7 +74,7 @@ void device_attach(Device *d, Seat *s) {
                 return;
 
         if (d->seat)
-                device_detach(d);
+                device_detach(d, true);
 
         d->seat = s;
         had_master = seat_has_master_device(s);

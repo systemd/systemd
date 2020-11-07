@@ -71,7 +71,7 @@ Seat* seat_free(Seat *s) {
         assert(!s->active);
 
         while (s->devices)
-                device_free(s->devices);
+                device_free(s->devices, true);
 
         hashmap_remove(s->manager->seats, s->id);
 
