@@ -102,16 +102,16 @@ static Manager* manager_unref(Manager *m) {
                 return NULL;
 
         while ((session = hashmap_first(m->sessions)))
-                session_free(session, true);
+                session_free(session, false);
 
         while ((u = hashmap_first(m->users)))
-                user_free(u, true);
+                user_free(u, false);
 
         while ((d = hashmap_first(m->devices)))
-                device_free(d, true);
+                device_free(d, false);
 
         while ((s = hashmap_first(m->seats)))
-                seat_free(s, true);
+                seat_free(s, false);
 
         while ((i = hashmap_first(m->inhibitors)))
                 inhibitor_free(i);
@@ -151,7 +151,7 @@ static Manager* manager_unref(Manager *m) {
         sd_device_monitor_unref(m->device_vcsa_monitor);
         sd_device_monitor_unref(m->device_button_monitor);
 
-        if (m->unlink_nologin)
+        if (m->unlink_nologin) // FIXME: should /run/nologin be left behind like other state?
                 (void) unlink_or_warn("/run/nologin");
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
