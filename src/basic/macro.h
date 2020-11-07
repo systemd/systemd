@@ -588,6 +588,12 @@ static inline int __coverity_check_and_return__(int condition) {
                         func(*p);                               \
         }
 
+#define DEFINE_TRIVIAL_CLEANUP_FUNC2(type, func, param)         \
+        static inline void func##p(type *p) {                   \
+                if (*p)                                         \
+                        func(*p, param);                        \
+        }
+
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
         scope type *name##_ref(type *p) {                       \
                 if (!p)                                         \
