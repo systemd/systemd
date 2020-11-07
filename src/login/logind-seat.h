@@ -28,9 +28,9 @@ struct Seat {
 };
 
 int seat_new(Seat **ret, Manager *m, const char *id);
-Seat* seat_free(Seat *s);
+Seat* seat_free(Seat *s, bool drop_resources);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Seat *, seat_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC2(Seat *, seat_free, /* drop_resources = */ false);
 
 int seat_save(Seat *s);
 int seat_load(Seat *s);

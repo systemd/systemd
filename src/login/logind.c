@@ -111,7 +111,7 @@ static Manager* manager_unref(Manager *m) {
                 device_free(d, true);
 
         while ((s = hashmap_first(m->seats)))
-                seat_free(s);
+                seat_free(s, true);
 
         while ((i = hashmap_first(m->inhibitors)))
                 inhibitor_free(i);
@@ -914,7 +914,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 
                 if (seat_may_gc(seat, drop_not_started)) {
                         seat_stop(seat, /* force = */ false);
-                        seat_free(seat);
+                        seat_free(seat, /* drop_resources = */ true);
                 }
         }
 

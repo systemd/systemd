@@ -58,7 +58,7 @@ int seat_new(Seat** ret, Manager *m, const char *id) {
         return 0;
 }
 
-Seat* seat_free(Seat *s) {
+Seat* seat_free(Seat *s, bool drop_resources) {
         if (!s)
                 return NULL;
 
@@ -66,12 +66,12 @@ Seat* seat_free(Seat *s) {
                 LIST_REMOVE(gc_queue, s->manager->seat_gc_queue, s);
 
         while (s->sessions)
-                session_free(s->sessions, true);
+                session_free(s->sessions, drop_resources);
 
         assert(!s->active);
 
         while (s->devices)
-                device_free(s->devices, true);
+                device_free(s->devices, drop_resources);
 
         hashmap_remove(s->manager->seats, s->id);
 
