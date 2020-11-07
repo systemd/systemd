@@ -1178,7 +1178,7 @@ static int run(int argc, char *argv[]) {
 
         /* Always create the directories people can create inotify watches in. Note that some applications
          * might check for the existence of /run/systemd/seats/ to determine whether logind is available, so
-         * please always make sure these directories are created early on and unconditionally. */
+         * create those directories early on and unconditionally. */
         (void) mkdir_label("/run/systemd/seats", 0755);
         (void) mkdir_label("/run/systemd/users", 0755);
         (void) mkdir_label("/run/systemd/sessions", 0755);
