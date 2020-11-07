@@ -102,7 +102,7 @@ static Manager* manager_unref(Manager *m) {
                 return NULL;
 
         while ((session = hashmap_first(m->sessions)))
-                session_free(session);
+                session_free(session, true);
 
         while ((u = hashmap_first(m->users)))
                 user_free(u);
@@ -931,7 +931,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                  * of it immediately. */
                 if (session_may_gc(session, drop_not_started)) {
                         (void) session_finalize(session);
-                        session_free(session);
+                        session_free(session, true);
                 }
         }
 

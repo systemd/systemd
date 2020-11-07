@@ -122,9 +122,12 @@ struct Session {
 };
 
 int session_new(Session **ret, Manager *m, const char *id);
-Session* session_free(Session *s);
+Session* session_free(Session *s, bool drop_resources);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Session *, session_free);
+static inline void session_freep(Session **p) {
+        if (*p)
+                session_free(*p, /* drop_resources = */ false);
+}
 
 void session_set_user(Session *s, User *u);
 int session_set_leader(Session *s, pid_t pid);
@@ -167,7 +170,7 @@ void session_leave_vt(Session *s);
 
 bool session_is_controller(Session *s, const char *sender);
 int session_set_controller(Session *s, const char *sender, bool force, bool prepare);
-void session_drop_controller(Session *s);
+void session_drop_controller(Session *s, bool drop_resources);
 
 static inline bool SESSION_IS_SELF(const char *name) {
         return isempty(name) || streq(name, "self");

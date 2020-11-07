@@ -84,9 +84,7 @@ int session_new(Session **ret, Manager *m, const char *id) {
         return 0;
 }
 
-Session* session_free(Session *s) {
-        SessionDevice *sd;
-
+Session* session_free(Session *s, bool drop_resources) {
         if (!s)
                 return NULL;
 
@@ -95,10 +93,10 @@ Session* session_free(Session *s) {
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 
-        session_drop_controller(s);
+        session_drop_controller(s, drop_resources);
 
-        while ((sd = hashmap_first(s->devices)))
-                session_device_free(sd, true);
+        for (SessionDevice *sd; (sd = hashmap_first(s->devices)); )
+                session_device_free(sd, drop_resources);
 
         hashmap_free(s->devices);
 
@@ -108,7 +106,8 @@ Session* session_free(Session *s) {
                 if (s->user->display == s)
                         s->user->display = NULL;
 
-                user_update_last_session_timer(s->user);
+                if (drop_resources)
+                        user_update_last_session_timer(s->user);
         }
 
         if (s->seat) {
@@ -117,7 +116,9 @@ Session* session_free(Session *s) {
                 if (s->seat->pending_switch == s)
                         s->seat->pending_switch = NULL;
 
-                seat_evict_position(s->seat, s);
+                if (drop_resources)
+                        seat_evict_position(s->seat, s);
+
                 LIST_REMOVE(sessions_by_seat, s->seat->sessions, s);
         }
 
@@ -1322,7 +1323,7 @@ bool session_is_controller(Session *s, const char *sender) {
         return streq_ptr(s->controller, sender);
 }
 
-static void session_release_controller(Session *s, bool notify) {
+static void session_release_controller(Session *s, bool drop_resources, bool notify) {
         _cleanup_free_ char *name = NULL;
         SessionDevice *sd;
 
@@ -1337,7 +1338,7 @@ static void session_release_controller(Session *s, bool notify) {
                 s->controller = NULL;
 
         while ((sd = hashmap_first(s->devices)))
-                session_device_free(sd, true);
+                session_device_free(sd, drop_resources);
 
         s->controller = NULL;
         s->track = sd_bus_track_unref(s->track);
@@ -1349,7 +1350,7 @@ static int on_bus_track(sd_bus_track *track, void *userdata) {
         assert(track);
         assert(s);
 
-        session_drop_controller(s);
+        session_drop_controller(s, true);
 
         return 0;
 }
@@ -1396,24 +1397,28 @@ int session_set_controller(Session *s, const char *sender, bool force, bool prep
                 }
         }
 
-        session_release_controller(s, true);
+        session_release_controller(s, true, true);
         s->controller = TAKE_PTR(name);
         session_save(s);
 
         return 0;
 }
 
-void session_drop_controller(Session *s) {
+void session_drop_controller(Session *s, bool drop_resources) {
         assert(s);
 
         if (!s->controller)
                 return;
 
         s->track = sd_bus_track_unref(s->track);
-        session_set_type(s, s->original_type);
-        session_release_controller(s, false);
-        session_save(s);
-        session_restore_vt(s);
+
+        session_release_controller(s, drop_resources, false);
+
+        if (drop_resources) {
+                session_set_type(s, s->original_type);
+                session_save(s);
+                session_restore_vt(s);
+        }
 }
 
 static const char* const session_state_table[_SESSION_STATE_MAX] = {

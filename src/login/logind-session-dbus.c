@@ -389,7 +389,7 @@ static int method_release_control(sd_bus_message *message, void *userdata, sd_bu
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
-        session_drop_controller(s);
+        session_drop_controller(s, true);
 
         return sd_bus_reply_method_return(message, NULL);
 }

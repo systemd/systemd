@@ -66,7 +66,7 @@ Seat* seat_free(Seat *s) {
                 LIST_REMOVE(gc_queue, s->manager->seat_gc_queue, s);
 
         while (s->sessions)
-                session_free(s->sessions);
+                session_free(s->sessions, true);
 
         assert(!s->active);
 

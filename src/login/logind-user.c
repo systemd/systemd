@@ -110,7 +110,7 @@ User *user_free(User *u) {
                 LIST_REMOVE(gc_queue, u->manager->user_gc_queue, u);
 
         while (u->sessions)
-                session_free(u->sessions);
+                session_free(u->sessions, true);
 
         if (u->service)
                 hashmap_remove_value(u->manager->user_units, u->service, u);
