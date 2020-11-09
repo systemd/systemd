@@ -477,6 +477,65 @@ static DnsScopeMatch match_link_local_reverse_lookups(const char *domain) {
         return _DNS_SCOPE_MATCH_INVALID;
 }
 
+static DnsScopeMatch match_subnet_reverse_lookups(
+                DnsScope *s,
+                const char *domain,
+                bool exclude_own) {
+
+        union in_addr_union ia;
+        LinkAddress *a;
+        int f, r;
+
+        assert(s);
+        assert(domain);
+
+        /* Checks whether the specified domain is a reverse address domain (i.e. in the .in-addr.arpa or
+         * .ip6.arpa area), and if so, whether the address matches any of the local subnets of the link the
+         * scope is associated with. If so, our scope should consider itself relevant for any lookup in the
+         * domain, since it apparently refers to hosts on this link's subnet.
+         *
+         * If 'exclude_own' is true this will return DNS_SCOPE_NO for any IP addresses assigned locally. This
+         * is useful for LLMNR/mDNS as we never want to look up our own hostname on LLMNR/mDNS but always use
+         * the locally synthesized one. */
+
+        if (!s->link)
+                return _DNS_SCOPE_MATCH_INVALID; /* No link, hence no local addresses to check */
+
+        r = dns_name_address(domain, &f, &ia);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine whether '%s' is an address domain: %m", domain);
+        if (r <= 0)
+                return _DNS_SCOPE_MATCH_INVALID;
+
+        if (s->family != AF_UNSPEC && f != s->family)
+                return _DNS_SCOPE_MATCH_INVALID; /* Don't look for IPv4 addresses on LLMNR/mDNS over IPv6 and vice versa */
+
+        LIST_FOREACH(addresses, a, s->link->addresses) {
+
+                if (a->family != f)
+                        continue;
+
+                /* Equals our own address? nah, let's not use this scope. The local synthesizer will pick it up for us. */
+                if (exclude_own &&
+                    in_addr_equal(f, &a->in_addr, &ia) > 0)
+                        return DNS_SCOPE_NO;
+
+                if (a->prefixlen == UCHAR_MAX) /* don't know subnet mask */
+                        continue;
+
+                /* Check if the address is in the local subnet */
+                r = in_addr_prefix_covers(f, &a->in_addr, a->prefixlen, &ia);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether link address covers lookup address '%s': %m", domain);
+                if (r > 0)
+                        /* Note that we only claim zero labels match. This is so that this is at the same
+                         * priority a DNS scope with "." as routing domain is. */
+                        return DNS_SCOPE_YES_BASE + 0;
+        }
+
+        return _DNS_SCOPE_MATCH_INVALID;
+}
+
 DnsScopeMatch dns_scope_good_domain(
                 DnsScope *s,
                 int ifindex,
@@ -533,6 +592,7 @@ DnsScopeMatch dns_scope_good_domain(
 
         case DNS_PROTOCOL_DNS: {
                 bool has_search_domains = false;
+                DnsScopeMatch m;
                 int n_best = -1;
 
                 /* Never route things to scopes that lack DNS servers */
@@ -579,6 +639,13 @@ DnsScopeMatch dns_scope_good_domain(
                     dns_name_endswith(domain, "local") > 0)
                         return DNS_SCOPE_NO;
 
+                /* If the IP address to look up matches the local subnet, then implicity synthesizes
+                 * DNS_SCOPE_YES_BASE + 0 on this interface, i.e. preferably resolve IP addresses via the DNS
+                 * server belonging to this interface. */
+                m = match_subnet_reverse_lookups(s, domain, false);
+                if (m >= 0)
+                        return m;
+
                 /* If there was no match at all, then see if this scope is suitable as default route. */
                 if (!dns_scope_is_default_route(s))
                         return DNS_SCOPE_NO;
@@ -590,6 +657,10 @@ DnsScopeMatch dns_scope_good_domain(
                 DnsScopeMatch m;
 
                 m = match_link_local_reverse_lookups(domain);
+                if (m >= 0)
+                        return m;
+
+                m = match_subnet_reverse_lookups(s, domain, true);
                 if (m >= 0)
                         return m;
 
@@ -609,6 +680,10 @@ DnsScopeMatch dns_scope_good_domain(
                 DnsScopeMatch m;
 
                 m = match_link_local_reverse_lookups(domain);
+                if (m >= 0)
+                        return m;
+
+                m = match_subnet_reverse_lookups(s, domain, true);
                 if (m >= 0)
                         return m;
 
