@@ -151,7 +151,7 @@
   <refsect1>
     <title>Examples</title>
 
-    <para>Use the <function>SD_JOURNAL_FOREACH_UNIQUE</function> macro to iterate through all values a field
+    <para>Use the <function>SD_JOURNAL_FOREACH_UNIQUE()</function> macro to iterate through all values a field
     of the journal can take (and which can be accessed on the given architecture and are not compressed with
     an unsupported mechanism). The following example lists all unit names referenced in the journal:</para>
 

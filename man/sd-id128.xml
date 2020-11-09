@@ -107,9 +107,8 @@ int main(int argc, char **argv) {
         puts("Match for coredumps: %s", SD_ID128_CONST_STR(SD_MESSAGE_COREDUMP));
 }</programlisting>
 
-    <para><function>SD_ID128_FORMAT_STR()</function> and
-    <function>SD_ID128_FORMAT_VAL()</function> may be used to format a
-    128-bit ID in a
+    <para><constant>SD_ID128_FORMAT_STR</constant> and <function>SD_ID128_FORMAT_VAL()</function> may
+    be used to format a 128-bit ID in a
     <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     format string, as shown in the following example:</para>
 
@@ -120,8 +119,8 @@ int main(int argc, char **argv) {
         return 0;
 }</programlisting>
 
-    <para><function>SD_ID128_UUID_FORMAT_STR()</function> is similar to
-    <function>SD_ID128_FORMAT_STR()</function> but includes separating hyphens to conform to the
+    <para><constant>SD_ID128_UUID_FORMAT_STR</constant> is similar to
+    <constant>SD_ID128_FORMAT_STR</constant> but includes separating hyphens to conform to the
     "<ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">canonical representation</ulink>".
     </para>
 

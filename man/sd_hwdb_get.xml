@@ -84,7 +84,7 @@
     <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
     details.</para>
 
-    <para>The <function>SD_HWDB_FOREACH_PROPERTY</function> macro combines
+    <para>The <function>SD_HWDB_FOREACH_PROPERTY()</function> macro combines
     <function>sd_hwdb_seek()</function> and <function>sd_hwdb_enumerate()</function>. No error handling is
     performed and iteration simply stops on error. See the example below.</para>
   </refsect1>

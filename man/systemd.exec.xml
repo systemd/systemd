@@ -1918,9 +1918,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
         <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. This feature
         makes use of the Secure Computing Mode 2 interfaces of the kernel ('seccomp filtering') and is useful
-        for enforcing a minimal sandboxing environment. Note that the <function>execve</function>,
-        <function>exit</function>, <function>exit_group</function>, <function>getrlimit</function>,
-        <function>rt_sigreturn</function>, <function>sigreturn</function> system calls and the system calls
+        for enforcing a minimal sandboxing environment. Note that the <function>execve()</function>,
+        <function>exit()</function>, <function>exit_group()</function>, <function>getrlimit()</function>,
+        <function>rt_sigreturn()</function>, <function>sigreturn()</function> system calls and the system calls
         for querying time and sleeping are implicitly allow-listed and do not need to be listed
         explicitly. This option may be specified more than once, in which case the filter masks are
         merged. If the empty string is assigned, the filter is reset, all prior assignments will have no
@@ -1932,7 +1932,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         <varname>SystemCallArchitectures=native</varname> or similar.</para>
 
         <para>Note that strict system call filters may impact execution and error handling code paths of the service
-        invocation. Specifically, access to the <function>execve</function> system call is required for the execution
+        invocation. Specifically, access to the <function>execve()</function> system call is required for the execution
         of the service binary — if it is blocked service invocation will necessarily fail. Also, if execution of the
         service binary fails for some reason (for example: missing service executable), the error handling logic might
         require access to an additional set of system calls in order to process and log this failure correctly. It
@@ -1943,9 +1943,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         encountered will take precedence and will dictate the default action (termination or approval of a
         system call). Then the next occurrences of this option will add or delete the listed system calls
         from the set of the filtered system calls, depending of its type and the default action. (For
-        example, if you have started with an allow list rule for <function>read</function> and
-        <function>write</function>, and right after it add a deny list rule for <function>write</function>,
-        then <function>write</function> will be removed from the set.)</para>
+        example, if you have started with an allow list rule for <function>read()</function> and
+        <function>write()</function>, and right after it add a deny list rule for <function>write()</function>,
+        then <function>write()</function> will be removed from the set.)</para>
 
         <para>As the number of possible system calls is large, predefined sets of system calls are provided.  A set
         starts with <literal>@</literal> character, followed by name of the set.

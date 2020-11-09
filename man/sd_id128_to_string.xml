@@ -63,9 +63,8 @@
     easier to use a format string for
     <citerefentry project='man-pages'><refentrytitle>printf</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     This is easily done using the
-    <function>SD_ID128_FORMAT_STR</function> and
-    <function>SD_ID128_FORMAT_VAL()</function> macros. For more
-    information see
+    <constant>SD_ID128_FORMAT_STR</constant> and <function>SD_ID128_FORMAT_VAL()</function> macros. For
+    more information see
     <citerefentry><refentrytitle>sd-id128</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
   </refsect1>
 
@@ -74,7 +73,7 @@
 
     <para><function>sd_id128_to_string()</function> always succeeds
     and returns a pointer to the string array passed in.
-    <function>sd_id128_from_string</function> returns 0 on success, in
+    <function>sd_id128_from_string()</function> returns 0 on success, in
     which case <parameter>ret</parameter> is filled in, or a negative
     errno-style error code.</para>
   </refsect1>

@@ -91,7 +91,7 @@
   <refsect1>
     <title>Examples</title>
 
-    <para>Use the <function>SD_JOURNAL_FOREACH_FIELD</function> macro to iterate through all field names in use in the
+    <para>Use the <function>SD_JOURNAL_FOREACH_FIELD()</function> macro to iterate through all field names in use in the
     current journal.</para>
 
     <programlisting>#include &lt;stdio.h&gt;

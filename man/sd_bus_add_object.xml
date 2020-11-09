@@ -620,8 +620,8 @@
         <varlistentry>
           <term><constant>-EPROTOTYPE</constant></term>
 
-          <listitem><para><function>sd_bus_add_object_vtable</function> and
-          <function>sd_bus_add_fallback_vtable</function> have been both called for the same bus
+          <listitem><para><function>sd_bus_add_object_vtable()</function> and
+          <function>sd_bus_add_fallback_vtable()</function> have been both called for the same bus
           object path, which is not allowed.</para></listitem>
         </varlistentry>
 
