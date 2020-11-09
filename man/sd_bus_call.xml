@@ -104,7 +104,12 @@
     <refsect2 id='errors'>
       <title>Errors</title>
 
-      <para>Returned errors may indicate the following problems:</para>
+      <para>Returned errors may indicate the following problems. When
+      <function>sd_bus_call()</function> internally receives a D-Bus error reply, it will set
+      <parameter>ret_error</parameter> if it is not <constant>NULL</constant>, and will return a
+      negative value mapped from the error reply. See
+      <citerefentry><refentrytitle>sd_bus_error_get_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+      </para>
 
       <variablelist>
         <varlistentry>
@@ -180,7 +185,8 @@
       <citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_call_method_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 
