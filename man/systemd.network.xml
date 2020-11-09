@@ -2219,9 +2219,8 @@
       <varlistentry>
         <term><varname>RouterLifetimeSec=</varname></term>
 
-        <listitem><para>Takes a timespan. Configures the IPv6 router lifetime in seconds. If set,
-        this host also announces itself in Router Advertisements as an IPv6
-        router for the network link. When unset, the host is not acting as a router.</para>
+        <listitem><para>Takes a timespan. Configures the IPv6 router lifetime in seconds. When set to
+        0, the host is not acting as a router. Defaults to 30 minutes.</para>
         </listitem>
       </varlistentry>
 
