@@ -358,6 +358,7 @@ struct Manager {
         bool default_blockio_accounting;
         bool default_tasks_accounting;
         bool default_ip_accounting;
+        bool default_perf_event_accounting;
 
         TasksMax default_tasks_max;
         usec_t default_timer_accuracy_usec;

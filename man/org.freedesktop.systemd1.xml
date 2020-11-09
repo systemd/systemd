@@ -411,6 +411,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultTasksAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DefaultPerfEventAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t DefaultLimitCPU = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t DefaultLimitCPUSoft = ...;
@@ -650,6 +652,8 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultMemoryAccounting is not documented!-->
 
     <!--property DefaultTasksAccounting is not documented!-->
+
+    <!--property DefaultPerfEventAccounting is not documented!-->
 
     <!--property DefaultLimitCPU is not documented!-->
 
@@ -1038,6 +1042,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultMemoryAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultTasksAccounting"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultPerfEventAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultLimitCPU"/>
 
@@ -2403,6 +2409,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b PerfEventAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IPAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iayu) IPAddressAllow = [...];
@@ -2921,6 +2929,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property TasksAccounting is not documented!-->
 
     <!--property TasksMax is not documented!-->
+
+    <!--property PerfEventAccounting is not documented!-->
 
     <!--property IPAccounting is not documented!-->
 
@@ -3477,6 +3487,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="TasksAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PerfEventAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPAccounting"/>
 
@@ -4130,6 +4142,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b PerfEventAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IPAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iayu) IPAddressAllow = [...];
@@ -4676,6 +4690,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property TasksAccounting is not documented!-->
 
     <!--property TasksMax is not documented!-->
+
+    <!--property PerfEventAccounting is not documented!-->
 
     <!--property IPAccounting is not documented!-->
 
@@ -5234,6 +5250,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="TasksAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PerfEventAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPAccounting"/>
 
@@ -5811,6 +5829,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b PerfEventAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IPAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iayu) IPAddressAllow = [...];
@@ -6285,6 +6305,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property TasksAccounting is not documented!-->
 
     <!--property TasksMax is not documented!-->
+
+    <!--property PerfEventAccounting is not documented!-->
 
     <!--property IPAccounting is not documented!-->
 
@@ -6761,6 +6783,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="TasksAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PerfEventAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPAccounting"/>
 
@@ -7459,6 +7483,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b PerfEventAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IPAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iayu) IPAddressAllow = [...];
@@ -7919,6 +7945,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property TasksAccounting is not documented!-->
 
     <!--property TasksMax is not documented!-->
+
+    <!--property PerfEventAccounting is not documented!-->
 
     <!--property IPAccounting is not documented!-->
 
@@ -8381,6 +8409,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="TasksAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PerfEventAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPAccounting"/>
 
@@ -8932,6 +8962,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b PerfEventAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IPAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iayu) IPAddressAllow = [...];
@@ -9066,6 +9098,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property TasksAccounting is not documented!-->
 
     <!--property TasksMax is not documented!-->
+
+    <!--property PerfEventAccounting is not documented!-->
 
     <!--property IPAccounting is not documented!-->
 
@@ -9206,6 +9240,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="TasksAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PerfEventAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPAccounting"/>
 
@@ -9367,6 +9403,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t TasksMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b PerfEventAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b IPAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(iayu) IPAddressAllow = [...];
@@ -9517,6 +9555,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property TasksAccounting is not documented!-->
 
     <!--property TasksMax is not documented!-->
+
+    <!--property PerfEventAccounting is not documented!-->
 
     <!--property IPAccounting is not documented!-->
 
@@ -9683,6 +9723,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="TasksAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="TasksMax"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PerfEventAccounting"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IPAccounting"/>
 

@@ -391,6 +391,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sMemoryAccounting: %s\n"
                 "%sTasksAccounting: %s\n"
                 "%sIPAccounting: %s\n"
+                "%sPerfEventAccounting: %s\n"
                 "%sCPUWeight: %" PRIu64 "\n"
                 "%sStartupCPUWeight: %" PRIu64 "\n"
                 "%sCPUShares: %" PRIu64 "\n"
@@ -424,6 +425,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, yes_no(c->memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
                 prefix, yes_no(c->ip_accounting),
+                prefix, yes_no(c->perf_event_accounting),
                 prefix, c->cpu_weight,
                 prefix, c->startup_cpu_weight,
                 prefix, c->cpu_shares,
@@ -1454,6 +1456,9 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         if (c->tasks_accounting ||
             tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
+
+        if (c->perf_event_accounting)
+                mask |= CGROUP_MASK_PERF_EVENT;
 
         return CGROUP_MASK_EXTEND_JOINED(mask);
 }

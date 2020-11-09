@@ -344,6 +344,7 @@
         <term><varname>DefaultTasksAccounting=</varname></term>
         <term><varname>DefaultIOAccounting=</varname></term>
         <term><varname>DefaultIPAccounting=</varname></term>
+        <term><varname>DefaultPerfEventAccounting=</varname></term>
 
         <listitem><para>Configure the default resource accounting settings, as configured per-unit by
         <varname>CPUAccounting=</varname>, <varname>BlockIOAccounting=</varname>, <varname>MemoryAccounting=</varname>,

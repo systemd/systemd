@@ -101,6 +101,7 @@ struct CGroupContext {
         bool memory_accounting;
         bool tasks_accounting;
         bool ip_accounting;
+        bool perf_event_accounting;
 
         /* Configures the memory.oom.group attribute (on unified) */
         bool memory_oom_group;

@@ -387,6 +387,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
         SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
         SD_BUS_PROPERTY("TasksMax", "t", bus_property_get_tasks_max, offsetof(CGroupContext, tasks_max), 0),
+        SD_BUS_PROPERTY("PerfEventAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, perf_event_accounting), 0),
         SD_BUS_PROPERTY("IPAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, ip_accounting), 0),
         SD_BUS_PROPERTY("IPAddressAllow", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_allow), 0),
         SD_BUS_PROPERTY("IPAddressDeny", "a(iayu)", property_get_ip_address_access, offsetof(CGroupContext, ip_address_deny), 0),
@@ -927,6 +928,9 @@ int bus_cgroup_set_property(
 
         if (streq(name, "TasksAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->tasks_accounting, CGROUP_MASK_PIDS, message, flags, error);
+
+        if (streq(name, "PerfEventAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->perf_event_accounting, CGROUP_MASK_PERF_EVENT, message, flags, error);
 
         if (streq(name, "TasksMax"))
                 return bus_cgroup_set_tasks_max(u, name, &c->tasks_max, message, flags, error);

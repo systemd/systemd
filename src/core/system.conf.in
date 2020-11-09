@@ -51,6 +51,7 @@
 #DefaultIPAccounting=no
 #DefaultBlockIOAccounting=no
 #DefaultMemoryAccounting=@MEMORY_ACCOUNTING_DEFAULT@
+#DefaultPerfEventAccounting=no
 #DefaultTasksAccounting=yes
 #DefaultTasksMax=15%
 #DefaultLimitCPU=

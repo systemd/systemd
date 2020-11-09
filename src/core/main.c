@@ -145,6 +145,7 @@ static bool arg_default_io_accounting;
 static bool arg_default_ip_accounting;
 static bool arg_default_blockio_accounting;
 static bool arg_default_memory_accounting;
+static bool arg_default_perf_event_accounting;
 static bool arg_default_tasks_accounting;
 static TasksMax arg_default_tasks_max;
 static sd_id128_t arg_machine_id;
@@ -663,6 +664,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0, &arg_default_ip_accounting             },
                 { "Manager", "DefaultBlockIOAccounting",     config_parse_bool,                  0, &arg_default_blockio_accounting        },
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0, &arg_default_memory_accounting         },
+                { "Manager", "DefaultPerfEventAccounting",   config_parse_bool,                  0, &arg_default_perf_event_accounting     },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0, &arg_default_tasks_accounting          },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0, &arg_default_tasks_max                 },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      0, &arg_cad_burst_action                  },
@@ -728,6 +730,7 @@ static void set_manager_defaults(Manager *m) {
         m->default_ip_accounting = arg_default_ip_accounting;
         m->default_blockio_accounting = arg_default_blockio_accounting;
         m->default_memory_accounting = arg_default_memory_accounting;
+        m->default_perf_event_accounting = arg_default_perf_event_accounting;
         m->default_tasks_accounting = arg_default_tasks_accounting;
         m->default_tasks_max = arg_default_tasks_max;
         m->default_oom_policy = arg_default_oom_policy;
@@ -2329,6 +2332,7 @@ static void reset_arguments(void) {
         arg_default_ip_accounting = false;
         arg_default_blockio_accounting = false;
         arg_default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
+        arg_default_perf_event_accounting = false;
         arg_default_tasks_accounting = true;
         arg_default_tasks_max = DEFAULT_TASKS_MAX;
         arg_machine_id = (sd_id128_t) {};

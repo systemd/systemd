@@ -175,6 +175,7 @@ static void unit_init(Unit *u) {
                 cc->blockio_accounting = u->manager->default_blockio_accounting;
                 cc->memory_accounting = u->manager->default_memory_accounting;
                 cc->tasks_accounting = u->manager->default_tasks_accounting;
+                cc->perf_event_accounting = u->manager->default_perf_event_accounting;
                 cc->ip_accounting = u->manager->default_ip_accounting;
 
                 if (u->type != UNIT_SLICE)
