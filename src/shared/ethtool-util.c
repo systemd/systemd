@@ -173,13 +173,17 @@ static int ethtool_connect_or_warn(int *ret, bool warn) {
 
 int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         struct ethtool_drvinfo ecmd = {
-                .cmd = ETHTOOL_GDRVINFO
+                .cmd = ETHTOOL_GDRVINFO,
         };
         struct ifreq ifr = {
-                .ifr_data = (void*) &ecmd
+                .ifr_data = (void*) &ecmd,
         };
         char *d;
         int r;
+
+        assert(ethtool_fd);
+        assert(ifname);
+        assert(ret);
 
         if (*ethtool_fd < 0) {
                 r = ethtool_connect_or_warn(ethtool_fd, true);
@@ -201,9 +205,14 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         return 0;
 }
 
-int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
-                          int *ret_autonegotiation, uint64_t *ret_speed,
-                          Duplex *ret_duplex, NetDevPort *ret_port) {
+int ethtool_get_link_info(
+                int *ethtool_fd,
+                const char *ifname,
+                int *ret_autonegotiation,
+                uint64_t *ret_speed,
+                Duplex *ret_duplex,
+                NetDevPort *ret_port) {
+
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
         };
@@ -211,6 +220,9 @@ int ethtool_get_link_info(int *ethtool_fd, const char *ifname,
                 .ifr_data = (void*) &ecmd,
         };
         int r;
+
+        assert(ethtool_fd);
+        assert(ifname);
 
         if (*ethtool_fd < 0) {
                 r = ethtool_connect_or_warn(ethtool_fd, false);
@@ -292,13 +304,16 @@ int ethtool_get_permanent_macaddr(int *ethtool_fd, const char *ifname, struct et
 
 int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duplex duplex) {
         struct ethtool_cmd ecmd = {
-                .cmd = ETHTOOL_GSET
+                .cmd = ETHTOOL_GSET,
         };
         struct ifreq ifr = {
-                .ifr_data = (void*) &ecmd
+                .ifr_data = (void*) &ecmd,
         };
         bool need_update = false;
         int r;
+
+        assert(ethtool_fd);
+        assert(ifname);
 
         if (speed == 0 && duplex == _DUP_INVALID)
                 return 0;
@@ -350,13 +365,16 @@ int ethtool_set_speed(int *ethtool_fd, const char *ifname, unsigned speed, Duple
 
 int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
         struct ethtool_wolinfo ecmd = {
-                .cmd = ETHTOOL_GWOL
+                .cmd = ETHTOOL_GWOL,
         };
         struct ifreq ifr = {
-                .ifr_data = (void*) &ecmd
+                .ifr_data = (void*) &ecmd,
         };
         bool need_update = false;
         int r;
+
+        assert(ethtool_fd);
+        assert(ifname);
 
         if (wol == _WOL_INVALID)
                 return 0;
@@ -439,13 +457,17 @@ int ethtool_set_wol(int *ethtool_fd, const char *ifname, WakeOnLan wol) {
 
 int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netdev_ring_param *ring) {
         struct ethtool_ringparam ecmd = {
-                .cmd = ETHTOOL_GRINGPARAM
+                .cmd = ETHTOOL_GRINGPARAM,
         };
         struct ifreq ifr = {
-                .ifr_data = (void*) &ecmd
+                .ifr_data = (void*) &ecmd,
         };
         bool need_update = false;
         int r;
+
+        assert(ethtool_fd);
+        assert(ifname);
+        assert(ring);
 
         if (*ethtool_fd < 0) {
                 r = ethtool_connect_or_warn(ethtool_fd, true);
@@ -490,7 +512,7 @@ int ethtool_set_nic_buffer_size(int *ethtool_fd, const char *ifname, const netde
         return 0;
 }
 
-static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **gstrings) {
+static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, struct ethtool_gstrings **ret) {
         _cleanup_free_ struct ethtool_gstrings *strings = NULL;
         struct {
                 struct ethtool_sset_info info;
@@ -503,6 +525,10 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
         };
         unsigned len;
         int r;
+
+        assert(ethtool_fd >= 0);
+        assert(ifr);
+        assert(ret);
 
         ifr->ifr_data = (void *) &buffer.info;
 
@@ -534,7 +560,7 @@ static int get_stringset(int ethtool_fd, struct ifreq *ifr, int stringset_id, st
         if (r < 0)
                 return -errno;
 
-        *gstrings = TAKE_PTR(strings);
+        *ret = TAKE_PTR(strings);
 
         return 0;
 }
@@ -572,6 +598,10 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *feature
         struct ifreq ifr = {};
         int i, r;
 
+        assert(ethtool_fd);
+        assert(ifname);
+        assert(features);
+
         if (*ethtool_fd < 0) {
                 r = ethtool_connect_or_warn(ethtool_fd, true);
                 if (r < 0)
@@ -606,7 +636,7 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int *feature
         return 0;
 }
 
-static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_usettings **g) {
+static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_usettings **ret) {
         struct ecmd {
                 struct ethtool_link_settings req;
                 __u32 link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
@@ -616,6 +646,10 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
         struct ethtool_link_usettings *u;
         unsigned offset;
         int r;
+
+        assert(fd >= 0);
+        assert(ifr);
+        assert(ret);
 
         /* The interaction user/kernel via the new API requires a small ETHTOOL_GLINKSETTINGS
            handshake first to agree on the length of the link mode bitmaps. If kernel doesn't
@@ -662,17 +696,21 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
         offset += ecmd.req.link_mode_masks_nwords;
         memcpy(u->link_modes.lp_advertising, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
 
-        *g = u;
+        *ret = u;
 
         return 0;
 }
 
-static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **u) {
+static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **ret) {
         struct ethtool_link_usettings *e;
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
         };
         int r;
+
+        assert(fd >= 0);
+        assert(ifr);
+        assert(ret);
 
         ifr->ifr_data = (void *) &ecmd;
 
@@ -699,7 +737,7 @@ static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_usettings **u
                 .link_modes.lp_advertising[0] = ecmd.lp_advertising,
         };
 
-        *u = e;
+        *ret = e;
 
         return 0;
 }
@@ -711,6 +749,10 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const struct ethtool_lin
         } ecmd = {};
         unsigned offset;
         int r;
+
+        assert(fd >= 0);
+        assert(ifr);
+        assert(u);
 
         if (u->base.cmd != ETHTOOL_GLINKSETTINGS || u->base.link_mode_masks_nwords <= 0)
                 return -EINVAL;
@@ -740,6 +782,10 @@ static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_usettin
                 .cmd = ETHTOOL_SSET,
         };
         int r;
+
+        assert(fd >= 0);
+        assert(ifr);
+        assert(u);
 
         if (u->base.cmd != ETHTOOL_GSET || u->base.link_mode_masks_nwords <= 0)
                 return -EINVAL;
@@ -781,10 +827,13 @@ int ethtool_set_glinksettings(
                 uint64_t speed,
                 Duplex duplex,
                 NetDevPort port) {
+
         _cleanup_free_ struct ethtool_link_usettings *u = NULL;
         struct ifreq ifr = {};
         int r;
 
+        assert(fd);
+        assert(ifname);
         assert(advertise);
 
         if (autonegotiation != AUTONEG_DISABLE && memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
@@ -838,14 +887,17 @@ int ethtool_set_glinksettings(
 
 int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *channels) {
         struct ethtool_channels ecmd = {
-                .cmd = ETHTOOL_GCHANNELS
+                .cmd = ETHTOOL_GCHANNELS,
         };
         struct ifreq ifr = {
-                .ifr_data = (void*) &ecmd
+                .ifr_data = (void*) &ecmd,
         };
-
         bool need_update = false;
         int r;
+
+        assert(fd);
+        assert(ifname);
+        assert(channels);
 
         if (*fd < 0) {
                 r = ethtool_connect_or_warn(fd, true);
@@ -892,14 +944,16 @@ int ethtool_set_channels(int *fd, const char *ifname, const netdev_channels *cha
 
 int ethtool_set_flow_control(int *fd, const char *ifname, int rx, int tx, int autoneg) {
         struct ethtool_pauseparam ecmd = {
-                .cmd = ETHTOOL_GPAUSEPARAM
+                .cmd = ETHTOOL_GPAUSEPARAM,
         };
         struct ifreq ifr = {
-                .ifr_data = (void*) &ecmd
+                .ifr_data = (void*) &ecmd,
         };
-
         bool need_update = false;
         int r;
+
+        assert(fd);
+        assert(ifname);
 
         if (*fd < 0) {
                 r = ethtool_connect_or_warn(fd, true);
