@@ -409,6 +409,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
 
+                .router_lifetime_usec = 30 * USEC_PER_MINUTE,
                 .router_emit_dns = true,
                 .router_emit_domains = true,
 
