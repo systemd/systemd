@@ -1291,8 +1291,14 @@ int dns_name_apply_idna(const char *name, char **ret) {
         assert(name);
         assert(ret);
 
+        /* First, try non-transitional mode (i.e. IDN2008 rules) */
         r = sym_idn2_lookup_u8((uint8_t*) name, (uint8_t**) &t,
                                IDN2_NFC_INPUT | IDN2_NONTRANSITIONAL);
+        if (r == IDN2_DISALLOWED) /* If that failed, because of disallowed characters, try transitional mode.
+                                   * (i.e. IDN2003 rules which supports some unicode chars IDN2008 doesn't allow). */
+                r = sym_idn2_lookup_u8((uint8_t*) name, (uint8_t**) &t,
+                                       IDN2_NFC_INPUT | IDN2_TRANSITIONAL);
+
         log_debug("idn2_lookup_u8: %s → %s", name, t);
         if (r == IDN2_OK) {
                 if (!startswith(name, "xn--")) {
