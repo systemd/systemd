@@ -170,6 +170,9 @@ int ethtool_get_driver(int *ethtool_fd, const char *ifname, char **ret) {
         if (r < 0)
                 return -errno;
 
+        if (isempty(ecmd.driver))
+                return -ENODATA;
+
         d = strdup(ecmd.driver);
         if (!d)
                 return -ENOMEM;
