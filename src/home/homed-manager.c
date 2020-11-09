@@ -157,7 +157,7 @@ static int on_home_inotify(sd_event_source *s, const struct inotify_event *event
                 (void) bus_manager_emit_auto_login_changed(m);
         }
 
-        if ((event->mask & (IN_DELETE|IN_MOVED_FROM|IN_DELETE)) != 0) {
+        if ((event->mask & (IN_DELETE | IN_CLOSE_WRITE | IN_MOVED_FROM)) != 0) {
                 Home *h;
 
                 if (FLAGS_SET(event->mask, IN_DELETE))
