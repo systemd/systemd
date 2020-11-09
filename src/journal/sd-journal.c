@@ -872,6 +872,7 @@ static int real_journal_next_skip(sd_journal *j, direction_t direction, uint64_t
 
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
+        assert_return(skip <= INT_MAX, -ERANGE);
 
         if (skip == 0) {
                 /* If this is not a discrete skip, then at least
