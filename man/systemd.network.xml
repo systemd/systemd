@@ -1104,7 +1104,7 @@
       <para>An [IPv6AddressLabel] section accepts the following keys. Specify several [IPv6AddressLabel]
       sections to configure several address labels. IPv6 address labels are used for address selection. See
       <ulink url="https://tools.ietf.org/html/rfc3484">RFC 3484</ulink>. Precedence is managed by userspace,
-      and only the label itself is stored in the kernel</para>
+      and only the label itself is stored in the kernel.</para>
 
       <variablelist class='network-directives'>
         <varlistentry>
