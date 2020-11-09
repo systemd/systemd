@@ -1682,6 +1682,8 @@ static int socket_open_fds(Socket *_s) {
                         _cleanup_free_ char *ep = NULL;
 
                         ep = path_make_absolute("ep0", p->path);
+                        if (!ep)
+                                return -ENOMEM;
 
                         p->fd = usbffs_address_create(ep);
                         if (p->fd < 0)
