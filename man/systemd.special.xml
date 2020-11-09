@@ -657,16 +657,6 @@
             target unit and pull in the target from it, also with <varname>Requires=</varname>. Note that by default this
             target unit is not part of the initial boot transaction, but is supposed to be pulled in only if required by
             units that want to run only on successful boots.</para>
-
-            <para>See
-            <citerefentry><refentrytitle>systemd-boot-check-no-failures.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            for a service that implements a generic system health check and orders itself before
-            <filename>boot-complete.target</filename>.</para>
-
-            <para>See
-            <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            for a service that propagates boot success information to the boot loader, and orders itself after
-            <filename>boot-complete.target</filename>.</para>
           </listitem>
         </varlistentry>
       <varlistentry>
