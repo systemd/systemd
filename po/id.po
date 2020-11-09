@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Indonesian translation for systemd.
 # Andika Triwidada <andika@gmail.com>, 2014.

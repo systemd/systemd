@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Temporary work-around for broken glibc vs. linux kernel header definitions
  * This is already fixed upstream, remove this when distributions have updated.

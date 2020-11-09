@@ -1,5 +1,5 @@
 #compdef journalctl                    -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[_journalctl_fields] )) ||
 _journalctl_fields() {

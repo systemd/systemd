@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Catalan translation for systemd.
 # Walter Garcia-Fontes <walter.garcia@upf.edu>, 2016.

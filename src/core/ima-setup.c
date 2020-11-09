@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2012 Roberto Sassu - Politecnico di Torino, Italy
                                    TORSEC group — http://security.polito.it

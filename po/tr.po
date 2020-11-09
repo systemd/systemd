@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Turkish translation for systemd.
 # Necdet Yücel <necdetyucel@gmail.com>, 2014.

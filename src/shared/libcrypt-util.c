@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_CRYPT_H
 /* libxcrypt is a replacement for glibc's libcrypt, and libcrypt might be

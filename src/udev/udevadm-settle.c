@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright © 2009 Canonical Ltd.
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>

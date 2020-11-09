@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /* systemd service to wait until kernel realtime clock is synchronized */
 
 #include <errno.h>

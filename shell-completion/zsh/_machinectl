@@ -1,5 +1,5 @@
 #compdef machinectl                    -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 (( $+functions[__machinectl_get_machines] )) ||
     __machinectl_get_machines () {

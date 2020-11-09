@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>

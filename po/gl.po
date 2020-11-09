@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Fran Dieguez <frandieguez@gnome.org>, 2015.
 msgid ""

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /*
  * Port to systemd-boot
  * Copyright © 2017 Max Resch <resch.max@gmail.com>

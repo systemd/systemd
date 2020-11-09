@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright © 2004 Chris Friesen <chris_friesen@sympatico.ca>
  * Copyright © 2009 Canonical Ltd.

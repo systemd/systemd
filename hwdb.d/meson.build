@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Those files right now are not supported by the grammar. Also,
 # they are very long but quite repetitive and the parser is not very fast.

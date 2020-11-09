@@ -1,5 +1,5 @@
 #compdef systemd-tmpfiles                    -*- shell-script -*-
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 _arguments \
     {-h,--help}'[Show help]' \

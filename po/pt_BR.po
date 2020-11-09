@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Brazilian Portuguese translation for systemd.
 # Enrico Nicoletto <liverig@gmail.com>, 2014.
