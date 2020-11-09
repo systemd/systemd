@@ -466,14 +466,14 @@ _public_ int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
         return 0;
 }
 
-_public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint32_t router_lifetime) {
+_public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint16_t router_lifetime) {
         assert_return(ra, -EINVAL);
 
         if (ra->state != SD_RADV_STATE_IDLE)
                 return -EBUSY;
 
-        /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the
-           preference value MUST be set to (00) by the sender..." */
+        /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
+         * to (00) by the sender..." */
         if (router_lifetime == 0 &&
             (ra->flags & (0x3 << 3)) != (SD_NDISC_PREFERENCE_MEDIUM << 3))
                 return -ETIME;
