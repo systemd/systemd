@@ -5646,9 +5646,7 @@ void unit_dump_config_items(FILE *f) {
         NULSTR_FOREACH(i, load_fragment_gperf_nulstr) {
                 const char *rvalue = "OTHER", *lvalue;
                 const ConfigPerfItem *p;
-                size_t prefix_len;
                 const char *dot;
-                unsigned j;
 
                 assert_se(p = load_fragment_gperf_lookup(i, strlen(i)));
 
@@ -5657,7 +5655,7 @@ void unit_dump_config_items(FILE *f) {
                     p->ltype == DISABLED_LEGACY)
                         continue;
 
-                for (j = 0; j < ELEMENTSOF(table); j++)
+                for (size_t j = 0; j < ELEMENTSOF(table); j++)
                         if (p->parse == table[j].callback) {
                                 rvalue = table[j].rvalue;
                                 break;
@@ -5665,15 +5663,17 @@ void unit_dump_config_items(FILE *f) {
 
                 dot = strchr(i, '.');
                 lvalue = dot ? dot + 1 : i;
-                prefix_len = dot-i;
 
-                if (dot)
+                if (dot) {
+                        size_t prefix_len = dot - i;
+
                         if (!prev || !strneq(prev, i, prefix_len+1)) {
                                 if (prev)
                                         fputc('\n', f);
 
                                 fprintf(f, "[%.*s]\n", (int) prefix_len, i);
                         }
+                }
 
                 fprintf(f, "%s=%s\n", lvalue, rvalue);
                 prev = i;
