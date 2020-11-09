@@ -19,7 +19,10 @@ static int builtin_net_setup_link(sd_device *dev, int argc, char **argv, bool te
                 return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         r = link_get_driver(ctx, dev, &driver);
-        if (r >= 0)
+        if (r < 0)
+                log_device_full_errno(dev, r == -EOPNOTSUPP ? LOG_DEBUG : LOG_WARNING,
+                                      r, "Failed to query device driver: %m");
+        else
                 udev_builtin_add_property(dev, test, "ID_NET_DRIVER", driver);
 
         r = link_config_get(ctx, dev, &link);
