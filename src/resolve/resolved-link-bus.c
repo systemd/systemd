@@ -296,6 +296,8 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                 }
         }
 
+        bus_client_log(message, "DNS server change");
+
         dns_server_mark_all(l->dns_servers);
 
         for (size_t i = 0; i < n; i++) {
@@ -404,6 +406,8 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
+        bus_client_log(message, "dns domains change");
+
         dns_search_domain_mark_all(l->search_domains);
 
         for (;;) {
@@ -477,6 +481,8 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
+        bus_client_log(message, "dns default route change");
+
         if (l->default_route != b) {
                 l->default_route = b;
 
@@ -523,6 +529,8 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
+        bus_client_log(message, "LLMNR change");
+
         l->llmnr_support = mode;
         link_allocate_scopes(l);
         link_add_rrs(l, false);
@@ -567,6 +575,8 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
                 return r;
         if (r == 0)
                 return 1; /* Polkit will call us back */
+
+        bus_client_log(message, "mDNS change");
 
         l->mdns_support = mode;
         link_allocate_scopes(l);
@@ -613,6 +623,8 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
+        bus_client_log(message, "D-o-T change");
+
         link_set_dns_over_tls_mode(l, mode);
 
         (void) link_save_user(l);
@@ -656,6 +668,8 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
                 return r;
         if (r == 0)
                 return 1; /* Polkit will call us back */
+
+        bus_client_log(message, "DNSSEC change");
 
         link_set_dnssec_mode(l, mode);
 
@@ -715,6 +729,8 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
+        bus_client_log(message, "DNSSEC NTA change");
+
         set_free_free(l->dnssec_negative_trust_anchors);
         l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
 
@@ -747,6 +763,8 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
                 return r;
         if (r == 0)
                 return 1; /* Polkit will call us back */
+
+        bus_client_log(message, "revert");
 
         link_flush_settings(l);
         link_allocate_scopes(l);

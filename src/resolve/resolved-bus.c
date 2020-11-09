@@ -7,6 +7,7 @@
 #include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
+#include "format-util.h"
 #include "memory-util.h"
 #include "missing_capability.h"
 #include "resolved-bus.h"
@@ -374,6 +375,31 @@ static int parse_as_address(sd_bus_message *m, int ifindex, const char *hostname
         return sd_bus_send(sd_bus_message_get_bus(m), reply, NULL);
 }
 
+void bus_client_log(sd_bus_message *m, const char *what) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        const char *comm = NULL;
+        uid_t uid = UID_INVALID;
+        pid_t pid = 0;
+        int r;
+
+        assert(m);
+        assert(what);
+
+        if (!DEBUG_LOGGING)
+                return;
+
+        r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_PID|SD_BUS_CREDS_UID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_AUGMENT, &creds);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to query client credentials, ignoring: %m");
+
+        (void) sd_bus_creds_get_uid(creds, &uid);
+        (void) sd_bus_creds_get_pid(creds, &pid);
+        (void) sd_bus_creds_get_comm(creds, &comm);
+
+        log_debug("D-Bus %s request from client PID " PID_FMT " (%s) with UID " UID_FMT,
+                  what, pid, strna(comm), uid);
+}
+
 static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         Manager *m = userdata;
@@ -419,6 +445,8 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
         r = dns_question_new_address(&question_idna, family, hostname, true);
         if (r < 0 && r != -EALREADY)
                 return r;
+
+        bus_client_log(message, "hostname resolution");
 
         r = dns_query_new(m, &q, question_utf8, question_idna ?: question_utf8, NULL, ifindex, flags);
         if (r < 0)
@@ -561,6 +589,8 @@ static int bus_method_resolve_address(sd_bus_message *message, void *userdata, s
         r = dns_question_new_reverse(&question, family, &a);
         if (r < 0)
                 return r;
+
+        bus_client_log(message, "address resolution");
 
         r = dns_query_new(m, &q, question, question, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
@@ -737,6 +767,8 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
         r = dns_question_add(question, key);
         if (r < 0)
                 return r;
+
+        bus_client_log(message, "resource record resolution");
 
         /* Setting SD_RESOLVED_CLAMP_TTL: let's request that the TTL is fixed up for locally cached entries,
          * after all we return it in the wire format blob. */
@@ -1270,6 +1302,8 @@ static int bus_method_resolve_service(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
+        bus_client_log(message, "service resolution");
+
         r = dns_query_new(m, &q, question_utf8, question_idna, NULL, ifindex, flags|SD_RESOLVED_NO_SEARCH);
         if (r < 0)
                 return r;
@@ -1662,6 +1696,8 @@ static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, 
         assert(message);
         assert(m);
 
+        bus_client_log(message, "statistics reset");
+
         LIST_FOREACH(scopes, s, m->dns_scopes)
                 s->cache.n_hit = s->cache.n_miss = 0;
 
@@ -1774,6 +1810,8 @@ static int bus_method_flush_caches(sd_bus_message *message, void *userdata, sd_b
         assert(message);
         assert(m);
 
+        bus_client_log(message, "cache flush");
+
         manager_flush_caches(m, LOG_INFO);
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1784,6 +1822,8 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
 
         assert(message);
         assert(m);
+
+        bus_client_log(message, "server feature reset");
 
         manager_reset_server_features(m);
 
