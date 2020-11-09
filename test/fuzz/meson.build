@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 # The 'optimization' option was introduced in meson 0.48.0, so let's keep
 # the code compatible with older versions as well

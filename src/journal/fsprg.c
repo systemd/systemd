@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+
+/* SPDX-License-Identifier: LGPL-2.1-or-later
  *
  * fsprg v0.1  -  (seekable) forward-secure pseudorandom generator
  * Copyright © 2012 B. Poettering

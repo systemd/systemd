@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Romanian translation for systemd.
 # va511e <va511e@yahoo.com>, 2015.

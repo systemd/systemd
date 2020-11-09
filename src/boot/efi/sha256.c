@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Stolen from glibc and converted to UEFI style. In glibc it comes with the following copyright blurb: */
 

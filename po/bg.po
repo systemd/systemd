@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Bulgarian translation of systemd po-file.
 # Copyright © 2016 Alexander Shopov <ash@kambanaria.org>

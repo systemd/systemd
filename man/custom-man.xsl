@@ -1,7 +1,7 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 
 <!--
-  SPDX-License-Identifier: LGPL-2.1+
+  SPDX-License-Identifier: LGPL-2.1-or-later
 -->
 
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"

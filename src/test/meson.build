@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: LGPL-2.1+
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 awkscript = 'test-hashmap-ordered.awk'
 test_hashmap_ordered_c = custom_target(

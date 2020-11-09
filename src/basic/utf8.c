@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /* Parts of this file are based on the GLIB utf8 validation functions. The
  * original license text follows. */

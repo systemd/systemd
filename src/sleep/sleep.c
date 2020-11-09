@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 /***
   Copyright © 2010-2017 Canonical
   Copyright © 2018 Dell Inc.

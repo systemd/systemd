@@ -4,7 +4,7 @@
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
-<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-system.conf"
     xmlns:xi="http://www.w3.org/2001/XInclude">

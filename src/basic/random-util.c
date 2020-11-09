@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
