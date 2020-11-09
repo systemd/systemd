@@ -641,6 +641,7 @@ static bool link_radv_enabled(Link *link) {
 }
 
 int radv_configure(Link *link) {
+        uint16_t router_lifetime;
         RoutePrefix *q;
         Prefix *p;
         int r;
@@ -675,16 +676,20 @@ int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        /* a value of 0xffffffff represents infinity, 0x0 means this host is
-           not a router */
-        r = sd_radv_set_router_lifetime(link->radv,
-                                        DIV_ROUND_UP(link->network->router_lifetime_usec, USEC_PER_SEC));
+        /* a value of UINT16_MAX represents infinity, 0x0 means this host is not a router */
+        if (link->network->router_lifetime_usec == USEC_INFINITY)
+                router_lifetime = UINT16_MAX;
+        else if (link->network->router_lifetime_usec > (UINT16_MAX - 1) * USEC_PER_SEC)
+                router_lifetime = UINT16_MAX - 1;
+        else
+                router_lifetime = DIV_ROUND_UP(link->network->router_lifetime_usec, USEC_PER_SEC);
+
+        r = sd_radv_set_router_lifetime(link->radv, router_lifetime);
         if (r < 0)
                 return r;
 
-        if (link->network->router_lifetime_usec > 0) {
-                r = sd_radv_set_preference(link->radv,
-                                           link->network->router_preference);
+        if (router_lifetime > 0) {
+                r = sd_radv_set_preference(link->radv, link->network->router_preference);
                 if (r < 0)
                         return r;
         }

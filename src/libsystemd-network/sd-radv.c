@@ -466,14 +466,14 @@ _public_ int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
         return 0;
 }
 
-_public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint32_t router_lifetime) {
+_public_ int sd_radv_set_router_lifetime(sd_radv *ra, uint16_t router_lifetime) {
         assert_return(ra, -EINVAL);
 
         if (ra->state != SD_RADV_STATE_IDLE)
                 return -EBUSY;
 
-        /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the
-           preference value MUST be set to (00) by the sender..." */
+        /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
+         * to (00) by the sender..." */
         if (router_lifetime == 0 &&
             (ra->flags & (0x3 << 3)) != (SD_NDISC_PREFERENCE_MEDIUM << 3))
                 return -ETIME;
@@ -506,17 +506,20 @@ _public_ int sd_radv_set_other_information(sd_radv *ra, int other) {
 }
 
 _public_ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
-        int r = 0;
-
         assert_return(ra, -EINVAL);
         assert_return(IN_SET(preference,
                              SD_NDISC_PREFERENCE_LOW,
                              SD_NDISC_PREFERENCE_MEDIUM,
                              SD_NDISC_PREFERENCE_HIGH), -EINVAL);
 
+        /* RFC 4191, Section 2.2, "...If the Router Lifetime is zero, the preference value MUST be set
+         * to (00) by the sender..." */
+        if (ra->lifetime == 0 && preference != SD_NDISC_PREFERENCE_MEDIUM)
+                return -EINVAL;
+
         ra->flags = (ra->flags & ~(0x3 << 3)) | (preference << 3);
 
-        return r;
+        return 0;
 }
 
 _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, int dynamic) {
