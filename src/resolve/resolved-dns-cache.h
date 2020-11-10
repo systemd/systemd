@@ -30,7 +30,7 @@ int dns_cache_put(
                 int rcode,
                 DnsAnswer *answer,
                 DnsPacket *full_packet,
-                bool authenticated,
+                uint64_t query_flags,
                 DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
                 int owner_family,
@@ -43,7 +43,7 @@ int dns_cache_lookup(
                 int *ret_rcode,
                 DnsAnswer **ret_answer,
                 DnsPacket **ret_full_packet,
-                bool *ret_authenticated,
+                uint64_t *ret_query_flags,
                 DnssecResult *ret_dnssec_result);
 
 int dns_cache_check_conflicts(DnsCache *cache, DnsResourceRecord *rr, int owner_family, const union in_addr_union *owner_address);

@@ -77,15 +77,12 @@ struct DnsTransaction {
         uint32_t answer_nsec_ttl;
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
 
-        /* Indicates whether the primary answer is authenticated,
-         * i.e. whether the RRs from answer which directly match the
-         * question are authenticated, or, if there are none, whether
-         * the NODATA or NXDOMAIN case is. It says nothing about
-         * additional RRs listed in the answer, however they have
-         * their own DNS_ANSWER_AUTHORIZED FLAGS. Note that this bit
-         * is defined different than the AD bit in DNS packets, as
-         * that covers more than just the actual primary answer. */
-        bool answer_authenticated;
+        /* SD_RESOLVED_AUTHENTICATED here indicates whether the primary answer is authenticated, i.e. whether
+         * the RRs from answer which directly match the question are authenticated, or, if there are none,
+         * whether the NODATA or NXDOMAIN case is. It says nothing about additional RRs listed in the answer,
+         * however they have their own DNS_ANSWER_AUTHORIZED FLAGS. Note that this bit is defined different
+         * than the AD bit in DNS packets, as that covers more than just the actual primary answer. */
+        uint64_t answer_query_flags;
 
         /* Contains DNSKEY, DS, SOA RRs we already verified and need
          * to authenticate this reply */

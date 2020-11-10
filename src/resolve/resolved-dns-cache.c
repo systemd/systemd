@@ -22,6 +22,8 @@
  * now) */
 #define CACHE_TTL_STRANGE_RCODE_USEC (10 * USEC_PER_SEC)
 
+#define CACHEABLE_QUERY_FLAGS (SD_RESOLVED_AUTHENTICATED)
+
 typedef enum DnsCacheItemType DnsCacheItemType;
 typedef struct DnsCacheItem DnsCacheItem;
 
@@ -41,8 +43,8 @@ struct DnsCacheItem {
         int rcode;
 
         usec_t until;
-        bool authenticated:1;
         bool shared_owner:1;
+        uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED */
         DnssecResult dnssec_result;
 
         int ifindex;
@@ -353,7 +355,7 @@ static void dns_cache_item_update_positive(
                 DnsResourceRecord *rr,
                 DnsAnswer *answer,
                 DnsPacket *full_packet,
-                bool authenticated,
+                uint64_t query_flags,
                 bool shared_owner,
                 DnssecResult dnssec_result,
                 usec_t timestamp,
@@ -390,7 +392,7 @@ static void dns_cache_item_update_positive(
         i->full_packet = full_packet;
 
         i->until = calculate_until(rr, UINT32_MAX, timestamp, false);
-        i->authenticated = authenticated;
+        i->query_flags = query_flags & CACHEABLE_QUERY_FLAGS;
         i->shared_owner = shared_owner;
         i->dnssec_result = dnssec_result;
 
@@ -407,7 +409,7 @@ static int dns_cache_put_positive(
                 DnsResourceRecord *rr,
                 DnsAnswer *answer,
                 DnsPacket *full_packet,
-                bool authenticated,
+                uint64_t query_flags,
                 bool shared_owner,
                 DnssecResult dnssec_result,
                 usec_t timestamp,
@@ -448,7 +450,7 @@ static int dns_cache_put_positive(
                                 rr,
                                 answer,
                                 full_packet,
-                                authenticated,
+                                query_flags,
                                 shared_owner,
                                 dnssec_result,
                                 timestamp,
@@ -476,7 +478,7 @@ static int dns_cache_put_positive(
                 .answer = dns_answer_ref(answer),
                 .full_packet = dns_packet_ref(full_packet),
                 .until = calculate_until(rr, (uint32_t) -1, timestamp, false),
-                .authenticated = authenticated,
+                .query_flags = query_flags & CACHEABLE_QUERY_FLAGS,
                 .shared_owner = shared_owner,
                 .dnssec_result = dnssec_result,
                 .ifindex = ifindex,
@@ -496,7 +498,7 @@ static int dns_cache_put_positive(
                 (void) in_addr_to_string(i->owner_family, &i->owner_address, &t);
 
                 log_debug("Added positive %s%s cache entry for %s "USEC_FMT"s on %s/%s/%s",
-                          i->authenticated ? "authenticated" : "unauthenticated",
+                          FLAGS_SET(i->query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unauthenticated",
                           i->shared_owner ? " shared" : "",
                           dns_resource_key_to_string(i->key, key_str, sizeof key_str),
                           (i->until - timestamp) / USEC_PER_SEC,
@@ -515,7 +517,7 @@ static int dns_cache_put_negative(
                 int rcode,
                 DnsAnswer *answer,
                 DnsPacket *full_packet,
-                bool authenticated,
+                uint64_t query_flags,
                 DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
                 usec_t timestamp,
@@ -566,7 +568,7 @@ static int dns_cache_put_negative(
                 .type =
                         rcode == DNS_RCODE_SUCCESS ? DNS_CACHE_NODATA :
                         rcode == DNS_RCODE_NXDOMAIN ? DNS_CACHE_NXDOMAIN : DNS_CACHE_RCODE,
-                .authenticated = authenticated,
+                .query_flags = query_flags & CACHEABLE_QUERY_FLAGS,
                 .dnssec_result = dnssec_result,
                 .owner_family = owner_family,
                 .owner_address = *owner_address,
@@ -669,7 +671,7 @@ int dns_cache_put(
                 int rcode,
                 DnsAnswer *answer,
                 DnsPacket *full_packet,
-                bool authenticated,
+                uint64_t query_flags,
                 DnssecResult dnssec_result,
                 uint32_t nsec_ttl,
                 int owner_family,
@@ -761,7 +763,7 @@ int dns_cache_put(
                                 item->rr,
                                 primary ? answer : NULL,
                                 primary ? full_packet : NULL,
-                                item->flags & DNS_ANSWER_AUTHENTICATED,
+                                (item->flags & DNS_ANSWER_AUTHENTICATED) ? SD_RESOLVED_AUTHENTICATED : 0,
                                 item->flags & DNS_ANSWER_SHARED_OWNER,
                                 dnssec_result,
                                 timestamp,
@@ -802,7 +804,8 @@ int dns_cache_put(
         if (r > 0) {
                 /* Refuse using the SOA data if it is unsigned, but the key is
                  * signed */
-                if (authenticated && (flags & DNS_ANSWER_AUTHENTICATED) == 0)
+                if (FLAGS_SET(query_flags, SD_RESOLVED_AUTHENTICATED) &&
+                    (flags & DNS_ANSWER_AUTHENTICATED) == 0)
                         return 0;
         }
 
@@ -819,7 +822,7 @@ int dns_cache_put(
                         rcode,
                         answer,
                         full_packet,
-                        authenticated,
+                        query_flags,
                         dnssec_result,
                         nsec_ttl,
                         timestamp,
@@ -951,7 +954,7 @@ int dns_cache_lookup(
                 int *ret_rcode,
                 DnsAnswer **ret_answer,
                 DnsPacket **ret_full_packet,
-                bool *ret_authenticated,
+                uint64_t *ret_query_flags,
                 DnssecResult *ret_dnssec_result) {
 
         _cleanup_(dns_packet_unrefp) DnsPacket *full_packet = NULL;
@@ -1013,7 +1016,7 @@ int dns_cache_lookup(
                         n++;
                 }
 
-                if (j->authenticated)
+                if (FLAGS_SET(j->query_flags, SD_RESOLVED_AUTHENTICATED))
                         have_authenticated = true;
                 else
                         have_non_authenticated = true;
@@ -1049,7 +1052,14 @@ int dns_cache_lookup(
                         }
 
                 } else if (j->rr) {
-                        r = answer_add_clamp_ttl(&answer, j->rr, j->ifindex, j->authenticated ? DNS_ANSWER_AUTHENTICATED : 0, NULL, query_flags, j->until, current);
+                        r = answer_add_clamp_ttl(&answer,
+                                                 j->rr,
+                                                 j->ifindex,
+                                                 FLAGS_SET(j->query_flags, SD_RESOLVED_AUTHENTICATED) ? DNS_ANSWER_AUTHENTICATED : 0,
+                                                 NULL,
+                                                 query_flags,
+                                                 j->until,
+                                                 current);
                         if (r < 0)
                                 return r;
                 }
@@ -1072,8 +1082,8 @@ int dns_cache_lookup(
                         *ret_answer = TAKE_PTR(answer);
                 if (ret_full_packet)
                         *ret_full_packet = TAKE_PTR(full_packet);
-                if (ret_authenticated)
-                        *ret_authenticated = false;
+                if (ret_query_flags)
+                        *ret_query_flags = 0;
                 if (ret_dnssec_result)
                         *ret_dnssec_result = dnssec_result;
 
@@ -1097,8 +1107,8 @@ int dns_cache_lookup(
                         *ret_answer = TAKE_PTR(answer);
                 if (ret_full_packet)
                         *ret_full_packet = TAKE_PTR(full_packet);
-                if (ret_authenticated)
-                        *ret_authenticated = nsec->authenticated;
+                if (ret_query_flags)
+                        *ret_query_flags = nsec->query_flags;
                 if (ret_dnssec_result)
                         *ret_dnssec_result = nsec->dnssec_result;
 
@@ -1127,8 +1137,8 @@ int dns_cache_lookup(
                         *ret_answer = TAKE_PTR(answer);
                 if (ret_full_packet)
                         *ret_full_packet = TAKE_PTR(full_packet);
-                if (ret_authenticated)
-                        *ret_authenticated = have_authenticated && !have_non_authenticated;
+                if (ret_query_flags)
+                        *ret_query_flags = (have_authenticated && !have_non_authenticated) ? SD_RESOLVED_AUTHENTICATED : 0;
                 if (ret_dnssec_result)
                         *ret_dnssec_result = dnssec_result;
 
@@ -1143,8 +1153,8 @@ int dns_cache_lookup(
                 *ret_answer = TAKE_PTR(answer);
         if (ret_full_packet)
                 *ret_full_packet = TAKE_PTR(full_packet);
-        if (ret_authenticated)
-                *ret_authenticated = have_authenticated && !have_non_authenticated;
+        if (ret_query_flags)
+                *ret_query_flags = (have_authenticated && !have_non_authenticated) ? SD_RESOLVED_AUTHENTICATED : 0;
         if (ret_dnssec_result)
                 *ret_dnssec_result = dnssec_result;
 
@@ -1157,8 +1167,8 @@ miss:
                 *ret_answer = NULL;
         if (ret_full_packet)
                 *ret_full_packet = NULL;
-        if (ret_authenticated)
-                *ret_authenticated = false;
+        if (ret_query_flags)
+                *ret_query_flags = 0;
         if (ret_dnssec_result)
                 *ret_dnssec_result = _DNSSEC_RESULT_INVALID;
 

@@ -29,7 +29,7 @@ static void dns_transaction_reset_answer(DnsTransaction *t) {
         t->answer_rcode = 0;
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
-        t->answer_authenticated = false;
+        t->answer_query_flags = 0;
         t->answer_nsec_ttl = (uint32_t) -1;
         t->answer_errno = 0;
 }
@@ -420,7 +420,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                   st,
                   t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
                   FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) ? "not validated" :
-                  (t->answer_authenticated ? "authenticated" : "unsigned"));
+                  (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unsigned"));
 
         t->state = state;
 
@@ -793,7 +793,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                                                                         * since our usecase for caching them
                                                                         * is "bypass" mode which is only
                                                                         * enabled for CD packets. */
-                      t->answer_authenticated,
+                      t->answer_query_flags,
                       t->answer_dnssec_result,
                       t->answer_nsec_ttl,
                       t->received->family,
@@ -1231,7 +1231,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         t->answer = dns_answer_ref(p->answer);
         t->answer_rcode = DNS_PACKET_RCODE(p);
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
-        t->answer_authenticated = false;
+        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
 
         r = dns_transaction_fix_rcode(t);
         if (r < 0)
@@ -1519,7 +1519,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 if (r > 0) {
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
-                        t->answer_authenticated = true;
+                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, true);
                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         return 0;
                 }
@@ -1538,7 +1538,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 
                                 t->answer_rcode = DNS_RCODE_SUCCESS;
                                 t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
-                                t->answer_authenticated = false;
+                                SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
                                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         } else
                                 /* If we are not in downgrade mode, then fail the lookup, because we cannot
@@ -1559,7 +1559,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 if (r > 0) {
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_source = DNS_TRANSACTION_ZONE;
-                        t->answer_authenticated = true;
+                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, true);
                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         return 0;
                 }
@@ -1582,7 +1582,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 &t->answer_rcode,
                                 &t->answer,
                                 &t->received,
-                                &t->answer_authenticated,
+                                &t->answer_query_flags,
                                 &t->answer_dnssec_result);
                 if (r < 0)
                         return r;
@@ -2566,7 +2566,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                          * RRs we are looking at. If it discovered signed DS
                          * RRs, then we need to be signed, too. */
 
-                        if (!dt->answer_authenticated)
+                        if (!FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                                 return false;
 
                         return dns_answer_match_key(dt->answer, dns_transaction_key(dt), NULL);
@@ -2618,7 +2618,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         if (r == 0)
                                 continue;
 
-                        return t->answer_authenticated;
+                        return FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
                 }
 
                 return true;
@@ -2642,12 +2642,10 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         if (r == 0)
                                 continue;
 
-                        /* We found the transaction that was supposed to find
-                         * the SOA RR for us. It was successful, but found no
-                         * RR for us. This means we are not at a zone cut. In
-                         * this case, we require authentication if the SOA
-                         * lookup was authenticated too. */
-                        return t->answer_authenticated;
+                        /* We found the transaction that was supposed to find the SOA RR for us. It was
+                         * successful, but found no RR for us. This means we are not at a zone cut. In this
+                         * case, we require authentication if the SOA lookup was authenticated too. */
+                        return FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
                 }
 
                 return true;
@@ -2788,7 +2786,7 @@ static int dns_transaction_requires_nsec(DnsTransaction *t) {
                 if (r == 0)
                         continue;
 
-                return dt->answer_authenticated;
+                return FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
         }
 
         /* If in doubt, require NSEC/NSEC3 */
@@ -2832,11 +2830,10 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
                                 if (r == 0)
                                         continue;
 
-                                /* OK, we found an auxiliary DNSKEY
-                                 * lookup. If that lookup is
-                                 * authenticated, report this. */
+                                /* OK, we found an auxiliary DNSKEY lookup. If that lookup is authenticated,
+                                 * report this. */
 
-                                if (dt->answer_authenticated)
+                                if (FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                                         return true;
 
                                 found = true;
@@ -2849,12 +2846,10 @@ static int dns_transaction_dnskey_authenticated(DnsTransaction *t, DnsResourceRe
                                 if (r == 0)
                                         continue;
 
-                                /* OK, we found an auxiliary DS
-                                 * lookup. If that lookup is
-                                 * authenticated and non-zero, we
-                                 * won! */
+                                /* OK, we found an auxiliary DS lookup. If that lookup is authenticated and
+                                 * non-zero, we won! */
 
-                                if (!dt->answer_authenticated)
+                                if (!FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                                         return false;
 
                                 return dns_answer_match_key(dt->answer, dns_transaction_key(dt), NULL);
@@ -2942,7 +2937,7 @@ static int dns_transaction_copy_validated(DnsTransaction *t) {
                 if (DNS_TRANSACTION_IS_LIVE(dt->state))
                         continue;
 
-                if (!dt->answer_authenticated)
+                if (!FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                         continue;
 
                 r = dns_answer_extend(&t->validated_keys, dt->answer);
@@ -3244,7 +3239,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         /* Our own stuff needs no validation */
         if (IN_SET(t->answer_source, DNS_TRANSACTION_ZONE, DNS_TRANSACTION_TRUST_ANCHOR)) {
                 t->answer_dnssec_result = DNSSEC_VALIDATED;
-                t->answer_authenticated = true;
+                SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, true);
                 return 0;
         }
 
@@ -3332,11 +3327,11 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         /* The answer is fully authenticated, yay. */
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_SUCCESS;
-                        t->answer_authenticated = true;
+                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, true);
                 } else {
                         /* The answer is not fully authenticated. */
                         t->answer_dnssec_result = DNSSEC_UNSIGNED;
-                        t->answer_authenticated = false;
+                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
                 }
 
         } else if (r == 0) {
@@ -3355,7 +3350,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         log_debug("Proved NXDOMAIN via NSEC/NSEC3 for transaction %u (%s)", t->id, key_str);
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_NXDOMAIN;
-                        t->answer_authenticated = authenticated;
+                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, authenticated);
 
                         manager_dnssec_verdict(t->scope->manager, authenticated ? DNSSEC_SECURE : DNSSEC_INSECURE, dns_transaction_key(t));
                         break;
@@ -3365,7 +3360,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         log_debug("Proved NODATA via NSEC/NSEC3 for transaction %u (%s)", t->id, key_str);
                         t->answer_dnssec_result = DNSSEC_VALIDATED;
                         t->answer_rcode = DNS_RCODE_SUCCESS;
-                        t->answer_authenticated = authenticated;
+                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, authenticated);
 
                         manager_dnssec_verdict(t->scope->manager, authenticated ? DNSSEC_SECURE : DNSSEC_INSECURE, dns_transaction_key(t));
                         break;
@@ -3374,7 +3369,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                         /* NSEC3 says the data might not be signed */
                         log_debug("Data is NSEC3 opt-out via NSEC/NSEC3 for transaction %u (%s)", t->id, key_str);
                         t->answer_dnssec_result = DNSSEC_UNSIGNED;
-                        t->answer_authenticated = false;
+                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
 
                         manager_dnssec_verdict(t->scope->manager, DNSSEC_INSECURE, dns_transaction_key(t));
                         break;
@@ -3390,7 +3385,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                                 manager_dnssec_verdict(t->scope->manager, DNSSEC_BOGUS, dns_transaction_key(t));
                         } else {
                                 t->answer_dnssec_result = DNSSEC_UNSIGNED;
-                                t->answer_authenticated = false;
+                                SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
                                 manager_dnssec_verdict(t->scope->manager, DNSSEC_INSECURE, dns_transaction_key(t));
                         }
 
