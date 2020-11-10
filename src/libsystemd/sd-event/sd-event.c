@@ -2383,8 +2383,6 @@ static int event_source_enable(sd_event_source *s, int enable) {
                 break;
 
         case SOURCE_CHILD:
-                s->event->n_enabled_child_sources++;
-
                 r = event_make_signal_data(s->event, SIGCHLD, NULL);
                 if (r < 0) {
                         s->enabled = SD_EVENT_OFF;
@@ -2393,6 +2391,7 @@ static int event_source_enable(sd_event_source *s, int enable) {
                         return r;
                 }
 
+                s->event->n_enabled_child_sources++;
 
                 break;
 
