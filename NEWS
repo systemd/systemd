@@ -159,11 +159,9 @@ CHANGES WITH 247 in spe:
           to the service.
 
         * Timer units gained a new FixedRandomDelay= boolean setting. If
-          enabled the random delay configured with RandomizedDelaySec= is
-          hashed from the unit name, system identity, and execution context, so
-          that always the same offset is used for the same unit on the same
-          system run in the same context, in a way that is stable across system
-          reboots.
+          enabled, the random delay configured with RandomizedDelaySec= is
+          selected in a way that is stable on a given system (though still
+          different for different units).
 
         * Socket units gained a new setting Timestamping= that takes "us", "ns"
           or "off". This controls the SO_TIMESTAMP/SO_TIMESTAMPNS socket
