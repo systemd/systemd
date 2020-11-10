@@ -367,7 +367,8 @@ static int parse_as_address(sd_bus_message *m, int ifindex, const char *hostname
                 return r;
 
         r = sd_bus_message_append(reply, "st", canonical,
-                                  SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(flags), ff, true, true));
+                                  SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(flags), ff, true, true) |
+                                  SD_RESOLVED_SYNTHETIC);
         if (r < 0)
                 return r;
 

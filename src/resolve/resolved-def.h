@@ -55,8 +55,25 @@
 /* Output: Result was only sent via encrypted channels, or never left this system */
 #define SD_RESOLVED_CONFIDENTIAL    (UINT64_C(1) << 18)
 
+/* Output: Result was (at least partially) synthesized locally */
+#define SD_RESOLVED_SYNTHETIC       (UINT64_C(1) << 19)
+
+/* Output: Result was (at least partially) answered from cache */
+#define SD_RESOLVED_FROM_CACHE      (UINT64_C(1) << 20)
+
+/* Output: Result was (at least partially) answered from local zone */
+#define SD_RESOLVED_FROM_ZONE       (UINT64_C(1) << 21)
+
+/* Output: Result was (at least partially) answered from trust anchor */
+#define SD_RESOLVED_FROM_TRUST_ANCHOR (UINT64_C(1) << 22)
+
+/* Output: Result was (at least partially) answered from network */
+#define SD_RESOLVED_FROM_NETWORK    (UINT64_C(1) << 23)
+
 #define SD_RESOLVED_LLMNR           (SD_RESOLVED_LLMNR_IPV4|SD_RESOLVED_LLMNR_IPV6)
 #define SD_RESOLVED_MDNS            (SD_RESOLVED_MDNS_IPV4|SD_RESOLVED_MDNS_IPV6)
 #define SD_RESOLVED_PROTOCOLS_ALL   (SD_RESOLVED_MDNS|SD_RESOLVED_LLMNR|SD_RESOLVED_DNS)
+
+#define SD_RESOLVED_FROM_MASK       (SD_RESOLVED_FROM_CACHE|SD_RESOLVED_FROM_ZONE|SD_RESOLVED_FROM_TRUST_ANCHOR|SD_RESOLVED_FROM_NETWORK)
 
 #define SD_RESOLVED_QUERY_TIMEOUT_USEC (120 * USEC_PER_SEC)

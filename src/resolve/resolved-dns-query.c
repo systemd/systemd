@@ -630,7 +630,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
                 q->answer_rcode = DNS_RCODE_NXDOMAIN;
                 q->answer_protocol = dns_synthesize_protocol(q->flags);
                 q->answer_family = dns_synthesize_family(q->flags);
-                q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL;
+                q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
                 *state = DNS_TRANSACTION_RCODE_FAILURE;
 
                 return 0;
@@ -644,7 +644,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
         q->answer_rcode = DNS_RCODE_SUCCESS;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
-        q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL;
+        q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
 
         *state = DNS_TRANSACTION_SUCCESS;
 
@@ -676,7 +676,7 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
         q->answer_rcode = DNS_RCODE_SUCCESS;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
-        q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL;
+        q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
 
         return 1;
 }
@@ -833,10 +833,14 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                                 r = dns_answer_extend(&q->answer, t->answer);
                                 if (r < 0)
                                         goto fail;
+
+                                q->answer_query_flags |= dns_transaction_source_to_query_flags(t->answer_source);
                         } else {
                                 /* Override non-successful previous answers */
                                 dns_answer_unref(q->answer);
                                 q->answer = dns_answer_ref(t->answer);
+
+                                q->answer_query_flags = dns_transaction_source_to_query_flags(t->answer_source);
                         }
 
                         q->answer_rcode = t->answer_rcode;
@@ -883,7 +887,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         q->answer = dns_answer_ref(t->answer);
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
-                        q->answer_query_flags = t->answer_query_flags;
+                        q->answer_query_flags = t->answer_query_flags | dns_transaction_source_to_query_flags(t->answer_source);
                         q->answer_errno = t->answer_errno;
                         dns_packet_unref(q->answer_full_packet);
                         q->answer_full_packet = dns_packet_ref(t->received);

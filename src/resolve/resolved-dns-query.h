@@ -141,5 +141,6 @@ static inline uint64_t dns_query_reply_flags_make(DnsQuery *q) {
         return SD_RESOLVED_FLAGS_MAKE(q->answer_protocol,
                                       q->answer_family,
                                       dns_query_fully_authenticated(q),
-                                      dns_query_fully_confidential(q));
+                                      dns_query_fully_confidential(q)) |
+                (q->answer_query_flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC));
 }
