@@ -2352,11 +2352,11 @@ static int event_source_disable(sd_event_source *s) {
         return 0;
 }
 
-static int event_source_enable(sd_event_source *s, int m) {
+static int event_source_enable(sd_event_source *s, int enable) {
         int r;
 
         assert(s);
-        assert(IN_SET(m, SD_EVENT_ON, SD_EVENT_ONESHOT));
+        assert(IN_SET(enable, SD_EVENT_ON, SD_EVENT_ONESHOT));
         assert(s->enabled == SD_EVENT_OFF);
 
         /* Unset the pending flag when this event source is enabled */
@@ -2366,31 +2366,16 @@ static int event_source_enable(sd_event_source *s, int m) {
                         return r;
         }
 
-        s->enabled = m;
-
         switch (s->type) {
-
         case SOURCE_IO:
-                r = source_io_register(s, m, s->io.events);
-                if (r < 0) {
-                        s->enabled = SD_EVENT_OFF;
+                r = source_io_register(s, enable, s->io.events);
+                if (r < 0)
                         return r;
-                }
-
-                break;
-
-        case SOURCE_TIME_REALTIME:
-        case SOURCE_TIME_BOOTTIME:
-        case SOURCE_TIME_MONOTONIC:
-        case SOURCE_TIME_REALTIME_ALARM:
-        case SOURCE_TIME_BOOTTIME_ALARM:
-                event_source_time_prioq_reshuffle(s);
                 break;
 
         case SOURCE_SIGNAL:
                 r = event_make_signal_data(s->event, s->signal.sig, NULL);
                 if (r < 0) {
-                        s->enabled = SD_EVENT_OFF;
                         event_gc_signal_data(s->event, &s->priority, s->signal.sig);
                         return r;
                 }
@@ -2411,10 +2396,12 @@ static int event_source_enable(sd_event_source *s, int m) {
 
                 break;
 
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM:
         case SOURCE_EXIT:
-                prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
-                break;
-
         case SOURCE_DEFER:
         case SOURCE_POST:
         case SOURCE_INOTIFY:
@@ -2422,6 +2409,26 @@ static int event_source_enable(sd_event_source *s, int m) {
 
         default:
                 assert_not_reached("Wut? I shouldn't exist.");
+        }
+
+        s->enabled = enable;
+
+        /* Non-failing operations below */
+        switch (s->type) {
+        case SOURCE_TIME_REALTIME:
+        case SOURCE_TIME_BOOTTIME:
+        case SOURCE_TIME_MONOTONIC:
+        case SOURCE_TIME_REALTIME_ALARM:
+        case SOURCE_TIME_BOOTTIME_ALARM:
+                event_source_time_prioq_reshuffle(s);
+                break;
+
+        case SOURCE_EXIT:
+                prioq_reshuffle(s->event->exit, s, &s->exit.prioq_index);
+                break;
+
+        default:
+                break;
         }
 
         return 0;
