@@ -1,5 +1,5 @@
---- 20-acpi-vendor.hwdb.base	2020-10-23 13:40:57.007717408 +0200
-+++ 20-acpi-vendor.hwdb	2020-10-23 13:40:57.014717445 +0200
+--- 20-acpi-vendor.hwdb.base	2020-11-10 14:13:39.257693009 +0100
++++ 20-acpi-vendor.hwdb	2020-11-10 14:13:39.264693047 +0100
 @@ -3,6 +3,8 @@
  # Data imported from:
  #     https://uefi.org/uefi-pnp-export
@@ -451,7 +451,7 @@
  acpi:USD*:
   ID_VENDOR_FROM_DATABASE=U.S. Digital Corporation
  
-@@ -7354,9 +7422,6 @@
+@@ -7357,9 +7425,6 @@
  acpi:WAL*:
   ID_VENDOR_FROM_DATABASE=Wave Access
  
@@ -461,7 +461,7 @@
  acpi:WAV*:
   ID_VENDOR_FROM_DATABASE=Wavephore
  
-@@ -7481,7 +7546,7 @@
+@@ -7484,7 +7549,7 @@
   ID_VENDOR_FROM_DATABASE=WyreStorm Technologies LLC
  
  acpi:WYS*:
@@ -470,7 +470,7 @@
  
  acpi:WYT*:
   ID_VENDOR_FROM_DATABASE=Wooyoung Image & Information Co.,Ltd.
-@@ -7495,9 +7560,6 @@
+@@ -7498,9 +7563,6 @@
  acpi:XDM*:
   ID_VENDOR_FROM_DATABASE=XDM Ltd.
  
@@ -480,7 +480,7 @@
  acpi:XES*:
   ID_VENDOR_FROM_DATABASE=Extreme Engineering Solutions, Inc.
  
-@@ -7528,9 +7590,6 @@
+@@ -7531,9 +7593,6 @@
  acpi:XNT*:
   ID_VENDOR_FROM_DATABASE=XN Technologies, Inc.
  
@@ -490,7 +490,7 @@
  acpi:XQU*:
   ID_VENDOR_FROM_DATABASE=SHANGHAI SVA-DAV ELECTRONICS CO., LTD
  
-@@ -7597,6 +7656,9 @@
+@@ -7600,6 +7659,9 @@
  acpi:ZBX*:
   ID_VENDOR_FROM_DATABASE=Zebax Technologies
  
