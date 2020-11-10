@@ -2210,6 +2210,18 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                 if (r < 0)
                         return r;
 
+                if (p->rindex == p->size) {
+                        /* If we reached the end of the packet already, but there are still more RRs
+                         * declared, then that's a corrupt packet. Let's accept the packet anyway, since it's
+                         * apparently a common bug in routers. Let's however suppress OPT support in this
+                         * case, so that we force the rest of the logic into lowest DNS baseline support. Or
+                         * to say this differently: if the DNS server doesn't even get the RR counts right,
+                         * it's highly unlikely it gets EDNS right. */
+                        log_debug("More resource records declared in packet than included, suppressing OPT.");
+                        bad_opt = true;
+                        break;
+                }
+
                 /* Try to reduce memory usage a bit */
                 if (previous)
                         dns_resource_key_reduce(&rr->key, &previous->key);
@@ -2295,8 +2307,10 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                 previous = dns_resource_record_ref(rr);
         }
 
-        if (bad_opt)
+        if (bad_opt) {
                 p->opt = dns_resource_record_unref(p->opt);
+                p->opt_start = p->opt_size = SIZE_MAX;
+        }
 
         *ret_answer = TAKE_PTR(answer);
 
