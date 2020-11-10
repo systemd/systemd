@@ -630,7 +630,8 @@ static int on_stream_packet(DnsStream *s) {
         assert_se(p = dns_stream_take_read_packet(s));
 
         t = hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
-        if (t)
+        if (t && t->stream == s) /* Validate that the stream we got this on actually is the stream the
+                                  * transaction was using. */
                 return dns_transaction_on_stream_packet(t, s, p);
 
         /* Ignore incorrect transaction id as an old transaction can have been canceled. */
