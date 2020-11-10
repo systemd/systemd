@@ -1340,31 +1340,25 @@ _public_ int sd_event_add_child(
         if (r < 0)
                 return r;
 
-        e->n_enabled_child_sources++;
-
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
                 /* We have a pidfd and we only want to watch for exit */
-
                 r = source_child_pidfd_register(s, s->enabled);
-                if (r < 0) {
-                        e->n_enabled_child_sources--;
+                if (r < 0)
                         return r;
-                }
+
         } else {
                 /* We have no pidfd or we shall wait for some other event than WEXITED */
-
                 r = event_make_signal_data(e, SIGCHLD, NULL);
-                if (r < 0) {
-                        e->n_enabled_child_sources--;
+                if (r < 0)
                         return r;
-                }
 
                 e->need_process_child = true;
         }
 
+        e->n_enabled_child_sources++;
+
         if (ret)
                 *ret = s;
-
         TAKE_PTR(s);
         return 0;
 }
@@ -1429,31 +1423,24 @@ _public_ int sd_event_add_child_pidfd(
         if (r < 0)
                 return r;
 
-        e->n_enabled_child_sources++;
-
         if (EVENT_SOURCE_WATCH_PIDFD(s)) {
                 /* We only want to watch for WEXITED */
-
                 r = source_child_pidfd_register(s, s->enabled);
-                if (r < 0) {
-                        e->n_enabled_child_sources--;
+                if (r < 0)
                         return r;
-                }
         } else {
                 /* We shall wait for some other event than WEXITED */
-
                 r = event_make_signal_data(e, SIGCHLD, NULL);
-                if (r < 0) {
-                        e->n_enabled_child_sources--;
+                if (r < 0)
                         return r;
-                }
 
                 e->need_process_child = true;
         }
 
+        e->n_enabled_child_sources++;
+
         if (ret)
                 *ret = s;
-
         TAKE_PTR(s);
         return 0;
 }
@@ -2342,26 +2329,23 @@ static int event_source_enable(sd_event_source *s, int enable) {
                 break;
 
         case SOURCE_CHILD:
-                s->event->n_enabled_child_sources++;
-
                 if (EVENT_SOURCE_WATCH_PIDFD(s)) {
                         /* yes, we have pidfd */
 
                         r = source_child_pidfd_register(s, enable);
-                        if (r < 0) {
-                                s->event->n_enabled_child_sources--;
+                        if (r < 0)
                                 return r;
-                        }
                 } else {
                         /* no pidfd, or something other to watch for than WEXITED */
 
                         r = event_make_signal_data(s->event, SIGCHLD, NULL);
                         if (r < 0) {
-                                s->event->n_enabled_child_sources--;
                                 event_gc_signal_data(s->event, &s->priority, SIGCHLD);
                                 return r;
                         }
                 }
+
+                s->event->n_enabled_child_sources++;
 
                 break;
 
