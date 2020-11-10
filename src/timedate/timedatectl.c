@@ -12,6 +12,7 @@
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-print-properties.h"
+#include "env-util.h"
 #include "format-table.h"
 #include "in-addr-util.h"
 #include "main-func.h"
@@ -139,12 +140,9 @@ static int print_status_info(const StatusInfo *i) {
 
 
         /* Restore the $TZ */
-        if (old_tz)
-                r = setenv("TZ", old_tz, true);
-        else
-                r = unsetenv("TZ");
+        r = set_unset_env("TZ", old_tz, true);
         if (r < 0)
-                log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
+                log_warning_errno(r, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();
 
