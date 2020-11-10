@@ -1714,7 +1714,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (r == -EMSGSIZE)
                         log_debug("Sending query via TCP since it is too large.");
                 else if (r == -EAGAIN)
-                        log_debug("Sending query via TCP since UDP isn't supported.");
+                        log_debug("Sending query via TCP since UDP isn't supported or DNS-over-TLS is selected.");
                 if (IN_SET(r, -EMSGSIZE, -EAGAIN))
                         r = dns_transaction_emit_tcp(t);
         }
