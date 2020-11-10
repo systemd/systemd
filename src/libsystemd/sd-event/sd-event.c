@@ -402,8 +402,7 @@ static int source_io_register(
 
         if (epoll_ctl(s->event->epoll_fd,
                       s->io.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
-                      s->io.fd,
-                      &ev) < 0)
+                      s->io.fd, &ev) < 0)
                 return -errno;
 
         s->io.registered = true;
@@ -430,8 +429,6 @@ static void source_child_pidfd_unregister(sd_event_source *s) {
 }
 
 static int source_child_pidfd_register(sd_event_source *s, int enabled) {
-        int r;
-
         assert(s);
         assert(s->type == SOURCE_CHILD);
         assert(enabled != SD_EVENT_OFF);
@@ -442,11 +439,9 @@ static int source_child_pidfd_register(sd_event_source *s, int enabled) {
                         .data.ptr = s,
                 };
 
-                if (s->child.registered)
-                        r = epoll_ctl(s->event->epoll_fd, EPOLL_CTL_MOD, s->child.pidfd, &ev);
-                else
-                        r = epoll_ctl(s->event->epoll_fd, EPOLL_CTL_ADD, s->child.pidfd, &ev);
-                if (r < 0)
+                if (epoll_ctl(s->event->epoll_fd,
+                              s->child.registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD,
+                              s->child.pidfd, &ev) < 0)
                         return -errno;
         }
 
