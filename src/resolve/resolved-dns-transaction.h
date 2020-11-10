@@ -169,6 +169,27 @@ static inline DnsResourceKey *dns_transaction_key(DnsTransaction *t) {
         return t->bypass->question->keys[0];
 }
 
+static inline uint64_t dns_transaction_source_to_query_flags(DnsTransactionSource s) {
+
+        switch (s) {
+
+        case DNS_TRANSACTION_NETWORK:
+                return SD_RESOLVED_FROM_NETWORK;
+
+        case DNS_TRANSACTION_CACHE:
+                return SD_RESOLVED_FROM_CACHE;
+
+        case DNS_TRANSACTION_ZONE:
+                return SD_RESOLVED_FROM_ZONE;
+
+        case DNS_TRANSACTION_TRUST_ANCHOR:
+                return SD_RESOLVED_FROM_TRUST_ANCHOR;
+
+        default:
+                return 0;
+        }
+}
+
 const char* dns_transaction_state_to_string(DnsTransactionState p) _const_;
 DnsTransactionState dns_transaction_state_from_string(const char *s) _pure_;
 
