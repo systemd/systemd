@@ -158,6 +158,17 @@ CHANGES WITH 247 in spe:
           mounting additional disk images into the file system tree accessible
           to the service.
 
+        * Timer units gained a new FixedRandomDelay= boolean setting. If
+          enabled the random delay configured with RandomizedDelaySec= is
+          hashed from the unit name, system identity, and execution context, so
+          that always the same offset is used for the same unit on the same
+          system run in the same context, in a way that is stable across system
+          reboots.
+
+        * Socket units gained a new setting Timestamping= that takes "us", "ns"
+          or "off". This controls the SO_TIMESTAMP/SO_TIMESTAMPNS socket
+          options.
+
         * systemd-repart now generates JSON output when requested with the new
           --json= switch.
 
@@ -298,6 +309,10 @@ CHANGES WITH 247 in spe:
           the kernel (audit). This is useful for tracking down system calls
           invoked by container payloads that are prohibited by the container's
           system call filter policy.
+
+        * If the $SYSTEMD_SECCOMP=0 environment variable is set for
+          systemd-nspawn (and other programs that use seccomp) all seccomp
+          filtering is turned off.
 
         * Two new unit file settings ProtectProc= and ProcSubset= have been
           added that expose the hidepid= and subset= mount options of procfs.
@@ -582,46 +597,42 @@ CHANGES WITH 247 in spe:
           a command "bootctl set-default @current" may be used to make the
           currently boot menu item the new default for all subsequent boots.
 
-        * A new generic target unit "initrd-cryptsetup.target" has been added
-          that is supposed to pull in all encrypted volumes that shall be set
-          up during the initrd phase. It takes the place of "cryptsetup.target"
-          and "remote-cryptsetup.target" that exist during the host boot
-          phase. In other words, the new "initrd-cryptsetup.target" is supposed
-          to take the role for "initrd-fs.target", but for encrypted volumes.
-
         * "systemctl edit" has been updated to show the original effective unit
           contents in commented form in the text editor.
 
         Contributions from: Adolfo Jayme Barrientos, afg, Alec Moskvin, Alyssa
-        Ross, Amitanand.Chikorde, Andrew Hangsleben, Anita Zhang, Ansgar
+        Ross, Amitanand Chikorde, Andrew Hangsleben, Anita Zhang, Ansgar
         Burchardt, Arian van Putten, Aurelien Jarno, Axel Rasmussen, bauen1,
         Beniamino Galvani, Benjamin Berg, Bjørn Mork, brainrom, Chandradeep
         Dey, Charles Lee, Chris Down, Christian Göttsche, Clemens Gruber, Daan
-        De Meyer, Daniele Medri, Daniel Mack, Dan Streetman, David Tardon,
-        Dimitri John Ledkov, Dmitry Borodaenko, Elias Probst, Elisei Roca,
-        ErrantSpore, Etienne Doms, Fabrice Fontaine, fangxiuning, Felix
-        Riemann, Florian Klink, Franck Bui, Frantisek Sumsal, George Rawlinson,
-        germanztz, Gibeom Gwon, Glen Whitney, Gogo Gogsi, Göran Uddeborg, Grant
-        Mathews, Hans de Goede, Hans Ulrich Niedermann, Haochen Tong, Harald
-        Seiler, huangyong, Hubert Kario, Ikey Doherty, Jan Chren, Jan Schlüter,
-        Jérémy Nouhaud, Joerg Behrmann, Jonathan Lebon, Juergen Hoetzel, Julien
-        Humbert, Kai-Chuan Hsieh, Kairui Song, Kamil Dudka, Kir Kolyshkin, Kyle
+        De Meyer, Daniele Medri, Daniel Mack, Daniel Rusek, Dan Streetman,
+        David Tardon, Dimitri John Ledkov, Dmitry Borodaenko, Elias Probst,
+        Elisei Roca, ErrantSpore, Etienne Doms, Fabrice Fontaine, fangxiuning,
+        Felix Riemann, Florian Klink, Franck Bui, Frantisek Sumsal, fwSmit,
+        George Rawlinson, germanztz, Gibeom Gwon, Glen Whitney, Gogo Gogsi,
+        Göran Uddeborg, Grant Mathews, Hans de Goede, Hans Ulrich Niedermann,
+        Haochen Tong, Harald Seiler, huangyong, Hubert Kario, Ikey Doherty, Jan
+        Chren, Jan Schlüter, Jérémy Nouhaud, Jian-Hong Pan, Joerg Behrmann,
+        Jonathan Lebon, Josh Brobst, Juergen Hoetzel, Julien Humbert, Kai-Chuan
+        Hsieh, Kairui Song, Kamil Dudka, Kir Kolyshkin, Kristijan Gjoshev, Kyle
         Huey, Kyle Russell, Lennart Poettering, lichangze, Luca Boccassi, Lucas
-        Werkmeister, Marc Kleine-Budde, Marco Wang, Marti Raudsepp,
-        masmullin2000, Máté Pozsgay, Matt Fenwick, Michael Biebl, Michael
-        Scherer, Michal Koutný, Michal Sekletár, Michal Suchanek, Mikael
-        Szreder, Milo Casagrande, mirabilos, Mitsuha_QuQ, mog422, Nazar
-        Vinnichuk, Nicholas Narsing, Nicolas Fella, Njibhu, nl6720, Oğuz Ersen,
-        Olivier Le Moal, Ondrej Kozina, Pass Automated Testing Suite, Pat
-        Coulthard, Pedro Ruiz, Peter Hutterer, Phaedrus Leeds, PhoenixDiscord,
-        Piotr Drąg, Plan C, Renaud Métrich, Robert Marko, Ronan Pigott, Roy
-        Chen (陳彥廷), RussianNeuroMancer, Samanta Navarro, Samuel BF,
-        scootergrisen, Steve Dodd, Susant Sahani, Tobias Hunger, Tobias
-        Kaufmann, Topi Miettinen, Vito Caputo, Weblate, Wen Yang, williamvds,
-        Yuri Chornoivan, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, Zmicer
-        Turok, Дамјан Георгиевски
+        Werkmeister, Luca Weiss, Marc Kleine-Budde, Marco Wang, Martin Wilck,
+        Marti Raudsepp, masmullin2000, Máté Pozsgay, Matt Fenwick, Michael
+        Biebl, Michael Scherer, Michal Koutný, Michal Sekletár, Michal
+        Suchanek, Mikael Szreder, Milo Casagrande, mirabilos, Mitsuha_QuQ,
+        mog422, Muhammet Kara, Nazar Vinnichuk, Nicholas Narsing, Nicolas
+        Fella, Njibhu, nl6720, Oğuz Ersen, Olivier Le Moal, Ondrej Kozina,
+        onlybugreports, Pass Automated Testing Suite, Pat Coulthard, Pedro
+        Ruiz, Peter Hutterer, Phaedrus Leeds, PhoenixDiscord, Piotr Drąg, Plan
+        C, Purushottam choudhary, Rasmus Villemoes, Renaud Métrich, Robert
+        Marko, Ronan Pigott, Roy Chen (陳彥廷), RussianNeuroMancer, Samanta
+        Navarro, Samuel BF, scootergrisen, Sorin Ionescu, Steve Dodd, Susant
+        Sahani, Timo Rothenpieler, Tobias Hunger, Tobias Kaufmann, Topi
+        Miettinen, Vito Caputo, Weblate, Wen Yang, williamvds, Yu, Li-Yu, Yuri
+        Chornoivan, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, Zmicer Turok,
+        Дамјан Георгиевски
 
-        – Warsaw, 2020-10-26
+        – Warsaw, 2020-11-10
 
 CHANGES WITH 246:
 
