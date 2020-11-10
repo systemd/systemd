@@ -222,7 +222,7 @@ static void vl_method_resolve_hostname_complete(DnsQuery *q) {
                            JSON_BUILD_OBJECT(
                                            JSON_BUILD_PAIR("addresses", JSON_BUILD_VARIANT(array)),
                                            JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized)),
-                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q))))));
+                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
 finish:
         if (r < 0) {
                 log_error_errno(r, "Failed to send hostname reply: %m");
@@ -267,7 +267,7 @@ static int parse_as_address(Varlink *link, LookupParameters *p) {
                                                         JSON_BUILD_PAIR("family", JSON_BUILD_INTEGER(ff)),
                                                         JSON_BUILD_PAIR("address", JSON_BUILD_BYTE_ARRAY(&parsed, FAMILY_ADDRESS_SIZE(ff)))))),
                                 JSON_BUILD_PAIR("name", JSON_BUILD_STRING(canonical)),
-                                JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true)))));
+                                JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true, true)))));
 }
 
 static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -440,7 +440,7 @@ static void vl_method_resolve_address_complete(DnsQuery *q) {
         r = varlink_replyb(q->varlink_request,
                            JSON_BUILD_OBJECT(
                                            JSON_BUILD_PAIR("names", JSON_BUILD_VARIANT(array)),
-                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(q->answer_protocol, q->answer_family, dns_query_fully_authenticated(q))))));
+                                           JSON_BUILD_PAIR("flags", JSON_BUILD_INTEGER(dns_query_reply_flags_make(q)))));
 finish:
         if (r < 0) {
                 log_error_errno(r, "Failed to send address reply: %m");

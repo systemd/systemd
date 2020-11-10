@@ -22,7 +22,7 @@
  * now) */
 #define CACHE_TTL_STRANGE_RCODE_USEC (10 * USEC_PER_SEC)
 
-#define CACHEABLE_QUERY_FLAGS (SD_RESOLVED_AUTHENTICATED)
+#define CACHEABLE_QUERY_FLAGS (SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL)
 
 typedef enum DnsCacheItemType DnsCacheItemType;
 typedef struct DnsCacheItem DnsCacheItem;
@@ -44,7 +44,7 @@ struct DnsCacheItem {
 
         usec_t until;
         bool shared_owner:1;
-        uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED */
+        uint64_t query_flags;    /* SD_RESOLVED_AUTHENTICATED and/or SD_RESOLVED_CONFIDENTIAL */
         DnssecResult dnssec_result;
 
         int ifindex;
@@ -497,8 +497,9 @@ static int dns_cache_put_positive(
 
                 (void) in_addr_to_string(i->owner_family, &i->owner_address, &t);
 
-                log_debug("Added positive %s%s cache entry for %s "USEC_FMT"s on %s/%s/%s",
+                log_debug("Added positive %s %s%s cache entry for %s "USEC_FMT"s on %s/%s/%s",
                           FLAGS_SET(i->query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unauthenticated",
+                          FLAGS_SET(i->query_flags, SD_RESOLVED_CONFIDENTIAL) ? "confidential" : "non-confidential",
                           i->shared_owner ? " shared" : "",
                           dns_resource_key_to_string(i->key, key_str, sizeof key_str),
                           (i->until - timestamp) / USEC_PER_SEC,
@@ -763,7 +764,8 @@ int dns_cache_put(
                                 item->rr,
                                 primary ? answer : NULL,
                                 primary ? full_packet : NULL,
-                                (item->flags & DNS_ANSWER_AUTHENTICATED) ? SD_RESOLVED_AUTHENTICATED : 0,
+                                ((item->flags & DNS_ANSWER_AUTHENTICATED) ? SD_RESOLVED_AUTHENTICATED : 0) |
+                                (query_flags & SD_RESOLVED_CONFIDENTIAL),
                                 item->flags & DNS_ANSWER_SHARED_OWNER,
                                 dnssec_result,
                                 timestamp,
@@ -964,7 +966,7 @@ int dns_cache_lookup(
         int r;
         bool nxdomain = false;
         DnsCacheItem *j, *first, *nsec = NULL;
-        bool have_authenticated = false, have_non_authenticated = false;
+        bool have_authenticated = false, have_non_authenticated = false, have_confidential = false, have_non_confidential = false;
         usec_t current;
         int found_rcode = -1;
         DnssecResult dnssec_result = -1;
@@ -1020,6 +1022,11 @@ int dns_cache_lookup(
                         have_authenticated = true;
                 else
                         have_non_authenticated = true;
+
+                if (FLAGS_SET(j->query_flags, SD_RESOLVED_CONFIDENTIAL))
+                        have_confidential = true;
+                else
+                        have_non_confidential = true;
 
                 if (j->dnssec_result < 0) {
                         have_dnssec_result = false; /* an entry without dnssec result? then invalidate things for good */
@@ -1138,7 +1145,9 @@ int dns_cache_lookup(
                 if (ret_full_packet)
                         *ret_full_packet = TAKE_PTR(full_packet);
                 if (ret_query_flags)
-                        *ret_query_flags = (have_authenticated && !have_non_authenticated) ? SD_RESOLVED_AUTHENTICATED : 0;
+                        *ret_query_flags =
+                                ((have_authenticated && !have_non_authenticated) ? SD_RESOLVED_AUTHENTICATED : 0) |
+                                ((have_confidential && !have_non_confidential) ? SD_RESOLVED_CONFIDENTIAL : 0);
                 if (ret_dnssec_result)
                         *ret_dnssec_result = dnssec_result;
 
@@ -1154,7 +1163,9 @@ int dns_cache_lookup(
         if (ret_full_packet)
                 *ret_full_packet = TAKE_PTR(full_packet);
         if (ret_query_flags)
-                *ret_query_flags = (have_authenticated && !have_non_authenticated) ? SD_RESOLVED_AUTHENTICATED : 0;
+                *ret_query_flags =
+                        ((have_authenticated && !have_non_authenticated) ? SD_RESOLVED_AUTHENTICATED : 0) |
+                        ((have_confidential && !have_non_confidential) ? SD_RESOLVED_CONFIDENTIAL : 0);
         if (ret_dnssec_result)
                 *ret_dnssec_result = dnssec_result;
 

@@ -145,7 +145,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_gc);
 
 int dns_transaction_go(DnsTransaction *t);
 
-void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p);
+void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted);
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
 
 void dns_transaction_notify(DnsTransaction *t, DnsTransaction *source);

@@ -410,7 +410,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         else
                 st = dns_transaction_state_to_string(state);
 
-        log_debug("%s transaction %" PRIu16 " for <%s> on scope %s on %s/%s now complete with <%s> from %s (%s).",
+        log_debug("%s transaction %" PRIu16 " for <%s> on scope %s on %s/%s now complete with <%s> from %s (%s; %s).",
                   t->bypass ? "Bypass" : "Regular",
                   t->id,
                   dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str),
@@ -420,7 +420,8 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                   st,
                   t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
                   FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) ? "not validated" :
-                  (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unsigned"));
+                  (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unsigned"),
+                  FLAGS_SET(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL) ? "confidential" : "non-confidential");
 
         t->state = state;
 
@@ -561,9 +562,14 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
                 dns_transaction_complete_errno(t, error);
 }
 
-static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
+static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsStream *s, DnsPacket *p) {
+        bool encrypted;
+
         assert(t);
+        assert(s);
         assert(p);
+
+        encrypted = s->encrypted;
 
         dns_transaction_close_connection(t, true);
 
@@ -576,7 +582,7 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
         dns_scope_check_conflicts(t->scope, p);
 
         t->block_gc++;
-        dns_transaction_process_reply(t, p);
+        dns_transaction_process_reply(t, p, encrypted);
         t->block_gc--;
 
         /* If the response wasn't useful, then complete the transition
@@ -621,12 +627,11 @@ static int on_stream_packet(DnsStream *s) {
         assert(s);
 
         /* Take ownership of packet to be able to receive new packets */
-        p = dns_stream_take_read_packet(s);
-        assert(p);
+        assert_se(p = dns_stream_take_read_packet(s));
 
         t = hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
         if (t)
-                return dns_transaction_on_stream_packet(t, p);
+                return dns_transaction_on_stream_packet(t, s, p);
 
         /* Ignore incorrect transaction id as an old transaction can have been canceled. */
         log_debug("Received unexpected TCP reply packet with id %" PRIu16 ", ignoring.", DNS_PACKET_ID(p));
@@ -990,7 +995,7 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
         return 0;
 }
 
-void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
+void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted) {
         int r;
 
         assert(t);
@@ -1232,6 +1237,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
         t->answer_rcode = DNS_PACKET_RCODE(p);
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
+        SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, encrypted);
 
         r = dns_transaction_fix_rcode(t);
         if (r < 0)
@@ -1315,7 +1321,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
                 return 0;
         }
 
-        dns_transaction_process_reply(t, p);
+        dns_transaction_process_reply(t, p, false);
         return 0;
 }
 
@@ -1519,7 +1525,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 if (r > 0) {
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
-                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, true);
+                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL, true);
                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         return 0;
                 }
@@ -1539,6 +1545,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 t->answer_rcode = DNS_RCODE_SUCCESS;
                                 t->answer_source = DNS_TRANSACTION_TRUST_ANCHOR;
                                 SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
+                                SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, true);
                                 dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         } else
                                 /* If we are not in downgrade mode, then fail the lookup, because we cannot
@@ -1559,7 +1566,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 if (r > 0) {
                         t->answer_rcode = DNS_RCODE_SUCCESS;
                         t->answer_source = DNS_TRANSACTION_ZONE;
-                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, true);
+                        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL, true);
                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
                         return 0;
                 }

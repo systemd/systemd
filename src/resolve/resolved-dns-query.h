@@ -72,6 +72,7 @@ struct DnsQuery {
         DnsSearchDomain *answer_search_domain;
         int answer_errno; /* if state is DNS_TRANSACTION_ERRNO */
         bool previous_redirect_unauthenticated;
+        bool previous_redirect_non_confidential;
         DnsPacket *answer_full_packet;
 
         /* Bus + Varlink client information */
@@ -132,3 +133,13 @@ const char *dns_query_string(DnsQuery *q);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuery*, dns_query_free);
 
 bool dns_query_fully_authenticated(DnsQuery *q);
+bool dns_query_fully_confidential(DnsQuery *q);
+
+static inline uint64_t dns_query_reply_flags_make(DnsQuery *q) {
+        assert(q);
+
+        return SD_RESOLVED_FLAGS_MAKE(q->answer_protocol,
+                                      q->answer_family,
+                                      dns_query_fully_authenticated(q),
+                                      dns_query_fully_confidential(q));
+}
