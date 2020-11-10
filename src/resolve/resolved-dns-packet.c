@@ -2394,6 +2394,12 @@ int dns_packet_extract(DnsPacket *p) {
         if (r < 0)
                 return r;
 
+        if (p->rindex < p->size)  {
+                log_debug("Trailing garbage in packet, suppressing OPT.");
+                p->opt = dns_resource_record_unref(p->opt);
+                p->opt_start = p->opt_size = SIZE_MAX;
+        }
+
         p->question = TAKE_PTR(question);
         p->answer = TAKE_PTR(answer);
 
