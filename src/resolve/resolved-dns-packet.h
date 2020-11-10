@@ -269,12 +269,17 @@ DnsProtocol dns_protocol_from_string(const char *s) _pure_;
 
 extern const struct hash_ops dns_packet_hash_ops;
 
-static inline uint64_t SD_RESOLVED_FLAGS_MAKE(DnsProtocol protocol, int family, bool authenticated) {
+static inline uint64_t SD_RESOLVED_FLAGS_MAKE(
+                DnsProtocol protocol,
+                int family,
+                bool authenticated,
+                bool confidential) {
         uint64_t f;
 
         /* Converts a protocol + family into a flags field as used in queries and responses */
 
-        f = authenticated ? SD_RESOLVED_AUTHENTICATED : 0;
+        f = (authenticated ? SD_RESOLVED_AUTHENTICATED : 0) |
+                (confidential ? SD_RESOLVED_CONFIDENTIAL : 0);
 
         switch (protocol) {
         case DNS_PROTOCOL_DNS:

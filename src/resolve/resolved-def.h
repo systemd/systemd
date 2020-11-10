@@ -52,6 +52,9 @@
 /* Input: If reply is answered from cache, the TTLs will be adjusted by age of cache entry */
 #define SD_RESOLVED_CLAMP_TTL       (UINT64_C(1) << 17)
 
+/* Output: Result was only sent via encrypted channels, or never left this system */
+#define SD_RESOLVED_CONFIDENTIAL    (UINT64_C(1) << 18)
+
 #define SD_RESOLVED_LLMNR           (SD_RESOLVED_LLMNR_IPV4|SD_RESOLVED_LLMNR_IPV6)
 #define SD_RESOLVED_MDNS            (SD_RESOLVED_MDNS_IPV4|SD_RESOLVED_MDNS_IPV6)
 #define SD_RESOLVED_PROTOCOLS_ALL   (SD_RESOLVED_MDNS|SD_RESOLVED_LLMNR|SD_RESOLVED_DNS)

@@ -99,7 +99,7 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
 
                 t = hashmap_get(m->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
                 if (t)
-                        dns_transaction_process_reply(t, p);
+                        dns_transaction_process_reply(t, p, false);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got LLMNR UDP query packet for id %u", DNS_PACKET_ID(p));
