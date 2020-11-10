@@ -111,10 +111,6 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         continue;
                 }
 
-                if (is_localhost(name))
-                        /* Suppress the "localhost" line that is often seen */
-                        continue;
-
                 if (!item) {
                         /* Optimize the case where we don't need to store any addresses, by storing
                          * only the name in a dedicated Set instead of the hashmap */
@@ -161,6 +157,95 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         return 0;
 }
 
+static void strip_localhost(EtcHosts *hosts) {
+        static const struct in_addr_data local_in_addrs[] = {
+                {
+                        .family = AF_INET,
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+                        /* We want constant expressions here, that's why we don't use htole32() here */
+                        .address.in.s_addr = UINT32_C(0x0100007F),
+#else
+                        .address.in.s_addr = UINT32_C(0x7F000001),
+#endif
+                },
+                {
+                        .family = AF_INET6,
+                        .address.in6 = IN6ADDR_LOOPBACK_INIT,
+                },
+        };
+
+        EtcHostsItem *item;
+
+        assert(hosts);
+
+        /* Removes the 'localhost' entry from what we loaded. But only if the mapping is exclusively between
+         * 127.0.0.1 and localhost (or aliases to that we recognize). If there's any other name assigned to
+         * it, we leave the entry in.
+         *
+         * This way our regular synthesizing can take over, but only if it would result in the exact same
+         * mappings.  */
+
+        for (size_t j = 0; j < ELEMENTSOF(local_in_addrs); j++) {
+                bool all_localhost, in_order;
+                char **i;
+
+                item = hashmap_get(hosts->by_address, local_in_addrs + j);
+                if (!item)
+                        continue;
+
+                /* Check whether all hostnames the loopback address points to are localhost ones */
+                all_localhost = true;
+                STRV_FOREACH(i, item->names)
+                        if (!is_localhost(*i)) {
+                                all_localhost = false;
+                                break;
+                        }
+
+                if (!all_localhost) /* Not all names are localhost, hence keep the entries for this address. */
+                        continue;
+
+                /* Now check if the names listed for this address actually all point back just to this
+                 * address (or the other loopback address). If not, let's stay away from this too. */
+                in_order = true;
+                STRV_FOREACH(i, item->names) {
+                        EtcHostsItemByName *n;
+                        bool all_local_address;
+
+                        n = hashmap_get(hosts->by_name, *i);
+                        if (!n) /* No reverse entry? Then almost certainly the entry already got deleted from
+                                 * the previous iteration of this loop, i.e. via the other protocol */
+                                break;
+
+                        /* Now check if the addresses of this item are all localhost addresses */
+                        all_local_address = true;
+                        for (size_t m = 0; m < n->n_addresses; m++)
+                                if (!in_addr_is_localhost(n->addresses[m]->family, &n->addresses[m]->address)) {
+                                        all_local_address = false;
+                                        break;
+                                }
+
+                        if (!all_local_address) {
+                                in_order = false;
+                                break;
+                        }
+                }
+
+                if (!in_order)
+                        continue;
+
+                STRV_FOREACH(i, item->names) {
+                        EtcHostsItemByName *n;
+
+                        n = hashmap_remove(hosts->by_name, *i);
+                        if (n)
+                                etc_hosts_item_by_name_free(n);
+                }
+
+                assert_se(hashmap_remove(hosts->by_address, local_in_addrs + j) == item);
+                etc_hosts_item_free(item);
+        }
+}
+
 int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
         _cleanup_(etc_hosts_free) EtcHosts t = {};
         unsigned nr = 0;
@@ -190,6 +275,8 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
                 if (r < 0)
                         return r;
         }
+
+        strip_localhost(&t);
 
         etc_hosts_free(hosts);
         *hosts = t;
