@@ -7191,6 +7191,9 @@ acpi:USI*:
 acpi:USR*:
  ID_VENDOR_FROM_DATABASE=U.S. Robotics Inc
 
+acpi:UTC*:
+ ID_VENDOR_FROM_DATABASE=Unicompute Technology Co., Ltd.
+
 acpi:UTD*:
  ID_VENDOR_FROM_DATABASE=Up to Date Tech
 

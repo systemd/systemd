@@ -1,8 +1,8 @@
 #
 #	List of PCI ID's
 #
-#	Version: 2020.10.11
-#	Date:    2020-10-11 03:15:01
+#	Version: 2020.10.25
+#	Date:    2020-10-25 03:15:01
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -703,6 +703,8 @@
 		1d49 0200  ThinkSystem 430-8i SAS/SATA 12Gb HBA
 		1d49 0202  ThinkSystem 430-8e SAS/SATA 12Gb HBA
 		1d49 0204  ThinkSystem 430-8i SAS/SATA 12Gb Dense HBA
+# PCIe switch SES management endpoint
+	00b2  PEX880xx PCIe Gen 4 Switch SES management endpoint
 	00be  SAS3504 Fusion-MPT Tri-Mode RAID On Chip (ROC)
 	00bf  SAS3404 Fusion-MPT Tri-Mode I/O Controller Chip (IOC)
 	00c0  SAS3324 PCI-Express Fusion-MPT SAS-3
@@ -2648,6 +2650,7 @@
 	67e9  Baffin [Polaris11]
 	67eb  Baffin [Radeon Pro V5300X]
 	67ef  Baffin [Radeon RX 460/560D / Pro 450/455/460/555/555X/560/560X]
+		1025 1367  RX560X 4GB
 		1028 1703  RX 560D OEM OC 2 GB
 		103c 3421  Radeon RX 460
 		1043 0561  AREZ Radeon RX 560
@@ -3583,6 +3586,9 @@
 	7347  Navi 14 [Radeon Pro W5500M]
 	734f  Navi 14 [Radeon Pro W5300M]
 	7360  Navi 12 [Radeon Pro 5600M]
+	73bf  Navi 21 [Radeon RX 6900 Series]
+	73c3  Navi 23
+	73df  Navi 22
 	7833  RS350 Host Bridge
 	7834  RS350 [Radeon 9100 PRO/XT IGP]
 	7835  RS350M [Mobility Radeon 9000 IGP]
@@ -11816,6 +11822,7 @@
 	13fb  GM204GLM [Quadro M5500]
 	1401  GM206 [GeForce GTX 960]
 	1402  GM206 [GeForce GTX 950]
+	1404  GM206 [GeForce GTX 960 FAKE]
 	1406  GM206 [GeForce GTX 960 OEM]
 	1407  GM206 [GeForce GTX 750 v2]
 	1427  GM206M [GeForce GTX 965M]
@@ -11921,6 +11928,7 @@
 	1c30  GP106GL [Quadro P2000]
 	1c31  GP106GL [Quadro P2200]
 	1c35  GP106
+	1c36  GP106
 	1c60  GP106BM [GeForce GTX 1060 Mobile 6GB]
 		103c 8390  GeForce GTX 1060 Max-Q 6GB
 	1c61  GP106BM [GeForce GTX 1050 Ti Mobile]
@@ -12073,6 +12081,7 @@
 	1fd9  TU117BM [GeForce GTX 1650 Mobile Refresh]
 	1ff9  TU117GLM [Quadro T1000 Mobile]
 	20b0  GA100 [A100 SXM4 40GB]
+	20b1  GA100 [A100 PCIe 40GB]
 	20be  GA100 [GRID A100A]
 	20bf  GA100 [GRID A100B]
 	20f1  GA100 [A100 PCIe 40GB]
@@ -12096,13 +12105,19 @@
 	2230  GA102GL [RTX A6000]
 	223f  GA102GL
 	2482  GA104 [GeForce RTX 3070 Ti]
-	2484  GA104 [GeForce RTX 3070]
+	2484  GA104 [GeForce RTX 3070 8GB / 16GB]
+		10de 146b  GA104 [GeForce RTX 3070]
+		10de 14ae  GA104 [GeForce RTX 3070 16GB]
 	2486  GA104 [GeForce RTX 3060 Ti]
-	249c  GA104M [GeForce RTX 3070 Mobile]
+	249c  GA104M [GeForce RTX 3070 Mobile / Max-Q]
 	249d  GA104M [GeForce RTX 3070 Mobile / Max-Q]
+	24ac  GA104 [GeForce RTX 30x0 Engineering Sample]
+	24ad  GA104 [GeForce RTX 3060 Engineering Sample]
 	24af  GA104 [GeForce RTX 3070 Engineering Sample]
 	24bf  GA104 [GeForce RTX 3070 Engineering Sample]
+	24dc  GA104 [GeForce RTX 3070 16GB Engineering Sample]
 	252f  GA106 [GeForce RTX 3060 Engineering Sample]
+	25af  GA107 [GeForce RTX 3050 Engineering Sample]
 10df  Emulex Corporation
 	0720  OneConnect NIC (Skyhawk)
 		103c 1934  FlexFabric 20Gb 2-port 650M Adapter
@@ -14021,6 +14036,8 @@
 		1137 00ce  VIC 1225T PCIe Management Controller
 		1137 012e  VIC 1227 PCIe Management Controller
 		1137 014d  VIC 1385 PCIe Management Controller
+		1137 0217  VIC 1455 PCIe Management Controller
+		1137 0218  VIC 1457 PCIe Management Controller
 	0043  VIC Ethernet NIC
 		1137 0047  VIC P81E PCIe Ethernet NIC
 		1137 0048  VIC M81KR Mezzanine Ethernet NIC
@@ -15779,6 +15796,11 @@
 125b  Asix Electronics Corporation
 	1400  AX88141 Fast Ethernet Controller
 		1186 1100  AX8814X Based PCI Fast Ethernet Adapter
+	9100  AX99100 PCIe to Multi I/O Controller
+		a000 1000  Serial Port
+		a000 2000  Parallel Port
+		a000 6000  SPI
+		a000 7000  Local Bus
 125c  Aurora Technologies, Inc.
 	0101  Saturn 4520P
 	0640  Aries 16000P
@@ -20231,8 +20253,11 @@
 15b7  Sandisk Corp
 	2001  Skyhawk Series NVME SSD
 	5001  WD Black NVMe SSD
-	5002  WD Black 2018/PC SN720 NVMe SSD
-	5003  WD Black 2018/PC SN520 NVMe SSD
+	5002  WD Black 2018 / PC SN720 NVMe SSD
+	5003  WD Black 2018 / PC SN520 NVMe SSD
+	5006  WD Black 2019/PC SN750 NVMe SSD
+	5009  WD Blue SN550 NVMe SSD
+		15b7 5009  WD Blue SN550 NVMe SSD
 15b8  ADDI-DATA GmbH
 	1001  APCI1516 SP controller (16 digi outputs)
 	1003  APCI1032 SP controller (32 digi inputs w/ opto coupler)
@@ -22104,6 +22129,8 @@
 1974  Star Electronics GmbH & Co. KG
 	0009  FlexCard PMC-II
 	0011  FlexCard PMC-II Ethernet
+	0018  FlexCard PXIe3
+	0019  FlexCard PCIe3
 1976  TRENDnet
 1977  Parsec
 197b  JMicron Technology Corp.
@@ -22894,8 +22921,10 @@
 	1285  PC300 NVMe Solid State Drive 1TB
 	1327  BC501 NVMe Solid State Drive 512GB
 	1504  SC300 512GB M.2 2280 SATA Solid State Drive
+	243b  PE6110 NVMe Solid State Drive
+		1c5c 0100  PE6110 NVMe Solid State Drive
 	2839  PE8000 Series NVMe Solid State Drive
-		0100 1c5c  PE8000 Series NVMe Solid State Drive
+		1c5c 0100  PE8000 Series NVMe Solid State Drive
 1c5f  Beijing Memblaze Technology Co. Ltd.
 	000d  PBlaze5 520/526 AIC
 	003d  PBlaze5 920/926 AIC
@@ -23343,13 +23372,14 @@
 	1202  NVMe SSD Controller MAP1202
 	1601  NVMe SSD Controller MAP1601
 1e4c  GSI Technology
-# Associative Processing Unit chip
-	0010  Gemini [ Lida ]
+# Associative Processing Unit (APU)
+	0010  APU [Leda-G]
 		1e4c 0120  SE120
 1e57  Beijing Panyi Technology Co., Ltd
 	0100  The device has already been deleted.
 		0000 0100  PY8800 64GB Accelerator
 1e6b  Axiado Corp.
+1e7b  Dataland
 1e7c  Brainchip Inc
 	bca1  AKD1000 Neural Network Coprocessor [Akida]
 1e85  Heitec AG
@@ -23359,6 +23389,7 @@
 # aka SED Systems
 1e94  Calian SED
 1e95  Solid State Storage Technology Corporation
+1eae  XFX Limited
 1eb1  VeriSilicon Inc
 	1001  Video Accelerator
 # nee Tumsan Oy
@@ -26395,6 +26426,7 @@
 		8086 0001  Ethernet Network Adapter I225-T1
 		8086 0002  Ethernet Network Adapter I225-T1
 	15f3  Ethernet Controller I225-V
+		8086 0003  Intel(R) Ethernet Controller (3) I225-V
 	15f4  Ethernet Connection (15) I219-LM
 	15f5  Ethernet Connection (15) I219-V
 	15f6  I210 Gigabit Ethernet Connection
@@ -26459,6 +26491,15 @@
 	163d  Broadwell-U Integrated Graphics
 	163e  Broadwell-U Integrated Graphics
 	1889  Ethernet Adaptive Virtual Function
+	1890  Ethernet Connection E822-C for backplane
+	1891  Ethernet Connection E822-C for QSFP
+	1892  Ethernet Connection E822-C for SFP
+	1893  Ethernet Connection E822-C/X557-AT 10GBASE-T
+	1894  Ethernet Connection E822-C 1GbE
+	1897  Ethernet Connection E822-L for backplane
+	1898  Ethernet Connection E822-L for SFP
+	1899  Ethernet Connection E822-L/X557-AT 10GBASE-T
+	189a  Ethernet Connection E822-L 1GbE
 	18a0  C4xxx Series QAT
 	18a1  C4XXX Series QAT Virtual Function
 	1900  Xeon E3-1200 v5/E3-1500 v5/6th Gen Core Processor Host Bridge/DRAM Registers
@@ -30554,6 +30595,7 @@
 	3e30  8th/9th Gen Core 8-core Desktop Processor Host Bridge/DRAM Registers [Coffee Lake S]
 	3e33  8th/9th Gen Core Processor Host Bridge/DRAM Registers [Coffee Lake]
 	3e34  Coffee Lake HOST and DRAM Controller
+	3e35  Coffee Lake Host Bridge/DRAM Registers
 	3e81  8th Gen Core Processor PCIe Controller (x16)
 	3e85  8th Gen Core Processor PCIe Controller (x8)
 	3e89  8th Gen Core Processor PCIe Controller (x4)
@@ -32435,6 +32477,10 @@
 		152d 8a24  QS-8236-16i
 		152d 8a36  QS-8240-24i
 		152d 8a37  QS-8242-24i
+		193d 1104  RAID P2404-Mf-4i-2GB
+		193d 1105  RAID P4408-Mf-8i-2GB
+		193d 1106  RAID P2404-Mf-4i-1GB
+		193d 1107  RAID P4408-Mf-8i-4GB
 		193d 8460  HBA H460-M1
 		193d 8461  HBA H460-B1
 		193d c460  RAID P460-M2
@@ -32464,6 +32510,8 @@
 		9005 0805  SmartRAID 3102-8i
 		9005 0806  SmartRAID 3100
 		9005 0807  SmartRAID 3162-8i
+		9005 0808  SmartRAID 3101E-4i
+		9005 0809  SmartRAID 3102E-8i
 		9005 0900  SmartHBA 2100-8i
 		9005 0901  SmartHBA 2100-4i
 		9005 0902  HBA 1100-8i
@@ -32479,6 +32527,7 @@
 		9005 1202  SmartRAID 3154-8i8e
 		9005 1280  HBA 1100-16i
 		9005 1281  HBA 1100-16e
+		9005 1282  SmartHBA 2100-16i
 		9005 1300  HBA 1100-8i8e
 		9005 1301  HBA 1100-24i
 		9005 1302  SmartHBA 2100-8i8e
@@ -32605,6 +32654,7 @@
 	1202  STAR1200I NVMe SSD
 	1203  STAR1200L NVMe SSD
 	1204  STAR1200E NVMe SSD
+a000  Asix Electronics Corporation (Wrong ID)
 a0a0  AOPEN Inc.
 a0f1  UNISYS Corporation
 a200  NEC Corporation
