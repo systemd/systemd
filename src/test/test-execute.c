@@ -898,11 +898,11 @@ int main(int argc, char *argv[]) {
         }
 #endif
 
-        (void) unsetenv("USER");
-        (void) unsetenv("LOGNAME");
-        (void) unsetenv("SHELL");
-        (void) unsetenv("HOME");
-        (void) unsetenv("TMPDIR");
+        assert_se(unsetenv("USER") == 0);
+        assert_se(unsetenv("LOGNAME") == 0);
+        assert_se(unsetenv("SHELL") == 0);
+        assert_se(unsetenv("HOME") == 0);
+        assert_se(unsetenv("TMPDIR") == 0);
 
         can_unshare = have_namespaces();
 

@@ -184,7 +184,7 @@ static void test_find_executable_full(void) {
         if (p)
                 assert_se(oldpath = strdup(p));
 
-        assert_se(unsetenv("PATH") >= 0);
+        assert_se(unsetenv("PATH") == 0);
 
         assert_se(find_executable_full("sh", true, &p) == 0);
         puts(p);
@@ -347,7 +347,7 @@ static void test_fsck_exists(void) {
         log_info("/* %s */", __func__);
 
         /* Ensure we use a sane default for PATH. */
-        unsetenv("PATH");
+        assert_se(unsetenv("PATH") == 0);
 
         /* fsck.minix is provided by util-linux and will probably exist. */
         assert_se(fsck_exists("minix") == 1);
