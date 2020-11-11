@@ -281,16 +281,15 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
         if (s->packet_bad_opt && level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
                 level = DNS_SERVER_FEATURE_LEVEL_EDNS0 - 1;
 
-        /* Even if we successfully receive a reply to a request announcing support for large packets,
-                that does not mean we can necessarily receive large packets. */
+        /* Even if we successfully receive a reply to a request announcing support for large packets, that
+         * does not mean we can necessarily receive large packets. */
         if (level == DNS_SERVER_FEATURE_LEVEL_LARGE)
                 level = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
 
         dns_server_verified(s, level);
 
-        /* Remember the size of the largest UDP packet we received from a server,
-           we know that we can always announce support for packets with at least
-           this size. */
+        /* Remember the size of the largest UDP packet we received from a server, we know that we can always
+         * announce support for packets with at least this size. */
         if (protocol == IPPROTO_UDP && s->received_udp_packet_max < size)
                 s->received_udp_packet_max = size;
 }
@@ -299,15 +298,16 @@ void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel le
         assert(s);
         assert(s->manager);
 
-        if (s->possible_feature_level == level) {
-                if (protocol == IPPROTO_UDP)
-                        s->n_failed_udp++;
-                else if (protocol == IPPROTO_TCP) {
-                        if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(level))
-                                s->n_failed_tls++;
-                        else
-                                s->n_failed_tcp++;
-                }
+        if (s->possible_feature_level != level)
+                return;
+
+        if (protocol == IPPROTO_UDP)
+                s->n_failed_udp++;
+        else if (protocol == IPPROTO_TCP) {
+                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(level))
+                        s->n_failed_tls++;
+                else
+                        s->n_failed_tcp++;
         }
 }
 
