@@ -240,6 +240,7 @@ static void dns_server_reset_counters(DnsServer *s) {
         s->n_failed_tcp = 0;
         s->n_failed_tls = 0;
         s->packet_truncated = false;
+        s->packet_invalid = false;
         s->verified_usec = 0;
 
         /* Note that we do not reset s->packet_bad_opt and s->packet_rrsig_missing here. We reset them only when the
@@ -366,6 +367,17 @@ void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level
         log_debug("Downgrading transaction feature level fixed an RCODE error, downgrading server %s too.", strna(dns_server_string_full(s)));
 }
 
+void dns_server_packet_invalid(DnsServer *s, DnsServerFeatureLevel level) {
+        assert(s);
+
+        /* Invoked whenever we got a packet we couldn't parse at all */
+
+        if (s->possible_feature_level != level)
+                return;
+
+        s->packet_invalid = true;
+}
+
 static bool dns_server_grace_period_expired(DnsServer *s) {
         usec_t ts;
 
@@ -442,6 +454,22 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
                         log_debug("Server doesn't support DNS-over-TLS, downgrading protocol...");
                         s->possible_feature_level--;
+
+                } else if (s->packet_invalid &&
+                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP &&
+                           s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN) {
+
+                        /* Downgrade from DO to EDNS0 + from EDNS0 to UDP, from TLS+DO to plain TLS. Or in
+                         * other words, if we receive a packet we cannot parse jump to the next lower feature
+                         * level that actually has an influence on the packet layout (and not just the
+                         * transport). */
+
+                        log_debug("Got invalid packet from server, downgrading protocol...");
+                        s->possible_feature_level =
+                                s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_TLS_DO  ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
+                                DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_EDNS0 :
+                                                                                                DNS_SERVER_FEATURE_LEVEL_UDP;
+
                 } else if (s->packet_bad_opt &&
                            s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
 
@@ -903,13 +931,15 @@ void dns_server_dump(DnsServer *s, FILE *f) {
                 "\tFailed TCP attempts: %u\n"
                 "\tSeen truncated packet: %s\n"
                 "\tSeen OPT RR getting lost: %s\n"
-                "\tSeen RRSIG RR missing: %s\n",
+                "\tSeen RRSIG RR missing: %s\n"
+                "\tSeen invalid packet: %s\n",
                 s->received_udp_packet_max,
                 s->n_failed_udp,
                 s->n_failed_tcp,
                 yes_no(s->packet_truncated),
                 yes_no(s->packet_bad_opt),
-                yes_no(s->packet_rrsig_missing));
+                yes_no(s->packet_rrsig_missing),
+                yes_no(s->packet_invalid));
 }
 
 void dns_server_unref_stream(DnsServer *s) {
