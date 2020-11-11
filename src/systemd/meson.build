@@ -67,7 +67,7 @@ endif
 
 foreach header : _systemd_headers + _not_installed_headers + ['../libudev/libudev.h']
         foreach opt : opts
-                name = ''.join(['cc-', header.split('/')[-1], ':'] + opt)
+                name = ''.join(['cc-', header.split('/')[-1], '_'] + opt)
                 if want_tests != 'false'
                         test(name,
                              check_compilation_sh,
