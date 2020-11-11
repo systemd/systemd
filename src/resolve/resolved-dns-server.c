@@ -446,8 +446,10 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          * work. Upgrade back to UDP again. */
                         log_debug("Reached maximum number of failed TCP connection attempts, trying UDP again...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
+
                 } else if (s->n_failed_tls > 0 &&
-                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) && dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) &&
+                           dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
 
                         /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
                          * if we don't require DNS-over-TLS */
@@ -471,7 +473,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                                                                                                 DNS_SERVER_FEATURE_LEVEL_UDP;
 
                 } else if (s->packet_bad_opt &&
-                           s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(s->possible_feature_level)) {
 
                         /* A reply to one of our EDNS0 queries didn't carry a valid OPT RR, then downgrade to below
                          * EDNS0 levels. After all, some records generate different responses with and without OPT RR
@@ -486,7 +488,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         log_level = LOG_NOTICE;
 
                 } else if (s->packet_rrsig_missing &&
-                           s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level)) {
 
                         /* RRSIG data was missing on a EDNS0 packet with DO bit set. This means the server doesn't
                          * augment responses with DNSSEC RRs. If so, let's better not ask the server for it anymore,
