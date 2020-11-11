@@ -578,3 +578,14 @@ tests += [
          [libudev],
          [threads]],
 ]
+
+if conf.get('BUILD_BPF') == 1
+tests += [
+        [['src/test/test-bpf-object.c'],
+          [libshared,
+          libcore],
+          [libbpf],
+          'HAVE_LIBBPF',
+          ]
+]
+endif
