@@ -561,6 +561,12 @@ tests += [
          [], [], [], 'ENABLE_NSCD', 'manual'],
 ]
 
+if conf.get('BUILD_BPF') == 1
+tests += [
+
+]
+endif
+
 ############################################################
 
 # define some tests here, because the link_with deps were not defined earlier
