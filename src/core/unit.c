@@ -1988,6 +1988,10 @@ int unit_stop(Unit *u) {
 bool unit_can_stop(Unit *u) {
         assert(u);
 
+        /* Note: if we return true here, it does not mean that the unit may be successfully stopped.
+         * Extrinsic units follow external state and they may stop following external state changes
+         * (hence we return true here), but an attempt to do this through the manager will fail. */
+
         if (!unit_type_supported(u->type))
                 return false;
 
@@ -3345,12 +3349,17 @@ int unit_set_default_slice(Unit *u) {
                 if (MANAGER_IS_SYSTEM(u->manager))
                         slice_name = strjoina("system-", escaped, ".slice");
                 else
-                        slice_name = strjoina(escaped, ".slice");
-        } else
-                slice_name =
-                        MANAGER_IS_SYSTEM(u->manager) && !unit_has_name(u, SPECIAL_INIT_SCOPE)
-                        ? SPECIAL_SYSTEM_SLICE
-                        : SPECIAL_ROOT_SLICE;
+                        slice_name = strjoina("app-", escaped, ".slice");
+
+        } else if (unit_is_extrinsic(u))
+                /* Keep all extrinsic units (e.g. perpetual units and swap and mount units in user mode) in
+                 * the root slice. They don't really belong in one of the subslices. */
+                slice_name = SPECIAL_ROOT_SLICE;
+
+        else if (MANAGER_IS_SYSTEM(u->manager))
+                slice_name = SPECIAL_SYSTEM_SLICE;
+        else
+                slice_name = SPECIAL_APP_SLICE;
 
         r = manager_load_unit(u->manager, slice_name, NULL, NULL, &slice);
         if (r < 0)

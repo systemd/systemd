@@ -1,4 +1,4 @@
-#  SPDX-License-Identifier: LGPL-2.1-or-later
+#  SPDX-License-Identifier: LGPL-2.1+
 #
 #  This file is part of systemd.
 #
@@ -8,13 +8,5 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Exit the Session
+Description=User Core Session Slice
 Documentation=man:systemd.special(7)
-DefaultDependencies=no
-Requires=shutdown.target
-After=shutdown.target
-SuccessAction=exit-force
-
-[Service]
-# Place into the root slice to not keep another slice unit alive
-Slice=-.slice

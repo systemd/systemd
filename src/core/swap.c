@@ -56,6 +56,35 @@ static bool SWAP_STATE_WITH_PROCESS(SwapState state) {
                       SWAP_CLEANING);
 }
 
+_pure_ static UnitActiveState swap_active_state(Unit *u) {
+        assert(u);
+
+        return state_translation_table[SWAP(u)->state];
+}
+
+_pure_ static const char *swap_sub_state_to_string(Unit *u) {
+        assert(u);
+
+        return swap_state_to_string(SWAP(u)->state);
+}
+
+_pure_ static bool swap_may_gc(Unit *u) {
+        Swap *s = SWAP(u);
+
+        assert(s);
+
+        if (s->from_proc_swaps)
+                return false;
+
+        return true;
+}
+
+_pure_ static bool swap_is_extrinsic(Unit *u) {
+        assert(SWAP(u));
+
+        return MANAGER_IS_USER(u->manager);
+}
+
 static void swap_unset_proc_swaps(Swap *s) {
         assert(s);
 
@@ -610,13 +639,15 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sClean Result: %s\n"
                 "%sWhat: %s\n"
                 "%sFrom /proc/swaps: %s\n"
-                "%sFrom fragment: %s\n",
+                "%sFrom fragment: %s\n"
+                "%sExtrinsic: %s\n",
                 prefix, swap_state_to_string(s->state),
                 prefix, swap_result_to_string(s->result),
                 prefix, swap_result_to_string(s->clean_result),
                 prefix, s->what,
                 prefix, yes_no(s->from_proc_swaps),
-                prefix, yes_no(s->from_fragment));
+                prefix, yes_no(s->from_fragment),
+                prefix, yes_no(swap_is_extrinsic(u)));
 
         if (s->devnode)
                 fprintf(f, "%sDevice Node: %s\n", prefix, s->devnode);
@@ -1026,29 +1057,6 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
-}
-
-_pure_ static UnitActiveState swap_active_state(Unit *u) {
-        assert(u);
-
-        return state_translation_table[SWAP(u)->state];
-}
-
-_pure_ static const char *swap_sub_state_to_string(Unit *u) {
-        assert(u);
-
-        return swap_state_to_string(SWAP(u)->state);
-}
-
-_pure_ static bool swap_may_gc(Unit *u) {
-        Swap *s = SWAP(u);
-
-        assert(s);
-
-        if (s->from_proc_swaps)
-                return false;
-
-        return true;
 }
 
 static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -1649,6 +1657,7 @@ const UnitVTable swap_vtable = {
         .will_restart = unit_will_restart_default,
 
         .may_gc = swap_may_gc,
+        .is_extrinsic = swap_is_extrinsic,
 
         .sigchld_event = swap_sigchld_event,
 
