@@ -1490,6 +1490,68 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionCPUFeature=</varname></term>
+
+          <listitem><para>Verify that a given CPU feature is available via the <literal>CPUID</literal>
+          instruction. This condition only does something on i386 and x86-64 processors. On other
+          processors it is assumed that the CPU does not support the given feature. It checks the leaves
+          <literal>1</literal>, <literal>7</literal>, <literal>0x80000001</literal>, and
+          <literal>0x80000007</literal>. Valid values are:
+          <literal>fpu</literal>,
+          <literal>vme</literal>,
+          <literal>de</literal>,
+          <literal>pse</literal>,
+          <literal>tsc</literal>,
+          <literal>msr</literal>,
+          <literal>pae</literal>,
+          <literal>mce</literal>,
+          <literal>cx8</literal>,
+          <literal>apic</literal>,
+          <literal>sep</literal>,
+          <literal>mtrr</literal>,
+          <literal>pge</literal>,
+          <literal>mca</literal>,
+          <literal>cmov</literal>,
+          <literal>pat</literal>,
+          <literal>pse36</literal>,
+          <literal>clflush</literal>,
+          <literal>mmx</literal>,
+          <literal>fxsr</literal>,
+          <literal>sse</literal>,
+          <literal>sse2</literal>,
+          <literal>ht</literal>,
+          <literal>pni</literal>,
+          <literal>pclmul</literal>,
+          <literal>monitor</literal>,
+          <literal>ssse3</literal>,
+          <literal>fma3</literal>,
+          <literal>cx16</literal>,
+          <literal>sse4_1</literal>,
+          <literal>sse4_2</literal>,
+          <literal>movbe</literal>,
+          <literal>popcnt</literal>,
+          <literal>aes</literal>,
+          <literal>xsave</literal>,
+          <literal>osxsave</literal>,
+          <literal>avx</literal>,
+          <literal>f16c</literal>,
+          <literal>rdrand</literal>,
+          <literal>bmi1</literal>,
+          <literal>avx2</literal>,
+          <literal>bmi2</literal>,
+          <literal>rdseed</literal>,
+          <literal>adx</literal>,
+          <literal>sha_ni</literal>,
+          <literal>syscall</literal>,
+          <literal>rdtscp</literal>,
+          <literal>lm</literal>,
+          <literal>lahf_lm</literal>,
+          <literal>abm</literal>,
+          <literal>constant_tsc</literal>.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>AssertArchitecture=</varname></term>
           <term><varname>AssertVirtualization=</varname></term>
           <term><varname>AssertHost=</varname></term>

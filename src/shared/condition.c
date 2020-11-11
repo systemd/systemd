@@ -756,6 +756,14 @@ static int condition_test_path_is_read_write(Condition *c, char **env) {
         return path_is_read_only_fs(c->parameter) <= 0;
 }
 
+static int condition_test_cpufeature(Condition *c, char **env) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_CPU_FEATURE);
+
+        return has_cpu_with_flag(ascii_strlower(c->parameter));
+}
+
 static int condition_test_path_is_encrypted(Condition *c, char **env) {
         int r;
 
@@ -834,6 +842,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_CPUS]                     = condition_test_cpus,
                 [CONDITION_MEMORY]                   = condition_test_memory,
                 [CONDITION_ENVIRONMENT]              = condition_test_environment,
+                [CONDITION_CPU_FEATURE]              = condition_test_cpufeature,
         };
 
         int r, b;
@@ -956,6 +965,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_CPUS] = "ConditionCPUs",
         [CONDITION_MEMORY] = "ConditionMemory",
         [CONDITION_ENVIRONMENT] = "ConditionEnvironment",
+        [CONDITION_CPU_FEATURE] = "ConditionCPUFeature",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(condition_type, ConditionType);
@@ -987,6 +997,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_CPUS] = "AssertCPUs",
         [CONDITION_MEMORY] = "AssertMemory",
         [CONDITION_ENVIRONMENT] = "AssertEnvironment",
+        [CONDITION_CPU_FEATURE] = "AssertCPUFeature",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(assert_type, ConditionType);
