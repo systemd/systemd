@@ -1188,6 +1188,16 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         /* After the superficial checks, actually parse the message. */
         r = dns_packet_extract(p);
         if (r < 0) {
+                if (t->server) {
+                        dns_server_packet_invalid(t->server, t->current_feature_level);
+
+                        r = dns_transaction_maybe_restart(t);
+                        if (r < 0)
+                                goto fail;
+                        if (r > 0) /* Transaction got restarted... */
+                                return;
+                }
+
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
         }
