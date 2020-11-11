@@ -41,6 +41,7 @@ typedef enum DnsServerFeatureLevel {
 #define DNS_SERVER_FEATURE_LEVEL_WORST 0
 #define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
 #define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
+#define DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(x) ((x) >= DNS_SERVER_FEATURE_LEVEL_DO)
 
 const char* dns_server_feature_level_to_string(int i) _const_;
 int dns_server_feature_level_from_string(const char *s) _pure_;
@@ -78,9 +79,10 @@ struct DnsServer {
         unsigned n_failed_tcp;
         unsigned n_failed_tls;
 
-        bool packet_truncated:1;
-        bool packet_bad_opt:1;
-        bool packet_rrsig_missing:1;
+        bool packet_truncated:1;        /* Set when TC bit was set on reply */
+        bool packet_bad_opt:1;          /* Set when OPT was missing or otherwise bad on reply */
+        bool packet_rrsig_missing:1;    /* Set when RRSIG was missing */
+        bool packet_invalid:1;          /* Set when we failed to parse a reply */
 
         usec_t verified_usec;
         usec_t features_grace_period_usec;
@@ -119,6 +121,7 @@ void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_invalid(DnsServer *s, DnsServerFeatureLevel level);
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 
