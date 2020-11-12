@@ -169,8 +169,10 @@ if conf.get('ENABLE_RESOLVE') == 1
                 input : 'resolved.conf.in',
                 output : 'resolved.conf',
                 configuration : substs)
-        install_data(resolved_conf,
-                     install_dir : pkgsysconfdir)
+        if install_sysconfdir
+                install_data(resolved_conf,
+                             install_dir : pkgsysconfdir)
+        endif
 
         install_data('resolv.conf',
                      install_dir : rootlibexecdir)

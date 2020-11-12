@@ -107,8 +107,10 @@ if conf.get('ENABLE_HOMED') == 1
         install_data('org.freedesktop.home1.policy',
                      install_dir : polkitpolicydir)
 
-        install_data('homed.conf',
-                     install_dir : pkgsysconfdir)
+        if install_sysconfdir
+                install_data('homed.conf',
+                             install_dir : sysconfdir)
+        endif
 endif
 
 tests += [
