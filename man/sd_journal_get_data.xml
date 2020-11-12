@@ -245,7 +245,7 @@
     <function>sd_journal_get_data()</function>.</para>
 
     <para>Use the
-    <function>SD_JOURNAL_FOREACH_DATA</function> macro to
+    <function>SD_JOURNAL_FOREACH_DATA()</function> macro to
     iterate through all fields of the current journal
     entry:</para>
 

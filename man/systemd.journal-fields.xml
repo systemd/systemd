@@ -365,7 +365,7 @@
           <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: indicates that the log message
           in the standard output/error stream was not terminated with a normal newline character
           (<literal>\n</literal>, i.e. ASCII 10). Specifically, when set this field is one of
-          <option>nul</option> (in case the line was terminated by a NUL byte), <option>line-max</option> (in
+          <option>nul</option> (in case the line was terminated by a <constant>NUL</constant> byte), <option>line-max</option> (in
           case the maximum log line length was reached, as configured with <varname>LineMax=</varname> in
           <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
           <option>eof</option> (if this was the last log record of a stream and the stream ended without a

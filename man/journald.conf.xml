@@ -433,7 +433,7 @@
 
         <listitem><para>The maximum line length to permit when converting stream logs into record logs. When a systemd
         unit's standard output/error are connected to the journal via a stream socket, the data read is split into
-        individual log records at newline (<literal>\n</literal>, ASCII 10) and NUL characters. If no such delimiter is
+        individual log records at newline (<literal>\n</literal>, ASCII 10) and <constant>NUL</constant> characters. If no such delimiter is
         read for the specified number of bytes a hard log record boundary is artificially inserted, breaking up overly
         long lines into multiple log records. Selecting overly large values increases the possible memory usage of the
         Journal daemon for each stream client, as in the worst case the journal daemon needs to buffer the specified

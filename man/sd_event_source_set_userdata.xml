@@ -70,7 +70,7 @@
     <function>sd_event_source_set_userdata()</function> and
     <function>sd_event_source_get_userdata()</function> return the
     previously set user data pointer. On failure, they return
-    NULL.</para>
+    <constant>NULL</constant>.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

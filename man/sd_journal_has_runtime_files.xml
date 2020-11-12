@@ -57,7 +57,7 @@
     <title>Return value</title>
     <para>Both <function>sd_journal_has_runtime_files()</function>
     and <function>sd_journal_has_persistent_files()</function> return -EINVAL
-    if their argument is NULL.
+    if their argument is <constant>NULL</constant>.
     </para>
   </refsect1>
 
