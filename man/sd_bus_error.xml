@@ -160,10 +160,10 @@
     but additional domain-specific errors may be defined by
     applications. The <structfield>message</structfield> field usually
     contains a human-readable string describing the details, but might
-    be NULL. An unset <structname>sd_bus_error</structname> structure
-    should have both fields initialized to NULL. Set an error
+    be <constant>NULL</constant>. An unset <structname>sd_bus_error</structname> structure
+    should have both fields initialized to <constant>NULL</constant>. Set an error
     structure to <constant>SD_BUS_ERROR_NULL</constant> in order to
-    reset both fields to NULL. When no longer necessary, resources
+    reset both fields to <constant>NULL</constant>. When no longer necessary, resources
     held by the <structname>sd_bus_error</structname> structure should
     be destroyed with <function>sd_bus_error_free()</function>.</para>
 
@@ -181,14 +181,14 @@
     for a list of well-known error names. Additional error mappings
     may be defined with
     <citerefentry><refentrytitle>sd_bus_error_add_map</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
-    <parameter>e</parameter> is NULL, no error structure is initialized,
+    <parameter>e</parameter> is <constant>NULL</constant>, no error structure is initialized,
     but the error is still converted into an
     <varname>errno</varname>-style error. If
     <parameter>name</parameter> is <constant>NULL</constant>, it is
     assumed that no error occurred, and 0 is returned. This means that
     this function may be conveniently used in a
     <function>return</function> statement. If
-    <parameter>message</parameter> is NULL, no message is set. This
+    <parameter>message</parameter> is <constant>NULL</constant>, no message is set. This
     call can fail if no memory may be allocated for the name and
     message strings, in which case an
     <constant>SD_BUS_ERROR_NO_MEMORY</constant> error might be set
@@ -291,10 +291,10 @@
     will not be deallocated, and must be <citerefentry
     project='man-pages'><refentrytitle>free</refentrytitle><manvolnum>3</manvolnum></citerefentry>d
     by the caller if necessary. The function may also be called safely
-    on unset errors (error structures with both fields set to NULL),
+    on unset errors (error structures with both fields set to <constant>NULL</constant>),
     in which case it performs no operation. This call will reset the
     error structure after freeing the data, so that all fields are set
-    to NULL. The structure may be reused afterwards.</para>
+    to <constant>NULL</constant>. The structure may be reused afterwards.</para>
   </refsect1>
 
   <refsect1>

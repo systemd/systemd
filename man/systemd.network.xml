@@ -1944,7 +1944,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
             escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
             then all options specified earlier are cleared. Takes a whitespace-separated list of strings. Note that
-            currently NUL bytes are not allowed.</para>
+            currently <constant>NUL</constant> bytes are not allowed.</para>
           </listitem>
         </varlistentry>
 

@@ -51,7 +51,7 @@
 
     <para>On success, <function>sd_event_source_get_event()</function>
     returns the associated event loop object. On failure, it returns
-    NULL.</para>
+    <constant>NULL</constant>.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />

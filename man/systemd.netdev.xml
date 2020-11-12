@@ -1770,7 +1770,8 @@
       <varlistentry>
         <term><varname>AdActorSystem=</varname></term>
         <listitem>
-          <para>Specifies the 802.3ad system mac address. This can not be either NULL or Multicast.</para>
+          <para>Specifies the 802.3ad system mac address. This can not be either
+          <constant>NULL</constant> or <constant>Multicast</constant>.</para>
         </listitem>
       </varlistentry>
 

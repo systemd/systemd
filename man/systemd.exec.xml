@@ -2757,7 +2757,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         user IDs, public key material and similar non-sensitive data. For everything else use
         <varname>LoadCredential=</varname>. In order to embed binary data into the credential data use
         C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to embed
-        a NUL byte).</para>
+        a <constant>NUL</constant> byte).</para>
 
         <para>If a credential of the same ID is listed in both <varname>LoadCredential=</varname> and
         <varname>SetCredential=</varname>, the latter will act as default if the former cannot be

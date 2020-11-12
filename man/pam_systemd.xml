@@ -244,7 +244,7 @@
     <title>Session limits</title>
 
     <para>PAM modules earlier in the stack, that is those that come before <command>pam_systemd.so</command>,
-    can set session scope limits using the PAM context objects. The data for these objects is provided as NUL-terminated C strings
+    can set session scope limits using the PAM context objects. The data for these objects is provided as <constant>NUL</constant>-terminated C strings
     and maps directly to the respective unit resource control directives. Note that these limits apply to individual sessions of the user,
     they do not apply to all user processes as a combined whole. In particular, the per-user <command>user@.service</command> unit instance,
     which runs the <command>systemd --user</command> manager process and its children, and is tracked outside of any session, being shared

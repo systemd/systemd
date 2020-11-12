@@ -85,8 +85,8 @@
 
     <programlisting>#define SD_MESSAGE_COREDUMP SD_ID128_MAKE(fc,2e,22,bc,6e,e6,47,b6,b9,07,29,ab,34,a2,50,b1)</programlisting>
 
-    <para><constant>SD_ID128_NULL</constant> may be used to refer to the 128bit ID consisting of only NUL
-    bytes.</para>
+    <para><constant>SD_ID128_NULL</constant> may be used to refer to the 128bit ID consisting of only
+    <constant>NUL</constant> bytes.</para>
 
     <para><function>SD_ID128_MAKE_STR()</function> is similar to <function>SD_ID128_MAKE()</function>, but creates a
     <type>const char*</type> expression that can be conveniently used in message formats and such:</para>
@@ -136,7 +136,8 @@ int main(int argc, char **argv) {
         return 0;
 }</programlisting>
 
-    <para>Use <function>sd_id128_is_null()</function> to check if an 128bit ID consists of only NUL bytes:</para>
+    <para>Use <function>sd_id128_is_null()</function> to check if an 128bit ID consists of only
+    <constant>NUL</constant> bytes:</para>
 
     <programlisting>int main(int argc, char *argv[]) {
         assert(sd_id128_is_null(SD_ID128_NULL));
