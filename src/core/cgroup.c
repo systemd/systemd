@@ -25,6 +25,7 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "socket-bind.h"
 #include "special.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -1099,6 +1100,12 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
+static void cgroup_apply_socket_bind(Unit *u) {
+        assert(u);
+
+        (void) socket_bind_install(u);
+}
+
 static int cgroup_apply_devices(Unit *u) {
         _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
         const char *path;
@@ -1527,6 +1534,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FOREIGN)
                 cgroup_apply_bpf_foreign_program(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_SOCKET_BIND)
+                cgroup_apply_socket_bind(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1568,6 +1578,17 @@ static bool unit_get_needs_bpf_foreign_program(Unit *u) {
                 return false;
 
         return !LIST_IS_EMPTY(c->bpf_foreign_programs);
+}
+
+static bool unit_get_needs_socket_bind(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->socket_bind_allow != NULL || c->socket_bind_deny != NULL;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1623,6 +1644,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_foreign_program(u))
                 mask |= CGROUP_MASK_BPF_FOREIGN;
+
+        if (unit_get_needs_socket_bind(u))
+                mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         return mask;
 }
@@ -3106,6 +3130,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_foreign_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_FOREIGN;
+
+        /* BPF-based bind{4|6} hooks */
+        r = socket_bind_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         *ret = mask;
         return 0;
