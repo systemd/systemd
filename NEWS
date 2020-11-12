@@ -600,6 +600,13 @@ CHANGES WITH 247 in spe:
         * "systemctl edit" has been updated to show the original effective unit
           contents in commented form in the text editor.
 
+        * Units in user mode are now segregated into three new slices:
+          session.slice (units that form the core of graphical session),
+          app.slice ("normal" user applications), and background.slice
+          (low-priority tasks). Unless otherwise configured, user units are
+          placed in app.slice. The plan is to add resource limits and
+          protections for the different slices in the future.
+
         Contributions from: Adolfo Jayme Barrientos, afg, Alec Moskvin, Alyssa
         Ross, Amitanand Chikorde, Andrew Hangsleben, Anita Zhang, Ansgar
         Burchardt, Arian van Putten, Aurelien Jarno, Axel Rasmussen, bauen1,
