@@ -5,6 +5,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "allow-bind.h"
 #include "blockdev-util.h"
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
@@ -970,6 +971,12 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
+static void cgroup_apply_allow_bind(Unit *u) {
+        assert(u);
+
+        (void) allow_bind_install(u);
+}
+
 static int cgroup_apply_devices(Unit *u) {
         _cleanup_(bpf_program_unrefp) BPFProgram *prog = NULL;
         const char *path;
@@ -1389,6 +1396,9 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_FIREWALL)
                 cgroup_apply_firewall(u);
+
+        if (apply_mask & CGROUP_MASK_BPF_ALLOW_BIND)
+                cgroup_apply_allow_bind(u);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1419,6 +1429,17 @@ static bool unit_get_needs_bpf_firewall(Unit *u) {
         }
 
         return false;
+}
+
+static bool unit_get_needs_allow_bind(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->allow_bind_ports != NULL;
 }
 
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
@@ -1471,6 +1492,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_bpf_firewall(u))
                 mask |= CGROUP_MASK_BPF_FIREWALL;
+
+        if (unit_get_needs_allow_bind(u))
+                mask |= CGROUP_MASK_BPF_ALLOW_BIND;
 
         return mask;
 }
@@ -2967,6 +2991,11 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         r = bpf_devices_supported();
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_DEVICES;
+
+        /* BPF-based bind{4|6} hooks */
+        r = allow_bind_supported();
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_ALLOW_BIND;
 
         *ret = mask;
         return 0;
