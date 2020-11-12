@@ -1279,6 +1279,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 if (!p->opt)
                         dns_server_packet_bad_opt(t->server, t->current_feature_level);
 
+                /* Report that the server didn't copy our query DO bit from request to response */
+                if (DNS_PACKET_DO(t->sent) && !DNS_PACKET_DO(t->received))
+                        dns_server_packet_do_off(t->server, t->current_feature_level);
+
                 /* Report that we successfully received a packet */
                 dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, p->size);
         }
