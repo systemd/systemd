@@ -530,13 +530,15 @@ CHANGES WITH 247 in spe:
           contention for selected parts of the unit hierarchy using the PSI
           information reported by the kernel, and kills processes when memory
           or swap pressure is above configured limits. This service is only
-          enabled in developer mode (see below) and should be considered a
-          preview in this release. Behaviour details and option names are
-          subject to change without the usual backwards-compatibility promises.
+          enabled by default in developer mode (see below) and should be
+          considered a preview in this release. Behaviour details and option
+          names are subject to change without the usual backwards-compatibility
+          promises.
 
         * A new helper oomctl has been added to introspect systemd-oomd state.
-          If also is only available in developer mode and should be considered
-          a preview without the usual backwards-compatibility promises.
+          If also is only enabled by default in developer mode and should be
+          considered a preview without the usual backwards-compatibility
+          promises.
 
         * New meson option -Dcompat-mutable-uid-boundaries= has been added. If
           enabled, systemd reads the system UID boundaries from /etc/login.defs
