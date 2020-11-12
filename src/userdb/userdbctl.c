@@ -780,10 +780,8 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to set $SYSTEMD_ONLY_USERDB: %m");
 
                 log_info("Enabled services: %s", e);
-        } else {
-                if (unsetenv("SYSTEMD_ONLY_USERDB") < 0)
-                        return log_error_errno(r, "Failed to unset $SYSTEMD_ONLY_USERDB: %m");
-        }
+        } else
+                assert_se(unsetenv("SYSTEMD_ONLY_USERDB") == 0);
 
         return dispatch_verb(argc, argv, verbs, NULL);
 }

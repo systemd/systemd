@@ -215,9 +215,7 @@ static int acquire_existing_password(const char *user_name, UserRecord *hr, bool
                         return log_error_errno(r, "Failed to store password: %m");
 
                 string_erase(e);
-
-                if (unsetenv("PASSWORD") < 0)
-                        return log_error_errno(errno, "Failed to unset $PASSWORD: %m");
+                assert_se(unsetenv("PASSWORD") == 0);
 
                 return 0;
         }
@@ -255,9 +253,7 @@ static int acquire_token_pin(const char *user_name, UserRecord *hr) {
                         return log_error_errno(r, "Failed to store token PIN: %m");
 
                 string_erase(e);
-
-                if (unsetenv("PIN") < 0)
-                        return log_error_errno(errno, "Failed to unset $PIN: %m");
+                assert_se(unsetenv("PIN") == 0);
 
                 return 0;
         }
@@ -997,9 +993,7 @@ static int acquire_new_password(
                         return log_error_errno(r, "Failed to store password: %m");
 
                 string_erase(e);
-
-                if (unsetenv("NEWPASSWORD") < 0)
-                        return log_error_errno(errno, "Failed to unset $NEWPASSWORD: %m");
+                assert_se(unsetenv("NEWPASSWORD") == 0);
 
                 if (ret)
                         *ret = TAKE_PTR(copy);

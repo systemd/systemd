@@ -747,3 +747,15 @@ int getenv_bool_secure(const char *p) {
 
         return parse_boolean(e);
 }
+
+int set_unset_env(const char *name, const char *value, bool overwrite) {
+        int r;
+
+        if (value)
+                r = setenv(name, value, overwrite);
+        else
+                r = unsetenv(name);
+        if (r < 0)
+                return -errno;
+        return 0;
+}

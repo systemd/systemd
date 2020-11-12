@@ -106,7 +106,7 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 .sll_hatype = htobe16(arp_type),
                 .sll_halen = bcast_addr_len,
         };
-        memcpy(link->ll.sll_addr, bcast_addr, bcast_addr_len);
+        memcpy(link->ll.sll_addr, bcast_addr, bcast_addr_len); /* We may overflow link->ll. link->ll_buffer ensures we have enough space. */
 
         r = bind(s, &link->sa, SOCKADDR_LL_LEN(link->ll));
         if (r < 0)

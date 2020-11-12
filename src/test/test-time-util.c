@@ -480,7 +480,7 @@ static void test_in_utc_timezone(void) {
         assert_se(streq(tzname[0], "CET"));
         assert_se(streq(tzname[1], "CEST"));
 
-        assert_se(unsetenv("TZ") >= 0);
+        assert_se(unsetenv("TZ") == 0);
 }
 
 static void test_map_clock_usec(void) {

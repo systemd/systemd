@@ -189,12 +189,9 @@ int pager_open(PagerFlags flags) {
 
                 /* We generally always set variables used by less, even if we end up using a different pager.
                  * They shouldn't hurt in any case, and ideally other pagers would look at them too. */
-                if (use_secure_mode)
-                        r = setenv("LESSSECURE", "1", 1);
-                else
-                        r = unsetenv("LESSSECURE");
+                r = set_unset_env("LESSSECURE", use_secure_mode ? "1" : NULL, true);
                 if (r < 0) {
-                        log_error_errno(errno, "Failed to adjust environment variable LESSSECURE: %m");
+                        log_error_errno(r, "Failed to adjust environment variable LESSSECURE: %m");
                         _exit(EXIT_FAILURE);
                 }
 

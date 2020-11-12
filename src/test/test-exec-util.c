@@ -372,10 +372,7 @@ static void test_environment_gathering(void) {
         assert_se(streq(strv_env_get(env, "PATH"), DEFAULT_PATH ":/no/such/file"));
 
         /* reset environ PATH */
-        if (old)
-                (void) setenv("PATH", old, 1);
-        else
-                (void) unsetenv("PATH");
+        assert_se(set_unset_env("PATH", old, true) == 0);
 }
 
 static void test_error_catching(void) {
