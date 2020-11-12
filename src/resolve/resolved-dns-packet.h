@@ -201,7 +201,7 @@ int dns_packet_append_label(DnsPacket *p, const char *s, size_t l, bool canonica
 int dns_packet_append_name(DnsPacket *p, const char *name, bool allow_compression, bool canonical_candidate, size_t *start);
 int dns_packet_append_key(DnsPacket *p, const DnsResourceKey *key, const DnsAnswerFlags flags, size_t *start);
 int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAnswerFlags flags, size_t *start, size_t *rdata_start);
-int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, bool include_rfc6975, int rcode, size_t *start);
+int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, bool include_rfc6975, const char *nsid, int rcode, size_t *ret_start);
 int dns_packet_append_question(DnsPacket *p, DnsQuestion *q);
 int dns_packet_append_answer(DnsPacket *p, DnsAnswer *a, unsigned *completed);
 
@@ -228,6 +228,8 @@ int dns_packet_skip_question(DnsPacket *p);
 int dns_packet_extract(DnsPacket *p);
 
 bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b);
+
+int dns_packet_has_nsid_request(DnsPacket *p);
 
 /* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6 */
 enum {
