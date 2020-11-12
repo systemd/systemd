@@ -85,6 +85,7 @@ struct DnsServer {
         bool packet_bad_opt:1;          /* Set when OPT was missing or otherwise bad on reply */
         bool packet_rrsig_missing:1;    /* Set when RRSIG was missing */
         bool packet_invalid:1;          /* Set when we failed to parse a reply */
+        bool packet_do_off:1;           /* Set when the server didn't copy DNSSEC DO flag from request to response */
 
         usec_t verified_usec;
         usec_t features_grace_period_usec;
@@ -124,6 +125,7 @@ void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_invalid(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_do_off(DnsServer *s, DnsServerFeatureLevel level);
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 
