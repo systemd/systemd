@@ -551,7 +551,7 @@ CHANGES WITH 247 in spe:
           promises.
 
         * A new helper oomctl has been added to introspect systemd-oomd state.
-          If also is only enabled by default in developer mode and should be
+          It is only enabled by default in developer mode and should be
           considered a preview without the usual backwards-compatibility
           promises.
 
