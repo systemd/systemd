@@ -825,7 +825,7 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           configured on another link. By default, an address within each delegated prefix will be
           assigned, and the prefixes will be announced through IPv6 Router Advertisement when
           <varname>IPv6SendRA=</varname> is enabled. Such default settings can be configured in
-          [DHCPv6PrefixDelegation] section.</para></listitem>
+          [DHCPv6PrefixDelegation] section. Defaults to disabled.</para></listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>IPv6MTUBytes=</varname></term>
