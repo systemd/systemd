@@ -473,12 +473,19 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                                                                                                 DNS_SERVER_FEATURE_LEVEL_UDP;
 
                 } else if (s->packet_bad_opt &&
-                           DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(s->possible_feature_level)) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(s->possible_feature_level) &&
+                           dns_server_get_dnssec_mode(s) != DNSSEC_YES &&
+                           dns_server_get_dns_over_tls_mode(s) != DNS_OVER_TLS_YES) {
 
-                        /* A reply to one of our EDNS0 queries didn't carry a valid OPT RR, then downgrade to below
-                         * EDNS0 levels. After all, some records generate different responses with and without OPT RR
-                         * in the request. Example:
-                         * https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html */
+                        /* A reply to one of our EDNS0 queries didn't carry a valid OPT RR, then downgrade to
+                         * below EDNS0 levels. After all, some servers generate different responses with and
+                         * without OPT RR in the request. Example:
+                         *
+                         * https://open.nlnetlabs.nl/pipermail/dnssec-trigger/2014-November/000376.html
+                         *
+                         * If we are in strict DNSSEC or DoT mode, we don't do this kind of downgrade
+                         * however, as both modes imply EDNS0 to work (DNSSEC strictly requires it, and DoT
+                         * only in our implementation). */
 
                         log_debug("Server doesn't support EDNS(0) properly, downgrading feature level...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
@@ -488,42 +495,57 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         log_level = LOG_NOTICE;
 
                 } else if (s->packet_rrsig_missing &&
-                           DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level)) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) &&
+                           dns_server_get_dnssec_mode(s) != DNSSEC_YES) {
 
-                        /* RRSIG data was missing on a EDNS0 packet with DO bit set. This means the server doesn't
-                         * augment responses with DNSSEC RRs. If so, let's better not ask the server for it anymore,
-                         * after all some servers generate different replies depending if an OPT RR is in the query or
-                         * not. */
+                        /* RRSIG data was missing on a EDNS0 packet with DO bit set. This means the server
+                         * doesn't augment responses with DNSSEC RRs. If so, let's better not ask the server
+                         * for it anymore, after all some servers generate different replies depending if an
+                         * OPT RR is in the query or not. If we are in strict DNSSEC mode, don't allow such
+                         * downgrades however, since a DNSSEC feature level is a requirement for strict
+                         * DNSSEC mode. */
 
                         log_debug("Detected server responses lack RRSIG records, downgrading feature level...");
-                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN : DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN :
+                                                                                                                 DNS_SERVER_FEATURE_LEVEL_EDNS0;
 
                 } else if (s->n_failed_udp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
-                           s->possible_feature_level >= (dns_server_get_dnssec_mode(s) == DNSSEC_YES ? DNS_SERVER_FEATURE_LEVEL_LARGE : DNS_SERVER_FEATURE_LEVEL_UDP)) {
+                           DNS_SERVER_FEATURE_LEVEL_IS_UDP(s->possible_feature_level) &&
+                           ((s->possible_feature_level != DNS_SERVER_FEATURE_LEVEL_DO) || dns_server_get_dnssec_mode(s) != DNSSEC_YES)) {
 
-                        /* We lost too many UDP packets in a row, and are on a feature level of UDP or higher. If the
-                         * packets are lost, maybe the server cannot parse them, hence downgrading sounds like a good
-                         * idea. We might downgrade all the way down to TCP this way.
+                        /* We lost too many UDP packets in a row, and are on a UDP feature level of UDP. If
+                         * the packets are lost, maybe the server cannot parse them, hence downgrading sounds
+                         * like a good idea. We might downgrade all the way down to TCP this way.
                          *
                          * If strict DNSSEC mode is used we won't downgrade below DO level however, as packet loss
                          * might have many reasons, a broken DNSSEC implementation being only one reason. And if the
                          * user is strict on DNSSEC, then let's assume that DNSSEC is not the fault here. */
 
                         log_debug("Lost too many UDP packets, downgrading feature level...");
-                        s->possible_feature_level--;
+                        if (s->possible_feature_level == DNS_SERVER_FEATURE_LEVEL_DO) /* skip over TLS_PLAIN */
+                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                        else
+                                s->possible_feature_level--;
 
                 } else if (s->n_failed_tcp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
                            s->packet_truncated &&
-                           s->possible_feature_level > (dns_server_get_dnssec_mode(s) == DNSSEC_YES ? DNS_SERVER_FEATURE_LEVEL_LARGE : DNS_SERVER_FEATURE_LEVEL_UDP)) {
+                           s->possible_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP &&
+                           DNS_SERVER_FEATURE_LEVEL_IS_UDP(s->possible_feature_level) &&
+                           (!DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level) || dns_server_get_dnssec_mode(s) != DNSSEC_YES)) {
 
-                         /* We got too many TCP connection failures in a row, we had at least one truncated packet, and
-                          * are on a feature level above UDP. By downgrading things and getting rid of DNSSEC or EDNS0
-                          * data we hope to make the packet smaller, so that it still works via UDP given that TCP
-                          * appears not to be a fallback. Note that if we are already at the lowest UDP level, we don't
-                          * go further down, since that's TCP, and TCP failed too often after all. */
+                         /* We got too many TCP connection failures in a row, we had at least one truncated
+                          * packet, and are on feature level above UDP. By downgrading things and getting rid
+                          * of DNSSEC or EDNS0 data we hope to make the packet smaller, so that it still
+                          * works via UDP given that TCP appears not to be a fallback. Note that if we are
+                          * already at the lowest UDP level, we don't go further down, since that's TCP, and
+                          * TCP failed too often after all. */
 
                         log_debug("Got too many failed TCP connection failures and truncated UDP packets, downgrading feature level...");
-                        s->possible_feature_level--;
+
+                        if (DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(s->possible_feature_level))
+                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0; /* Go DNSSEC → EDNS0 */
+                        else
+                                s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP; /* Go EDNS0 → UDP */
                 }
 
                 if (p != s->possible_feature_level) {
@@ -619,7 +641,10 @@ bool dns_server_dnssec_supported(DnsServer *server) {
 
         /* Returns whether the server supports DNSSEC according to what we know about it */
 
-        if (server->possible_feature_level < DNS_SERVER_FEATURE_LEVEL_DO)
+        if (dns_server_get_dnssec_mode(server) == DNSSEC_YES) /* If strict DNSSEC mode is enabled, always assume DNSSEC mode is supported. */
+                return true;
+
+        if (!DNS_SERVER_FEATURE_LEVEL_IS_DNSSEC(server->possible_feature_level))
                 return false;
 
         if (server->packet_bad_opt)
