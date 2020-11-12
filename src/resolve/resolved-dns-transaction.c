@@ -502,7 +502,12 @@ static void dns_transaction_retry(DnsTransaction *t, bool next_server) {
 
         assert(t);
 
-        log_debug("Retrying transaction %" PRIu16 ".", t->id);
+        /* Retries the transaction as it is, possibly on a different server */
+
+        if (next_server)
+                log_debug("Retrying transaction %" PRIu16 ", after switching servers.", t->id);
+        else
+                log_debug("Retrying transaction %" PRIu16 ".", t->id);
 
         /* Before we try again, switch to a new server. */
         if (next_server)
