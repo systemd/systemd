@@ -280,7 +280,8 @@ int dns_transaction_new(
                 .query_flags = query_flags,
                 .bypass = dns_packet_ref(bypass),
                 .current_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID,
-                .clamp_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID,
+                .clamp_feature_level_servfail = _DNS_SERVER_FEATURE_LEVEL_INVALID,
+                .clamp_feature_level_nxdomain = _DNS_SERVER_FEATURE_LEVEL_INVALID,
                 .id = pick_new_id(s->manager),
         };
 
@@ -472,15 +473,20 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
 
         /* If we changed the server invalidate the feature level clamping, as the new server might have completely
          * different properties. */
-        if (server != t->server)
-                t->clamp_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+        if (server != t->server) {
+                t->clamp_feature_level_servfail = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+                t->clamp_feature_level_nxdomain = _DNS_SERVER_FEATURE_LEVEL_INVALID;
+        }
 
         t->current_feature_level = dns_server_possible_feature_level(server);
 
         /* Clamp the feature level if that is requested. */
-        if (t->clamp_feature_level != _DNS_SERVER_FEATURE_LEVEL_INVALID &&
-            t->current_feature_level > t->clamp_feature_level)
-                t->current_feature_level = t->clamp_feature_level;
+        if (t->clamp_feature_level_servfail != _DNS_SERVER_FEATURE_LEVEL_INVALID &&
+            t->current_feature_level > t->clamp_feature_level_servfail)
+                t->current_feature_level = t->clamp_feature_level_servfail;
+        if (t->clamp_feature_level_nxdomain != _DNS_SERVER_FEATURE_LEVEL_INVALID &&
+            t->current_feature_level > t->clamp_feature_level_nxdomain)
+                t->current_feature_level = t->clamp_feature_level_nxdomain;
 
         log_debug("Using feature level %s for transaction %u.", dns_server_feature_level_to_string(t->current_feature_level), t->id);
 
@@ -1124,19 +1130,19 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                         /* Reduce this feature level by one and try again. */
                         switch (t->current_feature_level) {
                         case DNS_SERVER_FEATURE_LEVEL_TLS_DO:
-                                t->clamp_feature_level = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
+                                t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
                                 break;
                         case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 1:
                                 /* Skip plain TLS when TLS is not supported */
-                                t->clamp_feature_level = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
+                                t->clamp_feature_level_servfail = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
                                 break;
                         default:
-                                t->clamp_feature_level = t->current_feature_level - 1;
+                                t->clamp_feature_level_servfail = t->current_feature_level - 1;
                         }
 
                         log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
                                   dns_rcode_to_string(DNS_PACKET_RCODE(p)),
-                                  dns_server_feature_level_to_string(t->clamp_feature_level));
+                                  dns_server_feature_level_to_string(t->clamp_feature_level_servfail));
 
                         dns_transaction_retry(t, false /* use the same server */);
                         return;
@@ -1222,13 +1228,52 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 return;
         }
 
+        if (t->scope->protocol == DNS_PROTOCOL_DNS &&
+            !t->bypass &&
+            DNS_PACKET_RCODE(p) == DNS_RCODE_NXDOMAIN &&
+            p->opt && !DNS_PACKET_DO(p) &&
+            DNS_SERVER_FEATURE_LEVEL_IS_EDNS0(t->current_feature_level) &&
+            DNS_SERVER_FEATURE_LEVEL_IS_UDP(t->current_feature_level) &&
+            t->scope->dnssec_mode != DNSSEC_YES) {
+
+                /* Some captive portals are special in that the Aruba/Datavalet hardware will miss
+                 * replacing the packets with the local server IP to point to the authenticated side
+                 * of the network if EDNS0 is enabled. Instead they return NXDOMAIN, with DO bit set
+                 * to zero... nothing to see here, yet respond with the captive portal IP, when using
+                 * the more simple UDP level.
+                 *
+                 * Common portal names that fail like so are:
+                 *     secure.datavalet.io
+                 *     securelogin.arubanetworks.com
+                 *     securelogin.networks.mycompany.com
+                 *
+                 * Thus retry NXDOMAIN RCODES with a lower feature level.
+                 *
+                 * Do not lower the server's tracked feature level, as the captive portal should not
+                 * be lying for the wider internet (e.g. _other_ queries were observed fine with
+                 * EDNS0 on these networks, post auth), i.e. let's just lower the level transaction's
+                 * feature level.
+                 *
+                 * This is reported as https://github.com/dns-violations/dns-violations/blob/master/2018/DVE-2018-0001.md
+                 */
+
+                t->clamp_feature_level_nxdomain = DNS_SERVER_FEATURE_LEVEL_UDP;
+
+                log_debug("Server returned error %s in EDNS0 mode, retrying transaction with reduced feature level %s (DVE-2018-0001 mitigation)",
+                          dns_rcode_to_string(DNS_PACKET_RCODE(p)),
+                          dns_server_feature_level_to_string(t->clamp_feature_level_nxdomain));
+
+                dns_transaction_retry(t, false /* use the same server */);
+                return;
+        }
+
         if (t->server) {
                 /* Report that we successfully received a valid packet with a good rcode after we initially got a bad
                  * rcode and subsequently downgraded the protocol */
 
                 if (IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN) &&
-                    t->clamp_feature_level != _DNS_SERVER_FEATURE_LEVEL_INVALID)
-                        dns_server_packet_rcode_downgrade(t->server, t->clamp_feature_level);
+                    t->clamp_feature_level_servfail != _DNS_SERVER_FEATURE_LEVEL_INVALID)
+                        dns_server_packet_rcode_downgrade(t->server, t->clamp_feature_level_servfail);
 
                 /* Report that the OPT RR was missing */
                 if (!p->opt)
