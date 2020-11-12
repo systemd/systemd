@@ -20,7 +20,7 @@
 
 /* How long to cache strange rcodes, i.e. rcodes != SUCCESS and != NXDOMAIN (specifically: that's only SERVFAIL for
  * now) */
-#define CACHE_TTL_STRANGE_RCODE_USEC (30 * USEC_PER_SEC)
+#define CACHE_TTL_STRANGE_RCODE_USEC (10 * USEC_PER_SEC)
 
 typedef enum DnsCacheItemType DnsCacheItemType;
 typedef struct DnsCacheItem DnsCacheItem;
