@@ -104,10 +104,6 @@ static void test_oomd_cgroup_context_acquire_and_insert(void) {
         assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
 
         assert_se(streq(ctx->path, cgroup));
-        assert_se(ctx->memory_pressure.avg10 == 0);
-        assert_se(ctx->memory_pressure.avg60 == 0);
-        assert_se(ctx->memory_pressure.avg300 == 0);
-        assert_se(ctx->memory_pressure.total == 0);
         assert_se(ctx->current_memory_usage > 0);
         assert_se(ctx->memory_min == 0);
         assert_se(ctx->memory_low == 0);
