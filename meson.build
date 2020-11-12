@@ -126,6 +126,7 @@ if rootlibdir == ''
         rootlibdir = join_paths(rootprefixdir, libdir.split('/')[-1])
 endif
 
+install_sysconfdir = get_option('install-sysconfdir')
 # Dirs of external packages
 pkgconfigdatadir = get_option('pkgconfigdatadir') == '' ? join_paths(datadir, 'pkgconfig') : get_option('pkgconfigdatadir')
 pkgconfiglibdir = get_option('pkgconfiglibdir') == '' ? join_paths(libdir, 'pkgconfig') : get_option('pkgconfiglibdir')
@@ -2776,8 +2777,10 @@ if conf.get('ENABLE_BINFMT') == 1
 
         meson.add_install_script('sh', '-c',
                                  mkdir_p.format(binfmtdir))
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(join_paths(sysconfdir, 'binfmt.d')))
+        if install_sysconfdir
+                meson.add_install_script('sh', '-c',
+                                         mkdir_p.format(join_paths(sysconfdir, 'binfmt.d')))
+        endif
 endif
 
 if conf.get('ENABLE_REPART') == 1
@@ -2891,8 +2894,10 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
-install_data('src/sleep/sleep.conf',
-             install_dir : pkgsysconfdir)
+if install_sysconfdir
+        install_data('src/sleep/sleep.conf',
+                     install_dir : pkgsysconfdir)
+endif
 
 public_programs += executable(
         'systemd-sysctl',
@@ -3243,8 +3248,10 @@ if conf.get('HAVE_KMOD') == 1
 
         meson.add_install_script('sh', '-c',
                                  mkdir_p.format(modulesloaddir))
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(join_paths(sysconfdir, 'modules-load.d')))
+        if install_sysconfdir
+                meson.add_install_script('sh', '-c',
+                                         mkdir_p.format(join_paths(sysconfdir, 'modules-load.d')))
+        endif
 endif
 
 public_programs += executable(
@@ -3489,8 +3496,10 @@ subdir('docs/var-log')
 install_subdir('factory/etc',
                install_dir : factorydir)
 
-install_data('xorg/50-systemd-user.sh',
-             install_dir : xinitrcdir)
+if install_sysconfdir
+        install_data('xorg/50-systemd-user.sh',
+                     install_dir : xinitrcdir)
+endif
 install_data('modprobe.d/systemd.conf',
              install_dir : modprobedir)
 install_data('LICENSE.GPL2',

@@ -236,8 +236,10 @@ if conf.get('ENABLE_NETWORKD') == 1
                              install_dir : polkitpkladir)
         endif
 
-        install_data('networkd.conf',
-                     install_dir : pkgsysconfdir)
+        if install_sysconfdir
+                install_data('networkd.conf',
+                             install_dir : pkgsysconfdir)
+        endif
 
         fuzzers += [
     [['src/network/fuzz-netdev-parser.c',

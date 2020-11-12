@@ -326,9 +326,11 @@ install_data('user-.slice.d/10-defaults.conf',
 
 ############################################################
 
-meson.add_install_script(meson_make_symlink,
-                         join_paths(pkgsysconfdir, 'user'),
-                         join_paths(sysconfdir, 'xdg/systemd/user'))
+if install_sysconfdir
+        meson.add_install_script(meson_make_symlink,
+                                 join_paths(pkgsysconfdir, 'user'),
+                                 join_paths(sysconfdir, 'xdg/systemd/user'))
+endif
 meson.add_install_script(meson_make_symlink,
                          join_paths(dbussystemservicedir, 'org.freedesktop.systemd1.service'),
                          join_paths(dbussessionservicedir, 'org.freedesktop.systemd1.service'))

@@ -26,8 +26,10 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                 input : 'timesyncd.conf.in',
                 output : 'timesyncd.conf',
                 configuration : substs)
-        install_data(timesyncd_conf,
-                     install_dir : pkgsysconfdir)
+        if install_sysconfdir
+                install_data(timesyncd_conf,
+                             install_dir : pkgsysconfdir)
+        endif
         install_data('org.freedesktop.timesync1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.timesync1.service',
