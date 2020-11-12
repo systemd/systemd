@@ -726,8 +726,9 @@ int dns_packet_append_opt(
                 uint16_t max_udp_size,
                 bool edns0_do,
                 bool include_rfc6975,
+                const char *nsid,
                 int rcode,
-                size_t *start) {
+                size_t *ret_start) {
 
         size_t saved_size;
         int r;
@@ -770,7 +771,6 @@ int dns_packet_append_opt(
         if (r < 0)
                 goto fail;
 
-        /* RDLENGTH */
         if (edns0_do && include_rfc6975) {
                 /* If DO is on and this is requested, also append RFC6975 Algorithm data. This is supposed to
                  * be done on queries, not on replies, hencer callers should turn this off when finishing off
@@ -805,11 +805,32 @@ int dns_packet_append_opt(
                         NSEC3_ALGORITHM_SHA1,
                 };
 
-                r = dns_packet_append_uint16(p, sizeof(rfc6975), NULL);
+                r = dns_packet_append_uint16(p, sizeof(rfc6975), NULL); /* RDLENGTH */
                 if (r < 0)
                         goto fail;
 
-                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL);
+                r = dns_packet_append_blob(p, rfc6975, sizeof(rfc6975), NULL); /* the payload, as defined above */
+
+        } else if (nsid) {
+
+                if (strlen(nsid) > UINT16_MAX - 4) {
+                        r = -E2BIG;
+                        goto fail;
+                }
+
+                r = dns_packet_append_uint16(p, 4 + strlen(nsid), NULL); /* RDLENGTH */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, 3, NULL); /* OPTION-CODE: NSID */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_uint16(p, strlen(nsid), NULL); /* OPTION-LENGTH */
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_blob(p, nsid, strlen(nsid), NULL);
         } else
                 r = dns_packet_append_uint16(p, 0, NULL);
         if (r < 0)
@@ -820,8 +841,8 @@ int dns_packet_append_opt(
         p->opt_start = saved_size;
         p->opt_size = p->size - saved_size;
 
-        if (start)
-                *start = saved_size;
+        if (ret_start)
+                *ret_start = saved_size;
 
         return 0;
 
@@ -2557,6 +2578,52 @@ DEFINE_HASH_OPS(dns_packet_hash_ops, DnsPacket, dns_packet_hash_func, dns_packet
 
 bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b) {
         return dns_packet_compare_func(a, b) == 0;
+}
+
+int dns_packet_has_nsid_request(DnsPacket *p) {
+        bool has_nsid = false;
+        const uint8_t *d;
+        size_t l;
+
+        assert(p);
+
+        if (!p->opt)
+                return false;
+
+        d = p->opt->opt.data;
+        l = p->opt->opt.data_size;
+
+        while (l > 0) {
+                uint16_t code, length;
+
+                if (l < 4U)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "EDNS0 variable part has invalid size.");
+
+                code = unaligned_read_be16(d);
+                length = unaligned_read_be16(d + 2);
+
+                if (l < 4U + length)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Truncated option in EDNS0 variable part.");
+
+                if (code == 3) {
+                        if (has_nsid)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Duplicate NSID option in EDNS0 variable part.");
+
+                        if (length != 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                       "Non-empty NSID option in DNS request.");
+
+                        has_nsid = true;
+                }
+
+                d += 4U + length;
+                l -= 4U + length;
+        }
+
+        return has_nsid;
 }
 
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
