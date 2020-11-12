@@ -844,6 +844,7 @@ static bool dns_transaction_dnssec_is_live(DnsTransaction *t) {
 
 static int dns_transaction_dnssec_ready(DnsTransaction *t) {
         DnsTransaction *dt;
+        int r;
 
         assert(t);
 
@@ -877,7 +878,7 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
 
                 case DNS_TRANSACTION_DNSSEC_FAILED:
                         /* We handle DNSSEC failures different from other errors, as we care about the DNSSEC
-                         * validationr result */
+                         * validation result */
 
                         log_debug("Auxiliary DNSSEC RR query failed validation: %s", dnssec_result_to_string(dt->answer_dnssec_result));
                         t->answer_dnssec_result = dt->answer_dnssec_result; /* Copy error code over */
@@ -894,6 +895,18 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
         return 1;
 
 fail:
+        /* Some auxiliary DNSSEC transaction failed for some reason. Maybe we learned something about the
+         * server due to this failure, and the feature level is now different? Let's see and restart the
+         * transaction if so. If not, let's propagate the auxiliary failure.
+         *
+         * This is particularly relevant if an auxiliary request figured out that DNSSEC doesn't work, and we
+         * are in permissive DNSSEC mode, and thus should restart things without DNSSEC magic. */
+        r = dns_transaction_maybe_restart(t);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0; /* don't validate just yet, we restarted things */
+
         t->answer_dnssec_result = DNSSEC_FAILED_AUXILIARY;
         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
         return 0;
