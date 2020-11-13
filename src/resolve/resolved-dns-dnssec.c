@@ -1380,7 +1380,7 @@ static int nsec3_hashed_domain_make(DnsResourceRecord *nsec3, const char *domain
  * matches the wildcard domain.
  *
  * Based on this we can prove either the existence of the record in @key, or NXDOMAIN or NODATA, or
- * that there is no proof either way. The latter is the case if a the proof of non-existence of a given
+ * that there is no proof either way. The latter is the case if a proof of non-existence of a given
  * name uses an NSEC3 record with the opt-out bit set. Lastly, if we are given insufficient NSEC3 records
  * to conclude anything we indicate this by returning NO_RR. */
 static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {

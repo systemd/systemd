@@ -1875,9 +1875,8 @@ int cg_mask_supported(CGroupMask *ret) {
         if (r > 0) {
                 _cleanup_free_ char *root = NULL, *controllers = NULL, *path = NULL;
 
-                /* In the unified hierarchy we can read the supported
-                 * and accessible controllers from a the top-level
-                 * cgroup attribute */
+                /* In the unified hierarchy we can read the supported and accessible controllers from
+                 * the top-level cgroup attribute */
 
                 r = cg_get_root_path(&root);
                 if (r < 0)

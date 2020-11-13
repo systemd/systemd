@@ -810,7 +810,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          *
          * 3. With CHASE_STEP: in this case only a single step of the normalization is executed, i.e. only the first
          *    symlink or ".." component of the path is resolved, and the resulting path is returned. This is useful if
-         *    a caller wants to trace the a path through the file system verbosely. Returns < 0 on error, > 0 if the
+         *    a caller wants to trace the path through the file system verbosely. Returns < 0 on error, > 0 if the
          *    path is fully normalized, and == 0 for each normalization step. This may be combined with
          *    CHASE_NONEXISTENT, in which case 1 is returned when a component is not found.
          *
