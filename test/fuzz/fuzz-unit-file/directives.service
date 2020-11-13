@@ -326,6 +326,7 @@ systemd.unit=
 systemd.verity=
 systemd.verity_root_data=
 systemd.verity_root_hash=
+systemd.verity_root_options=
 systemd.volatile=
 systemd.wants=
 systemd.watchdog_device=

@@ -29,13 +29,16 @@ static bool arg_enabled = true;
 static char *arg_root_hash = NULL;
 static char *arg_data_what = NULL;
 static char *arg_hash_what = NULL;
+static char *arg_options = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_data_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash_what, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_options, freep);
 
 static int create_device(void) {
-        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *u_escaped = NULL, *v_escaped = NULL, *root_hash_escaped = NULL;
+        _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL, *u_escaped = NULL, *v_escaped = NULL,
+                            *root_hash_escaped = NULL, *options_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *to;
         int r;
@@ -57,7 +60,8 @@ static int create_device(void) {
 
         log_debug("Using root verity data device %s,\n"
                   "                  hash device %s,\n"
-                  "                and root hash %s.", arg_data_what, arg_hash_what, arg_root_hash);
+                  "                      options %s,\n"
+                  "                and root hash %s.", arg_data_what, arg_hash_what, arg_options, arg_root_hash);
 
         u = fstab_node_to_udev_node(arg_data_what);
         if (!u)
@@ -79,6 +83,10 @@ static int create_device(void) {
         r = unit_name_from_path(v, ".device", &e);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
+
+        options_escaped = specifier_escape(arg_options ?: "");
+        if (!options_escaped)
+                return log_oom();
 
         root_hash_escaped = specifier_escape(arg_root_hash);
         if (!root_hash_escaped)
@@ -102,11 +110,11 @@ static int create_device(void) {
                 "\n[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "ExecStart=" ROOTLIBEXECDIR "/systemd-veritysetup attach root '%s' '%s' '%s'\n"
+                "ExecStart=" ROOTLIBEXECDIR "/systemd-veritysetup attach root '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" ROOTLIBEXECDIR "/systemd-veritysetup detach root\n",
                 d, e,
                 d, e,
-                u_escaped, v_escaped, root_hash_escaped);
+                u_escaped, v_escaped, root_hash_escaped, options_escaped);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -158,6 +166,16 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 r = free_and_strdup(&arg_hash_what, value);
                 if (r < 0)
                         return log_oom();
+
+        } else if (proc_cmdline_key_streq(key, "systemd.verity_root_options")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = free_and_strdup(&arg_options, value);
+                if (r < 0)
+                        return log_oom();
+
         }
 
         return 0;
