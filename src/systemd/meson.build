@@ -58,10 +58,10 @@ if add_languages('cpp', required : false)
         opts += [['c++'],
                  ['c++', '-std=c++98'],
                  ['c++', '-std=c++11']]
-        if cc.has_argument('-std=c++14')
+        if cxx.has_argument('-std=c++14')
                 opts += [['c++', '-std=c++14']]
         endif
-        if cc.has_argument('-std=c++17')
+        if cxx.has_argument('-std=c++17')
                 opts += [['c++', '-std=c++17']]
         endif
 endif
