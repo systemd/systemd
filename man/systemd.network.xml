@@ -1170,7 +1170,9 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>FirewallMark=</varname></term>
           <listitem>
-            <para>Specifies the iptables firewall mark value to match (a number between 1 and 4294967295).</para>
+            <para>Specifies the iptables firewall mark value to match (a number between 1 and
+            4294967295). Optionally, the firewall mask (also a number between 1 and 4294967295) can be
+            suffixed with a slash (<literal>/</literal>), e.g., <literal>7/255</literal>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
