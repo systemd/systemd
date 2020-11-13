@@ -16,9 +16,23 @@
 #endif
 
 #if defined(__x86_64__) && defined(__ILP32__)
-#define systemd_SC_arch_bias(x) ((x) | /* __X32_SYSCALL_BIT */ 0x40000000)
+#  define systemd_SC_arch_bias(x) ((x) | /* __X32_SYSCALL_BIT */ 0x40000000)
+#elif defined(__ia64__)
+#  define systemd_SC_arch_bias(x) (1024 + (x))
+#elif defined __alpha__
+#  define systemd_SC_arch_bias(x) (110 + (x))
+#elif defined _MIPS_SIM
+#  if _MIPS_SIM == _MIPS_SIM_ABI32
+#    define systemd_SC_arch_bias(x) (4000 + (x))
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    define systemd_SC_arch_bias(x) (6000 + (x))
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    define systemd_SC_arch_bias(x) (5000 + (x))
+#  else
+#    error "Unknown MIPS ABI"
+#  endif
 #else
-#define systemd_SC_arch_bias(x) (x)
+#  define systemd_SC_arch_bias(x) (x)
 #endif
 
 #include "missing_keyctl.h"
@@ -51,13 +65,11 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 #  define systemd_NR_memfd_create 350
 #elif defined _MIPS_SIM
 #  if _MIPS_SIM == _MIPS_SIM_ABI32
-#    define systemd_NR_memfd_create 4354
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_NABI32
-#    define systemd_NR_memfd_create 6318
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_ABI64
-#    define systemd_NR_memfd_create 5314
+#    define systemd_NR_memfd_create systemd_SC_arch_bias(354)
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    define systemd_NR_memfd_create systemd_SC_arch_bias(318)
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    define systemd_NR_memfd_create systemd_SC_arch_bias(314)
 #  endif
 #elif defined __i386__
 #  define systemd_NR_memfd_create 356
@@ -105,7 +117,7 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #elif defined(__aarch64__)
 #  define systemd_NR_getrandom 278
 #elif defined(__ia64__)
-#  define systemd_NR_getrandom 1339
+#  define systemd_NR_getrandom systemd_SC_arch_bias(318)
 #elif defined(__m68k__)
 #  define systemd_NR_getrandom 352
 #elif defined(__s390x__)
@@ -114,13 +126,11 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #  define systemd_NR_getrandom 359
 #elif defined _MIPS_SIM
 #  if _MIPS_SIM == _MIPS_SIM_ABI32
-#    define systemd_NR_getrandom 4353
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_NABI32
-#    define systemd_NR_getrandom 6317
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_ABI64
-#    define systemd_NR_getrandom 5313
+#    define systemd_NR_getrandom systemd_SC_arch_bias(353)
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    define systemd_NR_getrandom systemd_SC_arch_bias(317)
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    define systemd_NR_getrandom systemd_SC_arch_bias(313)
 #  endif
 #elif defined(__arc__)
 #  define systemd_NR_getrandom 278
@@ -186,6 +196,14 @@ static inline pid_t missing_gettid(void) {
 #  define systemd_NR_name_to_handle_at 335
 #elif defined(__arc__)
 #  define systemd_NR_name_to_handle_at 264
+#elif defined _MIPS_SIM
+#  if _MIPS_SIM == _MIPS_SIM_ABI32
+#    define systemd_NR_name_to_handle_at systemd_SC_arch_bias(339)
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    define systemd_NR_name_to_handle_at systemd_SC_arch_bias(303)
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    define systemd_NR_name_to_handle_at systemd_SC_arch_bias(298)
+#  endif
 #else
 #  warning "name_to_handle_at number is not defined"
 #endif
@@ -239,6 +257,14 @@ static inline int missing_name_to_handle_at(int fd, const char *name, struct fil
 #  define systemd_NR_setns 339
 #elif defined(__arc__)
 #  define systemd_NR_setns 268
+#elif defined _MIPS_SIM
+#  if _MIPS_SIM == _MIPS_SIM_ABI32
+#    define systemd_NR_setns systemd_SC_arch_bias(344)
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    define systemd_NR_setns systemd_SC_arch_bias(308)
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    define systemd_NR_setns systemd_SC_arch_bias(303)
+#  endif
 #else
 #  warning "setns() syscall number unknown for your architecture"
 #endif
@@ -290,13 +316,11 @@ static inline pid_t raw_getpid(void) {
 #  define systemd_NR_renameat2 276
 #elif defined _MIPS_SIM
 #  if _MIPS_SIM == _MIPS_SIM_ABI32
-#    define systemd_NR_renameat2 4351
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_NABI32
-#    define systemd_NR_renameat2 6315
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_ABI64
-#    define systemd_NR_renameat2 5311
+#    define systemd_NR_renameat2 systemd_SC_arch_bias(351)
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    define systemd_NR_renameat2 systemd_SC_arch_bias(315)
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    define systemd_NR_renameat2 systemd_SC_arch_bias(311)
 #  endif
 #elif defined __i386__
 #  define systemd_NR_renameat2 353
@@ -405,6 +429,14 @@ static inline key_serial_t missing_request_key(const char *type, const char *des
 #  define systemd_NR_copy_file_range 379
 #elif defined __arc__
 #  define systemd_NR_copy_file_range 285
+#elif defined _MIPS_SIM
+#  if _MIPS_SIM == _MIPS_SIM_ABI32
+#    define systemd_NR_copy_file_range systemd_SC_arch_bias(360)
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    define systemd_NR_copy_file_range systemd_SC_arch_bias(324)
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    define systemd_NR_copy_file_range systemd_SC_arch_bias(320)
+#  endif
 #else
 #  warning "copy_file_range() syscall number unknown for your architecture"
 #endif
@@ -457,6 +489,14 @@ static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in,
 #  define systemd_NR_bpf 351
 #elif defined __tilegx__
 #  define systemd_NR_bpf 280
+#elif defined _MIPS_SIM
+#  if _MIPS_SIM == _MIPS_SIM_ABI32
+#    define systemd_NR_bpf systemd_SC_arch_bias(355)
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    define systemd_NR_bpf systemd_SC_arch_bias(319)
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    define systemd_NR_bpf systemd_SC_arch_bias(315)
+#  endif
 #else
 #  warning "bpf() syscall number unknown for your architecture"
 #endif
@@ -507,13 +547,11 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #    define systemd_NR_pkey_mprotect 384
 #  elif defined _MIPS_SIM
 #    if _MIPS_SIM == _MIPS_SIM_ABI32
-#      define systemd_NR_pkey_mprotect 4363
-#    endif
-#    if _MIPS_SIM == _MIPS_SIM_NABI32
-#      define systemd_NR_pkey_mprotect 6327
-#    endif
-#    if _MIPS_SIM == _MIPS_SIM_ABI64
-#      define systemd_NR_pkey_mprotect 5323
+#      define systemd_NR_pkey_mprotect systemd_SC_arch_bias(363)
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_pkey_mprotect systemd_SC_arch_bias(327)
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_pkey_mprotect systemd_SC_arch_bias(323)
 #    endif
 #  else
 #    warning "pkey_mprotect() syscall number unknown for your architecture"
@@ -550,6 +588,14 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #  define systemd_NR_statx 360
 #elif defined __x86_64__
 #  define systemd_NR_statx systemd_SC_arch_bias(332)
+#elif defined _MIPS_SIM
+#  if _MIPS_SIM == _MIPS_SIM_ABI32
+#    define systemd_NR_statx systemd_SC_arch_bias(366)
+#  elif _MIPS_SIM == _MIPS_SIM_NABI32
+#    define systemd_NR_statx systemd_SC_arch_bias(330)
+#  elif _MIPS_SIM == _MIPS_SIM_ABI64
+#    define systemd_NR_statx systemd_SC_arch_bias(326)
+#  endif
 #else
 #  warning "statx() syscall number unknown for your architecture"
 #endif
@@ -634,23 +680,7 @@ static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
 /* ======================================================================= */
 
 /* should be always defined, see kernel 39036cd2727395c3369b1051005da74059a85317 */
-#if defined __alpha__
-#  define systemd_NR_pidfd_send_signal 534
-#elif defined _MIPS_SIM
-#  if _MIPS_SIM == _MIPS_SIM_ABI32	/* o32 */
-#    define systemd_NR_pidfd_send_signal (424 + 4000)
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_NABI32	/* n32 */
-#    define systemd_NR_pidfd_send_signal (424 + 6000)
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_ABI64	/* n64 */
-#    define systemd_NR_pidfd_send_signal (424 + 5000)
-#  endif
-#elif defined __ia64__
-#  define systemd_NR_pidfd_send_signal (424 + 1024)
-#else
-#  define systemd_NR_pidfd_send_signal systemd_SC_arch_bias(424)
-#endif
+#define systemd_NR_pidfd_send_signal systemd_SC_arch_bias(424)
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #if defined __NR_pidfd_send_signal && __NR_pidfd_send_signal >= 0
@@ -678,23 +708,7 @@ static inline int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, un
 #endif
 
 /* should be always defined, see kernel 7615d9e1780e26e0178c93c55b73309a5dc093d7 */
-#if defined __alpha__
-#  define systemd_NR_pidfd_open 544
-#elif defined _MIPS_SIM
-#  if _MIPS_SIM == _MIPS_SIM_ABI32	/* o32 */
-#    define systemd_NR_pidfd_open (434 + 4000)
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_NABI32	/* n32 */
-#    define systemd_NR_pidfd_open (434 + 6000)
-#  endif
-#  if _MIPS_SIM == _MIPS_SIM_ABI64	/* n64 */
-#    define systemd_NR_pidfd_open (434 + 5000)
-#  endif
-#elif defined __ia64__
-#  define systemd_NR_pidfd_open (434 + 1024)
-#else
-#  define systemd_NR_pidfd_open systemd_SC_arch_bias(434)
-#endif
+#define systemd_NR_pidfd_open systemd_SC_arch_bias(434)
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
 #if defined __NR_pidfd_open && __NR_pidfd_open >= 0
