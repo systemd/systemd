@@ -92,10 +92,10 @@
 
     <!-- note: do not use unicode ellipsis here, because docbook will replace that
          with three dots anyway, messing up alignment -->
-<programlisting>                                     cryptsetup-pre.target
+<programlisting>                             cryptsetup-pre.target veritysetup-pre.target
                                                   |
 (various low-level                                v
- API VFS mounts:                 (various cryptsetup devices...)
+ API VFS mounts:             (various cryptsetup/veritysetup devices...)
  mqueue, configfs,                                |    |
  debugfs, ...)                                    v    |
  |                                  cryptsetup.target  |
@@ -105,7 +105,7 @@
  |    v                       local-fs-pre.target |    |     |  (network file systems)
  |  swap.target                       |           |    v     v                 |
  |    |                               v           |  remote-cryptsetup.target  |
- |    |  (various low-level  (various mounts and  |             |              |
+ |    |  (various low-level  (various mounts and  |  remote-veritysetup.target |
  |    |   services: udevd,    fsck services...)   |             |    remote-fs.target
  |    |   tmpfiles, random            |           |             |             /
  |    |   seed, sysctl, ...)          v           |             |            /
@@ -303,7 +303,8 @@ emergency.service    |              |              |
 <programlisting>                                  (conflicts with  (conflicts with
                                     all system     all file system
                                      services)     mounts, swaps,
-                                         |           cryptsetup
+                                         |           cryptsetup/
+                                         |           veritysetup
                                          |          devices, ...)
                                          |                |
                                          v                v

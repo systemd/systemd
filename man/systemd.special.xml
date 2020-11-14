@@ -25,6 +25,8 @@
     <filename>bluetooth.target</filename>,
     <filename>cryptsetup-pre.target</filename>,
     <filename>cryptsetup.target</filename>,
+    <filename>veritysetup-pre.target</filename>,
+    <filename>veritysetup.target</filename>,
     <filename>ctrl-alt-del.target</filename>,
     <filename>blockdev@.target</filename>,
     <filename>boot-complete.target</filename>,
@@ -60,6 +62,7 @@
     <filename>printer.target</filename>,
     <filename>reboot.target</filename>,
     <filename>remote-cryptsetup.target</filename>,
+    <filename>remote-veritysetup.target</filename>,
     <filename>remote-fs-pre.target</filename>,
     <filename>remote-fs.target</filename>,
     <filename>rescue.target</filename>,
@@ -184,6 +187,13 @@
           <listitem>
             <para>A target that pulls in setup services for all
             encrypted block devices.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>veritysetup.target</filename></term>
+          <listitem>
+            <para>A target that pulls in setup services for all
+            verity integrity protected block devices.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -553,6 +563,15 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><filename>remote-veritysetup.target</filename></term>
+          <listitem>
+            <para>Similar to <filename>veritysetup.target</filename>, but for verity
+            integrity protected devices which are accessed over the network. It is used for
+            <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            entries marked with <option>_netdev</option>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><filename>remote-fs.target</filename></term>
           <listitem>
             <para>Similar to <filename>local-fs.target</filename>, but
@@ -855,7 +874,8 @@
           <listitem><para>This template unit is used to order mount units and other consumers of block
           devices after services that synthesize these block devices. In particular, this is intended to be
           used with storage services (such as
-          <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+          <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>/
+          <citerefentry><refentrytitle>systemd-veritysetup@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
           that allocate and manage a virtual block device. Storage services are ordered before an instance of
           <filename>blockdev@.target</filename>, and the consumer units after it. The ordering is
           particularly relevant during shutdown, as it ensures that the mount is deactivated first and the
@@ -877,6 +897,19 @@
             particularly useful to ensure that a service is shut down
             only after all encrypted block devices are fully
             stopped.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>veritysetup-pre.target</filename></term>
+          <listitem>
+            <para>This passive target unit may be pulled in by services
+            that want to run before any verity integrity protected block
+            device is set up. All verity integrity protected block
+            devices are set up after this target has been reached. Since
+            the shutdown order is implicitly the reverse start-up order
+            between units, this target is particularly useful to ensure
+            that a service is shut down only after all verity integrity
+            protected block devices are fully stopped.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -972,7 +1005,7 @@
           <term><filename>remote-fs-pre.target</filename></term>
           <listitem>
             <para>This target unit is automatically ordered before all
-            mount point units (see above) and cryptsetup devices
+            mount point units (see above) and cryptsetup/veritysetup devices
             marked with the <option>_netdev</option>. It can be used to run
             certain units before remote encrypted devices and mounts are established.
             Note that this unit is generally not part of the initial

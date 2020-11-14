@@ -95,6 +95,9 @@ static int parse_options(const char *options) {
                 if (r == 0)
                         break;
 
+                if (STR_IN_SET(word, "noauto", "auto", "nofail", "fail", "_netdev"))
+                        continue;
+
                 if (isempty(word))
                         continue;
                 else if (streq(word, "ignore-corruption"))
