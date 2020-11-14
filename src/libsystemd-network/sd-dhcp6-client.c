@@ -188,8 +188,7 @@ int sd_dhcp6_client_set_mac(
 
         assert_return(client, -EINVAL);
         assert_return(addr, -EINVAL);
-        assert_return(addr_len > 0 && addr_len <= MAX_MAC_ADDR_LEN, -EINVAL);
-        assert_return(arp_type > 0, -EINVAL);
+        assert_return(addr_len <= MAX_MAC_ADDR_LEN, -EINVAL);
 
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
@@ -197,8 +196,11 @@ int sd_dhcp6_client_set_mac(
                 assert_return(addr_len == ETH_ALEN, -EINVAL);
         else if (arp_type == ARPHRD_INFINIBAND)
                 assert_return(addr_len == INFINIBAND_ALEN, -EINVAL);
-        else
-                return -EINVAL;
+        else {
+                client->arp_type = ARPHRD_NONE;
+                client->mac_addr_len = 0;
+                return 0;
+        }
 
         if (client->mac_addr_len == addr_len &&
             memcmp(&client->mac_addr, addr, addr_len) == 0)
