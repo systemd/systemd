@@ -371,8 +371,8 @@
           with the message the callback was invoked with. Parameter <replaceable>flags</replaceable> is a
           combination of flags, see below.</para>
 
-          <constant>SD_BUS_METHOD_WITH_ARGS()</constant> is a shorthand for calling
-          <constant>SD_BUS_METHOD_WITH_ARGS_OFFSET()</constant> with an offset of zero.
+          <para><constant>SD_BUS_METHOD_WITH_ARGS()</constant> is a shorthand for calling
+          <constant>SD_BUS_METHOD_WITH_ARGS_OFFSET()</constant> with an offset of zero.</para>
           </listitem>
         </varlistentry>
 
@@ -406,7 +406,7 @@
         <varlistentry>
           <term><constant>SD_BUS_SIGNAL_WITH_ARGS()</constant></term>
 
-          <listitem><para>>Declare a D-Bus signal with the name <replaceable>member</replaceable> and
+          <listitem><para>Declare a D-Bus signal with the name <replaceable>member</replaceable> and
           arguments <replaceable>args</replaceable>. <replaceable>args</replaceable> expects a sequence of
           argument type/name pairs wrapped in the <constant>SD_BUS_ARGS()</constant> macro. The elements at
           even indices in this list describe the types of the signal's arguments. The signal's parameter
