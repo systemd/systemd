@@ -1029,6 +1029,7 @@ evdev:input:b0003v046Dp00FE*
 # MX5000 keyboard (HID proxy mode and bluetooth matches)
 evdev:input:b0003v046DpB305*
 evdev:input:b0005v046DpB305*
+ KEYBOARD_KEY_c0183=media	# HUT says config, kbd says Media
  KEYBOARD_KEY_c0230=zoomreset	# HUT says fullscreen, kbd says 100%
  KEYBOARD_KEY_c1004=send	# Send and receive / sync button
  KEYBOARD_KEY_c1006=coffee	# Status (online/away) button
@@ -1041,6 +1042,7 @@ evdev:input:b0005v046DpB305*
  KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
  KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
  KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
+ KEYBOARD_KEY_c1040=fn_esc	# Fn mode on/off toggle
 
 # Dinovo Edge (HID proxy mode and bluetooth matches)
 evdev:input:b0003v046DpB309*
