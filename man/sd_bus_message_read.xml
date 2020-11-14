@@ -44,6 +44,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_message_peek_type</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char *<parameter>type</parameter></paramdef>
         <paramdef>const char **<parameter>contents</parameter></paramdef>
       </funcprototype>
