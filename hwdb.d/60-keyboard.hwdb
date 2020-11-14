@@ -926,6 +926,7 @@ evdev:input:b0003v046Dp00*
  KEYBOARD_KEY_c1029=shuffle         # Shuffle button
  KEYBOARD_KEY_c102a=back            # Back button
  KEYBOARD_KEY_c102b=cyclewindows    # Empty window icon
+ KEYBOARD_KEY_c102c=fn              # Fn key
  KEYBOARD_KEY_c102d=www             # www text + magnifierglass icon
  KEYBOARD_KEY_c1031=connect         # Pickup phone button → connect → XF86Go
  KEYBOARD_KEY_c1032=cancel          # Hangup phone button → cancel → Cancel
@@ -1045,8 +1046,9 @@ evdev:input:b0005v046DpB305*
 evdev:input:b0003v046DpB30B*
 evdev:input:b0005v046DpB30B*
  KEYBOARD_KEY_c0183=media	# HUT says consumer control configuration, kbd says Media Center
- KEYBOARD_KEY_c100e=images      # Camera icon, "Photo Gallery"
- KEYBOARD_KEY_c100f=config      # Window with gear icon
+ KEYBOARD_KEY_c100e=images	# Camera icon, "Photo Gallery"
+ KEYBOARD_KEY_c100f=config	# Window with gear icon
+ KEYBOARD_KEY_c102c=fn		# Fn key
  KEYBOARD_KEY_c1038=prog1	# Smartkey A → XF86Launch1
  KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
  KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
