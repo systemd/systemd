@@ -186,7 +186,8 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                              "LOAD   = Reflects whether the unit definition was properly loaded.\n"
                              "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
                              "SUB    = The low-level unit activation state, values depend on unit type.");
-                        puts(job_count ? "JOB    = Pending job for the unit.\n" : "");
+                        if (job_count > 0)
+                                puts("JOB    = Pending job for the unit.\n");
                         on = ansi_highlight();
                         off = ansi_normal();
                 } else {
