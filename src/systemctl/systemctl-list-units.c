@@ -156,7 +156,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                                    TABLE_STRING, u->sub_state,
                                    TABLE_SET_BOTH_COLORS, on_active,
                                    TABLE_STRING, u->job_id ? u->job_type: "",
-                                   TABLE_SET_BOTH_COLORS, u->job_id ? on_underline : "",
+                                   TABLE_SET_BOTH_COLORS, on_underline,
                                    TABLE_STRING, u->description,
                                    TABLE_SET_BOTH_COLORS, on_underline);
                 if (r < 0)
