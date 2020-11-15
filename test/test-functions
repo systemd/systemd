@@ -40,17 +40,6 @@ TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
 LOOPDEV=
 
-# Decide if we can (and want to) run QEMU with KVM acceleration.
-# Check if nested KVM is explicitly enabled (TEST_NESTED_KVM). If not,
-# check if it's not explicitly disabled (TEST_NO_KVM) and we're not already
-# running under KVM. If these conditions are met, enable KVM (and possibly
-# nested KVM), otherwise disable it.
-if [[ -n "${TEST_NESTED_KVM:=}" || ( -z "${TEST_NO_KVM:=}" && $(systemd-detect-virt -v) != kvm ) ]]; then
-    QEMU_KVM=yes
-else
-    QEMU_KVM=no
-fi
-
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
     ROOTLIBDIR=/usr/lib/systemd
@@ -243,13 +232,26 @@ if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     echo "Detected ASan RT '$ASAN_RT_NAME' located at '$ASAN_RT_PATH'"
 fi
 
-find_qemu_bin() {
-    QEMU_BIN="${QEMU_BIN:-""}"
-    # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
-    if [[ $QEMU_KVM == "yes" ]]; then
-        [[ -n "$QEMU_BIN" ]] || QEMU_BIN="$(command -v kvm qemu-kvm 2>/dev/null | grep '^/' -m1)"
+function configure_qemu_kvm() {
+    # TEST_NO_KVM is set: don't use KVM
+    [ "$TEST_NO_KVM" ] && return 0
+
+    # no /dev/kvm: can't use KVM
+    [ ! -c /dev/kvm ] && return 0
+
+    # only use nested KVM if $TEST_NESTED_KVM or $TEST_NESTED_KVM_$ARCH is set
+    local _test_nested_kvm_arch="TEST_NESTED_KVM_$ARCH"
+    if [ -z "$TEST_NESTED_KVM" ] && [ -z "${!_test_nested_kvm_arch}" ]; then
+        [[ $(systemd-detect-virt -v) = kvm ]] && return 0
     fi
 
+    # use KVM!
+    QEMU_OPTIONS="$QEMU_OPTIONS -enable-kvm"
+    [ "$QEMU_MACHINE" ] || QEMU_MACHINE="accel=kvm"
+    [ "$QEMU_CPU" ] || QEMU_CPU="host"
+}
+
+function find_qemu_bin() {
     local _arch
     case $ARCH in
     aarch64*) _arch=aarch64 ;;
@@ -265,6 +267,11 @@ find_qemu_bin() {
         echo "Could not find a suitable QEMU binary" >&2
         return 1
     fi
+
+    configure_qemu_kvm
+
+    [ "$QEMU_MACHINE" ] && QEMU_OPTIONS="$QEMU_OPTIONS -machine $QEMU_MACHINE"
+    [ "$QEMU_CPU" ] && QEMU_OPTIONS="$QEMU_OPTIONS -cpu $QEMU_CPU"
 
     return 0
 }
@@ -421,11 +428,6 @@ run_qemu() {
 
     if [[ "$INITRD" && "$SKIP_INITRD" != "yes" ]]; then
         qemu_options+=(-initrd "$INITRD")
-    fi
-
-    # Let's use KVM if possible
-    if [[ -c /dev/kvm && $QEMU_KVM == "yes" ]]; then
-        qemu_options+=(-machine "accel=kvm" -enable-kvm -cpu host)
     fi
 
     if [[ "$QEMU_TIMEOUT" != "infinity" ]]; then
