@@ -251,6 +251,25 @@ function configure_qemu_kvm() {
     [ "$QEMU_CPU" ] || QEMU_CPU="host"
 }
 
+function configure_qemu_machine() {
+    [ "$QEMU_MACHINE" ] && return 0
+
+    case $ARCH in
+        arm*|aarch*)
+            # qemu arm has no default machine; we must pick one
+            QEMU_MACHINE="virt"
+            ;;
+    esac
+
+    # if $QEMU_MACHINE isn't set, make sure qemu provides a default
+    if [ -z "$QEMU_MACHINE" ] && ! $QEMU_BIN -M help | grep default >/dev/null; then
+        echo "$QEMU_BIN has no default machine type" >&2
+        return 1
+    fi
+
+    return 0
+}
+
 function find_qemu_bin() {
     local _arch
     case $ARCH in
@@ -269,6 +288,7 @@ function find_qemu_bin() {
     fi
 
     configure_qemu_kvm
+    configure_qemu_machine || return 1
 
     [ "$QEMU_MACHINE" ] && QEMU_OPTIONS="$QEMU_OPTIONS -machine $QEMU_MACHINE"
     [ "$QEMU_CPU" ] && QEMU_OPTIONS="$QEMU_OPTIONS -cpu $QEMU_CPU"
