@@ -157,6 +157,8 @@ void manager_next_dns_server(Manager *m, DnsServer *if_current);
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
 DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
 
+size_t dns_server_get_mtu(DnsServer *s);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 
 extern const struct hash_ops dns_server_hash_ops;
