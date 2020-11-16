@@ -118,6 +118,7 @@ PenaltyBreakString: 0
 PenaltyExcessCharacter: 10
 PenaltyReturnTypeOnItsOwnLine: 100
 SpaceAfterCStyleCast: true
+SpaceBeforeParens: ControlStatementsExceptForEachMacros
 SpacesInAngles:  true
 TabWidth:        8
 UseCRLF:         false
