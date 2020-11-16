@@ -219,6 +219,8 @@ void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockI
 void cgroup_context_free_socket_bind(CGroupSocketBindItem **head);
 
 int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
+int cgroup_add_socket_bind_item(
+                const char *address_family, const char *user_port, CGroupSocketBindItem **ret_head);
 
 void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
 
