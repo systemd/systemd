@@ -926,8 +926,10 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
         }
 
-        *ret = TAKE_PTR(p);
+        log_debug("Received %s UDP of size %zu, ifindex=%i, ttl=%i, fragsize=%zu",
+                  dns_protocol_to_string(protocol), p->size, p->ifindex, p->ttl, p->fragsize);
 
+        *ret = TAKE_PTR(p);
         return 1;
 }
 
