@@ -2,6 +2,7 @@
 #pragma once
 
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/udp.h>
 
 #include "hashmap.h"
@@ -32,14 +33,19 @@ struct DnsPacketHeader {
         be16_t ancount;
         be16_t nscount;
         be16_t arcount;
-};
+} _packed_;
 
 #define DNS_PACKET_HEADER_SIZE sizeof(DnsPacketHeader)
-#define UDP_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
+#define UDP4_PACKET_HEADER_SIZE (sizeof(struct iphdr) + sizeof(struct udphdr))
+#define UDP6_PACKET_HEADER_SIZE (sizeof(struct ip6_hdr) + sizeof(struct udphdr))
 
-/* The various DNS protocols deviate in how large a packet can grow,
- * but the TCP transport has a 16bit size field, hence that appears to
- * be the absolute maximum. */
+assert_cc(sizeof(struct ip6_hdr) == 40);
+assert_cc(sizeof(struct iphdr) == 20);
+assert_cc(sizeof(struct udphdr) == 8);
+assert_cc(sizeof(DnsPacketHeader) == 12);
+
+/* The various DNS protocols deviate in how large a packet can grow, but the TCP transport has a 16bit size
+ * field, hence that appears to be the absolute maximum. */
 #define DNS_PACKET_SIZE_MAX 0xFFFFu
 
 /* The default size to use for allocation when we don't know how large
@@ -299,4 +305,16 @@ static inline size_t dns_packet_size_max(DnsPacket *p) {
          * deal with explicit field initialization. */
 
         return p->max_size != 0 ? p->max_size : DNS_PACKET_SIZE_MAX;
+}
+
+static inline size_t udp_header_size(int af) {
+
+        switch (af) {
+        case AF_INET:
+                return UDP4_PACKET_HEADER_SIZE;
+        case AF_INET6:
+                return UDP6_PACKET_HEADER_SIZE;
+        default:
+                assert_not_reached("Unexpected address family");
+        }
 }

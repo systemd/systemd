@@ -209,7 +209,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
                 if (p->size > DNS_PACKET_UNICAST_SIZE_MAX)
                         return -EMSGSIZE;
 
-                if (p->size + UDP_PACKET_HEADER_SIZE > mtu)
+                if (p->size + UDP4_PACKET_HEADER_SIZE > mtu)
                         return -EMSGSIZE;
 
                 r = manager_write(s->manager, fd, p);
