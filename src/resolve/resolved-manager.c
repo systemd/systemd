@@ -1646,3 +1646,63 @@ bool manager_server_is_stub(Manager *m, DnsServer *s) {
 
         return false;
 }
+
+int socket_disable_pmtud(int fd, int af) {
+        int r;
+
+        assert(fd >= 0);
+
+        if (af == AF_UNSPEC) {
+                r = socket_get_family(fd, &af);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (af) {
+
+        case AF_INET: {
+                /* Turn off path MTU discovery, let's rather fragment on the way than to open us up against
+                 * PMTU forgery vulnerabilities.
+                 *
+                 * There appears to be no documentation about IP_PMTUDISC_OMIT, but it has the effect that
+                 * the "Don't Fragment" bit in the IPv4 header is turned off, thus enforcing fragmentation if
+                 * our datagram size exceeds the MTU of a router in the path, and turning off path MTU
+                 * discovery.
+                 *
+                 * This helps mitigating the PMTUD vulnerability described here:
+                 *
+                 * https://blog.apnic.net/2019/07/12/its-time-to-consider-avoiding-ip-fragmentation-in-the-dns/
+                 *
+                 * Similar logic is in place in most DNS servers.
+                 *
+                 * There are multiple conflicting goals: we want to allow the largest datagrams possible (for
+                 * efficiency reasons), but not have fragmentation (for security reasons), nor use PMTUD (for
+                 * security reasons, too). Our strategy to deal with this is: use large packets, turn off
+                 * PMTUD, but watch fragmentation taking place, and then size our packets to the max of the
+                 * fragments seen — and if we need larger packets always go to TCP.
+                 */
+
+                r = setsockopt_int(fd, IPPROTO_IP, IP_MTU_DISCOVER, IP_PMTUDISC_OMIT);
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        case AF_INET6: {
+                /* On IPv6 fragmentation only is done by the sender — never by routers on the path. PMTUD is
+                 * mandatory. If we want to turn off PMTUD, the only way is by sending with minimal MTU only,
+                 * so that we apply maximum fragmentation locally already, and thus PMTUD doesn't happen
+                 * because there's nothing that could be fragmented further anymore. */
+
+                r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_MTU, IPV6_MIN_MTU);
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        default:
+                return -EAFNOSUPPORT;
+        }
+}

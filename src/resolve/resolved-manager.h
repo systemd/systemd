@@ -204,3 +204,5 @@ void manager_cleanup_saved_user(Manager *m);
 bool manager_next_dnssd_names(Manager *m);
 
 bool manager_server_is_stub(Manager *m, DnsServer *s);
+
+int socket_disable_pmtud(int fd, int af);

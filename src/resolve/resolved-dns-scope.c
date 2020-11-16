@@ -410,6 +410,11 @@ static int dns_scope_socket(
                 r = socket_set_recvpktinfo(fd, sa.sa.sa_family, true);
                 if (r < 0)
                         return r;
+
+                /* Turn of path MTU discovery for security reasons */
+                r = socket_disable_pmtud(fd, sa.sa.sa_family);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to disable UDP PMTUD, ignoring: %m");
         }
 
         if (ret_socket_address)
