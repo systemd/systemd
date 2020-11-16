@@ -1046,7 +1046,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        log_debug("Processing incoming packet on transaction %" PRIu16" (rcode=%s).",
+        log_debug("Processing incoming packet of size %zu on transaction %" PRIu16" (rcode=%s).",
+                  p->size,
                   t->id, dns_rcode_to_string(DNS_PACKET_RCODE(p)));
 
         switch (t->scope->protocol) {
@@ -1211,7 +1212,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                          * servers often do not implement TCP, hence falling back to TCP on fragmentation is
                          * counter-productive there.) */
 
-                        log_debug("Reply fragmented, retrying via TCP.");
+                        log_debug("Reply fragmented, retrying via TCP. (Largest fragment size: %zu; Datagram size: %zu)",
+                                  p->fragsize, p->size);
                         retry_with_tcp = true;
                 }
         }
