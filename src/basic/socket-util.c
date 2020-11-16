@@ -1314,3 +1314,35 @@ int socket_set_option(int fd, int af, int opt_ipv4, int opt_ipv6, int val) {
                 return -EAFNOSUPPORT;
         }
 }
+
+int socket_get_mtu(int fd, int af, size_t *ret) {
+        int mtu, r;
+
+        if (af == AF_UNSPEC) {
+                r = socket_get_family(fd, &af);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (af) {
+
+        case AF_INET:
+                r = getsockopt_int(fd, IPPROTO_IP, IP_MTU, &mtu);
+                break;
+
+        case AF_INET6:
+                r = getsockopt_int(fd, IPPROTO_IPV6, IPV6_MTU, &mtu);
+                break;
+
+        default:
+                return -EAFNOSUPPORT;
+        }
+
+        if (r < 0)
+                return r;
+        if (mtu <= 0)
+                return -EINVAL;
+
+        *ret = (size_t) mtu;
+        return 0;
+}
