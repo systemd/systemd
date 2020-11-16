@@ -19,6 +19,7 @@
 #include "idn-util.h"
 #include "io-util.h"
 #include "missing_network.h"
+#include "missing_socket.h"
 #include "netlink-util.h"
 #include "ordered-set.h"
 #include "parse-util.h"
@@ -881,6 +882,9 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                                 p->ttl = *(int *) CMSG_DATA(cmsg);
                                 break;
 
+                        case IPV6_RECVFRAGSIZE:
+                                p->fragsize = *(int *) CMSG_DATA(cmsg);
+                                break;
                         }
                 } else if (cmsg->cmsg_level == IPPROTO_IP) {
                         assert(p->family == AF_INET);
@@ -899,6 +903,10 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
 
                         case IP_TTL:
                                 p->ttl = *(int *) CMSG_DATA(cmsg);
+                                break;
+
+                        case IP_RECVFRAGSIZE:
+                                p->fragsize = *(int *) CMSG_DATA(cmsg);
                                 break;
                         }
                 }
