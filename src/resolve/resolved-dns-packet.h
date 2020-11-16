@@ -55,7 +55,7 @@ struct DnsPacketHeader {
 struct DnsPacket {
         unsigned n_ref;
         DnsProtocol protocol;
-        size_t size, allocated, rindex, max_size;
+        size_t size, allocated, rindex, max_size, fragsize;
         void *_data; /* don't access directly, use DNS_PACKET_DATA()! */
         Hashmap *names; /* For name compression */
         size_t opt_start, opt_size;
