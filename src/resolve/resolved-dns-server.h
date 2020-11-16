@@ -75,7 +75,7 @@ struct DnsServer {
         DnsServerFeatureLevel verified_feature_level;
         DnsServerFeatureLevel possible_feature_level;
 
-        size_t received_udp_packet_max;
+        size_t received_udp_fragment_max;   /* largest packet or fragment (without IP/UDP header) we saw so far */
 
         unsigned n_failed_udp;
         unsigned n_failed_tcp;
@@ -86,6 +86,7 @@ struct DnsServer {
         bool packet_rrsig_missing:1;    /* Set when RRSIG was missing */
         bool packet_invalid:1;          /* Set when we failed to parse a reply */
         bool packet_do_off:1;           /* Set when the server didn't copy DNSSEC DO flag from request to response */
+        bool packet_fragmented:1;       /* Set when we ever saw a fragmented packet */
 
         usec_t verified_usec;
         usec_t features_grace_period_usec;
@@ -118,7 +119,7 @@ DnsServer* dns_server_unref(DnsServer *s);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t size);
+void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t fragsize);
 void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level);
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
@@ -126,6 +127,7 @@ void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rcode_downgrade(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_invalid(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_do_off(DnsServer *s, DnsServerFeatureLevel level);
+void dns_server_packet_udp_fragmented(DnsServer *s, size_t fragsize);
 
 DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s);
 

@@ -146,6 +146,14 @@ static inline bool DNS_PACKET_VERSION_SUPPORTED(DnsPacket *p) {
         return DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(p->opt);
 }
 
+static inline bool DNS_PACKET_IS_FRAGMENTED(DnsPacket *p) {
+        assert(p);
+
+        /* For ingress packets: was this packet fragmented according to our knowledge? */
+
+        return p->fragsize != 0;
+}
+
 /* LLMNR defines some bits differently */
 #define DNS_PACKET_LLMNR_C(p) DNS_PACKET_AA(p)
 #define DNS_PACKET_LLMNR_T(p) DNS_PACKET_RD(p)
@@ -319,3 +327,5 @@ static inline size_t udp_header_size(int af) {
                 assert_not_reached("Unexpected address family");
         }
 }
+
+size_t dns_packet_size_unfragmented(DnsPacket *p);
