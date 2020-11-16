@@ -1163,13 +1163,17 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get RA flags: %m");
 
-        if ((flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER) && link->network->ipv6_accept_ra_start_dhcp6_client)) {
+        if ((flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER) &&
+             link->network->ipv6_accept_ra_start_dhcp6_client != IPV6_ACCEPT_RA_START_DHCP6_CLIENT_NO) ||
+            link->network->ipv6_accept_ra_start_dhcp6_client == IPV6_ACCEPT_RA_START_DHCP6_CLIENT_ALWAYS) {
 
-                if (link->network->ipv6_accept_ra_start_dhcp6_client == IPV6_ACCEPT_RA_START_DHCP6_CLIENT_ALWAYS)
-                        r = dhcp6_request_address(link, false);
-                else
+                if (flags & (ND_RA_FLAG_MANAGED | ND_RA_FLAG_OTHER))
                         /* (re)start DHCPv6 client in stateful or stateless mode according to RA flags */
                         r = dhcp6_request_address(link, !(flags & ND_RA_FLAG_MANAGED));
+                else
+                        /* When IPv6AcceptRA.DHCPv6Client=always, start dhcp6 client in managed mode
+                         * even if router does not have M or O flag. */
+                        r = dhcp6_request_address(link, false);
                 if (r < 0 && r != -EBUSY)
                         return log_link_error_errno(link, r, "Could not acquire DHCPv6 lease on NDisc request: %m");
                 else
