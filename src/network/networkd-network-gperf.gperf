@@ -61,6 +61,7 @@ Link.MTUBytes,                               config_parse_mtu,                  
 Link.Group,                                  config_parse_uint32,                                      0,                             offsetof(Network, group)
 Link.ARP,                                    config_parse_tristate,                                    0,                             offsetof(Network, arp)
 Link.Multicast,                              config_parse_tristate,                                    0,                             offsetof(Network, multicast)
+Link.ProtoDown,                              config_parse_tristate,                                    0,                             offsetof(Network, proto_down)
 Link.AllMulticast,                           config_parse_tristate,                                    0,                             offsetof(Network, allmulticast)
 Link.Unmanaged,                              config_parse_bool,                                        0,                             offsetof(Network, unmanaged)
 Link.RequiredForOnline,                      config_parse_required_for_online,                         0,                             0

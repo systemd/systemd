@@ -209,6 +209,15 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ProtoDown=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Protodown can be used by user space applications
+          to notify switch drivers that errors have been detected on the device. When
+          <literal>yes</literal>, the switch driver can react to protodown notification
+          by doing a phys down on the associated switch port. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>RequiredForOnline=</varname></term>
         <listitem>
           <para>Takes a boolean or a minimum operational state and an optional maximum operational state.

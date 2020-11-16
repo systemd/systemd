@@ -332,6 +332,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .arp = -1,
                 .multicast = -1,
                 .allmulticast = -1,
+                .proto_down = -1,
 
                 .configure_without_carrier = false,
                 .ignore_carrier_loss = -1,

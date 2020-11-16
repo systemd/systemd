@@ -1468,6 +1468,53 @@ int link_down(Link *link, link_netlink_message_handler_t callback) {
         return 0;
 }
 
+static int link_proto_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+        int r;
+
+        assert(link);
+
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+                return 1;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_link_message_warning_errno(link, m, r, "Could not set protocol down for the interface");
+
+        return 1;
+}
+
+static int link_set_proto_down(Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        if (link->network->proto_down < 0)
+                return 0;
+
+        log_link_debug(link, "Setting protocol down");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_netlink_message_append_u8(req, IFLA_PROTO_DOWN, link->network->proto_down);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set link protocol down: %m");
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req, link_proto_down_handler,
+                               link_netlink_destroy_callback, link);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
+}
+
 static int link_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -2073,6 +2120,10 @@ int link_configure(Link *link) {
                 return r;
 
         r = link_set_group(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_proto_down(link);
         if (r < 0)
                 return r;
 
