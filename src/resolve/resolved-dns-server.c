@@ -617,10 +617,47 @@ int dns_server_adjust_opt(DnsServer *server, DnsPacket *packet, DnsServerFeature
 
         edns_do = level >= DNS_SERVER_FEATURE_LEVEL_DO;
 
-        if (level == DNS_SERVER_FEATURE_LEVEL_LARGE)
-                packet_size = DNS_PACKET_UNICAST_SIZE_LARGE_MAX;
-        else
+        if (level == DNS_SERVER_FEATURE_LEVEL_LARGE) {
+                size_t udp_size;
+
+                /* In large mode, advertise the local MTU, in order to avoid fragmentation (for security
+                 * reasons) – except if we are talking to localhost (where the security considerations don't
+                 * matter). If we see fragmentation, lower the reported size to the largest fragment, to
+                 * avoid it. */
+
+                udp_size = udp_header_size(server->family);
+
+                if (in_addr_is_localhost(server->family, &server->address) > 0)
+                        packet_size = 65536 - udp_size; /* force linux loopback MTU if localhost address */
+                else {
+                        /* Use the MTU pointing to the server, subtract the IP/UDP header size */
+                        packet_size = LESS_BY(dns_server_get_mtu(server), udp_size);
+
+                        /* On the Internet we want to avoid fragmentation for security reasons. If we saw
+                         * fragmented packets, the above was too large, let's clamp it to the largest
+                         * fragment we saw */
+                        if (server->packet_fragmented)
+                                packet_size = MIN(server->received_udp_fragment_max, packet_size);
+
+                        /* Let's not pick ridiculously large sizes, i.e. not more than 4K. Noone appears to
+                         * ever use such large sized on the Internet IRL, hence let's not either. */
+                        packet_size = MIN(packet_size, 4096U);
+                }
+
+                /* Strictly speaking we quite possibly can receive larger datagrams than the MTU (since the
+                 * MTU is for egress, not for ingress), but more often than not the value is symmetric, and
+                 * we want something that does the right thing in the majority of cases, and not just in the
+                 * theoretical edge case. */
+        } else
+                /* In non-large mode, let's advertise the size of the largest fragment we ever managed to accept. */
                 packet_size = server->received_udp_fragment_max;
+
+        /* Safety clamp, never advertise less than 512 or more than 65535 */
+        packet_size = CLAMP(packet_size,
+                            DNS_PACKET_UNICAST_SIZE_MAX,
+                            DNS_PACKET_SIZE_MAX);
+
+        log_debug("Announcing packet size %zu in egress EDNS(0) packet.", packet_size);
 
         return dns_packet_append_opt(packet, packet_size, edns_do, /* include_rfc6975 = */ true, NULL, 0, NULL);
 }
@@ -711,6 +748,15 @@ void dns_server_warn_downgrade(DnsServer *server) {
                    "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(server->possible_feature_level));
 
         server->warned_downgrade = true;
+}
+
+size_t dns_server_get_mtu(DnsServer *s) {
+        assert(s);
+
+        if (s->link && s->link->mtu != 0)
+                return s->link->mtu;
+
+        return manager_find_mtu(s->manager);
 }
 
 static void dns_server_hash_func(const DnsServer *s, struct siphash *state) {
