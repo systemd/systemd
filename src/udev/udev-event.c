@@ -960,7 +960,7 @@ static int copy_all_tags(sd_device *d, sd_device *s) {
         if (!s)
                 return 0;
 
-        for (tag = sd_device_get_tag_first(s); tag; tag = sd_device_get_tag_next(s)) {
+        FOREACH_DEVICE_TAG(s, tag) {
                 r = device_add_tag(d, tag, false);
                 if (r < 0)
                         return r;
