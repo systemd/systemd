@@ -415,6 +415,11 @@ static int dns_scope_socket(
                 r = socket_disable_pmtud(fd, sa.sa.sa_family);
                 if (r < 0)
                         log_debug_errno(r, "Failed to disable UDP PMTUD, ignoring: %m");
+
+                /* Learn about fragmentation taking place */
+                r = socket_set_recvfragsize(fd, sa.sa.sa_family, true);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to enable fragment size reception, ignoring: %m");
         }
 
         if (ret_socket_address)
