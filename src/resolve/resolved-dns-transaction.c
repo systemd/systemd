@@ -1031,6 +1031,7 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
 }
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted) {
+        bool retry_with_tcp = false;
         int r;
 
         assert(t);
@@ -1193,9 +1194,29 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                         return;
                 }
 
-                log_debug("Reply truncated, retrying via TCP.");
-
                 /* Response was truncated, let's try again with good old TCP */
+                log_debug("Reply truncated, retrying via TCP.");
+                retry_with_tcp = true;
+
+        } else if (t->scope->protocol == DNS_PROTOCOL_DNS &&
+                   DNS_PACKET_IS_FRAGMENTED(p)) {
+
+                /* Report the fragment size, so that we downgrade from LARGE to regular EDNS0 if needed */
+                if (t->server)
+                        dns_server_packet_udp_fragmented(t->server, dns_packet_size_unfragmented(p));
+
+                if (t->current_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) {
+                        /* Packet was fragmented. Let's retry with TCP to avoid fragmentation attack
+                         * issues. (We don't do that on the lowest feature level however, since crappy DNS
+                         * servers often do not implement TCP, hence falling back to TCP on fragmentation is
+                         * counter-productive there.) */
+
+                        log_debug("Reply fragmented, retrying via TCP.");
+                        retry_with_tcp = true;
+                }
+        }
+
+        if (retry_with_tcp) {
                 r = dns_transaction_emit_tcp(t);
                 if (r == -ESRCH) {
                         /* No servers found? Damn! */
@@ -1296,8 +1317,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 if (DNS_PACKET_DO(t->sent) && !DNS_PACKET_DO(t->received))
                         dns_server_packet_do_off(t->server, t->current_feature_level);
 
-                /* Report that we successfully received a packet */
-                dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, p->size);
+                /* Report that we successfully received a packet. We keep track of the largest packet
+                 * size/fragment size we got. Which is useful for announcing the EDNS(0) packet size we can
+                 * receive to our server. */
+                dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, dns_packet_size_unfragmented(p));
         }
 
         /* See if we know things we didn't know before that indicate we better restart the lookup immediately. */
