@@ -8,6 +8,7 @@
 #include "dbus-unit.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "process-util.h"
 #include "scope.h"
 #include "serialize.h"
 #include "special.h"
@@ -235,8 +236,18 @@ static int scope_coldplug(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED))
-                (void) unit_enqueue_rewatch_pids(u);
+        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED)) {
+                if (u->pids) {
+                        void *pidp;
+
+                        SET_FOREACH(pidp, u->pids) {
+                                r = unit_watch_pid(u, PTR_TO_PID(pidp), false);
+                                if (r < 0 && r != -EEXIST)
+                                        return r;
+                        }
+                } else
+                        (void) unit_enqueue_rewatch_pids(u);
+        }
 
         bus_scope_track_controller(s);
 
@@ -366,6 +377,10 @@ static int scope_start(Unit *u) {
                 return r;
         }
 
+        /* Now u->pids have been moved into the scope cgroup, it's not needed
+         * anymore. */
+        u->pids = set_free(u->pids);
+
         s->result = SCOPE_SUCCESS;
 
         scope_set_state(s, SCOPE_RUNNING);
@@ -427,6 +442,7 @@ static int scope_get_timeout(Unit *u, usec_t *timeout) {
 
 static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         Scope *s = SCOPE(u);
+        void *pidp;
 
         assert(s);
         assert(f);
@@ -437,6 +453,9 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (s->controller)
                 (void) serialize_item(f, "controller", s->controller);
+
+        SET_FOREACH(pidp, u->pids)
+                serialize_item_format(f, "pids", PID_FMT, PTR_TO_PID(pidp));
 
         return 0;
 }
@@ -473,6 +492,20 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
                 if (r < 0)
                         return log_oom();
 
+        } else if (streq(key, "pids")) {
+                pid_t pid;
+
+                if (parse_pid(value, &pid) < 0)
+                        log_unit_debug(u, "Failed to parse pids value: %s", value);
+                else {
+                        r = set_ensure_allocated(&u->pids, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = set_put(u->pids, PID_TO_PTR(pid));
+                        if (r < 0)
+                                return r;
+                }
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
