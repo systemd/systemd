@@ -299,3 +299,5 @@ static inline int socket_set_transparent(int fd, int af, bool b) {
 static inline int socket_set_recvfragsize(int fd, int af, bool b) {
         return socket_set_option(fd, af, IP_RECVFRAGSIZE, IPV6_RECVFRAGSIZE, b);
 }
+
+int socket_get_mtu(int fd, int af, size_t *ret);
