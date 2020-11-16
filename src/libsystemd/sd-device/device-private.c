@@ -468,6 +468,10 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
 
                 i += end - key + 1;
 
+                /* netlink messages for some devices contain an unwanted newline at the end of value.
+                 * Let's drop the newline and remaining characters after the newline. */
+                truncate_nl(key);
+
                 r = device_append(device, key, &major, &minor);
                 if (r < 0)
                         return r;
