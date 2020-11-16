@@ -237,7 +237,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (!ratelimit_below(&s->ratelimit))
                 return 0;
 
-        r = dns_scope_emit_udp(s, -1, reply);
+        r = dns_scope_emit_udp(s, -1, AF_UNSPEC, reply);
         if (r < 0)
                 return log_debug_errno(r, "Failed to send reply packet: %m");
 
