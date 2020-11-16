@@ -1444,10 +1444,25 @@ _public_ const char *sd_device_get_tag_next(sd_device *device) {
         return v;
 }
 
+static bool device_database_supports_current_tags(sd_device *device) {
+        assert(device);
+
+        (void) device_read_db(device);
+
+        /* The current tags (saved in Q field) feature is implemented in database version 1.
+         * If the database version is 0, then the tags (NOT current tags, saved in G field) are not
+         * sticky. Thus, we can safely bypass the operations for the current tags (Q) to tags (G). */
+
+        return device->database_version >= 1;
+}
+
 _public_ const char *sd_device_get_current_tag_first(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
+
+        if (!device_database_supports_current_tags(device))
+                return sd_device_get_tag_first(device);
 
         (void) device_read_db(device);
 
@@ -1462,6 +1477,9 @@ _public_ const char *sd_device_get_current_tag_next(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
+
+        if (!device_database_supports_current_tags(device))
+                return sd_device_get_tag_next(device);
 
         (void) device_read_db(device);
 
@@ -1764,6 +1782,9 @@ _public_ int sd_device_has_tag(sd_device *device, const char *tag) {
 _public_ int sd_device_has_current_tag(sd_device *device, const char *tag) {
         assert_return(device, -EINVAL);
         assert_return(tag, -EINVAL);
+
+        if (!device_database_supports_current_tags(device))
+                return sd_device_has_tag(device, tag);
 
         (void) device_read_db(device);
 
