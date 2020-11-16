@@ -1470,7 +1470,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
         } else
                 dns_transaction_close_connection(t, true);
 
-        r = dns_scope_emit_udp(t->scope, t->dns_udp_fd, t->sent);
+        r = dns_scope_emit_udp(t->scope, t->dns_udp_fd, t->server ? t->server->family : AF_UNSPEC, t->sent);
         if (r < 0)
                 return r;
 
