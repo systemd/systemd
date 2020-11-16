@@ -663,6 +663,52 @@ int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const
         };
 
         LIST_PREPEND(programs, c->bpf_foreign_programs, TAKE_PTR(p));
+}
+
+int cgroup_add_socket_bind_item(
+                const char *address_family, const char *user_port, CGroupSocketBindItem **ret_head) {
+        _cleanup_free_ CGroupSocketBindItem *item = NULL;
+         int r;
+
+        assert(ret_head);
+
+        item = new(CGroupSocketBindItem, 1);
+        if (!item)
+                return log_oom();
+
+        *item = (CGroupSocketBindItem) {
+                .address_family = AF_UNSPEC,
+        };
+
+        if (address_family) {
+                if (!STR_IN_SET(address_family, "IPv4", "IPv6"))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Only IPv4 or IPv6 protocols are supported");
+
+                if (streq(address_family, "IPv4"))
+                        item->address_family = AF_INET;
+                else
+                        item->address_family = AF_INET6;
+        }
+
+        if (!streq(user_port, "any")) {
+                uint16_t port_min, port_max;
+                r = parse_ip_port_range(user_port, &port_min, &port_max);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Invalid port or port range");
+
+                if (port_min == 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                        "Minimum port value must be positive");
+
+                item->nr_ports = port_max - port_min + 1;
+                item->port_min = port_min;
+        }
+
+        LIST_PREPEND(socket_bind_items, *ret_head, TAKE_PTR(item));
 
         return 0;
 }
