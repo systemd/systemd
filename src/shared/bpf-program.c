@@ -8,7 +8,6 @@
 #include "alloc-util.h"
 #include "bpf-program.h"
 #include "fd-util.h"
-#include "log.h"
 #include "memory-util.h"
 #include "missing_syscall.h"
 #include "path-util.h"
@@ -18,7 +17,7 @@ int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
 
         p = new0(BPFProgram, 1);
         if (!p)
-                return log_oom();
+                return -ENOMEM;
 
         p->n_ref = 1;
         p->prog_type = prog_type;
