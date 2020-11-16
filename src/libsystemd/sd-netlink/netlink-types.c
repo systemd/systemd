@@ -642,6 +642,8 @@ static const NLType rtnl_link_types[] = {
         [IFLA_PROMISCUITY]      = { .type = NETLINK_TYPE_U32 },
         [IFLA_NUM_TX_QUEUES]    = { .type = NETLINK_TYPE_U32 },
         [IFLA_NUM_RX_QUEUES]    = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GSO_MAX_SEGS]     = { .type = NETLINK_TYPE_U32 },
+        [IFLA_GSO_MAX_SIZE]     = { .type = NETLINK_TYPE_U32 },
         [IFLA_CARRIER]          = { .type = NETLINK_TYPE_U8 },
 /*
         [IFLA_PHYS_PORT_ID]     = { .type = NETLINK_TYPE_BINARY, .len = MAX_PHYS_PORT_ID_LEN },
