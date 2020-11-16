@@ -778,6 +778,40 @@ static int nft_message_add_setelem_iprange(sd_netlink_message *m,
         return 0;
 }
 
+/* When someone runs 'nft flush ruleset' in the same net namespace
+ * this will also tear down the systemd nat table.
+ *
+ * Unlike iptables -t nat -F (which will remove all rules added by the
+ * systemd iptables backend, iptables has builtin chains that cannot be
+ * deleted -- the next add operation will 'just work'.
+ *
+ * In the nftables case, everything gets removed. The next add operation
+ * will yield -ENOENT.
+ *
+ * If we see -ENOENT on add, replay the inital table setup.
+ * If that works, re-do the add operation.
+ *
+ * Note that this doesn't protect against external sabotage such as a
+ * 'while true; nft flush ruleset;done'. There is nothing that could be
+ * done about that short of extending the kernel to allow tables to be
+ * owned by stystemd-networkd and making them non-deleteable except by
+ * the 'owning process'.
+ */
+static int fw_nftables_recreate_table(sd_netlink *nfnl, int af, sd_netlink_message **old, size_t size) {
+        int r = fw_nftables_init_family(nfnl, af);
+
+        if (r != 0)
+                return r;
+
+        while (size > 0) {
+               size_t i = --size;
+
+               old[i] = sd_netlink_message_unref(old[i]);
+        }
+
+        return 0;
+}
+
 #define NFT_MASQ_MSGS   3
 
 int fw_nftables_add_masquerade(
@@ -787,12 +821,14 @@ int fw_nftables_add_masquerade(
                 const union in_addr_union *source,
                 unsigned int source_prefixlen) {
         sd_netlink_message *transaction[NFT_MASQ_MSGS] = {};
+        bool retry = true;
         size_t tsize;
         int r;
 
         if (!source || source_prefixlen == 0)
                 return -EINVAL;
 
+again:
         r = sd_nfnl_message_batch_begin(ctx->nfnl, &transaction[0]);
         if (r < 0)
                 return r;
@@ -817,6 +853,14 @@ int fw_nftables_add_masquerade(
         ++tsize;
         r = nfnl_netlink_sendv(ctx->nfnl, transaction, tsize);
 
+        if (retry && r == -ENOENT) {
+                int tmp = fw_nftables_recreate_table(ctx->nfnl, af, transaction, tsize);
+                if (tmp == 0) {
+                        retry = false;
+                        goto again;
+                }
+        }
+
 out_unref:
         while (tsize > 0)
                 sd_netlink_message_unref(transaction[--tsize]);
@@ -836,6 +880,7 @@ int fw_nftables_add_local_dnat(
                 const union in_addr_union *previous_remote) {
         uint32_t data[2], key[2];
         sd_netlink_message *transaction[NFT_DNAT_MSGS] = {};
+        bool retry = true;
         size_t tsize;
         int r;
 
@@ -850,6 +895,7 @@ int fw_nftables_add_local_dnat(
         if (local_port <= 0)
                 return -EINVAL;
 
+again:
         key[0] = protocol;
         key[1] = htobe16(local_port);
 
@@ -895,6 +941,15 @@ int fw_nftables_add_local_dnat(
         tsize++;
         assert(tsize <= NFT_DNAT_MSGS);
         r = nfnl_netlink_sendv(ctx->nfnl, transaction, tsize);
+
+        if (retry && r == -ENOENT) {
+                int tmp = fw_nftables_recreate_table(ctx->nfnl, af, transaction, tsize);
+
+                if (tmp == 0) {
+                        retry = false;
+                        goto again;
+                }
+        }
 
 out_unref:
         while (tsize > 0)
