@@ -609,11 +609,11 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
     def test_resolved_domain_restricted_dns(self):
         '''resolved: domain-restricted DNS servers'''
 
-        # FIXME: resolvectl query fails with enabled DNSSEC against our dnsmasq
-        conf = '/run/systemd/resolved.conf.d/test-disable-dnssec.conf'
+        # enable DNSSEC in allow downgrade mode, and turn off stuff we don't want to test to make looking at logs easier
+        conf = '/run/systemd/resolved.conf.d/test-enable-dnssec.conf'
         os.makedirs(os.path.dirname(conf), exist_ok=True)
         with open(conf, 'w') as f:
-            f.write('[Resolve]\nDNSSEC=no\n')
+            f.write('[Resolve]\nDNSSEC=allow-downgrade\nLLMNR=no\nMulticastDNS=no\nDNSOverTLS=no\n')
         self.addCleanup(os.remove, conf)
 
         # create interface for generic connections; this will map all DNS names
@@ -625,6 +625,7 @@ Name={}
 [Network]
 DHCP=ipv4
 IPv6AcceptRA=False
+DNSSECNegativeTrustAnchors=megasearch.net
 '''.format(self.iface))
 
         # create second device/dnsmasq for a .company/.lab VPN interface
@@ -651,7 +652,8 @@ Name=testvpnclient
 IPv6AcceptRA=False
 Address=10.241.3.2/24
 DNS=10.241.3.1
-Domains= ~company ~lab
+Domains=~company ~lab
+DNSSECNegativeTrustAnchors=company lab
 ''')
 
         self.start_unit('systemd-networkd')
@@ -690,13 +692,19 @@ Domains= ~company ~lab
     def test_resolved_etc_hosts(self):
         '''resolved queries to /etc/hosts'''
 
-        # FIXME: -t MX query fails with enabled DNSSEC (even when using
-        # the known negative trust anchor .internal instead of .example.com)
-        conf = '/run/systemd/resolved.conf.d/test-disable-dnssec.conf'
+        # enabled DNSSEC in allow-downgrade mode
+        conf = '/run/systemd/resolved.conf.d/test-enable-dnssec.conf'
         os.makedirs(os.path.dirname(conf), exist_ok=True)
         with open(conf, 'w') as f:
-            f.write('[Resolve]\nDNSSEC=no\nLLMNR=no\nMulticastDNS=no\n')
+            f.write('[Resolve]\nDNSSEC=allow-downgrade\nLLMNR=no\nMulticastDNS=no\nDNSOverTLS=no\n')
         self.addCleanup(os.remove, conf)
+
+        # Add example.com to NTA list for this test
+        negative = '/run/dnssec-trust-anchors.d/example.com.negative'
+        os.makedirs(os.path.dirname(negative), exist_ok=True)
+        with open(negative, 'w') as f:
+            f.write('example.com\n16.172.in-addr.arpa\n')
+        self.addCleanup(os.remove, negative)
 
         # create /etc/hosts bind mount which resolves my.example.com for IPv4
         hosts = os.path.join(self.workdir, 'hosts')
@@ -704,7 +712,7 @@ Domains= ~company ~lab
             f.write('172.16.99.99  my.example.com\n')
         subprocess.check_call(['mount', '--bind', hosts, '/etc/hosts'])
         self.addCleanup(subprocess.call, ['umount', '/etc/hosts'])
-        subprocess.check_call(['systemctl', 'stop', 'systemd-resolved.service'])
+        subprocess.check_call(['systemctl', 'restart', 'systemd-resolved.service'])
 
         # note: different IPv4 address here, so that it's easy to tell apart
         # what resolved the query
