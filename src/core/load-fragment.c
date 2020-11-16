@@ -53,6 +53,7 @@
 #endif
 #include "securebits-util.h"
 #include "signal-util.h"
+#include "socket-bind.h"
 #include "socket-netlink.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -5565,6 +5566,45 @@ int config_parse_ip_filter_bpf_progs(
                          "Starting this unit will fail! (This warning is only shown for the first loaded unit using IP firewalling.)", filename, line, lvalue, rvalue);
 
                 warned = true;
+        }
+
+        return 0;
+}
+
+int config_parse_cgroup_socket_bind(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupSocketBindItem **head = data;
+        const char *address_family, *user_port;
+        _cleanup_free_ char *word = NULL;
+        int r;
+
+        if (isempty(rvalue)) {
+                cgroup_context_free_socket_bind(head);
+                return 0;
+        }
+
+        r = extract_first_word(&rvalue, &word, ":", 0);
+        if (r == -ENOMEM)
+                return log_oom();
+
+        address_family = rvalue ? word : NULL;
+        user_port = rvalue ? rvalue : word;
+        r = cgroup_add_socket_bind_item(address_family, user_port, head);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_warning_errno(r, "Failed to parse %s, ignoring: %m", lvalue);
+                return 0;
         }
 
         return 0;
