@@ -128,10 +128,6 @@ int device_add_property_aux(sd_device *device, const char *_key, const char *_va
         return 0;
 }
 
-int device_add_property_internal(sd_device *device, const char *key, const char *value) {
-        return device_add_property_aux(device, key, value, false);
-}
-
 int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         _cleanup_free_ char *syspath = NULL;
         const char *devpath;
