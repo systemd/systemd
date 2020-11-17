@@ -22,7 +22,7 @@ cd "$(dirname "$0")"
 # cache.
 if [ $do_clean = 1 ]; then
     for TEST in TEST-??-* ; do
-        ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean )
+        ( set -x ; make -C "$TEST" clean )
     done
 
     [ -n "$args_no_clean" ] || exit 0
@@ -46,7 +46,7 @@ for TEST in TEST-??-* ; do
 
     echo -e "\n--x-- Running $TEST --x--"
     set +e
-    ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" $args_no_clean )
+    ( set -x ; make -C "$TEST" $args_no_clean )
     RESULT=$?
     set -e
     echo "--x-- Result of $TEST: $RESULT --x--"
@@ -59,7 +59,7 @@ done
 
 if [ $FAILURES -eq 0 -a $do_clean = 1 ]; then
     for TEST in ${!results[@]}; do
-        ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" clean-again )
+        ( set -x ; make -C "$TEST" clean-again )
     done
 fi
 

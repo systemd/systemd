@@ -8,7 +8,7 @@ $ sudo test/run-integration-tests.sh
 ninja: Entering directory `/home/zbyszek/src/systemd/build'
 ninja: no work to do.
 --x-- Running TEST-01-BASIC --x--
-+ make -C TEST-01-BASIC BUILD_DIR=/home/zbyszek/src/systemd/build clean setup run
++ make -C TEST-01-BASIC clean setup run
 make: Entering directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
 TEST-01-BASIC CLEANUP: Basic systemd setup
 TEST-01-BASIC SETUP: Basic systemd setup
@@ -17,7 +17,7 @@ TEST-01-BASIC RUN: Basic systemd setup [OK]
 make: Leaving directory '/home/zbyszek/src/systemd/test/TEST-01-BASIC'
 --x-- Result of TEST-01-BASIC: 0 --x--
 --x-- Running TEST-02-CRYPTSETUP --x--
-+ make -C TEST-02-CRYPTSETUP BUILD_DIR=/home/zbyszek/src/systemd/build clean setup run
++ make -C TEST-02-CRYPTSETUP clean setup run
 
 If one of the tests fails, then $subdir/test.log contains the log file of
 the test.

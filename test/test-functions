@@ -49,6 +49,12 @@ TEST_UNITS_DIR="$TEST_BASE_DIR/units"
 SOURCE_DIR=$(realpath "$TEST_BASE_DIR/..")
 TOOLS_DIR="$SOURCE_DIR/tools"
 
+# note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
+if ! BUILD_DIR=$($TOOLS_DIR/find-build-dir.sh); then
+    echo "ERROR: no build found, please set BUILD_DIR" >&2
+    exit 1
+fi
+
 PATH_TO_INIT=$ROOTLIBDIR/systemd
 [ "$SYSTEMD_JOURNALD" ] || SYSTEMD_JOURNALD=$(which -a $BUILD_DIR/systemd-journald $ROOTLIBDIR/systemd-journald 2>/dev/null | grep '^/' -m1)
 [ "$SYSTEMD_JOURNAL_REMOTE" ] || SYSTEMD_JOURNAL_REMOTE=$(which -a $BUILD_DIR/systemd-journal-remote $ROOTLIBDIR/systemd-journal-remote 2>/dev/null | grep '^/' -m1)
