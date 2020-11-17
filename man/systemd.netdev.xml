@@ -754,7 +754,8 @@
       <varlistentry>
         <term><varname>Id=</varname></term>
         <listitem>
-          <para>Specifies the Virtual Network Identifier (VNI) to use. Ranges [0-16777215]. This field is mandatory.</para>
+          <para>Specifies the Virtual Network Identifier (VNI) to use, a number between 0 and 16777215. This
+          field is mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -766,7 +767,7 @@
       <varlistentry>
         <term><varname>TOS=</varname></term>
         <listitem>
-          <para>Specifies the TOS value to use in outgoing packets. Ranges [1-255].</para>
+          <para>Specifies the TOS value to use in outgoing packets. Takes a number between 1 and 255.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
