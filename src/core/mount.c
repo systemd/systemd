@@ -1136,7 +1136,7 @@ static int mount_start(Unit *u) {
                 return -EAGAIN;
 
         /* Already on it! */
-        if (m->state == MOUNT_MOUNTING)
+        if (IN_SET(m->state, MOUNT_MOUNTING, MOUNT_MOUNTING_DONE))
                 return 0;
 
         assert(IN_SET(m->state, MOUNT_DEAD, MOUNT_FAILED));
