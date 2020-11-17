@@ -5,7 +5,7 @@ IMAGE_NAME="basic"
 RUN_IN_UNPRIVILEGED_CONTAINER=${RUN_IN_UNPRIVILEGED_CONTAINER:-yes}
 TEST_REQUIRE_INSTALL_TESTS=0
 
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 
 test_create_image() {
     create_empty_image_rootdir
@@ -18,7 +18,7 @@ test_create_image() {
 
         # install tests manually so the test is functional even when -Dinstall-tests=false
         mkdir -p $initdir/usr/lib/systemd/tests/testdata/units/
-        cp -v $(dirname $0)/../units/{testsuite-01,end}.service $initdir/usr/lib/systemd/tests/testdata/units/
+        cp -v $(dirname ${BASH_SOURCE[0]})/../units/{testsuite-01,end}.service $initdir/usr/lib/systemd/tests/testdata/units/
     )
 }
 

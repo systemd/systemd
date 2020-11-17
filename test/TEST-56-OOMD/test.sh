@@ -2,7 +2,7 @@
 set -e
 TEST_DESCRIPTION="systemd-oomd Memory Pressure Test"
 
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 
 check_result_nspawn() {
     local ret=1

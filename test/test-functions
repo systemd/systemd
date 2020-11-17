@@ -955,7 +955,7 @@ install_depmod_files() {
 install_plymouth() {
     # install plymouth, if found... else remove plymouth service files
     # if [ -x /usr/libexec/plymouth/plymouth-populate-initrd ]; then
-    #     PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="$TEST_BASE_DIR/test-functions" \
+    #     PLYMOUTH_POPULATE_SOURCE_FUNCTIONS="${BASH_SOURCE[0]}" \
     #         /usr/libexec/plymouth/plymouth-populate-initrd -t $initdir
     #         dracut_install plymouth plymouthd
     # else

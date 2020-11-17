@@ -12,7 +12,7 @@ TEST_NO_NSPAWN=1
 # Check if selinux-policy-devel is installed, and if it isn't bail out early instead of failing
 test -f /usr/share/selinux/devel/include/system/systemd.if || exit 0
 
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 SETUP_SELINUX=yes
 KERNEL_APPEND="$KERNEL_APPEND selinux=1 security=selinux"
 
