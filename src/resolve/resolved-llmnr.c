@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <resolv.h>
 
 #include "errno-util.h"
@@ -111,6 +112,31 @@ static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
+static int set_llmnr_common_socket_options(int fd, int family) {
+        int r;
+
+        r = socket_set_recvpktinfo(fd, family, true);
+        if (r < 0)
+                return r;
+
+        r = socket_set_recvttl(fd, family, true);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int set_llmnr_common_udp_socket_options(int fd, int family) {
+        int r;
+
+        /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
+        r = socket_set_ttl(fd, family, 255);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int manager_llmnr_ipv4_udp_fd(Manager *m) {
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
@@ -128,10 +154,13 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
         if (s < 0)
                 return log_error_errno(errno, "LLMNR-IPv4(UDP): Failed to create socket: %m");
 
-        /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
-        r = setsockopt_int(s, IPPROTO_IP, IP_TTL, 255);
+        r = set_llmnr_common_socket_options(s, AF_INET);
         if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_TTL: %m");
+                return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set common socket options: %m");
+
+        r = set_llmnr_common_udp_socket_options(s, AF_INET);
+        if (r < 0)
+                return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set common UDP socket options: %m");
 
         r = setsockopt_int(s, IPPROTO_IP, IP_MULTICAST_TTL, 255);
         if (r < 0)
@@ -140,14 +169,6 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
         r = setsockopt_int(s, IPPROTO_IP, IP_MULTICAST_LOOP, true);
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_MULTICAST_LOOP: %m");
-
-        r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
-        if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_PKTINFO: %m");
-
-        r = setsockopt_int(s, IPPROTO_IP, IP_RECVTTL, true);
-        if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv4(UDP): Failed to set IP_RECVTTL: %m");
 
         /* Disable Don't-Fragment bit in the IP header */
         r = setsockopt_int(s, IPPROTO_IP, IP_MTU_DISCOVER, IP_PMTUDISC_DONT);
@@ -203,9 +224,13 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
         if (s < 0)
                 return log_error_errno(errno, "LLMNR-IPv6(UDP): Failed to create socket: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 255);
+        r = set_llmnr_common_socket_options(s, AF_INET6);
         if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_UNICAST_HOPS: %m");
+                return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set common socket options: %m");
+
+        r = set_llmnr_common_udp_socket_options(s, AF_INET6);
+        if (r < 0)
+                return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set common UDP socket options: %m");
 
         /* RFC 4795, section 2.5 recommends setting the TTL of UDP packets to 255. */
         r = setsockopt_int(s, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, 255);
@@ -219,14 +244,6 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
         r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, true);
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_V6ONLY: %m");
-
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
-        if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_RECVPKTINFO: %m");
-
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
-        if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv6(UDP): Failed to set IPV6_RECVHOPLIMIT: %m");
 
         /* first try to bind without SO_REUSEADDR to detect another LLMNR responder */
         r = bind(s, &sa.sa, sizeof(sa.in6));
@@ -308,6 +325,25 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
+static int set_llmnr_common_tcp_socket_options(int fd, int family) {
+        int r;
+
+        /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
+        r = socket_set_ttl(fd, family, 1);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(fd, IPPROTO_TCP, TCP_FASTOPEN, 5); /* Everybody appears to pick qlen=5, let's do the same here. */
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable TCP_FASTOPEN on TCP listening socket, ignoring: %m");
+
+        r = setsockopt_int(fd, IPPROTO_TCP, TCP_NODELAY, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable TCP_NODELAY mode, ignoring: %m");
+
+        return 0;
+}
+
 int manager_llmnr_ipv4_tcp_fd(Manager *m) {
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
@@ -325,18 +361,13 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
         if (s < 0)
                 return log_error_errno(errno, "LLMNR-IPv4(TCP): Failed to create socket: %m");
 
-        /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
-        r = setsockopt_int(s, IPPROTO_IP, IP_TTL, 1);
+        r = set_llmnr_common_socket_options(s, AF_INET);
         if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set IP_TTL: %m");
+                return log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set common socket options: %m");
 
-        r = setsockopt_int(s, IPPROTO_IP, IP_PKTINFO, true);
+        r = set_llmnr_common_tcp_socket_options(s, AF_INET);
         if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set IP_PKTINFO: %m");
-
-        r = setsockopt_int(s, IPPROTO_IP, IP_RECVTTL, true);
-        if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set IP_RECVTTL: %m");
+                return log_error_errno(r, "LLMNR-IPv4(TCP): Failed to set common TCP socket options: %m");
 
         /* Disable Don't-Fragment bit in the IP header */
         r = setsockopt_int(s, IPPROTO_IP, IP_MTU_DISCOVER, IP_PMTUDISC_DONT);
@@ -396,22 +427,17 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
         if (s < 0)
                 return log_error_errno(errno, "LLMNR-IPv6(TCP): Failed to create socket: %m");
 
-        /* RFC 4795, section 2.5. requires setting the TTL of TCP streams to 1 */
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_UNICAST_HOPS, 1);
-        if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_UNICAST_HOPS: %m");
-
         r = setsockopt_int(s, IPPROTO_IPV6, IPV6_V6ONLY, true);
         if (r < 0)
                 return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_V6ONLY: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVPKTINFO, true);
+        r = set_llmnr_common_socket_options(s, AF_INET6);
         if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_RECVPKTINFO: %m");
+                return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set common socket options: %m");
 
-        r = setsockopt_int(s, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, true);
+        r = set_llmnr_common_tcp_socket_options(s, AF_INET6);
         if (r < 0)
-                return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set IPV6_RECVHOPLIMIT: %m");
+                return log_error_errno(r, "LLMNR-IPv6(TCP): Failed to set common TCP socket options: %m");
 
         /* first try to bind without SO_REUSEADDR to detect another LLMNR responder */
         r = bind(s, &sa.sa, sizeof(sa.in6));
