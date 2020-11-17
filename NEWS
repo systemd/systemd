@@ -462,14 +462,29 @@ CHANGES WITH 247 in spe:
           via the new Independent= boolean setting.
 
         * systemd-networkd's Gateway= setting in .network files now accepts the
-          special values _dhcp4 and _ipv6ra to configure additional, locally
-          defined, explicit routes to the gateway acquired via DHCP or IPv6
-          Router Advertisements.
+          special values "_dhcp4" and "_ipv6ra" to configure additional,
+          locally defined, explicit routes to the gateway acquired via DHCP or
+          IPv6 Router Advertisements. The old setting "_dhcp" is deprecated,
+          but still accepted for backwards compatibility.
 
         * systemd-networkd's [IPv6PrefixDelegation] section and
           IPv6PrefixDelegation= options have been renamed as [IPv6SendRA] and
           IPv6SendRA= (the old names are still accepted for backwards
           compatibility).
+
+        * systemd-networkd's .network files gained the DHCPv6PrefixDelegation=
+          boolean setting in [Network] section. If enabled, the delegated prefix
+          gained by another link will be configured, and an address within the
+          prefix will be assigned.
+
+        * systemd-networkd's .network files gained the Announce= boolean setting
+          in [DHCPv6PrefixDelegation] section. When enabled, the delegated
+          prefix will be announced through IPv6 router advertisement (IPv6 RA).
+          The setting is enabled by default.
+
+        * systemd-networkd's .netdev files gained the Independent= boolean
+          setting in [VXLAN] section. When enabled, the vxlan interface will be
+          created without underlying interfaces. Defaults to false.
 
         * systemctl gained support for two new verbs: "service-log-level" and
           "service-log-target" may be used on services that implement the
@@ -536,7 +551,7 @@ CHANGES WITH 247 in spe:
           promises.
 
         * A new helper oomctl has been added to introspect systemd-oomd state.
-          If also is only enabled by default in developer mode and should be
+          It is only enabled by default in developer mode and should be
           considered a preview without the usual backwards-compatibility
           promises.
 
