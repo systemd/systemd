@@ -251,8 +251,8 @@ int config_parse_dnssd_service_name(
         assert(s);
 
         if (isempty(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name can't be empty. Ignoring.");
-                return -EINVAL;
+                s->name_template = mfree(s->name_template);
+                return 0;
         }
 
         r = free_and_strdup(&s->name_template, rvalue);
