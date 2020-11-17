@@ -292,11 +292,13 @@
     attached to the request object path, interface and member. Finally, the property callbacks
     attached to the request object path, interface and member are called. If the final callback
     returns zero, an error reply is sent back to the caller indicating no matching object for the
-    request was found. Note that you can return a positive integer from a callback without
+    request was found.</para>
+
+    <para>Note that you can return a positive integer from a callback without
     immediately sending a reply. This informs sd-bus this callback will take responsibility for
     replying to the request without forcing the callback to produce a reply immediately. This allows
-    a callback to perform any number of asynchronous operations required to construct a reply. Note
-    that if producing a reply takes too long, the method call will time out at the caller.</para>
+    a callback to perform any number of asynchronous operations required to construct a reply.
+    However, if producing a reply takes too long, the method call will time out at the caller.</para>
 
     <para>If a callback was invoked to handle a request that expects a reply and the callback
     returns a negative value, the value is interpreted as a negative errno-style error code and sent
