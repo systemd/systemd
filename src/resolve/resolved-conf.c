@@ -232,7 +232,7 @@ int config_parse_dnssd_service_name(
         static const Specifier specifier_table[] = {
                 { 'm', specifier_machine_id,      NULL },
                 { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_host_name,       NULL },
+                { 'H', specifier_host_name,       NULL }, /* We will use specifier_dnssd_host_name(). */
                 { 'v', specifier_kernel_release,  NULL },
                 { 'a', specifier_architecture,    NULL },
                 { 'o', specifier_os_id,           NULL },
