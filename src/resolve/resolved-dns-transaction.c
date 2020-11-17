@@ -1889,7 +1889,7 @@ static int dns_transaction_negative_trust_anchor_lookup(DnsTransaction *t, const
         if (!t->scope->link)
                 return 0;
 
-        return set_contains(t->scope->link->dnssec_negative_trust_anchors, name);
+        return link_negative_trust_anchor_lookup(t->scope->link, name);
 }
 
 static int dns_transaction_has_unsigned_negative_answer(DnsTransaction *t) {
