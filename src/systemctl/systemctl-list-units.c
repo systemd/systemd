@@ -90,6 +90,7 @@ static int get_unit_list_recursive(
 
 static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         _cleanup_(table_unrefp) Table *table = NULL;
+        unsigned job_count = 0;
         int r;
 
         table = table_new("", "unit", "load", "active", "sub", "job", "description");
@@ -108,7 +109,6 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
         (void) table_set_empty_string(table, "-");
 
-        int job_count = 0;
         for (const UnitInfo *u = unit_infos; unit_infos && u < unit_infos + c; u++) {
                 _cleanup_free_ char *j = NULL;
                 const char *on_underline = "", *on_loaded = "", *on_active = "";
@@ -156,7 +156,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                                    TABLE_STRING, u->sub_state,
                                    TABLE_SET_BOTH_COLORS, on_active,
                                    TABLE_STRING, u->job_id ? u->job_type: "",
-                                   TABLE_SET_BOTH_COLORS, u->job_id ? on_underline : "",
+                                   TABLE_SET_BOTH_COLORS, on_underline,
                                    TABLE_STRING, u->description,
                                    TABLE_SET_BOTH_COLORS, on_underline);
                 if (r < 0)
@@ -186,7 +186,8 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                              "LOAD   = Reflects whether the unit definition was properly loaded.\n"
                              "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
                              "SUB    = The low-level unit activation state, values depend on unit type.");
-                        puts(job_count ? "JOB    = Pending job for the unit.\n" : "");
+                        if (job_count > 0)
+                                puts("JOB    = Pending job for the unit.\n");
                         on = ansi_highlight();
                         off = ansi_normal();
                 } else {
