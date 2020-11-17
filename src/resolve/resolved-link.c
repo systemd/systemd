@@ -1406,3 +1406,26 @@ void link_remove_user(Link *l) {
 
         (void) unlink(l->state_file);
 }
+
+bool link_negative_trust_anchor_lookup(Link *l, const char *name) {
+        int r;
+
+        assert(l);
+        assert(name);
+
+        /* Checks whether the specified domain (or any of its parent domains) are listed as per-link NTA. */
+
+        for (;;) {
+                if (set_contains(l->dnssec_negative_trust_anchors, name))
+                        return true;
+
+                /* And now, let's look at the parent, and check that too */
+                r = dns_name_parent(&name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+        }
+
+        return false;
+}
