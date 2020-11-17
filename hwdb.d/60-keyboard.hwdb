@@ -373,7 +373,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:*
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:*
 # Dell Precision microphone mute
 evdev:name:Dell WMI hotkeys:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
- KEYBOARD_KEY_100150=f20                                   # Mic mute toggle, should be micmute
+ KEYBOARD_KEY_100150=f20                                # Mic mute toggle, should be micmute
 
 # Dell Latitude privacy microphone mute
 evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*:sku0A3E:*
@@ -488,7 +488,7 @@ evdev:input:b0003v0458p0708*
 ###########################################################
 
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
- KEYBOARD_KEY_8=unknown					# Use hp-wireless instead
+ KEYBOARD_KEY_8=unknown                                 # Use hp-wireless instead
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*:*
@@ -863,7 +863,7 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940:*
 
 # Lenovo Y50-70
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*20378*:*
- KEYBOARD_KEY_f3=f21      # Fn+F6 (toggle touchpad)
+ KEYBOARD_KEY_f3=f21                                    # Fn+F6 (toggle touchpad)
 
 # V480
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO*:pn*Lenovo*V480*:*
@@ -894,54 +894,54 @@ evdev:input:b0003v04B3p301B*
 # logitech custom consumer usage-page codes. The mappings below are the most
 # common, but some mapping may differ, especially the Fn F1-F12 mappings
 evdev:input:b0003v046Dp00*
- KEYBOARD_KEY_c0183=media           # HUT:config, kbd:Media/Music player button
- KEYBOARD_KEY_c1001=chat            # Messenger button
- KEYBOARD_KEY_c1002=camera          # Webcam button
- KEYBOARD_KEY_c1003=audio           # Music Browser button
- KEYBOARD_KEY_c1004=video           # Video Browser button
- KEYBOARD_KEY_c1005=images          # Image Browser button
- KEYBOARD_KEY_c100a=documents       # Document Browser button
- KEYBOARD_KEY_c100b=rewind          # Rewind button
- KEYBOARD_KEY_c100c=fastforward     # Fast Forward button
- KEYBOARD_KEY_c100f=f14             # Track 1 button → f14 → XF86Launch5
- KEYBOARD_KEY_c1010=f15             # Track 2 button → f15 → XF86Launch6
- KEYBOARD_KEY_c1011=channeldown     # Playlist back button
- KEYBOARD_KEY_c1012=channelup       # Playlist advance button
- KEYBOARD_KEY_c1013=camera          # Webcam button
- KEYBOARD_KEY_c1014=coffee          # Status button
- KEYBOARD_KEY_c1015=record          # Record symbol button
- KEYBOARD_KEY_c1016=sound           # Flame/CD burning → sound → XF86AudioPreset
- KEYBOARD_KEY_c1017=ejectcd         # Eject button
- KEYBOARD_KEY_c1018=config          # Remote-control ico
- KEYBOARD_KEY_c1019=f14             # Preset 1 → f14 → XF86Launch5
- KEYBOARD_KEY_c101a=f15             # Preset 2 → f15 → XF86Launch6
- KEYBOARD_KEY_c101b=f16             # Preset 3 → f16 → XF86Launch7
- KEYBOARD_KEY_c101c=cyclewindows    # 2 overlapping windows icon
- KEYBOARD_KEY_c101f=zoomout         # zoom - button / - side of zoomrocker
- KEYBOARD_KEY_c1020=zoomin          # zoom + button / + side off zoom rocker
- KEYBOARD_KEY_c1021=zoomreset       # 100% symbol on kbd left side
- KEYBOARD_KEY_c1023=close           # [x] symbol on kbd left side
- KEYBOARD_KEY_c1027=menu            # Hamburger menu icon
- KEYBOARD_KEY_c1028=angle           # Rotate button
- KEYBOARD_KEY_c1029=shuffle         # Shuffle button
- KEYBOARD_KEY_c102a=back            # Back button
- KEYBOARD_KEY_c102b=cyclewindows    # Empty window icon
- KEYBOARD_KEY_c102c=fn              # Fn key
- KEYBOARD_KEY_c102d=www             # www text + magnifierglass icon
- KEYBOARD_KEY_c1031=connect         # Pickup phone button → connect → XF86Go
- KEYBOARD_KEY_c1032=cancel          # Hangup phone button → cancel → Cancel
- KEYBOARD_KEY_c1041=help            # Help text or icon (Fn + F1)
- KEYBOARD_KEY_c1042=wordprocessor   # Word icon (Fn + F2)
- KEYBOARD_KEY_c1043=spreadsheet     # Excel icon (Fn + F3)
- KEYBOARD_KEY_c1044=presentation    # Presentation icon (Fn + F4)
- KEYBOARD_KEY_c1045=undo            # Undo Icon (Fn + F5)
- KEYBOARD_KEY_c1046=redo            # Redo Icon (Fn + F6)
- KEYBOARD_KEY_c1047=print           # Printer Icon (Fn + F7)
- KEYBOARD_KEY_c1048=save            # Floppy Icon (Fn + F8)
- KEYBOARD_KEY_c1049=prog1           # Smartkey A (Fn + F9)  → XF86Launch1
- KEYBOARD_KEY_c104a=prog2           # Smartkey B (Fn + F10) → XF86Launch2
- KEYBOARD_KEY_c104b=prog3           # Smartkey C (Fn + F11) → XF86Launch3
- KEYBOARD_KEY_c104c=prog4           # Smartkey D (Fn + F12) → XF86Launch4
+ KEYBOARD_KEY_c0183=media                               # HUT:config, kbd:Media/Music player button
+ KEYBOARD_KEY_c1001=chat                                # Messenger button
+ KEYBOARD_KEY_c1002=camera                              # Webcam button
+ KEYBOARD_KEY_c1003=audio                               # Music Browser button
+ KEYBOARD_KEY_c1004=video                               # Video Browser button
+ KEYBOARD_KEY_c1005=images                              # Image Browser button
+ KEYBOARD_KEY_c100a=documents                           # Document Browser button
+ KEYBOARD_KEY_c100b=rewind                              # Rewind button
+ KEYBOARD_KEY_c100c=fastforward                         # Fast Forward button
+ KEYBOARD_KEY_c100f=f14                                 # Track 1 button → f14 → XF86Launch5
+ KEYBOARD_KEY_c1010=f15                                 # Track 2 button → f15 → XF86Launch6
+ KEYBOARD_KEY_c1011=channeldown                         # Playlist back button
+ KEYBOARD_KEY_c1012=channelup                           # Playlist advance button
+ KEYBOARD_KEY_c1013=camera                              # Webcam button
+ KEYBOARD_KEY_c1014=coffee                              # Status button
+ KEYBOARD_KEY_c1015=record                              # Record symbol button
+ KEYBOARD_KEY_c1016=sound                               # Flame/CD burning → sound → XF86AudioPreset
+ KEYBOARD_KEY_c1017=ejectcd                             # Eject button
+ KEYBOARD_KEY_c1018=config                              # Remote-control ico
+ KEYBOARD_KEY_c1019=f14                                 # Preset 1 → f14 → XF86Launch5
+ KEYBOARD_KEY_c101a=f15                                 # Preset 2 → f15 → XF86Launch6
+ KEYBOARD_KEY_c101b=f16                                 # Preset 3 → f16 → XF86Launch7
+ KEYBOARD_KEY_c101c=cyclewindows                        # 2 overlapping windows icon
+ KEYBOARD_KEY_c101f=zoomout                             # zoom - button / - side of zoomrocker
+ KEYBOARD_KEY_c1020=zoomin                              # zoom + button / + side off zoom rocker
+ KEYBOARD_KEY_c1021=zoomreset                           # 100% symbol on kbd left side
+ KEYBOARD_KEY_c1023=close                               # [x] symbol on kbd left side
+ KEYBOARD_KEY_c1027=menu                                # Hamburger menu icon
+ KEYBOARD_KEY_c1028=angle                               # Rotate button
+ KEYBOARD_KEY_c1029=shuffle                             # Shuffle button
+ KEYBOARD_KEY_c102a=back                                # Back button
+ KEYBOARD_KEY_c102b=cyclewindows                        # Empty window icon
+ KEYBOARD_KEY_c102c=fn                                  # Fn key
+ KEYBOARD_KEY_c102d=www                                 # www text + magnifierglass icon
+ KEYBOARD_KEY_c1031=connect                             # Pickup phone button → connect → XF86Go
+ KEYBOARD_KEY_c1032=cancel                              # Hangup phone button → cancel → Cancel
+ KEYBOARD_KEY_c1041=help                                # Help text or icon (Fn + F1)
+ KEYBOARD_KEY_c1042=wordprocessor                       # Word icon (Fn + F2)
+ KEYBOARD_KEY_c1043=spreadsheet                         # Excel icon (Fn + F3)
+ KEYBOARD_KEY_c1044=presentation                        # Presentation icon (Fn + F4)
+ KEYBOARD_KEY_c1045=undo                                # Undo Icon (Fn + F5)
+ KEYBOARD_KEY_c1046=redo                                # Redo Icon (Fn + F6)
+ KEYBOARD_KEY_c1047=print                               # Printer Icon (Fn + F7)
+ KEYBOARD_KEY_c1048=save                                # Floppy Icon (Fn + F8)
+ KEYBOARD_KEY_c1049=prog1                               # Smartkey A (Fn + F9)  → XF86Launch1
+ KEYBOARD_KEY_c104a=prog2                               # Smartkey B (Fn + F10) → XF86Launch2
+ KEYBOARD_KEY_c104b=prog3                               # Smartkey C (Fn + F11) → XF86Launch3
+ KEYBOARD_KEY_c104c=prog4                               # Smartkey D (Fn + F12) → XF86Launch4
 
 # Cordless Access Keyboard (27 MHz, modelnumber Y-RH35)
 evdev:input:b0003v046Dp0042*
@@ -971,7 +971,7 @@ evdev:input:b0003v046Dp0045*
 
 # S510 keyboard (27 MHz, modelnumber Y-RAK73)
 evdev:input:b0003v046Dp0056*
- KEYBOARD_KEY_c1041=battery      # Battery icon (Fn + F1)
+ KEYBOARD_KEY_c1041=battery                             # Battery icon (Fn + F1)
 
 # MX3000 keyboard (27 MHz, modelnumber Y-RAM74)
 # We ignore the scroll up / down keypress events since these buttons also
@@ -980,7 +980,7 @@ evdev:input:b0003v046Dp0056*
 # cleared then the scroll-wheel events for these buttons go away and then
 # tilting the scrollwheel left/right starts sending c1022 / c1024 events
 evdev:input:b0003v046Dp0057*
- KEYBOARD_KEY_c1041=battery      # Battery icon (Fn + F1)
+ KEYBOARD_KEY_c1041=battery                             # Battery icon (Fn + F1)
 
 #KEYBOARD_KEY_c101d=scrolldown   # Button below scrollwheel (see note above)
 #KEYBOARD_KEY_c101e=scrollup     # Button above scrollwheel (see note above)
@@ -989,82 +989,82 @@ evdev:input:b0003v046Dp0057*
 
 # MX3200 keyboard (27 MHz, modelnumber Y-RAV80)
 evdev:input:b0003v046Dp005C*
- KEYBOARD_KEY_c1001=phone           # VOIP button
- KEYBOARD_KEY_c1016=record          # Record button
- KEYBOARD_KEY_c1041=wordprocessor   # Word icon (Fn + F1)
- KEYBOARD_KEY_c1042=spreadsheet     # Excel icon (Fn + F2)
- KEYBOARD_KEY_c1043=calendar        # Calendar icon (Fn + F3)
- KEYBOARD_KEY_c1044=documents       # My Documents icon (Fn + F4)
- KEYBOARD_KEY_c1045=prog1           # Smartkey A (Fn + F5) → XF86Launch1
- KEYBOARD_KEY_c1046=prog2           # Smartkey B (Fn + F6) → XF86Launch2
- KEYBOARD_KEY_c1047=prog3           # Smartkey C (Fn + F7) → XF86Launch3
- KEYBOARD_KEY_c1048=prog4           # Smartkey D (Fn + F8) → XF86Launch4
+ KEYBOARD_KEY_c1001=phone                               # VOIP button
+ KEYBOARD_KEY_c1016=record                              # Record button
+ KEYBOARD_KEY_c1041=wordprocessor                       # Word icon (Fn + F1)
+ KEYBOARD_KEY_c1042=spreadsheet                         # Excel icon (Fn + F2)
+ KEYBOARD_KEY_c1043=calendar                            # Calendar icon (Fn + F3)
+ KEYBOARD_KEY_c1044=documents                           # My Documents icon (Fn + F4)
+ KEYBOARD_KEY_c1045=prog1                               # Smartkey A (Fn + F5) → XF86Launch1
+ KEYBOARD_KEY_c1046=prog2                               # Smartkey B (Fn + F6) → XF86Launch2
+ KEYBOARD_KEY_c1047=prog3                               # Smartkey C (Fn + F7) → XF86Launch3
+ KEYBOARD_KEY_c1048=prog4                               # Smartkey D (Fn + F8) → XF86Launch4
 
 # EX100 keyboard (27 MHz, modelnumber Y-RBH94)
 evdev:input:b0003v046Dp0065*
- KEYBOARD_KEY_c104b=battery         # Battery icon (Fn + F11)
- KEYBOARD_KEY_c104c=ejectcd         # Eject icon (Fn + F12)
+ KEYBOARD_KEY_c104b=battery                             # Battery icon (Fn + F11)
+ KEYBOARD_KEY_c104c=ejectcd                             # Eject icon (Fn + F12)
 
 # S520 keyboard (27 MHz, modelnumber Y-RBA97)
 # Note this one uses non-standard codes for FN + F9 - Fn + F12?
 evdev:input:b0003v046Dp0066*
- KEYBOARD_KEY_c100e=prog4           # Smartkey D (Fn + F12) → XF86Launch4
- KEYBOARD_KEY_c1019=prog1           # Smartkey A (Fn + F9)  → XF86Launch1
- KEYBOARD_KEY_c101a=prog2           # Smartkey B (Fn + F10) → XF86Launch2
- KEYBOARD_KEY_c101b=prog3           # Smartkey C (Fn + F11) → XF86Launch3
- KEYBOARD_KEY_c1041=wordprocessor   # Word icon (Fn + F1)
- KEYBOARD_KEY_c1042=spreadsheet     # Excel icon (Fn + F2)
- KEYBOARD_KEY_c1043=presentation    # Presentation icon (Fn + F3)
- KEYBOARD_KEY_c1044=calendar        # Calendar icon (Fn + F4)
- KEYBOARD_KEY_c1045=homepage        # Home icon (Fn + F5)
- KEYBOARD_KEY_c1046=email           # Letter icon (Fn + F6)
- KEYBOARD_KEY_c1047=search          # Magnifying glass icon (Fn + F7)
- KEYBOARD_KEY_c1048=config          # Window with gear icon (Fn + F8)
- KEYBOARD_KEY_c106f=battery         # Battery icon
+ KEYBOARD_KEY_c100e=prog4                               # Smartkey D (Fn + F12) → XF86Launch4
+ KEYBOARD_KEY_c1019=prog1                               # Smartkey A (Fn + F9)  → XF86Launch1
+ KEYBOARD_KEY_c101a=prog2                               # Smartkey B (Fn + F10) → XF86Launch2
+ KEYBOARD_KEY_c101b=prog3                               # Smartkey C (Fn + F11) → XF86Launch3
+ KEYBOARD_KEY_c1041=wordprocessor                       # Word icon (Fn + F1)
+ KEYBOARD_KEY_c1042=spreadsheet                         # Excel icon (Fn + F2)
+ KEYBOARD_KEY_c1043=presentation                        # Presentation icon (Fn + F3)
+ KEYBOARD_KEY_c1044=calendar                            # Calendar icon (Fn + F4)
+ KEYBOARD_KEY_c1045=homepage                            # Home icon (Fn + F5)
+ KEYBOARD_KEY_c1046=email                               # Letter icon (Fn + F6)
+ KEYBOARD_KEY_c1047=search                              # Magnifying glass icon (Fn + F7)
+ KEYBOARD_KEY_c1048=config                              # Window with gear icon (Fn + F8)
+ KEYBOARD_KEY_c106f=battery                             # Battery icon
 
 # S510 remote control (27 MHz)
 evdev:input:b0003v046Dp00FE*
- KEYBOARD_KEY_c1018=media           # Media button
+ KEYBOARD_KEY_c1018=media                               # Media button
 
 # MX5000 keyboard (HID proxy mode and bluetooth matches)
 evdev:input:b0003v046DpB305*
 evdev:input:b0005v046DpB305*
- KEYBOARD_KEY_c0183=media	# HUT says config, kbd says Media
- KEYBOARD_KEY_c0230=zoomreset	# HUT says fullscreen, kbd says 100%
- KEYBOARD_KEY_c1004=send	# Send and receive / sync button
- KEYBOARD_KEY_c1006=coffee	# Status (online/away) button
- KEYBOARD_KEY_c1007=camera	# Webcam button
- KEYBOARD_KEY_c100c=kbd_lcd_menu1 # 1st button below the builtin LCD
- KEYBOARD_KEY_c100d=kbd_lcd_menu4 # 4th button below the builtin LCD
- KEYBOARD_KEY_c100e=kbd_lcd_menu2 # 2nd button below the builtin LCD
- KEYBOARD_KEY_c100f=kbd_lcd_menu3 # 3th button below the builtin LCD
- KEYBOARD_KEY_c1038=prog1	# Smartkey A → XF86Launch1
- KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
- KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
- KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
- KEYBOARD_KEY_c1040=fn_esc	# Fn mode on/off toggle
+ KEYBOARD_KEY_c0183=media                               # HUT says config, kbd says Media
+ KEYBOARD_KEY_c0230=zoomreset                           # HUT says fullscreen, kbd says 100%
+ KEYBOARD_KEY_c1004=send                                # Send and receive / sync button
+ KEYBOARD_KEY_c1006=coffee                              # Status (online/away) button
+ KEYBOARD_KEY_c1007=camera                              # Webcam button
+ KEYBOARD_KEY_c100c=kbd_lcd_menu1                       # 1st button below the builtin LCD
+ KEYBOARD_KEY_c100d=kbd_lcd_menu4                       # 4th button below the builtin LCD
+ KEYBOARD_KEY_c100e=kbd_lcd_menu2                       # 2nd button below the builtin LCD
+ KEYBOARD_KEY_c100f=kbd_lcd_menu3                       # 3th button below the builtin LCD
+ KEYBOARD_KEY_c1038=prog1                               # Smartkey A → XF86Launch1
+ KEYBOARD_KEY_c1039=prog2                               # Smartkey B → XF86Launch2
+ KEYBOARD_KEY_c103a=prog3                               # Smartkey C → XF86Launch3
+ KEYBOARD_KEY_c103b=prog4                               # Smartkey D → XF86Launch4
+ KEYBOARD_KEY_c1040=fn_esc                              # Fn mode on/off toggle
 
 # Dinovo Edge (HID proxy mode and bluetooth matches)
 evdev:input:b0003v046DpB309*
 evdev:input:b0005v046DpB309*
- KEYBOARD_KEY_c102c=fn		# Fn key
- KEYBOARD_KEY_c1038=prog1	# Fn + F9  Smartkey A → XF86Launch1
- KEYBOARD_KEY_c1039=prog2	# Fn + F10 Smartkey B → XF86Launch2
- KEYBOARD_KEY_c103a=prog3	# Fn + F11 Smartkey C → XF86Launch3
- KEYBOARD_KEY_c103b=prog4	# Fn + F12 Smartkey D → XF86Launch4
- KEYBOARD_KEY_c1050=phone	# Fn + F1  Phone button
+ KEYBOARD_KEY_c102c=fn                                  # Fn key
+ KEYBOARD_KEY_c1038=prog1                               # Fn + F9  Smartkey A → XF86Launch1
+ KEYBOARD_KEY_c1039=prog2                               # Fn + F10 Smartkey B → XF86Launch2
+ KEYBOARD_KEY_c103a=prog3                               # Fn + F11 Smartkey C → XF86Launch3
+ KEYBOARD_KEY_c103b=prog4                               # Fn + F12 Smartkey D → XF86Launch4
+ KEYBOARD_KEY_c1050=phone                               # Fn + F1  Phone button
 
 # MX5500 keyboard (HID proxy mode and bluetooth matches)
 evdev:input:b0003v046DpB30B*
 evdev:input:b0005v046DpB30B*
- KEYBOARD_KEY_c0183=media	# HUT says consumer control configuration, kbd says Media Center
- KEYBOARD_KEY_c100e=images	# Camera icon, "Photo Gallery"
- KEYBOARD_KEY_c100f=config	# Window with gear icon
- KEYBOARD_KEY_c102c=fn		# Fn key
- KEYBOARD_KEY_c1038=prog1	# Smartkey A → XF86Launch1
- KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
- KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
- KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
+ KEYBOARD_KEY_c0183=media                               # HUT says consumer control configuration, kbd says Media Center
+ KEYBOARD_KEY_c100e=images                              # Camera icon, "Photo Gallery"
+ KEYBOARD_KEY_c100f=config                              # Window with gear icon
+ KEYBOARD_KEY_c102c=fn                                  # Fn key
+ KEYBOARD_KEY_c1038=prog1                               # Smartkey A → XF86Launch1
+ KEYBOARD_KEY_c1039=prog2                               # Smartkey B → XF86Launch2
+ KEYBOARD_KEY_c103a=prog3                               # Smartkey C → XF86Launch3
+ KEYBOARD_KEY_c103b=prog4                               # Smartkey D → XF86Launch4
 
 # Logitech K811
 evdev:input:b0005v046DpB317*
@@ -1143,22 +1143,22 @@ evdev:input:b0003v046DpC52D*
 
 # Internet Navigator
 evdev:input:b0003v046DpC309*
- KEYBOARD_KEY_90001=chat         # Messenger/SMS
- KEYBOARD_KEY_90002=camera       # webcam
- KEYBOARD_KEY_90003=prog1        # iTouch
- KEYBOARD_KEY_90004=shop         # Shopping
- KEYBOARD_KEY_c0201=new          # New (F1)
- KEYBOARD_KEY_c0289=reply        # Reply mail (F2)
- KEYBOARD_KEY_c028b=forwardmail  # Forward mail (F3)
- KEYBOARD_KEY_c028c=send         # Send (F4)
- KEYBOARD_KEY_c021a=undo         # Undo (F5)
- KEYBOARD_KEY_c0279=redo         # Redo (F6)
- KEYBOARD_KEY_c0208=print        # Print (F7)
- KEYBOARD_KEY_c0207=save         # Save (F8)
- KEYBOARD_KEY_c0194=file         # My Computer (F9)
- KEYBOARD_KEY_c01a7=documents    # My Documents (F10)
- KEYBOARD_KEY_c01b6=images       # My Pictures (F11)
- KEYBOARD_KEY_c01b7=audio        # My Music (F12)
+ KEYBOARD_KEY_90001=chat                                # Messenger/SMS
+ KEYBOARD_KEY_90002=camera                              # webcam
+ KEYBOARD_KEY_90003=prog1                               # iTouch
+ KEYBOARD_KEY_90004=shop                                # Shopping
+ KEYBOARD_KEY_c0201=new                                 # New (F1)
+ KEYBOARD_KEY_c0289=reply                               # Reply mail (F2)
+ KEYBOARD_KEY_c028b=forwardmail                         # Forward mail (F3)
+ KEYBOARD_KEY_c028c=send                                # Send (F4)
+ KEYBOARD_KEY_c021a=undo                                # Undo (F5)
+ KEYBOARD_KEY_c0279=redo                                # Redo (F6)
+ KEYBOARD_KEY_c0208=print                               # Print (F7)
+ KEYBOARD_KEY_c0207=save                                # Save (F8)
+ KEYBOARD_KEY_c0194=file                                # My Computer (F9)
+ KEYBOARD_KEY_c01a7=documents                           # My Documents (F10)
+ KEYBOARD_KEY_c01b6=images                              # My Pictures (F11)
+ KEYBOARD_KEY_c01b7=audio                               # My Music (F12)
 
 
 ###########################################################
@@ -1400,25 +1400,25 @@ evdev:input:b0003v05A4p9735*
  KEYBOARD_KEY_c000c=stop
  KEYBOARD_KEY_c0018=refresh
  KEYBOARD_KEY_c00b9=search
- KEYBOARD_KEY_c0006=bookmarks    # Button labeled "Favorites"
- KEYBOARD_KEY_c00a8=homepage     # Button labeled "Web/Home"
+ KEYBOARD_KEY_c0006=bookmarks                           # Button labeled "Favorites"
+ KEYBOARD_KEY_c00a8=homepage                            # Button labeled "Web/Home"
  KEYBOARD_KEY_c0010=mute
  KEYBOARD_KEY_c0011=volumedown
  KEYBOARD_KEY_c0014=volumeup
  KEYBOARD_KEY_c000e=close
  KEYBOARD_KEY_c00a7=print
- KEYBOARD_KEY_c0013=documents    # Button labeled "Stickies"
- KEYBOARD_KEY_c000d=find         # Button labeled "Sherlock2"
+ KEYBOARD_KEY_c0013=documents                           # Button labeled "Stickies"
+ KEYBOARD_KEY_c000d=find                                # Button labeled "Sherlock2"
  KEYBOARD_KEY_c000f=mail
  KEYBOARD_KEY_c000a=calc
  KEYBOARD_KEY_c000b=sleep
- KEYBOARD_KEY_c0007=previoussong # Button with standard |<< icon
- KEYBOARD_KEY_c0008=playpause    # Button with standad >/|| icon
- KEYBOARD_KEY_c0009=nextsong     # Button with standard >>| icon
- KEYBOARD_KEY_c00b2=stopcd       # Button with standard square box icon
- KEYBOARD_KEY_c0016=prog1        # Key labeled "pf1"
- KEYBOARD_KEY_c00bb=prog2        # Key labeled "pf2"
- KEYBOARD_KEY_c00b8=prog3        # Key labeled "pf3"
+ KEYBOARD_KEY_c0007=previoussong                        # Button with standard |<< icon
+ KEYBOARD_KEY_c0008=playpause                           # Button with standad >/|| icon
+ KEYBOARD_KEY_c0009=nextsong                            # Button with standard >>| icon
+ KEYBOARD_KEY_c00b2=stopcd                              # Button with standard square box icon
+ KEYBOARD_KEY_c0016=prog1                               # Key labeled "pf1"
+ KEYBOARD_KEY_c00bb=prog2                               # Key labeled "pf2"
+ KEYBOARD_KEY_c00b8=prog3                               # Key labeled "pf3"
 
 ###########################################################
 # Pine64
@@ -1436,7 +1436,7 @@ evdev:input:b0003v258Ap001E*
 
 # Plantronics .Audio 626 DSP
 evdev:input:b0003v047FpC006*
- KEYBOARD_KEY_b002f=f20                                # Microphone mute button; should be micmute
+ KEYBOARD_KEY_b002f=f20                                 # Microphone mute button; should be micmute
 
 ###########################################################
 # Purism
