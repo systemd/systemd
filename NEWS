@@ -457,9 +457,7 @@ CHANGES WITH 247 in spe:
           discipline in the [FlowQueuePIE] sections.
 
         * systemd-networkd's .netdev files may now be used to create "BareUDP"
-          tunnels, configured in the new [BareUDP] setting. VXLAN tunnels may
-          now be marked to be independent of any underlying network interface
-          via the new Independent= boolean setting.
+          tunnels, configured in the new [BareUDP] setting.
 
         * systemd-networkd's Gateway= setting in .network files now accepts the
           special values "_dhcp4" and "_ipv6ra" to configure additional,
@@ -482,9 +480,8 @@ CHANGES WITH 247 in spe:
           prefix will be announced through IPv6 router advertisement (IPv6 RA).
           The setting is enabled by default.
 
-        * systemd-networkd's .netdev files gained the Independent= boolean
-          setting in [VXLAN] section. When enabled, the vxlan interface will be
-          created without underlying interfaces. Defaults to false.
+        * VXLAN tunnels may now be marked as independent of any underlying
+          network interface via the new Independent= boolean setting.
 
         * systemctl gained support for two new verbs: "service-log-level" and
           "service-log-target" may be used on services that implement the

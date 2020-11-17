@@ -819,8 +819,9 @@
       <varlistentry>
         <term><varname>Independent=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true, the vxlan interface is created without underlying interfaces.
-          Defaults to <literal>false</literal>.</para>
+          <para>Takes a boolean. When true, the vxlan interface is created without any underlying network
+          interface. Defaults to false, which means that a .network file that requests this tunnel using
+          <varname>Tunnel=</varname> is required for the tunnel to be created.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1277,9 +1278,10 @@
       <varlistentry>
         <term><varname>Independent=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true tunnel does not require .network file. Created as "tunnel@NONE".
-          Defaults to <literal>false</literal>.
-          </para>
+          <para>Takes a boolean. When false (the default), the tunnel is always created over some network
+          device, and a .network file that requests this tunnel using <varname>Tunnel=</varname> is required
+          for the tunnel to be created. When true, the tunnel is created independently of any network as
+          "tunnel@NONE".</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1949,10 +1951,8 @@
       <varlistentry>
         <term><varname>Independent=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to <literal>no</literal>, the xfrm interface should have an
-          underlying device which can be used for hardware offloading. Defaults to <literal>no</literal>.
-          See <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for how to configure the underlying device.</para>
+          <para>Takes a boolean. If false (the default), the xfrm interface must have an underlying device
+          which can be used for hardware offloading.</para>
         </listitem>
       </varlistentry>
     </variablelist>
