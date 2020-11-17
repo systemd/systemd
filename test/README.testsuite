@@ -41,6 +41,14 @@ $ sudo make -C test/TEST-01-BASIC BUILD_DIR=../../some-other-build/ ...
 Note that in the second case, the path is relative to the test case directory.
 An absolute path may also be used in both cases.
 
+Testing installed binaries instead of built
+===========================================
+
+To run the extended testsuite using the systemd installed on the system instead
+of the systemd from a build, use the NO_BUILD=1:
+
+$ sudo NO_BUILD=1 test/run-integration-tests
+
 Configuration variables
 =======================
 
