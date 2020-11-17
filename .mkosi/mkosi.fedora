@@ -5,7 +5,7 @@
 
 [Distribution]
 Distribution=fedora
-Release=32
+Release=33
 
 [Output]
 Format=gpt_ext4
@@ -58,6 +58,8 @@ BuildPackages=
         p11-kit-devel
         pam-devel
         pcre2-devel
+        perl(IPC::SysV)
+        perl(Time::HiRes)
         pkgconfig
         python3-devel
         python3-lxml
