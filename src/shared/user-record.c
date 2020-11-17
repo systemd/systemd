@@ -2062,7 +2062,7 @@ bool user_record_compatible(UserRecord *a, UserRecord *b) {
         assert(a);
         assert(b);
 
-        /* If either lacks a the regular section, we can't really decide, let's hence say they are
+        /* If either lacks the regular section, we can't really decide, let's hence say they are
          * incompatible. */
         if (!(a->mask & b->mask & USER_RECORD_REGULAR))
                 return false;

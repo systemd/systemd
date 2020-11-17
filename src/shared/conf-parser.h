@@ -35,7 +35,7 @@ typedef enum ConfigParseFlags {
 /* Prototype for a parser for a specific configuration setting */
 typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
 
-/* A macro declaring the a function prototype, following the typedef above, simply because it's so cumbersomely long
+/* A macro declaring a function prototype, following the typedef above, simply because it's so cumbersomely long
  * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
  * prototypes on the same screen…) */
 #define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)

@@ -646,7 +646,7 @@ Features:
   parameters
 
 * maybe hook of xfs/ext4 quotactl() with services? i.e. automatically manage
-  the quota of a the user indicated in User= via unit file settings, like the
+  the quota of the user indicated in User= via unit file settings, like the
   other resource management concepts. Would mix nicely with DynamicUser=1. Or
   alternatively, do this with projids, so that we can also cover services
   running as root. Quota should probably cover all the special dirs such as

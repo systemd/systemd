@@ -59,7 +59,7 @@
     message is no longer needed. If <parameter>ret</parameter> is not <constant>NULL</constant>, progress was made, but no message was
     processed, <parameter>*ret</parameter> is set to <constant>NULL</constant>.</para>
 
-    <para>If a the bus object is connected to an
+    <para>If the bus object is connected to an
     <citerefentry><refentrytitle>sd-event</refentrytitle><manvolnum>3</manvolnum></citerefentry> event loop (with
     <citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>), it is not
     necessary to call <function>sd_bus_process()</function> directly as it is invoked automatically when
