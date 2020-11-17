@@ -1594,6 +1594,7 @@ generate_gperfs = find_program('tools/generate-gperfs.py')
 
 subdir('po')
 subdir('catalog')
+subdir('src/libudev')
 subdir('src/systemd')
 subdir('src/basic')
 subdir('src/libsystemd')
@@ -1673,7 +1674,6 @@ update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
 # usually, but not always, installed in /bin.
 public_programs = []
 
-subdir('src/libudev')
 subdir('src/shared')
 subdir('src/core')
 subdir('src/shutdown')

@@ -64,9 +64,12 @@ if add_languages('cpp', required : false)
         if cxx.has_argument('-std=c++17')
                 opts += [['c++', '-std=c++17']]
         endif
+        if cxx.has_argument('-std=c++20')
+                opts += [['c++', '-std=c++20']]
+        endif
 endif
 
-foreach header : _systemd_headers + _not_installed_headers + ['../libudev/libudev.h']
+foreach header : _systemd_headers + _not_installed_headers + [libudev_h_path]
         foreach opt : opts
                 std_name = opt.length() == 2 ? '_'.join(opt[1].split(':')) : ''
                 name = ''.join(['cc-', header.split('/')[-1], '_', opt[0], std_name])
