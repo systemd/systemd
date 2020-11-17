@@ -469,7 +469,7 @@ int config_parse_ad_actor_system(
         }
         if (ether_addr_is_null(&n) || (n.ether_addr_octet[0] & 0x01)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Not a valid MAC address %s, can not be null or multicast. Ignoring assignment.",
+                           "Not an appropriate MAC address %s, cannot be null or multicast. Ignoring assignment.",
                            rvalue);
                 return 0;
         }
