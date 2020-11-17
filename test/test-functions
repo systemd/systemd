@@ -51,8 +51,12 @@ TOOLS_DIR="$SOURCE_DIR/tools"
 
 # note that find-build-dir.sh will return $BUILD_DIR if provided, else it will try to find it
 if ! BUILD_DIR=$($TOOLS_DIR/find-build-dir.sh); then
-    echo "ERROR: no build found, please set BUILD_DIR" >&2
-    exit 1
+    if [ "$NO_BUILD" ]; then
+        BUILD_DIR=$SOURCE_DIR
+    else
+        echo "ERROR: no build found, please set BUILD_DIR or use NO_BUILD" >&2
+        exit 1
+    fi
 fi
 
 PATH_TO_INIT=$ROOTLIBDIR/systemd
@@ -681,7 +685,7 @@ install_dmevent() {
     fi
 }
 
-install_systemd() {
+install_compiled_systemd() {
     ddebug "Install compiled systemd"
 
     local _ninja_bin=$(type -P ninja || type -P ninja-build)
@@ -690,6 +694,42 @@ install_systemd() {
         exit 1
     fi
     (set -x; DESTDIR=$initdir "$_ninja_bin" -C $BUILD_DIR install)
+}
+
+install_debian_systemd() {
+    ddebug "Install debian systemd"
+
+    local _systemd_pkgs=$(apt-cache showsrc systemd | grep -m 1 -E '^Binary:' | cut -d ':' -f 2 | tr -d ,)
+    local _files=""
+    for deb in $_systemd_pkgs; do
+        _files=$(dpkg-query -L $deb 2>/dev/null) || continue
+        ddebug "Install debian files from package $deb"
+        for file in $_files; do
+            [ -e "$file" ] || continue
+            [ -d "$file" ] && continue
+            inst $file
+        done
+    done
+}
+
+install_distro_systemd() {
+    ddebug "Install distro systemd"
+
+    if [ "$LOOKS_LIKE_DEBIAN" ]; then
+        install_debian_systemd
+    else
+        dfatal "NO_BUILD not supported for this distro"
+        exit 1
+    fi
+}
+
+install_systemd() {
+    if [ "$NO_BUILD" ]; then
+        install_distro_systemd
+    else
+        install_compiled_systemd
+    fi
+
     # remove unneeded documentation
     rm -fr $initdir/usr/share/{man,doc}
 
