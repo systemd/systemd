@@ -84,7 +84,7 @@
         </row></thead>
         <tbody>
           <row><entry><varname>bond</varname></entry>
-          <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.Local configuration</entry></row>
+          <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.</entry></row>
 
           <row><entry><varname>bridge</varname></entry>
           <entry>A bridge device is a software switch, and each of its slave devices and the bridge itself are ports of the switch.</entry></row>
@@ -754,7 +754,8 @@
       <varlistentry>
         <term><varname>Id=</varname></term>
         <listitem>
-          <para>Specifies the Virtual Network Identifier (VNI) to use. Ranges [0-16777215]. This field is mandatory.</para>
+          <para>Specifies the Virtual Network Identifier (VNI) to use, a number between 0 and 16777215. This
+          field is mandatory.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -766,7 +767,7 @@
       <varlistentry>
         <term><varname>TOS=</varname></term>
         <listitem>
-          <para>Specifies the TOS value to use in outgoing packets. Ranges [1-255].</para>
+          <para>Specifies the TOS value to use in outgoing packets. Takes a number between 1 and 255.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -818,8 +819,9 @@
       <varlistentry>
         <term><varname>Independent=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true, the vxlan interface is created without underlying interfaces.
-          Defaults to <literal>false</literal>.</para>
+          <para>Takes a boolean. When true, the vxlan interface is created without any underlying network
+          interface. Defaults to false, which means that a .network file that requests this tunnel using
+          <varname>Tunnel=</varname> is required for the tunnel to be created.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1276,9 +1278,10 @@
       <varlistentry>
         <term><varname>Independent=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true tunnel does not require .network file. Created as "tunnel@NONE".
-          Defaults to <literal>false</literal>.
-          </para>
+          <para>Takes a boolean. When false (the default), the tunnel is always created over some network
+          device, and a .network file that requests this tunnel using <varname>Tunnel=</varname> is required
+          for the tunnel to be created. When true, the tunnel is created independently of any network as
+          "tunnel@NONE".</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1770,8 +1773,8 @@
       <varlistentry>
         <term><varname>AdActorSystem=</varname></term>
         <listitem>
-          <para>Specifies the 802.3ad system mac address. This can not be either
-          <constant>NULL</constant> or <constant>Multicast</constant>.</para>
+          <para>Specifies the 802.3ad system MAC address. This cannot be a null or multicast address.
+          </para>
         </listitem>
       </varlistentry>
 
@@ -1948,10 +1951,8 @@
       <varlistentry>
         <term><varname>Independent=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to <literal>no</literal>, the xfrm interface should have an
-          underlying device which can be used for hardware offloading. Defaults to <literal>no</literal>.
-          See <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for how to configure the underlying device.</para>
+          <para>Takes a boolean. If false (the default), the xfrm interface must have an underlying device
+          which can be used for hardware offloading.</para>
         </listitem>
       </varlistentry>
     </variablelist>
