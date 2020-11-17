@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 TEST_REQUIRE_INSTALL_TESTS=0
 TEST_DESCRIPTION="testing honor first shutdown"
 #INTERACTIVE_DEBUG=1

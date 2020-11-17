@@ -3,6 +3,6 @@ set -e
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/3166"
 TEST_NO_NSPAWN=1
 
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 
 do_test "$@" 11

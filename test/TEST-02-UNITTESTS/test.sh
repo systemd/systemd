@@ -11,7 +11,7 @@ frobnicate!
 $KERNEL_APPEND
 "
 
-. $TEST_BASE_DIR/test-functions
+. $(dirname ${BASH_SOURCE[0]})/../test-functions
 
 check_result_nspawn() {
     local _ret=1
