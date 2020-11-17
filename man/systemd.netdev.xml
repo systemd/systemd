@@ -84,7 +84,7 @@
         </row></thead>
         <tbody>
           <row><entry><varname>bond</varname></entry>
-          <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.Local configuration</entry></row>
+          <entry>A bond device is an aggregation of all its slave devices. See <ulink url="https://www.kernel.org/doc/Documentation/networking/bonding.txt">Linux Ethernet Bonding Driver HOWTO</ulink> for details.</entry></row>
 
           <row><entry><varname>bridge</varname></entry>
           <entry>A bridge device is a software switch, and each of its slave devices and the bridge itself are ports of the switch.</entry></row>
