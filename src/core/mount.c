@@ -1952,6 +1952,15 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                                 mount_enter_dead(mount, MOUNT_SUCCESS);
                                 break;
 
+                        case MOUNT_MOUNTING_DONE:
+                                /* The mount command may add the corresponding proc mountinfo entry and
+                                 * then remove it because of an internal error. E.g., fuse.sshfs seems
+                                 * to do that when the connection fails. See #17617. To handle such the
+                                 * case, let's once set the state back to mounting. Then, the unit can
+                                 * correctly enter the failed state later in mount_sigchld(). */
+                                mount_set_state(mount, MOUNT_MOUNTING);
+                                break;
+
                         default:
                                 break;
                         }
