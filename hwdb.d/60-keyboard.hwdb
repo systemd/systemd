@@ -926,6 +926,7 @@ evdev:input:b0003v046Dp00*
  KEYBOARD_KEY_c1029=shuffle         # Shuffle button
  KEYBOARD_KEY_c102a=back            # Back button
  KEYBOARD_KEY_c102b=cyclewindows    # Empty window icon
+ KEYBOARD_KEY_c102c=fn              # Fn key
  KEYBOARD_KEY_c102d=www             # www text + magnifierglass icon
  KEYBOARD_KEY_c1031=connect         # Pickup phone button → connect → XF86Go
  KEYBOARD_KEY_c1032=cancel          # Hangup phone button → cancel → Cancel
@@ -1028,6 +1029,7 @@ evdev:input:b0003v046Dp00FE*
 # MX5000 keyboard (HID proxy mode and bluetooth matches)
 evdev:input:b0003v046DpB305*
 evdev:input:b0005v046DpB305*
+ KEYBOARD_KEY_c0183=media	# HUT says config, kbd says Media
  KEYBOARD_KEY_c0230=zoomreset	# HUT says fullscreen, kbd says 100%
  KEYBOARD_KEY_c1004=send	# Send and receive / sync button
  KEYBOARD_KEY_c1006=coffee	# Status (online/away) button
@@ -1040,13 +1042,25 @@ evdev:input:b0005v046DpB305*
  KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
  KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
  KEYBOARD_KEY_c103b=prog4	# Smartkey D → XF86Launch4
+ KEYBOARD_KEY_c1040=fn_esc	# Fn mode on/off toggle
+
+# Dinovo Edge (HID proxy mode and bluetooth matches)
+evdev:input:b0003v046DpB309*
+evdev:input:b0005v046DpB309*
+ KEYBOARD_KEY_c102c=fn		# Fn key
+ KEYBOARD_KEY_c1038=prog1	# Fn + F9  Smartkey A → XF86Launch1
+ KEYBOARD_KEY_c1039=prog2	# Fn + F10 Smartkey B → XF86Launch2
+ KEYBOARD_KEY_c103a=prog3	# Fn + F11 Smartkey C → XF86Launch3
+ KEYBOARD_KEY_c103b=prog4	# Fn + F12 Smartkey D → XF86Launch4
+ KEYBOARD_KEY_c1050=phone	# Fn + F1  Phone button
 
 # MX5500 keyboard (HID proxy mode and bluetooth matches)
 evdev:input:b0003v046DpB30B*
 evdev:input:b0005v046DpB30B*
  KEYBOARD_KEY_c0183=media	# HUT says consumer control configuration, kbd says Media Center
- KEYBOARD_KEY_c100e=images      # Camera icon, "Photo Gallery"
- KEYBOARD_KEY_c100f=config      # Window with gear icon
+ KEYBOARD_KEY_c100e=images	# Camera icon, "Photo Gallery"
+ KEYBOARD_KEY_c100f=config	# Window with gear icon
+ KEYBOARD_KEY_c102c=fn		# Fn key
  KEYBOARD_KEY_c1038=prog1	# Smartkey A → XF86Launch1
  KEYBOARD_KEY_c1039=prog2	# Smartkey B → XF86Launch2
  KEYBOARD_KEY_c103a=prog3	# Smartkey C → XF86Launch3
