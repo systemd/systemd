@@ -1795,6 +1795,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
         _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *instance_name = NULL;
         Manager *m = userdata;
         DnssdService *s = NULL;
         const char *name;
@@ -1835,10 +1836,6 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (!dnssd_srv_type_is_valid(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DNS-SD service type '%s' is invalid", type);
 
-        r = dnssd_render_instance_name(name_template, NULL);
-        if (r < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DNS-SD service name '%s' is invalid", name_template);
-
         service->name = strdup(name);
         if (!service->name)
                 return log_oom();
@@ -1850,6 +1847,10 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         service->type = strdup(type);
         if (!service->type)
                 return log_oom();
+
+        r = dnssd_render_instance_name(service, &instance_name);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_enter_container(message, SD_BUS_TYPE_ARRAY, "a{say}");
         if (r < 0)
