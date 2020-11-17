@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
-BUILD_DIR="$($(dirname "$0")/../tools/find-build-dir.sh)"
+if [ "$NO_BUILD" ]; then
+    BUILD_DIR=""
+elif BUILD_DIR="$($(dirname "${BASH_SOURCE[0]}")/../tools/find-build-dir.sh)"; then
+    ninja -C "$BUILD_DIR"
+else
+    echo "No build found, please set BUILD_DIR or NO_BUILD" >&2
+    exit 1
+fi
+
 if [ $# -gt 0 ]; then
     args="$@"
 else
