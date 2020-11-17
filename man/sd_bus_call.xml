@@ -89,6 +89,12 @@
     input parameter; it can be used to propagate errors from the callback handler, it will not receive any
     error that was received as method reply.)</para>
 
+    <para>The message <parameter>m</parameter> passed to the callback is only borrowed, that is, the callback should
+    not call <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    on it. If the callback wants to hold on to the message beyond the lifetime of the callback, it needs to call
+    <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry> to create a
+    new reference.</para>
+
     <para>If <parameter>usec</parameter> is zero, the default D-Bus method call timeout is used. See
     <citerefentry><refentrytitle>sd_bus_get_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
