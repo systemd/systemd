@@ -45,6 +45,11 @@ PATH_TO_INIT=$ROOTLIBDIR/systemd
 [ "$SYSTEMD_NSPAWN" ] || SYSTEMD_NSPAWN=$(which -a $BUILD_DIR/systemd-nspawn systemd-nspawn 2>/dev/null | grep '^/' -m1)
 [ "$JOURNALCTL" ] || JOURNALCTL=$(which -a $BUILD_DIR/journalctl journalctl 2>/dev/null | grep '^/' -m1)
 
+STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
+STATEFILE="$STATEDIR/.testdir"
+IMAGESTATEDIR="$STATEDIR/.."
+TESTLOG="$STATEDIR/test.log"
+
 BASICTOOLS=(
     awk
     basename
@@ -142,11 +147,6 @@ DEBUGTOOLS=(
     tty
     vi
 )
-
-STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
-STATEFILE="$STATEDIR/.testdir"
-IMAGESTATEDIR="$STATEDIR/.."
-TESTLOG="$STATEDIR/test.log"
 
 is_built_with_asan() {
     if ! type -P objdump >/dev/null; then
