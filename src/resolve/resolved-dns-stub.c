@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/if_arp.h>
+#include <netinet/tcp.h>
 
 #include "errno-util.h"
 #include "fd-util.h"
@@ -987,6 +988,22 @@ static int set_dns_stub_common_socket_options(int fd, int family) {
         return 0;
 }
 
+static int set_dns_stub_common_tcp_socket_options(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = setsockopt_int(fd, IPPROTO_TCP, TCP_FASTOPEN, 5); /* Everybody appears to pick qlen=5, let's do the same here. */
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable TCP_FASTOPEN on TCP listening socket, ignoring: %m");
+
+        r = setsockopt_int(fd, IPPROTO_TCP, TCP_NODELAY, true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to enable TCP_NODELAY mode, ignoring: %m");
+
+        return 0;
+}
+
 static int manager_dns_stub_fd(Manager *m, int type) {
         union sockaddr_union sa = {
                 .in.sin_family = AF_INET,
@@ -1009,6 +1026,12 @@ static int manager_dns_stub_fd(Manager *m, int type) {
         r = set_dns_stub_common_socket_options(fd, AF_INET);
         if (r < 0)
                 return r;
+
+        if (type == SOCK_STREAM) {
+                r = set_dns_stub_common_tcp_socket_options(fd);
+                if (r < 0)
+                        return r;
+        }
 
         /* Make sure no traffic from outside the local host can leak to onto this socket */
         r = socket_bind_to_ifindex(fd, LOOPBACK_IFINDEX);
@@ -1080,6 +1103,12 @@ static int manager_dns_stub_fd_extra(Manager *m, DnsStubListenerExtra *l, int ty
         r = set_dns_stub_common_socket_options(fd, l->family);
         if (r < 0)
                 goto fail;
+
+        if (type == SOCK_STREAM) {
+                r = set_dns_stub_common_tcp_socket_options(fd);
+                if (r < 0)
+                        goto fail;
+        }
 
         /* Do not set IP_TTL for extra DNS stub listeners, as the address may not be local and in that case
          * people may want ttl > 1. */
