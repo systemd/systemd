@@ -255,20 +255,21 @@ int config_parse_dnssd_service_name(
                 return 0;
         }
 
-        r = free_and_strdup(&s->name_template, rvalue);
-        if (r < 0)
-                return log_oom();
-
-        r = specifier_printf(s->name_template, specifier_table, NULL, &name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to replace specifiers: %m");
-
-        if (!dns_service_name_is_valid(name)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Service instance name template renders to invalid name '%s'. Ignoring.", name);
-                return -EINVAL;
+        r = specifier_printf(rvalue, specifier_table, NULL, &name);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid service instance name template '%s', ignoring assignment: %m", rvalue);
+                return 0;
         }
 
-        return 0;
+        if (!dns_service_name_is_valid(name)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Service instance name template '%s' renders to invalid name '%s'. Ignoring assignment.",
+                           rvalue, name);
+                return 0;
+        }
+
+        return free_and_strdup_warn(&s->name_template, rvalue);
 }
 
 int config_parse_dnssd_service_type(
