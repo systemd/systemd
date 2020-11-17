@@ -155,7 +155,7 @@ static int specifier_dnssd_host_name(char specifier, const void *data, const voi
         return 0;
 }
 
-int dnssd_render_instance_name(const char *name_template, char **ret_name) {
+int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         static const Specifier specifier_table[] = {
                 { 'm', specifier_machine_id,      NULL },
                 { 'b', specifier_boot_id,         NULL },
@@ -171,17 +171,19 @@ int dnssd_render_instance_name(const char *name_template, char **ret_name) {
         _cleanup_free_ char *name = NULL;
         int r;
 
-        assert(name_template);
+        assert(s);
+        assert(s->name_template);
 
-        r = specifier_printf(name_template, specifier_table, NULL, &name);
+        r = specifier_printf(s->name_template, specifier_table, s, &name);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to replace specifiers: %m");
 
         if (!dns_service_name_is_valid(name))
-                return -EINVAL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Service instance name '%s' is invalid.",
+                                       name);
 
-        if (ret_name)
-                *ret_name = TAKE_PTR(name);
+        *ret_name = TAKE_PTR(name);
 
         return 0;
 }
@@ -225,7 +227,7 @@ int dnssd_update_rrs(DnssdService *s) {
         LIST_FOREACH(items, txt_data, s->txt_data_items)
                 txt_data->rr = dns_resource_record_unref(txt_data->rr);
 
-        r = dnssd_render_instance_name(s->name_template, &n);
+        r = dnssd_render_instance_name(s, &n);
         if (r < 0)
                 return r;
 
