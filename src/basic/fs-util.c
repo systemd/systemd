@@ -1613,3 +1613,80 @@ int path_is_encrypted(const char *path) {
 
         return blockdev_is_encrypted(p, 10 /* safety net: maximum recursion depth */);
 }
+
+int conservative_rename(
+                int olddirfd, const char *oldpath,
+                int newdirfd, const char *newpath) {
+
+        _cleanup_close_ int old_fd = -1, new_fd = -1;
+        struct stat old_stat, new_stat;
+
+        /* Renames the old path to thew new path, much like renameat() — except if both are regular files and
+         * have the exact same contents and basic file attributes already. In that case remove the new file
+         * instead. This call is useful for reducing inotify wakeups on files that are updated but don't
+         * actually change. This function is written in a style that we rather rename too often than suppress
+         * too much. i.e. whenever we are in doubt we rather rename than fail. After all reducing inotify
+         * events is an optimization only, not more. */
+
+        old_fd = openat(olddirfd, oldpath, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+        if (old_fd < 0)
+                goto do_rename;
+
+        new_fd = openat(newdirfd, newpath, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_NOFOLLOW);
+        if (new_fd < 0)
+                goto do_rename;
+
+        if (fstat(old_fd, &old_stat) < 0)
+                goto do_rename;
+
+        if (!S_ISREG(old_stat.st_mode))
+                goto do_rename;
+
+        if (fstat(new_fd, &new_stat) < 0)
+                goto do_rename;
+
+        if (new_stat.st_ino == old_stat.st_ino &&
+            new_stat.st_dev == old_stat.st_dev)
+                goto is_same;
+
+        if (old_stat.st_mode != new_stat.st_mode ||
+            old_stat.st_size != new_stat.st_size ||
+            old_stat.st_uid != new_stat.st_uid ||
+            old_stat.st_gid != new_stat.st_gid)
+                goto do_rename;
+
+        for (;;) {
+                char buf1[16*1024];
+                char buf2[sizeof(buf1) + 1];
+                ssize_t l1, l2;
+
+                l1 = read(old_fd, buf1, sizeof(buf1));
+                if (l1 < 0)
+                        goto do_rename;
+
+                l2 = read(new_fd, buf2, l1 + 1);
+                if (l1 != l2)
+                        goto do_rename;
+
+                if (l1 == 0) /* EOF on both! And everything's the same so far, yay! */
+                        break;
+
+                if (memcmp(buf1, buf2, l1) != 0)
+                        goto do_rename;
+        }
+
+is_same:
+        /* Everything matches? Then don't rename, instead remove the source file, and leave the existing
+         * destination in place */
+
+        if (unlinkat(olddirfd, oldpath, 0) < 0)
+                goto do_rename;
+
+        return 0;
+
+do_rename:
+        if (renameat(olddirfd, oldpath, newdirfd, newpath) < 0)
+                return -errno;
+
+        return 1;
+}
