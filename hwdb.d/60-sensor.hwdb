@@ -540,10 +540,12 @@ sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnE*:*
 # Medion Akoya E3222 MD62450
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnMEDION*:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+ ACCEL_LOCATION=display
 
-# Medion Akoya E2221T MD60691
-sensor:modalias:acpi:KIOX020A*:dmi:*:pnE2221TMD60691*:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, 1
+# Same as above, but for base sensor
+sensor:modalias:acpi:KIOX020A*:dmi:*:svnMEDION:pnE*:*
+sensor:modalias:acpi:KIOX020A*:dmi:*:svnMEDION:pnMEDION*:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
  ACCEL_LOCATION=base
 
 #########################################
