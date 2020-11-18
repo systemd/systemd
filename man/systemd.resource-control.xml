@@ -692,6 +692,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AllowBindPorts=<replaceable>IP_PORT</replaceable></varname></term>
+
+        <listitem>
+          <para>Allow binding a socket address only to certain IP ports specified by <replaceable>IP_PORT</replaceable>.
+          Same ports will be allowed for both IPv4 and IPv6 protocols. Port value must be in [0, 65535] range.
+          Special value <constant>none</constant> is reserved to block binding to any port.
+          </para>
+
+          <para><varname>AllowBindPorts</varname> is powered by BPF program compiled from source code and supported only
+          for <constant>x86_64</constant> CPU architecture.</para>
+
+          <para>To allow multiple ports please assign<varname>AllowBindPorts=</varname> multiple times for each port.
+          To clear the existing assignments and allow all ports pass an empty <varname>AllowBindPorts=</varname>
+          assignment.</para>
+
+          <para>The feature is implemented with <constant>cgroup/bind{4,6}</constant> cgroup-bpf hooks.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>
