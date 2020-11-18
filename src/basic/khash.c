@@ -248,8 +248,8 @@ int khash_put(khash *h, const void *buffer, size_t size) {
 
 int khash_put_iovec(khash *h, const struct iovec *iovec, size_t n) {
         struct msghdr mh = {
-                mh.msg_iov = (struct iovec*) iovec,
-                mh.msg_iovlen = n,
+                .msg_iov = (struct iovec*) iovec,
+                .msg_iovlen = n,
         };
         ssize_t k;
 
