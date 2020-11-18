@@ -44,7 +44,7 @@ void dns_search_domain_unlink(DnsSearchDomain *d);
 void dns_search_domain_move_back_and_unmark(DnsSearchDomain *d);
 
 void dns_search_domain_unlink_all(DnsSearchDomain *first);
-void dns_search_domain_unlink_marked(DnsSearchDomain *first);
+bool dns_search_domain_unlink_marked(DnsSearchDomain *first);
 void dns_search_domain_mark_all(DnsSearchDomain *first);
 
 int dns_search_domain_find(DnsSearchDomain *first, const char *name, DnsSearchDomain **ret);
