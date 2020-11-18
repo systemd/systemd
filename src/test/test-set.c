@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "random-util.h"
 #include "set.h"
 #include "strv.h"
 
@@ -227,6 +228,77 @@ static void test_set_strjoin(void) {
         assert_se(STR_IN_SET(joined, "xxxaaaxxxbbbxxx", "xxxbbbxxxaaaxxx"));
 }
 
+static void test_set_equal(void) {
+        _cleanup_set_free_ Set *a = NULL, *b = NULL;
+        void *p;
+        int r;
+
+        assert_se(a = set_new(NULL));
+        assert_se(b = set_new(NULL));
+
+        assert_se(set_equal(a, a));
+        assert_se(set_equal(b, b));
+        assert_se(set_equal(a, b));
+        assert_se(set_equal(b, a));
+        assert_se(set_equal(NULL, a));
+        assert_se(set_equal(NULL, b));
+        assert_se(set_equal(a, NULL));
+        assert_se(set_equal(b, NULL));
+        assert_se(set_equal(NULL, NULL));
+
+        for (unsigned i = 0; i < 333; i++) {
+                p = INT32_TO_PTR(1 + (random_u32() & 0xFFFU));
+
+                r = set_put(a, p);
+                assert_se(r >= 0 || r == -EEXIST);
+        }
+
+        assert_se(set_put(a, INT32_TO_PTR(0x1000U)) >= 0);
+
+        assert_se(set_size(a) >= 2);
+        assert_se(set_size(a) <= 334);
+
+        assert_se(!set_equal(a, b));
+        assert_se(!set_equal(b, a));
+        assert_se(!set_equal(a, NULL));
+
+        SET_FOREACH(p, a)
+                assert_se(set_put(b, p) >= 0);
+
+        assert_se(set_equal(a, b));
+        assert_se(set_equal(b, a));
+
+        assert_se(set_remove(a, INT32_TO_PTR(0x1000U)) == INT32_TO_PTR(0x1000U));
+
+        assert_se(!set_equal(a, b));
+        assert_se(!set_equal(b, a));
+
+        assert_se(set_remove(b, INT32_TO_PTR(0x1000U)) == INT32_TO_PTR(0x1000U));
+
+        assert_se(set_equal(a, b));
+        assert_se(set_equal(b, a));
+
+        assert_se(set_put(b, INT32_TO_PTR(0x1001U)) >= 0);
+
+        assert_se(!set_equal(a, b));
+        assert_se(!set_equal(b, a));
+
+        assert_se(set_put(a, INT32_TO_PTR(0x1001U)) >= 0);
+
+        assert_se(set_equal(a, b));
+        assert_se(set_equal(b, a));
+
+        set_clear(a);
+
+        assert_se(!set_equal(a, b));
+        assert_se(!set_equal(b, a));
+
+        set_clear(b);
+
+        assert_se(set_equal(a, b));
+        assert_se(set_equal(b, a));
+}
+
 int main(int argc, const char *argv[]) {
         test_set_steal_first();
         test_set_free_with_destructor();
@@ -238,6 +310,7 @@ int main(int argc, const char *argv[]) {
         test_set_ensure_put();
         test_set_ensure_consume();
         test_set_strjoin();
+        test_set_equal();
 
         return 0;
 }
