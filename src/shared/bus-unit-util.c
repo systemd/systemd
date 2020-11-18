@@ -842,6 +842,59 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
+        if (STR_IN_SET(field, "SocketBindAllow",
+                              "SocketBindDeny")) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field, "a(iqq)", 0);
+                else {
+                        const char *l3_protocol, *user_port;
+                        _cleanup_free_ char *word = NULL;
+                        int family = AF_UNSPEC;
+
+                        r = extract_first_word(&eq, &word, ":", 0);
+                        if (r == -ENOMEM)
+                                return log_oom();
+
+                        l3_protocol = eq ? word : NULL;
+                        if (l3_protocol) {
+                                if (!STR_IN_SET(l3_protocol, "IPv4", "IPv6"))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "Invalid L3 protocol");
+
+                                if (streq(l3_protocol, "IPv4"))
+                                        family = AF_INET;
+                                else
+                                        family = AF_INET6;
+                        }
+                        user_port = eq ? eq : word;
+                        if (streq(user_port, "any")) {
+                                r = sd_bus_message_append(m, "(sv)", field, "a(iqq)", 1, family, 0, 0);
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        } else {
+                                uint16_t port_min, port_max;
+
+                                r = parse_ip_port_range(user_port, &port_min, &port_max);
+                                if (r == -ENOMEM)
+                                        return log_oom();
+                                if (r < 0) {
+                                        r = parse_ip_port(user_port, &port_min);
+                                        if (r < 0)
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                                "Invalid port or port range of socket bind rule");
+                                }
+
+                                port_max = port_min;
+                                r = sd_bus_message_append(
+                                                m, "(sv)", field, "a(iqq)", 1, family, port_max - port_min + 1, port_min);
+                        }
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         return 0;
 }
 
