@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 libcore_sources = '''
+        allow-bind.c
+        allow-bind.h
         apparmor-setup.c
         apparmor-setup.h
         audit-fd.c
@@ -122,8 +124,8 @@ libcore_sources = '''
 if conf.get('BPF_FRAMEWORK') == 1
         subdir('bpf')
         libcore_sources += [allow_bind_skel_h]
-
 endif
+
 load_fragment_gperf_gperf = custom_target(
         'load-fragment-gperf.gperf',
         input : 'load-fragment-gperf.gperf.m4',
@@ -153,6 +155,7 @@ libcore = static_library(
         include_directories : includes,
         dependencies : [versiondep,
                         threads,
+                        libbpf,
                         librt,
                         libseccomp,
                         libpam,
