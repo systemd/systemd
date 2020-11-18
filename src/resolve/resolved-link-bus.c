@@ -255,6 +255,7 @@ static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
 static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, void *userdata, sd_bus_error *error, bool extended) {
         _cleanup_free_ char *j = NULL;
         struct in_addr_full **dns;
+        bool changed = false;
         Link *l = userdata;
         size_t n;
         int r;
@@ -312,21 +313,26 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                                 dns_server_unlink_all(l->dns_servers);
                                 goto finalize;
                         }
+
+                        changed = true;
                 }
 
         }
 
-        dns_server_unlink_marked(l->dns_servers);
-        link_allocate_scopes(l);
+        changed = dns_server_unlink_marked(l->dns_servers) || changed;
 
-        (void) link_save_user(l);
-        (void) manager_write_resolv_conf(l->manager);
-        (void) manager_send_changed(l->manager, "DNS");
+        if (changed) {
+                link_allocate_scopes(l);
 
-        if (j)
-                log_link_info(l, "Bus client set DNS server list to: %s", j);
-        else
-                log_link_info(l, "Bus client reset DNS server list.");
+                (void) link_save_user(l);
+                (void) manager_write_resolv_conf(l->manager);
+                (void) manager_send_changed(l->manager, "DNS");
+
+                if (j)
+                        log_link_info(l, "Bus client set DNS server list to: %s", j);
+                else
+                        log_link_info(l, "Bus client reset DNS server list.");
+        }
 
         r = sd_bus_reply_method_return(message, NULL);
 
@@ -349,6 +355,7 @@ int bus_link_method_set_dns_servers_ex(sd_bus_message *message, void *userdata, 
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *j = NULL;
         Link *l = userdata;
+        bool changed = false;
         int r;
 
         assert(message);
@@ -431,6 +438,8 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         r = dns_search_domain_new(l->manager, &d, DNS_SEARCH_DOMAIN_LINK, l, name);
                         if (r < 0)
                                 goto clear;
+
+                        changed = true;
                 }
 
                 d->route_only = route_only;
@@ -440,15 +449,17 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 goto clear;
 
-        dns_search_domain_unlink_marked(l->search_domains);
+        changed = dns_search_domain_unlink_marked(l->search_domains) || changed;
 
-        (void) link_save_user(l);
-        (void) manager_write_resolv_conf(l->manager);
+        if (changed) {
+                (void) link_save_user(l);
+                (void) manager_write_resolv_conf(l->manager);
 
-        if (j)
-                log_link_info(l, "Bus client set search domain list to: %s", j);
-        else
-                log_link_info(l, "Bus client reset search domain list.");
+                if (j)
+                        log_link_info(l, "Bus client set search domain list to: %s", j);
+                else
+                        log_link_info(l, "Bus client reset search domain list.");
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 
@@ -488,9 +499,9 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
 
                 (void) link_save_user(l);
                 (void) manager_write_resolv_conf(l->manager);
-        }
 
-        log_link_info(l, "Bus client set default route setting: %s", yes_no(b));
+                log_link_info(l, "Bus client set default route setting: %s", yes_no(b));
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -531,13 +542,15 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
 
         bus_client_log(message, "LLMNR change");
 
-        l->llmnr_support = mode;
-        link_allocate_scopes(l);
-        link_add_rrs(l, false);
+        if (l->llmnr_support != mode) {
+                l->llmnr_support = mode;
+                link_allocate_scopes(l);
+                link_add_rrs(l, false);
 
-        (void) link_save_user(l);
+                (void) link_save_user(l);
 
-        log_link_info(l, "Bus client set LLMNR setting: %s", resolve_support_to_string(mode));
+                log_link_info(l, "Bus client set LLMNR setting: %s", resolve_support_to_string(mode));
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -578,13 +591,15 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
 
         bus_client_log(message, "mDNS change");
 
-        l->mdns_support = mode;
-        link_allocate_scopes(l);
-        link_add_rrs(l, false);
+        if (l->mdns_support != mode) {
+                l->mdns_support = mode;
+                link_allocate_scopes(l);
+                link_add_rrs(l, false);
 
-        (void) link_save_user(l);
+                (void) link_save_user(l);
 
-        log_link_info(l, "Bus client set MulticastDNS setting: %s", resolve_support_to_string(mode));
+                log_link_info(l, "Bus client set MulticastDNS setting: %s", resolve_support_to_string(mode));
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -625,12 +640,14 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
 
         bus_client_log(message, "D-o-T change");
 
-        link_set_dns_over_tls_mode(l, mode);
+        if (l->dns_over_tls_mode != mode) {
+                link_set_dns_over_tls_mode(l, mode);
 
-        (void) link_save_user(l);
+                (void) link_save_user(l);
 
-        log_link_info(l, "Bus client set DNSOverTLS setting: %s",
-                      mode < 0 ? "default" : dns_over_tls_mode_to_string(mode));
+                log_link_info(l, "Bus client set DNSOverTLS setting: %s",
+                              mode < 0 ? "default" : dns_over_tls_mode_to_string(mode));
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -671,12 +688,14 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
 
         bus_client_log(message, "DNSSEC change");
 
-        link_set_dnssec_mode(l, mode);
+        if (l->dnssec_mode != mode) {
+                link_set_dnssec_mode(l, mode);
 
-        (void) link_save_user(l);
+                (void) link_save_user(l);
 
-        log_link_info(l, "Bus client set DNSSEC setting: %s",
-                      mode < 0 ? "default" : dnssec_mode_to_string(mode));
+                log_link_info(l, "Bus client set DNSSEC setting: %s",
+                              mode < 0 ? "default" : dnssec_mode_to_string(mode));
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -731,15 +750,17 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
 
         bus_client_log(message, "DNSSEC NTA change");
 
-        set_free_free(l->dnssec_negative_trust_anchors);
-        l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
+        if (!set_equal(ns, l->dnssec_negative_trust_anchors)) {
+                set_free_free(l->dnssec_negative_trust_anchors);
+                l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
 
-        (void) link_save_user(l);
+                (void) link_save_user(l);
 
-        if (j)
-                log_link_info(l, "Bus client set NTA list to: %s", j);
-        else
-                log_link_info(l, "Bus client reset NTA list.");
+                if (j)
+                        log_link_info(l, "Bus client set NTA list to: %s", j);
+                else
+                        log_link_info(l, "Bus client reset NTA list.");
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
