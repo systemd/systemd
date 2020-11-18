@@ -77,7 +77,7 @@ manager, please consider supporting the following interfaces.
    container instance) or creating one scope unit for each container instance
    via systemd's transient unit API (in case you have one container manager
    that manages all instances. Either way, make sure to set `Delegate=yes` in
-   it. This ensures that that the unit you created will be part of all cgroup
+   it. This ensures that the unit you created will be part of all cgroup
    controllers (or at least the ones systemd understands). The latter may also
    be done via `systemd-machined`'s `CreateMachine()` API. Make sure to use the
    cgroup path systemd put your process in for all operations of the container.
@@ -364,7 +364,7 @@ If you write software that wants to detect whether it is run in a container,
 please check `/proc/1/environ` and look for the `container=` environment
 variable. Do not assume the environment variable is inherited down the process
 tree. It generally is not. Hence check the environment block of PID 1, not your
-own. Note though that that file is only accessible to root. systemd hence early
+own. Note though that this file is only accessible to root. systemd hence early
 on also copies the value into `/run/systemd/container`, which is readable for
 everybody. However, that's a systemd-specific interface and other init systems
 are unlikely to do the same.

@@ -301,8 +301,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </term>
         <listitem><para>Reconfigure network interfaces. Takes interface name or index number. Note that
         this does not reload <filename>.netdev</filename> or <filename>.network</filename>
-        corresponding to the the specified interface. So, if you edit config files, it is necessary to
-        call <command>networkctl reload</command> first to apply new settings.</para></listitem>
+        corresponding to the specified interface. So, if you edit config files, it is necessary to call
+        <command>networkctl reload</command> first to apply new settings.</para></listitem>
       </varlistentry>
 
       <varlistentry>

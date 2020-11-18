@@ -232,7 +232,7 @@ static int loop_configure(
          * ioctl can return EAGAIN in case we change the lo_offset field, if someone else is accessing the
          * block device while we try to reconfigure it. This is a pretty common case, since udev might
          * instantly start probing the device as soon as we attach an fd to it. Hence handle it in two ways:
-         * first, let's take the BSD lock that that ensures that udev will not step in between the point in
+         * first, let's take the BSD lock to ensure that udev will not step in between the point in
          * time where we attach the fd and where we reconfigure the device. Secondly, let's wait 50ms on
          * EAGAIN and retry. The former should be an efficient mechanism to avoid we have to wait 50ms
          * needlessly if we are just racing against udev. The latter is protection against all other cases,
