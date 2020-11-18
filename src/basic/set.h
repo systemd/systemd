@@ -152,3 +152,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Set*, set_free_free);
 #define _cleanup_set_free_free_ _cleanup_(set_free_freep)
 
 int set_strjoin(Set *s, const char *separator, bool wrap_with_separator, char **ret);
+
+bool set_equal(Set *a, Set *b);
