@@ -1103,7 +1103,7 @@ int copy_file_atomic_full(
         assert(from);
         assert(to);
 
-        /* We try to use O_TMPFILE here to create the file if we can. Note that that only works if COPY_REPLACE is not
+        /* We try to use O_TMPFILE here to create the file if we can. Note that this only works if COPY_REPLACE is not
          * set though as we need to use linkat() for linking the O_TMPFILE file into the file system but that system
          * call can't replace existing files. Hence, if COPY_REPLACE is set we create a temporary name in the file
          * system right-away and unconditionally which we then can renameat() to the right name after we completed
