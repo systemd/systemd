@@ -41,6 +41,7 @@
 #include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
+#include "socket-bind.h"
 #include "sparse-endian.h"
 #include "special.h"
 #include "specifier.h"
@@ -662,6 +663,8 @@ Unit* unit_free(Unit *u) {
 
         if (u->on_console)
                 manager_unref_console(u->manager);
+
+        socket_bind_free(u->socket_bind);
 
         unit_release_cgroup(u);
 
