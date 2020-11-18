@@ -67,6 +67,16 @@
 # or 'display'. The default, when unset, is equivalent to:
 #    ACCEL_LOCATION=display
 #
+# A note about setting ACCEL_MOUNT_MATRIX for ACCEL_LOCATION=base sensors,
+# on 360 degree hinges style 2-in-1s with 2 sensors (one in the display and
+# 1 in the base). Userspace will use both sensors to calculate the angle between
+# the 2 halves and the angle is defined as being 0 when the device is folded
+# as a regular clamshell laptop with its lid closed. This means that the
+# base-accelerometer's mount-matrix must be such, that after applying
+# the mount-matrices to both sensors, the base-accelerometer's readings must
+# be identical to the display-accelerometer's readings (when the lid is
+# closed).
+#
 # Sort by brand, model
 
 #########################################
