@@ -233,13 +233,11 @@
         resolver is not capable of authenticating the server, so it is
         vulnerable to "man-in-the-middle" attacks.</para>
 
-        <para>In addition to this global DNSOverTLS setting
+        <para>In addition to this global <varname>DNSOverTLS=</varname> setting
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        also maintains per-link DNSOverTLS settings. For system DNS
-        servers (see above), only the global DNSOverTLS setting is in
-        effect. For per-link DNS servers the per-link
-        setting is in effect, unless it is unset in which case the
-        global setting is used instead.</para>
+        also maintains per-link <varname>DNSOverTLS=</varname> settings. For system DNS servers (see above), only the global
+        <varname>DNSOverTLS=</varname> setting is in effect. For per-link DNS servers the per-link setting is in effect, unless
+        it is unset in which case the global setting is used instead.</para>
 
         <para>Defaults to off.</para>
         </listitem>
