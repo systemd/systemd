@@ -319,7 +319,7 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
 }
 
 int sockaddr_port(const struct sockaddr *_sa, unsigned *ret_port) {
-        union sockaddr_union *sa = (union sockaddr_union*) _sa;
+        const union sockaddr_union *sa = (const union sockaddr_union*) _sa;
 
         /* Note, this returns the port as 'unsigned' rather than 'uint16_t', as AF_VSOCK knows larger ports */
 
@@ -341,6 +341,25 @@ int sockaddr_port(const struct sockaddr *_sa, unsigned *ret_port) {
 
         default:
                 return -EAFNOSUPPORT;
+        }
+}
+
+const union in_addr_union *sockaddr_in_addr(const struct sockaddr *_sa) {
+        const union sockaddr_union *sa = (const union sockaddr_union*) _sa;
+
+        if (!sa)
+                return NULL;
+
+        switch (sa->sa.sa_family) {
+
+        case AF_INET:
+                return (const union in_addr_union*) &sa->in.sin_addr;
+
+        case AF_INET6:
+                return (const union in_addr_union*) &sa->in6.sin6_addr;
+
+        default:
+                return NULL;
         }
 }
 
