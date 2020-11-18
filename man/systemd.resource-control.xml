@@ -763,6 +763,47 @@ BPFProgram=bind6:/sys/fs/bpf/sock-addr-hook
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SocketBindAllow=<replaceable>BIND_RULE</replaceable></varname></term>
+        <term><varname>SocketBindDeny=<replaceable>BIND_RULE</replaceable></varname></term>
+
+        <listitem>
+          <para>Allow or deny binding a socket address to a socket by matching it with the <replaceable>BIND_RULE</replaceable> and
+          applying a corresponding action if there is a match.</para>
+
+          <para><replaceable>BIND_RULE</replaceable> describes socket properties such as <replaceable>ADDRESS_FAMILY</replaceable>
+          and <replaceable>IP_PORTS</replaceable>.</para>
+
+          <para><replaceable>BIND_RULE</replaceable> := [<replaceable>ADDRESS_FAMILY</replaceable><constant>:</constant>]<replaceable>IP_PORTS</replaceable></para>
+
+          <para><replaceable>ADDRESS_FAMILY</replaceable> := { <constant>IPv4</constant> | <constant>IPv6</constant> }</para>
+
+          <para><replaceable>IP_PORTS</replaceable> := { <replaceable>IP_PORT</replaceable> | <replaceable>IP_PORT_RANGE</replaceable> |
+          <constant>any</constant> }</para>
+
+          <para>An optional <replaceable>ADDRESS_FAMILY</replaceable> expects <constant>IPv4</constant> or <constant>IPv6</constant> values.
+          If not specified, a rule will be matched futher for both IPv4 and IPv6 addresses and applied depending on other socket fields, e.g. user_port.</para>
+
+          <para><replaceable>IP_PORT</replaceable> value must lie within 1...65535 interval inclusively, i.e.
+          dynamic port <constant>0</constant> is not allowed. A range of sequential ports is described by
+          <replaceable>IP_PORT_RANGE</replaceable> := <replaceable>IP_PORT_LOW</replaceable><constant>-</constant><replaceable>IP_PORT_HIGH</replaceable>,
+          where <replaceable>IP_PORT_LOW</replaceable> is smaller than or equal to <replaceable>IP_PORT_HIGH</replaceable>
+          and both are within 1...65535 inclusively. A special value <constant>any</constant>
+          should be used to apply a rule to any port with a positive value.</para>
+
+          <para>To allow multiple rules assign <varname>SocketBindAllow=</varname> or <varname>SocketBindDeny=</varname> multiple times.
+          To clear the existing assignments pass an empty <varname>SocketBindAllow=</varname> or <varname>SocketBindDeny=</varname>
+          assignment.</para>
+
+          <para>The feature is implemented with <constant>cgroup/bind4</constant> and <constant>cgroup/bind6</constant> cgroup-bpf hooks.</para>
+          <para>Example: <programlisting>…
+[Service]
+SocketBindAllow=IPv6:10000-65535
+SocketBindDeny=any
+…</programlisting></para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>
