@@ -493,8 +493,8 @@ CHANGES WITH 247 in spe:
 
         * The SystemCallErrorNumber= unit file setting now accepts the new
           "kill" and "log" actions, in addition to arbitrary error number
-          specifications as before. If "kill" the the processes are killed on
-          the event, if "log" the offending system call is audit logged.
+          specifications as before. If "kill" the processes are killed on the
+          event, if "log" the offending system call is audit logged.
 
         * A new SystemCallLog= unit file setting has been added that accepts a
           list of system calls that shall be logged about (audit).
