@@ -10,6 +10,7 @@
 
 #include "all-units.h"
 #include "alloc-util.h"
+#include "allow-bind.h"
 #include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
@@ -622,6 +623,7 @@ void unit_free(Unit *u) {
 
         bus_unit_send_removed_signal(u);
 
+
         unit_done(u);
 
         unit_dequeue_rewatch_pids(u);
@@ -663,6 +665,9 @@ void unit_free(Unit *u) {
 
         if (u->on_console)
                 manager_unref_console(u->manager);
+
+        bpf_link_free(u->ipv4_allow_bind_bpf_link);
+        bpf_link_free(u->ipv6_allow_bind_bpf_link);
 
         unit_release_cgroup(u);
 

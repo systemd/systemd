@@ -215,6 +215,8 @@ void cgroup_context_done(CGroupContext *c) {
         c->ip_filters_ingress = strv_free(c->ip_filters_ingress);
         c->ip_filters_egress = strv_free(c->ip_filters_egress);
 
+        c->allow_bind_ports = set_free(c->allow_bind_ports);
+
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->cpuset_mems);
 }
