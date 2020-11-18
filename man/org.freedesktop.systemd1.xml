@@ -2482,6 +2482,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindAllow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3017,6 +3021,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property ManagedOOMPreference is not documented!-->
 
     <!--property BPFProgram is not documented!-->
+
+    <!--property SocketBindAllow is not documented!-->
+
+    <!--property SocketBindDeny is not documented!-->
 
     <!--property EnvironmentFiles is not documented!-->
 
@@ -3577,6 +3585,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -4265,6 +4277,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindAllow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -4827,6 +4843,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property BPFProgram is not documented!-->
 
+    <!--property SocketBindAllow is not documented!-->
+
+    <!--property SocketBindDeny is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -5382,6 +5402,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -5972,6 +5996,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindAllow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -6462,6 +6490,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property BPFProgram is not documented!-->
 
+    <!--property SocketBindAllow is not documented!-->
+
+    <!--property SocketBindDeny is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -6935,6 +6967,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -7646,6 +7682,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindAllow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -8122,6 +8162,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property BPFProgram is not documented!-->
 
+    <!--property SocketBindAllow is not documented!-->
+
+    <!--property SocketBindDeny is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -8581,6 +8625,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -9145,6 +9193,10 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindAllow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindDeny = [...];
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
@@ -9284,6 +9336,10 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property ManagedOOMPreference is not documented!-->
 
     <!--property BPFProgram is not documented!-->
+
+    <!--property SocketBindAllow is not documented!-->
+
+    <!--property SocketBindDeny is not documented!-->
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
 
@@ -9428,6 +9484,10 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <!--End of Autogenerated section-->
 
@@ -9592,6 +9652,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly s ManagedOOMPreference = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly a(ss) BPFProgram = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindAllow = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iqq) SocketBindDeny = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9747,6 +9811,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property ManagedOOMPreference is not documented!-->
 
     <!--property BPFProgram is not documented!-->
+
+    <!--property SocketBindAllow is not documented!-->
+
+    <!--property SocketBindDeny is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -9917,6 +9985,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMPreference"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="BPFProgram"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindAllow"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SocketBindDeny"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
