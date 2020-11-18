@@ -57,6 +57,7 @@
 
       <funcprototype>
         <funcdef>int sd_bus_message_append_array_space</funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
         <paramdef>size_t <parameter>size</parameter></paramdef>
         <paramdef>void **<parameter>ptr</parameter></paramdef>
