@@ -257,6 +257,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 .name = "@default",
                 .help = "System calls that are always permitted",
                 .value =
+                "brk\0"
                 "cacheflush\0"
                 "clock_getres\0"
                 "clock_getres_time64\0"
@@ -294,6 +295,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "getuid\0"
                 "getuid32\0"
                 "membarrier\0"
+                "mmap\0"
+                "mmap2\0"
                 "nanosleep\0"
                 "pause\0"
                 "prlimit64\0"
@@ -444,8 +447,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "mkdirat\0"
                 "mknod\0"
                 "mknodat\0"
-                "mmap\0"
-                "mmap2\0"
                 "munmap\0"
                 "newfstatat\0"
                 "oldfstat\0"
@@ -819,7 +820,6 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "@signal\0"
                 "@sync\0"
                 "@timer\0"
-                "brk\0"
                 "capget\0"
                 "capset\0"
                 "copy_file_range\0"
