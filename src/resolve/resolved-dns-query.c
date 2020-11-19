@@ -282,8 +282,7 @@ void dns_query_candidate_notify(DnsQueryCandidate *c) {
         return;
 
 fail:
-        log_warning_errno(r, "Failed to follow search domains: %m");
-        c->error_code = r;
+        c->error_code = log_warning_errno(r, "Failed to follow search domains: %m");
         dns_query_ready(c->query);
 }
 
