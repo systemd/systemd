@@ -425,7 +425,8 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
 
         dir = opendir(path);
         if (!dir)
-                return -errno;
+                /* this is necessarily racey, so ignore missing directories */
+                return (errno == ENOENT && (subdir1 || subdir2)) ? 0 : -errno;
 
         FOREACH_DIRENT_ALL(dent, dir, return -errno) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
