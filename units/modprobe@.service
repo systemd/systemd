@@ -13,7 +13,6 @@ DefaultDependencies=no
 Before=sysinit.target
 Documentation=man:modprobe(8)
 ConditionCapability=CAP_SYS_MODULE
-ConditionPathExists=!/sys/module/%I
 
 [Service]
 Type=oneshot
