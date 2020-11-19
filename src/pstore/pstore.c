@@ -304,7 +304,7 @@ static void process_dmesg_files(PStoreList *list) {
                  * output either. */
                 size_t needed = strlen(pe->dirent.d_name) + strlen(":\n") + pe->content_size + 1;
                 if (!GREEDY_REALLOC(dmesg, dmesg_allocated, dmesg_size + needed)) {
-                        log_warning_errno(ENOMEM, "Failed to write dmesg file: %m");
+                        log_oom();
                         dmesg_bad = true;
                         continue;
                 }
