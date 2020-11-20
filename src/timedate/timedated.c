@@ -763,10 +763,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                 struct tm tm;
 
                 /* Sync system clock from RTC; first, initialize the timezone fields of struct tm. */
-                if (c->local_rtc)
-                        localtime_r(&ts.tv_sec, &tm);
-                else
-                        gmtime_r(&ts.tv_sec, &tm);
+                localtime_or_gmtime_r(&ts.tv_sec, &tm, !c->local_rtc);
 
                 /* Override the main fields of struct tm, but not the timezone fields */
                 r = clock_get_hwclock(&tm);
@@ -774,10 +771,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                         log_debug_errno(r, "Failed to get hardware clock, ignoring: %m");
                 else {
                         /* And set the system clock with this */
-                        if (c->local_rtc)
-                                ts.tv_sec = mktime(&tm);
-                        else
-                                ts.tv_sec = timegm(&tm);
+                        mktime_or_timegm(&tm, !c->local_rtc);
 
                         if (clock_settime(CLOCK_REALTIME, &ts) < 0)
                                 log_debug_errno(errno, "Failed to update system clock, ignoring: %m");
@@ -787,10 +781,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                 struct tm tm;
 
                 /* Sync RTC from system clock */
-                if (c->local_rtc)
-                        localtime_r(&ts.tv_sec, &tm);
-                else
-                        gmtime_r(&ts.tv_sec, &tm);
+                localtime_or_gmtime_r(&ts.tv_sec, &tm, !c->local_rtc);
 
                 r = clock_set_hwclock(&tm);
                 if (r < 0)
@@ -884,10 +875,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         }
 
         /* Sync down to RTC */
-        if (c->local_rtc)
-                localtime_r(&ts.tv_sec, &tm);
-        else
-                gmtime_r(&ts.tv_sec, &tm);
+        localtime_or_gmtime_r(&ts.tv_sec, &tm, !c->local_rtc);
 
         r = clock_set_hwclock(&tm);
         if (r < 0)
