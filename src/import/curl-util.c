@@ -50,7 +50,7 @@ static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-static int curl_glue_socket_callback(CURLM *curl, curl_socket_t s, int action, void *userdata, void *socketp) {
+static int curl_glue_socket_callback(CURL *curl, curl_socket_t s, int action, void *userdata, void *socketp) {
         sd_event_source *io = socketp;
         CurlGlue *g = userdata;
         uint32_t events = 0;
