@@ -668,8 +668,12 @@ static const char* const mac_address_policy_table[_MAC_ADDRESS_POLICY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mac_address_policy, MACAddressPolicy);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_mac_address_policy, mac_address_policy, MACAddressPolicy,
-                         "Failed to parse MAC address policy");
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
+        config_parse_mac_address_policy,
+        mac_address_policy,
+        MACAddressPolicy,
+        MAC_ADDRESS_POLICY_NONE,
+        "Failed to parse MAC address policy");
 
 static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_KERNEL] = "kernel",
