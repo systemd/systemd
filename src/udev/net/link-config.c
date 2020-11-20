@@ -181,6 +181,13 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
                 return 0;
         }
 
+        if (IN_SET(link->mac_address_policy, MAC_ADDRESS_POLICY_PERSISTENT, MAC_ADDRESS_POLICY_RANDOM) && link->mac) {
+                log_warning("%s: MACAddress= in [Link] section will be ignored when MACAddressPolicy= "
+                            "is set to \"persistent\" or \"random\".",
+                            filename);
+                link->mac = mfree(link->mac);
+        }
+
         log_debug("Parsed configuration file %s", filename);
 
         LIST_PREPEND(links, ctx->links, TAKE_PTR(link));
