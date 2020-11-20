@@ -199,18 +199,14 @@ static const Specifier specifier_table[] = {
         { 'B', specifier_os_build_id,     NULL },
         { 'W', specifier_os_variant_id,   NULL },
 
-        { 'g', specifier_group_name,      NULL },
-        { 'G', specifier_group_id,        NULL },
-        { 'U', specifier_user_id,         NULL },
-        { 'u', specifier_user_name,       NULL },
+        COMMON_CREDS_SPECIFIERS,
         { 'h', specifier_user_home,       NULL },
 
         { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
         { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE) },
         { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE) },
         { 'L', specifier_directory,       UINT_TO_PTR(DIRECTORY_LOGS) },
-        { 'T', specifier_tmp_dir,         NULL },
-        { 'V', specifier_var_tmp_dir,     NULL },
+        COMMON_TMP_SPECIFIERS,
         {}
 };
 

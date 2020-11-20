@@ -11,15 +11,7 @@ static void test_specifier_printf(void) {
         static const Specifier table[] = {
                 { 'X', specifier_string,         (char*) "AAAA" },
                 { 'Y', specifier_string,         (char*) "BBBB" },
-                { 'm', specifier_machine_id,     NULL },
-                { 'b', specifier_boot_id,        NULL },
-                { 'H', specifier_host_name,      NULL },
-                { 'v', specifier_kernel_release, NULL },
-                { 'a', specifier_architecture,   NULL },
-                { 'o', specifier_os_id,          NULL },
-                { 'w', specifier_os_version_id,  NULL },
-                { 'B', specifier_os_build_id,    NULL },
-                { 'W', specifier_os_variant_id,  NULL },
+                COMMON_SYSTEM_SPECIFIERS,
                 {}
         };
 

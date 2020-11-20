@@ -203,20 +203,9 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
                 { 'i', specifier_string,              u->instance },
                 { 'j', specifier_last_component,      NULL },
 
-                { 'g', specifier_group_name,          NULL },
-                { 'G', specifier_group_id,            NULL },
-                { 'U', specifier_user_id,             NULL },
-                { 'u', specifier_user_name,           NULL },
+                COMMON_CREDS_SPECIFIERS,
 
-                { 'm', specifier_machine_id,          NULL },
-                { 'b', specifier_boot_id,             NULL },
-                { 'H', specifier_host_name,           NULL },
-                { 'v', specifier_kernel_release,      NULL },
-                { 'a', specifier_architecture,        NULL },
-                { 'o', specifier_os_id,               NULL },
-                { 'w', specifier_os_version_id,       NULL },
-                { 'B', specifier_os_build_id,         NULL },
-                { 'W', specifier_os_variant_id,       NULL },
+                COMMON_SYSTEM_SPECIFIERS,
                 {}
         };
 
@@ -279,21 +268,13 @@ int unit_full_printf(const Unit *u, const char *format, char **ret) {
                 { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
                 { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
                 { 'E', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CONFIGURATION) },
-                { 'T', specifier_tmp_dir,                  NULL },
-                { 'V', specifier_var_tmp_dir,              NULL },
+                COMMON_TMP_SPECIFIERS,
 
-                { 'g', specifier_group_name,               NULL },
-                { 'G', specifier_group_id,                 NULL },
-                { 'U', specifier_user_id,                  NULL },
-                { 'u', specifier_user_name,                NULL },
+                COMMON_CREDS_SPECIFIERS,
                 { 'h', specifier_user_home,                NULL },
                 { 's', specifier_user_shell,               NULL },
 
-                { 'm', specifier_machine_id,               NULL },
-                { 'H', specifier_host_name,                NULL },
-                { 'l', specifier_short_host_name,          NULL },
-                { 'b', specifier_boot_id,                  NULL },
-                { 'v', specifier_kernel_release,           NULL },
+                COMMON_SYSTEM_SPECIFIERS,
                 {}
         };
 

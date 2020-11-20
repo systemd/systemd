@@ -36,6 +36,30 @@ int specifier_user_shell(char specifier, const void *data, const void *userdata,
 int specifier_tmp_dir(char specifier, const void *data, const void *userdata, char **ret);
 int specifier_var_tmp_dir(char specifier, const void *data, const void *userdata, char **ret);
 
+/* Typically, in places where one of the above specifier is to be resolved the other similar ones are to be
+ * resolved, too. Hence let's define common macros for the relevant array entries. */
+#define COMMON_SYSTEM_SPECIFIERS                  \
+        { 'm', specifier_machine_id,      NULL }, \
+        { 'b', specifier_boot_id,         NULL }, \
+        { 'H', specifier_host_name,       NULL }, \
+        { 'l', specifier_short_host_name, NULL }, \
+        { 'v', specifier_kernel_release,  NULL }, \
+        { 'a', specifier_architecture,    NULL }, \
+        { 'o', specifier_os_id,           NULL }, \
+        { 'w', specifier_os_version_id,   NULL }, \
+        { 'B', specifier_os_build_id,     NULL }, \
+        { 'W', specifier_os_variant_id,   NULL }
+
+#define COMMON_CREDS_SPECIFIERS                   \
+        { 'g', specifier_group_name,      NULL }, \
+        { 'G', specifier_group_id,        NULL }, \
+        { 'U', specifier_user_id,         NULL }, \
+        { 'u', specifier_user_name,       NULL }
+
+#define COMMON_TMP_SPECIFIERS                     \
+        { 'T', specifier_tmp_dir,         NULL }, \
+        { 'V', specifier_var_tmp_dir,     NULL }
+
 static inline char* specifier_escape(const char *string) {
         return strreplace(string, "%", "%%");
 }
