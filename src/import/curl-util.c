@@ -178,7 +178,7 @@ CurlGlue *curl_glue_unref(CurlGlue *g) {
 
 int curl_glue_new(CurlGlue **glue, sd_event *event) {
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
-        _cleanup_(curl_multi_cleanupp) CURL *c = NULL;
+        _cleanup_(curl_multi_cleanupp) CURLM *c = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int r;
 
