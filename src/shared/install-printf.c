@@ -127,20 +127,9 @@ int install_full_printf(const UnitFileInstallInfo *i, const char *format, char *
                 { 'i', specifier_instance,            NULL },
                 { 'j', specifier_last_component,      NULL },
 
-                { 'g', specifier_group_name,          NULL },
-                { 'G', specifier_group_id,            NULL },
-                { 'U', specifier_user_id,             NULL },
-                { 'u', specifier_user_name,           NULL },
+                COMMON_CREDS_SPECIFIERS,
 
-                { 'm', specifier_machine_id,          NULL },
-                { 'b', specifier_boot_id,             NULL },
-                { 'H', specifier_host_name,           NULL },
-                { 'v', specifier_kernel_release,      NULL },
-                { 'a', specifier_architecture,        NULL },
-                { 'o', specifier_os_id,               NULL },
-                { 'w', specifier_os_version_id,       NULL },
-                { 'B', specifier_os_build_id,         NULL },
-                { 'W', specifier_os_variant_id,       NULL },
+                COMMON_SYSTEM_SPECIFIERS,
                 {}
         };
 
