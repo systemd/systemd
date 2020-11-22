@@ -1495,7 +1495,7 @@ static void json_format_string(FILE *f, const char *q, JsonFormatFlags flags) {
         fputc('"', f);
 
         if (flags & JSON_FORMAT_COLOR)
-                fputs(ANSI_GREEN, f);
+                fputs(ansi_green(), f);
 
         for (; *q; q++)
                 switch (*q) {
@@ -1557,7 +1557,7 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
                         return -errno;
 
                 if (flags & JSON_FORMAT_COLOR)
-                        fputs(ANSI_HIGHLIGHT_BLUE, f);
+                        fputs(ansi_highlight_blue(), f);
 
                 fprintf(f, "%.*Le", DECIMAL_DIG, json_variant_real(v));
 
@@ -1570,7 +1570,7 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
 
         case JSON_VARIANT_INTEGER:
                 if (flags & JSON_FORMAT_COLOR)
-                        fputs(ANSI_HIGHLIGHT_BLUE, f);
+                        fputs(ansi_highlight_blue(), f);
 
                 fprintf(f, "%" PRIdMAX, json_variant_integer(v));
 
@@ -1580,7 +1580,7 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
 
         case JSON_VARIANT_UNSIGNED:
                 if (flags & JSON_FORMAT_COLOR)
-                        fputs(ANSI_HIGHLIGHT_BLUE, f);
+                        fputs(ansi_highlight_blue(), f);
 
                 fprintf(f, "%" PRIuMAX, json_variant_unsigned(v));
 
