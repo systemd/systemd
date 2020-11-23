@@ -70,6 +70,10 @@ static void dhcp4_check_ready(Link *link) {
                 return;
         }
 
+        r = sd_ipv4ll_stop(link->ipv4ll);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to drop IPv4 link-local address, ignoring: %m");
+
         link_check_ready(link);
 }
 
