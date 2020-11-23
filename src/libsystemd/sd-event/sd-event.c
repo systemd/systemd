@@ -1232,6 +1232,28 @@ static int time_exit_callback(sd_event_source *s, uint64_t usec, void *userdata)
         return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
 }
 
+static int setup_clock_data(sd_event *e, struct clock_data *d, clockid_t clock) {
+        int r;
+
+        assert(d);
+
+        if (d->fd < 0) {
+                r = event_setup_timer_fd(e, d, clock);
+                if (r < 0)
+                        return r;
+        }
+
+        r = prioq_ensure_allocated(&d->earliest, earliest_time_prioq_compare);
+        if (r < 0)
+                return r;
+
+        r = prioq_ensure_allocated(&d->latest, latest_time_prioq_compare);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 _public_ int sd_event_add_time(
                 sd_event *e,
                 sd_event_source **ret,
@@ -1265,19 +1287,9 @@ _public_ int sd_event_add_time(
         d = event_get_clock_data(e, type);
         assert(d);
 
-        r = prioq_ensure_allocated(&d->earliest, earliest_time_prioq_compare);
+        r = setup_clock_data(e, d, clock);
         if (r < 0)
                 return r;
-
-        r = prioq_ensure_allocated(&d->latest, latest_time_prioq_compare);
-        if (r < 0)
-                return r;
-
-        if (d->fd < 0) {
-                r = event_setup_timer_fd(e, d, clock);
-                if (r < 0)
-                        return r;
-        }
 
         s = source_new(e, !ret, type);
         if (!s)
