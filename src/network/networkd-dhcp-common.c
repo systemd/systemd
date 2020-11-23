@@ -62,11 +62,9 @@ static struct DUID fallback_duid = { .type = DUID_TYPE_EN };
 DUID* link_get_duid(Link *link) {
         if (link->network->duid.type != _DUID_TYPE_INVALID)
                 return &link->network->duid;
-        else if (link->hw_addr.length == 0 &&
-                 (link->manager->duid.type == DUID_TYPE_LLT ||
-                  link->manager->duid.type == DUID_TYPE_LL))
-                /* Fallback to DUID that works without mac addresses.
-                 * This is useful for tunnel devices without mac address. */
+        else if (link->hw_addr.length == 0 && IN_SET(link->manager->duid.type, DUID_TYPE_LLT, DUID_TYPE_LL))
+                /* Fallback to DUID that works without MAC address.
+                 * This is useful for tunnel devices without MAC address. */
                 return &fallback_duid;
         else
                 return &link->manager->duid;
