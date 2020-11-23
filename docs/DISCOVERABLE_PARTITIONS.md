@@ -46,21 +46,29 @@ Interface](https://systemd.io/BOOT_LOADER_INTERFACE).
 | `69dad710-2ce4-4e3c-b16c-21a1d49abed3` | _Root Partition (32-bit ARM)_ | ditto | ditto |
 | `b921b045-1df0-41c3-af44-4c6f280d3fae` | _Root Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `993d8d3d-f80e-4225-855a-9daf8ed7ea97` | _Root Partition (Itanium/IA-64)_ | ditto | ditto |
+| `60d5a7fe-8e7d-435c-b714-3dd8162144e1` | _Root Partition (RISC-V 32-bit)_ | ditto | ditto |
+| `72ec70a6-cf74-40e6-bd49-4bda08e8f224` | _Root Partition (RISC-V 64-bit)_ | ditto | ditto |
 | `d13c5d3b-b5d1-422a-b29f-9454fdc89d76` | _Root Verity Partition (x86)_ | A dm-verity superblock followed by hash data | On systems with matching architecture, contains dm-verity integrity hash data for the matching root partition. If this feature is used the partition UUID of the root partition should be the first 128bit of the root hash of the dm-verity hash data, and the partition UUID of this dm-verity partition should be the final 128bit of it, so that the root partition and its verity partition can be discovered easily, simply by specifying the root hash. |
 | `2c7357ed-ebd2-46d9-aec1-23d437ec2bf5` | _Root Verity Partition (x86-64)_ | ditto | ditto |
 | `7386cdf2-203c-47a9-a498-f2ecce45a2d6` | _Root Verity Partition (32-bit ARM)_ | ditto | ditto |
 | `df3300ce-d69f-4c92-978c-9bfb0f38d820` | _Root Verity Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `86ed10d5-b607-45bb-8957-d350f23d0571` | _Root Verity Partition (Itanium/IA-64)_  | ditto | ditto |
+| `ae0253be-1167-4007-ac68-43926c14c5de` | _Root Verity Partition (RISC-V 32-bit)_  | ditto | ditto |
+| `b6ed5582-440b-4209-b8da-5ff7c419ea3d` | _Root Verity Partition (RISC-V 64-bit)_  | ditto | ditto |
 | `75250d76-8cc6-458e-bd66-bd47cc81a812` | _`/usr/` Partition (x86)_ | Any native, optionally in LUKS | Similar semantics to root partition, but just the `/usr/` partition. |
 | `8484680c-9521-48c6-9c11-b0720656f69e` | _`/usr/` Partition (x86-64)_ | ditto | ditto |
 | `7d0359a3-02b3-4f0a-865c-654403e70625` | _`/usr/` Partition (32-bit ARM)_ | ditto | ditto |
 | `b0e01050-ee5f-4390-949a-9101b17104e9` | _`/usr/` Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `4301d2a6-4e3b-4b2a-bb94-9e0b2c4225ea` | _`/usr/` Partition (Itanium/IA-64)_ | ditto | ditto |
+| `b933fb22-5c3f-4f91-af90-e2bb0fa50702` | _`/usr/` Partition (RISC-V 32-bit)_ | ditto | ditto |
+| `beaec34b-8442-439b-a40b-984381ed097d` | _`/usr/` Partition (RISC-V 64-bit)_ | ditto | ditto |
 | `8f461b0d-14ee-4e81-9aa9-049b6fb97abd` | _`/usr/` Verity Partition (x86)_ | Any native, optionally in LUKS | Similar semantics to root Verity partition, but just for the `/usr/` partition. |
 | `77ff5f63-e7b6-4633-acf4-1565b864c0e6` | _`/usr/` Verity Partition (x86-64)_ | ditto | ditto |
 | `c215d751-7bcd-4649-be90-6627490a4c05` | _`/usr/` Verity Partition (32-bit ARM)_ | ditto | ditto |
 | `6e11a4e7-fbca-4ded-b9e9-e1a512bb664e` | _`/usr/` Verity Partition (64-bit ARM/AArch64)_ | ditto | ditto |
 | `6a491e03-3be7-4545-8e38-83320e0ea880` | _`/usr/` Verity Partition (Itanium/IA-64)_ | ditto | ditto |
+| `cb1ee4e3-8cd0-4136-a0a4-aa61a32e8730` | _`/usr/` Verity Partition (RISC-V 32-bit)_ | ditto | ditto |
+| `8f1056be-9b05-47c4-81d6-be53128e5b54` | _`/usr/` Verity Partition (RISC-V 64-bit)_ | ditto | ditto |
 | `933ac7e1-2eb4-4f13-b844-0e14e2aef915` | _Home Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/home/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/home`. |
 | `3b8f8425-20e0-4f3b-907f-1a25a76f98e8` | _Server Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/srv/`.  If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/srv`. |
 | `4d21b016-b534-45c2-a9fb-5c16e091fd2d` | _Variable Data Partition_ | Any native, optionally in LUKS | The first partition with this type UUID on the disk containing the root partition is automatically mounted to `/var/` — under the condition that its partition UUID matches the first 128 bit of `HMAC-SHA256(machine-id, 0x4d21b016b53445c2a9fb5c16e091fd2d)` (i.e. the SHA256 HMAC hash of the binary type UUID keyed by the machine ID as read from [`/etc/machine-id`](https://www.freedesktop.org/software/systemd/man/machine-id.html). This special requirement is made because `/var/` (unlike the other partition types listed here) is inherently private to a specific installation and cannot possibly be shared between multiple OS installations on the same disk, and thus should be bound to a specific instance of the OS, identified by its machine ID. If the partition is encrypted with LUKS, the device mapper file will be named `/dev/mapper/var`. |
