@@ -1074,6 +1074,7 @@ else
         libcurl = []
 endif
 conf.set10('HAVE_LIBCURL', have)
+conf.set10('CURL_NO_OLDIES', get_option('mode') == 'developer')
 
 want_libidn = get_option('libidn')
 want_libidn2 = get_option('libidn2')
