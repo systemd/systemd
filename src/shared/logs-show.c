@@ -348,10 +348,7 @@ static int output_timestamp_monotonic(FILE *f, sd_journal *j, const char *monoto
 
 static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, OutputFlags flags, const char *realtime) {
         char buf[MAX(FORMAT_TIMESTAMP_MAX, 64U)];
-        struct tm *(*gettime_r)(const time_t *, struct tm *);
-        struct tm tm;
         uint64_t x;
-        time_t t;
         int r;
 
         assert(f);
@@ -376,9 +373,9 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                                                "Failed to format timestamp: %" PRIu64, x);
 
         } else {
-                char usec[7];
+                struct tm tm;
+                time_t t;
 
-                gettime_r = (flags & OUTPUT_UTC) ? gmtime_r : localtime_r;
                 t = (time_t) (x / USEC_PER_SEC);
 
                 switch (mode) {
@@ -388,24 +385,29 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
                         break;
 
                 case OUTPUT_SHORT_ISO:
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", gettime_r(&t, &tm)) <= 0)
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z",
+                                     localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format ISO time");
                         break;
 
-                case OUTPUT_SHORT_ISO_PRECISE:
+                case OUTPUT_SHORT_ISO_PRECISE: {
+                        char usec[7];
+
                         /* No usec in strftime, so we leave space and copy over */
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z", gettime_r(&t, &tm)) <= 0)
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z",
+                                     localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format ISO-precise time");
                         xsprintf(usec, "%06"PRI_USEC, x % USEC_PER_SEC);
                         memcpy(buf + 20, usec, 6);
                         break;
-
+                }
                 case OUTPUT_SHORT:
                 case OUTPUT_SHORT_PRECISE:
 
-                        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S", gettime_r(&t, &tm)) <= 0)
+                        if (strftime(buf, sizeof(buf), "%b %d %H:%M:%S",
+                                     localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format syslog time");
 
