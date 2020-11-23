@@ -572,3 +572,10 @@ global:
         sd_bus_enqueue_for_read;
         sd_event_source_disable_unref;
 } LIBSYSTEMD_238;
+
+LIBSYSTEMD_248 {
+global:
+        sd_event_source_set_ratelimit;
+        sd_event_source_get_ratelimit;
+        sd_event_source_is_ratelimited;
+} LIBSYSTEMD_239;
