@@ -380,7 +380,7 @@ static void source_io_unregister(sd_event_source *s) {
                 return;
 
         if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->io.fd, NULL) < 0)
-                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll: %m",
+                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
                                 strna(s->description), event_source_type_to_string(s->type));
 
         s->io.registered = false;
@@ -422,7 +422,7 @@ static void source_child_pidfd_unregister(sd_event_source *s) {
 
         if (EVENT_SOURCE_WATCH_PIDFD(s))
                 if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->child.pidfd, NULL) < 0)
-                        log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll: %m",
+                        log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
                                         strna(s->description), event_source_type_to_string(s->type));
 
         s->child.registered = false;
