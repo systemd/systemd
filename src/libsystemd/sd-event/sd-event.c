@@ -2262,12 +2262,13 @@ fail:
         return r;
 }
 
-_public_ int sd_event_source_get_enabled(sd_event_source *s, int *m) {
+_public_ int sd_event_source_get_enabled(sd_event_source *s, int *ret) {
         assert_return(s, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        if (m)
-                *m = s->enabled;
+        if (ret)
+                *ret = s->enabled;
+
         return s->enabled != SD_EVENT_OFF;
 }
 
