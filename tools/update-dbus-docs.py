@@ -125,8 +125,7 @@ def document_has_elem_with_text(document, elem, item_repr):
     for loc in document.findall(predicate):
         if loc.text == item_repr:
             return True
-    else:
-        return False
+    return False
 
 def check_documented(document, declarations, stats):
     missing = []

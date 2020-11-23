@@ -334,9 +334,6 @@ int ask_password_plymouth(
 
                 p += k;
 
-                if (p < 1)
-                        continue;
-
                 if (buffer[0] == 5) {
 
                         if (flags & ASK_PASSWORD_ACCEPT_CACHED) {
