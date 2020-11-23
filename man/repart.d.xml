@@ -199,6 +199,26 @@
               </row>
 
               <row>
+                <entry><constant>root-riscv32</constant></entry>
+                <entry>Root file system partition for the RISC-V 32-bit architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-riscv32-verity</constant></entry>
+                <entry>Verity data for the RISC-V 32-bit root file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-riscv64</constant></entry>
+                <entry>Root file system partition for the RISC-V 64-bit architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>root-riscv64-verity</constant></entry>
+                <entry>Verity data for the RISC-V 64-bit root file system partition</entry>
+              </row>
+
+              <row>
                 <entry><constant>usr</constant></entry>
                 <entry><filename>/usr/</filename> file system partition type appropriate for the local architecture (an alias for an architecture <filename>/usr/</filename> file system partition type listed below, e.g. <constant>usr-x86-64</constant>)</entry>
               </row>
@@ -267,6 +287,28 @@
                 <entry><constant>usr-ia64-verity</constant></entry>
                 <entry>Verity data for the ia64 <filename>/usr/</filename> file system partition</entry>
               </row>
+
+              <row>
+                <entry><constant>usr-riscv32</constant></entry>
+                <entry><filename>/usr/</filename> file system partition for the RISC-V 32-bit architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-riscv32-verity</constant></entry>
+                <entry>Verity data for the RISC-V 32-bit <filename>/usr/</filename> file system partition</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-riscv64</constant></entry>
+                <entry><filename>/usr/</filename> file system partition for the RISC-V 64-bit architecture</entry>
+              </row>
+
+              <row>
+                <entry><constant>usr-riscv64-verity</constant></entry>
+                <entry>Verity data for the RISC-V 64-bit <filename>/usr/</filename> file system partition</entry>
+              </row>
+
+
             </tbody>
           </tgroup>
         </table>

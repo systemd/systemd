@@ -14,6 +14,10 @@ const GptPartitionType gpt_partition_type_table[] = {
         { GPT_ROOT_ARM_64_VERITY,    "root-arm64-verity"     },
         { GPT_ROOT_IA64,             "root-ia64"             },
         { GPT_ROOT_IA64_VERITY,      "root-ia64-verity"      },
+        { GPT_ROOT_RISCV32,          "root-riscv32"          },
+        { GPT_ROOT_RISCV32_VERITY,   "root-riscv32-verity"   },
+        { GPT_ROOT_RISCV64,          "root-riscv64"          },
+        { GPT_ROOT_RISCV64_VERITY,   "root-riscv64-verity"   },
 #ifdef GPT_ROOT_NATIVE
         { GPT_ROOT_NATIVE,           "root"                  },
         { GPT_ROOT_NATIVE_VERITY,    "root-verity"           },
@@ -32,6 +36,10 @@ const GptPartitionType gpt_partition_type_table[] = {
         { GPT_USR_ARM_64_VERITY,     "usr-arm64-verity"      },
         { GPT_USR_IA64,              "usr-ia64"              },
         { GPT_USR_IA64_VERITY,       "usr-ia64-verity"       },
+        { GPT_USR_RISCV32,           "usr-riscv32"           },
+        { GPT_USR_RISCV32_VERITY,    "usr-riscv32-verity"    },
+        { GPT_USR_RISCV64,           "usr-riscv64"           },
+        { GPT_USR_RISCV64_VERITY,    "usr-riscv64-verity"    },
 #ifdef GPT_USR_NATIVE
         { GPT_USR_NATIVE,            "usr"                   },
         { GPT_USR_NATIVE_VERITY,     "usr-verity"            },

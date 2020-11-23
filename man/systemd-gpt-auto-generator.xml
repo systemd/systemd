@@ -110,6 +110,18 @@
             <entry>On Itanium systems, the first Itanium root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
           </row>
           <row>
+            <entry>60d5a7fe-8e7d-435c-b714-3dd8162144e1</entry>
+            <entry><filename>Root Partition (RISCV-V 32)</filename></entry>
+            <entry><filename>/</filename></entry>
+            <entry>On RISC-V 32-bit systems, the first RISCV-V 32-bit root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+          </row>
+          <row>
+            <entry>72ec70a6-cf74-40e6-bd49-4bda08e8f224</entry>
+            <entry><filename>Root Partition (RISCV-V 64)</filename></entry>
+            <entry><filename>/</filename></entry>
+            <entry>On RISC-V 64-bit systems, the first RISCV-V 64-bit root partition on the disk the EFI ESP is located on is mounted to the root directory <filename>/</filename>.</entry>
+          </row>
+          <row>
             <entry>933ac7e1-2eb4-4f13-b844-0e14e2aef915</entry>
             <entry>Home Partition</entry>
             <entry><filename>/home/</filename></entry>
