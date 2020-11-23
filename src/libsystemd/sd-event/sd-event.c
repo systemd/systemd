@@ -913,6 +913,19 @@ static void event_source_time_prioq_reshuffle(sd_event_source *s) {
         d->needs_rearm = true;
 }
 
+static void event_source_time_prioq_remove(
+                sd_event_source *s,
+                struct clock_data *d) {
+
+        assert(s);
+        assert(d);
+
+        prioq_remove(d->earliest, s, &s->time.earliest_index);
+        prioq_remove(d->latest, s, &s->time.latest_index);
+        s->time.earliest_index = s->time.latest_index = PRIOQ_IDX_NULL;
+        d->needs_rearm = true;
+}
+
 static void source_disconnect(sd_event_source *s) {
         sd_event *event;
 
@@ -937,13 +950,8 @@ static void source_disconnect(sd_event_source *s) {
         case SOURCE_TIME_REALTIME_ALARM:
         case SOURCE_TIME_BOOTTIME_ALARM: {
                 struct clock_data *d;
-
-                d = event_get_clock_data(s->event, s->type);
-                assert(d);
-
-                prioq_remove(d->earliest, s, &s->time.earliest_index);
-                prioq_remove(d->latest, s, &s->time.latest_index);
-                d->needs_rearm = true;
+                assert_se(d = event_get_clock_data(s->event, s->type));
+                event_source_time_prioq_remove(s, d);
                 break;
         }
 
@@ -1254,6 +1262,30 @@ static int setup_clock_data(sd_event *e, struct clock_data *d, clockid_t clock) 
         return 0;
 }
 
+static int event_source_time_prioq_put(
+                sd_event_source *s,
+                struct clock_data *d) {
+
+        int r;
+
+        assert(s);
+        assert(d);
+
+        r = prioq_put(d->earliest, s, &s->time.earliest_index);
+        if (r < 0)
+                return r;
+
+        r = prioq_put(d->latest, s, &s->time.latest_index);
+        if (r < 0) {
+                assert_se(prioq_remove(d->earliest, s, &s->time.earliest_index) > 0);
+                s->time.earliest_index = PRIOQ_IDX_NULL;
+                return r;
+        }
+
+        d->needs_rearm = true;
+        return 0;
+}
+
 _public_ int sd_event_add_time(
                 sd_event *e,
                 sd_event_source **ret,
@@ -1284,8 +1316,7 @@ _public_ int sd_event_add_time(
         if (!callback)
                 callback = time_exit_callback;
 
-        d = event_get_clock_data(e, type);
-        assert(d);
+        assert_se(d = event_get_clock_data(e, type));
 
         r = setup_clock_data(e, d, clock);
         if (r < 0)
@@ -1302,13 +1333,7 @@ _public_ int sd_event_add_time(
         s->userdata = userdata;
         s->enabled = SD_EVENT_ONESHOT;
 
-        d->needs_rearm = true;
-
-        r = prioq_put(d->earliest, s, &s->time.earliest_index);
-        if (r < 0)
-                goto fail;
-
-        r = prioq_put(d->latest, s, &s->time.latest_index);
+        r = event_source_time_prioq_put(s, d);
         if (r < 0)
                 goto fail;
 
