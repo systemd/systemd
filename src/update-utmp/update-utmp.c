@@ -116,8 +116,6 @@ static int get_current_runlevel(Context *c) {
 static int on_reboot(Context *c) {
         int r = 0, q;
         usec_t t;
-        struct timespec ts;
-        struct tm *tm;
 
         assert(c);
 
@@ -138,8 +136,11 @@ static int on_reboot(Context *c) {
         /* If RTC is in localtime, apply the delta to have 
 	 * number of seconds from EPOCH */
         if (clock_is_localtime(NULL) > 0) {
+                struct timespec ts;
+                struct tm *tm;
+                
                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
-                assert_se(tm = localtime(&ts.tv_sec));
+                assert_se(localtime_r(&ts.tv_sec, &tm));
 
                 t = t - tm->tm_gmtoff * USEC_PER_SEC;
         }       
