@@ -482,6 +482,100 @@ static void test_inotify(unsigned n_create_events) {
         sd_event_unref(e);
 }
 
+
+static int ratelimit_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        unsigned *c = (unsigned*) userdata;
+        *c += 1;
+        return 0;
+}
+
+static int ratelimit_time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        int r;
+
+        r = sd_event_source_set_enabled(s, SD_EVENT_ON);
+        if (r < 0)
+                log_warning_errno(r, "Failed to turn on notify event source: %m");
+
+        r = sd_event_source_set_time(s, usec + 1000);
+        if (r < 0)
+                log_error_errno(r, "Failed to restart watchdog event source: %m");
+
+        unsigned *c = (unsigned*) userdata;
+        *c += 1;
+
+        return 0;
+}
+
+static void test_ratelimit(void) {
+        _cleanup_close_pair_ int p[2] = {-1, -1};
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        uint64_t interval;
+        unsigned count, burst;
+
+        assert_se(sd_event_default(&e) >= 0);
+        assert_se(pipe2(p, O_CLOEXEC|O_NONBLOCK) >= 0);
+
+        assert_se(sd_event_add_io(e, &s, p[0], EPOLLIN, ratelimit_io_handler, &count) >= 0);
+        assert_se(sd_event_source_set_description(s, "test-ratelimit-io") >= 0);
+        assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 5) >= 0);
+        assert_se(sd_event_source_get_ratelimit(s, &interval, &burst) >= 0);
+        assert_se(interval == 1 * USEC_PER_SEC && burst == 5);
+
+        assert_se(write(p[1], "1", 1) == 1);
+
+        count = 0;
+        for (unsigned i = 0; i < 10; i++) {
+                log_debug("slow loop iteration %u", i);
+                assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+                assert_se(usleep(250 * USEC_PER_MSEC) >= 0);
+        }
+
+        assert_se(sd_event_source_is_ratelimited(s) == 0);
+        assert_se(count == 10);
+        log_info("ratelimit_io_handler: called %d times, event source not ratelimited", count);
+
+        assert_se(sd_event_source_set_ratelimit(s, 0, 0) >= 0);
+        assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 5) >= 0);
+
+        count = 0;
+        for (unsigned i = 0; i < 10; i++) {
+                log_debug("fast event loop iteration %u", i);
+                assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+                assert_se(usleep(10) >= 0);
+        }
+        log_info("ratelimit_io_handler: called %d times, event source got ratelimited", count);
+        assert_se(count < 10);
+
+        s = sd_event_source_unref(s);
+        safe_close_pair(p);
+
+        count = 0;
+
+        assert_se(sd_event_add_time(e, &s, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 1000, 0, ratelimit_time_handler, &count) >= 0);
+        assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 10) == 0);
+
+        do {
+                assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+        } while (!sd_event_source_is_ratelimited(s));
+
+        log_info("ratelimit_time_handler: called %d times, event source got ratelimited", count);
+        assert_se(count == 10);
+
+        /* In order to get rid of active rate limit client needs to disable it explicitely */
+        assert_se(sd_event_source_set_ratelimit(s, 0, 0) >= 0);
+        assert_se(!sd_event_source_is_ratelimited(s));
+
+        assert_se(sd_event_source_set_ratelimit(s, 1 * USEC_PER_SEC, 10) >= 0);
+
+        do {
+                assert_se(sd_event_run(e, UINT64_MAX) >= 0);
+        } while (!sd_event_source_is_ratelimited(s));
+
+        log_info("ratelimit_time_handler: called 10 more times, event source got ratelimited");
+        assert_se(count == 20);
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -493,6 +587,8 @@ int main(int argc, char *argv[]) {
 
         test_inotify(100); /* should work without overflow */
         test_inotify(33000); /* should trigger a q overflow */
+
+        test_ratelimit();
 
         return 0;
 }
