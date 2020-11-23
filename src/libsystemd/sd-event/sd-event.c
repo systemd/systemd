@@ -3256,7 +3256,6 @@ static int event_prepare(sd_event *e) {
 
 static int dispatch_exit(sd_event *e) {
         sd_event_source *p;
-        _cleanup_(sd_event_unrefp) sd_event *ref = NULL;
         int r;
 
         assert(e);
@@ -3267,7 +3266,7 @@ static int dispatch_exit(sd_event *e) {
                 return 0;
         }
 
-        ref = sd_event_ref(e);
+        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
         e->iteration++;
         e->state = SD_EVENT_EXITING;
         r = source_dispatch(p);
@@ -3364,6 +3363,9 @@ _public_ int sd_event_prepare(sd_event *e) {
          * this check here once, since gettid() is typically not cached, and thus want to minimize
          * syscalls */
         assert_return(!e->default_event_ptr || e->tid == gettid(), -EREMOTEIO);
+
+        /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
+        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
 
         if (e->exit_requested)
                 goto pending;
@@ -3549,9 +3551,8 @@ _public_ int sd_event_dispatch(sd_event *e) {
 
         p = event_next_pending(e);
         if (p) {
-                _cleanup_(sd_event_unrefp) sd_event *ref = NULL;
+                _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
 
-                ref = sd_event_ref(e);
                 e->state = SD_EVENT_RUNNING;
                 r = source_dispatch(p);
                 e->state = SD_EVENT_INITIAL;
@@ -3600,6 +3601,9 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
                 }
         }
 
+        /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
+        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = sd_event_ref(e);
+
         r = sd_event_prepare(e);
         if (r == 0)
                 /* There was nothing? Then wait... */
@@ -3621,7 +3625,6 @@ _public_ int sd_event_run(sd_event *e, uint64_t timeout) {
 }
 
 _public_ int sd_event_loop(sd_event *e) {
-        _cleanup_(sd_event_unrefp) sd_event *ref = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -3629,7 +3632,7 @@ _public_ int sd_event_loop(sd_event *e) {
         assert_return(!event_pid_changed(e), -ECHILD);
         assert_return(e->state == SD_EVENT_INITIAL, -EBUSY);
 
-        ref = sd_event_ref(e);
+        _unused_ _cleanup_(sd_event_unrefp) sd_event *ref = NULL;
 
         while (e->state != SD_EVENT_FINISHED) {
                 r = sd_event_run(e, (uint64_t) -1);
