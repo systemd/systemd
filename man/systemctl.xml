@@ -724,6 +724,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>This command honors <option>--system</option>, <option>--user</option>, <option>--runtime</option>
             and <option>--global</option> in a similar way as <command>enable</command>.</para>
+
+            <para>Using <command>disable</command> on statically enabled units is not supported and is ignored.
+            Please use <command>mask</command> instead.</para>
           </listitem>
         </varlistentry>
 
