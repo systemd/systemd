@@ -72,6 +72,9 @@ struct sd_event_source {
 
         LIST_FIELDS(sd_event_source, sources);
 
+        unsigned earliest_index;
+        unsigned latest_index;
+
         union {
                 struct {
                         sd_event_io_handler_t callback;
@@ -84,8 +87,6 @@ struct sd_event_source {
                 struct {
                         sd_event_time_handler_t callback;
                         usec_t next, accuracy;
-                        unsigned earliest_index;
-                        unsigned latest_index;
                 } time;
                 struct {
                         sd_event_signal_handler_t callback;
