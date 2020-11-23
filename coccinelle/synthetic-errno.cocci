@@ -44,5 +44,5 @@ identifier log_LEVEL_errno =~ "^log_(debug|info|notice|warning|error|emergency)_
 identifier ERRNO =~ "^E[A-Z]+$";
 expression list args;
 @@
-- return log_LEVEL_errno(ERRNO, args);
-+ return log_LEVEL_errno(SYNTHETIC_ERRNO(ERRNO), args);
+- log_LEVEL_errno(ERRNO, args);
++ log_LEVEL_errno(SYNTHETIC_ERRNO(ERRNO), args);

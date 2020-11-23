@@ -2019,13 +2019,12 @@ static int verify(sd_journal *j) {
 #endif
 
                 k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
-                if (k == -EINVAL) {
+                if (k == -EINVAL)
                         /* If the key was invalid give up right-away. */
                         return k;
-                } else if (k < 0) {
-                        log_warning_errno(k, "FAIL: %s (%m)", f->path);
-                        r = k;
-                } else {
+                else if (k < 0)
+                        r = log_warning_errno(k, "FAIL: %s (%m)", f->path);
+                else {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
                         log_info("PASS: %s", f->path);
 
@@ -2374,10 +2373,8 @@ int main(int argc, char *argv[]) {
                         int q;
 
                         q = journal_directory_vacuum(d->path, arg_vacuum_size, arg_vacuum_n_files, arg_vacuum_time, NULL, !arg_quiet);
-                        if (q < 0) {
-                                log_error_errno(q, "Failed to vacuum %s: %m", d->path);
-                                r = q;
-                        }
+                        if (q < 0)
+                                r = log_error_errno(q, "Failed to vacuum %s: %m", d->path);
                 }
 
                 goto finish;
