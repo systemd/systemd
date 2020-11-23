@@ -252,6 +252,7 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
         if (max_brightness <= 0)
                 return log_device_warning_errno(device, SYNTHETIC_ERRNO(EINVAL), "Maximum brightness is 0, ignoring device.");
 
+        log_device_debug(device, "Maximum brightness is %u", max_brightness);
         *ret = max_brightness;
         return 0;
 }
@@ -348,6 +349,7 @@ static int read_brightness(sd_device *device, unsigned max_brightness, unsigned 
                         goto use_brightness;
                 }
 
+                log_device_debug(device, "Current actual_brightness is %u", brightness);
                 *ret_brightness = brightness;
                 return 0;
         }
@@ -366,6 +368,7 @@ use_brightness:
                                               "brightness=%u is larger than max_brightness=%u",
                                               brightness, max_brightness);
 
+        log_device_debug(device, "Current brightness is %u", brightness);
         *ret_brightness = brightness;
         return 0;
 }
@@ -456,10 +459,11 @@ static int run(int argc, char *argv[]) {
                 if (r > 0) {
                         r = safe_atou(value, &brightness);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to parse saved brightness '%s', removing %s.",
-                                                value, saved);
+                                log_warning_errno(r, "Failed to parse saved brightness '%s', removing %s.",
+                                                  value, saved);
                                 (void) unlink(saved);
                         } else {
+                                log_debug("Using saved brightness %u.", brightness);
                                 if (clamp)
                                         (void) clamp_brightness(device, true, max_brightness, &brightness);
 
