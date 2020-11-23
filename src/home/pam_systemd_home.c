@@ -625,6 +625,15 @@ static int acquire_home(
                 do_auth = true;
         }
 
+        /* Later PAM modules may need the auth token, but only during pam_authenticate. */
+        if (please_authenticate && !strv_isempty(secret->password)) {
+                r = pam_set_item(handle, PAM_AUTHTOK, *secret->password);
+                if (r < 0) {
+                        pam_syslog(handle, LOG_ERR, "Failed to set PAM auth token: %s", pam_strerror(handle, r));
+                        return r;
+                }
+        }
+
         r = pam_set_data(handle, fd_field, FD_TO_PTR(acquired_fd), cleanup_home_fd);
         if (r < 0) {
                 pam_syslog(handle, LOG_ERR, "Failed to set PAM bus data: %s", pam_strerror(handle, r));
