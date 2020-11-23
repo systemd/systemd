@@ -107,6 +107,9 @@ struct sd_event_source {
 
         LIST_FIELDS(sd_event_source, sources);
 
+        unsigned earliest_index;
+        unsigned latest_index;
+
         union {
                 struct {
                         sd_event_io_handler_t callback;
@@ -119,8 +122,6 @@ struct sd_event_source {
                 struct {
                         sd_event_time_handler_t callback;
                         usec_t next, accuracy;
-                        unsigned earliest_index;
-                        unsigned latest_index;
                 } time;
                 struct {
                         sd_event_signal_handler_t callback;
@@ -908,8 +909,8 @@ static void event_source_time_prioq_reshuffle(sd_event_source *s) {
         /* Called whenever the event source's timer ordering properties changed, i.e. time, accuracy,
          * pending, enable state. Makes sure the two prioq's are ordered properly again. */
         assert_se(d = event_get_clock_data(s->event, s->type));
-        prioq_reshuffle(d->earliest, s, &s->time.earliest_index);
-        prioq_reshuffle(d->latest, s, &s->time.latest_index);
+        prioq_reshuffle(d->earliest, s, &s->earliest_index);
+        prioq_reshuffle(d->latest, s, &s->latest_index);
         d->needs_rearm = true;
 }
 
@@ -920,9 +921,9 @@ static void event_source_time_prioq_remove(
         assert(s);
         assert(d);
 
-        prioq_remove(d->earliest, s, &s->time.earliest_index);
-        prioq_remove(d->latest, s, &s->time.latest_index);
-        s->time.earliest_index = s->time.latest_index = PRIOQ_IDX_NULL;
+        prioq_remove(d->earliest, s, &s->earliest_index);
+        prioq_remove(d->latest, s, &s->latest_index);
+        s->earliest_index = s->latest_index = PRIOQ_IDX_NULL;
         d->needs_rearm = true;
 }
 
@@ -1271,14 +1272,14 @@ static int event_source_time_prioq_put(
         assert(s);
         assert(d);
 
-        r = prioq_put(d->earliest, s, &s->time.earliest_index);
+        r = prioq_put(d->earliest, s, &s->earliest_index);
         if (r < 0)
                 return r;
 
-        r = prioq_put(d->latest, s, &s->time.latest_index);
+        r = prioq_put(d->latest, s, &s->latest_index);
         if (r < 0) {
-                assert_se(prioq_remove(d->earliest, s, &s->time.earliest_index) > 0);
-                s->time.earliest_index = PRIOQ_IDX_NULL;
+                assert_se(prioq_remove(d->earliest, s, &s->earliest_index) > 0);
+                s->earliest_index = PRIOQ_IDX_NULL;
                 return r;
         }
 
@@ -1329,7 +1330,7 @@ _public_ int sd_event_add_time(
         s->time.next = usec;
         s->time.accuracy = accuracy == 0 ? DEFAULT_ACCURACY_USEC : accuracy;
         s->time.callback = callback;
-        s->time.earliest_index = s->time.latest_index = PRIOQ_IDX_NULL;
+        s->earliest_index = s->latest_index = PRIOQ_IDX_NULL;
         s->userdata = userdata;
         s->enabled = SD_EVENT_ONESHOT;
 
