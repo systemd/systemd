@@ -140,9 +140,10 @@ else {
     <function>sd_journal_get_events()</function>,
     <function>sd_journal_get_timeout()</function> and
     <function>sd_journal_process()</function> is
-    <function>sd_journal_wait()</function>. It will synchronously wait
-    until the journal gets changed. The maximum time this call sleeps
-    may be controlled with the <parameter>timeout_usec</parameter>
+    <function>sd_journal_wait()</function>. It will asynchronously
+    wait until the journal gets changed as the wake-up optimization
+    for notifications are introduced with latency. The maximum time
+    this call sleeps may be controlled with the <parameter>timeout_usec</parameter>
     parameter. Pass <constant>(uint64_t) -1</constant> to wait
     indefinitely. Internally this call simply combines
     <function>sd_journal_get_fd()</function>,
