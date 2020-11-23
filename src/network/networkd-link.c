@@ -1207,9 +1207,7 @@ static int link_acquire_ipv4_conf(Link *link) {
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not acquire DHCPv4 lease: %m");
 
-        } else if (link_ipv4ll_enabled(link)) {
-                assert(link->ipv4ll);
-
+        } else if (link->ipv4ll) {
                 log_link_debug(link, "Acquiring IPv4 link-local address");
 
                 r = sd_ipv4ll_start(link->ipv4ll);
