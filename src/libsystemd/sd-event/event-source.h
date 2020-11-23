@@ -11,6 +11,7 @@
 #include "hashmap.h"
 #include "list.h"
 #include "prioq.h"
+#include "ratelimit.h"
 
 typedef enum EventSourceType {
         SOURCE_IO,
@@ -61,6 +62,7 @@ struct sd_event_source {
         bool dispatching:1;
         bool floating:1;
         bool exit_on_failure:1;
+        bool ratelimited:1;
 
         int64_t priority;
         unsigned pending_index;
@@ -72,6 +74,10 @@ struct sd_event_source {
 
         LIST_FIELDS(sd_event_source, sources);
 
+        RateLimit rate_limit;
+
+        /* These are primarily fields relevant for time event sources, but since any event source can
+         * effectively become one when rate-limited, this is part of the common fields. */
         unsigned earliest_index;
         unsigned latest_index;
 
