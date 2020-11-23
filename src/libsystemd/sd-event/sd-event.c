@@ -2285,13 +2285,14 @@ fail:
         return r;
 }
 
-_public_ int sd_event_source_get_enabled(sd_event_source *s, int *m) {
+_public_ int sd_event_source_get_enabled(sd_event_source *s, int *ret) {
         assert_return(s, -EINVAL);
-        assert_return(m, -EINVAL);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        *m = s->enabled;
-        return 0;
+        if (ret)
+                *ret = s->enabled;
+
+        return s->enabled != SD_EVENT_OFF;
 }
 
 static int event_source_disable(sd_event_source *s) {
