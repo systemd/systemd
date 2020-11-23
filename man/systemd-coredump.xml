@@ -73,8 +73,8 @@
 
   <refsect1>
     <title>Configuration</title>
-    <para>For programs started by <command>systemd</command> process resource limits can be set by directive
-    <varname>LimitCore=</varname>, see
+    <para>For programs started by <command>systemd</command>, process resource limits can be set by directive
+    <varname>LimitCORE=</varname>, see
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
@@ -94,10 +94,10 @@
     <citerefentry><refentrytitle>systemd-sysctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
     </para>
 
-    <para>In order to by used in the <option>--backtrace</option> mode, an appropriate backtrace
+    <para>In order to be used in the <option>--backtrace</option> mode, an appropriate backtrace
     handler must be installed on the sender side. For example, in case of
     <citerefentry project='die-net'><refentrytitle>python</refentrytitle><manvolnum>1</manvolnum></citerefentry>, this
-    means a <varname>sys.excepthook</varname> must installed, see
+    means a <varname>sys.excepthook</varname> must be installed, see
     <ulink url="https://github.com/keszybz/systemd-coredump-python">systemd-coredump-python</ulink>.
     </para>
 
