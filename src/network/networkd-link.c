@@ -733,77 +733,54 @@ void link_check_ready(Link *link) {
         if (link->state == LINK_STATE_CONFIGURED)
                 return;
 
-        if (link->state != LINK_STATE_CONFIGURING) {
-                log_link_debug(link, "%s(): link is in %s state.", __func__, link_state_to_string(link->state));
-                return;
-        }
+        if (link->state != LINK_STATE_CONFIGURING)
+                return (void) log_link_debug(link, "%s(): link is in %s state.", __func__, link_state_to_string(link->state));
 
         if (!link->network)
                 return;
 
-        if (!link->addresses_configured) {
-                log_link_debug(link, "%s(): static addresses are not configured.", __func__);
-                return;
-        }
+        if (!link->addresses_configured)
+                return (void) log_link_debug(link, "%s(): static addresses are not configured.", __func__);
 
-        if (!link->neighbors_configured) {
-                log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
-                return;
-        }
+        if (!link->neighbors_configured)
+                return (void) log_link_debug(link, "%s(): static neighbors are not configured.", __func__);
 
         SET_FOREACH(a, link->addresses)
                 if (!address_is_ready(a)) {
                         _cleanup_free_ char *str = NULL;
 
                         (void) in_addr_to_string(a->family, &a->in_addr, &str);
-                        log_link_debug(link, "%s(): an address %s/%d is not ready.", __func__, strnull(str), a->prefixlen);
-                        return;
+                        return (void) log_link_debug(link, "%s(): an address %s/%d is not ready.", __func__, strnull(str), a->prefixlen);
                 }
 
-        if (!link->static_routes_configured) {
-                log_link_debug(link, "%s(): static routes are not configured.", __func__);
-                return;
-        }
+        if (!link->static_routes_configured)
+                return (void) log_link_debug(link, "%s(): static routes are not configured.", __func__);
 
-        if (!link->static_nexthops_configured) {
-                log_link_debug(link, "%s(): static nexthops are not configured.", __func__);
-                return;
-        }
+        if (!link->static_nexthops_configured)
+                return (void) log_link_debug(link, "%s(): static nexthops are not configured.", __func__);
 
-        if (!link->routing_policy_rules_configured) {
-                log_link_debug(link, "%s(): static routing policy rules are not configured.", __func__);
-                return;
-        }
+        if (!link->routing_policy_rules_configured)
+                return (void) log_link_debug(link, "%s(): static routing policy rules are not configured.", __func__);
 
-        if (!link->tc_configured) {
-                log_link_debug(link, "%s(): traffic controls are not configured.", __func__);
-                return;
-        }
+        if (!link->tc_configured)
+                return (void) log_link_debug(link, "%s(): traffic controls are not configured.", __func__);
 
-        if (!link->sr_iov_configured) {
-                log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
-                return;
-        }
+        if (!link->sr_iov_configured)
+                return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
 
-        if (!link->bridge_mdb_configured) {
-                log_link_debug(link, "%s(): Bridge MDB is not configured.", __func__);
-                return;
-        }
+        if (!link->bridge_mdb_configured)
+                return (void) log_link_debug(link, "%s(): Bridge MDB is not configured.", __func__);
 
         if (link_has_carrier(link) || !link->network->configure_without_carrier) {
                 bool has_ndisc_address = false;
                 NDiscAddress *n;
 
-                if (link_ipv4ll_enabled(link) && !link->ipv4ll_address_configured) {
-                        log_link_debug(link, "%s(): IPv4LL is not configured.", __func__);
-                        return;
-                }
+                if (link_ipv4ll_enabled(link) && !link->ipv4ll_address_configured)
+                        return (void) log_link_debug(link, "%s(): IPv4LL is not configured.", __func__);
 
                 if (link_ipv6ll_enabled(link) &&
-                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address)) {
-                        log_link_debug(link, "%s(): IPv6LL is not configured.", __func__);
-                        return;
-                }
+                    in_addr_is_null(AF_INET6, (const union in_addr_union*) &link->ipv6ll_address))
+                        return (void) log_link_debug(link, "%s(): IPv6LL is not configured.", __func__);
 
                 SET_FOREACH(n, link->ndisc_addresses)
                         if (!n->marked) {
@@ -813,22 +790,18 @@ void link_check_ready(Link *link) {
 
                 if ((link_dhcp4_enabled(link) || link_dhcp6_enabled(link)) &&
                     !link->dhcp_address && set_isempty(link->dhcp6_addresses) && !has_ndisc_address &&
-                    !(link_ipv4ll_enabled(link) && link->ipv4ll_address_configured)) {
-                        log_link_debug(link, "%s(): DHCP4 or DHCP6 is enabled but no dynamic address is assigned yet.", __func__);
-                        return;
-                }
+                    !(link_ipv4ll_enabled(link) && link->ipv4ll_address_configured))
+                        return (void) log_link_debug(link, "%s(): DHCP4 or DHCP6 is enabled but no dynamic address is assigned yet.", __func__);
 
                 if (link_dhcp4_enabled(link) || link_dhcp6_enabled(link) || link_dhcp6_pd_is_enabled(link) || link_ipv6_accept_ra_enabled(link)) {
                         if (!link->dhcp4_configured &&
                             !(link->dhcp6_address_configured && link->dhcp6_route_configured) &&
                             !(link->dhcp6_pd_address_configured && link->dhcp6_pd_route_configured) &&
                             !(link->ndisc_addresses_configured && link->ndisc_routes_configured) &&
-                            !(link_ipv4ll_enabled(link) && link->ipv4ll_address_configured)) {
+                            !(link_ipv4ll_enabled(link) && link->ipv4ll_address_configured))
                                 /* When DHCP or RA is enabled, at least one protocol must provide an address, or
                                  * an IPv4ll fallback address must be configured. */
-                                log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
-                                return;
-                        }
+                                return (void) log_link_debug(link, "%s(): dynamic addresses or routes are not configured.", __func__);
 
                         log_link_debug(link, "%s(): dhcp4:%s dhcp6_addresses:%s dhcp_routes:%s dhcp_pd_addresses:%s dhcp_pd_routes:%s ndisc_addresses:%s ndisc_routes:%s",
                                        __func__,
@@ -843,8 +816,6 @@ void link_check_ready(Link *link) {
         }
 
         link_enter_configured(link);
-
-        return;
 }
 
 static int link_set_static_configs(Link *link) {
