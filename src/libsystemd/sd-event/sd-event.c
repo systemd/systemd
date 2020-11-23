@@ -596,8 +596,6 @@ static bool event_pid_changed(sd_event *e) {
 }
 
 static void source_io_unregister(sd_event_source *s) {
-        int r;
-
         assert(s);
         assert(s->type == SOURCE_IO);
 
@@ -607,9 +605,8 @@ static void source_io_unregister(sd_event_source *s) {
         if (!s->io.registered)
                 return;
 
-        r = epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->io.fd, NULL);
-        if (r < 0)
-                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll: %m",
+        if (epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, s->io.fd, NULL) < 0)
+                log_debug_errno(errno, "Failed to remove source %s (type %s) from epoll, ignoring: %m",
                                 strna(s->description), event_source_type_to_string(s->type));
 
         s->io.registered = false;
