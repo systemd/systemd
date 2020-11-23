@@ -134,7 +134,7 @@ static int on_reboot(Context *c) {
         t = get_startup_time(c);
 
         /* If RTC is in localtime, apply the delta to have 
-	 * number of seconds from EPOCH */
+         * number of seconds from EPOCH */
         if (clock_is_localtime(NULL) > 0) {
                 struct timespec ts;
                 struct tm *tm;
