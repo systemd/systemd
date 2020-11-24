@@ -251,8 +251,16 @@
         request. Be aware that turning off caching comes at a performance penalty, which is particularly high
         when DNSSEC is used. If <literal>no-negative</literal>, only positive answers are cached.</para>
 
-        <para>Note that caching is turned off implicitly if the configured DNS server is on a host-local IP address
-        (such as 127.0.0.1 or ::1), in order to avoid duplicate local caching.</para></listitem>
+        <para>Note that caching is turned off by default for host-local DNS servers.
+        See <varname>CacheFromLocalhost=</varname> for details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CacheFromLocalhost=</varname></term>
+        <listitem><para>Takes a boolean as argument. If <literal>no</literal> (the default), and response cames from
+        host-local IP address (such as 127.0.0.1 or ::1), the result wouldn't be cached in order to avoid
+        potential duplicate local caching.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
