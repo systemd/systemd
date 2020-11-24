@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <linux/if_arp.h>
 
+#include "bus-error.h"
 #include "dhcp-internal.h"
 #include "dhcp6-internal.h"
 #include "escape.h"
@@ -99,18 +100,20 @@ static int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_er
 
         e = sd_bus_message_get_error(m);
         if (e) {
-                log_error_errno(sd_bus_error_get_errno(e),
-                                "Could not get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %s",
-                                e->message);
+                r = sd_bus_error_get_errno(e);
+                log_warning_errno(r, "Could not get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %s",
+                                  bus_error_message(e, r));
                 goto configure;
         }
 
         r = sd_bus_message_read_array(m, 'y', &a, &sz);
-        if (r < 0)
+        if (r < 0) {
+                log_warning_errno(r, "Failed to get product UUID. Falling back to use machine-app-specific ID as DUID-UUID: %m");
                 goto configure;
+        }
 
         if (sz != sizeof(sd_id128_t)) {
-                log_error("Invalid product UUID. Falling back to use machine-app-specific ID as DUID-UUID.");
+                log_warning("Invalid product UUID. Falling back to use machine-app-specific ID as DUID-UUID.");
                 goto configure;
         }
 
