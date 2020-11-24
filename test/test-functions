@@ -1058,7 +1058,9 @@ install_pam() {
     else
         find /lib*/security -xtype f
     fi
-    find /etc/pam.d /etc/security -xtype f
+    for d in /etc/pam.d /etc/security /usr/lib/pam.d; do
+        [ -d "$d" ] && find $d -xtype f
+    done
     ) | while read file; do
         inst $file
     done
@@ -1066,9 +1068,6 @@ install_pam() {
     # pam_unix depends on unix_chkpwd.
     # see http://www.linux-pam.org/Linux-PAM-html/sag-pam_unix.html
     dracut_install -o unix_chkpwd
-
-    [[ "$LOOKS_LIKE_DEBIAN" ]] &&
-        cp /etc/pam.d/systemd-user $initdir/etc/pam.d/
 
     # set empty root password for easy debugging
     sed -i 's/^root:x:/root::/' $initdir/etc/passwd
