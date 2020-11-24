@@ -5,45 +5,11 @@
 #include "libcrypt-util.h"
 #include "locale-util.h"
 #include "memory-util.h"
-#include "modhex.h"
 #include "qrcode-util.h"
 #include "random-util.h"
+#include "recovery-key.h"
 #include "strv.h"
 #include "terminal-util.h"
-
-static int make_recovery_key(char **ret) {
-        _cleanup_(erase_and_freep) char *formatted = NULL;
-        _cleanup_(erase_and_freep) uint8_t *key = NULL;
-        int r;
-
-        assert(ret);
-
-        key = new(uint8_t, MODHEX_RAW_LENGTH);
-        if (!key)
-                return log_oom();
-
-        r = genuine_random_bytes(key, MODHEX_RAW_LENGTH, RANDOM_BLOCK);
-        if (r < 0)
-                return log_error_errno(r, "Failed to gather entropy for recovery key: %m");
-
-        /* Let's now format it as 64 modhex chars, and after each 8 chars insert a dash */
-        formatted = new(char, MODHEX_FORMATTED_LENGTH);
-        if (!formatted)
-                return log_oom();
-
-        for (size_t i = 0, j = 0; i < MODHEX_RAW_LENGTH; i++) {
-                formatted[j++] = modhex_alphabet[key[i] >> 4];
-                formatted[j++] = modhex_alphabet[key[i] & 0xF];
-
-                if (i % 4 == 3)
-                        formatted[j++] = '-';
-        }
-
-        formatted[MODHEX_FORMATTED_LENGTH-1] = 0;
-
-        *ret = TAKE_PTR(formatted);
-        return 0;
-}
 
 static int add_privileged(JsonVariant **v, const char *hashed) {
         _cleanup_(json_variant_unrefp) JsonVariant *e = NULL, *w = NULL, *l = NULL;
@@ -144,7 +110,7 @@ int identity_add_recovery_key(JsonVariant **v) {
         /* First, let's generate a secret key  */
         r = make_recovery_key(&password);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to generate recovery key: %m");
 
         /* Let's UNIX hash it */
         r = hash_password(password, &hashed);

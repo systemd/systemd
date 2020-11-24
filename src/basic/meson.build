@@ -187,6 +187,8 @@ basic_sources = files('''
         ratelimit.h
         raw-clone.h
         raw-reboot.h
+        recovery-key.c
+        recovery-key.h
         replace-var.c
         replace-var.h
         rlimit-util.c

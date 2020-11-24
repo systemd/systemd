@@ -7,7 +7,7 @@
 #include "id128-util.h"
 #include "libcrypt-util.h"
 #include "memory-util.h"
-#include "modhex.h"
+#include "recovery-key.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
 #include "stat-util.h"
