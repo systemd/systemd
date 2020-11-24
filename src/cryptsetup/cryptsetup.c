@@ -448,10 +448,9 @@ static int get_password(
 
                 assert(strv_length(passwords2) == 1);
 
-                if (!streq(passwords[0], passwords2[0])) {
-                        log_warning("Passwords did not match, retrying.");
-                        return -EAGAIN;
-                }
+                if (!streq(passwords[0], passwords2[0]))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                 "Passwords did not match, retrying.");
         }
 
         strv_uniq(passwords);
