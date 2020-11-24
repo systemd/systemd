@@ -2420,6 +2420,36 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : systemgeneratordir)
+
+        systemd_cryptenroll_sources = files('''
+                src/cryptenroll/cryptenroll-fido2.h
+                src/cryptenroll/cryptenroll-password.c
+                src/cryptenroll/cryptenroll-password.h
+                src/cryptenroll/cryptenroll-pkcs11.h
+                src/cryptenroll/cryptenroll-recovery.c
+                src/cryptenroll/cryptenroll-recovery.h
+                src/cryptenroll/cryptenroll.c
+'''.split())
+
+        if conf.get('HAVE_P11KIT') == 1 and conf.get('HAVE_OPENSSL') == 1
+                systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-pkcs11.c')
+        endif
+
+        if conf.get('HAVE_LIBFIDO2') == 1
+                systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-fido2.c')
+        endif
+
+        executable(
+                'systemd-cryptenroll',
+                systemd_cryptenroll_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [libcryptsetup,
+                                libopenssl,
+                                libp11kit],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : bindir)
 endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
