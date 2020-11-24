@@ -13,4 +13,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(EVP_CIPHER_CTX*, EVP_CIPHER_CTX_free);
 
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
+int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
+
 #endif

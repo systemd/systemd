@@ -38,4 +38,39 @@ int rsa_encrypt_bytes(
 
         return 0;
 }
+
+int rsa_pkey_to_suitable_key_size(
+                EVP_PKEY *pkey,
+                size_t *ret_suitable_key_size) {
+
+        size_t suitable_key_size;
+        RSA *rsa;
+        int bits;
+
+        assert_se(pkey);
+        assert_se(ret_suitable_key_size);
+
+        /* Analyzes the specified public key and that it is RSA. If so, will return a suitable size for a
+         * disk encryption key to encrypt with RSA for use in PKCS#11 security token schemes. */
+
+        if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "X.509 certificate does not refer to RSA key.");
+
+        rsa = EVP_PKEY_get0_RSA(pkey);
+        if (!rsa)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to acquire RSA public key from X.509 certificate.");
+
+        bits = RSA_bits(rsa);
+        log_debug("Bits in RSA key: %i", bits);
+
+        /* We use PKCS#1 padding for the RSA cleartext, hence let's leave some extra space for it, hence only
+         * generate a random key half the size of the RSA length */
+        suitable_key_size = bits / 8 / 2;
+
+        if (suitable_key_size < 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Uh, RSA key size too short?");
+
+        *ret_suitable_key_size = suitable_key_size;
+        return 0;
+}
 #endif

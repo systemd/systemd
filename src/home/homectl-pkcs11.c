@@ -148,8 +148,7 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
         size_t decrypted_key_size, encrypted_key_size;
         _cleanup_(X509_freep) X509 *cert = NULL;
         EVP_PKEY *pkey;
-        int bits, r;
-        RSA *rsa;
+        int r;
 
         assert(v);
 
@@ -161,22 +160,9 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
         if (!pkey)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
 
-        if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "X.509 certificate does not refer to RSA key.");
-
-        rsa = EVP_PKEY_get0_RSA(pkey);
-        if (!rsa)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to acquire RSA public key from X.509 certificate.");
-
-        bits = RSA_bits(rsa);
-        log_debug("Bits in RSA key: %i", bits);
-
-        /* We use PKCS#1 padding for the RSA cleartext, hence let's leave some extra space for it, hence only
-         * generate a random key half the size of the RSA length */
-        decrypted_key_size = bits / 8 / 2;
-
-        if (decrypted_key_size < 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Uh, RSA key size too short?");
+        r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract RSA key size from X509 certificate.");
 
         log_debug("Generating %zu bytes random key.", decrypted_key_size);
 
