@@ -2172,6 +2172,7 @@ static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool for
         link_free_carrier_maps(link);
         link_free_engines(link);
         link->network = network_unref(link->network);
+        link_unref(set_remove(link->manager->links_requesting_uuid, link));
 
         /* Then, apply new .network file */
         r = network_apply(network, link);
