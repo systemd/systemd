@@ -374,6 +374,7 @@ Bond=
 Bridge=
 Broadcast=
 Cache=
+CacheFromLocalhost=
 ClientIdentifier=
 ConfigureWithoutCarrier=
 CopyDSCP=

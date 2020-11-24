@@ -682,11 +682,9 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
         if (t->scope->manager->enable_cache == DNS_CACHE_MODE_NO)
                 return;
 
-        /* We never cache if this packet is from the local host, under
-         * the assumption that a locally running DNS server would
-         * cache this anyway, and probably knows better when to flush
-         * the cache then we could. */
-        if (!DNS_PACKET_SHALL_CACHE(t->received))
+        /* Packet from localhost? */
+        if (!t->scope->manager->cache_from_localhost &&
+            in_addr_is_localhost(t->received->family, &t->received->sender) != 0)
                 return;
 
         dns_cache_put(&t->scope->cache,

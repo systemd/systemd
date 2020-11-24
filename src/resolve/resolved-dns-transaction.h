@@ -2,6 +2,7 @@
 #pragma once
 
 #include "sd-event.h"
+#include "in-addr-util.h"
 
 typedef struct DnsTransaction DnsTransaction;
 typedef enum DnsTransactionState DnsTransactionState;

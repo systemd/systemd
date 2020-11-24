@@ -221,14 +221,6 @@ void dns_packet_rewind(DnsPacket *p, size_t idx);
 int dns_packet_skip_question(DnsPacket *p);
 int dns_packet_extract(DnsPacket *p);
 
-static inline bool DNS_PACKET_SHALL_CACHE(DnsPacket *p) {
-        /* Never cache data originating from localhost, under the
-         * assumption, that it's coming from a locally DNS forwarder
-         * or server, that is caching on its own. */
-
-        return in_addr_is_localhost(p->family, &p->sender) == 0;
-}
-
 /* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6 */
 enum {
         DNS_RCODE_SUCCESS = 0,
