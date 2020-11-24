@@ -273,18 +273,21 @@
             <varlistentry>
               <term><option>none</option></term>
               <listitem>
-                <para>Keeps the MAC address assigned by the kernel.</para>
+                <para>Keeps the MAC address assigned by the kernel. Or use the MAC address specified in
+                <varname>MACAddress=</varname>.</para>
               </listitem>
             </varlistentry>
           </variablelist>
+
+          <para>An empty string assignment is equivalent to setting <literal>none</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>The MAC address to use, if no
-          <varname>MACAddressPolicy=</varname>
-          is specified.</para>
+          <para>The interface MAC address to use. For this setting to take effect,
+          <varname>MACAddressPolicy=</varname> must either be unset, empty, or <literal>none</literal>.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
