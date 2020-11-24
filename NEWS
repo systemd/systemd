@@ -86,6 +86,33 @@ CHANGES WITH 247 in spe:
           this is not caused by systemd/udev changes, but result of a kernel
           behaviour change.
 
+        * UPCOMING INCOMPATIBILITY: So far most downstream distribution
+          packages have not retriggered devices once the udev package (or any
+          auxiliary package installing additional udev rules) is updated. We
+          intend to work with major distributions to change this, so that
+          "udevadm trigger -a change" is issued on such upgrades, ensuring that
+          the updated ruleset is applied to the devices already discovered, so
+          that (asynchronously) after the upgrade completed the udev database
+          is consistent with the updated rule set. This means udev rules must
+          be ready to be retriggered with a "change" action any time, and
+          result in correct and complete udev database entries. While the
+          majority of udev rule files known to us currently get this right,
+          some don't. Specifically, there are udev rules files included in
+          various packages that only set udev properties on the "add" action,
+          but do not handle the "change" action. If a device matching those
+          rules is retriggered with the "change" action (as is intended here)
+          it would suddenly lose the relevant properties. This always has been
+          a problematic, but as soon as all udev devices are triggered on
+          relevant package upgrades this will become particularly so. It is
+          strongly recommended to fix offending rules so that they can handle a
+          "change" action at any time, and acquire all necessary udev
+          properties even then. Or in other words: the header guard mentioned
+          above (ACTION=="remove",GOTO="xyz_end") is the correct approach to
+          handle this, as it makes sure rules are rerun on "change" correctly,
+          and acccumulate the correct and complete set of udev properties. udev
+          rule definitions that cannot handle "change" events being triggered
+          at arbitrary times should be considered buggy.
+
         * The MountAPIVFS= service file setting now defaults to on if
           RootImage= and RootDirectory= are used, which means that with those
           two settings /proc/, /sys/ and /dev/ are automatically properly set
@@ -618,6 +645,11 @@ CHANGES WITH 247 in spe:
           (low-priority tasks). Unless otherwise configured, user units are
           placed in app.slice. The plan is to add resource limits and
           protections for the different slices in the future.
+
+        * New GPT partition types for RISCV32/64 for the root and /usr
+          partitions, and their associated Verity partitions have been defined,
+          and are now understood by systemd-gpt-auto-generator, and the OS
+          image dissection logic.
 
         Contributions from: Adolfo Jayme Barrientos, afg, Alec Moskvin, Alyssa
         Ross, Amitanand Chikorde, Andrew Hangsleben, Anita Zhang, Ansgar
