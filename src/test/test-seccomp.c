@@ -125,6 +125,13 @@ static void test_filter_sets(void) {
                         continue;
                 }
 #endif
+#if HAS_FEATURE_ADDRESS_SANITIZER
+                if (IN_SET(i, SYSCALL_FILTER_SET_DEFAULT, SYSCALL_FILTER_SET_BASIC_IO, SYSCALL_FILTER_SET_SIGNAL)) {
+                        /* ASAN at least requires sigaltstack(), read(), write(). */
+                        log_info("Running on address sanitizer, skipping %s", syscall_filter_sets[i].name);
+                        continue;
+                }
+#endif
 
                 log_info("Testing %s", syscall_filter_sets[i].name);
 
@@ -549,6 +556,10 @@ static void test_memory_deny_write_execute_mmap(void) {
                 return;
         }
 #endif
+#if HAS_FEATURE_ADDRESS_SANITIZER
+        log_notice("Running on address sanitizer, skipping %s", __func__);
+        return;
+#endif
 
         pid = fork();
         assert_se(pid >= 0);
@@ -614,6 +625,10 @@ static void test_memory_deny_write_execute_shmat(void) {
                 log_notice("Running on valgrind, skipping %s", __func__);
                 return;
         }
+#endif
+#if HAS_FEATURE_ADDRESS_SANITIZER
+        log_notice("Running on address sanitizer, skipping %s", __func__);
+        return;
 #endif
 
         shmid = shmget(IPC_PRIVATE, page_size(), 0);
