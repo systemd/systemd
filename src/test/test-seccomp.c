@@ -10,6 +10,9 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
+#if HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -114,6 +117,14 @@ static void test_filter_sets(void) {
 
         for (unsigned i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
                 pid_t pid;
+
+#if HAVE_VALGRIND_VALGRIND_H
+                if (RUNNING_ON_VALGRIND && IN_SET(i, SYSCALL_FILTER_SET_DEFAULT, SYSCALL_FILTER_SET_BASIC_IO, SYSCALL_FILTER_SET_SIGNAL)) {
+                        /* valgrind at least requires rt_sigprocmask(), read(), write(). */
+                        log_info("Running on valgrind, skipping %s", syscall_filter_sets[i].name);
+                        continue;
+                }
+#endif
 
                 log_info("Testing %s", syscall_filter_sets[i].name);
 
@@ -323,6 +334,13 @@ static void test_protect_sysctl(void) {
 
                 assert_se(seccomp_protect_sysctl() >= 0);
 
+#if HAVE_VALGRIND_VALGRIND_H
+                if (RUNNING_ON_VALGRIND) {
+                        log_info("Running on valgrind, skipping syscall/EPERM test");
+                        _exit(EXIT_SUCCESS);
+                }
+#endif
+
 #if defined __NR__sysctl && __NR__sysctl >= 0
                 assert_se(syscall(__NR__sysctl, 0, 0, 0) < 0);
                 assert_se(errno == EPERM);
@@ -525,6 +543,12 @@ static void test_memory_deny_write_execute_mmap(void) {
                 log_notice("Not root, skipping %s", __func__);
                 return;
         }
+#if HAVE_VALGRIND_VALGRIND_H
+        if (RUNNING_ON_VALGRIND) {
+                log_notice("Running on valgrind, skipping %s", __func__);
+                return;
+        }
+#endif
 
         pid = fork();
         assert_se(pid >= 0);
@@ -585,6 +609,12 @@ static void test_memory_deny_write_execute_shmat(void) {
                 log_notice("Not root, skipping %s", __func__);
                 return;
         }
+#if HAVE_VALGRIND_VALGRIND_H
+        if (RUNNING_ON_VALGRIND) {
+                log_notice("Running on valgrind, skipping %s", __func__);
+                return;
+        }
+#endif
 
         shmid = shmget(IPC_PRIVATE, page_size(), 0);
         assert_se(shmid >= 0);
