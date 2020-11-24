@@ -924,4 +924,92 @@ int pkcs11_find_token(
         return -EAGAIN;
 }
 
+#if HAVE_OPENSSL
+struct pkcs11_acquire_certificate_callback_data {
+        char *pin_used;
+        X509 *cert;
+        const char *askpw_friendly_name, *askpw_icon_name;
+};
+
+static void pkcs11_acquire_certificate_callback_data_release(struct pkcs11_acquire_certificate_callback_data *data) {
+        erase_and_free(data->pin_used);
+        X509_free(data->cert);
+}
+
+static int pkcs11_acquire_certificate_callback(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_SLOT_ID slot_id,
+                const CK_SLOT_INFO *slot_info,
+                const CK_TOKEN_INFO *token_info,
+                P11KitUri *uri,
+                void *userdata) {
+
+        _cleanup_(erase_and_freep) char *pin_used = NULL;
+        struct pkcs11_acquire_certificate_callback_data *data = userdata;
+        CK_OBJECT_HANDLE object;
+        int r;
+
+        assert(m);
+        assert(slot_info);
+        assert(token_info);
+        assert(uri);
+        assert(data);
+
+        /* Called for every token matching our URI */
+
+        r = pkcs11_token_login(m, session, slot_id, token_info, data->askpw_friendly_name, data->askpw_icon_name, "pkcs11-pin", UINT64_MAX, &pin_used);
+        if (r < 0)
+                return r;
+
+        r = pkcs11_token_find_x509_certificate(m, session, uri, &object);
+        if (r < 0)
+                return r;
+
+        r = pkcs11_token_read_x509_certificate(m, session, object, &data->cert);
+        if (r < 0)
+                return r;
+
+        /* Let's read some random data off the token and write it to the kernel pool before we generate our
+         * random key from it. This way we can claim the quality of the RNG is at least as good as the
+         * kernel's and the token's pool */
+        (void) pkcs11_token_acquire_rng(m, session);
+
+        data->pin_used = TAKE_PTR(pin_used);
+        return 1;
+}
+
+int pkcs11_acquire_certificate(
+                const char *uri,
+                const char *askpw_friendly_name,
+                const char *askpw_icon_name,
+                X509 **ret_cert,
+                char **ret_pin_used) {
+
+        _cleanup_(pkcs11_acquire_certificate_callback_data_release) struct pkcs11_acquire_certificate_callback_data data = {
+                .askpw_friendly_name = askpw_friendly_name,
+                .askpw_icon_name = askpw_icon_name,
+        };
+        int r;
+
+        assert(uri);
+        assert(ret_cert);
+
+        r = pkcs11_find_token(uri, pkcs11_acquire_certificate_callback, &data);
+        if (r == -EAGAIN) /* pkcs11_find_token() doesn't log about this error, but all others */
+                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "Specified PKCS#11 token with URI '%s' not found.",
+                                       uri);
+        if (r < 0)
+                return r;
+
+        *ret_cert = TAKE_PTR(data.cert);
+
+        if (ret_pin_used)
+                *ret_pin_used = TAKE_PTR(data.pin_used);
+
+        return 0;
+}
+
+#endif
 #endif

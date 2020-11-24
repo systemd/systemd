@@ -11,88 +11,6 @@
 #include "random-util.h"
 #include "strv.h"
 
-struct pkcs11_callback_data {
-        char *pin_used;
-        X509 *cert;
-};
-
-#if HAVE_P11KIT
-static void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
-        erase_and_free(data->pin_used);
-        X509_free(data->cert);
-}
-
-static int pkcs11_callback(
-                CK_FUNCTION_LIST *m,
-                CK_SESSION_HANDLE session,
-                CK_SLOT_ID slot_id,
-                const CK_SLOT_INFO *slot_info,
-                const CK_TOKEN_INFO *token_info,
-                P11KitUri *uri,
-                void *userdata) {
-
-        _cleanup_(erase_and_freep) char *pin_used = NULL;
-        struct pkcs11_callback_data *data = userdata;
-        CK_OBJECT_HANDLE object;
-        int r;
-
-        assert(m);
-        assert(slot_info);
-        assert(token_info);
-        assert(uri);
-        assert(data);
-
-        /* Called for every token matching our URI */
-
-        r = pkcs11_token_login(m, session, slot_id, token_info, "home directory operation", "user-home", "pkcs11-pin", UINT64_MAX, &pin_used);
-        if (r < 0)
-                return r;
-
-        r = pkcs11_token_find_x509_certificate(m, session, uri, &object);
-        if (r < 0)
-                return r;
-
-        r = pkcs11_token_read_x509_certificate(m, session, object, &data->cert);
-        if (r < 0)
-                return r;
-
-        /* Let's read some random data off the token and write it to the kernel pool before we generate our
-         * random key from it. This way we can claim the quality of the RNG is at least as good as the
-         * kernel's and the token's pool */
-        (void) pkcs11_token_acquire_rng(m, session);
-
-        data->pin_used = TAKE_PTR(pin_used);
-        return 1;
-}
-#endif
-
-static int acquire_pkcs11_certificate(
-                const char *uri,
-                X509 **ret_cert,
-                char **ret_pin_used) {
-
-#if HAVE_P11KIT
-        _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {};
-        int r;
-
-        r = pkcs11_find_token(uri, pkcs11_callback, &data);
-        if (r == -EAGAIN) /* pkcs11_find_token() doesn't log about this error, but all others */
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "Specified PKCS#11 token with URI '%s' not found.",
-                                       uri);
-        if (r < 0)
-                return r;
-
-        *ret_cert = TAKE_PTR(data.cert);
-        *ret_pin_used = TAKE_PTR(data.pin_used);
-
-        return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "PKCS#11 tokens not supported on this build.");
-#endif
-}
-
 static int add_pkcs11_encrypted_key(
                 JsonVariant **v,
                 const char *uri,
@@ -235,7 +153,7 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
 
         assert(v);
 
-        r = acquire_pkcs11_certificate(uri, &cert, &pin);
+        r = pkcs11_acquire_certificate(uri, "home directory operation", "user-home", &cert, &pin);
         if (r < 0)
                 return r;
 
