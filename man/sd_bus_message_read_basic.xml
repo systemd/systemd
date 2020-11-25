@@ -189,7 +189,7 @@
 
     <para>
       On success, <function>sd_bus_message_read_basic()</function> returns a positive integer.
-      If the end of currently open array has been reached returns 0.
+      If the end of the currently opened array has been reached, it returns 0.
       On failure, it returns a negative errno-style error code.
     </para>
 
