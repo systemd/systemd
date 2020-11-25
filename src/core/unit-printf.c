@@ -177,35 +177,23 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
          * This will use the passed string as format string and replace the following specifiers (which should all be
          * safe for inclusion in unit names):
          *
-         * %n: the full id of the unit                 (foo@bar.waldo)
-         * %N: the id of the unit without the suffix   (foo@bar)
-         * %p: the prefix                              (foo)
+         * %n: the full id of the unit                 (foo-aaa@bar.waldo)
+         * %N: the id of the unit without the suffix   (foo-aaa@bar)
+         * %p: the prefix                              (foo-aaa)
          * %i: the instance                            (bar)
-         *
-         * %U: the UID of the running user
-         * %u: the username of the running user
-         *
-         * %m: the machine ID of the running system
-         * %b: the boot ID of the running system
-         * %H: the hostname of the running system
-         * %v: the kernel version
-         * %a: the native userspace architecture
-         * %o: the OS ID according to /etc/os-release
-         * %w: the OS version ID, according to /etc/os-release
-         * %B: the OS build ID, according to /etc/os-release
-         * %W: the OS variant ID, according to /etc/os-release
+         * %j: the last componet of the prefix         (aaa)
          */
 
         const Specifier table[] = {
+                { 'i', specifier_string,              u->instance },
+                { 'j', specifier_last_component,      NULL },
                 { 'n', specifier_string,              u->id },
                 { 'N', specifier_prefix_and_instance, NULL },
                 { 'p', specifier_prefix,              NULL },
-                { 'i', specifier_string,              u->instance },
-                { 'j', specifier_last_component,      NULL },
-
-                COMMON_CREDS_SPECIFIERS,
 
                 COMMON_SYSTEM_SPECIFIERS,
+
+                COMMON_CREDS_SPECIFIERS,
                 {}
         };
 
@@ -226,18 +214,14 @@ int unit_full_printf(const Unit *u, const char *format, char **ret) {
          * %r: where units in this slice are placed in the cgroup tree (deprecated)
          * %R: the root of this systemd's instance tree (deprecated)
          *
-         * %t: the runtime directory root (e.g. /run or $XDG_RUNTIME_DIR)
-         * %S: the state directory root (e.g. /var/lib or $XDG_CONFIG_HOME)
          * %C: the cache directory root (e.g. /var/cache or $XDG_CACHE_HOME)
-         * %L: the log directory root (e.g. /var/log or $XDG_CONFIG_HOME/log)
          * %E: the configuration directory root (e.g. /etc or $XDG_CONFIG_HOME)
-         * %T: the temporary directory (e.g. /tmp, or $TMPDIR, $TEMP, $TMP)
-         * %V: the temporary directory for large, persistent stuff (e.g. /var/tmp, or $TMPDIR, $TEMP, $TMP)
+         * %L: the log directory root (e.g. /var/log or $XDG_CONFIG_HOME/log)
+         * %S: the state directory root (e.g. /var/lib or $XDG_CONFIG_HOME)
+         * %t: the runtime directory root (e.g. /run or $XDG_RUNTIME_DIR)
          *
          * %h: the homedir of the running user
          * %s: the shell of the running user
-         *
-         * %v: `uname -r` of the running system
          *
          * NOTICE: When you add new entries here, please be careful: specifiers which depend on settings of the unit
          * file itself are broken by design, as they would resolve differently depending on whether they are used
@@ -249,32 +233,35 @@ int unit_full_printf(const Unit *u, const char *format, char **ret) {
         assert(ret);
 
         const Specifier table[] = {
-                { 'n', specifier_string,                   u->id },
-                { 'N', specifier_prefix_and_instance,      NULL },
-                { 'p', specifier_prefix,                   NULL },
-                { 'P', specifier_prefix_unescaped,         NULL },
                 { 'i', specifier_string,                   u->instance },
                 { 'I', specifier_instance_unescaped,       NULL },
                 { 'j', specifier_last_component,           NULL },
                 { 'J', specifier_last_component_unescaped, NULL },
+                { 'n', specifier_string,                   u->id },
+                { 'N', specifier_prefix_and_instance,      NULL },
+                { 'p', specifier_prefix,                   NULL },
+                { 'P', specifier_prefix_unescaped,         NULL },
 
                 { 'f', specifier_filename,                 NULL },
+
                 { 'c', specifier_cgroup,                   NULL },
                 { 'r', specifier_cgroup_slice,             NULL },
                 { 'R', specifier_cgroup_root,              NULL },
 
-                { 't', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
-                { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
                 { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
-                { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
                 { 'E', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CONFIGURATION) },
-                COMMON_TMP_SPECIFIERS,
+                { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
+                { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
+                { 't', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
 
-                COMMON_CREDS_SPECIFIERS,
                 { 'h', specifier_user_home,                NULL },
                 { 's', specifier_user_shell,               NULL },
 
                 COMMON_SYSTEM_SPECIFIERS,
+
+                COMMON_CREDS_SPECIFIERS,
+
+                COMMON_TMP_SPECIFIERS,
                 {}
         };
 

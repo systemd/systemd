@@ -157,14 +157,14 @@ static int specifier_dnssd_host_name(char specifier, const void *data, const voi
 
 int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id,      NULL },
-                { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_dnssd_host_name, NULL },
-                { 'v', specifier_kernel_release,  NULL },
                 { 'a', specifier_architecture,    NULL },
-                { 'o', specifier_os_id,           NULL },
-                { 'w', specifier_os_version_id,   NULL },
+                { 'b', specifier_boot_id,         NULL },
                 { 'B', specifier_os_build_id,     NULL },
+                { 'H', specifier_dnssd_host_name, NULL },
+                { 'm', specifier_machine_id,      NULL },
+                { 'o', specifier_os_id,           NULL },
+                { 'v', specifier_kernel_release,  NULL },
+                { 'w', specifier_os_version_id,   NULL },
                 { 'W', specifier_os_variant_id,   NULL },
                 {}
         };
