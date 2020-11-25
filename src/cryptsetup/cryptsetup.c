@@ -560,6 +560,32 @@ static char *make_bindname(const char *volume) {
         return s;
 }
 
+static int make_security_device_monitor(sd_event *event, sd_device_monitor **ret) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_device_monitor_new(&monitor);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate device monitor: %m");
+
+        r = sd_device_monitor_filter_add_match_tag(monitor, "security-device");
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure device monitor: %m");
+
+        r = sd_device_monitor_attach_event(monitor, event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach device monitor: %m");
+
+        r = sd_device_monitor_start(monitor, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start device monitor: %m");
+
+        *ret = TAKE_PTR(monitor);
+        return 0;
+}
+
 static int attach_luks_or_plain_or_bitlk(
                 struct crypt_device *cd,
                 const char *name,
@@ -668,21 +694,9 @@ static int attach_luks_or_plain_or_bitlk(
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to allocate event loop: %m");
 
-                                r = sd_device_monitor_new(&monitor);
+                                r = make_security_device_monitor(event, &monitor);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to allocate device monitor: %m");
-
-                                r = sd_device_monitor_filter_add_match_tag(monitor, "security-device");
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to configure device monitor: %m");
-
-                                r = sd_device_monitor_attach_event(monitor, event);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to attach device monitor: %m");
-
-                                r = sd_device_monitor_start(monitor, NULL, NULL);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to start device monitor: %m");
+                                        return r;
 
                                 log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
                                            arg_pkcs11_uri, friendly);
