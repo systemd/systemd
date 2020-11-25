@@ -468,7 +468,8 @@ static int get_password(
                         return log_oom();
 
                 strncpy(c, *p, arg_key_size);
-                free_and_replace(*p, c);
+                erase_and_free(*p);
+                *p = TAKE_PTR(c);
         }
 
         *ret = TAKE_PTR(passwords);
@@ -486,7 +487,7 @@ static int attach_tcrypt(
                 uint32_t flags) {
 
         int r = 0;
-        _cleanup_free_ char *passphrase = NULL;
+        _cleanup_(erase_and_freep) char *passphrase = NULL;
         struct crypt_params_tcrypt params = {
                 .flags = CRYPT_TCRYPT_LEGACY_MODES,
                 .keyfiles = (const char **)arg_tcrypt_keyfiles,
@@ -656,8 +657,8 @@ static int attach_luks_or_plain_or_bitlk(
 
         if (arg_pkcs11_uri) {
                 _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+                _cleanup_(erase_and_freep) void *decrypted_key = NULL;
                 _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-                _cleanup_free_ void *decrypted_key = NULL;
                 _cleanup_free_ char *friendly = NULL;
                 size_t decrypted_key_size = 0;
 
@@ -724,7 +725,7 @@ static int attach_luks_or_plain_or_bitlk(
                 if (pass_volume_key)
                         r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
                 else {
-                        _cleanup_free_ char *base64_encoded = NULL;
+                        _cleanup_(erase_and_freep) char *base64_encoded = NULL;
 
                         /* Before using this key as passphrase we base64 encode it. Why? For compatibility
                          * with homed's PKCS#11 hookup: there we want to use the key we acquired through
