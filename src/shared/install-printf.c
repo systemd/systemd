@@ -104,32 +104,18 @@ static int specifier_last_component(char specifier, const void *data, const void
 }
 
 int install_full_printf(const UnitFileInstallInfo *i, const char *format, char **ret) {
-        /* This is similar to unit_full_printf() but does not support
-         * anything path-related.
-         *
-         * %n: the full id of the unit                 (foo@bar.waldo)
-         * %N: the id of the unit without the suffix   (foo@bar)
-         * %p: the prefix                              (foo)
-         * %i: the instance                            (bar)
-
-         * %U the UID of the running user
-         * %u the username of running user
-         * %m the machine ID of the running system
-         * %H the hostname of the running system
-         * %b the boot ID of the running system
-         * %v `uname -r` of the running system
-         */
+        /* This is similar to unit_name_printf() */
 
         const Specifier table[] = {
+                { 'i', specifier_instance,            NULL },
+                { 'j', specifier_last_component,      NULL },
                 { 'n', specifier_name,                NULL },
                 { 'N', specifier_prefix_and_instance, NULL },
                 { 'p', specifier_prefix,              NULL },
-                { 'i', specifier_instance,            NULL },
-                { 'j', specifier_last_component,      NULL },
-
-                COMMON_CREDS_SPECIFIERS,
 
                 COMMON_SYSTEM_SPECIFIERS,
+
+                COMMON_CREDS_SPECIFIERS,
                 {}
         };
 
