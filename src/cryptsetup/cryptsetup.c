@@ -855,6 +855,7 @@ static void remove_and_erasep(const char **p) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        const char *verb;
         int r;
 
         if (argc <= 1)
@@ -870,39 +871,44 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        if (streq(argv[1], "attach")) {
+        verb = argv[1];
+
+        if (streq(verb, "attach")) {
+                _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
+                _cleanup_(erase_and_freep) void *key_data = NULL;
+                const char *volume, *source, *key_file, *options;
+                crypt_status_info status;
+                size_t key_data_size = 0;
                 uint32_t flags = 0;
                 unsigned tries;
                 usec_t until;
-                crypt_status_info status;
-                _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
-                const char *key_file = NULL;
-                _cleanup_(erase_and_freep) void *key_data = NULL;
-                size_t key_data_size = 0;
 
                 /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [PASSWORD] [OPTIONS] */
 
                 if (argc < 4)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
 
-                if (!filename_is_valid(argv[2]))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", argv[2]);
+                volume = argv[2];
+                source = argv[3];
+                key_file = argc >= 5 && !STR_IN_SET(argv[4], "", "-", "none") ? argv[4] : NULL;
+                options = argc >= 6 && !STR_IN_SET(argv[5], "", "-", "none") ? argv[5] : NULL;
 
-                if (argc >= 5 && !STR_IN_SET(argv[4], "", "-", "none")) {
-                        if (path_is_absolute(argv[4]))
-                                key_file = argv[4];
-                        else
-                                log_warning("Password file path '%s' is not absolute. Ignoring.", argv[4]);
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
+
+                if (key_file && !path_is_absolute(key_file)) {
+                        log_warning("Password file path '%s' is not absolute. Ignoring.", key_file);
+                        key_file = NULL;
                 }
 
-                if (argc >= 6 && !STR_IN_SET(argv[5], "", "-", "none")) {
-                        r = parse_options(argv[5]);
+                if (options) {
+                        r = parse_options(options);
                         if (r < 0)
                                 return r;
                 }
 
                 log_debug("%s %s ← %s type=%s cipher=%s", __func__,
-                          argv[2], argv[3], strempty(arg_type), strempty(arg_cipher));
+                          volume, source, strempty(arg_type), strempty(arg_cipher));
 
                 /* A delicious drop of snake oil */
                 (void) mlockall(MCL_FUTURE);
@@ -911,14 +917,14 @@ static int run(int argc, char *argv[]) {
                         _cleanup_free_ char *bindname = NULL;
                         const char *fn;
 
-                        bindname = make_bindname(argv[2]);
+                        bindname = make_bindname(volume);
                         if (!bindname)
                                 return log_oom();
 
                         /* If a key file is not explicitly specified, search for a key in a well defined
                          * search path, and load it. */
 
-                        fn = strjoina(argv[2], ".key");
+                        fn = strjoina(volume, ".key");
                         r = find_key_file(
                                         fn,
                                         STRV_MAKE("/etc/cryptsetup-keys.d", "/run/cryptsetup-keys.d"),
@@ -927,7 +933,7 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         if (r > 0)
-                                log_debug("Automatically discovered key for volume '%s'.", argv[2]);
+                                log_debug("Automatically discovered key for volume '%s'.", volume);
                 } else if (arg_keyfile_erase)
                         destroy_key_file = key_file; /* let's get this baby erased when we leave */
 
@@ -935,15 +941,15 @@ static int run(int argc, char *argv[]) {
                         log_debug("LUKS header: %s", arg_header);
                         r = crypt_init(&cd, arg_header);
                 } else
-                        r = crypt_init(&cd, argv[3]);
+                        r = crypt_init(&cd, source);
                 if (r < 0)
                         return log_error_errno(r, "crypt_init() failed: %m");
 
                 cryptsetup_enable_logging(cd);
 
-                status = crypt_status(cd, argv[2]);
+                status = crypt_status(cd, volume);
                 if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
-                        log_info("Volume %s already active.", argv[2]);
+                        log_info("Volume %s already active.", volume);
                         return 0;
                 }
 
@@ -971,16 +977,16 @@ static int run(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", crypt_get_device_name(cd));
 
                         if (arg_header) {
-                                r = crypt_set_data_device(cd, argv[3]);
+                                r = crypt_set_data_device(cd, source);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to set LUKS data device %s: %m", argv[3]);
+                                        return log_error_errno(r, "Failed to set LUKS data device %s: %m", source);
                         }
 
                         /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
                         if (!key_file && !key_data) {
-                                r = crypt_activate_by_token(cd, argv[2], CRYPT_ANY_TOKEN, NULL, flags);
+                                r = crypt_activate_by_token(cd, volume, CRYPT_ANY_TOKEN, NULL, flags);
                                 if (r >= 0) {
-                                        log_debug("Volume %s activated with LUKS token id %i.", argv[2], r);
+                                        log_debug("Volume %s activated with LUKS token id %i.", volume, r);
                                         return 0;
                                 }
 
@@ -1024,7 +1030,7 @@ static int run(int argc, char *argv[]) {
                                         /* Ask the user for a passphrase only as last resort, if we have
                                          * nothing else to check for */
 
-                                        r = get_password(argv[2], argv[3], until, tries == 0 && !arg_verify, &passwords);
+                                        r = get_password(volume, source, until, tries == 0 && !arg_verify, &passwords);
                                         if (r == -EAGAIN)
                                                 continue;
                                         if (r < 0)
@@ -1033,9 +1039,9 @@ static int run(int argc, char *argv[]) {
                         }
 
                         if (streq_ptr(arg_type, CRYPT_TCRYPT))
-                                r = attach_tcrypt(cd, argv[2], key_file, key_data, key_data_size, passwords, flags);
+                                r = attach_tcrypt(cd, volume, key_file, key_data, key_data_size, passwords, flags);
                         else
-                                r = attach_luks_or_plain_or_bitlk(cd, argv[2], key_file, key_data, key_data_size, passwords, flags, until);
+                                r = attach_luks_or_plain_or_bitlk(cd, volume, key_file, key_data, key_data_size, passwords, flags, until);
                         if (r >= 0)
                                 break;
                         if (r != -EAGAIN)
@@ -1052,14 +1058,17 @@ static int run(int argc, char *argv[]) {
                 if (arg_tries != 0 && tries >= arg_tries)
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to activate; giving up.");
 
-        } else if (streq(argv[1], "detach")) {
+        } else if (streq(verb, "detach")) {
+                const char *volume;
 
-                if (!filename_is_valid(argv[2]))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", argv[2]);
+                volume = argv[2];
 
-                r = crypt_init_by_name(&cd, argv[2]);
+                if (!filename_is_valid(volume))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
+
+                r = crypt_init_by_name(&cd, volume);
                 if (r == -ENODEV) {
-                        log_info("Volume %s already inactive.", argv[2]);
+                        log_info("Volume %s already inactive.", volume);
                         return 0;
                 }
                 if (r < 0)
@@ -1067,12 +1076,12 @@ static int run(int argc, char *argv[]) {
 
                 cryptsetup_enable_logging(cd);
 
-                r = crypt_deactivate(cd, argv[2]);
+                r = crypt_deactivate(cd, volume);
                 if (r < 0)
                         return log_error_errno(r, "Failed to deactivate: %m");
 
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", verb);
 
         return 0;
 }
