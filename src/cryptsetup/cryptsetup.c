@@ -353,7 +353,8 @@ static char *disk_mount_point(const char *label) {
 
         /* Yeah, we don't support native systemd unit files here for now */
 
-        if (asprintf(&device, "/dev/mapper/%s", label) < 0)
+        device = strjoin("/dev/mapper/", label);
+        if (!device)
                 return NULL;
 
         f = setmntent(fstab_path(), "re");
