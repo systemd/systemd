@@ -188,9 +188,9 @@
     <title>Return Value</title>
 
     <para>
-      On success, <function>sd_bus_message_read_basic()</function> returns 0 or
-      a positive integer. On failure, it returns a negative errno-style error
-      code.
+      On success, <function>sd_bus_message_read_basic()</function> a positive integer.
+      If the end of currently open array has been reached returns 0.
+      On failure, it returns a negative errno-style error code.
     </para>
 
     <refsect2 id='errors'>
