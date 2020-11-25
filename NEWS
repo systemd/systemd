@@ -102,16 +102,16 @@ CHANGES WITH 247 in spe:
           but do not handle the "change" action. If a device matching those
           rules is retriggered with the "change" action (as is intended here)
           it would suddenly lose the relevant properties. This always has been
-          a problematic, but as soon as all udev devices are triggered on
-          relevant package upgrades this will become particularly so. It is
-          strongly recommended to fix offending rules so that they can handle a
-          "change" action at any time, and acquire all necessary udev
-          properties even then. Or in other words: the header guard mentioned
-          above (ACTION=="remove",GOTO="xyz_end") is the correct approach to
-          handle this, as it makes sure rules are rerun on "change" correctly,
-          and acccumulate the correct and complete set of udev properties. udev
-          rule definitions that cannot handle "change" events being triggered
-          at arbitrary times should be considered buggy.
+          problematic, but as soon as all udev devices are triggered on relevant
+          package upgrades this will become particularly so. It is strongly
+          recommended to fix offending rules so that they can handle a "change"
+          action at any time, and acquire all necessary udev properties even
+          then. Or in other words: the header guard mentioned above
+          (ACTION=="remove",GOTO="xyz_end") is the correct approach to handle
+          this, as it makes sure rules are rerun on "change" correctly, and
+          accumulate the correct and complete set of udev properties. udev rule
+          definitions that cannot handle "change" events being triggered at
+          arbitrary times should be considered buggy.
 
         * The MountAPIVFS= service file setting now defaults to on if
           RootImage= and RootDirectory= are used, which means that with those
