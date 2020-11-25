@@ -1252,6 +1252,11 @@ static void cgroup_context_apply(
                         xsprintf(buf, "%" PRIu64 "\n", weight);
                         (void) set_attribute_and_warn(u, "blkio", "blkio.weight", buf);
 
+                        /* FIXME: drop this when distro kernels properly support BFQ through "blkio.weight"
+                         * See also: https://github.com/systemd/systemd/pull/13335 */
+                        xsprintf(buf, "%" PRIu64 "\n", weight);
+                        (void) set_attribute_and_warn(u, "blkio", "blkio.bfq.weight", buf);
+
                         if (has_io) {
                                 CGroupIODeviceWeight *w;
 
