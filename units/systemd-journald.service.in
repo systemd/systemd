@@ -42,8 +42,8 @@ Type=notify
 @SERVICE_WATCHDOG@
 
 # In case you're wondering why CAP_SYS_PTRACE is needed, access to
-# /proc/<pid>/exec requires this capability. Thus if this cap is missing
-# _EXE/OBJECT_EXE fields will be missing from the journal entries.
+# /proc/<pid>/exe requires this capability. Thus if this capability is missing
+# the _EXE=/OBJECT_EXE= fields will be missing from the journal entries.
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_DAC_OVERRIDE CAP_SYS_PTRACE CAP_SYSLOG CAP_AUDIT_CONTROL CAP_AUDIT_READ CAP_CHOWN CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID CAP_MAC_OVERRIDE
 
 # If there are many split up journal files we need a lot of fds to access them
