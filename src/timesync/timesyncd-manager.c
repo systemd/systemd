@@ -477,16 +477,16 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         m->missed_replies = 0;
 
         /* check our "time cookie" (we just stored nanoseconds in the fraction field) */
-        if (be32toh(ntpmsg.origin_time.sec) != m->trans_time.tv_sec + OFFSET_1900_1970 ||
-            be32toh(ntpmsg.origin_time.frac) != (unsigned long) m->trans_time.tv_nsec) {
+        if (be32toh(ntpmsg.origin_time.sec) != (unsigned int)(m->trans_time.tv_sec + OFFSET_1900_1970) ||
+            be32toh(ntpmsg.origin_time.frac) != (unsigned int) m->trans_time.tv_nsec) {
                 log_debug("Invalid reply; not our transmit time. Ignoring.");
                 return 0;
         }
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        if (be32toh(ntpmsg.recv_time.sec) < TIME_EPOCH + OFFSET_1900_1970 ||
-            be32toh(ntpmsg.trans_time.sec) < TIME_EPOCH + OFFSET_1900_1970) {
+        if (be32toh(ntpmsg.recv_time.sec) < (unsigned int)(TIME_EPOCH + OFFSET_1900_1970) ||
+            be32toh(ntpmsg.trans_time.sec) < (unsigned int)(TIME_EPOCH + OFFSET_1900_1970)) {
                 log_debug("Invalid reply, returned times before epoch. Ignoring.");
                 return manager_connect(m);
         }
