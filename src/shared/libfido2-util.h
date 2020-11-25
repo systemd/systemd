@@ -70,3 +70,6 @@ static inline void fido_cred_free_wrapper(fido_cred_t **p) {
 }
 
 #endif
+
+int fido2_list_devices(void);
+int fido2_find_device_auto(char **ret);

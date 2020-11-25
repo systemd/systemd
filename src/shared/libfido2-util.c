@@ -5,6 +5,8 @@
 #if HAVE_LIBFIDO2
 #include "alloc-util.h"
 #include "dlfcn-util.h"
+#include "format-table.h"
+#include "locale-util.h"
 #include "log.h"
 
 static void *libfido2_dl = NULL;
@@ -115,3 +117,138 @@ int dlopen_libfido2(void) {
         return 1;
 }
 #endif
+
+int fido2_list_devices(void) {
+#if HAVE_LIBFIDO2
+        _cleanup_(table_unrefp) Table *t = NULL;
+        size_t allocated = 64, found = 0;
+        fido_dev_info_t *di = NULL;
+        int r;
+
+        r = dlopen_libfido2();
+        if (r < 0)
+                return log_error_errno(r, "FIDO2 token support is not installed.");
+
+        di = sym_fido_dev_info_new(allocated);
+        if (!di)
+                return log_oom();
+
+        r = sym_fido_dev_info_manifest(di, allocated, &found);
+        if (r == FIDO_ERR_INTERNAL || (r == FIDO_OK && found == 0)) {
+                /* The library returns FIDO_ERR_INTERNAL when no devices are found. I wish it wouldn't. */
+                log_info("No FIDO2 devices found.");
+                r = 0;
+                goto finish;
+        }
+        if (r != FIDO_OK) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to enumerate FIDO2 devices: %s", sym_fido_strerr(r));
+                goto finish;
+        }
+
+        t = table_new("path", "manufacturer", "product");
+        if (!t) {
+                r = log_oom();
+                goto finish;
+        }
+
+        for (size_t i = 0; i < found; i++) {
+                const fido_dev_info_t *entry;
+
+                entry = sym_fido_dev_info_ptr(di, i);
+                if (!entry) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                            "Failed to get device information for FIDO device %zu.", i);
+                        goto finish;
+                }
+
+                r = table_add_many(
+                                t,
+                                TABLE_PATH, sym_fido_dev_info_path(entry),
+                                TABLE_STRING, sym_fido_dev_info_manufacturer_string(entry),
+                                TABLE_STRING, sym_fido_dev_info_product_string(entry));
+                if (r < 0) {
+                        table_log_add_error(r);
+                        goto finish;
+                }
+        }
+
+        r = table_print(t, stdout);
+        if (r < 0) {
+                log_error_errno(r, "Failed to show device table: %m");
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        sym_fido_dev_info_free(&di, allocated);
+        return r;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "FIDO2 tokens not supported on this build.");
+#endif
+}
+
+int fido2_find_device_auto(char **ret) {
+#if HAVE_LIBFIDO2
+        _cleanup_free_ char *copy = NULL;
+        size_t di_size = 64, found = 0;
+        const fido_dev_info_t *entry;
+        fido_dev_info_t *di = NULL;
+        const char *path;
+        int r;
+
+        r = dlopen_libfido2();
+        if (r < 0)
+                return log_error_errno(r, "FIDO2 token support is not installed.");
+
+        di = sym_fido_dev_info_new(di_size);
+        if (!di)
+                return log_oom();
+
+        r = sym_fido_dev_info_manifest(di, di_size, &found);
+        if (r == FIDO_ERR_INTERNAL || (r == FIDO_OK && found == 0)) {
+                /* The library returns FIDO_ERR_INTERNAL when no devices are found. I wish it wouldn't. */
+                r = log_error_errno(SYNTHETIC_ERRNO(ENODEV), "No FIDO devices found.");
+                goto finish;
+        }
+        if (r != FIDO_OK) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to enumerate FIDO devices: %s", sym_fido_strerr(r));
+                goto finish;
+        }
+        if (found > 1) {
+                r = log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "More than one FIDO device found.");
+                goto finish;
+        }
+
+        entry = sym_fido_dev_info_ptr(di, 0);
+        if (!entry) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                    "Failed to get device information for FIDO device 0.");
+                goto finish;
+        }
+
+        path = sym_fido_dev_info_path(entry);
+        if (!path) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                    "Failed to query FIDO device path.");
+                goto finish;
+        }
+
+        copy = strdup(path);
+        if (!copy) {
+                r = log_oom();
+                goto finish;
+        }
+
+        *ret = TAKE_PTR(copy);
+        r = 0;
+
+finish:
+        sym_fido_dev_info_free(&di, di_size);
+        return r;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "FIDO2 tokens not supported on this build.");
+#endif
+}
