@@ -43,4 +43,8 @@ int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *v
 int cryptsetup_get_keyslot_from_token(JsonVariant *v);
 int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v);
 
+/* Stolen from cryptsetup's sources. We use to iterate through all tokens defined for a volume. Ideally, we'd
+ * be able to query this via some API, but there appears to be none currently in libcryptsetup. */
+#define LUKS2_TOKENS_MAX 32
+
 #endif

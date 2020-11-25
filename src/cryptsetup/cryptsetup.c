@@ -64,6 +64,7 @@ static uint64_t arg_offset = 0;
 static uint64_t arg_skip = 0;
 static usec_t arg_timeout = USEC_INFINITY;
 static char *arg_pkcs11_uri = NULL;
+static bool arg_pkcs11_uri_auto = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -262,12 +263,19 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "pkcs11-uri="))) {
 
-                if (!pkcs11_uri_valid(val))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "pkcs11-uri= parameter expects a PKCS#11 URI, refusing");
+                if (streq(val, "auto")) {
+                        arg_pkcs11_uri = mfree(arg_pkcs11_uri);
+                        arg_pkcs11_uri_auto = true;
+                } else {
+                        if (!pkcs11_uri_valid(val))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "pkcs11-uri= parameter expects a PKCS#11 URI, refusing");
 
-                r = free_and_strdup(&arg_pkcs11_uri, val);
-                if (r < 0)
-                        return log_oom();
+                        r = free_and_strdup(&arg_pkcs11_uri, val);
+                        if (r < 0)
+                                return log_oom();
+
+                        arg_pkcs11_uri_auto = false;
+                }
 
         } else if ((val = startswith(option, "try-empty-password="))) {
 
@@ -498,7 +506,7 @@ static int attach_tcrypt(
         assert(name);
         assert(key_file || key_data || !strv_isempty(passwords));
 
-        if (arg_pkcs11_uri)
+        if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
                 /* Ask for a regular password */
                 return log_error_errno(SYNTHETIC_ERRNO(EAGAIN),
                                        "Sorry, but tcrypt devices are currently not supported in conjunction with pkcs11 support.");
@@ -655,12 +663,29 @@ static int attach_luks_or_plain_or_bitlk(
                  crypt_get_volume_key_size(cd)*8,
                  crypt_get_device_name(cd));
 
-        if (arg_pkcs11_uri) {
+        if (arg_pkcs11_uri || arg_pkcs11_uri_auto) {
                 _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+                _cleanup_free_ char *friendly = NULL, *discovered_uri = NULL;
+                size_t decrypted_key_size = 0, discovered_key_size = 0;
                 _cleanup_(erase_and_freep) void *decrypted_key = NULL;
                 _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-                _cleanup_free_ char *friendly = NULL;
-                size_t decrypted_key_size = 0;
+                _cleanup_free_ void *discovered_key = NULL;
+                int keyslot = arg_key_slot;
+                const char *uri;
+
+                if (arg_pkcs11_uri_auto) {
+                        r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &keyslot);
+                        if (IN_SET(r, -ENOTUNIQ, -ENXIO))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                       "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
+                        if (r < 0)
+                                return r;
+
+                        key_data = discovered_key;
+                        key_data_size = discovered_key_size;
+                        uri = discovered_uri;
+                } else
+                        uri = arg_pkcs11_uri;
 
                 if (!key_file && !key_data)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PKCS#11 mode selected but no key file specified, refusing.");
@@ -675,7 +700,7 @@ static int attach_luks_or_plain_or_bitlk(
                         r = decrypt_pkcs11_key(
                                         name,
                                         friendly,
-                                        arg_pkcs11_uri,
+                                        uri,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
                                         until,
@@ -700,7 +725,7 @@ static int attach_luks_or_plain_or_bitlk(
                                         return r;
 
                                 log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
-                                           arg_pkcs11_uri, friendly);
+                                           uri, friendly);
 
                                 /* Let's immediately rescan in case the token appeared in the time we needed
                                  * to create and configure the monitor */
@@ -739,7 +764,7 @@ static int attach_luks_or_plain_or_bitlk(
                         if (r < 0)
                                 return log_oom();
 
-                        r = crypt_activate_by_passphrase(cd, name, arg_key_slot, base64_encoded, strlen(base64_encoded), flags);
+                        r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
                 }
                 if (r == -EPERM) {
                         log_error_errno(r, "Failed to activate with PKCS#11 decrypted key. (Key incorrect?)");
@@ -1030,7 +1055,7 @@ static int run(int argc, char *argv[]) {
                          *    5. We enquire the user for a password
                          */
 
-                        if (!key_file && !key_data && !arg_pkcs11_uri) {
+                        if (!key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto) {
 
                                 if (arg_try_empty_password) {
                                         /* Hmm, let's try an empty password now, but only once */
@@ -1068,6 +1093,7 @@ static int run(int argc, char *argv[]) {
                         key_data = erase_and_free(key_data);
                         key_data_size = 0;
                         arg_pkcs11_uri = mfree(arg_pkcs11_uri);
+                        arg_pkcs11_uri_auto = false;
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries)
