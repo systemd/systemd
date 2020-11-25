@@ -16,7 +16,7 @@
 
 /* Those that can be escaped or double-quoted.
  *
- * Stricly speaking, ! does not need to be escaped, except in interactive
+ * Strictly speaking, ! does not need to be escaped, except in interactive
  * mode, but let's be extra nice to the user and quote ! in case this
  * output is ever used in interactive mode. */
 #define SHELL_NEED_QUOTES SHELL_NEED_ESCAPE GLOB_CHARS "'()<>|&;!"
