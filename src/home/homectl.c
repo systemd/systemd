@@ -3146,7 +3146,7 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *p;
 
                         if (streq(optarg, "list"))
-                                return list_pkcs11_tokens();
+                                return pkcs11_list_tokens();
 
                         /* If --pkcs11-token-uri= is specified we always drop everything old */
                         FOREACH_STRING(p, "pkcs11TokenUri", "pkcs11EncryptedKey") {
@@ -3163,7 +3163,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "auto")) {
                                 _cleanup_free_ char *found = NULL;
 
-                                r = find_pkcs11_token_auto(&found);
+                                r = pkcs11_find_token_auto(&found);
                                 if (r < 0)
                                         return r;
                                 r = strv_consume(&arg_pkcs11_token_uri, TAKE_PTR(found));
