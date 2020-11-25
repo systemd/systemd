@@ -1734,10 +1734,9 @@
       </varlistentry>
     </variablelist>
 
-    <para>The following specifiers are interpreted in the Install
-    section: %n, %N, %p, %i, %j, %g, %G, %U, %u, %m, %H, %b, %v. For their
-    meaning see the next section.
-    </para>
+    <para>The following specifiers are interpreted in the Install section:
+    %a, %b, %B, %g, %G, %H, %i, %j, %l, %m, %n, %N, %o, %p, %u, %U, %v, %w, %W, %%.
+    For their meaning see the next section.</para>
   </refsect1>
 
   <refsect1>
