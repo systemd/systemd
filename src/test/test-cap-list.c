@@ -55,7 +55,7 @@ static void test_cap_list(void) {
 
 static void test_capability_set_one(uint64_t c, const char *t) {
         _cleanup_free_ char *t1 = NULL;
-        uint64_t c1, c_masked = c & ((UINT64_C(1) << capability_list_length()) - 1);
+        uint64_t c1, c_masked = c & all_capabilities();
 
         assert_se(capability_set_to_string_alloc(c, &t1) == 0);
         assert_se(streq(t1, t));
@@ -70,7 +70,7 @@ static void test_capability_set_one(uint64_t c, const char *t) {
         assert_se(c1 == c_masked);
 }
 
-static void test_capability_set(void) {
+static void test_capability_set_from_string(void) {
         uint64_t c;
 
         assert_se(capability_set_from_string(NULL, &c) == 0);
@@ -87,38 +87,42 @@ static void test_capability_set(void) {
 
         assert_se(capability_set_from_string("0 1 2 3", &c) == 0);
         assert_se(c == (UINT64_C(1) << 4) - 1);
+}
 
-        test_capability_set_one(0, "");
-        test_capability_set_one(
-                UINT64_C(1) << CAP_DAC_OVERRIDE,
-                "cap_dac_override");
-        test_capability_set_one(
-                UINT64_C(1) << CAP_DAC_OVERRIDE |
-                UINT64_C(1) << capability_list_length(),
-                "cap_dac_override");
-        test_capability_set_one(
-                UINT64_C(1) << capability_list_length(), "");
-        test_capability_set_one(
-                UINT64_C(1) << CAP_CHOWN |
-                UINT64_C(1) << CAP_DAC_OVERRIDE |
-                UINT64_C(1) << CAP_DAC_READ_SEARCH |
-                UINT64_C(1) << CAP_FOWNER |
-                UINT64_C(1) << CAP_SETGID |
-                UINT64_C(1) << CAP_SETUID |
-                UINT64_C(1) << CAP_SYS_PTRACE |
-                UINT64_C(1) << CAP_SYS_ADMIN |
-                UINT64_C(1) << CAP_AUDIT_CONTROL |
-                UINT64_C(1) << CAP_MAC_OVERRIDE |
-                UINT64_C(1) << CAP_SYSLOG |
-                UINT64_C(1) << (capability_list_length() + 1),
-                "cap_chown cap_dac_override cap_dac_read_search cap_fowner "
-                "cap_setgid cap_setuid cap_sys_ptrace cap_sys_admin "
-                "cap_audit_control cap_mac_override cap_syslog");
+static void test_capability_set_to_string(uint64_t invalid_cap_set) {
+        uint64_t c;
+
+        test_capability_set_one(invalid_cap_set, "");
+
+        c = (UINT64_C(1) << CAP_DAC_OVERRIDE | invalid_cap_set);
+        test_capability_set_one(c, "cap_dac_override");
+
+        c = (UINT64_C(1) << CAP_CHOWN |
+             UINT64_C(1) << CAP_DAC_OVERRIDE |
+             UINT64_C(1) << CAP_DAC_READ_SEARCH |
+             UINT64_C(1) << CAP_FOWNER |
+             UINT64_C(1) << CAP_SETGID |
+             UINT64_C(1) << CAP_SETUID |
+             UINT64_C(1) << CAP_SYS_PTRACE |
+             UINT64_C(1) << CAP_SYS_ADMIN |
+             UINT64_C(1) << CAP_AUDIT_CONTROL |
+             UINT64_C(1) << CAP_MAC_OVERRIDE |
+             UINT64_C(1) << CAP_SYSLOG |
+             invalid_cap_set);
+        test_capability_set_one(c, ("cap_chown cap_dac_override cap_dac_read_search cap_fowner "
+                                    "cap_setgid cap_setuid cap_sys_ptrace cap_sys_admin "
+                                    "cap_audit_control cap_mac_override cap_syslog"));
 }
 
 int main(int argc, char *argv[]) {
         test_cap_list();
-        test_capability_set();
+        test_capability_set_from_string();
+        test_capability_set_to_string(0);
+
+        /* once the kernel supports 63 caps, there are no 'invalid' numbers
+         * for us to test with */
+        if (cap_last_cap() < 63)
+                test_capability_set_to_string(all_capabilities() + 1);
 
         return 0;
 }
