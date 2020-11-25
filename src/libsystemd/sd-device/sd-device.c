@@ -1205,6 +1205,12 @@ static int handle_db_line(sd_device *device, char key, const char *value) {
                         return r;
 
                 break;
+        case 'V':
+                r = safe_atou(value, &device->database_version);
+                if (r < 0)
+                        return r;
+
+                break;
         default:
                 log_device_debug(device, "sd-device: Unknown key '%c' in device db, ignoring", key);
         }

@@ -948,6 +948,10 @@ int device_update_db(sd_device *device) {
 
                 SET_FOREACH(tag, device->current_tags)
                         fprintf(f, "Q:%s\n", tag); /* Current tag */
+
+                /* Always write the latest database version here, instead of the value stored in
+                 * device->database_version, as which may be 0. */
+                fputs("V:" STRINGIFY(LATEST_UDEV_DATABASE_VERSION) "\n", f);
         }
 
         r = fflush_and_check(f);
