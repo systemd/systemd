@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
 #include "cryptsetup-pkcs11.h"
 #include "cryptsetup-util.h"
@@ -20,6 +21,7 @@
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "hexdecoct.h"
+#include "libfido2-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -65,12 +67,20 @@ static uint64_t arg_skip = 0;
 static usec_t arg_timeout = USEC_INFINITY;
 static char *arg_pkcs11_uri = NULL;
 static bool arg_pkcs11_uri_auto = false;
+static char *arg_fido2_device = NULL;
+static bool arg_fido2_device_auto = false;
+static void *arg_fido2_cid = NULL;
+static size_t arg_fido2_cid_size = 0;
+static char *arg_fido2_rp_id = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_header, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tcrypt_keyfiles, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_uri, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fido2_cid, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fido2_rp_id, freep);
 
 /* Options Debian's crypttab knows we don't:
 
@@ -276,6 +286,46 @@ static int parse_one_option(const char *option) {
 
                         arg_pkcs11_uri_auto = false;
                 }
+
+        } else if ((val = startswith(option, "fido2-device="))) {
+
+                if (streq(val, "auto")) {
+                        arg_fido2_device = mfree(arg_fido2_device);
+                        arg_fido2_device_auto = true;
+                } else {
+                        r = free_and_strdup(&arg_fido2_device, val);
+                        if (r < 0)
+                                return log_oom();
+
+                        arg_fido2_device_auto = false;
+                }
+
+        } else if ((val = startswith(option, "fido2-cid="))) {
+
+                if (streq(val, "auto"))
+                        arg_fido2_cid = mfree(arg_fido2_cid);
+                else {
+                        _cleanup_free_ void *cid = NULL;
+                        size_t cid_size;
+
+                        r = unbase64mem(val, (size_t) -1, &cid, &cid_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode FIDO2 CID data: %m");
+
+                        free(arg_fido2_cid);
+                        arg_fido2_cid = TAKE_PTR(cid);
+                        arg_fido2_cid_size = cid_size;
+                }
+
+                /* Turn on FIDO2 as side-effect, if not turned on yet. */
+                if (!arg_fido2_device && !arg_fido2_device_auto)
+                        arg_fido2_device_auto = true;
+
+        } else if ((val = startswith(option, "fido2-rp="))) {
+
+                r = free_and_strdup(&arg_fido2_rp_id, val);
+                if (r < 0)
+                        return log_oom();
 
         } else if ((val = startswith(option, "try-empty-password="))) {
 
@@ -506,10 +556,10 @@ static int attach_tcrypt(
         assert(name);
         assert(key_file || key_data || !strv_isempty(passwords));
 
-        if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
+        if (arg_pkcs11_uri || arg_pkcs11_uri_auto || arg_fido2_device || arg_fido2_device_auto)
                 /* Ask for a regular password */
                 return log_error_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                       "Sorry, but tcrypt devices are currently not supported in conjunction with pkcs11 support.");
+                                       "Sorry, but tcrypt devices are currently not supported in conjunction with pkcs11/fido2 support.");
 
         if (arg_tcrypt_hidden)
                 params.flags |= CRYPT_TCRYPT_HIDDEN_HEADER;
@@ -592,6 +642,141 @@ static int make_security_device_monitor(sd_event *event, sd_device_monitor **ret
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
         *ret = TAKE_PTR(monitor);
+        return 0;
+}
+
+static int attach_luks_or_plain_or_bitlk_by_fido2(
+                struct crypt_device *cd,
+                const char *name,
+                const char *key_file,
+                const void *key_data,
+                size_t key_data_size,
+                usec_t until,
+                uint32_t flags,
+                bool pass_volume_key) {
+
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_free_ void *discovered_salt = NULL, *discovered_cid = NULL;
+        size_t discovered_salt_size, discovered_cid_size, cid_size, decrypted_key_size;
+        _cleanup_free_ char *friendly = NULL, *discovered_rp_id = NULL;
+        int keyslot = arg_key_slot, r;
+        const char *rp_id;
+        const void *cid;
+
+        assert(cd);
+        assert(name);
+        assert(arg_fido2_device || arg_fido2_device_auto);
+
+        if (arg_fido2_cid) {
+                if (!key_file && !key_data)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "FIDO2 mode selected but no key file specified, refusing.");
+
+                rp_id = arg_fido2_rp_id;
+                cid = arg_fido2_cid;
+                cid_size = arg_fido2_cid_size;
+        } else {
+                r = find_fido2_auto_data(
+                                cd,
+                                &discovered_rp_id,
+                                &discovered_salt,
+                                &discovered_salt_size,
+                                &discovered_cid,
+                                &discovered_cid_size,
+                                &keyslot);
+
+                if (IN_SET(r, -ENOTUNIQ, -ENXIO))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "Automatic FIDO2 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
+                if (r < 0)
+                        return r;
+
+                rp_id = discovered_rp_id;
+                key_data = discovered_salt;
+                key_data_size = discovered_salt_size;
+                cid = discovered_cid;
+                cid_size = discovered_cid_size;
+        }
+
+        friendly = friendly_disk_name(crypt_get_device_name(cd), name);
+        if (!friendly)
+                return log_oom();
+
+        for (;;) {
+                bool processed = false;
+
+                r = acquire_fido2_key(
+                                name,
+                                friendly,
+                                arg_fido2_device,
+                                rp_id,
+                                cid, cid_size,
+                                key_file, arg_keyfile_size, arg_keyfile_offset,
+                                key_data, key_data_size,
+                                until,
+                                &decrypted_key, &decrypted_key_size);
+                if (r >= 0)
+                        break;
+                if (r != -EAGAIN) /* EAGAIN means: token not found */
+                        return r;
+
+                if (!monitor) {
+                        /* We didn't find the token. In this case, watch for it via udev. Let's
+                         * create an event loop and monitor first. */
+
+                        assert(!event);
+
+                        r = sd_event_default(&event);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+                        r = make_security_device_monitor(event, &monitor);
+                        if (r < 0)
+                                return r;
+
+                        log_notice("Security token not present for unlocking volume %s, please plug it in.", friendly);
+
+                        /* Let's immediately rescan in case the token appeared in the time we needed
+                         * to create and configure the monitor */
+                        continue;
+                }
+
+                for (;;) {
+                        /* Wait for one event, and then eat all subsequent events until there are no
+                         * further ones */
+                        r = sd_event_run(event, processed ? 0 : UINT64_MAX);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to run event loop: %m");
+                        if (r == 0)
+                                break;
+
+                        processed = true;
+                }
+
+                log_debug("Got one or more potentially relevant udev events, rescanning FIDO2...");
+        }
+
+        if (pass_volume_key)
+                r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+        else {
+                _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+
+                /* Before using this key as passphrase we base64 encode it, for compat with homed */
+
+                r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                if (r < 0)
+                        return log_oom();
+
+                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
+        }
+        if (r == -EPERM) {
+                log_error_errno(r, "Failed to activate with FIDO2 decrypted key. (Key incorrect?)");
+                return -EAGAIN; /* log actual error, but return EAGAIN */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate with FIDO2 acquired key: %m");
+
         return 0;
 }
 
@@ -898,6 +1083,8 @@ static int attach_luks_or_plain_or_bitlk(
                  crypt_get_volume_key_size(cd)*8,
                  crypt_get_device_name(cd));
 
+        if (arg_fido2_device || arg_fido2_device_auto)
+                return attach_luks_or_plain_or_bitlk_by_fido2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
         if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
                 return attach_luks_or_plain_or_bitlk_by_pkcs11(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
         if (key_data)
@@ -1118,14 +1305,14 @@ static int run(int argc, char *argv[]) {
 
                         /* When we were able to acquire multiple keys, let's always process them in this order:
                          *
-                         *    1. A key acquired via PKCS#11 token
+                         *    1. A key acquired via PKCS#11 or FIDO2 token
                          *    2. The discovered key: i.e. key_data + key_data_size
                          *    3. The configured key: i.e. key_file + arg_keyfile_offset + arg_keyfile_size
                          *    4. The empty password, in case arg_try_empty_password is set
                          *    5. We enquire the user for a password
                          */
 
-                        if (!key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto) {
+                        if (!key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto && !arg_fido2_device && !arg_fido2_device_auto) {
 
                                 if (arg_try_empty_password) {
                                         /* Hmm, let's try an empty password now, but only once */
@@ -1164,6 +1351,8 @@ static int run(int argc, char *argv[]) {
                         key_data_size = 0;
                         arg_pkcs11_uri = mfree(arg_pkcs11_uri);
                         arg_pkcs11_uri_auto = false;
+                        arg_fido2_device = mfree(arg_fido2_device);
+                        arg_fido2_device_auto = false;
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries)
