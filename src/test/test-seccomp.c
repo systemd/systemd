@@ -25,7 +25,7 @@
 #include "util.h"
 #include "virt.h"
 
-#if SCMP_SYS(socket) < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__)
+#if SCMP_SYS(socket) < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__) || defined(__powerpc64__) || defined(__powerpc__)
 /* On these archs, socket() is implemented via the socketcall() syscall multiplexer,
  * and we can't restrict it hence via seccomp. */
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 1
