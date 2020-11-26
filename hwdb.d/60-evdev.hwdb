@@ -422,6 +422,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadT430:*
  EVDEV_ABS_35=1250:5631:58
  EVDEV_ABS_36=1309:4826:78
 
+# Lenovo Thinkpad X1 Carbon Extreme 3rd gen.
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*pvrThinkPadX1ExtremeGen3*
+ EVDEV_ABS_00=1354:5678:43
+ EVDEV_ABS_01=1169:4695:51
+ EVDEV_ABS_35=1354:5678:43
+ EVDEV_ABS_36=1169:4695:51
+
 # Lenovo Thinkpad Carbon X1 4th gen. and X1 Yoga 1st gen.
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadX1Carbon4th:*
  EVDEV_ABS_00=1262:5679:44
