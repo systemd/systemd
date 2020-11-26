@@ -31,6 +31,6 @@ if conf.get('ENABLE_OOMD') == 1
 
         if install_sysconfdir
                 install_data('oomd.conf',
-                             install_dir : sysconfdir)
+                             install_dir : pkgsysconfdir)
         endif
 endif
