@@ -1,5 +1,5 @@
---- 20-acpi-vendor.hwdb.base	2020-11-10 14:13:39.257693009 +0100
-+++ 20-acpi-vendor.hwdb	2020-11-10 14:13:39.264693047 +0100
+--- 20-acpi-vendor.hwdb.base	2020-11-26 13:49:35.243482590 +0100
++++ 20-acpi-vendor.hwdb	2020-11-26 13:49:35.260482675 +0100
 @@ -3,6 +3,8 @@
  # Data imported from:
  #     https://uefi.org/uefi-pnp-export
