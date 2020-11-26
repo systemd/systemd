@@ -23,7 +23,7 @@ static int fork_and_sleep(unsigned sleep_min) {
         if (pid == 0) {
                 timeout = sleep_min * USEC_PER_MINUTE;
                 ts = now(CLOCK_MONOTONIC);
-                while (true) {
+                for (;;) {
                         n = now(CLOCK_MONOTONIC);
                         if (ts + timeout < n) {
                                 log_error("Child timed out waiting to be killed");
