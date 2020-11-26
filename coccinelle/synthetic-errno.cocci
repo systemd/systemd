@@ -15,9 +15,15 @@ log_debug("Found no default boot entry :(");
 expression e;
 expression list args;
 @@
+(
+/* Ignore specific cases in src/import/{export,import,pull}.c where we want to return positive value on success. */
+log_info("Exiting.");
+return -r;
+|
 - log_info(args);
 - return -e;
 + return log_info_errno(SYNTHETIC_ERRNO(e), args);
+)
 @@
 expression e;
 expression list args;
