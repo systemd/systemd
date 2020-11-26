@@ -29,7 +29,7 @@
 #include "virt.h"
 
 /* __NR_socket may be invalid due to libseccomp */
-#if !defined(__NR_socket) || __NR_socket < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__)
+#if !defined(__NR_socket) || __NR_socket < 0 || defined(__i386__) || defined(__s390x__) || defined(__s390__) || defined(__powerpc64__) || defined(__powerpc__)
 /* On these archs, socket() is implemented via the socketcall() syscall multiplexer,
  * and we can't restrict it hence via seccomp. */
 #  define SECCOMP_RESTRICT_ADDRESS_FAMILIES_BROKEN 1
