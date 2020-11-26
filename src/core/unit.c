@@ -85,7 +85,41 @@ const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SCOPE] = &scope_vtable,
 };
 
-Unit* unit_new(Manager *m, size_t size) {
+static const UnitDependency inverse_table[_UNIT_DEPENDENCY_MAX] = {
+        [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
+        [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
+        [UNIT_WANTS] = UNIT_WANTED_BY,
+        [UNIT_BINDS_TO] = UNIT_BOUND_BY,
+        [UNIT_PART_OF] = UNIT_CONSISTS_OF,
+        [UNIT_UPHOLDS] = UNIT_UPHELD_BY,
+        [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
+        [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
+        [UNIT_WANTED_BY] = UNIT_WANTS,
+        [UNIT_BOUND_BY] = UNIT_BINDS_TO,
+        [UNIT_CONSISTS_OF] = UNIT_PART_OF,
+        [UNIT_UPHELD_BY] = UNIT_UPHOLDS,
+        [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
+        [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
+        [UNIT_BEFORE] = UNIT_AFTER,
+        [UNIT_AFTER] = UNIT_BEFORE,
+        [UNIT_ON_SUCCESS] = UNIT_ON_SUCCESS_OF,
+        [UNIT_ON_SUCCESS_OF] = UNIT_ON_SUCCESS,
+        [UNIT_ON_FAILURE] = UNIT_ON_FAILURE_OF,
+        [UNIT_ON_FAILURE_OF] = UNIT_ON_FAILURE,
+        [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
+        [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
+        [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
+        [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
+        [UNIT_PROPAGATES_STOP_TO] = UNIT_STOP_PROPAGATED_FROM,
+        [UNIT_STOP_PROPAGATED_FROM] = UNIT_PROPAGATES_STOP_TO,
+        [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
+        [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
+        [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
+        [UNIT_IN_SLICE] = UNIT_SLICE_OF,
+        [UNIT_SLICE_OF] = UNIT_IN_SLICE,
+};
+
+Unit *unit_new(Manager *m, size_t size) {
         Unit *u;
 
         assert(m);
@@ -2982,40 +3016,6 @@ int unit_add_dependency(
                 Unit *other,
                 bool add_reference,
                 UnitDependencyMask mask) {
-
-        static const UnitDependency inverse_table[_UNIT_DEPENDENCY_MAX] = {
-                [UNIT_REQUIRES] = UNIT_REQUIRED_BY,
-                [UNIT_REQUISITE] = UNIT_REQUISITE_OF,
-                [UNIT_WANTS] = UNIT_WANTED_BY,
-                [UNIT_BINDS_TO] = UNIT_BOUND_BY,
-                [UNIT_PART_OF] = UNIT_CONSISTS_OF,
-                [UNIT_UPHOLDS] = UNIT_UPHELD_BY,
-                [UNIT_REQUIRED_BY] = UNIT_REQUIRES,
-                [UNIT_REQUISITE_OF] = UNIT_REQUISITE,
-                [UNIT_WANTED_BY] = UNIT_WANTS,
-                [UNIT_BOUND_BY] = UNIT_BINDS_TO,
-                [UNIT_CONSISTS_OF] = UNIT_PART_OF,
-                [UNIT_UPHELD_BY] = UNIT_UPHOLDS,
-                [UNIT_CONFLICTS] = UNIT_CONFLICTED_BY,
-                [UNIT_CONFLICTED_BY] = UNIT_CONFLICTS,
-                [UNIT_BEFORE] = UNIT_AFTER,
-                [UNIT_AFTER] = UNIT_BEFORE,
-                [UNIT_ON_SUCCESS] = UNIT_ON_SUCCESS_OF,
-                [UNIT_ON_SUCCESS_OF] = UNIT_ON_SUCCESS,
-                [UNIT_ON_FAILURE] = UNIT_ON_FAILURE_OF,
-                [UNIT_ON_FAILURE_OF] = UNIT_ON_FAILURE,
-                [UNIT_TRIGGERS] = UNIT_TRIGGERED_BY,
-                [UNIT_TRIGGERED_BY] = UNIT_TRIGGERS,
-                [UNIT_PROPAGATES_RELOAD_TO] = UNIT_RELOAD_PROPAGATED_FROM,
-                [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
-                [UNIT_PROPAGATES_STOP_TO] = UNIT_STOP_PROPAGATED_FROM,
-                [UNIT_STOP_PROPAGATED_FROM] = UNIT_PROPAGATES_STOP_TO,
-                [UNIT_JOINS_NAMESPACE_OF] = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
-                [UNIT_REFERENCES] = UNIT_REFERENCED_BY,
-                [UNIT_REFERENCED_BY] = UNIT_REFERENCES,
-                [UNIT_IN_SLICE] = UNIT_SLICE_OF,
-                [UNIT_SLICE_OF] = UNIT_IN_SLICE,
-        };
         Unit *original_u = u, *original_other = other;
         UnitDependencyAtom a;
         int r;
@@ -5054,6 +5054,52 @@ static void unit_update_dependency_mask(Hashmap *deps, Unit *other, UnitDependen
         else
                 /* Mask was reduced, let's update the entry */
                 assert_se(hashmap_update(deps, other, di.data) == 0);
+}
+
+void unit_remove_dependencies_of_type(Unit *u, UnitDependencyMask mask, UnitDependency d) {
+        bool done;
+
+        assert(d < _UNIT_DEPENDENCY_MAX);
+        assert(u);
+
+        /* Removes all dependencies of type d that u has on other units marked
+         * for ownership by 'mask'. */
+
+        if (mask == 0)
+                return;
+
+        do {
+                UnitDependency inverse = inverse_table[d];
+                UnitDependencyInfo di = {0};
+                Unit *other = NULL;
+
+                done = true;
+
+                HASHMAP_FOREACH_KEY(di.data, other, unit_get_dependencies(u, d)) {
+                        if (FLAGS_SET(~mask, di.origin_mask))
+                                continue;
+                        di.origin_mask &= ~mask;
+                        unit_update_dependency_mask(unit_get_dependencies(u, d), other, di);
+
+                        /* Remove the inverse dependency if an inverse relationship exists. */
+                        if (inverse != _UNIT_DEPENDENCY_INVALID && d != inverse) {
+                                UnitDependencyInfo dj = {0};
+
+                                dj.data = hashmap_get(unit_get_dependencies(other, inverse), u);
+                                if (dj.data) {
+                                        if (FLAGS_SET(~mask, dj.destination_mask))
+                                                continue;
+
+                                        dj.destination_mask &= ~mask;
+                                        unit_update_dependency_mask(unit_get_dependencies(other, inverse), u, dj);
+                                        unit_add_to_gc_queue(other);
+                                }
+                        }
+
+                        done = false;
+                        break;
+                }
+        } while (!done);
 }
 
 void unit_remove_dependencies(Unit *u, UnitDependencyMask mask) {
