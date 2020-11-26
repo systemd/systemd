@@ -400,10 +400,8 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not get rtnl message type: %m");
 
-        if (type != RTM_NEWLINK) {
-                log_netdev_error(netdev, "Cannot set ifindex from unexpected rtnl message type.");
-                return -EINVAL;
-        }
+        if (type != RTM_NEWLINK)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Cannot set ifindex from unexpected rtnl message type.");
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
