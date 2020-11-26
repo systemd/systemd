@@ -606,7 +606,7 @@ int bus_image_acquire(
         if (image_name_is_valid(name_or_path)) {
 
                 /* If it's a short name, let's search for it */
-                r = image_find(IMAGE_PORTABLE, name_or_path, &loaded);
+                r = image_find(IMAGE_PORTABLE, true, name_or_path, &loaded);
                 if (r == -ENOENT)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_PORTABLE_IMAGE, "No image '%s' found.", name_or_path);
 

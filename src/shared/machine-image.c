@@ -28,6 +28,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "machine-image.h"
+#include "machine-pool.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
@@ -482,17 +483,28 @@ int image_find_for_path(const char *path, const char *name, Image **ret) {
         return 1;
 }
 
-int image_find(ImageClass class, const char *name, Image **ret) {
-        const char *path;
+int image_find(ImageClass class, bool system, const char *name, Image **ret) {
         int r;
 
         assert(class >= 0);
         assert(class < _IMAGE_CLASS_MAX);
         assert(name);
 
-        NULSTR_FOREACH(path, image_search_path[class])
-                if ((r = image_find_for_path(path, name, ret)) && r != -ENOENT)
+        if (system) {
+                const char *path;
+
+                NULSTR_FOREACH(path, image_search_path[class])
+                        if ((r = image_find_for_path(path, name, ret)) && r != -ENOENT)
+                                return r;
+        } else {
+                _cleanup_free_ char *path = machines_path(false);
+
+                if (!path)
+                        return -ENOMEM;
+
+                if ((r = image_find_for_path(path, name, ret)))
                         return r;
+        }
 
         if (class == IMAGE_MACHINE && streq(name, ".host")) {
                 r = image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
@@ -520,91 +532,109 @@ int image_from_path(const char *path, Image **ret) {
         return image_make(NULL, AT_FDCWD, NULL, path, NULL, ret);
 }
 
-int image_find_harder(ImageClass class, const char *name_or_path, Image **ret) {
+int image_find_harder(ImageClass class, bool system, const char *name_or_path, Image **ret) {
         if (image_name_is_valid(name_or_path))
-                return image_find(class, name_or_path, ret);
+                return image_find(class, system, name_or_path, ret);
 
         return image_from_path(name_or_path, ret);
 }
 
-int image_discover(ImageClass class, Hashmap *h) {
-        const char *path;
+static int image_discover_for_path(const char *path, Hashmap *h) {
+        _cleanup_closedir_ DIR *d = NULL;
+        struct dirent *de;
         int r;
 
-        assert(class >= 0);
-        assert(class < _IMAGE_CLASS_MAX);
-        assert(h);
+        d = opendir(path);
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
 
-        NULSTR_FOREACH(path, image_search_path[class]) {
-                _cleanup_closedir_ DIR *d = NULL;
-                struct dirent *de;
+                return -errno;
+        }
 
-                d = opendir(path);
-                if (!d) {
+        FOREACH_DIRENT_ALL(de, d, return -errno) {
+                _cleanup_(image_unrefp) Image *image = NULL;
+                _cleanup_free_ char *truncated = NULL;
+                const char *pretty;
+                struct stat st;
+
+                if (dot_or_dot_dot(de->d_name))
+                        continue;
+
+                /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people
+                 * to symlink block devices into the search path */
+                if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
                         if (errno == ENOENT)
                                 continue;
 
                         return -errno;
                 }
 
-                FOREACH_DIRENT_ALL(de, d, return -errno) {
-                        _cleanup_(image_unrefp) Image *image = NULL;
-                        _cleanup_free_ char *truncated = NULL;
-                        const char *pretty;
-                        struct stat st;
+                if (S_ISREG(st.st_mode)) {
+                        const char *e;
 
-                        if (dot_or_dot_dot(de->d_name))
+                        e = endswith(de->d_name, ".raw");
+                        if (!e)
                                 continue;
 
-                        /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people
-                         * to symlink block devices into the search path */
-                        if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
-                                if (errno == ENOENT)
-                                        continue;
+                        truncated = strndup(de->d_name, e - de->d_name);
+                        if (!truncated)
+                                return -ENOMEM;
 
-                                return -errno;
-                        }
+                        pretty = truncated;
+                } else if (S_ISDIR(st.st_mode) || S_ISBLK(st.st_mode))
+                        pretty = de->d_name;
+                else
+                        continue;
 
-                        if (S_ISREG(st.st_mode)) {
-                                const char *e;
+                if (!image_name_is_valid(pretty))
+                        continue;
 
-                                e = endswith(de->d_name, ".raw");
-                                if (!e)
-                                        continue;
+                if (hashmap_contains(h, pretty))
+                        continue;
 
-                                truncated = strndup(de->d_name, e - de->d_name);
-                                if (!truncated)
-                                        return -ENOMEM;
+                r = image_make(pretty, dirfd(d), path, de->d_name, &st, &image);
+                if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
+                        continue;
+                if (r < 0)
+                        return r;
 
-                                pretty = truncated;
-                        } else if (S_ISDIR(st.st_mode) || S_ISBLK(st.st_mode))
-                                pretty = de->d_name;
-                        else
-                                continue;
+                image->discoverable = true;
 
-                        if (!image_name_is_valid(pretty))
-                                continue;
+                r = hashmap_put(h, image->name, image);
+                if (r < 0)
+                        return r;
 
-                        if (hashmap_contains(h, pretty))
-                                continue;
-
-                        r = image_make(pretty, dirfd(d), path, de->d_name, &st, &image);
-                        if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
-                                continue;
-                        if (r < 0)
-                                return r;
-
-                        image->discoverable = true;
-
-                        r = hashmap_put(h, image->name, image);
-                        if (r < 0)
-                                return r;
-
-                        image = NULL;
-                }
+                image = NULL;
         }
 
-        if (class == IMAGE_MACHINE && !hashmap_contains(h, ".host")) {
+        return 0;
+}
+
+int image_discover(ImageClass class, bool system, Hashmap *h) {
+        int r;
+
+        assert(class >= 0);
+        assert(class < _IMAGE_CLASS_MAX);
+        assert(h);
+
+        if (system) {
+                const char *path;
+
+                NULSTR_FOREACH(path, image_search_path[class])
+                        if ((r = image_discover_for_path(path, h)) < 0)
+                                return r;
+        } else {
+                _cleanup_free_ char *path = machines_path(false);
+
+                if (!path)
+                        return -ENOMEM;
+
+                if ((r = image_discover_for_path(path, h)) < 0)
+                        return r;
+        }
+
+        if (class == IMAGE_MACHINE && !hashmap_contains(h, ".host") && system) {
                 _cleanup_(image_unrefp) Image *image = NULL;
 
                 r = image_make(".host", AT_FDCWD, NULL, "/", NULL, &image);
@@ -750,7 +780,7 @@ int image_rename(Image *i, const char *new_name) {
         if (r < 0)
                 return r;
 
-        r = image_find(IMAGE_MACHINE, new_name, NULL);
+        r = image_find(IMAGE_MACHINE, i->system, new_name, NULL);
         if (r >= 0)
                 return -EEXIST;
         if (r != -ENOENT)
@@ -863,7 +893,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         if (r < 0)
                 return r;
 
-        r = image_find(IMAGE_MACHINE, new_name, NULL);
+        r = image_find(IMAGE_MACHINE, i->system, new_name, NULL);
         if (r >= 0)
                 return -EEXIST;
         if (r != -ENOENT)
@@ -1255,30 +1285,45 @@ bool image_name_is_valid(const char *s) {
         return true;
 }
 
-bool image_in_search_path(ImageClass class, const char *image) {
-        const char *path;
+static bool image_in_path(const char *image, const char *path) {
+        const char *p;
+        size_t k;
 
+        p = path_startswith(image, path);
+        if (!p)
+                return false;
+
+        /* Make sure there's a filename following */
+        k = strcspn(p, "/");
+        if (k == 0)
+                return false;
+
+        p += k;
+
+        /* Accept trailing slashes */
+        if (p[strspn(p, "/")] == 0)
+                return true;
+
+        return false;
+}
+
+bool image_in_search_path(ImageClass class, bool system, const char *image) {
         assert(image);
 
-        NULSTR_FOREACH(path, image_search_path[class]) {
-                const char *p;
-                size_t k;
+        if (system) {
+                const char *path;
 
-                p = path_startswith(image, path);
-                if (!p)
-                        continue;
+                NULSTR_FOREACH(path, image_search_path[class])
+                        if (image_in_path(image, path))
+                                return true;
+        } else {
+                _cleanup_free_ char *path = machines_path(false);
 
-                /* Make sure there's a filename following */
-                k = strcspn(p, "/");
-                if (k == 0)
-                        continue;
+                if (!path)
+                        return false;
 
-                p += k;
-
-                /* Accept trailing slashes */
-                if (p[strspn(p, "/")] == 0)
+                if (image_in_path(image, path))
                         return true;
-
         }
 
         return false;

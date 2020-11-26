@@ -62,11 +62,11 @@ Image *image_ref(Image *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 
-int image_find(ImageClass class, const char *name, Image **ret);
+int image_find(ImageClass class, bool system, const char *name, Image **ret);
 int image_find_for_path(const char *path, const char *name, Image **ret);
 int image_from_path(const char *path, Image **ret);
-int image_find_harder(ImageClass class, const char *name_or_path, Image **ret);
-int image_discover(ImageClass class, Hashmap *map);
+int image_find_harder(ImageClass class, bool system, const char *name_or_path, Image **ret);
+int image_discover(ImageClass class, bool system, Hashmap *map);
 
 int image_remove(Image *i);
 int image_rename(Image *i, const char *new_name);
@@ -85,7 +85,7 @@ int image_set_limit(Image *i, uint64_t referenced_max);
 
 int image_read_metadata(Image *i);
 
-bool image_in_search_path(ImageClass class, const char *image);
+bool image_in_search_path(ImageClass class, bool system, const char *image);
 
 static inline bool IMAGE_IS_HIDDEN(const struct Image *i) {
         assert(i);
