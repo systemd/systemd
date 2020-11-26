@@ -69,6 +69,18 @@ static inline void fido_cred_free_wrapper(fido_cred_t **p) {
                 sym_fido_cred_free(p);
 }
 
+int fido2_use_hmac_hash(
+                const char *device,
+                const char *rp_id,
+                const void *salt,
+                size_t salt_size,
+                const void *cid,
+                size_t cid_size,
+                char **pins,
+                bool up, /* user presence permitted */
+                void **ret_hmac,
+                size_t *ret_hmac_size);
+
 int fido2_generate_hmac_hash(
                 const char *device,
                 const char *rp_id,

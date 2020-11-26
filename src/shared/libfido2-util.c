@@ -121,6 +121,239 @@ int dlopen_libfido2(void) {
         return 1;
 }
 
+static int fido2_use_hmac_hash_specific_token(
+                const char *path,
+                const char *rp_id,
+                const void *salt,
+                size_t salt_size,
+                const void *cid,
+                size_t cid_size,
+                char **pins,
+                bool up, /* user presence permitted */
+                void **ret_hmac,
+                size_t *ret_hmac_size) {
+
+        _cleanup_(fido_cbor_info_free_wrapper) fido_cbor_info_t *di = NULL;
+        _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
+        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        _cleanup_(erase_and_freep) void *hmac_copy = NULL;
+        bool found_extension = false;
+        size_t n, hmac_size;
+        const void *hmac;
+        char **e;
+        int r;
+
+        assert(path);
+        assert(rp_id);
+        assert(salt);
+        assert(cid);
+        assert(ret_hmac);
+        assert(ret_hmac_size);
+
+        d = sym_fido_dev_new();
+        if (!d)
+                return log_oom();
+
+        r = sym_fido_dev_open(d, path);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
+
+        if (!sym_fido_dev_is_fido2(d))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                       "Specified device %s is not a FIDO2 device.", path);
+
+        di = sym_fido_cbor_info_new();
+        if (!di)
+                return log_oom();
+
+        r = sym_fido_dev_get_cbor_info(d, di);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to get CBOR device info for %s: %s", path, sym_fido_strerr(r));
+
+        e = sym_fido_cbor_info_extensions_ptr(di);
+        n = sym_fido_cbor_info_extensions_len(di);
+
+        for (size_t i = 0; i < n; i++)
+                if (streq(e[i], "hmac-secret")) {
+                        found_extension = true;
+                        break;
+                }
+
+        if (!found_extension)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                                       "Specified device %s is a FIDO2 device, but does not support the required HMAC-SECRET extension.", path);
+
+        a = sym_fido_assert_new();
+        if (!a)
+                return log_oom();
+
+        r = sym_fido_assert_set_extensions(a, FIDO_EXT_HMAC_SECRET);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to enable HMAC-SECRET extension on FIDO2 assertion: %s", sym_fido_strerr(r));
+
+        r = sym_fido_assert_set_hmac_salt(a, salt, salt_size);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set salt on FIDO2 assertion: %s", sym_fido_strerr(r));
+
+        r = sym_fido_assert_set_rp(a, rp_id);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set FIDO2 assertion ID: %s", sym_fido_strerr(r));
+
+        r = sym_fido_assert_set_clientdata_hash(a, (const unsigned char[32]) {}, 32);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set FIDO2 assertion client data hash: %s", sym_fido_strerr(r));
+
+        r = sym_fido_assert_allow_cred(a, cid, cid_size);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to add FIDO2 assertion credential ID: %s", sym_fido_strerr(r));
+
+        r = sym_fido_assert_set_up(a, FIDO_OPT_FALSE);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set FIDO2 assertion user presence: %s", sym_fido_strerr(r));
+
+        log_info("Asking FIDO2 token for authentication.");
+
+        r = sym_fido_dev_get_assert(d, a, NULL); /* try without pin and without up first */
+        if (r == FIDO_ERR_UP_REQUIRED && up) {
+                r = sym_fido_assert_set_up(a, FIDO_OPT_TRUE);
+                if (r != FIDO_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set FIDO2 assertion user presence: %s", sym_fido_strerr(r));
+
+                log_info("Security token requires user presence.");
+
+                r = sym_fido_dev_get_assert(d, a, NULL); /* try without pin but with up now */
+        }
+        if (r == FIDO_ERR_PIN_REQUIRED) {
+                char **i;
+
+                /* OK, we needed a pin, try with all pins in turn */
+                STRV_FOREACH(i, pins) {
+                        r = sym_fido_dev_get_assert(d, a, *i);
+                        if (r != FIDO_ERR_PIN_INVALID)
+                                break;
+                }
+        }
+
+        switch (r) {
+        case FIDO_OK:
+                break;
+        case FIDO_ERR_NO_CREDENTIALS:
+                return log_error_errno(SYNTHETIC_ERRNO(EBADSLT),
+                                       "Wrong security token; needed credentials not present on token.");
+        case FIDO_ERR_PIN_REQUIRED:
+                return log_error_errno(SYNTHETIC_ERRNO(ENOANO),
+                                       "Security token requires PIN.");
+        case FIDO_ERR_PIN_AUTH_BLOCKED:
+                return log_error_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
+                                       "PIN of security token is blocked, please remove/reinsert token.");
+        case FIDO_ERR_PIN_INVALID:
+                return log_error_errno(SYNTHETIC_ERRNO(ENOLCK),
+                                       "PIN of security token incorrect.");
+        case FIDO_ERR_UP_REQUIRED:
+                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                       "User presence required.");
+        case FIDO_ERR_ACTION_TIMEOUT:
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSTR),
+                                       "Token action timeout. (User didn't interact with token quickly enough.)");
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to ask token for assertion: %s", sym_fido_strerr(r));
+        }
+
+        hmac = sym_fido_assert_hmac_secret_ptr(a, 0);
+        if (!hmac)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve HMAC secret.");
+
+        hmac_size = sym_fido_assert_hmac_secret_len(a, 0);
+
+        hmac_copy = memdup(hmac, hmac_size);
+        if (!hmac_copy)
+                return log_oom();
+
+        *ret_hmac = TAKE_PTR(hmac_copy);
+        *ret_hmac_size = hmac_size;
+        return 0;
+}
+
+int fido2_use_hmac_hash(
+                const char *device,
+                const char *rp_id,
+                const void *salt,
+                size_t salt_size,
+                const void *cid,
+                size_t cid_size,
+                char **pins,
+                bool up, /* user presence permitted */
+                void **ret_hmac,
+                size_t *ret_hmac_size) {
+
+        size_t allocated = 64, found = 0;
+        fido_dev_info_t *di = NULL;
+        int r;
+
+        r = dlopen_libfido2();
+        if (r < 0)
+                return log_error_errno(r, "FIDO2 support is not installed.");
+
+        if (device)
+                return fido2_use_hmac_hash_specific_token(device, rp_id, salt, salt_size, cid, cid_size, pins, up, ret_hmac, ret_hmac_size);
+
+        di = sym_fido_dev_info_new(allocated);
+        if (!di)
+                return log_oom();
+
+        r = sym_fido_dev_info_manifest(di, allocated, &found);
+        if (r == FIDO_ERR_INTERNAL) {
+                /* The library returns FIDO_ERR_INTERNAL when no devices are found. I wish it wouldn't. */
+                r = log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "Got FIDO_ERR_INTERNAL, assuming no devices.");
+                goto finish;
+        }
+        if (r != FIDO_OK) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to enumerate FIDO2 devices: %s", sym_fido_strerr(r));
+                goto finish;
+        }
+
+        for (size_t i = 0; i < found; i++) {
+                const fido_dev_info_t *entry;
+                const char *path;
+
+                entry = sym_fido_dev_info_ptr(di, i);
+                if (!entry) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                            "Failed to get device information for FIDO device %zu.", i);
+                        goto finish;
+                }
+
+                path = sym_fido_dev_info_path(entry);
+                if (!path) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                            "Failed to query FIDO device path.");
+                        goto finish;
+                }
+
+                r = fido2_use_hmac_hash_specific_token(path, rp_id, salt, salt_size, cid, cid_size, pins, up, ret_hmac, ret_hmac_size);
+                if (!IN_SET(r,
+                            -EBADSLT, /* device doesn't understand our credential hash */
+                            -ENODEV   /* device is not a FIDO2 device with HMAC-SECRET */))
+                        goto finish;
+        }
+
+        r = -EAGAIN;
+
+finish:
+        sym_fido_dev_info_free(&di, allocated);
+        return r;
+}
+
 #define FIDO2_SALT_SIZE 32
 
 int fido2_generate_hmac_hash(
