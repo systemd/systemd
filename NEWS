@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 247 in spe:
+CHANGES WITH 247:
 
         * KERNEL API INCOMPATIBILITY: Linux 4.12 introduced two new uevents
           "bind" and "unbind" to the Linux device model. When this kernel
@@ -655,35 +655,37 @@ CHANGES WITH 247 in spe:
         Ross, Amitanand Chikorde, Andrew Hangsleben, Anita Zhang, Ansgar
         Burchardt, Arian van Putten, Aurelien Jarno, Axel Rasmussen, bauen1,
         Beniamino Galvani, Benjamin Berg, Bjørn Mork, brainrom, Chandradeep
-        Dey, Charles Lee, Chris Down, Christian Göttsche, Clemens Gruber, Daan
-        De Meyer, Daniele Medri, Daniel Mack, Daniel Rusek, Dan Streetman,
-        David Tardon, Dimitri John Ledkov, Dmitry Borodaenko, Elias Probst,
-        Elisei Roca, ErrantSpore, Etienne Doms, Fabrice Fontaine, fangxiuning,
-        Felix Riemann, Florian Klink, Franck Bui, Frantisek Sumsal, fwSmit,
-        George Rawlinson, germanztz, Gibeom Gwon, Glen Whitney, Gogo Gogsi,
-        Göran Uddeborg, Grant Mathews, Hans de Goede, Hans Ulrich Niedermann,
-        Haochen Tong, Harald Seiler, huangyong, Hubert Kario, Ikey Doherty, Jan
-        Chren, Jan Schlüter, Jérémy Nouhaud, Jian-Hong Pan, Joerg Behrmann,
-        Jonathan Lebon, Josh Brobst, Juergen Hoetzel, Julien Humbert, Kai-Chuan
-        Hsieh, Kairui Song, Kamil Dudka, Kir Kolyshkin, Kristijan Gjoshev, Kyle
-        Huey, Kyle Russell, Lennart Poettering, lichangze, Luca Boccassi, Lucas
-        Werkmeister, Luca Weiss, Marc Kleine-Budde, Marco Wang, Martin Wilck,
-        Marti Raudsepp, masmullin2000, Máté Pozsgay, Matt Fenwick, Michael
-        Biebl, Michael Scherer, Michal Koutný, Michal Sekletár, Michal
-        Suchanek, Mikael Szreder, Milo Casagrande, mirabilos, Mitsuha_QuQ,
-        mog422, Muhammet Kara, Nazar Vinnichuk, Nicholas Narsing, Nicolas
-        Fella, Njibhu, nl6720, Oğuz Ersen, Olivier Le Moal, Ondrej Kozina,
-        onlybugreports, Pass Automated Testing Suite, Pat Coulthard, Pedro
-        Ruiz, Peter Hutterer, Phaedrus Leeds, PhoenixDiscord, Piotr Drąg, Plan
-        C, Purushottam choudhary, Rasmus Villemoes, Renaud Métrich, Robert
-        Marko, Ronan Pigott, Roy Chen (陳彥廷), RussianNeuroMancer, Samanta
-        Navarro, Samuel BF, scootergrisen, Sorin Ionescu, Steve Dodd, Susant
-        Sahani, Timo Rothenpieler, Tobias Hunger, Tobias Kaufmann, Topi
-        Miettinen, Vito Caputo, Weblate, Wen Yang, williamvds, Yu, Li-Yu, Yuri
-        Chornoivan, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, Zmicer Turok,
-        Дамјан Георгиевски
+        Dey, Charles Lee, Chris Down, Christian Göttsche, Christof Efkemann,
+        Christoph Ruegge, Clemens Gruber, Daan De Meyer, Daniele Medri, Daniel
+        Mack, Daniel Rusek, Dan Streetman, David Tardon, Dimitri John Ledkov,
+        Dmitry Borodaenko, Elias Probst, Elisei Roca, ErrantSpore, Etienne
+        Doms, Fabrice Fontaine, fangxiuning, Felix Riemann, Florian Klink,
+        Franck Bui, Frantisek Sumsal, fwSmit, George Rawlinson, germanztz,
+        Gibeom Gwon, Glen Whitney, Gogo Gogsi, Göran Uddeborg, Grant Mathews,
+        Hans de Goede, Hans Ulrich Niedermann, Haochen Tong, Harald Seiler,
+        huangyong, Hubert Kario, igo95862, Ikey Doherty, Insun Pyo, Jan Chren,
+        Jan Schlüter, Jérémy Nouhaud, Jian-Hong Pan, Joerg Behrmann, Jonathan
+        Lebon, Jörg Thalheim, Josh Brobst, Juergen Hoetzel, Julien Humbert,
+        Kai-Chuan Hsieh, Kairui Song, Kamil Dudka, Kir Kolyshkin, Kristijan
+        Gjoshev, Kyle Huey, Kyle Russell, Lee Whalen, Lennart Poettering,
+        lichangze, Luca Boccassi, Lucas Werkmeister, Luca Weiss, Marc
+        Kleine-Budde, Marco Wang, Martin Wilck, Marti Raudsepp, masmullin2000,
+        Máté Pozsgay, Matt Fenwick, Michael Biebl, Michael Scherer, Michal
+        Koutný, Michal Sekletár, Michal Suchanek, Mikael Szreder, Milo
+        Casagrande, mirabilos, Mitsuha_QuQ, mog422, Muhammet Kara, Nazar
+        Vinnichuk, Nicholas Narsing, Nicolas Fella, Njibhu, nl6720, Oğuz Ersen,
+        Olivier Le Moal, Ondrej Kozina, onlybugreports, Pass Automated Testing
+        Suite, Pat Coulthard, Pavel Sapezhko, Pedro Ruiz, perry_yuan, Peter
+        Hutterer, Phaedrus Leeds, PhoenixDiscord, Piotr Drąg, Plan C,
+        Purushottam choudhary, Rasmus Villemoes, Renaud Métrich, Robert Marko,
+        Roman Beranek, Ronan Pigott, Roy Chen (陳彥廷), RussianNeuroMancer,
+        Samanta Navarro, Samuel BF, scootergrisen, Sorin Ionescu, Steve Dodd,
+        Susant Sahani, Timo Rothenpieler, Tobias Hunger, Tobias Kaufmann, Topi
+        Miettinen, vanou, Vito Caputo, Weblate, Wen Yang, Whired Planck,
+        williamvds, Yu, Li-Yu, Yuri Chornoivan, Yu Watanabe, Zbigniew
+        Jędrzejewski-Szmek, Zmicer Turok, Дамјан Георгиевски
 
-        – Warsaw, 2020-11-10
+        – Warsaw, 2020-11-26
 
 CHANGES WITH 246:
 
