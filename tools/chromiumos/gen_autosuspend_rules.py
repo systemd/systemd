@@ -134,6 +134,8 @@ USB_IDS += [
     '12d1:15bb',
     # Fibocom (L850-GL) (coral, nautilus, sarien)
     '2cb7:0007',
+    # Fibocom (NL668, NL652)
+    '2cb7:01a0',
 ]
 
 # Mass Storage
