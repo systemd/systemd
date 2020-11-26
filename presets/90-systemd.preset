@@ -17,6 +17,7 @@ enable machines.target
 
 enable getty@.service
 enable systemd-timesyncd.service
+enable systemd-time-wait-sync.service
 enable systemd-networkd.service
 enable systemd-resolved.service
 enable systemd-homed.service
@@ -34,7 +35,6 @@ disable rescue.target
 disable exit.target
 
 disable systemd-networkd-wait-online.service
-disable systemd-time-wait-sync.service
 disable systemd-boot-check-no-failures.service
 disable systemd-network-generator.service
 disable proc-sys-fs-binfmt_misc.mount

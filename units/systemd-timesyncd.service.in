@@ -54,3 +54,4 @@ User=systemd-timesync
 [Install]
 WantedBy=sysinit.target
 Alias=dbus-org.freedesktop.timesync1.service
+Also=systemd-time-wait-sync.service

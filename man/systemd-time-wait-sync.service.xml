@@ -29,15 +29,22 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-time-wait-sync</filename> is a system service that delays the start of units that depend on
-    <filename>time-sync.target</filename> until the system time has been synchronized with an accurate time source by
-    <filename>systemd-timesyncd.service</filename>.</para>
+    <para><filename>systemd-time-wait-sync</filename> is a system service that delays the start of units that
+    depend on <filename>time-sync.target</filename> until the system time has been synchronized with an
+    accurate time source, see
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
 
-    <para><filename>systemd-timesyncd.service</filename> notifies on successful synchronization.
-    <filename>systemd-time-wait-sync</filename> also tries to detect when the kernel marks the time as synchronized,
-    but this detection is not reliable and is intended only as a fallback for other services that can be used to
-    synchronize time (e.g., ntpd, chronyd).</para>
-
+    <para>
+    <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    notifies about successful synchronization, so <filename>systemd-time-wait-sync.service</filename> works
+    reliably with it. <filename>systemd-time-wait-sync</filename> also tries to detect when the kernel marks
+    the time as synchronized, but this detection is not fully reliable and is intended only as a fallback for
+    other services that can be used to synchronize time, e.g.
+    <citerefentry project='die-net'><refentrytitle>ntpd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    or
+    <citerefentry project='die-net'><refentrytitle>chronyd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -48,7 +55,10 @@
         <term><filename>/run/systemd/timesync/synchronized</filename></term>
 
         <listitem>
-          <para>The presence of this file indicates to this service that the system clock has been synchronized.</para>
+          <para>The presence of this file indicates to this service that the system clock has been
+          synchronized by
+          <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+          </para>
         </listitem>
 
       </varlistentry>
@@ -62,6 +72,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='manpages'><refentrytitle>adjtimex</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     </para>
   </refsect1>
 

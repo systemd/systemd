@@ -243,7 +243,7 @@ static int run(int argc, char * argv[]) {
                 log_info("Time is synchronized (/run/systemd/timesync/synchronized is present).");
 
         if (state.adjtime_state == TIME_ERROR)
-                log_notice("Time is not synchronized: adjtimex reports an error.");
+                log_notice("Exiting before time synchronization was achieved.");
         else
                 log_info("Time is synchronized.");
 

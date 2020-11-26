@@ -998,27 +998,36 @@
         <varlistentry>
           <term><filename>time-set.target</filename></term>
           <listitem>
-            <para>Services responsible for setting the system clock from
-            a local source (such as a maintained timestamp file or
-            imprecise real-time clock) should pull in this target and
-            order themselves before it.  Services where approximate time
-            is desired should be ordered after this unit, but not pull
-            it in.  This target does not provide the accuracy guarantees
-            of <filename>time-sync.target</filename>.</para>
+            <para>Services responsible for setting the system clock from a local source (such as a maintained
+            timestamp file or imprecise real-time clock) should pull in this target and order themselves
+            before it. Services where approximate time is desired should be ordered after this unit, but not
+            pull it in.</para>
+
+            <para>This target does not provide the accuracy guarantees of
+            <filename>time-sync.target</filename>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><filename>time-sync.target</filename></term>
           <listitem>
-            <para>Services responsible for synchronizing the system
-            clock from a remote source (such as NTP client
-            implementations) should pull in this target and order
-            themselves before it. All services where correct time is
-            essential should be ordered after this unit, but not pull it
-            in. systemd automatically adds dependencies of type
-            <varname>After=</varname> for this target unit to all SysV
-            init script service units with an LSB header referring to
-            the <literal>$time</literal> facility. </para>
+            <para>Services responsible for synchronizing the system clock from a remote source (such as NTP
+            client implementations) should pull in this target and order themselves before it. All services
+            where correct time is essential should be ordered after this unit, but not pull it
+            in. <command>systemd</command> automatically adds dependencies of type <varname>After=</varname>
+            for this target unit to all SysV init script service units with an LSB header referring to the
+            <literal>$time</literal> facility.</para>
+
+            <para><citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            is a service that delays <filename>time-sync.target</filename> until time synchronization has
+            been achieved. It works correctly with
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+            but not necessarilly all other time synchronization services. If
+            <filename>systemd-time-wait-sync.service</filename> or a similar service is not enabled,
+            <filename>time-sync.target</filename> will only have the weaker meaning that synchronization
+            services have been started (without waiting for actual synchronization to occur).</para>
+
+            <para>Hint: if only approximate time is required, <filename>time-set.target</filename> might be
+            more appropriate, see above.</para>
           </listitem>
         </varlistentry>
       </variablelist>
