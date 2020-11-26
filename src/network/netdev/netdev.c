@@ -430,7 +430,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         if (!streq(netdev->ifname, received_name)) {
                 log_netdev_error(netdev, "Received newlink with wrong IFNAME %s", received_name);
                 netdev_enter_failed(netdev);
-                return r;
+                return -EINVAL;
         }
 
         r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
@@ -458,11 +458,10 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         }
 
         if (!streq(kind, received_kind)) {
-                log_netdev_error(netdev,
-                                 "Received newlink with wrong KIND %s, "
-                                 "expected %s", received_kind, kind);
+                log_netdev_error(netdev, "Received newlink with wrong KIND %s, expected %s",
+                                 received_kind, kind);
                 netdev_enter_failed(netdev);
-                return r;
+                return -EINVAL;
         }
 
         netdev->ifindex = ifindex;
