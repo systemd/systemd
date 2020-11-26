@@ -515,11 +515,10 @@ static int device_setup_unit(Manager *m, sd_device *dev, const char *path, bool 
                 if (DEVICE(u)->state == DEVICE_PLUGGED &&
                     DEVICE(u)->sysfs &&
                     sysfs &&
-                    !path_equal(DEVICE(u)->sysfs, sysfs)) {
-                        log_unit_debug(u, "Device %s appeared twice with different sysfs paths %s and %s, ignoring the latter.",
-                                       e, DEVICE(u)->sysfs, sysfs);
-                        return -EEXIST;
-                }
+                    !path_equal(DEVICE(u)->sysfs, sysfs))
+                        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
+                                                    "Device %s appeared twice with different sysfs paths %s and %s, ignoring the latter.",
+                                                    e, DEVICE(u)->sysfs, sysfs);
 
                 delete = false;
 

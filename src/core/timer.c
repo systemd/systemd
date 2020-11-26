@@ -75,10 +75,8 @@ static int timer_verify(Timer *t) {
         assert(t);
         assert(UNIT(t)->load_state == UNIT_LOADED);
 
-        if (!t->values && !t->on_clock_change && !t->on_timezone_change) {
-                log_unit_error(UNIT(t), "Timer unit lacks value setting. Refusing.");
-                return -ENOEXEC;
-        }
+        if (!t->values && !t->on_clock_change && !t->on_timezone_change)
+                return log_unit_error_errno(UNIT(t), SYNTHETIC_ERRNO(ENOEXEC), "Timer unit lacks value setting. Refusing.");
 
         return 0;
 }

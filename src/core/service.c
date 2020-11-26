@@ -548,51 +548,35 @@ static int service_verify(Service *s) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_LOADED);
 
-        if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]
-            && UNIT(s)->success_action == EMERGENCY_ACTION_NONE) {
+        if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP] &&
+            UNIT(s)->success_action == EMERGENCY_ACTION_NONE)
                 /* FailureAction= only makes sense if one of the start or stop commands is specified.
                  * SuccessAction= will be executed unconditionally if no commands are specified. Hence,
                  * either a command or SuccessAction= are required. */
 
-                log_unit_error(UNIT(s), "Service has no ExecStart=, ExecStop=, or SuccessAction=. Refusing.");
-                return -ENOEXEC;
-        }
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has no ExecStart=, ExecStop=, or SuccessAction=. Refusing.");
 
-        if (s->type != SERVICE_ONESHOT && !s->exec_command[SERVICE_EXEC_START]) {
-                log_unit_error(UNIT(s), "Service has no ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type != SERVICE_ONESHOT && !s->exec_command[SERVICE_EXEC_START])
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has no ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
 
-        if (!s->remain_after_exit && !s->exec_command[SERVICE_EXEC_START] && UNIT(s)->success_action == EMERGENCY_ACTION_NONE) {
-                log_unit_error(UNIT(s), "Service has no ExecStart= and no SuccessAction= settings and does not have RemainAfterExit=yes set. Refusing.");
-                return -ENOEXEC;
-        }
+        if (!s->remain_after_exit && !s->exec_command[SERVICE_EXEC_START] && UNIT(s)->success_action == EMERGENCY_ACTION_NONE)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has no ExecStart= and no SuccessAction= settings and does not have RemainAfterExit=yes set. Refusing.");
 
-        if (s->type != SERVICE_ONESHOT && s->exec_command[SERVICE_EXEC_START]->command_next) {
-                log_unit_error(UNIT(s), "Service has more than one ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type != SERVICE_ONESHOT && s->exec_command[SERVICE_EXEC_START]->command_next)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has more than one ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
 
-        if (s->type == SERVICE_ONESHOT
-            && !IN_SET(s->restart, SERVICE_RESTART_NO, SERVICE_RESTART_ON_FAILURE, SERVICE_RESTART_ON_ABNORMAL, SERVICE_RESTART_ON_WATCHDOG, SERVICE_RESTART_ON_ABORT)) {
-                log_unit_error(UNIT(s), "Service has Restart= set to either always or on-success, which isn't allowed for Type=oneshot services. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type == SERVICE_ONESHOT &&
+            !IN_SET(s->restart, SERVICE_RESTART_NO, SERVICE_RESTART_ON_FAILURE, SERVICE_RESTART_ON_ABNORMAL, SERVICE_RESTART_ON_WATCHDOG, SERVICE_RESTART_ON_ABORT))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has Restart= set to either always or on-success, which isn't allowed for Type=oneshot services. Refusing.");
 
-        if (s->type == SERVICE_ONESHOT && !exit_status_set_is_empty(&s->restart_force_status)) {
-                log_unit_error(UNIT(s), "Service has RestartForceStatus= set, which isn't allowed for Type=oneshot services. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type == SERVICE_ONESHOT && !exit_status_set_is_empty(&s->restart_force_status))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has RestartForceStatus= set, which isn't allowed for Type=oneshot services. Refusing.");
 
-        if (s->type == SERVICE_DBUS && !s->bus_name) {
-                log_unit_error(UNIT(s), "Service is of type D-Bus but no D-Bus service name has been specified. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->type == SERVICE_DBUS && !s->bus_name)
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service is of type D-Bus but no D-Bus service name has been specified. Refusing.");
 
-        if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED)) {
-                log_unit_error(UNIT(s), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
-                return -ENOEXEC;
-        }
+        if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
 
         if (s->usb_function_descriptors && !s->usb_function_strings)
                 log_unit_warning(UNIT(s), "Service has USBFunctionDescriptors= setting, but no USBFunctionStrings=. Ignoring.");
@@ -914,20 +898,14 @@ static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
          * PID is questionnable but should be accepted if the source of configuration is trusted. > 0 if the PID is
          * good */
 
-        if (pid == getpid_cached() || pid == 1) {
-                log_unit_full(UNIT(s), prio, "New main PID "PID_FMT" is the manager, refusing.", pid);
-                return -EPERM;
-        }
+        if (pid == getpid_cached() || pid == 1)
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the manager, refusing.", pid);
 
-        if (pid == s->control_pid) {
-                log_unit_full(UNIT(s), prio, "New main PID "PID_FMT" is the control process, refusing.", pid);
-                return -EPERM;
-        }
+        if (pid == s->control_pid)
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the control process, refusing.", pid);
 
-        if (!pid_is_alive(pid)) {
-                log_unit_full(UNIT(s), prio, "New main PID "PID_FMT" does not exist or is a zombie.", pid);
-                return -ESRCH;
-        }
+        if (!pid_is_alive(pid))
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(ESRCH), "New main PID "PID_FMT" does not exist or is a zombie.", pid);
 
         owner = manager_get_unit_by_pid(UNIT(s)->manager, pid);
         if (owner == UNIT(s)) {
@@ -988,20 +966,18 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (r == 0) {
                 struct stat st;
 
-                if (questionable_pid_file) {
-                        log_unit_error(UNIT(s), "Refusing to accept PID outside of service control group, acquired through unsafe symlink chain: %s", s->pid_file);
-                        return -EPERM;
-                }
+                if (questionable_pid_file)
+                        return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EPERM),
+                                                    "Refusing to accept PID outside of service control group, acquired through unsafe symlink chain: %s", s->pid_file);
 
                 /* Hmm, it's not clear if the new main PID is safe. Let's allow this if the PID file is owned by root */
 
                 if (fstat(fd, &st) < 0)
                         return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file O_PATH fd: %m");
 
-                if (st.st_uid != 0) {
-                        log_unit_error(UNIT(s), "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pid);
-                        return -EPERM;
-                }
+                if (st.st_uid != 0)
+                        return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EPERM),
+                                                    "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pid);
 
                 log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, but we'll accept it since PID file is owned by root.", pid);
         }
@@ -2127,8 +2103,7 @@ static void service_enter_start(Service *s) {
                         /* There's no command line configured for the main command? Hmm, that is strange.
                          * This can only happen if the configuration changes at runtime. In this case,
                          * let's enter a failure state. */
-                        log_unit_error(UNIT(s), "There's no 'start' task anymore we could start.");
-                        r = -ENXIO;
+                        r = log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENXIO), "There's no 'start' task anymore we could start.");
                         goto fail;
                 }
 

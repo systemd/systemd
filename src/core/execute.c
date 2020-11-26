@@ -3769,23 +3769,20 @@ static int exec_child(
                 r = dynamic_creds_realize(dcreds, suggested_paths, &uid, &gid);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
-                        if (r == -EILSEQ) {
-                                log_unit_error(unit, "Failed to update dynamic user credentials: User or group with specified name already exists.");
-                                return -EOPNOTSUPP;
-                        }
+                        if (r == -EILSEQ)
+                                return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                            "Failed to update dynamic user credentials: User or group with specified name already exists.");
                         return log_unit_error_errno(unit, r, "Failed to update dynamic user credentials: %m");
                 }
 
                 if (!uid_is_valid(uid)) {
                         *exit_status = EXIT_USER;
-                        log_unit_error(unit, "UID validation failed for \""UID_FMT"\"", uid);
-                        return -ESRCH;
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(ESRCH), "UID validation failed for \""UID_FMT"\"", uid);
                 }
 
                 if (!gid_is_valid(gid)) {
                         *exit_status = EXIT_USER;
-                        log_unit_error(unit, "GID validation failed for \""GID_FMT"\"", gid);
-                        return -ESRCH;
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(ESRCH), "GID validation failed for \""GID_FMT"\"", gid);
                 }
 
                 if (dcreds->user)
@@ -4628,15 +4625,11 @@ int exec_spawn(Unit *unit,
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (params->n_socket_fds > 1) {
-                        log_unit_error(unit, "Got more than one socket.");
-                        return -EINVAL;
-                }
+                if (params->n_socket_fds > 1)
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EINVAL), "Got more than one socket.");
 
-                if (params->n_socket_fds == 0) {
-                        log_unit_error(unit, "Got no socket.");
-                        return -EINVAL;
-                }
+                if (params->n_socket_fds == 0)
+                        return log_unit_error_errno(unit, SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
 
                 socket_fd = params->fds[0];
         } else {
