@@ -117,9 +117,9 @@ def hwdb_grammar():
 def property_grammar():
     ParserElement.setDefaultWhitespaceChars(' ')
 
-    dpi_setting = (Optional('*')('DEFAULT') + INTEGER('DPI') + Suppress('@') + INTEGER('HZ'))('SETTINGS*')
+    dpi_setting = Group(Optional('*')('DEFAULT') + INTEGER('DPI') + Suppress('@') + INTEGER('HZ'))('SETTINGS*')
     mount_matrix_row = SIGNED_REAL + ',' + SIGNED_REAL + ',' + SIGNED_REAL
-    mount_matrix = (mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
+    mount_matrix = Group(mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
     xkb_setting = Optional(Word(alphanums + '+-/@._'))
 
     props = (('MOUSE_DPI', Group(OneOrMore(dpi_setting))),
