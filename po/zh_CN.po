@@ -6,13 +6,14 @@
 # Boyuan Yang <073plan@gmail.com>, 2015.
 # Jeff Bai <jeffbai@aosc.xyz>, 2016.
 # Charles Lee <lchopn@gmail.com>, 2020.
+# Whired Planck <fungdaat31@outlook.com>, 2020.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2020-09-24 04:29+0000\n"
-"Last-Translator: Charles Lee <lchopn@gmail.com>\n"
+"PO-Revision-Date: 2020-11-26 11:35+0000\n"
+"Last-Translator: Whired Planck <fungdaat31@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/master/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -20,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.2.2\n"
+"X-Generator: Weblate 4.3.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -67,70 +68,56 @@ msgstr "重新载入 systemd 状态需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "创建一个家区域"
 
 #: src/home/org.freedesktop.home1.policy:14
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to create a user's home area."
-msgstr "重新载入 systemd 状态需要认证。"
+msgstr "创建用户家区域需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "移除一个家区域"
 
 #: src/home/org.freedesktop.home1.policy:24
-#, fuzzy
-#| msgid "Authentication is required to reload the systemd state."
 msgid "Authentication is required to remove a user's home area."
-msgstr "重新载入 systemd 状态需要认证。"
+msgstr "移除用户家区域需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "检查家区域凭证"
 
 #: src/home/org.freedesktop.home1.policy:34
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "管理活动会话、用户与会话座位需要认证。"
+msgstr "根据用户家区域检查凭证需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "更新一个家区域"
 
 # Pay attention to the concept of "seat".
 #
 # To fully understand the meaning, please refer to session management in old ConsoleKit and new systemd-logind.
 #: src/home/org.freedesktop.home1.policy:44
-#, fuzzy
-#| msgid "Authentication is required to attach a device to a seat."
 msgid "Authentication is required to update a user's home area."
-msgstr "允许将设备附加至某个会话座位需要认证。"
+msgstr "更新用户家区域需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr ""
+msgstr "调整家区域大小"
 
 #: src/home/org.freedesktop.home1.policy:54
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to resize a user's home area."
-msgstr "设置 wall 消息需要认证。"
+msgstr "调整家区域大小需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr ""
+msgstr "更改家区域的密码"
 
 #: src/home/org.freedesktop.home1.policy:64
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to manage active sessions, users and seats."
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "管理活动会话、用户与会话座位需要认证。"
+msgstr "更改家区域密码需要认证。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -148,11 +135,10 @@ msgstr "设置静态主机名"
 #
 # There were some discussions, like https://lists.fedoraprojects.org/pipermail/trans-zh_cn/2012-December/001347.html
 #: src/hostname/org.freedesktop.hostname1.policy:31
-#, fuzzy
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
-msgstr "设置静态本地主机名或美观主机名需要认证。"
+msgstr "设定静态本地主机名或美观主机名需要认证。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -164,13 +150,11 @@ msgstr "设置本地机器信息需要认证。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "获取产品 UUID"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
-#, fuzzy
-#| msgid "Authentication is required to reload '$(unit)'."
 msgid "Authentication is required to get product UUID."
-msgstr "重新载入“$(unit)”需要认证。"
+msgstr "获取产品 UUID 需要认证。"
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -300,10 +284,8 @@ msgid "Allow non-logged-in user to run programs"
 msgstr "允许未登录用户运行程序"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
-#| msgid "Authentication is required to run programs as a non-logged-in user."
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr "允许未登录用户运行程序需要认证。"
+msgstr "要以未登录用户运行程序，需要明确请求。"
 
 #: src/login/org.freedesktop.login1.policy:127
 msgid "Allow non-logged-in users to run programs"
@@ -389,10 +371,8 @@ msgid ""
 msgstr "在其它应用程序阻止重启时重启系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:224
-#, fuzzy
-#| msgid "Hibernate the system"
 msgid "Halt the system"
-msgstr "休眠系统"
+msgstr "停止系统"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid "Authentication is required to halt the system."
@@ -492,13 +472,11 @@ msgstr "对活动会话进行锁定或解锁需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:341
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr ""
+msgstr "在内核中设定重启“原因”"
 
 #: src/login/org.freedesktop.login1.policy:342
-#, fuzzy
-#| msgid "Authentication is required to set the system timezone."
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr "设置系统时区需要认证。"
+msgstr "在内核中设定重启“原因”需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Indicate to the firmware to boot to setup interface"
@@ -512,31 +490,23 @@ msgstr "向固件发出启动时进入设置界面的指令需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr ""
+msgstr "指示引导加载程序启动至引导加载程序菜单"
 
 #: src/login/org.freedesktop.login1.policy:364
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to indicate to the firmware to boot to setup "
-#| "interface."
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
-msgstr "向固件发出启动时进入设置界面的指令需要认证。"
+msgstr "指示引导加载程序启动至引导加载程序菜单需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr ""
+msgstr "指示引导加载程序启动指定条目"
 
 #: src/login/org.freedesktop.login1.policy:375
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to indicate to the firmware to boot to setup "
-#| "interface."
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
-msgstr "向固件发出启动时进入设置界面的指令需要认证。"
+msgstr "指示引导加载程序启动入指定引导加载条目需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
@@ -548,13 +518,11 @@ msgstr "设置 wall 消息需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:395
 msgid "Change Session"
-msgstr ""
+msgstr "更改会话"
 
 #: src/login/org.freedesktop.login1.policy:396
-#, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to change the virtual terminal."
-msgstr "设置本地主机名需要认证。"
+msgstr "更改虚拟终端需要认证。"
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -629,10 +597,8 @@ msgid "Set NTP servers"
 msgstr "设置 NTP 服务器"
 
 #: src/network/org.freedesktop.network1.policy:23
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to set NTP servers."
-msgstr "设置系统时间需要认证。"
+msgstr "设定 NTP 服务器需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
@@ -641,10 +607,8 @@ msgstr "设置 DNS 服务器"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
-#, fuzzy
-#| msgid "Authentication is required to set the system time."
 msgid "Authentication is required to set DNS servers."
-msgstr "设置系统时间需要认证。"
+msgstr "设定 DNS 服务器需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
@@ -653,10 +617,8 @@ msgstr "设置域名"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
-#, fuzzy
-#| msgid "Authentication is required to stop '$(unit)'."
 msgid "Authentication is required to set domains."
-msgstr "停止“$(unit)”需要认证。"
+msgstr "设定域需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
@@ -665,51 +627,43 @@ msgstr "设置默认路由"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
-#, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to set default route."
-msgstr "设置本地主机名需要认证。"
+msgstr "设定默认路由需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "启用/禁用 LLMNR"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
-#, fuzzy
-#| msgid "Authentication is required to hibernate the system."
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr "休眠系统需要认证。"
+msgstr "启用或禁用 LLMNR 需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
-msgstr ""
+msgstr "启用/禁用多播 DNS"
 
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
-#, fuzzy
-#| msgid "Authentication is required to log into the local host."
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr "登入本地主机需要认证。"
+msgstr "启用或禁用多播 DNS 需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "启用/禁用 DNS over TLS"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
-#, fuzzy
-#| msgid "Authentication is required to set the local hostname."
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "设置本地主机名需要认证。"
+msgstr "启用或禁用 DNS over TLS 需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "启用/禁用 DNSSEC"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
