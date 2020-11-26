@@ -8,8 +8,18 @@
 #include "set.h"
 #include "time-util.h"
 
+#define LATEST_UDEV_DATABASE_VERSION 1
+
 struct sd_device {
         unsigned n_ref;
+
+        /* The database version indicates the supported features by the udev database.
+         * This is saved and parsed in V field.
+         *
+         * 0: None of the following features are supported (systemd version <= 246).
+         * 1: The current tags (Q) and the database version (V) features are implemented (>= 247).
+         */
+        unsigned database_version;
 
         int watch_handle;
 
@@ -88,7 +98,9 @@ struct sd_device {
 
 int device_new_aux(sd_device **ret);
 int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db);
-int device_add_property_internal(sd_device *device, const char *key, const char *value);
+static inline int device_add_property_internal(sd_device *device, const char *key, const char *value) {
+        return device_add_property_aux(device, key, value, false);
+}
 int device_read_uevent_file(sd_device *device);
 
 int device_set_syspath(sd_device *device, const char *_syspath, bool verify);
