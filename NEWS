@@ -2,7 +2,7 @@ systemd System and Service Manager
 
 CHANGES WITH 247:
 
-        * KERNEL API INCOMPATIBILITY: Linux 4.12 introduced two new uevents
+        * KERNEL API INCOMPATIBILITY: Linux 4.14 introduced two new uevents
           "bind" and "unbind" to the Linux device model. When this kernel
           change was made, systemd-udevd was only minimally updated to handle
           and propagate these new event types. The introduction of these new
