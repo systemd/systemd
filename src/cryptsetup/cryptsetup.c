@@ -595,6 +595,240 @@ static int make_security_device_monitor(sd_event *event, sd_device_monitor **ret
         return 0;
 }
 
+static int attach_luks_or_plain_or_bitlk_by_pkcs11(
+                struct crypt_device *cd,
+                const char *name,
+                const char *key_file,
+                const void *key_data,
+                size_t key_data_size,
+                usec_t until,
+                uint32_t flags,
+                bool pass_volume_key) {
+
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_free_ char *friendly = NULL, *discovered_uri = NULL;
+        size_t decrypted_key_size = 0, discovered_key_size = 0;
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_free_ void *discovered_key = NULL;
+        int keyslot = arg_key_slot, r;
+        const char *uri;
+
+        assert(cd);
+        assert(name);
+        assert(arg_pkcs11_uri || arg_pkcs11_uri_auto);
+
+        if (arg_pkcs11_uri_auto) {
+                r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &keyslot);
+                if (IN_SET(r, -ENOTUNIQ, -ENXIO))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                               "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
+                if (r < 0)
+                        return r;
+
+                uri = discovered_uri;
+                key_data = discovered_key;
+                key_data_size = discovered_key_size;
+        } else {
+                uri = arg_pkcs11_uri;
+
+                if (!key_file && !key_data)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PKCS#11 mode selected but no key file specified, refusing.");
+        }
+
+        friendly = friendly_disk_name(crypt_get_device_name(cd), name);
+        if (!friendly)
+                return log_oom();
+
+        for (;;) {
+                bool processed = false;
+
+                r = decrypt_pkcs11_key(
+                                name,
+                                friendly,
+                                uri,
+                                key_file, arg_keyfile_size, arg_keyfile_offset,
+                                key_data, key_data_size,
+                                until,
+                                &decrypted_key, &decrypted_key_size);
+                if (r >= 0)
+                        break;
+                if (r != -EAGAIN) /* EAGAIN means: token not found */
+                        return r;
+
+                if (!monitor) {
+                        /* We didn't find the token. In this case, watch for it via udev. Let's
+                         * create an event loop and monitor first. */
+
+                        assert(!event);
+
+                        r = sd_event_default(&event);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+                        r = make_security_device_monitor(event, &monitor);
+                        if (r < 0)
+                                return r;
+
+                        log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
+                                   uri, friendly);
+
+                        /* Let's immediately rescan in case the token appeared in the time we needed
+                         * to create and configure the monitor */
+                        continue;
+                }
+
+                for (;;) {
+                        /* Wait for one event, and then eat all subsequent events until there are no
+                         * further ones */
+                        r = sd_event_run(event, processed ? 0 : UINT64_MAX);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to run event loop: %m");
+                        if (r == 0)
+                                break;
+
+                        processed = true;
+                }
+
+                log_debug("Got one or more potentially relevant udev events, rescanning PKCS#11...");
+        }
+
+        if (pass_volume_key)
+                r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+        else {
+                _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+
+                /* Before using this key as passphrase we base64 encode it. Why? For compatibility
+                 * with homed's PKCS#11 hookup: there we want to use the key we acquired through
+                 * PKCS#11 for other authentication/decryption mechanisms too, and some of them do
+                 * not not take arbitrary binary blobs, but require NUL-terminated strings — most
+                 * importantly UNIX password hashes. Hence, for compatibility we want to use a string
+                 * without embedded NUL here too, and that's easiest to generate from a binary blob
+                 * via base64 encoding. */
+
+                r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                if (r < 0)
+                        return log_oom();
+
+                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
+        }
+        if (r == -EPERM) {
+                log_error_errno(r, "Failed to activate with PKCS#11 decrypted key. (Key incorrect?)");
+                return -EAGAIN; /* log actual error, but return EAGAIN */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate with PKCS#11 acquired key: %m");
+
+        return 0;
+}
+
+static int attach_luks_or_plain_or_bitlk_by_key_data(
+                struct crypt_device *cd,
+                const char *name,
+                const void *key_data,
+                size_t key_data_size,
+                uint32_t flags,
+                bool pass_volume_key) {
+
+        int r;
+
+        assert(cd);
+        assert(name);
+        assert(key_data);
+
+        if (pass_volume_key)
+                r = crypt_activate_by_volume_key(cd, name, key_data, key_data_size, flags);
+        else
+                r = crypt_activate_by_passphrase(cd, name, arg_key_slot, key_data, key_data_size, flags);
+        if (r == -EPERM) {
+                log_error_errno(r, "Failed to activate. (Key incorrect?)");
+                return -EAGAIN; /* Log actual error, but return EAGAIN */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate: %m");
+
+        return 0;
+}
+
+static int attach_luks_or_plain_or_bitlk_by_key_file(
+                struct crypt_device *cd,
+                const char *name,
+                const char *key_file,
+                uint32_t flags,
+                bool pass_volume_key) {
+
+        _cleanup_(erase_and_freep) char *kfdata = NULL;
+        _cleanup_free_ char *bindname = NULL;
+        size_t kfsize;
+        int r;
+
+        assert(cd);
+        assert(name);
+        assert(key_file);
+
+        /* If we read the key via AF_UNIX, make this client recognizable */
+        bindname = make_bindname(name);
+        if (!bindname)
+                return log_oom();
+
+        r = read_full_file_full(
+                        AT_FDCWD, key_file,
+                        arg_keyfile_offset == 0 ? UINT64_MAX : arg_keyfile_offset,
+                        arg_keyfile_size == 0 ? SIZE_MAX : arg_keyfile_size,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        bindname,
+                        &kfdata, &kfsize);
+        if (r == -ENOENT) {
+                log_error_errno(r, "Failed to activate, key file '%s' missing.", key_file);
+                return -EAGAIN; /* Log actual error, but return EAGAIN */
+        }
+
+        if (pass_volume_key)
+                r = crypt_activate_by_volume_key(cd, name, kfdata, kfsize, flags);
+        else
+                r = crypt_activate_by_passphrase(cd, name, arg_key_slot, kfdata, kfsize, flags);
+        if (r == -EPERM) {
+                log_error_errno(r, "Failed to activate with key file '%s'. (Key data incorrect?)", key_file);
+                return -EAGAIN; /* Log actual error, but return EAGAIN */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
+
+        return 0;
+}
+
+static int attach_luks_or_plain_or_bitlk_by_passphrase(
+                struct crypt_device *cd,
+                const char *name,
+                char **passwords,
+                uint32_t flags,
+                bool pass_volume_key) {
+
+        char **p;
+        int r;
+
+        assert(cd);
+        assert(name);
+
+        r = -EINVAL;
+        STRV_FOREACH(p, passwords) {
+                if (pass_volume_key)
+                        r = crypt_activate_by_volume_key(cd, name, *p, arg_key_size, flags);
+                else
+                        r = crypt_activate_by_passphrase(cd, name, arg_key_slot, *p, strlen(*p), flags);
+                if (r >= 0)
+                        break;
+        }
+        if (r == -EPERM) {
+                log_error_errno(r, "Failed to activate with specified passphrase. (Passphrase incorrect?)");
+                return -EAGAIN; /* log actual error, but return EAGAIN */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate with specified passphrase: %m");
+
+        return 0;
+}
+
 static int attach_luks_or_plain_or_bitlk(
                 struct crypt_device *cd,
                 const char *name,
@@ -605,8 +839,8 @@ static int attach_luks_or_plain_or_bitlk(
                 uint32_t flags,
                 usec_t until) {
 
-        int r = 0;
         bool pass_volume_key = false;
+        int r;
 
         assert(cd);
         assert(name);
@@ -620,13 +854,14 @@ static int attach_luks_or_plain_or_bitlk(
                 const char *cipher, *cipher_mode;
                 _cleanup_free_ char *truncated_cipher = NULL;
 
-                if (arg_hash) {
+                if (streq_ptr(arg_hash, "plain"))
                         /* plain isn't a real hash type. it just means "use no hash" */
-                        if (!streq(arg_hash, "plain"))
-                                params.hash = arg_hash;
-                } else if (!key_file)
-                        /* for CRYPT_PLAIN, the behaviour of cryptsetup
-                         * package is to not hash when a key file is provided */
+                        params.hash = NULL;
+                else if (arg_hash)
+                        params.hash = arg_hash;
+                else if (!key_file)
+                        /* for CRYPT_PLAIN, the behaviour of cryptsetup package is to not hash when a key
+                         * file is provided */
                         params.hash = "ripemd160";
 
                 if (arg_cipher) {
@@ -654,7 +889,7 @@ static int attach_luks_or_plain_or_bitlk(
                         return log_error_errno(r, "Loading of cryptographic parameters failed: %m");
 
                 /* hash == NULL implies the user passed "plain" */
-                pass_volume_key = (params.hash == NULL);
+                pass_volume_key = !params.hash;
         }
 
         log_info("Set cipher %s, mode %s, key size %i bits for device %s.",
@@ -663,179 +898,14 @@ static int attach_luks_or_plain_or_bitlk(
                  crypt_get_volume_key_size(cd)*8,
                  crypt_get_device_name(cd));
 
-        if (arg_pkcs11_uri || arg_pkcs11_uri_auto) {
-                _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-                _cleanup_free_ char *friendly = NULL, *discovered_uri = NULL;
-                size_t decrypted_key_size = 0, discovered_key_size = 0;
-                _cleanup_(erase_and_freep) void *decrypted_key = NULL;
-                _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-                _cleanup_free_ void *discovered_key = NULL;
-                int keyslot = arg_key_slot;
-                const char *uri;
+        if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
+                return attach_luks_or_plain_or_bitlk_by_pkcs11(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
+        if (key_data)
+                return attach_luks_or_plain_or_bitlk_by_key_data(cd, name, key_data, key_data_size, flags, pass_volume_key);
+        if (key_file)
+                return attach_luks_or_plain_or_bitlk_by_key_file(cd, name, key_file, flags, pass_volume_key);
 
-                if (arg_pkcs11_uri_auto) {
-                        r = find_pkcs11_auto_data(cd, &discovered_uri, &discovered_key, &discovered_key_size, &keyslot);
-                        if (IN_SET(r, -ENOTUNIQ, -ENXIO))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                                       "Automatic PKCS#11 metadata discovery was not possible because missing or not unique, falling back to traditional unlocking.");
-                        if (r < 0)
-                                return r;
-
-                        key_data = discovered_key;
-                        key_data_size = discovered_key_size;
-                        uri = discovered_uri;
-                } else
-                        uri = arg_pkcs11_uri;
-
-                if (!key_file && !key_data)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PKCS#11 mode selected but no key file specified, refusing.");
-
-                friendly = friendly_disk_name(crypt_get_device_name(cd), name);
-                if (!friendly)
-                        return log_oom();
-
-                for (;;) {
-                        bool processed = false;
-
-                        r = decrypt_pkcs11_key(
-                                        name,
-                                        friendly,
-                                        uri,
-                                        key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, key_data_size,
-                                        until,
-                                        &decrypted_key, &decrypted_key_size);
-                        if (r >= 0)
-                                break;
-                        if (r != -EAGAIN) /* EAGAIN means: token not found */
-                                return r;
-
-                        if (!monitor) {
-                                /* We didn't find the token. In this case, watch for it via udev. Let's
-                                 * create an event loop and monitor first. */
-
-                                assert(!event);
-
-                                r = sd_event_default(&event);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to allocate event loop: %m");
-
-                                r = make_security_device_monitor(event, &monitor);
-                                if (r < 0)
-                                        return r;
-
-                                log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
-                                           uri, friendly);
-
-                                /* Let's immediately rescan in case the token appeared in the time we needed
-                                 * to create and configure the monitor */
-                                continue;
-                        }
-
-                        for (;;) {
-                                /* Wait for one event, and then eat all subsequent events until there are no
-                                 * further ones */
-                                r = sd_event_run(event, processed ? 0 : UINT64_MAX);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to run event loop: %m");
-                                if (r == 0)
-                                        break;
-
-                                processed = true;
-                        }
-
-                        log_debug("Got one or more potentially relevant udev events, rescanning PKCS#11...");
-                }
-
-                if (pass_volume_key)
-                        r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
-                else {
-                        _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-
-                        /* Before using this key as passphrase we base64 encode it. Why? For compatibility
-                         * with homed's PKCS#11 hookup: there we want to use the key we acquired through
-                         * PKCS#11 for other authentication/decryption mechanisms too, and some of them do
-                         * not not take arbitrary binary blobs, but require NUL-terminated strings — most
-                         * importantly UNIX password hashes. Hence, for compatibility we want to use a string
-                         * without embedded NUL here too, and that's easiest to generate from a binary blob
-                         * via base64 encoding. */
-
-                        r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
-                }
-                if (r == -EPERM) {
-                        log_error_errno(r, "Failed to activate with PKCS#11 decrypted key. (Key incorrect?)");
-                        return -EAGAIN; /* log actual error, but return EAGAIN */
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to activate with PKCS#11 acquired key: %m");
-
-        } else if (key_data) {
-                if (pass_volume_key)
-                        r = crypt_activate_by_volume_key(cd, name, key_data, key_data_size, flags);
-                else
-                        r = crypt_activate_by_passphrase(cd, name, arg_key_slot, key_data, key_data_size, flags);
-                if (r == -EPERM) {
-                        log_error_errno(r, "Failed to activate. (Key incorrect?)");
-                        return -EAGAIN; /* Log actual error, but return EAGAIN */
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to activate: %m");
-
-        } else if (key_file) {
-                _cleanup_(erase_and_freep) char *kfdata = NULL;
-                _cleanup_free_ char *bindname = NULL;
-                size_t kfsize;
-
-                /* If we read the key via AF_UNIX, make this client recognizable */
-                bindname = make_bindname(name);
-                if (!bindname)
-                        return log_oom();
-
-                r = read_full_file_full(
-                                AT_FDCWD, key_file,
-                                arg_keyfile_offset == 0 ? UINT64_MAX : arg_keyfile_offset,
-                                arg_keyfile_size == 0 ? SIZE_MAX : arg_keyfile_size,
-                                READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                bindname,
-                                &kfdata, &kfsize);
-                if (r == -ENOENT) {
-                        log_error_errno(r, "Failed to activate, key file '%s' missing.", key_file);
-                        return -EAGAIN; /* Log actual error, but return EAGAIN */
-                }
-
-                r = crypt_activate_by_passphrase(cd, name, arg_key_slot, kfdata, kfsize, flags);
-                if (r == -EPERM) {
-                        log_error_errno(r, "Failed to activate with key file '%s'. (Key data incorrect?)", key_file);
-                        return -EAGAIN; /* Log actual error, but return EAGAIN */
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to activate with key file '%s': %m", key_file);
-
-        } else {
-                char **p;
-
-                r = -EINVAL;
-                STRV_FOREACH(p, passwords) {
-                        if (pass_volume_key)
-                                r = crypt_activate_by_volume_key(cd, name, *p, arg_key_size, flags);
-                        else
-                                r = crypt_activate_by_passphrase(cd, name, arg_key_slot, *p, strlen(*p), flags);
-                        if (r >= 0)
-                                break;
-                }
-                if (r == -EPERM) {
-                        log_error_errno(r, "Failed to activate with specified passphrase. (Passphrase incorrect?)");
-                        return -EAGAIN; /* log actual error, but return EAGAIN */
-                }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to activate with specified passphrase: %m");
-        }
-
-        return r;
+        return attach_luks_or_plain_or_bitlk_by_passphrase(cd, name, passwords, flags, pass_volume_key);
 }
 
 static int help(void) {
