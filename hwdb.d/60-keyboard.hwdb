@@ -323,6 +323,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1110:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1210:*
  KEYBOARD_KEY_84=wlan
 
+# Dell Inspiron 11 3168
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron11-3168:pvr*
+ KEYBOARD_KEY_c7=!home                                 # Fn-LeftArrow
+ KEYBOARD_KEY_cf=!end                                  # Fn-RightArrow
+ KEYBOARD_KEY_c9=!pageup                               # Fn-UpArrow
+ KEYBOARD_KEY_d1=!pagedown                             # Fn-DownArrow
+
 # Dell Inspiron 1520 and Latitude 2110
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1520:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*2110:*
