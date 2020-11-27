@@ -33,7 +33,7 @@ try:
                            OneOrMore, Combine, Or, Optional, Suppress, Group,
                            nums, alphanums, printables,
                            stringEnd, pythonStyleComment,
-                           ParseBaseException)
+                           ParseBaseException, __diag__)
 except ImportError:
     print('pyparsing is not available')
     sys.exit(77)
@@ -49,6 +49,12 @@ try:
 except ImportError:
     # don't do caching on old python
     lru_cache = lambda: (lambda f: f)
+
+__diag__.warn_multiple_tokens_in_named_alternation = True
+__diag__.warn_ungrouped_named_tokens_in_collection = True
+__diag__.warn_name_set_on_empty_Forward = True
+__diag__.warn_on_multiple_string_args_to_oneof = True
+__diag__.enable_debug_on_named_expressions = True
 
 EOL = LineEnd().suppress()
 EMPTYLINE = LineEnd()
@@ -111,9 +117,9 @@ def hwdb_grammar():
 def property_grammar():
     ParserElement.setDefaultWhitespaceChars(' ')
 
-    dpi_setting = (Optional('*')('DEFAULT') + INTEGER('DPI') + Suppress('@') + INTEGER('HZ'))('SETTINGS*')
+    dpi_setting = Group(Optional('*')('DEFAULT') + INTEGER('DPI') + Suppress('@') + INTEGER('HZ'))('SETTINGS*')
     mount_matrix_row = SIGNED_REAL + ',' + SIGNED_REAL + ',' + SIGNED_REAL
-    mount_matrix = (mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
+    mount_matrix = Group(mount_matrix_row + ';' + mount_matrix_row + ';' + mount_matrix_row)('MOUNT_MATRIX')
     xkb_setting = Optional(Word(alphanums + '+-/@._'))
 
     props = (('MOUSE_DPI', Group(OneOrMore(dpi_setting))),
