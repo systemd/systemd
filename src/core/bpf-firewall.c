@@ -686,14 +686,10 @@ int bpf_firewall_install(Unit *u) {
         supported = bpf_firewall_supported();
         if (supported < 0)
                 return supported;
-        if (supported == BPF_FIREWALL_UNSUPPORTED) {
-                log_unit_debug(u, "BPF firewalling not supported on this manager, proceeding without.");
-                return -EOPNOTSUPP;
-        }
-        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE) {
-                log_unit_debug(u, "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
-                return -EOPNOTSUPP;
-        }
+        if (supported == BPF_FIREWALL_UNSUPPORTED)
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "BPF firewalling not supported on this manager, proceeding without.");
+        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE)
+                return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
         if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI &&
             (!set_isempty(u->ip_bpf_custom_ingress) || !set_isempty(u->ip_bpf_custom_egress)))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "BPF_F_ALLOW_MULTI not supported on this manager, cannot attach custom BPF programs.");

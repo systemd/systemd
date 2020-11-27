@@ -283,10 +283,8 @@ static int path_verify(Path *p) {
         assert(p);
         assert(UNIT(p)->load_state == UNIT_LOADED);
 
-        if (!p->specs) {
-                log_unit_error(UNIT(p), "Path unit lacks path setting. Refusing.");
-                return -ENOEXEC;
-        }
+        if (!p->specs)
+                return log_unit_error_errno(UNIT(p), SYNTHETIC_ERRNO(ENOEXEC), "Path unit lacks path setting. Refusing.");
 
         return 0;
 }

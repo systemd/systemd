@@ -400,10 +400,8 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not get rtnl message type: %m");
 
-        if (type != RTM_NEWLINK) {
-                log_netdev_error(netdev, "Cannot set ifindex from unexpected rtnl message type.");
-                return -EINVAL;
-        }
+        if (type != RTM_NEWLINK)
+                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL), "Cannot set ifindex from unexpected rtnl message type.");
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
@@ -434,7 +432,7 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         if (!streq(netdev->ifname, received_name)) {
                 log_netdev_error(netdev, "Received newlink with wrong IFNAME %s", received_name);
                 netdev_enter_failed(netdev);
-                return r;
+                return -EINVAL;
         }
 
         r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
@@ -462,11 +460,10 @@ int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *message) {
         }
 
         if (!streq(kind, received_kind)) {
-                log_netdev_error(netdev,
-                                 "Received newlink with wrong KIND %s, "
-                                 "expected %s", received_kind, kind);
+                log_netdev_error(netdev, "Received newlink with wrong KIND %s, expected %s",
+                                 received_kind, kind);
                 netdev_enter_failed(netdev);
-                return r;
+                return -EINVAL;
         }
 
         netdev->ifindex = ifindex;

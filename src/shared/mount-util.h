@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "macro.h"
 
@@ -93,7 +94,6 @@ static inline char* umount_and_rmdir_and_free(char *p) {
         PROTECT_ERRNO;
         (void) umount_recursive(p, 0);
         (void) rmdir(p);
-        free(p);
-        return NULL;
+        return mfree(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);

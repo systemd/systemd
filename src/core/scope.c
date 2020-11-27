@@ -131,10 +131,8 @@ static int scope_verify(Scope *s) {
 
         if (set_isempty(UNIT(s)->pids) &&
             !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
-            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE)) {
-                log_unit_error(UNIT(s), "Scope has no PIDs. Refusing.");
-                return -ENOENT;
-        }
+            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT), "Scope has no PIDs. Refusing.");
 
         return 0;
 }
@@ -498,11 +496,7 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
                 if (parse_pid(value, &pid) < 0)
                         log_unit_debug(u, "Failed to parse pids value: %s", value);
                 else {
-                        r = set_ensure_allocated(&u->pids, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = set_put(u->pids, PID_TO_PTR(pid));
+                        r = set_ensure_put(&u->pids, NULL, PID_TO_PTR(pid));
                         if (r < 0)
                                 return r;
                 }

@@ -1668,8 +1668,8 @@ int unit_load(Unit *u) {
                         goto fail;
 
                 if (u->on_failure_job_mode == JOB_ISOLATE && hashmap_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
-                        log_unit_error(u, "More than one OnFailure= dependencies specified but OnFailureJobMode=isolate set. Refusing.");
-                        r = -ENOEXEC;
+                        r = log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC),
+                                                 "More than one OnFailure= dependencies specified but OnFailureJobMode=isolate set. Refusing.");
                         goto fail;
                 }
 
@@ -2022,10 +2022,8 @@ int unit_reload(Unit *u) {
         if (state == UNIT_RELOADING)
                 return -EAGAIN;
 
-        if (state != UNIT_ACTIVE) {
-                log_unit_warning(u, "Unit cannot be reloaded because it is inactive.");
-                return -ENOEXEC;
-        }
+        if (state != UNIT_ACTIVE)
+                return log_unit_warning_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "Unit cannot be reloaded because it is inactive.");
 
         following = unit_following(u);
         if (following) {

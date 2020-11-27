@@ -195,10 +195,8 @@ static int link_set_can(Link *link) {
 
                 format_timespan(time_string, FORMAT_TIMESPAN_MAX, restart_ms * 1000, MSEC_PER_SEC);
 
-                if (restart_ms > UINT32_MAX) {
-                        log_link_error(link, "restart timeout (%s) too big.", time_string);
-                        return -ERANGE;
-                }
+                if (restart_ms > UINT32_MAX)
+                        return log_link_error_errno(link, SYNTHETIC_ERRNO(ERANGE), "restart timeout (%s) too big.", time_string);
 
                 log_link_debug(link, "Setting restart = %s", time_string);
 

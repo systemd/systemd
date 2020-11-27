@@ -64,24 +64,14 @@ static inline int compare_pgscan(OomdCGroupContext * const *c1, OomdCGroupContex
         assert(c1);
         assert(c2);
 
-        if ((*c1)->pgscan > (*c2)->pgscan)
-                return -1;
-        else if ((*c1)->pgscan < (*c2)->pgscan)
-                return 1;
-        else
-                return 0;
+        return CMP((*c2)->pgscan, (*c1)->pgscan);
 }
 
 static inline int compare_swap_usage(OomdCGroupContext * const *c1, OomdCGroupContext * const *c2) {
         assert(c1);
         assert(c2);
 
-        if ((*c1)->swap_usage > (*c2)->swap_usage)
-                return -1;
-        else if ((*c1)->swap_usage < (*c2)->swap_usage)
-                return 1;
-        else
-                return 0;
+        return CMP((*c2)->swap_usage, (*c1)->swap_usage);
 }
 
 /* Get an array of OomdCGroupContexts from `h`, qsorted from largest to smallest values according to `compare_func`.

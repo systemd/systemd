@@ -174,19 +174,15 @@ static int automount_verify(Automount *a) {
         assert(a);
         assert(UNIT(a)->load_state == UNIT_LOADED);
 
-        if (path_equal(a->where, "/")) {
-                log_unit_error(UNIT(a), "Cannot have an automount unit for the root directory. Refusing.");
-                return -ENOEXEC;
-        }
+        if (path_equal(a->where, "/"))
+                return log_unit_error_errno(UNIT(a), SYNTHETIC_ERRNO(ENOEXEC), "Cannot have an automount unit for the root directory. Refusing.");
 
         r = unit_name_from_path(a->where, ".automount", &e);
         if (r < 0)
                 return log_unit_error_errno(UNIT(a), r, "Failed to generate unit name from path: %m");
 
-        if (!unit_has_name(UNIT(a), e)) {
-                log_unit_error(UNIT(a), "Where= setting doesn't match unit name. Refusing.");
-                return -ENOEXEC;
-        }
+        if (!unit_has_name(UNIT(a), e))
+                return log_unit_error_errno(UNIT(a), SYNTHETIC_ERRNO(ENOEXEC), "Where= setting doesn't match unit name. Refusing.");
 
         return 0;
 }
@@ -811,10 +807,8 @@ static int automount_start(Unit *u) {
         assert(a);
         assert(IN_SET(a->state, AUTOMOUNT_DEAD, AUTOMOUNT_FAILED));
 
-        if (path_is_mount_point(a->where, NULL, 0) > 0) {
-                log_unit_error(u, "Path %s is already a mount point, refusing start.", a->where);
-                return -EEXIST;
-        }
+        if (path_is_mount_point(a->where, NULL, 0) > 0)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EEXIST), "Path %s is already a mount point, refusing start.", a->where);
 
         r = unit_test_trigger_loaded(u);
         if (r < 0)

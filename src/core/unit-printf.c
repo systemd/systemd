@@ -181,7 +181,7 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
          * %N: the id of the unit without the suffix   (foo-aaa@bar)
          * %p: the prefix                              (foo-aaa)
          * %i: the instance                            (bar)
-         * %j: the last componet of the prefix         (aaa)
+         * %j: the last component of the prefix        (aaa)
          */
 
         const Specifier table[] = {

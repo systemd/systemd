@@ -384,8 +384,7 @@ int mac_smack_setup(bool *loaded_policy) {
                 log_info("Successfully wrote Smack onlycap list.");
                 break;
         default:
-                log_emergency_errno(r, "Failed to write Smack onlycap list: %m");
-                return r;
+                return log_emergency_errno(r, "Failed to write Smack onlycap list: %m");
         }
 
         *loaded_policy = true;
