@@ -881,7 +881,7 @@ static int method_set_pool_limit(sd_bus_message *message, void *userdata, sd_bus
                 return 1; /* Will call us back */
 
         /* Set up the machine directory if necessary */
-        r = setup_machine_directory(error);
+        r = setup_machine_directory(m->is_system, error);
         if (r < 0)
                 return r;
 

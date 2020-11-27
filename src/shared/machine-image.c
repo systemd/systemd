@@ -869,6 +869,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         _cleanup_(release_lock_file) LockFile name_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
         _cleanup_free_ char *roothash = NULL;
+        _cleanup_free_ char *machinesp = NULL;
         const char *new_path;
         char **j;
         int r;
@@ -906,7 +907,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
                 /* If we can we'll always try to create a new btrfs subvolume here, even if the source is a plain
                  * directory. */
 
-                new_path = strjoina("/var/lib/machines/", new_name);
+                new_path = strjoina(machinesp, new_name);
 
                 r = btrfs_subvol_snapshot(i->path, new_path,
                                           (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
@@ -922,7 +923,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
                 break;
 
         case IMAGE_RAW:
-                new_path = strjoina("/var/lib/machines/", new_name, ".raw");
+                new_path = strjoina(machinesp, new_name, ".raw");
 
                 r = copy_file_atomic(i->path, new_path, read_only ? 0444 : 0644, FS_NOCOW_FL, FS_NOCOW_FL, COPY_REFLINK|COPY_CRTIME);
                 break;
