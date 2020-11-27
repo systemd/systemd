@@ -22,6 +22,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "sd-path.h"
 #include "service-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -93,6 +94,7 @@ struct Manager {
         int notify_fd;
 
         sd_event_source *notify_event_source;
+        bool is_system;
 };
 
 #define TRANSFERS_MAX 64
@@ -359,6 +361,18 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
+static char *notify_path(bool system) {
+        char *path;
+
+        if (system)
+                return strdup("/run/systemd/import/notify");
+
+        if (sd_path_lookup(SD_PATH_USER_RUNTIME, "systemd/import/notify", &path) < 0)
+                return NULL;
+
+        return path;
+}
+
 static int transfer_start(Transfer *t) {
         _cleanup_close_pair_ int pipefd[2] = { -1, -1 };
         int r;
@@ -388,6 +402,7 @@ static int transfer_start(Transfer *t) {
                         NULL
                 };
                 unsigned k = 0;
+                _cleanup_free_ char *notify_socket = notify_path(t->manager->is_system);
 
                 /* Child */
 
@@ -402,7 +417,7 @@ static int transfer_start(Transfer *t) {
                 }
 
                 if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 ||
-                    setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {
+                    setenv("NOTIFY_SOCKET", notify_socket, 1) < 0) {
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -621,13 +636,22 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
 static int manager_new(Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
-        static const union sockaddr_union sa = {
+        _cleanup_free_ char *path = NULL;
+        union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
-                .un.sun_path = "/run/systemd/import/notify",
         };
         int r;
 
         assert(ret);
+
+        path = notify_path(true);
+        if (!path)
+                return -ENOMEM;
+
+        if (strlen(path) >= sizeof(sa.un.sun_path))
+                return -EINVAL;
+
+        memcpy(sa.un.sun_path, path, strlen(path) + 1);
 
         m = new0(Manager, 1);
         if (!m)
@@ -639,6 +663,7 @@ static int manager_new(Manager **ret) {
 
         sd_event_set_watchdog(m->event, true);
 
+        m->is_system = true;
         r = sd_bus_default_system(&m->bus);
         if (r < 0)
                 return r;
