@@ -3194,7 +3194,6 @@ public_programs += executable(
         c_args : '-DLOG_REALM=LOG_REALM_UDEV',
         include_directories : includes,
         link_with : [libudev_core,
-                     libsystemd_network,
                      libudev_static],
         dependencies : [versiondep,
                         threads,

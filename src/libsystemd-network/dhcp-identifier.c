@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_infiniband.h>
+#include <net/ethernet.h>
 #include <net/if_arp.h>
 
 #include "sd-device.h"
@@ -8,7 +9,7 @@
 
 #include "dhcp-identifier.h"
 #include "dhcp6-protocol.h"
-#include "network-internal.h"
+#include "network-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"

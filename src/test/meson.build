@@ -126,8 +126,7 @@ tests += [
 
         [['src/test/test-dns-domain.c'],
          [libcore,
-          libshared,
-          libsystemd_network],
+          libshared],
          []],
 
         [['src/test/test-boot-timestamps.c'],
@@ -530,7 +529,6 @@ tests += [
           libjournal_core,
           libudev_core,
           libudev_static,
-          libsystemd_network,
           libshared],
          [threads,
           libseccomp,
@@ -766,7 +764,6 @@ tests += [
         [['src/test/test-udev.c'],
          [libudev_core,
           libudev_static,
-          libsystemd_network,
           libshared],
          [threads,
           librt,

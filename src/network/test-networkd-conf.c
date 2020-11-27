@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "macro.h"
-#include "set.h"
-#include "string-util.h"
-
-#include "network-internal.h"
+#include "net-condition.h"
 #include "networkd-conf.h"
 #include "networkd-network.h"
+#include "strv.h"
 
 static void test_config_parse_duid_type_one(const char *rvalue, int ret, DUIDType expected, usec_t expected_time) {
         DUID actual = {};
@@ -174,7 +171,7 @@ static void test_config_parse_address_one(const char *rvalue, int family, unsign
         assert_se(network = new0(Network, 1));
         network->n_ref = 1;
         assert_se(network->filename = strdup("hogehoge.network"));
-        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match_name, network) == 0);
+        assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "*", &network->match.ifname, network) == 0);
         assert_se(config_parse_address("network", "filename", 1, "section", 1, "Address", 0, rvalue, network, network) == 0);
         assert_se(ordered_hashmap_size(network->addresses_by_section) == 1);
         assert_se(network_verify(network) >= 0);

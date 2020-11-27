@@ -44,6 +44,7 @@
 #include "main-func.h"
 #include "netlink-util.h"
 #include "network-internal.h"
+#include "network-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -704,7 +705,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                         setup_state = strdup("unmanaged");
                 setup_state_to_color(setup_state, &on_color_setup, &off_color_setup);
 
-                t = link_get_type_string(links[i].iftype, links[i].sd_device);
+                t = link_get_type_string(links[i].sd_device, links[i].iftype);
 
                 r = table_add_many(table,
                                    TABLE_INT, links[i].ifindex,
@@ -1428,7 +1429,7 @@ static int link_status_one(
                         (void) sd_device_get_property_value(info->sd_device, "ID_MODEL", &model);
         }
 
-        t = link_get_type_string(info->iftype, info->sd_device);
+        t = link_get_type_string(info->sd_device, info->iftype);
 
         (void) sd_network_link_get_network_file(info->ifindex, &network);
 

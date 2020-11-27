@@ -13,7 +13,6 @@
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "missing_network.h"
-#include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"

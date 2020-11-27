@@ -11,6 +11,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "def.h"
+#include "ether-addr-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -24,6 +25,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "sd-id128.h"
+#include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -251,15 +253,16 @@ static int parse_line(
 }
 
 /* Go through the file and parse each line */
-int config_parse(const char *unit,
-                 const char *filename,
-                 FILE *f,
-                 const char *sections,
-                 ConfigItemLookup lookup,
-                 const void *table,
-                 ConfigParseFlags flags,
-                 void *userdata,
-                 usec_t *ret_mtime) {
+int config_parse(
+                const char *unit,
+                const char *filename,
+                FILE *f,
+                const char *sections,
+                ConfigItemLookup lookup,
+                const void *table,
+                ConfigParseFlags flags,
+                void *userdata,
+                usec_t *ret_mtime) {
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
@@ -522,16 +525,17 @@ DEFINE_PARSER(sec, usec_t, parse_sec);
 DEFINE_PARSER(sec_def_infinity, usec_t, parse_sec_def_infinity);
 DEFINE_PARSER(mode, mode_t, parse_mode);
 
-int config_parse_iec_size(const char* unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_iec_size(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         size_t *sz = data;
         uint64_t v;
@@ -608,16 +612,17 @@ int config_parse_iec_uint64(
         return 0;
 }
 
-int config_parse_bool(const char* unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
+int config_parse_bool(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         int k;
         bool *b = data;
@@ -1181,16 +1186,17 @@ int config_parse_rlimit(
         return 0;
 }
 
-int config_parse_permille(const char* unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          unsigned section_line,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_permille(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         unsigned *permille = data;
         int r;
@@ -1212,17 +1218,20 @@ int config_parse_permille(const char* unit,
         return 0;
 }
 
-int config_parse_vlanprotocol(const char* unit,
-                              const char *filename,
-                              unsigned line,
-                              const char *section,
-                              unsigned section_line,
-                              const char *lvalue,
-                              int ltype,
-                              const char *rvalue,
-                              void *data,
-                              void *userdata) {
+int config_parse_vlanprotocol(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         int *vlan_protocol = data;
+
         assert(filename);
         assert(lvalue);
 
@@ -1242,6 +1251,108 @@ int config_parse_vlanprotocol(const char* unit,
         }
 
         return 0;
+}
+
+int config_parse_hwaddr(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ struct ether_addr *n = NULL;
+        struct ether_addr **hwaddr = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                *hwaddr = mfree(*hwaddr);
+                return 0;
+        }
+
+        n = new0(struct ether_addr, 1);
+        if (!n)
+                return log_oom();
+
+        r = ether_addr_from_string(rvalue, n);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Not a valid MAC address, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        free_and_replace(*hwaddr, n);
+
+        return 0;
+}
+
+int config_parse_hwaddrs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Set **hwaddrs = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *hwaddrs = set_free_free(*hwaddrs);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ struct ether_addr *n = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        return 0;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                n = new(struct ether_addr, 1);
+                if (!n)
+                        return log_oom();
+
+                r = ether_addr_from_string(word, n);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Not a valid MAC address, ignoring: %s", word);
+                        continue;
+                }
+
+                r = set_ensure_put(hwaddrs, &ether_addr_hash_ops, n);
+                if (r < 0)
+                        return log_oom();
+                if (r > 0)
+                        TAKE_PTR(n); /* avoid cleanup */
+        }
 }
 
 DEFINE_CONFIG_PARSE(config_parse_percent, parse_percent, "Failed to parse percent value");

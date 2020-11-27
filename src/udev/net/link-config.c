@@ -18,9 +18,10 @@
 #include "link-config.h"
 #include "log.h"
 #include "memory-util.h"
+#include "net-condition.h"
 #include "netif-naming-scheme.h"
 #include "netlink-util.h"
-#include "network-internal.h"
+#include "network-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -30,6 +31,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "utf8.h"
 
 struct link_config_ctx {
         LIST_HEAD(link_config, links);
@@ -49,13 +51,7 @@ static void link_config_free(link_config *link) {
 
         free(link->filename);
 
-        set_free_free(link->match_mac);
-        set_free_free(link->match_permanent_mac);
-        strv_free(link->match_path);
-        strv_free(link->match_driver);
-        strv_free(link->match_type);
-        strv_free(link->match_name);
-        strv_free(link->match_property);
+        net_match_clear(&link->match);
         condition_free_list(link->conditions);
 
         free(link->description);
@@ -167,9 +163,7 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
         if (r < 0)
                 return r;
 
-        if (set_isempty(link->match_mac) && set_isempty(link->match_permanent_mac) &&
-            strv_isempty(link->match_path) && strv_isempty(link->match_driver) && strv_isempty(link->match_type) &&
-            strv_isempty(link->match_name) && strv_isempty(link->match_property) && !link->conditions) {
+        if (net_match_is_empty(&link->match) && !link->conditions) {
                 log_warning("%s: No valid settings found in the [Match] section, ignoring file. "
                             "To match all interfaces, add OriginalName=* in the [Match] section.",
                             filename);
@@ -279,11 +273,8 @@ int link_config_get(link_config_ctx *ctx, sd_device *device, link_config **ret) 
         (void) link_unsigned_attribute(device, "name_assign_type", &name_assign_type);
 
         LIST_FOREACH(links, link, ctx->links) {
-                if (net_match_config(link->match_mac, link->match_permanent_mac, link->match_path, link->match_driver,
-                                     link->match_type, link->match_name, link->match_property, NULL, NULL, NULL,
-                                     device, NULL, &permanent_mac, NULL, iftype, NULL, NULL, 0, NULL, NULL)) {
-
-                        if (link->match_name && !strv_contains(link->match_name, "*") && name_assign_type == NET_NAME_ENUM)
+                if (net_match_config(&link->match, device, NULL, &permanent_mac, NULL, iftype, NULL, NULL, 0, NULL, NULL)) {
+                        if (link->match.ifname && !strv_contains(link->match.ifname, "*") && name_assign_type == NET_NAME_ENUM)
                                 log_device_warning(device, "Config file %s is applied to device based on potentially unpredictable interface name.",
                                                    link->filename);
                         else
@@ -665,6 +656,48 @@ int link_get_driver(link_config_ctx *ctx, sd_device *device, char **ret) {
                 return r;
 
         *ret = driver;
+        return 0;
+}
+
+int config_parse_ifalias(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!isempty(rvalue)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (!ascii_is_valid(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Interface alias is not ASCII clean, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (strlen(rvalue) >= IFALIASZ) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Interface alias is too long, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (free_and_strdup(s, rvalue) < 0)
+                return log_oom();
+
         return 0;
 }
 

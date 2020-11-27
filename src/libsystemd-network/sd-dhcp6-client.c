@@ -21,10 +21,10 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
-#include "network-internal.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "util.h"
 #include "web-util.h"
 

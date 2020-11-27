@@ -17,6 +17,7 @@ sources = files('''
         arp-util.h
         arp-util.c
         network-internal.c
+        network-internal.h
         sd-ndisc.c
         ndisc-internal.h
         ndisc-router.h
@@ -42,10 +43,7 @@ sources = files('''
         sd-lldp.c
 '''.split())
 
-network_internal_h = files('network-internal.h')
-
 libsystemd_network = static_library(
         'systemd-network',
         sources,
-        network_internal_h,
         include_directories : includes)
