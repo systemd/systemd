@@ -41,6 +41,7 @@ struct Manager {
 #endif
 
         VarlinkServer *varlink_server;
+        bool is_system;
 };
 
 int manager_add_machine(Manager *m, const char *name, Machine **_machine);

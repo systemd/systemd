@@ -408,7 +408,7 @@ static int image_object_find(sd_bus *bus, const char *path, const char *interfac
         if (r < 0)
                 return r;
 
-        r = image_find(IMAGE_MACHINE, true, e, &image);
+        r = image_find(IMAGE_MACHINE, m->is_system, e, &image);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -441,6 +441,7 @@ char *image_bus_path(const char *name) {
 static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_strv_free_ char **l = NULL;
+        Manager *m = userdata;
         Image *image;
         int r;
 
@@ -452,7 +453,7 @@ static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         if (!images)
                 return -ENOMEM;
 
-        r = image_discover(IMAGE_MACHINE, true, images);
+        r = image_discover(IMAGE_MACHINE, m->is_system, images);
         if (r < 0)
                 return r;
 

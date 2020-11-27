@@ -33,7 +33,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(machine_hash_ops, char, string_hash_func, string_compare_func, Machine, machine_free);
 
-static int manager_new(Manager **ret) {
+static int manager_new(Manager **ret, bool is_system) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
@@ -42,6 +42,8 @@ static int manager_new(Manager **ret) {
         m = new0(Manager, 1);
         if (!m)
                 return -ENOMEM;
+
+        m->is_system = is_system;
 
         m->machines = hashmap_new(&machine_hash_ops);
         m->machine_units = hashmap_new(&string_hash_ops);
@@ -343,7 +345,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, -1) >= 0);
 
-        r = manager_new(&m);
+        r = manager_new(&m, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");
 
