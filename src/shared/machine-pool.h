@@ -5,4 +5,6 @@
 
 #include "sd-bus.h"
 
+char *machines_path(bool system);
+
 int setup_machine_directory(sd_bus_error *error);

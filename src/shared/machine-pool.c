@@ -6,7 +6,20 @@
 #include "label.h"
 #include "machine-pool.h"
 #include "missing_magic.h"
+#include "sd-path.h"
 #include "stat-util.h"
+
+char *machines_path(bool system) {
+        char *machines_path;
+
+        if (system)
+                return strdup("/var/lib/machines");
+
+        if (sd_path_lookup(SD_PATH_USER_SHARED, "machines", &machines_path) < 0)
+                return NULL;
+
+        return machines_path;
+}
 
 static int check_btrfs(void) {
         struct statfs sfs;
