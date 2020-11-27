@@ -13,6 +13,7 @@
 #include "missing_input.h"
 #include "string-util.h"
 #include "util.h"
+#include "async.h"
 
 #define CONST_MAX5(a, b, c, d, e) CONST_MAX(CONST_MAX(a, b), CONST_MAX(CONST_MAX(c, d), e))
 
@@ -63,7 +64,7 @@ void button_free(Button *b) {
                 /* If the device has been unplugged close() returns
                  * ENODEV, let's ignore this, hence we don't use
                  * safe_close() */
-                (void) close(b->fd);
+                (void) asynchronous_close(b->fd);
 
         free(b->name);
         free(b->seat);
@@ -344,10 +345,12 @@ int button_open(Button *b) {
         r = button_suitable(fd);
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether input device %s is relevant to us: %m", p);
-        if (r == 0)
+        if (r == 0) {
+                b->fd = TAKE_FD(fd);
                 return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                        "Device %s does not expose keys or switches relevant to us, ignoring.", p);
-
+        }
+        
         if (ioctl(fd, EVIOCGNAME(sizeof name), name) < 0)
                 return log_error_errno(errno, "Failed to get input name for %s: %m", p);
 
