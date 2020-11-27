@@ -85,6 +85,9 @@ EOF
             rm -rf debian/patches
             # disable autopkgtests which are not for upstream
             sed -i '/# NOUPSTREAM/ q' debian/tests/control
+            # temporarily disable timedated tests, as they cause timeouts
+            # see: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=975010
+            sed -i '/Tests:/s/timedated, //' debian/tests/control
             # enable more unit tests
             sed -i '/^CONFFLAGS =/ s/=/= --werror -Dtests=unsafe -Dsplit-usr=true -Dslow-tests=true -Dfuzz-tests=true -Dman=true /' debian/rules
             # no orig tarball
