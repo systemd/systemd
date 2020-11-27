@@ -10,25 +10,31 @@
 #include "fd-util.h"
 #include "macro.h"
 
-int chattr_fd(int fd, unsigned value, unsigned mask, unsigned *previous) {
+int chattr_full(const char *path, int fd, unsigned value, unsigned mask, unsigned *ret_previous, unsigned *ret_final, bool fallback) {
+        _cleanup_close_ int fd_will_close = -1;
         unsigned old_attr, new_attr;
         struct stat st;
 
-        assert(fd >= 0);
+        assert(path || fd >= 0);
+
+        if (fd < 0) {
+                fd = fd_will_close = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                if (fd < 0)
+                        return -errno;
+        }
 
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        /* Explicitly check whether this is a regular file or
-         * directory. If it is anything else (such as a device node or
-         * fifo), then the ioctl will not hit the file systems but
-         * possibly drivers, where the ioctl might have different
-         * effects. Notably, DRM is using the same ioctl() number. */
+        /* Explicitly check whether this is a regular file or directory. If it is anything else (such
+         * as a device node or fifo), then the ioctl will not hit the file systems but possibly
+         * drivers, where the ioctl might have different effects. Notably, DRM is using the same
+         * ioctl() number. */
 
         if (!S_ISDIR(st.st_mode) && !S_ISREG(st.st_mode))
                 return -ENOTTY;
 
-        if (mask == 0 && !previous)
+        if (mask == 0 && !ret_previous && !ret_final)
                 return 0;
 
         if (ioctl(fd, FS_IOC_GETFLAGS, &old_attr) < 0)
@@ -36,33 +42,55 @@ int chattr_fd(int fd, unsigned value, unsigned mask, unsigned *previous) {
 
         new_attr = (old_attr & ~mask) | (value & mask);
         if (new_attr == old_attr) {
-                if (previous)
-                        *previous = old_attr;
+                if (ret_previous)
+                        *ret_previous = old_attr;
+                if (ret_final)
+                        *ret_final = old_attr;
                 return 0;
         }
 
-        if (ioctl(fd, FS_IOC_SETFLAGS, &new_attr) < 0)
+        if (ioctl(fd, FS_IOC_SETFLAGS, &new_attr) >= 0) {
+                if (ret_previous)
+                        *ret_previous = old_attr;
+                if (ret_final)
+                        *ret_final = new_attr;
+                return 1;
+        }
+
+        if (errno != EINVAL || !fallback)
                 return -errno;
 
-        if (previous)
-                *previous = old_attr;
+        /* When -EINVAL is returned, we assume that incompatible attributes are simultaneously
+         * specified. E.g., compress(c) and nocow(C) attributes cannot be set to files on btrfs.
+         * As a fallback, let's try to set attributes one by one. */
 
-        return 1;
-}
+        unsigned current_attr = old_attr;
+        for (unsigned i = 0; i < sizeof(unsigned) * 8; i++) {
+                unsigned new_one, mask_one = 1u << i;
 
-int chattr_path(const char *p, unsigned value, unsigned mask, unsigned *previous) {
-        _cleanup_close_ int fd = -1;
+                if (!FLAGS_SET(mask, mask_one))
+                        continue;
 
-        assert(p);
+                new_one = UPDATE_FLAG(current_attr, mask_one, FLAGS_SET(value, mask_one));
+                if (new_one == current_attr)
+                        continue;
 
-        if (mask == 0)
-                return 0;
+                if (ioctl(fd, FS_IOC_SETFLAGS, &new_one) < 0) {
+                        if (errno != EINVAL)
+                                return -errno;
+                        continue;
+                }
 
-        fd = open(p, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-        if (fd < 0)
-                return -errno;
+                if (ioctl(fd, FS_IOC_GETFLAGS, &current_attr) < 0)
+                        return -errno;
+        }
 
-        return chattr_fd(fd, value, mask, previous);
+        if (ret_previous)
+                *ret_previous = old_attr;
+        if (ret_final)
+                *ret_final = current_attr;
+
+        return current_attr == new_attr ? 1 : -ENOANO; /* -ENOANO indicates that some attributes cannot be set. */
 }
 
 int read_attr_fd(int fd, unsigned *ret) {
