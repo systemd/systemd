@@ -34,6 +34,7 @@
 #include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "sd-path.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -86,11 +87,24 @@ static char **image_settings_path(Image *image) {
 
         fn = strjoina(image->name, ".nspawn");
 
-        FOREACH_STRING(s, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
-                l[i] = path_join(s, fn);
-                if (!l[i])
-                        return NULL;
+        if (image->system)
+                FOREACH_STRING(s, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
+                        l[i] = path_join(s, fn);
+                        if (!l[i])
+                                return NULL;
 
+                        i++;
+                }
+        else {
+                _cleanup_free_ char *p = path_join("systemd/nspawn", fn);
+
+                if (!p)
+                        return NULL;
+                if (sd_path_lookup(SD_PATH_USER_CONFIGURATION, p, &l[i]) < 0)
+                        return NULL;
+                i++;
+                if (sd_path_lookup(SD_PATH_USER_RUNTIME, p, &l[i]) < 0)
+                        return NULL;
                 i++;
         }
 
