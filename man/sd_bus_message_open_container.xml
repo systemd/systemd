@@ -100,8 +100,13 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these functions return a non-negative integer. On failure, they return a negative
-    errno-style error code.</para>
+    <para>On success, these functions return a non-negative integer.
+    <function>sd_bus_message_open_container()</function> and <function>sd_bus_message_close_container()</function>
+    return 0.
+    <function>sd_bus_message_enter_container()</function> returns 1 if it successfully opened a new container, and 0 if
+    that was not possible because the end of the currently open container or message was reached.
+    <function>sd_bus_message_exit_container()</function> returns 1 on success.
+    On failure, all of these functions return a negative errno-style error code.</para>
 
     <refsect2>
       <title>Errors</title>
