@@ -483,6 +483,19 @@ int image_find_for_path(const char *path, const char *name, Image **ret) {
         return 1;
 }
 
+static int image_make_host(Image **ret) {
+       int r;
+
+       r = image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
+       if (r < 0)
+               return r;
+
+       if (ret)
+               (*ret)->discoverable = true;
+
+       return r;
+}
+
 int image_find(ImageClass class, bool system, const char *name, Image **ret) {
         int r;
 
@@ -506,16 +519,8 @@ int image_find(ImageClass class, bool system, const char *name, Image **ret) {
                         return r;
         }
 
-        if (class == IMAGE_MACHINE && streq(name, ".host")) {
-                r = image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
-                if (r < 0)
-                        return r;
-
-                if (ret)
-                        (*ret)->discoverable = true;
-
-                return r;
-        }
+        if (class == IMAGE_MACHINE && streq(name, ".host"))
+                return image_make_host(ret);
 
         return -ENOENT;
 };
