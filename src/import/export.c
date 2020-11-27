@@ -20,6 +20,7 @@
 #include "verbs.h"
 
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
+static const char *arg_image_root = NULL;
 
 static void determine_compression_from_filename(const char *p) {
 
@@ -57,24 +58,41 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         sd_event_exit(event, abs(error));
 }
 
+static int get_image_path(const char *name_arg, char **ret) {
+        _cleanup_(image_unrefp) Image *image = NULL;
+        int r;
+
+        if (machine_name_is_valid(name_arg)) {
+                if (arg_image_root)
+                        r = image_find_for_path(arg_image_root, name_arg, &image);
+                else
+                        r = image_find(IMAGE_MACHINE, true, name_arg, &image);
+                if (r == -ENOENT)
+                        return log_error_errno(r, "Machine image %s not found.", name_arg);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to look for machine %s: %m", name_arg);
+
+                *ret = strdup(image->path);
+        } else
+                *ret = strdup(name_arg);
+
+        if (!*ret)
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int export_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(tar_export_unrefp) TarExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(image_unrefp) Image *image = NULL;
-        const char *path = NULL, *local = NULL;
+        _cleanup_free_ char *local = NULL;
+        const char *path = NULL;
         _cleanup_close_ int open_fd = -1;
         int r, fd;
 
-        if (machine_name_is_valid(argv[1])) {
-                r = image_find(IMAGE_MACHINE, true, argv[1], &image);
-                if (r == -ENOENT)
-                        return log_error_errno(r, "Machine image %s not found.", argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to look for machine %s: %m", argv[1]);
-
-                local = image->path;
-        } else
-                local = argv[1];
+        r = get_image_path(argv[1], &local);
+        if (r < 0)
+                return r;
 
         if (argc >= 3)
                 path = argv[2];
@@ -136,21 +154,14 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
 static int export_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(raw_export_unrefp) RawExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(image_unrefp) Image *image = NULL;
-        const char *path = NULL, *local = NULL;
+        _cleanup_free_ char *local = NULL;
+        const char *path = NULL;
         _cleanup_close_ int open_fd = -1;
         int r, fd;
 
-        if (machine_name_is_valid(argv[1])) {
-                r = image_find(IMAGE_MACHINE, true, argv[1], &image);
-                if (r == -ENOENT)
-                        return log_error_errno(r, "Machine image %s not found.", argv[1]);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to look for machine %s: %m", argv[1]);
-
-                local = image->path;
-        } else
-                local = argv[1];
+        r = get_image_path(argv[1], &local);
+        if (r < 0)
+                return r;
 
         if (argc >= 3)
                 path = argv[2];
@@ -205,6 +216,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "Export container or virtual machine images.\n\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
+               "     --image-root=PATH         Image root directory\n"
                "     --format=FORMAT           Select format\n\n"
                "Commands:\n"
                "  tar NAME [FILE]              Export a TAR image\n"
@@ -219,12 +231,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_FORMAT,
+                ARG_IMAGE_ROOT,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "format",  required_argument, NULL, ARG_FORMAT  },
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "format",          required_argument, NULL, ARG_FORMAT          },
+                { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
                 {}
         };
 
@@ -255,6 +269,10 @@ static int parse_argv(int argc, char *argv[]) {
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);
+                        break;
+
+                case ARG_IMAGE_ROOT:
+                        arg_image_root = optarg;
                         break;
 
                 case '?':
