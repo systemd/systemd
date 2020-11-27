@@ -2891,7 +2891,6 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
             self.assertRegex(data, r'LLMNR=no')
             self.assertRegex(data, r'MDNS=yes')
             self.assertRegex(data, r'DNSSEC=no')
-            self.assertRegex(data, r'ADDRESSES=192.168.(10.10|12.12)/24 192.168.(12.12|10.10)/24')
 
         check_output(*resolvectl_cmd, 'dns', 'dummy98', '10.10.10.12#ccc.com', '10.10.10.13', '1111:2222::3333', env=env)
         check_output(*resolvectl_cmd, 'domain', 'dummy98', 'hogehogehoge', '~foofoofoo', env=env)

@@ -2415,69 +2415,6 @@ int link_initialized(Link *link, sd_device *device) {
         return 0;
 }
 
-static int link_load(Link *link) {
-        _cleanup_free_ char *network_file = NULL,
-                            *addresses = NULL,
-                            *routes = NULL,
-                            *dhcp4_address = NULL,
-                            *ipv4ll_address = NULL;
-        int r;
-
-        assert(link);
-
-        r = parse_env_file(NULL, link->state_file,
-                           "NETWORK_FILE", &network_file,
-                           "ADDRESSES", &addresses,
-                           "ROUTES", &routes,
-                           "DHCP4_ADDRESS", &dhcp4_address,
-                           "IPV4LL_ADDRESS", &ipv4ll_address);
-        if (r < 0 && r != -ENOENT)
-                return log_link_error_errno(link, r, "Failed to read %s: %m", link->state_file);
-
-        if (network_file) {
-                Network *network;
-                char *suffix;
-
-                /* drop suffix */
-                suffix = strrchr(network_file, '.');
-                if (!suffix) {
-                        log_link_debug(link, "Failed to get network name from %s", network_file);
-                        goto network_file_fail;
-                }
-                *suffix = '\0';
-
-                r = network_get_by_name(link->manager, basename(network_file), &network);
-                if (r < 0) {
-                        log_link_debug_errno(link, r, "Failed to get network %s: %m", basename(network_file));
-                        goto network_file_fail;
-                }
-
-                r = network_apply(network, link);
-                if (r < 0)
-                        return log_link_error_errno(link, r, "Failed to apply network %s: %m", basename(network_file));
-        }
-
-network_file_fail:
-
-        r = link_deserialize_addresses(link, addresses);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to load addresses from %s, ignoring: %m", link->state_file);
-
-        r = link_deserialize_routes(link, routes);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to load routes from %s, ignoring: %m", link->state_file);
-
-        r = link_deserialize_dhcp4(link, dhcp4_address);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to load DHCPv4 address from %s, ignoring: %m", link->state_file);
-
-        r = link_deserialize_ipv4ll(link, ipv4ll_address);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to load IPv4LL address from %s, ignoring: %m", link->state_file);
-
-        return 0;
-}
-
 int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
@@ -2496,10 +2433,6 @@ int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         link = *ret;
 
         log_link_debug(link, "Link %d added", link->ifindex);
-
-        r = link_load(link);
-        if (r < 0)
-                return r;
 
         if (path_is_read_only_fs("/sys") <= 0) {
                 /* udev should be around */
@@ -3146,18 +3079,6 @@ int link_save(Link *link) {
                                 fputs_with_space(f, n, NULL, &space);
                         fputc('\n', f);
                 }
-
-                /************************************************************/
-
-                r = link_serialize_addresses(link, f);
-                if (r < 0)
-                        goto fail;
-
-                /************************************************************/
-
-                r = link_serialize_routes(link, f);
-                if (r < 0)
-                        goto fail;
         }
 
         print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);
@@ -3173,10 +3094,6 @@ int link_save(Link *link) {
                         link->lease_file);
         } else
                 (void) unlink(link->lease_file);
-
-        r = link_serialize_ipv4ll(link, f);
-        if (r < 0)
-                goto fail;
 
         r = link_serialize_dhcp6_client(link, f);
         if (r < 0)

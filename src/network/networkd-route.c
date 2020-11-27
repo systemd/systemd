@@ -152,25 +152,19 @@ static const char *format_route_protocol(int protocol, char *buf, size_t size) {
 
 static unsigned routes_max(void) {
         static thread_local unsigned cached = 0;
-
         _cleanup_free_ char *s4 = NULL, *s6 = NULL;
         unsigned val4 = ROUTES_DEFAULT_MAX_PER_FAMILY, val6 = ROUTES_DEFAULT_MAX_PER_FAMILY;
 
         if (cached > 0)
                 return cached;
 
-        if (sysctl_read("net/ipv4/route/max_size", &s4) >= 0) {
-                truncate_nl(s4);
-                if (safe_atou(s4, &val4) >= 0 &&
-                    val4 == 2147483647U)
+        if (sysctl_read_ip_property(AF_INET, NULL, "route/max_size", &s4) >= 0)
+                if (safe_atou(s4, &val4) >= 0 && val4 == 2147483647U)
                         /* This is the default "no limit" value in the kernel */
                         val4 = ROUTES_DEFAULT_MAX_PER_FAMILY;
-        }
 
-        if (sysctl_read("net/ipv6/route/max_size", &s6) >= 0) {
-                truncate_nl(s6);
+        if (sysctl_read_ip_property(AF_INET6, NULL, "route/max_size", &s6) >= 0)
                 (void) safe_atou(s6, &val6);
-        }
 
         cached = MAX(ROUTES_DEFAULT_MAX_PER_FAMILY, val4) +
                  MAX(ROUTES_DEFAULT_MAX_PER_FAMILY, val6);
@@ -1595,84 +1589,6 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         }
 
         return 1;
-}
-
-int link_serialize_routes(const Link *link, FILE *f) {
-        bool space = false;
-        Route *route;
-
-        assert(link);
-        assert(link->network);
-        assert(f);
-
-        fputs("ROUTES=", f);
-        SET_FOREACH(route, link->routes) {
-                _cleanup_free_ char *route_str = NULL;
-
-                if (in_addr_to_string(route->family, &route->dst, &route_str) < 0)
-                        continue;
-
-                fprintf(f, "%s%s/%hhu/%hhu/%"PRIu32"/%"PRIu32"/"USEC_FMT,
-                        space ? " " : "", route_str,
-                        route->dst_prefixlen, route->tos, route->priority, route->table, route->lifetime);
-                space = true;
-        }
-        fputc('\n', f);
-
-        return 0;
-}
-
-int link_deserialize_routes(Link *link, const char *routes) {
-        int r;
-
-        assert(link);
-
-        for (const char *p = routes;; ) {
-                _cleanup_(route_freep) Route *tmp = NULL;
-                _cleanup_free_ char *route_str = NULL;
-                char *prefixlen_str;
-
-                r = extract_first_word(&p, &route_str, NULL, 0);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to parse ROUTES=: %m");
-                if (r == 0)
-                        return 0;
-
-                prefixlen_str = strchr(route_str, '/');
-                if (!prefixlen_str) {
-                        log_link_debug(link, "Failed to parse route, ignoring: %s", route_str);
-                        continue;
-                }
-                *prefixlen_str++ = '\0';
-
-                r = route_new(&tmp);
-                if (r < 0)
-                        return log_oom();
-
-                r = sscanf(prefixlen_str,
-                           "%hhu/%hhu/%"SCNu32"/%"PRIu32"/"USEC_FMT,
-                           &tmp->dst_prefixlen,
-                           &tmp->tos,
-                           &tmp->priority,
-                           &tmp->table,
-                           &tmp->lifetime);
-                if (r != 5) {
-                        log_link_debug(link,
-                                       "Failed to parse destination prefix length, tos, priority, table or expiration: %s",
-                                       prefixlen_str);
-                        continue;
-                }
-
-                r = in_addr_from_string_auto(route_str, &tmp->family, &tmp->dst);
-                if (r < 0) {
-                        log_link_debug_errno(link, r, "Failed to parse route destination %s: %m", route_str);
-                        continue;
-                }
-
-                r = route_add_and_setup_timer(link, tmp, NULL, NULL);
-                if (r < 0)
-                        return log_link_debug_errno(link, r, "Failed to add route: %m");
-        }
 }
 
 int network_add_ipv4ll_route(Network *network) {
