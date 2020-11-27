@@ -52,6 +52,7 @@ typedef struct Image {
 
         bool metadata_valid:1;
         bool discoverable:1;  /* true if we know for sure that image_find() would find the image given just the short name */
+        bool system:1;
 
         void *userdata;
 } Image;

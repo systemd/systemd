@@ -116,6 +116,7 @@ static int image_new(
                 const char *pretty,
                 const char *path,
                 const char *filename,
+                bool system,
                 bool read_only,
                 usec_t crtime,
                 usec_t mtime,
@@ -135,6 +136,7 @@ static int image_new(
 
         i->n_ref = 1;
         i->type = t;
+        i->system = system;
         i->read_only = read_only;
         i->crtime = crtime;
         i->mtime = mtime;
@@ -267,6 +269,7 @@ static int image_make(
                                               pretty,
                                               path,
                                               filename,
+                                              true,
                                               info.read_only || read_only,
                                               info.otime,
                                               0,
@@ -301,6 +304,7 @@ static int image_make(
                               pretty,
                               path,
                               filename,
+                              true,
                               read_only || (file_attr & FS_IMMUTABLE_FL),
                               0,
                               0,
@@ -332,6 +336,7 @@ static int image_make(
                               pretty,
                               path,
                               filename,
+                              true,
                               !(st->st_mode & 0222) || read_only,
                               crtime,
                               timespec_load(&st->st_mtim),
@@ -392,6 +397,7 @@ static int image_make(
                               pretty,
                               path,
                               filename,
+                              true,
                               !(st->st_mode & 0222) || read_only,
                               0,
                               0,
