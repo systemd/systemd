@@ -1185,6 +1185,17 @@ else
 endif
 conf.set10('HAVE_LIBFIDO2', have)
 
+want_tpm2 = get_option('tpm2')
+if want_tpm2 != 'false' and not skip_deps
+        tpm2 = dependency('tss2-esys tss2-rc tss2-mu',
+                              required : want_tpm2 == 'true')
+        have = tpm2.found()
+else
+        have = false
+        tpm2 = []
+endif
+conf.set10('HAVE_TPM2', have)
+
 want_elfutils = get_option('elfutils')
 if want_elfutils != 'false' and not skip_deps
         libdw = dependency('libdw',
@@ -2428,6 +2439,7 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 src/cryptenroll/cryptenroll-pkcs11.h
                 src/cryptenroll/cryptenroll-recovery.c
                 src/cryptenroll/cryptenroll-recovery.h
+                src/cryptenroll/cryptenroll-tpm2.h
                 src/cryptenroll/cryptenroll.c
 '''.split())
 
@@ -2439,12 +2451,17 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-fido2.c')
         endif
 
+        if conf.get('HAVE_TPM2') == 1
+                systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-tpm2.c')
+        endif
+
         executable(
                 'systemd-cryptenroll',
                 systemd_cryptenroll_sources,
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [libcryptsetup,
+                                libdl,
                                 libopenssl,
                                 libp11kit],
                 install_rpath : rootlibexecdir,
@@ -3770,6 +3787,7 @@ foreach tuple : [
         ['libfdisk'],
         ['p11kit'],
         ['libfido2'],
+        ['tpm2'],
         ['AUDIT'],
         ['IMA'],
         ['AppArmor'],

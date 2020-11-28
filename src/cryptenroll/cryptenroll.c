@@ -7,22 +7,26 @@
 #include "cryptenroll-password.h"
 #include "cryptenroll-pkcs11.h"
 #include "cryptenroll-recovery.h"
+#include "cryptenroll-tpm2.h"
 #include "cryptsetup-util.h"
 #include "escape.h"
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tpm2-util.h"
 
 typedef enum EnrollType {
         ENROLL_PASSWORD,
         ENROLL_RECOVERY,
         ENROLL_PKCS11,
         ENROLL_FIDO2,
+        ENROLL_TPM2,
         _ENROLL_TYPE_MAX,
         _ENROLL_TYPE_INVALID = -1,
 } EnrollType;
@@ -31,6 +35,7 @@ static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
 static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
+static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_node = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, freep);
@@ -56,6 +61,10 @@ static int help(void) {
                "                       Specify PKCS#11 security token URI\n"
                "     --fido2-device=PATH\n"
                "                       Enroll a FIDO2-HMAC security token\n"
+               "     --tpm2-device=PATH\n"
+               "                       Enroll a TPM2 device\n"
+               "     --tpm2-pcrs=PCR1,PCR2,PCR3,…\n"
+               "                       Specifiy TPM2 PCRs to seal against\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight(), ansi_normal()
@@ -73,6 +82,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RECOVERY_KEY,
                 ARG_PKCS11_TOKEN_URI,
                 ARG_FIDO2_DEVICE,
+                ARG_TPM2_DEVICE,
+                ARG_TPM2_PCRS,
         };
 
         static const struct option options[] = {
@@ -82,6 +93,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "recovery-key",     no_argument,       NULL, ARG_RECOVERY_KEY     },
                 { "pkcs11-token-uri", required_argument, NULL, ARG_PKCS11_TOKEN_URI },
                 { "fido2-device",     required_argument, NULL, ARG_FIDO2_DEVICE     },
+                { "tpm2-device",      required_argument, NULL, ARG_TPM2_DEVICE      },
+                { "tpm2-pcrs",        required_argument, NULL, ARG_TPM2_PCRS        },
                 {}
         };
 
@@ -169,6 +182,47 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_TPM2_DEVICE: {
+                        _cleanup_free_ char *device = NULL;
+
+                        if (streq(optarg, "list"))
+                                return tpm2_list_devices();
+
+                        if (arg_enroll_type >= 0 || arg_tpm2_device)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple operations specified at once, refusing.");
+
+                        if (!streq(optarg, "auto")) {
+                                device = strdup(optarg);
+                                if (!device)
+                                        return log_oom();
+                        }
+
+                        arg_enroll_type = ENROLL_TPM2;
+                        arg_tpm2_device = TAKE_PTR(device);
+                        break;
+                }
+
+                case ARG_TPM2_PCRS: {
+                        uint32_t mask;
+
+                        if (isempty(optarg)) {
+                                arg_tpm2_pcr_mask = 0;
+                                break;
+                        }
+
+                        r = tpm2_parse_pcrs(optarg, &mask);
+                        if (r < 0)
+                                return r;
+
+                        if (arg_tpm2_pcr_mask == UINT32_MAX)
+                                arg_tpm2_pcr_mask = mask;
+                        else
+                                arg_tpm2_pcr_mask |= mask;
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -192,6 +246,9 @@ static int parse_argv(int argc, char *argv[]) {
         r = parse_path_argument_and_warn(argv[optind], false, &arg_node);
         if (r < 0)
                 return r;
+
+        if (arg_tpm2_pcr_mask == UINT32_MAX)
+                arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
 
         return 1;
 }
@@ -346,6 +403,10 @@ static int run(int argc, char *argv[]) {
 
         case ENROLL_FIDO2:
                 r = enroll_fido2(cd, vk, vks, arg_fido2_device);
+                break;
+
+        case ENROLL_TPM2:
+                r = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask);
                 break;
 
         default:

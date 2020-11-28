@@ -237,6 +237,8 @@ shared_sources = files('''
         tmpfile-util-label.h
         tomoyo-util.c
         tomoyo-util.h
+        tpm2-util.c
+        tpm2-util.h
         udev-util.c
         udev-util.h
         uid-range.c
