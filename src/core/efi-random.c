@@ -43,7 +43,6 @@ static void lock_down_efi_variables(void) {
 
 int efi_take_random_seed(void) {
         _cleanup_free_ void *value = NULL;
-        _cleanup_close_ int random_fd = -1;
         size_t size;
         int r;
 
@@ -77,17 +76,13 @@ int efi_take_random_seed(void) {
         if (size == 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Random seed passed from boot loader has zero size? Ignoring.");
 
-        random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
-        if (random_fd < 0)
-                return log_warning_errno(errno, "Failed to open /dev/urandom for writing, ignoring: %m");
-
         /* Before we use the seed, let's mark it as used, so that we never credit it twice. Also, it's a nice
          * way to let users known that we successfully acquired entropy from the boot laoder. */
         r = touch("/run/systemd/efi-random-seed-taken");
         if (r < 0)
                 return log_warning_errno(r, "Unable to mark EFI random seed as used, not using it: %m");
 
-        r = random_write_entropy(random_fd, value, size, true);
+        r = random_write_entropy(-1, value, size, true);
         if (r < 0)
                 return log_warning_errno(errno, "Failed to credit entropy, ignoring: %m");
 
