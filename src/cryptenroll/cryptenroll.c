@@ -4,10 +4,13 @@
 
 #include "ask-password-api.h"
 #include "cryptenroll-fido2.h"
+#include "cryptenroll-list.h"
 #include "cryptenroll-password.h"
 #include "cryptenroll-pkcs11.h"
 #include "cryptenroll-recovery.h"
 #include "cryptenroll-tpm2.h"
+#include "cryptenroll-wipe.h"
+#include "cryptenroll.h"
 #include "cryptsetup-util.h"
 #include "escape.h"
 #include "libfido2-util.h"
@@ -17,19 +20,10 @@
 #include "path-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tpm2-util.h"
-
-typedef enum EnrollType {
-        ENROLL_PASSWORD,
-        ENROLL_RECOVERY,
-        ENROLL_PKCS11,
-        ENROLL_FIDO2,
-        ENROLL_TPM2,
-        _ENROLL_TYPE_MAX,
-        _ENROLL_TYPE_INVALID = -1,
-} EnrollType;
 
 static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
 static char *arg_pkcs11_token_uri = NULL;
@@ -37,11 +31,43 @@ static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_node = NULL;
+static int *arg_wipe_slots = NULL;
+static size_t arg_n_wipe_slots = 0;
+static WipeScope arg_wipe_slots_scope = WIPE_EXPLICIT;
+static unsigned arg_wipe_slots_mask = 0; /* Bitmask of (1U << EnrollType), for wiping all slots of specific types */
+
+assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
+
+static bool wipe_requested(void) {
+        return arg_n_wipe_slots > 0 ||
+                arg_wipe_slots_scope != WIPE_EXPLICIT ||
+                arg_wipe_slots_mask != 0;
+}
+
+static const char* const enroll_type_table[_ENROLL_TYPE_MAX] = {
+        [ENROLL_PASSWORD] = "password",
+        [ENROLL_RECOVERY] = "recovery",
+        [ENROLL_PKCS11] = "pkcs11",
+        [ENROLL_FIDO2] = "fido2",
+        [ENROLL_TPM2] = "tpm2",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(enroll_type, EnrollType);
+
+static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
+        /* ENROLL_PASSWORD has no entry here, as slots of this type do not have a token in the LUKS2 header */
+        [ENROLL_RECOVERY] = "systemd-recovery",
+        [ENROLL_PKCS11] = "systemd-pkcs11",
+        [ENROLL_FIDO2] = "systemd-fido2",
+        [ENROLL_TPM2] = "systemd-tpm2",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -65,6 +91,8 @@ static int help(void) {
                "                       Enroll a TPM2 device\n"
                "     --tpm2-pcrs=PCR1,PCR2,PCR3,…\n"
                "                       Specifiy TPM2 PCRs to seal against\n"
+               "     --wipe-slot=SLOT1,SLOT2,…\n"
+               "                       Wipe specified slots\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight(), ansi_normal()
@@ -84,6 +112,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_DEVICE,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_PCRS,
+                ARG_WIPE_SLOT,
         };
 
         static const struct option options[] = {
@@ -95,6 +124,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fido2-device",     required_argument, NULL, ARG_FIDO2_DEVICE     },
                 { "tpm2-device",      required_argument, NULL, ARG_TPM2_DEVICE      },
                 { "tpm2-pcrs",        required_argument, NULL, ARG_TPM2_PCRS        },
+                { "wipe-slot",        required_argument, NULL, ARG_WIPE_SLOT        },
                 {}
         };
 
@@ -223,6 +253,60 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_WIPE_SLOT: {
+                        const char *p = optarg;
+
+                        if (isempty(optarg)) {
+                                arg_wipe_slots_mask = 0;
+                                arg_wipe_slots_scope = WIPE_EXPLICIT;
+                                break;
+                        }
+
+                        for (;;) {
+                                _cleanup_free_ char *slot = NULL;
+                                unsigned n;
+
+                                r = extract_first_word(&p, &slot, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                                if (r == 0)
+                                        break;
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse slot list: %s", optarg);
+
+                                if (streq(slot, "all"))
+                                        arg_wipe_slots_scope = WIPE_ALL;
+                                else if (streq(slot, "empty")) {
+                                        if (arg_wipe_slots_scope != WIPE_ALL) /* if "all" was specified before, that wins */
+                                                arg_wipe_slots_scope = WIPE_EMPTY_PASSPHRASE;
+                                } else if (streq(slot, "password"))
+                                        arg_wipe_slots_mask = 1U << ENROLL_PASSWORD;
+                                else if (streq(slot, "recovery"))
+                                        arg_wipe_slots_mask = 1U << ENROLL_RECOVERY;
+                                else if (streq(slot, "pkcs11"))
+                                        arg_wipe_slots_mask = 1U << ENROLL_PKCS11;
+                                else if (streq(slot, "fido2"))
+                                        arg_wipe_slots_mask = 1U << ENROLL_FIDO2;
+                                else if (streq(slot, "tpm2"))
+                                        arg_wipe_slots_mask = 1U << ENROLL_TPM2;
+                                else {
+                                        int *a;
+
+                                        r = safe_atou(slot, &n);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse slot index: %s", slot);
+                                        if (n > INT_MAX)
+                                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Slot index out of range: %u", n);
+
+                                        a = reallocarray(arg_wipe_slots, sizeof(int), arg_n_wipe_slots + 1);
+                                        if (!a)
+                                                return log_oom();
+
+                                        arg_wipe_slots = a;
+                                        arg_wipe_slots[arg_n_wipe_slots++] = (int) n;
+                                }
+                        }
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -230,10 +314,6 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
         }
-
-        if (arg_enroll_type < 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No operation specified, refusing.");
 
         if (optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -373,7 +453,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         size_t vks;
-        int r;
+        int slot, r;
 
         log_show_color(true);
         log_parse_environment();
@@ -383,37 +463,55 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = prepare_luks(&cd, &vk, &vks);
+        if (arg_enroll_type < 0)
+                r = prepare_luks(&cd, NULL, NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */
+        else
+                r = prepare_luks(&cd, &vk, &vks);
         if (r < 0)
                 return r;
 
         switch (arg_enroll_type) {
 
         case ENROLL_PASSWORD:
-                r = enroll_password(cd, vk, vks);
+                slot = enroll_password(cd, vk, vks);
                 break;
 
         case ENROLL_RECOVERY:
-                r = enroll_recovery(cd, vk, vks);
+                slot = enroll_recovery(cd, vk, vks);
                 break;
 
         case ENROLL_PKCS11:
-                r = enroll_pkcs11(cd, vk, vks, arg_pkcs11_token_uri);
+                slot = enroll_pkcs11(cd, vk, vks, arg_pkcs11_token_uri);
                 break;
 
         case ENROLL_FIDO2:
-                r = enroll_fido2(cd, vk, vks, arg_fido2_device);
+                slot = enroll_fido2(cd, vk, vks, arg_fido2_device);
                 break;
 
         case ENROLL_TPM2:
-                r = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_pcr_mask);
                 break;
+
+        case _ENROLL_TYPE_INVALID:
+                /* List enrolled slots if we are called without anything to enroll or wipe */
+                if (!wipe_requested())
+                        return list_enrolled(cd);
+
+                /* Only slot wiping selected */
+                return wipe_slots(cd, arg_wipe_slots, arg_n_wipe_slots, arg_wipe_slots_scope, arg_wipe_slots_mask, -1);
 
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Operation not implemented yet.");
         }
+        if (slot < 0)
+                return slot;
 
-        return r;
+        /* After we completed enrolling, remove user selected slots */
+        r = wipe_slots(cd, arg_wipe_slots, arg_n_wipe_slots, arg_wipe_slots_scope, arg_wipe_slots_mask, slot);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 DEFINE_MAIN_FUNCTION(run);

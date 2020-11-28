@@ -2434,13 +2434,18 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
 
         systemd_cryptenroll_sources = files('''
                 src/cryptenroll/cryptenroll-fido2.h
+                src/cryptenroll/cryptenroll-list.c
+                src/cryptenroll/cryptenroll-list.h
                 src/cryptenroll/cryptenroll-password.c
                 src/cryptenroll/cryptenroll-password.h
                 src/cryptenroll/cryptenroll-pkcs11.h
                 src/cryptenroll/cryptenroll-recovery.c
                 src/cryptenroll/cryptenroll-recovery.h
                 src/cryptenroll/cryptenroll-tpm2.h
+                src/cryptenroll/cryptenroll-wipe.c
+                src/cryptenroll/cryptenroll-wipe.h
                 src/cryptenroll/cryptenroll.c
+                src/cryptenroll/cryptenroll.h
 '''.split())
 
         if conf.get('HAVE_P11KIT') == 1 and conf.get('HAVE_OPENSSL') == 1
