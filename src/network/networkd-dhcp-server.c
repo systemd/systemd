@@ -11,6 +11,7 @@
 #include "networkd-address.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-dhcp-server-bus.h"
+#include "networkd-dhcp-static-lease.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -250,6 +251,7 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
 int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
+        DHCPStaticLease *static_lease;
         Link *uplink = NULL;
         Address *address;
         bool bind_to_interface;
@@ -397,6 +399,12 @@ int dhcp4_server_configure(Link *link) {
                         continue;
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 option: %m");
+        }
+
+        HASHMAP_FOREACH(static_lease, link->network->dhcp_static_leases_by_section) {
+                r = sd_dhcp_server_set_static_lease(link->dhcp_server, &static_lease->address, static_lease->client_id, static_lease->client_id_size);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
 
         if (!sd_dhcp_server_is_running(link->dhcp_server)) {
