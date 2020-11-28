@@ -452,10 +452,21 @@ size_t random_pool_size(void) {
 }
 
 int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
+        _cleanup_close_ int opened_fd = -1;
         int r;
 
-        assert(fd >= 0);
-        assert(seed && size > 0);
+        assert(seed || size == 0);
+
+        if (size == 0)
+                return 0;
+
+        if (fd < 0) {
+                opened_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
+                if (opened_fd < 0)
+                        return -errno;
+
+                fd = opened_fd;
+        }
 
         if (credit) {
                 _cleanup_free_ struct rand_pool_info *info = NULL;
@@ -481,5 +492,5 @@ int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
                         return r;
         }
 
-        return 0;
+        return 1;
 }

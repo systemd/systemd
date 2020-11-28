@@ -1605,7 +1605,6 @@ static void apply_clock_update(void) {
 }
 
 static void cmdline_take_random_seed(void) {
-        _cleanup_close_ int random_fd = -1;
         size_t suggested;
         int r;
 
@@ -1622,13 +1621,7 @@ static void cmdline_take_random_seed(void) {
                 log_warning("Random seed specified on kernel command line has size %zu, but %zu bytes required to fill entropy pool.",
                             arg_random_seed_size, suggested);
 
-        random_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
-        if (random_fd < 0) {
-                log_warning_errno(errno, "Failed to open /dev/urandom for writing, ignoring: %m");
-                return;
-        }
-
-        r = random_write_entropy(random_fd, arg_random_seed, arg_random_seed_size, true);
+        r = random_write_entropy(-1, arg_random_seed, arg_random_seed_size, true);
         if (r < 0) {
                 log_warning_errno(r, "Failed to credit entropy specified on kernel command line, ignoring: %m");
                 return;

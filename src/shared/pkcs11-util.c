@@ -671,7 +671,6 @@ int pkcs11_token_acquire_rng(
                 CK_SESSION_HANDLE session) {
 
         _cleanup_free_ void *buffer = NULL;
-        _cleanup_close_ int fd = -1;
         size_t rps;
         CK_RV rv;
         int r;
@@ -696,11 +695,7 @@ int pkcs11_token_acquire_rng(
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Failed to generate RNG data on security token: %s", p11_kit_strerror(rv));
 
-        fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return log_debug_errno(errno, "Failed to open /dev/urandom for writing: %m");
-
-        r = loop_write(fd, buffer, rps, false);
+        r = random_write_entropy(-1, buffer, rps, false);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write PKCS#11 acquired random data to /dev/urandom: %m");
 
