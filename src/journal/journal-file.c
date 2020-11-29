@@ -208,6 +208,7 @@ static bool journal_file_set_offline_try_restart(JournalFile *f) {
  * context without involving another thread.
  */
 int journal_file_set_offline(JournalFile *f, bool wait) {
+        int target_state;
         bool restarted;
         int r;
 
@@ -219,9 +220,13 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
         if (f->fd < 0 || !f->header)
                 return -EINVAL;
 
+        target_state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
+
         /* An offlining journal is implicitly online and may modify f->header->state,
-         * we must also join any potentially lingering offline thread when not online. */
-        if (!journal_file_is_offlining(f) && f->header->state != STATE_ONLINE)
+         * we must also join any potentially lingering offline thread when already in
+         * the desired offline state.
+         */
+        if (!journal_file_is_offlining(f) && f->header->state == target_state)
                 return journal_file_set_offline_thread_join(f);
 
         /* Restart an in-flight offline thread and wait if needed, or join a lingering done one. */
