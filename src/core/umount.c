@@ -55,18 +55,18 @@ void mount_points_list_free(MountPoint **head) {
 }
 
 int mount_points_list_get(const char *mountinfo, MountPoint **head) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
 
         assert(head);
 
-        t = mnt_new_table();
-        i = mnt_new_iter(MNT_ITER_FORWARD);
-        if (!t || !i)
+        table = mnt_new_table();
+        iter = mnt_new_iter(MNT_ITER_FORWARD);
+        if (!table || !iter)
                 return log_oom();
 
-        r = mnt_table_parse_mtab(t, mountinfo);
+        r = mnt_table_parse_mtab(table, mountinfo);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse %s: %m", mountinfo);
 
@@ -79,7 +79,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                 bool try_remount_ro;
                 MountPoint *m;
 
-                r = mnt_table_next_fs(t, i, &fs);
+                r = mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break;
                 if (r < 0)

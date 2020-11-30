@@ -1606,18 +1606,18 @@ fail:
 }
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
-        int r = 0;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        int r;
 
         assert(m);
 
-        t = mnt_new_table();
-        i = mnt_new_iter(MNT_ITER_FORWARD);
-        if (!t || !i)
+        table = mnt_new_table();
+        iter = mnt_new_iter(MNT_ITER_FORWARD);
+        if (!table || !iter)
                 return log_oom();
 
-        r = mnt_table_parse_mtab(t, NULL);
+        r = mnt_table_parse_mtab(table, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -1628,11 +1628,11 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 _cleanup_free_ char *d = NULL, *p = NULL;
                 int k;
 
-                k = mnt_table_next_fs(t, i, &fs);
-                if (k == 1)
+                r = mnt_table_next_fs(table, iter, &fs);
+                if (r == 1)
                         break;
-                if (k < 0)
-                        return log_error_errno(k, "Failed to get next entry from /proc/self/mountinfo: %m");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
                 device = mnt_fs_get_source(fs);
                 path = mnt_fs_get_target(fs);

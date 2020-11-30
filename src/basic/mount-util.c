@@ -13,7 +13,6 @@
 #include <libmount.h>
 
 #include "alloc-util.h"
-#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -26,6 +25,9 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
 
 /* This is the original MAX_HANDLE_SZ definition from the kernel, when the API was introduced. We use that in place of
  * any more currently defined value to future-proof things: if the size is increased in the API headers, and our code
@@ -313,55 +315,43 @@ int umount_recursive(const char *prefix, int flags) {
          * unmounting them until they are gone. */
 
         do {
-                _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+                _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
 
                 again = false;
-                r = 0;
 
-                proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-                if (!proc_self_mountinfo)
-                        return -errno;
+                table = mnt_new_table();
+                iter = mnt_new_iter(MNT_ITER_FORWARD);
+                if (!table || !iter)
+                        return -ENOMEM;
 
-                (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
+                r = mnt_table_parse_mtab(table, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
                 for (;;) {
-                        _cleanup_free_ char *path = NULL, *p = NULL;
-                        int k;
+                        struct libmnt_fs *fs;
+                        const char *path;
 
-                        k = fscanf(proc_self_mountinfo,
-                                   "%*s "       /* (1) mount id */
-                                   "%*s "       /* (2) parent id */
-                                   "%*s "       /* (3) major:minor */
-                                   "%*s "       /* (4) root */
-                                   "%ms "       /* (5) mount point */
-                                   "%*s"        /* (6) mount options */
-                                   "%*[^-]"     /* (7) optional fields */
-                                   "- "         /* (8) separator */
-                                   "%*s "       /* (9) file system type */
-                                   "%*s"        /* (10) mount source */
-                                   "%*s"        /* (11) mount options 2 */
-                                   "%*[^\n]",   /* some rubbish at the end */
-                                   &path);
-                        if (k != 1) {
-                                if (k == EOF)
-                                        break;
-
-                                continue;
-                        }
-
-                        r = cunescape(path, UNESCAPE_RELAX, &p);
+                        r = mnt_table_next_fs(table, iter, &fs);
+                        if (r == 1)
+                                break;
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                        if (!path_startswith(p, prefix))
+                        path = mnt_fs_get_target(fs);
+                        if (!path)
                                 continue;
 
-                        if (umount2(p, flags) < 0) {
-                                r = log_debug_errno(errno, "Failed to umount %s: %m", p);
+                        if (!path_startswith(path, prefix))
+                                continue;
+
+                        if (umount2(path, flags) < 0) {
+                                r = log_debug_errno(errno, "Failed to umount %s: %m", path);
                                 continue;
                         }
 
-                        log_debug("Successfully unmounted %s", p);
+                        log_debug("Successfully unmounted %s", path);
 
                         again = true;
                         n++;
@@ -416,6 +406,8 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
 
         for (;;) {
                 _cleanup_set_free_free_ Set *todo = NULL;
+                _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
                 bool top_autofs = false;
                 char *x;
                 unsigned long orig_flags;
@@ -424,58 +416,52 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                 if (!todo)
                         return -ENOMEM;
 
+                table = mnt_new_table();
+                iter = mnt_new_iter(MNT_ITER_FORWARD);
+                if (!table || !iter)
+                        return -ENOMEM;
+
                 rewind(proc_self_mountinfo);
 
+                r = mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+
                 for (;;) {
-                        _cleanup_free_ char *path = NULL, *p = NULL, *type = NULL;
-                        int k;
+                        struct libmnt_fs *fs;
+                        const char *path, *type;
 
-                        k = fscanf(proc_self_mountinfo,
-                                   "%*s "       /* (1) mount id */
-                                   "%*s "       /* (2) parent id */
-                                   "%*s "       /* (3) major:minor */
-                                   "%*s "       /* (4) root */
-                                   "%ms "       /* (5) mount point */
-                                   "%*s"        /* (6) mount options (superblock) */
-                                   "%*[^-]"     /* (7) optional fields */
-                                   "- "         /* (8) separator */
-                                   "%ms "       /* (9) file system type */
-                                   "%*s"        /* (10) mount source */
-                                   "%*s"        /* (11) mount options (bind mount) */
-                                   "%*[^\n]",   /* some rubbish at the end */
-                                   &path,
-                                   &type);
-                        if (k != 2) {
-                                if (k == EOF)
-                                        break;
-
-                                continue;
-                        }
-
-                        r = cunescape(path, UNESCAPE_RELAX, &p);
+                        r = mnt_table_next_fs(table, iter, &fs);
+                        if (r == 1)
+                                break;
                         if (r < 0)
-                                return r;
+                                return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                        if (!path_startswith(p, cleaned))
+                        path = mnt_fs_get_target(fs);
+                        type = mnt_fs_get_fstype(fs);
+                        if (!path || !type)
                                 continue;
 
-                        /* Ignore this mount if it is blacklisted, but only if it isn't the top-level mount we shall
-                         * operate on. */
-                        if (!path_equal(cleaned, p)) {
+                        if (!path_startswith(path, cleaned))
+                                continue;
+
+                        /* Ignore this mount if it is blacklisted, but only if it isn't the top-level mount
+                         * we shall operate on. */
+                        if (!path_equal(path, cleaned)) {
                                 bool blacklisted = false;
                                 char **i;
 
                                 STRV_FOREACH(i, blacklist) {
-
                                         if (path_equal(*i, cleaned))
                                                 continue;
 
                                         if (!path_startswith(*i, cleaned))
                                                 continue;
 
-                                        if (path_startswith(p, *i)) {
+                                        if (path_startswith(path, *i)) {
                                                 blacklisted = true;
-                                                log_debug("Not remounting %s, because blacklisted by %s, called for %s", p, *i, cleaned);
+                                                log_debug("Not remounting %s blacklisted by %s, called for %s",
+                                                          path, *i, cleaned);
                                                 break;
                                         }
                                 }
@@ -490,15 +476,12 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                          * already triggered, then we will find
                          * another entry for this. */
                         if (streq(type, "autofs")) {
-                                top_autofs = top_autofs || path_equal(cleaned, p);
+                                top_autofs = top_autofs || path_equal(path, cleaned);
                                 continue;
                         }
 
-                        if (!set_contains(done, p)) {
-                                r = set_consume(todo, p);
-                                p = NULL;
-                                if (r == -EEXIST)
-                                        continue;
+                        if (!set_contains(done, path)) {
+                                r = set_put_strdup(todo, path);
                                 if (r < 0)
                                         return r;
                         }
