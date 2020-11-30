@@ -377,10 +377,6 @@ static int scope_start(Unit *u) {
                 return r;
         }
 
-        /* Now u->pids have been moved into the scope cgroup, it's not needed
-         * anymore. */
-        u->pids = set_free(u->pids);
-
         s->result = SCOPE_SUCCESS;
 
         scope_set_state(s, SCOPE_RUNNING);
@@ -388,7 +384,13 @@ static int scope_start(Unit *u) {
         /* Set the maximum runtime timeout. */
         scope_arm_timer(s, usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec));
 
-        /* Start watching the PIDs currently in the scope */
+        /* On unified we use proper notifications hence we can unwatch the PIDs
+         * we just attached to the scope. This can also be done on legacy as
+         * we're going to update the list of the processes we watch with the
+         * PIDs currently in the scope anyway. */
+        unit_unwatch_all_pids(u);
+
+        /* Start watching the PIDs currently in the scope (legacy hierarchy only) */
         (void) unit_enqueue_rewatch_pids(u);
         return 1;
 }
