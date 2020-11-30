@@ -15,6 +15,10 @@ Conflicts=shutdown.target
 After=systemd-modules-load.service
 Before=sysinit.target shutdown.target
 ConditionPathIsReadWrite=/proc/sys/net/
+ConditionPathExistsGlob=|/etc/sysctl.d/*.conf
+ConditionPathExistsGlob=|/run/sysctl.d/*.conf
+ConditionPathExistsGlob=|/usr/local/lib/sysctl.d/*.conf
+ConditionPathExistsGlob=|/usr/lib/sysctl.d/*.conf
 
 [Service]
 Type=oneshot
