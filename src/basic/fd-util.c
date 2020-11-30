@@ -211,10 +211,6 @@ static int get_max_fd(void) {
         return (int) (m - 1);
 }
 
-static int cmp_int(const int *a, const int *b) {
-        return CMP(*a, *b);
-}
-
 int close_all_fds(const int except[], size_t n_except) {
         static bool have_close_range = true; /* Assume we live in the future */
         _cleanup_closedir_ DIR *d = NULL;
