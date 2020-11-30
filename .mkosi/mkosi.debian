@@ -24,7 +24,7 @@ BuildPackages=
         git
         gnu-efi
         gperf
-        iptables-dev
+        libiptc-dev
         libacl1-dev
         libaudit-dev
         libblkid-dev
