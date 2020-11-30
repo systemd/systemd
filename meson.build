@@ -1003,6 +1003,9 @@ want_blkid = get_option('blkid')
 if want_blkid != 'false' and not skip_deps
         libblkid = dependency('blkid', required : want_blkid == 'true')
         have = libblkid.found()
+
+        conf.set10('HAVE_BLKID_PROBE_SET_HINT',
+                   have and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
 else
         have = false
         libblkid = []
