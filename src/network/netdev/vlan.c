@@ -24,6 +24,12 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_ID attribute: %m");
 
+        if (v->protocol != VLANPROTOCOL_INVALID) {
+            r = sd_netlink_message_append_u16(req, IFLA_VLAN_PROTOCOL, htobe16(v->protocol));
+            if (r < 0)
+                    return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_PROTOCOL attribute: %m");
+        }
+
         if (v->gvrp != -1) {
                 flags.mask |= VLAN_FLAG_GVRP;
                 SET_FLAG(flags.flags, VLAN_FLAG_GVRP, v->gvrp);
@@ -47,6 +53,16 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         r = sd_netlink_message_append_data(req, IFLA_VLAN_FLAGS, &flags, sizeof(struct ifla_vlan_flags));
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_FLAGS attribute: %m");
+
+        struct ifla_vf_vlan_info ivvi = {};
+        ivvi.vf = 0;
+        ivvi.vlan = v->id;
+        ivvi.qos = 0;
+        ivvi.vlan_proto = htobe16(ETH_P_8021AD); //sr_iov->vlan_proto
+
+        r = sd_netlink_message_append_data(req, IFLA_VF_VLAN_INFO, &ivvi, sizeof(struct ifla_vf_vlan_info));
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not append IFLA_VF_VLAN_INFO: %m");
 
         return 0;
 }
@@ -76,6 +92,7 @@ static void vlan_init(NetDev *netdev) {
         assert(v);
 
         v->id = VLANID_INVALID;
+        v->protocol = VLANPROTOCOL_INVALID;
         v->gvrp = -1;
         v->mvrp = -1;
         v->loose_binding = -1;

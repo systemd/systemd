@@ -9,6 +9,7 @@ struct VLan {
         NetDev meta;
 
         uint16_t id;
+        uint16_t protocol;
 
         int gvrp;
         int mvrp;
