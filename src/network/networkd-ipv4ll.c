@@ -148,7 +148,7 @@ int ipv4ll_configure(Link *link) {
 
         assert(link);
 
-        if (!link_ipv4ll_enabled(link, ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_FALLBACK_IPV4))
+        if (!link_ipv4ll_enabled(link))
                 return 0;
 
         if (!link->ipv4ll) {

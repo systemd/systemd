@@ -3428,8 +3428,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-use-dns-yes.network',
         'dhcp-client-use-domains.network',
         'dhcp-client-vrf.network',
-        'dhcp-client-with-ipv4ll-fallback-with-dhcp-server.network',
-        'dhcp-client-with-ipv4ll-fallback-without-dhcp-server.network',
+        'dhcp-client-with-ipv4ll-with-dhcp-server.network',
+        'dhcp-client-with-ipv4ll-without-dhcp-server.network',
         'dhcp-client-with-static-address.network',
         'dhcp-client.network',
         'dhcp-server-decline.network',
@@ -3925,7 +3925,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## ip address show vrf vrf99')
         output = check_output('ip address show vrf vrf99')
         print(output)
-        self.assertRegex(output, 'inet 169.254.[0-9]*.[0-9]*/16 brd 169.254.255.255 scope link veth99')
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
         self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)')
         self.assertRegex(output, 'inet6 .* scope link')
@@ -3933,7 +3932,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## ip address show dev veth99')
         output = check_output('ip address show dev veth99')
         print(output)
-        self.assertRegex(output, 'inet 169.254.[0-9]*.[0-9]*/16 brd 169.254.255.255 scope link veth99')
         self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
         self.assertRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global (dynamic noprefixroute|noprefixroute dynamic)')
         self.assertRegex(output, 'inet6 .* scope link')
@@ -3942,7 +3940,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip route show vrf vrf99')
         print(output)
         self.assertRegex(output, 'default via 192.168.5.1 dev veth99 proto dhcp src 192.168.5.')
-        self.assertRegex(output, '169.254.0.0/16 dev veth99 proto kernel scope link src 169.254')
         self.assertRegex(output, '192.168.5.0/24 dev veth99 proto kernel scope link src 192.168.5')
         self.assertRegex(output, '192.168.5.0/24 via 192.168.5.5 dev veth99 proto dhcp')
         self.assertRegex(output, '192.168.5.1 dev veth99 proto dhcp scope link src 192.168.5')
@@ -3995,9 +3992,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'onlink')
 
-    def test_dhcp_client_with_ipv4ll_fallback_with_dhcp_server(self):
+    def test_dhcp_client_with_ipv4ll_with_dhcp_server(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-with-ipv4ll-fallback-with-dhcp-server.network')
+                                        'dhcp-client-with-ipv4ll-with-dhcp-server.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
@@ -4032,9 +4029,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         search_words_in_dnsmasq_log('DHCPOFFER', show_all=True)
 
-    def test_dhcp_client_with_ipv4ll_fallback_without_dhcp_server(self):
+    def test_dhcp_client_with_ipv4ll_without_dhcp_server(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-with-ipv4ll-fallback-without-dhcp-server.network')
+                                        'dhcp-client-with-ipv4ll-without-dhcp-server.network')
         start_networkd()
         self.wait_online(['veth99:degraded', 'veth-peer:routable'])
 

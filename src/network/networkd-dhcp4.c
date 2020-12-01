@@ -70,6 +70,10 @@ static void dhcp4_check_ready(Link *link) {
                 return;
         }
 
+        r = sd_ipv4ll_stop(link->ipv4ll);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to drop IPv4 link-local address, ignoring: %m");
+
         link_check_ready(link);
 }
 
@@ -1048,10 +1052,7 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
         switch (event) {
                 case SD_DHCP_CLIENT_EVENT_STOP:
-
-                        if (link_ipv4ll_enabled(link, ADDRESS_FAMILY_FALLBACK_IPV4)) {
-                                assert(link->ipv4ll);
-
+                        if (link->ipv4ll) {
                                 log_link_debug(link, "DHCP client is stopped. Acquiring IPv4 link-local address");
 
                                 r = sd_ipv4ll_start(link->ipv4ll);
@@ -1136,6 +1137,17 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                                         return -ENOMSG;
                         }
                         break;
+
+                case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
+                        if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
+                                log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
+
+                                r = sd_ipv4ll_start(link->ipv4ll);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Could not acquire IPv4 link-local address: %m");
+                        }
+                        break;
+
                 default:
                         if (event < 0)
                                 log_link_warning_errno(link, event, "DHCP error: Client failed: %m");

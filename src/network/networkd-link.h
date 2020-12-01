@@ -231,7 +231,7 @@ int link_ipv6ll_gained(Link *link, const struct in6_addr *address);
 
 int link_set_mtu(Link *link, uint32_t mtu);
 
-bool link_ipv4ll_enabled(Link *link, AddressFamily mask);
+bool link_ipv4ll_enabled(Link *link);
 
 int link_stop_engines(Link *link, bool may_keep_dhcp);
 

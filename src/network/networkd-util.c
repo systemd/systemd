@@ -15,15 +15,6 @@ static const char* const address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_IPV6]          = "ipv6",
 };
 
-static const char* const link_local_address_family_table[_ADDRESS_FAMILY_MAX] = {
-        [ADDRESS_FAMILY_NO]            = "no",
-        [ADDRESS_FAMILY_YES]           = "yes",
-        [ADDRESS_FAMILY_IPV4]          = "ipv4",
-        [ADDRESS_FAMILY_IPV6]          = "ipv6",
-        [ADDRESS_FAMILY_FALLBACK]      = "fallback",
-        [ADDRESS_FAMILY_FALLBACK_IPV4] = "ipv4-fallback",
-};
-
 static const char* const routing_policy_rule_address_family_table[_ADDRESS_FAMILY_MAX] = {
         [ADDRESS_FAMILY_YES]           = "both",
         [ADDRESS_FAMILY_IPV4]          = "ipv4",
@@ -47,7 +38,15 @@ static const char* const dhcp_lease_server_type_table[_SD_DHCP_LEASE_SERVER_TYPE
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(address_family, AddressFamily, ADDRESS_FAMILY_YES);
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(link_local_address_family, AddressFamily, ADDRESS_FAMILY_YES);
+
+AddressFamily link_local_address_family_from_string(const char *s) {
+        if (streq_ptr(s, "fallback"))         /* compat name */
+                return ADDRESS_FAMILY_YES;
+        if (streq_ptr(s, "fallback-ipv4"))    /* compat name */
+                return ADDRESS_FAMILY_IPV4;
+        return address_family_from_string(s);
+}
+
 DEFINE_STRING_TABLE_LOOKUP(routing_policy_rule_address_family, AddressFamily);
 DEFINE_STRING_TABLE_LOOKUP(duplicate_address_detection_address_family, AddressFamily);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_address_family,

@@ -16,8 +16,6 @@ typedef enum AddressFamily {
         ADDRESS_FAMILY_IPV4           = 1 << 0,
         ADDRESS_FAMILY_IPV6           = 1 << 1,
         ADDRESS_FAMILY_YES            = ADDRESS_FAMILY_IPV4 | ADDRESS_FAMILY_IPV6,
-        ADDRESS_FAMILY_FALLBACK_IPV4  = 1 << 2,
-        ADDRESS_FAMILY_FALLBACK       = ADDRESS_FAMILY_FALLBACK_IPV4 | ADDRESS_FAMILY_IPV6,
         _ADDRESS_FAMILY_MAX,
         _ADDRESS_FAMILY_INVALID = -1,
 } AddressFamily;
@@ -34,7 +32,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_address_family_with_kernel);
 const char *address_family_to_string(AddressFamily b) _const_;
 AddressFamily address_family_from_string(const char *s) _pure_;
 
-const char *link_local_address_family_to_string(AddressFamily b) _const_;
 AddressFamily link_local_address_family_from_string(const char *s) _pure_;
 
 const char *routing_policy_rule_address_family_to_string(AddressFamily b) _const_;

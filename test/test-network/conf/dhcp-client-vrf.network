@@ -4,5 +4,4 @@ Name=veth99
 [Network]
 DHCP=yes
 IPv6AcceptRA=yes
-LinkLocalAddressing=yes
 VRF=vrf99
