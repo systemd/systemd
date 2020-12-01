@@ -2170,7 +2170,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         safe_close(j->inotify_fd);
 
         if (j->mmap) {
-                log_debug("mmap cache statistics: %u hit, %u miss", mmap_cache_get_hit(j->mmap), mmap_cache_get_missed(j->mmap));
+                mmap_cache_stats_log_debug(j->mmap);
                 mmap_cache_unref(j->mmap);
         }
 

@@ -28,7 +28,6 @@ int mmap_cache_get(
 MMapFileDescriptor * mmap_cache_add_fd(MMapCache *m, int fd);
 void mmap_cache_free_fd(MMapCache *m, MMapFileDescriptor *f);
 
-unsigned mmap_cache_get_hit(MMapCache *m);
-unsigned mmap_cache_get_missed(MMapCache *m);
+void mmap_cache_stats_log_debug(MMapCache *m);
 
 bool mmap_cache_got_sigbus(MMapCache *m, MMapFileDescriptor *f);
