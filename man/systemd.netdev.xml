@@ -451,6 +451,13 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Protocol=</varname></term>
+        <listitem>
+          <para>Allows setting the protocol used for VLAN. Takes 802.1q or,
+          802.1ad, and defaults to unset and kernel's default is used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>GVRP=</varname></term>
         <listitem>
           <para>Takes a boolean. The Generic VLAN Registration Protocol (GVRP) is a protocol that
