@@ -4,6 +4,7 @@ LooseBinding=
 ReorderHeader=
 Id=
 GVRP=
+Protocol=
 [MACVLAN]
 Mode=
 SourceMACAddress=
