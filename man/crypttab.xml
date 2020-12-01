@@ -568,7 +568,6 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchac
 <para>A few notes on the above:</para>
 
 <itemizedlist>
-  <listitem><para>We use RSA (and not ECC), since Yubikeys support PKCS#11 Decrypt() only for RSA keys</para></listitem>
   <listitem><para>We use RSA2048, which is the longest key size current Yubikeys support</para></listitem>
   <listitem><para>LUKS key size must be shorter than 2048bit due to RSA padding, hence we use 128 bytes</para></listitem>
   <listitem><para>We use Yubikey key slot 9d, since that's apparently the keyslot to use for decryption purposes,
