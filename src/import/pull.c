@@ -78,7 +78,10 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                                                local);
 
                 if (!arg_force) {
-                        r = image_find(IMAGE_MACHINE, true, local, NULL);
+                        if (arg_image_root)
+                                r = image_find_for_path(arg_image_root, local, NULL);
+                        else
+                                r = image_find(IMAGE_MACHINE, true, local, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
@@ -164,7 +167,10 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                                                local);
 
                 if (!arg_force) {
-                        r = image_find(IMAGE_MACHINE, true, local, NULL);
+                        if (arg_image_root)
+                                r = image_find_for_path(arg_image_root, local, NULL);
+                        else
+                                r = image_find(IMAGE_MACHINE, true, local, NULL);
                         if (r < 0) {
                                 if (r != -ENOENT)
                                         return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
