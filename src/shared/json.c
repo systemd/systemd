@@ -3195,7 +3195,7 @@ int json_parse_file_at(FILE *f, int dir_fd, const char *path, JsonParseFlags fla
         if (f)
                 r = read_full_stream(f, &text, NULL);
         else if (path)
-                r = read_full_file_full(dir_fd, path, 0, NULL, &text, NULL);
+                r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, 0, NULL, &text, NULL);
         else
                 return -EINVAL;
         if (r < 0)

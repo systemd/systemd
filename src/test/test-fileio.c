@@ -911,13 +911,57 @@ static void test_read_full_file_socket(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(read_full_file_full(AT_FDCWD, j, 0, NULL, &data, &size) == -ENXIO);
-        assert_se(read_full_file_full(AT_FDCWD, j, READ_FULL_FILE_CONNECT_SOCKET, clientname, &data, &size) >= 0);
+        assert_se(read_full_file_full(AT_FDCWD, j, UINT64_MAX, SIZE_MAX, 0, NULL, &data, &size) == -ENXIO);
+        assert_se(read_full_file_full(AT_FDCWD, j, UINT64_MAX, SIZE_MAX, READ_FULL_FILE_CONNECT_SOCKET, clientname, &data, &size) >= 0);
         assert_se(size == strlen(TEST_STR));
         assert_se(streq(data, TEST_STR));
 
         assert_se(wait_for_terminate_and_check("(server)", pid, WAIT_LOG) >= 0);
 #undef TEST_STR
+}
+
+static void test_read_full_file_offset_size(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(unlink_and_freep) char *fn = NULL;
+        _cleanup_free_ char *rbuf = NULL;
+        size_t rbuf_size;
+        uint8_t buf[4711];
+
+        random_bytes(buf, sizeof(buf));
+
+        assert_se(tempfn_random_child(NULL, NULL, &fn) >= 0);
+        assert_se(f = fopen(fn, "we"));
+        assert_se(fwrite(buf, 1, sizeof(buf), f) == sizeof(buf));
+        assert_se(fflush_and_check(f) >= 0);
+
+        assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, SIZE_MAX, 0, NULL, &rbuf, &rbuf_size) >= 0);
+        assert_se(rbuf_size == sizeof(buf));
+        assert_se(memcmp(buf, rbuf, rbuf_size) == 0);
+        rbuf = mfree(rbuf);
+
+        assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, 128, 0, NULL, &rbuf, &rbuf_size) >= 0);
+        assert_se(rbuf_size == 128);
+        assert_se(memcmp(buf, rbuf, rbuf_size) == 0);
+        rbuf = mfree(rbuf);
+
+        assert_se(read_full_file_full(AT_FDCWD, fn, 1234, SIZE_MAX, 0, NULL, &rbuf, &rbuf_size) >= 0);
+        assert_se(rbuf_size == sizeof(buf) - 1234);
+        assert_se(memcmp(buf + 1234, rbuf, rbuf_size) == 0);
+        rbuf = mfree(rbuf);
+
+        assert_se(read_full_file_full(AT_FDCWD, fn, 2345, 777, 0, NULL, &rbuf, &rbuf_size) >= 0);
+        assert_se(rbuf_size == 777);
+        assert_se(memcmp(buf + 2345, rbuf, rbuf_size) == 0);
+        rbuf = mfree(rbuf);
+
+        assert_se(read_full_file_full(AT_FDCWD, fn, 4700, 20, 0, NULL, &rbuf, &rbuf_size) >= 0);
+        assert_se(rbuf_size == 11);
+        assert_se(memcmp(buf + 4700, rbuf, rbuf_size) == 0);
+        rbuf = mfree(rbuf);
+
+        assert_se(read_full_file_full(AT_FDCWD, fn, 10000, 99, 0, NULL, &rbuf, &rbuf_size) >= 0);
+        assert_se(rbuf_size == 0);
+        rbuf = mfree(rbuf);
 }
 
 int main(int argc, char *argv[]) {
@@ -946,6 +990,7 @@ int main(int argc, char *argv[]) {
         test_read_line4();
         test_read_nul_string();
         test_read_full_file_socket();
+        test_read_full_file_offset_size();
 
         return 0;
 }

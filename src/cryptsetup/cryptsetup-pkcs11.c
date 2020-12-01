@@ -10,13 +10,14 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptsetup-pkcs11.h"
-#include "cryptsetup-keyfile.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "pkcs11-util.h"
+#include "random-util.h"
 #include "stat-util.h"
 #include "strv.h"
 
@@ -95,6 +96,7 @@ static int pkcs11_callback(
 }
 
 int decrypt_pkcs11_key(
+                const char *volume_name,
                 const char *friendly_name,
                 const char *pkcs11_uri,
                 const char *key_file,         /* We either expect key_file and associated parameters to be set (for file keys) … */
@@ -126,7 +128,19 @@ int decrypt_pkcs11_key(
 
                 data.free_encrypted_key = false;
         } else {
-                r = load_key_file(key_file, NULL, key_file_size, key_file_offset, &data.encrypted_key, &data.encrypted_key_size);
+                _cleanup_free_ char *bindname = NULL;
+
+                /* If we read the key via AF_UNIX, make this client recognizable */
+                if (asprintf(&bindname, "@%" PRIx64"/cryptsetup-pkcs11/%s", random_u64(), volume_name) < 0)
+                        return log_oom();
+
+                r = read_full_file_full(
+                                AT_FDCWD, key_file,
+                                key_file_offset == 0 ? UINT64_MAX : key_file_offset,
+                                key_file_size == 0 ? SIZE_MAX : key_file_size,
+                                READ_FULL_FILE_CONNECT_SOCKET,
+                                bindname,
+                                (char**) &data.encrypted_key, &data.encrypted_key_size);
                 if (r < 0)
                         return r;
 

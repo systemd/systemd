@@ -53,25 +53,36 @@
     it is opened as a LUKS device; otherwise, it is assumed to be in
     raw dm-crypt (plain mode) format.</para>
 
-    <para>The first field contains the name of the resulting encrypted volume; its block device is set up
-    below <filename>/dev/mapper/</filename>.</para>
+    <para>The four fields of <filename>/etc/crypttab</filename> are defined as follows:</para>
 
-    <para>The second field contains a path to the underlying block
-    device or file, or a specification of a block device via
-    <literal>UUID=</literal> followed by the UUID.</para>
+    <orderedlist>
 
-    <para>The third field specifies an absolute path to a file with the encryption key. Optionally,
-    the path may be followed by <literal>:</literal> and an fstab device specification (e.g. starting with
-    <literal>LABEL=</literal> or similar); in which case the path is taken relative to the device file system
-    root. If the field is not present or is <literal>none</literal> or <literal>-</literal>, a key file
-    named after the volume to unlock (i.e. the first column of the line), suffixed with
-    <filename>.key</filename> is automatically loaded from the <filename>/etc/cryptsetup-keys.d/</filename>
-    and <filename>/run/cryptsetup-keys.d/</filename> directories, if present. Otherwise, the password has to
-    be manually entered during system boot. For swap encryption, <filename>/dev/urandom</filename> may be
-    used as key file.</para>
+      <listitem><para>The first field contains the name of the resulting volume with decrypted data; its
+      block device is set up below <filename>/dev/mapper/</filename>.</para></listitem>
 
-    <para>The fourth field, if present, is a comma-delimited list of
-    options. The following options are recognized:</para>
+      <listitem><para>The second field contains a path to the underlying block
+      device or file, or a specification of a block device via
+      <literal>UUID=</literal> followed by the UUID.</para></listitem>
+
+      <listitem><para>The third field specifies an absolute path to a file with the encryption
+      key. Optionally, the path may be followed by <literal>:</literal> and an fstab device specification
+      (e.g. starting with <literal>LABEL=</literal> or similar); in which case the path is taken relative to
+      the device file system root. If the field is not present or is <literal>none</literal> or
+      <literal>-</literal>, a key file named after the volume to unlock (i.e. the first column of the line),
+      suffixed with <filename>.key</filename> is automatically loaded from the
+      <filename>/etc/cryptsetup-keys.d/</filename> and <filename>/run/cryptsetup-keys.d/</filename>
+      directories, if present. Otherwise, the password has to be manually entered during system boot. For
+      swap encryption, <filename>/dev/urandom</filename> may be used as key file, resulting in a randomized
+      key.</para>
+
+      <para>If the specified key file path refers to an <constant>AF_UNIX</constant> stream socket in the
+      file system, the key is acquired by connecting to the socket and reading it from the connection. This
+      allows the implementation of a service to provide key information dynamically, at the moment when it is
+      needed. For details see below.</para></listitem>
+
+      <listitem><para>The fourth field, if present, is a comma-delimited list of options. The suppported
+      options are listed below.</para></listitem>
+    </orderedlist>
 
     <variablelist class='fstab-options'>
 
@@ -500,6 +511,34 @@
   </refsect1>
 
   <refsect1>
+    <title><constant>AF_UNIX</constant> Key Files</title>
+
+    <para>If the key file path (as specified in the third column of <filename>/etc/crypttab</filename>
+    entries, see above) refers to an <constant>AF_UNIX</constant> stream socket in the file system, the key
+    is acquired by connecting to the socket and reading the key from the connection. The connection is made
+    from an <constant>AF_UNIX</constant> socket name in the abstract namespace, see <citerefentry
+    project='man-pages'><refentrytitle>unix</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details. The source socket name is chosen according the following format:</para>
+
+    <programlisting><constant>NUL</constant> <replaceable>RANDOM</replaceable> <literal>/cryptsetup/</literal> <replaceable>VOLUME</replaceable></programlisting>
+
+    <para>In other words: a <constant>NUL</constant> byte (as required for abstract namespace sockets),
+    followed by a random string (consisting of alphabenumeric characters only), followed by the literal
+    string <literal>/cryptsetup/</literal>, followed by the name of the volume to acquire they key
+    for. Example (for a volume <literal>myvol</literal>):</para>
+
+    <example><programlisting>\0d7067f78d9827418/cryptsetup/myvol</programlisting></example>
+
+    <para>Services listening on the <constant>AF_UNIX</constant> stream socket may query the source socket
+    name with <citerefentry
+    project='man-pages'><refentrytitle>getpeername</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
+    and use it to determine which key to send, allowing a single listening socket to serve keys for a
+    multitude of volumes. If the PKCS#11 logic is used (see below) the socket source name is picked in
+    identical fashion, except that the literal string <literal>/cryptsetup-pkcs11/</literal> is used. This is
+    done so that services providing key material know that not a secret key is requested but an encrypted key
+    that will be decrypted via the PKCS#11 logic to acquire the final secret key.</para>
+  </refsect1>
+  <refsect1>
     <title>Examples</title>
     <example>
       <title>/etc/crypttab example</title>
@@ -529,7 +568,6 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchac
 <para>A few notes on the above:</para>
 
 <itemizedlist>
-  <listitem><para>We use RSA (and not ECC), since Yubikeys support PKCS#11 Decrypt() only for RSA keys</para></listitem>
   <listitem><para>We use RSA2048, which is the longest key size current Yubikeys support</para></listitem>
   <listitem><para>LUKS key size must be shorter than 2048bit due to RSA padding, hence we use 128 bytes</para></listitem>
   <listitem><para>We use Yubikey key slot 9d, since that's apparently the keyslot to use for decryption purposes,
