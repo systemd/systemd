@@ -537,16 +537,10 @@ int mmap_cache_get(
         return add_mmap(m, f, prot, context, keep_always, offset, size, st, ret, ret_size);
 }
 
-unsigned mmap_cache_get_hit(MMapCache *m) {
+void mmap_cache_stats_log_debug(MMapCache *m) {
         assert(m);
 
-        return m->n_hit;
-}
-
-unsigned mmap_cache_get_missed(MMapCache *m) {
-        assert(m);
-
-        return m->n_missed;
+        log_debug("mmap cache statistics: %u hit, %u miss", m->n_hit, m->n_missed);
 }
 
 static void mmap_cache_process_sigbus(MMapCache *m) {
