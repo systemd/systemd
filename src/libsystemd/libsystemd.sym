@@ -736,3 +736,10 @@ global:
         sd_device_has_current_tag;
         sd_device_set_sysattr_valuef;
 } LIBSYSTEMD_246;
+
+LIBSYSTEMD_248 {
+global:
+        sd_event_source_set_ratelimit;
+        sd_event_source_get_ratelimit;
+        sd_event_source_is_ratelimited;
+} LIBSYSTEMD_246;
