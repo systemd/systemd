@@ -453,8 +453,8 @@
       <varlistentry>
         <term><varname>Protocol=</varname></term>
         <listitem>
-          <para>Allows setting the protocol used for VLAN. Takes 802.1q or,
-          802.1ad, and defaults to unset and kernel's default is used.</para>
+          <para>Allows setting the protocol used for the VLAN interface. Takes <literal>802.1q</literal> or,
+          <literal>802.1ad</literal>, and defaults to unset and kernel's default is used.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

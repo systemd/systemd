@@ -24,10 +24,10 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_ID attribute: %m");
 
-        if (v->protocol != VLANPROTOCOL_INVALID) {
-            r = sd_netlink_message_append_u16(req, IFLA_VLAN_PROTOCOL, htobe16(v->protocol));
-            if (r < 0)
-                    return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_PROTOCOL attribute: %m");
+        if (v->protocol >= 0) {
+                r = sd_netlink_message_append_u16(req, IFLA_VLAN_PROTOCOL, htobe16(v->protocol));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_PROTOCOL attribute: %m");
         }
 
         if (v->gvrp != -1) {
@@ -82,7 +82,7 @@ static void vlan_init(NetDev *netdev) {
         assert(v);
 
         v->id = VLANID_INVALID;
-        v->protocol = VLANPROTOCOL_INVALID;
+        v->protocol = -1;
         v->gvrp = -1;
         v->mvrp = -1;
         v->loose_binding = -1;
