@@ -103,6 +103,20 @@ int sd_ipv4ll_set_ifindex(sd_ipv4ll *ll, int ifindex) {
         return sd_ipv4acd_set_ifindex(ll->acd, ifindex);
 }
 
+int sd_ipv4ll_get_ifindex(sd_ipv4ll *ll) {
+        if (!ll)
+                return -EINVAL;
+
+        return sd_ipv4acd_get_ifindex(ll->acd);
+}
+
+const char *sd_ipv4ll_get_ifname(sd_ipv4ll *ll) {
+        if (!ll)
+                return NULL;
+
+        return sd_ipv4acd_get_ifname(ll->acd);
+}
+
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
         int r;
 

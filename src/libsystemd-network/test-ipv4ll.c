@@ -126,7 +126,6 @@ static void test_public_api_setters(sd_event *e) {
         assert_se(sd_ipv4ll_set_ifindex(ll, -1) == -EINVAL);
         assert_se(sd_ipv4ll_set_ifindex(ll, -99) == -EINVAL);
         assert_se(sd_ipv4ll_set_ifindex(ll, 1) == 0);
-        assert_se(sd_ipv4ll_set_ifindex(ll, 99) == 0);
 
         assert_se(sd_ipv4ll_ref(ll) == ll);
         assert_se(sd_ipv4ll_unref(ll) == NULL);
