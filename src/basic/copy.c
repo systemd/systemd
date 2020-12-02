@@ -1047,10 +1047,20 @@ int copy_file_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
+        _cleanup_close_ int fdf = -1;
+        struct stat st;
         int fdt = -1, r;
 
         assert(from);
         assert(to);
+
+        fdf = open(from, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fdf < 0)
+                return -errno;
+
+        if (mode == (mode_t) -1)
+                if (fstat(fdf, &st) < 0)
+                        return -errno;
 
         RUN_WITH_UMASK(0000) {
                 if (copy_flags & COPY_MAC_CREATE) {
@@ -1058,7 +1068,8 @@ int copy_file_full(
                         if (r < 0)
                                 return r;
                 }
-                fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY, mode);
+                fdt = open(to, flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
+                           mode != (mode_t) -1 ? mode : st.st_mode);
                 if (copy_flags & COPY_MAC_CREATE)
                         mac_selinux_create_file_clear();
                 if (fdt < 0)
@@ -1068,12 +1079,15 @@ int copy_file_full(
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & CHATTR_EARLY_FL, NULL);
 
-        r = copy_file_fd_full(from, fdt, copy_flags, progress_bytes, userdata);
+        r = copy_bytes_full(fdf, fdt, (uint64_t) -1, copy_flags, NULL, NULL, progress_bytes, userdata);
         if (r < 0) {
                 close(fdt);
                 (void) unlink(to);
                 return r;
         }
+
+        (void) copy_times(fdf, fdt, copy_flags);
+        (void) copy_xattr(fdf, fdt);
 
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);

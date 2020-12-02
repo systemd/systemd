@@ -359,8 +359,9 @@ int manager_write_resolv_conf(Manager *m) {
                         goto fail;
                 }
 
-                if (rename(temp_path_stub, PRIVATE_STUB_RESOLV_CONF) < 0)
-                        r = log_error_errno(errno, "Failed to move new %s into place: %m", PRIVATE_STUB_RESOLV_CONF);
+                r = conservative_rename(AT_FDCWD, temp_path_stub, AT_FDCWD, PRIVATE_STUB_RESOLV_CONF);
+                if (r < 0)
+                        log_error_errno(r, "Failed to move new %s into place: %m", PRIVATE_STUB_RESOLV_CONF);
 
         } else {
                 r = symlink_atomic(basename(PRIVATE_UPLINK_RESOLV_CONF), PRIVATE_STUB_RESOLV_CONF);
@@ -368,8 +369,9 @@ int manager_write_resolv_conf(Manager *m) {
                         log_error_errno(r, "Failed to symlink %s: %m", PRIVATE_STUB_RESOLV_CONF);
         }
 
-        if (rename(temp_path_uplink, PRIVATE_UPLINK_RESOLV_CONF) < 0)
-                r = log_error_errno(errno, "Failed to move new %s into place: %m", PRIVATE_UPLINK_RESOLV_CONF);
+        r = conservative_rename(AT_FDCWD, temp_path_uplink, AT_FDCWD, PRIVATE_UPLINK_RESOLV_CONF);
+        if (r < 0)
+                log_error_errno(r, "Failed to move new %s into place: %m", PRIVATE_UPLINK_RESOLV_CONF);
 
  fail:
         if (r < 0) {
