@@ -1495,6 +1495,7 @@
           <term><varname>AssertHost=</varname></term>
           <term><varname>AssertKernelCommandLine=</varname></term>
           <term><varname>AssertKernelVersion=</varname></term>
+          <term><varname>AssertEnvironment=</varname></term>
           <term><varname>AssertSecurity=</varname></term>
           <term><varname>AssertCapability=</varname></term>
           <term><varname>AssertACPower=</varname></term>
@@ -1506,12 +1507,15 @@
           <term><varname>AssertPathIsSymbolicLink=</varname></term>
           <term><varname>AssertPathIsMountPoint=</varname></term>
           <term><varname>AssertPathIsReadWrite=</varname></term>
+          <term><varname>AssertPathIsEncrypted=</varname></term>
           <term><varname>AssertDirectoryNotEmpty=</varname></term>
           <term><varname>AssertFileNotEmpty=</varname></term>
           <term><varname>AssertFileIsExecutable=</varname></term>
           <term><varname>AssertUser=</varname></term>
           <term><varname>AssertGroup=</varname></term>
           <term><varname>AssertControlGroupController=</varname></term>
+          <term><varname>AssertMemory=</varname></term>
+          <term><varname>AssertCPUs=</varname></term>
 
           <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
           <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings
