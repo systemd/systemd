@@ -80,7 +80,7 @@
       allows the implementation of a service to provide key information dynamically, at the moment when it is
       needed. For details see below.</para></listitem>
 
-      <listitem><para>The fourth field, if present, is a comma-delimited list of options. The suppported
+      <listitem><para>The fourth field, if present, is a comma-delimited list of options. The supported
       options are listed below.</para></listitem>
     </orderedlist>
 

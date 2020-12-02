@@ -667,7 +667,7 @@ static void test_ratelimit(void) {
         log_info("ratelimit_time_handler: called %d times, event source got ratelimited", count);
         assert_se(count == 10);
 
-        /* In order to get rid of active rate limit client needs to disable it explicitely */
+        /* In order to get rid of active rate limit client needs to disable it explicitly */
         assert_se(sd_event_source_set_ratelimit(s, 0, 0) >= 0);
         assert_se(!sd_event_source_is_ratelimited(s));
 
