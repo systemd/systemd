@@ -861,7 +861,8 @@ static int dhcp4_update_address(Link *link, bool announce) {
         addr->cinfo.ifa_prefered = lifetime;
         addr->cinfo.ifa_valid = lifetime;
         addr->prefixlen = prefixlen;
-        addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
+        if (prefixlen <= 30)
+                addr->broadcast.s_addr = address.s_addr | ~netmask.s_addr;
         SET_FLAG(addr->flags, IFA_F_NOPREFIXROUTE, !link_prefixroute(link));
 
         /* allow reusing an existing address and simply update its lifetime
