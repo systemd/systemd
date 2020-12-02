@@ -37,7 +37,7 @@ wait_for success_runtime
 wait_for success_stop
 
 # These ensure that EXTEND_TIMEOUT_USEC will still timeout in the
-# approprate stage, after the stage limit, when the EXTEND_TIMEOUT_USEC
+# appropriate stage, after the stage limit, when the EXTEND_TIMEOUT_USEC
 # message isn't sent within the extend timeout interval.
 
 wait_for fail_start startfail
