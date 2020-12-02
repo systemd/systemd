@@ -3577,7 +3577,7 @@ foreach tuple : sanitizers
                         prev = name
 
                         if fuzz_tests
-                                test('@0@:@1@:@2@'.format(b, c, sanitizer),
+                                test('@0@_@1@_@2@'.format(b, c, sanitizer),
                                      env,
                                      env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
                                      timeout : 60,
