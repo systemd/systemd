@@ -589,8 +589,18 @@ class Utilities():
             output = check_output(f'ip {ipv} address show dev {link} scope {scope}')
             if re.search(address_regex, output) and 'tentative' not in output:
                 break
-        else:
-            self.assertRegex(output, address_regex)
+
+        self.assertRegex(output, address_regex)
+
+    def wait_address_dropped(self, link, address_regex, scope='global', ipv='', timeout_sec=100):
+        for i in range(timeout_sec):
+            if i > 0:
+                time.sleep(1)
+            output = check_output(f'ip {ipv} address show dev {link} scope {scope}')
+            if not re.search(address_regex, output):
+                break
+
+        self.assertNotRegex(output, address_regex)
 
 class NetworkctlTests(unittest.TestCase, Utilities):
 
@@ -3428,8 +3438,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         'dhcp-client-use-dns-yes.network',
         'dhcp-client-use-domains.network',
         'dhcp-client-vrf.network',
-        'dhcp-client-with-ipv4ll-with-dhcp-server.network',
-        'dhcp-client-with-ipv4ll-without-dhcp-server.network',
+        'dhcp-client-with-ipv4ll.network',
         'dhcp-client-with-static-address.network',
         'dhcp-client.network',
         'dhcp-server-decline.network',
@@ -3994,7 +4003,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_client_with_ipv4ll_with_dhcp_server(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-with-ipv4ll-with-dhcp-server.network')
+                                        'dhcp-client-with-ipv4ll.network')
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq(lease_time='2m')
@@ -4004,13 +4013,13 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
 
         output = check_output('ip -6 address show dev veth99 scope global dynamic')
-        self.assertNotRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic')
+        self.assertNotRegex(output, r'inet6 2600::[0-9a-f]+/128 scope global dynamic')
         output = check_output('ip -6 address show dev veth99 scope link')
-        self.assertRegex(output, 'inet6 .* scope link')
+        self.assertRegex(output, r'inet6 .* scope link')
         output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 brd 192\.168\.5\.255 scope global dynamic veth99')
         output = check_output('ip -4 address show dev veth99 scope link')
-        self.assertNotRegex(output, 'inet .* scope link')
+        self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 brd 169\.254\.255\.255 scope link')
 
         print('Wait for the dynamic address to be expired')
         time.sleep(130)
@@ -4019,19 +4028,19 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
 
         output = check_output('ip -6 address show dev veth99 scope global dynamic')
-        self.assertNotRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic')
+        self.assertNotRegex(output, r'inet6 2600::[0-9a-f]+/128 scope global dynamic')
         output = check_output('ip -6 address show dev veth99 scope link')
-        self.assertRegex(output, 'inet6 .* scope link')
+        self.assertRegex(output, r'inet6 .* scope link')
         output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        self.assertRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertRegex(output, r'inet 192\.168\.5\.\d+/24 brd 192\.168\.5\.255 scope global dynamic veth99')
         output = check_output('ip -4 address show dev veth99 scope link')
-        self.assertNotRegex(output, 'inet .* scope link')
+        self.assertNotRegex(output, r'inet 169\.254\.\d+\.\d+/16 brd 169\.254\.255\.255 scope link')
 
         search_words_in_dnsmasq_log('DHCPOFFER', show_all=True)
 
     def test_dhcp_client_with_ipv4ll_without_dhcp_server(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
-                                        'dhcp-client-with-ipv4ll-without-dhcp-server.network')
+                                        'dhcp-client-with-ipv4ll.network')
         start_networkd()
         self.wait_online(['veth99:degraded', 'veth-peer:routable'])
 
@@ -4039,13 +4048,17 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
 
         output = check_output('ip -6 address show dev veth99 scope global dynamic')
-        self.assertNotRegex(output, 'inet6 2600::[0-9a-f]*/128 scope global dynamic')
+        self.assertNotRegex(output, r'inet6 2600::[0-9a-f]+/128 scope global dynamic')
         output = check_output('ip -6 address show dev veth99 scope link')
-        self.assertRegex(output, 'inet6 .* scope link')
+        self.assertRegex(output, r'inet6 .* scope link')
         output = check_output('ip -4 address show dev veth99 scope global dynamic')
-        self.assertNotRegex(output, 'inet 192.168.5.[0-9]*/24 brd 192.168.5.255 scope global dynamic veth99')
+        self.assertNotRegex(output, r'inet 192\.168\.5\.\d+/24 brd 192\.168\.5\.255 scope global dynamic veth99')
         output = check_output('ip -4 address show dev veth99 scope link')
-        self.assertRegex(output, 'inet .* scope link')
+        self.assertRegex(output, r'inet 169\.254\.\d+\.\d+/16 brd 169\.254\.255\.255 scope link')
+
+        start_dnsmasq(lease_time='2m')
+        self.wait_address('veth99', r'inet 192\.168\.5\.\d+/24 brd 192\.168\.5\.255 scope global dynamic', ipv='-4')
+        self.wait_address_dropped('veth99', r'inet 169\.254\.\d+\.\d+/16 brd 169\.255\.255\.255 scope link', scope='link', ipv='-4')
 
     def test_dhcp_client_route_remove_on_renew(self):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
