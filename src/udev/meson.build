@@ -174,6 +174,7 @@ foreach prog : [['ata_id/ata_id.c'],
                  'scsi_id/scsi_serial.c',
                  'scsi_id/scsi.h'],
                 ['v4l_id/v4l_id.c'],
+                ['dmi_memory_id/dmi_memory_id.c'],
                 ['mtd_probe/mtd_probe.c',
                  'mtd_probe/mtd_probe.h',
                  'mtd_probe/probe_smartmedia.c']]

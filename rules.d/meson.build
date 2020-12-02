@@ -17,6 +17,7 @@ rules = files('''
         60-serial.rules
         70-joystick.rules
         70-mouse.rules
+        70-memory.rules
         70-touchpad.rules
         75-net-description.rules
         75-probe_mtd.rules
