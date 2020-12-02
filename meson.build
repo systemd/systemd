@@ -3244,7 +3244,7 @@ foreach tuple : sanitizers
                         prev = name
 
                         if want_tests != 'false' and slow_tests
-                                test('@0@:@1@:@2@'.format(b, c, sanitizer),
+                                test('@0@_@1@_@2@'.format(b, c, sanitizer),
                                      env,
                                      args : [exe.full_path(),
                                              join_paths(project_source_root, p)])
