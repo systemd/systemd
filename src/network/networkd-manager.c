@@ -11,6 +11,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
@@ -1157,15 +1158,16 @@ void manager_dirty(Manager *manager) {
 }
 
 static int set_hostname_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        _unused_ Manager *manager = userdata;
         const sd_bus_error *e;
+        int r;
 
         assert(m);
-        assert(manager);
 
         e = sd_bus_message_get_error(m);
-        if (e)
-                log_warning_errno(sd_bus_error_get_errno(e), "Could not set hostname: %s", e->message);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_warning_errno(r, "Could not set hostname: %s", bus_error_message(e, r));
+        }
 
         return 1;
 }
@@ -1203,15 +1205,16 @@ int manager_set_hostname(Manager *m, const char *hostname) {
 }
 
 static int set_timezone_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        _unused_ Manager *manager = userdata;
         const sd_bus_error *e;
+        int r;
 
         assert(m);
-        assert(manager);
 
         e = sd_bus_message_get_error(m);
-        if (e)
-                log_warning_errno(sd_bus_error_get_errno(e), "Could not set timezone: %s", e->message);
+        if (e) {
+                r = sd_bus_error_get_errno(e);
+                log_warning_errno(r, "Could not set timezone: %s", bus_error_message(e, r));
+        }
 
         return 1;
 }
