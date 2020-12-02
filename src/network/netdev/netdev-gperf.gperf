@@ -48,6 +48,7 @@ NetDev.Kind,                              config_parse_netdev_kind,             
 NetDev.MTUBytes,                          config_parse_mtu,                          AF_UNSPEC,                     offsetof(NetDev, mtu)
 NetDev.MACAddress,                        config_parse_hwaddr,                       0,                             offsetof(NetDev, mac)
 VLAN.Id,                                  config_parse_vlanid,                       0,                             offsetof(VLan, id)
+VLAN.Protocol,                            config_parse_vlanprotocol,                 0,                             offsetof(VLan, protocol)
 VLAN.GVRP,                                config_parse_tristate,                     0,                             offsetof(VLan, gvrp)
 VLAN.MVRP,                                config_parse_tristate,                     0,                             offsetof(VLan, mvrp)
 VLAN.LooseBinding,                        config_parse_tristate,                     0,                             offsetof(VLan, loose_binding)
