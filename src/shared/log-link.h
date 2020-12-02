@@ -3,6 +3,13 @@
 
 #include "log.h"
 
+#define log_interface_full_errno(ifname, level, error, ...)             \
+        ({                                                              \
+                const char *_ifname = (ifname);                         \
+                _ifname ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "INTERFACE=", _ifname, NULL, NULL, ##__VA_ARGS__) : \
+                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
+        })
+
 /*
  * The following macros append INTERFACE= to the message.
  * The macros require a struct named 'Link' which contains 'char *ifname':
@@ -17,9 +24,8 @@
 #define log_link_full_errno(link, level, error, ...)                    \
         ({                                                              \
                 const Link *_l = (link);                                \
-                (_l && _l->ifname) ? log_object_internal(level, error, PROJECT_FILE, __LINE__, __func__, "INTERFACE=", _l->ifname, NULL, NULL, ##__VA_ARGS__) : \
-                        log_internal(level, error, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__); \
-        })                                                              \
+                log_interface_full_errno(_l ? _l->ifname : NULL, level, error, ##__VA_ARGS__); \
+        })
 
 #define log_link_full(link, level, ...) (void) log_link_full_errno(link, level, 0, __VA_ARGS__)
 

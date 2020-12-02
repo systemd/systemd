@@ -1277,6 +1277,8 @@ static int dhcp4_set_request_address(Link *link) {
         if (!a)
                 return 0;
 
+        log_link_debug(link, "DHCP4 CLIENT: requesting " IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(a->in_addr.in));
+
         return sd_dhcp_client_set_request_address(link->dhcp_client, &a->in_addr.in);
 }
 

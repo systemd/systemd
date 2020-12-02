@@ -16,10 +16,12 @@
 #include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "in-addr-util.h"
-#include "list.h"
+#include "log-link.h"
 #include "random-util.h"
 #include "siphash24.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -54,6 +56,7 @@ struct sd_ipv4acd {
         int ifindex;
         int fd;
 
+        char ifname[IF_NAMESIZE + 1];
         unsigned n_iteration;
         unsigned n_conflict;
 
@@ -72,12 +75,29 @@ struct sd_ipv4acd {
         void* userdata;
 };
 
-#define log_ipv4acd_errno(acd, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "IPV4ACD: " fmt, ##__VA_ARGS__)
-#define log_ipv4acd(acd, fmt, ...) log_ipv4acd_errno(acd, 0, fmt, ##__VA_ARGS__)
+#define log_ipv4acd_errno(acd, error, fmt, ...)                         \
+        log_interface_full_errno(sd_ipv4acd_get_ifname(acd), LOG_DEBUG, error, "IPV4ACD: " fmt, ##__VA_ARGS__)
+#define log_ipv4acd(acd, fmt, ...)                      \
+        log_ipv4acd_errno(acd, 0, fmt, ##__VA_ARGS__)
+
+static const char * const ipv4acd_state_table[_IPV4ACD_STATE_MAX] = {
+        [IPV4ACD_STATE_INIT]             = "init",
+        [IPV4ACD_STATE_STARTED]          = "started",
+        [IPV4ACD_STATE_WAITING_PROBE]    = "waiting-probe",
+        [IPV4ACD_STATE_PROBING]          = "probing",
+        [IPV4ACD_STATE_WAITING_ANNOUNCE] = "waiting-announce",
+        [IPV4ACD_STATE_ANNOUNCING]       = "announcing",
+        [IPV4ACD_STATE_RUNNING]          = "running",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(ipv4acd_state, IPv4ACDState);
 
 static void ipv4acd_set_state(sd_ipv4acd *acd, IPv4ACDState st, bool reset_counter) {
         assert(acd);
         assert(st < _IPV4ACD_STATE_MAX);
+
+        if (st != acd->state)
+                log_ipv4acd(acd, "%s -> %s", ipv4acd_state_to_string(acd->state), ipv4acd_state_to_string(st));
 
         if (st == acd->state && !reset_counter)
                 acd->n_iteration++;
@@ -378,13 +398,33 @@ fail:
 }
 
 int sd_ipv4acd_set_ifindex(sd_ipv4acd *acd, int ifindex) {
+        char ifname[IF_NAMESIZE + 1];
+
         assert_return(acd, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
         assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
 
+        if (!format_ifname(ifindex, ifname))
+                return -ENODEV;
+
+        strcpy(acd->ifname, ifname);
         acd->ifindex = ifindex;
 
         return 0;
+}
+
+int sd_ipv4acd_get_ifindex(sd_ipv4acd *acd) {
+        if (!acd)
+                return -EINVAL;
+
+        return acd->ifindex;
+}
+
+const char *sd_ipv4acd_get_ifname(sd_ipv4acd *acd) {
+        if (!acd)
+                return NULL;
+
+        return empty_to_null(acd->ifname);
 }
 
 int sd_ipv4acd_set_mac(sd_ipv4acd *acd, const struct ether_addr *addr) {

@@ -15,7 +15,7 @@
 #include "alloc-util.h"
 #include "ether-addr-util.h"
 #include "in-addr-util.h"
-#include "list.h"
+#include "log-link.h"
 #include "random-util.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
@@ -49,8 +49,10 @@ struct sd_ipv4ll {
         void* userdata;
 };
 
-#define log_ipv4ll_errno(ll, error, fmt, ...) log_internal(LOG_DEBUG, error, PROJECT_FILE, __LINE__, __func__, "IPV4LL: " fmt, ##__VA_ARGS__)
-#define log_ipv4ll(ll, fmt, ...) log_ipv4ll_errno(ll, 0, fmt, ##__VA_ARGS__)
+#define log_ipv4ll_errno(ll, error, fmt, ...)                           \
+        log_interface_full_errno(sd_ipv4ll_get_ifname(ll), LOG_DEBUG, error, "IPV4LL: " fmt, ##__VA_ARGS__)
+#define log_ipv4ll(ll, fmt, ...)                        \
+        log_ipv4ll_errno(ll, 0, fmt, ##__VA_ARGS__)
 
 static void ipv4ll_on_acd(sd_ipv4acd *ll, int event, void *userdata);
 
@@ -101,6 +103,20 @@ int sd_ipv4ll_set_ifindex(sd_ipv4ll *ll, int ifindex) {
         assert_return(sd_ipv4ll_is_running(ll) == 0, -EBUSY);
 
         return sd_ipv4acd_set_ifindex(ll->acd, ifindex);
+}
+
+int sd_ipv4ll_get_ifindex(sd_ipv4ll *ll) {
+        if (!ll)
+                return -EINVAL;
+
+        return sd_ipv4acd_get_ifindex(ll->acd);
+}
+
+const char *sd_ipv4ll_get_ifname(sd_ipv4ll *ll) {
+        if (!ll)
+                return NULL;
+
+        return sd_ipv4acd_get_ifname(ll->acd);
 }
 
 int sd_ipv4ll_set_mac(sd_ipv4ll *ll, const struct ether_addr *addr) {
