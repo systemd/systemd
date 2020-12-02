@@ -345,7 +345,7 @@ int detect_vm(void) {
         /* We have to use the correct order here:
          *
          * → First, try to detect Oracle Virtualbox, even if it uses KVM, as well as Xen even if it cloaks as Microsoft
-         *   Hyper-V.
+         *   Hyper-V. Attempt to detect uml at this stage also since it runs as a user-process nested inside other VMs.
          *
          * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if info in DMI is
          *   overwritten.
@@ -358,6 +358,16 @@ int detect_vm(void) {
                 goto finish;
         }
 
+        /* Detect UML */
+        r = detect_vm_uml();
+        if (r < 0)
+                return r;
+        if (r == VIRTUALIZATION_VM_OTHER)
+                other = true;
+        else if (r != VIRTUALIZATION_NONE)
+                goto finish;
+
+        /* Detect from CPUID */
         r = detect_vm_cpuid();
         if (r < 0)
                 return r;
@@ -399,14 +409,6 @@ int detect_vm(void) {
                 goto finish;
 
         r = detect_vm_device_tree();
-        if (r < 0)
-                return r;
-        if (r == VIRTUALIZATION_VM_OTHER)
-                other = true;
-        else if (r != VIRTUALIZATION_NONE)
-                goto finish;
-
-        r = detect_vm_uml();
         if (r < 0)
                 return r;
         if (r == VIRTUALIZATION_VM_OTHER)
