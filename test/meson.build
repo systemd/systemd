@@ -133,4 +133,11 @@ if conf.get('ENABLE_HWDB') == 1
         endif
 endif
 
+if want_tests != false
+        udev_dmi_memory_id_test = find_program('udev-dmi-memory-id-test.sh')
+        test('udev-dmi-memory-id-test',
+                udev_dmi_memory_id_test,
+                timeout : 90)
+endif
+
 subdir('fuzz')
