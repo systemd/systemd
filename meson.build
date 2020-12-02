@@ -3438,40 +3438,39 @@ endif
 
 fuzzer_exes = []
 
-if fuzz_tests or fuzzer_build
-        foreach tuple : fuzzers
-                sources = tuple[0]
-                link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
-                dependencies = tuple[2]
-                defs = tuple.length() >= 4 ? tuple[3] : []
-                incs = tuple.length() >= 5 ? tuple[4] : includes
-                link_args = []
+foreach tuple : fuzzers
+        sources = tuple[0]
+        link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
+        dependencies = tuple[2]
+        defs = tuple.length() >= 4 ? tuple[3] : []
+        incs = tuple.length() >= 5 ? tuple[4] : includes
+        link_args = []
 
-                if want_ossfuzz
+        if want_ossfuzz
+                dependencies += fuzzing_engine
+        elif want_libfuzzer
+                if fuzzing_engine.found()
                         dependencies += fuzzing_engine
-                elif want_libfuzzer
-                        if fuzzing_engine.found()
-                                dependencies += fuzzing_engine
-                        else
-                                link_args += ['-fsanitize=fuzzer']
-                        endif
                 else
-                        sources += 'src/fuzz/fuzz-main.c'
+                        link_args += ['-fsanitize=fuzzer']
                 endif
+        else
+                sources += 'src/fuzz/fuzz-main.c'
+        endif
 
-                name = sources[0].split('/')[-1].split('.')[0]
+        name = sources[0].split('/')[-1].split('.')[0]
 
-                fuzzer_exes += executable(
-                        name,
-                        sources,
-                        include_directories : [incs, include_directories('src/fuzz')],
-                        link_with : link_with,
-                        dependencies : dependencies,
-                        c_args : defs,
-                        link_args: link_args,
-                        install : false)
-        endforeach
-endif
+        fuzzer_exes += executable(
+                name,
+                sources,
+                include_directories : [incs, include_directories('src/fuzz')],
+                link_with : link_with,
+                dependencies : dependencies,
+                c_args : defs,
+                link_args: link_args,
+                install : false,
+                build_by_default : fuzz_tests or fuzzer_build)
+endforeach
 
 run_target(
         'fuzzers',
