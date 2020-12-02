@@ -1863,10 +1863,12 @@ static int address_section_verify(Address *address) {
                                          address->section->filename, address->section->line);
         }
 
-        if (address->family == AF_INET && in_addr_is_null(address->family, &address->in_addr_peer) &&
-            address->broadcast.s_addr == 0 && address->prefixlen <= 30)
-                address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(0xfffffffflu >> address->prefixlen);
-        else if (address->broadcast.s_addr != 0) {
+        if (address->family == AF_INET &&
+            in_addr_is_null(address->family, &address->in_addr_peer) &&
+            address->prefixlen <= 30) {
+                if (address->broadcast.s_addr == 0)
+                        address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(0xfffffffflu >> address->prefixlen);
+        } else if (address->broadcast.s_addr != 0) {
                 log_warning("%s: broadcast address is set for IPv6 address or IPv4 address with prefixlength larger than 30. "
                             "Ignoring Broadcast= setting in the [Address] section from line %u.",
                             address->section->filename, address->section->line);
