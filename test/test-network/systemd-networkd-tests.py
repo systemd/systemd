@@ -2242,6 +2242,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_unit_to_networkd_unit_path('25-address-static.network')
         check_output(*networkctl_cmd, 'reload', env=env)
+        time.sleep(1)
         self.wait_online(['dummy98:routable'])
 
         # check all routes managed by Manager are removed
@@ -2262,6 +2263,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         remove_unit_from_networkd_path(['25-address-static.network'])
         check_output(*networkctl_cmd, 'reload', env=env)
+        time.sleep(1)
         self.wait_online(['dummy98:routable'])
 
         # check all routes managed by Manager are reconfigured
