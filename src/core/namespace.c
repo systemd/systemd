@@ -1353,6 +1353,11 @@ int setup_namespace(
         if (root_directory)
                 root = root_directory;
         else {
+                /* /run/systemd should have been created by PID 1 early on already, but in some cases, like
+                 * when running tests (test-execute), it might not have been created yet so let's make sure
+                 * we create it if it doesn't already exist. */
+                (void) mkdir_p_label("/run/systemd", 0755);
+
                 /* Always create the mount namespace in a temporary directory, instead of operating
                  * directly in the root. The temporary directory prevents any mounts from being
                  * potentially obscured my other mounts we already applied.
