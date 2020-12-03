@@ -11,11 +11,13 @@
 #include "conf-files.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "missing_syscall.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "serialize.h"
@@ -33,7 +35,6 @@
 assert_cc(EAGAIN == EWOULDBLOCK);
 
 static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
-
         pid_t _pid;
         int r;
 
@@ -443,4 +444,27 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
                 return _EXEC_COMMAND_FLAGS_INVALID;
         else
                 return 1 << idx;
+}
+
+int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {
+#if ENABLE_FEXECVE
+        execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
+
+        if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE(errno))
+                /* Old kernel or a script or an overzealous seccomp filter? Let's fall back to execve().
+                 *
+                 * fexecve(3): "If fd refers to a script (i.e., it is an executable text file that names a
+                 * script interpreter with a first line that begins with the characters #!) and the
+                 * close-on-exec flag has been set for fd, then fexecve() fails with the error ENOENT. This
+                 * error occurs because, by the time the script interpreter is executed, fd has already been
+                 * closed because of the close-on-exec flag. Thus, the close-on-exec flag can't be set on fd
+                 * if it refers to a script."
+                 *
+                 * Unfortunately, if we unset close-on-exec, the script will be executed just fine, but (at
+                 * least in case of bash) the script name, $0, will be shown as /dev/fd/nnn, which breaks
+                 * scripts which make use of $0. Thus, let's fall back to execve() in this case.
+                 */
+#endif
+                execve(executable, argv, envp);
+        return -errno;
 }

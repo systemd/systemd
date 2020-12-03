@@ -11,6 +11,8 @@ if install_tests
                        install_dir : testdata_dir)
         install_subdir('test-path',
                        install_dir : testdata_dir)
+        install_subdir('test-path-util',
+                       install_dir : testdata_dir)
         install_subdir('test-umount',
                        install_dir : testdata_dir)
         install_subdir('test-network-generator-conversion',
