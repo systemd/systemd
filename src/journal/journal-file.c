@@ -751,7 +751,7 @@ static int journal_file_move_to(
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_get(f->mmap, f->cache_fd, f->prot, type_to_context(type), keep_always, offset, size, &f->last_stat, ret, ret_size);
+        return mmap_cache_get(f->mmap, f->cache_fd, type_to_context(type), keep_always, offset, size, &f->last_stat, ret, ret_size);
 }
 
 static uint64_t minimum_header_size(Object *o) {
@@ -3365,7 +3365,6 @@ int journal_file_open(
                 .mode = mode,
 
                 .flags = flags,
-                .prot = prot_from_flags(flags),
                 .writable = (flags & O_ACCMODE) != O_RDONLY,
 
 #if HAVE_ZSTD
@@ -3464,7 +3463,7 @@ int journal_file_open(
                         goto fail;
         }
 
-        f->cache_fd = mmap_cache_add_fd(f->mmap, f->fd);
+        f->cache_fd = mmap_cache_add_fd(f->mmap, f->fd, prot_from_flags(flags));
         if (!f->cache_fd) {
                 r = -ENOMEM;
                 goto fail;
@@ -3511,7 +3510,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        r = mmap_cache_get(f->mmap, f->cache_fd, f->prot, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, NULL);
+        r = mmap_cache_get(f->mmap, f->cache_fd, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, NULL);
         if (r == -EINVAL) {
                 /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
                  * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error

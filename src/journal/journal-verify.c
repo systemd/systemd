@@ -377,7 +377,7 @@ static int contains_uint64(MMapCache *m, MMapFileDescriptor *f, uint64_t n, uint
 
                 c = (a + b) / 2;
 
-                r = mmap_cache_get(m, f, PROT_READ|PROT_WRITE, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z, NULL);
+                r = mmap_cache_get(m, f, 0, false, c * sizeof(uint64_t), sizeof(uint64_t), NULL, (void **) &z, NULL);
                 if (r < 0)
                         return r;
 
@@ -862,19 +862,19 @@ int journal_file_verify(
                 goto fail;
         }
 
-        cache_data_fd = mmap_cache_add_fd(f->mmap, data_fd);
+        cache_data_fd = mmap_cache_add_fd(f->mmap, data_fd, PROT_READ|PROT_WRITE);
         if (!cache_data_fd) {
                 r = log_oom();
                 goto fail;
         }
 
-        cache_entry_fd = mmap_cache_add_fd(f->mmap, entry_fd);
+        cache_entry_fd = mmap_cache_add_fd(f->mmap, entry_fd, PROT_READ|PROT_WRITE);
         if (!cache_entry_fd) {
                 r = log_oom();
                 goto fail;
         }
 
-        cache_entry_array_fd = mmap_cache_add_fd(f->mmap, entry_array_fd);
+        cache_entry_array_fd = mmap_cache_add_fd(f->mmap, entry_array_fd, PROT_READ|PROT_WRITE);
         if (!cache_entry_array_fd) {
                 r = log_oom();
                 goto fail;
