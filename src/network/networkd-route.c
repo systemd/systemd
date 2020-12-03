@@ -575,6 +575,12 @@ static int route_add(Manager *manager, Link *link, const Route *in, const Multip
         return 0;
 }
 
+static bool route_type_is_reject(const Route *route) {
+        assert(route);
+
+        return IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW);
+}
+
 static int route_set_netlink_message(const Route *route, sd_netlink_message *req, Link *link) {
         unsigned flags;
         int r;
@@ -660,7 +666,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set route type: %m");
 
-        if (!IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW)) {
+        if (!route_type_is_reject(route)) {
                 assert(link); /* Those routes must be attached to a specific link */
 
                 r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
@@ -927,7 +933,7 @@ static int route_add_and_setup_timer(Link *link, const Route *route, const Multi
         assert(link);
         assert(route);
 
-        if (IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW))
+        if (route_type_is_reject(route))
                 r = route_add(link->manager, NULL, route, NULL, &nr);
         else if (!m || m->ifindex == 0 || m->ifindex == link->ifindex)
                 r = route_add(NULL, link, route, m, &nr);
