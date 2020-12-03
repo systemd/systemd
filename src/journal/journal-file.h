@@ -63,7 +63,6 @@ typedef struct JournalFile {
         mode_t mode;
 
         int flags;
-        int prot;
         bool writable:1;
         bool compress_xz:1;
         bool compress_lz4:1;
