@@ -1582,6 +1582,12 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 }
         }
 
+        /* IPv6 routes with reject type are always assigned to the loopback interface. See kernel's
+         * fib6_nh_init() in net/ipv6/route.c. However, we'd like to manage them by Manager. Hence, set
+         * link to NULL here. */
+        if (route_type_is_reject(tmp))
+                link = NULL;
+
         if (ordered_set_isempty(multipath_routes))
                 (void) process_route_one(m, link, type, tmp, NULL);
         else {
