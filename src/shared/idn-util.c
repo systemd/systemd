@@ -35,9 +35,9 @@ int dlopen_idn(void) {
         r = dlsym_many_and_warn(
                         dl,
                         LOG_DEBUG,
-                        &sym_idn2_lookup_u8, "idn2_lookup_u8",
-                        &sym_idn2_strerror, "idn2_strerror",
-                        &sym_idn2_to_unicode_8z8z, "idn2_to_unicode_8z8z",
+                        DLSYM_ARG(idn2_lookup_u8),
+                        DLSYM_ARG(idn2_strerror),
+                        DLSYM_ARG(idn2_to_unicode_8z8z),
                         NULL);
         if (r < 0)
                 return r;
@@ -76,10 +76,10 @@ int dlopen_idn(void) {
         r = dlsym_many_and_warn(
                         dl,
                         LOG_DEBUG,
-                        &sym_idna_to_ascii_4i, "idna_to_ascii_4i",
-                        &sym_idna_to_unicode_44i, "idna_to_unicode_44i",
-                        &sym_stringprep_ucs4_to_utf8, "stringprep_ucs4_to_utf8",
-                        &sym_stringprep_utf8_to_ucs4, "stringprep_utf8_to_ucs4",
+                        DLSYM_ARG(idna_to_ascii_4i),
+                        DLSYM_ARG(idna_to_unicode_44i),
+                        DLSYM_ARG(stringprep_ucs4_to_utf8),
+                        DLSYM_ARG(stringprep_utf8_to_ucs4),
                         NULL);
         if (r < 0)
                 return r;
