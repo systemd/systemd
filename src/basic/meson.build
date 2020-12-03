@@ -19,6 +19,7 @@ basic_sources = files('''
         blockdev-util.h
         btrfs-util.c
         btrfs-util.h
+        build.c
         build.h
         bus-label.c
         bus-label.h
