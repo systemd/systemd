@@ -18,7 +18,7 @@ static void test_is_wanted_print(bool header) {
         assert_se(proc_cmdline(&cmdline) >= 0);
         log_info("cmdline: %s", cmdline);
         if (header) {
-                log_info(_CGROUP_HIERARCHY_);
+                log_info("default-hierarchy=" DEFAULT_HIERARCHY_NAME);
                 (void) system("findmnt -n /sys/fs/cgroup");
         }
 

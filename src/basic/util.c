@@ -193,8 +193,8 @@ int container_get_leader(const char *machine, pid_t *pid) {
 }
 
 int version(void) {
-        puts("systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")\n"
-             SYSTEMD_FEATURES);
+        printf("systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")\n%s\n",
+               systemd_features);
         return 0;
 }
 
