@@ -144,29 +144,35 @@ Address *address_free(Address *address) {
         return mfree(address);
 }
 
+static bool address_may_have_broadcast(const Address *a) {
+        assert(a);
+
+        /* A /31 or /32 IPv4 address does not have a broadcast address.
+         * See https://tools.ietf.org/html/rfc3021 */
+
+        return a->family == AF_INET && in4_addr_is_null(&a->in_addr_peer.in) && a->prefixlen <= 30;
+}
+
 void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
 
-        switch (a->family) {
-        case AF_INET:
-                siphash24_compress(&a->broadcast, sizeof(a->broadcast), state);
+        if (!IN_SET(a->family, AF_INET, AF_INET6))
+                /* treat non-IPv4 or IPv6 address family as AF_UNSPEC */
+                return;
+
+        if (a->family == AF_INET)
                 siphash24_compress_string(a->label, state);
 
-                _fallthrough_;
-        case AF_INET6:
-                siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
-                /* local address */
-                siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
-                /* peer address */
-                siphash24_compress(&a->in_addr_peer, FAMILY_ADDRESS_SIZE(a->family), state);
+        siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
+        /* local address */
+        siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
+        /* peer address */
+        siphash24_compress(&a->in_addr_peer, FAMILY_ADDRESS_SIZE(a->family), state);
 
-                break;
-        default:
-                /* treat any other address family as AF_UNSPEC */
-                break;
-        }
+        if (address_may_have_broadcast(a))
+                siphash24_compress(&a->broadcast, sizeof(a->broadcast), state);
 }
 
 int address_compare_func(const Address *a1, const Address *a2) {
@@ -176,32 +182,32 @@ int address_compare_func(const Address *a1, const Address *a2) {
         if (r != 0)
                 return r;
 
-        switch (a1->family) {
-        /* use the same notion of equality as the kernel does */
-        case AF_INET:
-                r = CMP(a1->broadcast.s_addr, a2->broadcast.s_addr);
-                if (r != 0)
-                        return r;
+        if (!IN_SET(a1->family, AF_INET, AF_INET6))
+                /* treat non-IPv4 or IPv6 address family as AF_UNSPEC */
+                return 0;
 
+        if (a1->family == AF_INET) {
                 r = strcmp_ptr(a1->label, a2->label);
                 if (r != 0)
                         return r;
-
-                _fallthrough_;
-        case AF_INET6:
-                r = CMP(a1->prefixlen, a2->prefixlen);
-                if (r != 0)
-                        return r;
-
-                r = memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
-                if (r != 0)
-                        return r;
-
-                return memcmp(&a1->in_addr_peer, &a2->in_addr_peer, FAMILY_ADDRESS_SIZE(a1->family));
-        default:
-                /* treat any other address family as AF_UNSPEC */
-                return 0;
         }
+
+        r = CMP(a1->prefixlen, a2->prefixlen);
+        if (r != 0)
+                return r;
+
+        r = memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
+        if (r != 0)
+                return r;
+
+        r = memcmp(&a1->in_addr_peer, &a2->in_addr_peer, FAMILY_ADDRESS_SIZE(a1->family));
+        if (r != 0)
+                return r;
+
+        if (address_may_have_broadcast(a1))
+                return CMP(a1->broadcast.s_addr, a2->broadcast.s_addr);
+
+        return 0;
 }
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(address_hash_ops, Address, address_hash_func, address_compare_func, address_free);
@@ -222,18 +228,21 @@ static int address_copy(Address *dest, const Address *src) {
         assert(dest);
         assert(src);
 
-        r = free_and_strdup(&dest->label, src->label);
-        if (r < 0)
-                return r;
+        if (src->family == AF_INET) {
+                r = free_and_strdup(&dest->label, src->label);
+                if (r < 0)
+                        return r;
+        }
 
         dest->family = src->family;
         dest->prefixlen = src->prefixlen;
         dest->scope = src->scope;
         dest->flags = src->flags;
-        dest->broadcast = src->broadcast;
         dest->cinfo = src->cinfo;
         dest->in_addr = src->in_addr;
         dest->in_addr_peer = src->in_addr_peer;
+        if (address_may_have_broadcast(src))
+                dest->broadcast = src->broadcast;
         dest->duplicate_address_detection = src->duplicate_address_detection;
 
         return 0;
@@ -840,13 +849,13 @@ int address_configure(
                 r = netlink_message_append_in_addr_union(req, IFA_ADDRESS, address->family, &address->in_addr_peer);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_ADDRESS attribute: %m");
-        } else if (address->family == AF_INET && address->prefixlen <= 30) {
+        } else if (address_may_have_broadcast(address)) {
                 r = sd_netlink_message_append_in_addr(req, IFA_BROADCAST, &address->broadcast);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_BROADCAST attribute: %m");
         }
 
-        if (address->label) {
+        if (address->family == AF_INET && address->label) {
                 r = sd_netlink_message_append_string(req, IFA_LABEL, address->label);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append IFA_LABEL attribute: %m");
@@ -1863,9 +1872,7 @@ static int address_section_verify(Address *address) {
                                          address->section->filename, address->section->line);
         }
 
-        if (address->family == AF_INET &&
-            in_addr_is_null(address->family, &address->in_addr_peer) &&
-            address->prefixlen <= 30) {
+        if (address_may_have_broadcast(address)) {
                 if (address->broadcast.s_addr == 0)
                         address->broadcast.s_addr = address->in_addr.in.s_addr | htobe32(0xfffffffflu >> address->prefixlen);
         } else if (address->broadcast.s_addr != 0) {
