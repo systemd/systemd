@@ -480,6 +480,21 @@ static int condition_test_ac_power(Condition *c, char **env) {
         return (on_ac_power() != 0) == !!r;
 }
 
+static int has_tpm2(void) {
+        int r;
+
+        /* Checks whether the system has at least one TPM2 resource manager device, i.e. at least one "tpmrm"
+         * class device */
+
+        r = dir_is_empty("/sys/class/tpmrm");
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine whether system has TPM2 support: %m");
+
+        return !r;
+}
+
 static int condition_test_security(Condition *c, char **env) {
         assert(c);
         assert(c->parameter);
@@ -499,6 +514,8 @@ static int condition_test_security(Condition *c, char **env) {
                 return mac_tomoyo_use();
         if (streq(c->parameter, "uefi-secureboot"))
                 return is_efi_secure_boot();
+        if (streq(c->parameter, "tpm2"))
+                return has_tpm2();
 
         return false;
 }

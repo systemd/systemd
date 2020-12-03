@@ -1257,9 +1257,9 @@
           <listitem><para><varname>ConditionSecurity=</varname> may be used to check whether the given
           security technology is enabled on the system. Currently, the recognized values are
           <literal>selinux</literal>, <literal>apparmor</literal>, <literal>tomoyo</literal>,
-          <literal>ima</literal>, <literal>smack</literal>, <literal>audit</literal> and
-          <literal>uefi-secureboot</literal>. The test may be negated by prepending an exclamation
-          mark.</para>
+          <literal>ima</literal>, <literal>smack</literal>, <literal>audit</literal>,
+          <literal>uefi-secureboot</literal> and <literal>tpm2</literal>. The test may be negated by prepending
+          an exclamation mark.</para>
           </listitem>
         </varlistentry>
 

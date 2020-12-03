@@ -113,8 +113,6 @@ Features:
 * systemd-firstboot: make sure to always use chase_symlinks() before
   reading/writing files
 
-* add ConditionSecurity=tpm2
-
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
   Update INITRD_INTERFACE.md accordingly.
 
