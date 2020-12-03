@@ -279,6 +279,7 @@ static int dhcp6_set_pd_route(Link *link, const union in_addr_union *prefix, con
         route->family = AF_INET6;
         route->dst = *prefix;
         route->dst_prefixlen = 64;
+        route->protocol = RTPROT_DHCP;
 
         r = route_configure(route, link, dhcp6_pd_route_handler, &ret);
         if (r < 0)
@@ -826,6 +827,7 @@ static int dhcp6_set_unreachable_route(Link *link, const union in_addr_union *ad
         route->dst_prefixlen = prefixlen;
         route->table = link_get_dhcp_route_table(link);
         route->type = RTN_UNREACHABLE;
+        route->protocol = RTPROT_DHCP;
 
         r = route_configure(route, link, dhcp6_route_handler, &ret);
         if (r < 0)
