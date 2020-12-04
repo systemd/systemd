@@ -428,6 +428,60 @@ static int image_make(
         return -EMEDIUMTYPE;
 }
 
+int image_find_for_path(const char *path, const char *name, Image **ret) {
+        _cleanup_closedir_ DIR *d = NULL;
+        struct stat st;
+        int r;
+
+        /* There are no images with invalid names */
+        if (!image_name_is_valid(name))
+                return -ENOENT;
+
+        d = opendir(path);
+        if (!d) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people to
+         * symlink block devices into the search path */
+        if (fstatat(dirfd(d), name, &st, 0) < 0) {
+                _cleanup_free_ char *raw = NULL;
+
+                if (errno != ENOENT)
+                        return -errno;
+
+                raw = strjoin(name, ".raw");
+                if (!raw)
+                        return -ENOMEM;
+
+                if (fstatat(dirfd(d), raw, &st, 0) < 0)
+                        return -errno;
+
+                if (!S_ISREG(st.st_mode))
+                        return 0;
+
+                r = image_make(name, dirfd(d), path, raw, &st, ret);
+
+        } else {
+                if (!S_ISDIR(st.st_mode) && !S_ISBLK(st.st_mode))
+                        return 0;
+
+                r = image_make(name, dirfd(d), path, name, &st, ret);
+        }
+        if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
+                return 0;
+        if (r < 0)
+                return r;
+
+        if (ret)
+                (*ret)->discoverable = true;
+
+        return 1;
+}
+
 int image_find(ImageClass class, const char *name, Image **ret) {
         const char *path;
         int r;
@@ -436,63 +490,9 @@ int image_find(ImageClass class, const char *name, Image **ret) {
         assert(class < _IMAGE_CLASS_MAX);
         assert(name);
 
-        /* There are no images with invalid names */
-        if (!image_name_is_valid(name))
-                return -ENOENT;
-
-        NULSTR_FOREACH(path, image_search_path[class]) {
-                _cleanup_closedir_ DIR *d = NULL;
-                struct stat st;
-
-                d = opendir(path);
-                if (!d) {
-                        if (errno == ENOENT)
-                                continue;
-
-                        return -errno;
-                }
-
-                /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people to
-                 * symlink block devices into the search path */
-                if (fstatat(dirfd(d), name, &st, 0) < 0) {
-                        _cleanup_free_ char *raw = NULL;
-
-                        if (errno != ENOENT)
-                                return -errno;
-
-                        raw = strjoin(name, ".raw");
-                        if (!raw)
-                                return -ENOMEM;
-
-                        if (fstatat(dirfd(d), raw, &st, 0) < 0) {
-
-                                if (errno == ENOENT)
-                                        continue;
-
-                                return -errno;
-                        }
-
-                        if (!S_ISREG(st.st_mode))
-                                continue;
-
-                        r = image_make(name, dirfd(d), path, raw, &st, ret);
-
-                } else {
-                        if (!S_ISDIR(st.st_mode) && !S_ISBLK(st.st_mode))
-                                continue;
-
-                        r = image_make(name, dirfd(d), path, name, &st, ret);
-                }
-                if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
-                        continue;
-                if (r < 0)
+        NULSTR_FOREACH(path, image_search_path[class])
+                if ((r = image_find_for_path(path, name, ret)) && r != -ENOENT)
                         return r;
-
-                if (ret)
-                        (*ret)->discoverable = true;
-
-                return 1;
-        }
 
         if (class == IMAGE_MACHINE && streq(name, ".host")) {
                 r = image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);

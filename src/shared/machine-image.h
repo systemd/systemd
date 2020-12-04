@@ -63,6 +63,7 @@ Image *image_ref(Image *i);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 
 int image_find(ImageClass class, const char *name, Image **ret);
+int image_find_for_path(const char *path, const char *name, Image **ret);
 int image_from_path(const char *path, Image **ret);
 int image_find_harder(ImageClass class, const char *name_or_path, Image **ret);
 int image_discover(ImageClass class, Hashmap *map);
