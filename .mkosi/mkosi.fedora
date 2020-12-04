@@ -64,6 +64,7 @@ BuildPackages=
         python3-devel
         python3-lxml
         qrencode-devel
+        rpm
         tree
         valgrind-devel
         xz-devel
