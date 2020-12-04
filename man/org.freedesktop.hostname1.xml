@@ -144,55 +144,53 @@ node /org/freedesktop/hostname1 {
   <refsect1>
     <title>Semantics</title>
 
-    <para>The <emphasis>static (configured) hostname</emphasis> is the one configured in
-    <filename>/etc/hostname</filename>. It is chosen by the local user. It is not always in sync with the
-    current hostname as returned by the
+    <para>The <varname>StaticHostname</varname> property exposes the "static" hostname configured in
+    <filename>/etc/hostname</filename>. It is not always in sync with the current hostname as returned by the
     <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    system call. If no hostname is configured this property will be the empty string. Setting this property
-    to the empty string will remove <filename>/etc/hostname</filename>. This property should be an
-    internet-style hostname, 7-bit lowercase ASCII, no special chars/spaces.</para>
+    system call. If no static hostname is configured this property will be the empty string.</para>
 
-    <para>The <emphasis>transient (dynamic) hostname</emphasis> is the one configured via the kernel's
+    <para>When <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> or
+    <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    set the hostname, this static hostname <emphasis>has the highest priority</emphasis>.</para>
+
+    <para>The <varname>Hostname</varname> property exposes the actual hostname configured in the kernel via
     <citerefentry project="man-pages"><refentrytitle>sethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-    It can be different from the static hostname if DHCP or mDNS have been configured to change the name
-    based on network information. <!-- FIXME: it's not DHCP that configures this... -->
-    This property is never empty. If no hostname is set this will default to
-    <literal>&FALLBACK_HOSTNAME;</literal> (configurable at compilation time). Setting this property to the
-    empty string will reset the dynamic hostname to the static hostname. If no static hostname is
-    configured the dynamic hostname will be reset to <literal>&FALLBACK_HOSTNAME;</literal>. This property
-    should be an internet-style hostname, 7-bit lowercase ASCII, no special chars/spaces.</para>
+    It can be different from the static hostname. This property is never empty.</para>
 
-    <para>The <emphasis>pretty hostname</emphasis> is a free-form UTF-8 hostname for presentation to the
-    user. User interfaces should ensure that the pretty hostname and the static hostname stay in sync.
-    I.e. when the former is <literal>Lennart’s Computer</literal> the latter should be
-    <literal>lennarts-computer</literal>. If no pretty hostname is set this setting will be the empty
-    string. Applications should then find a suitable fallback, such as the dynamic hostname.</para>
+    <para>The <varname>PrettyHostname</varname> property exposes the <emphasis>pretty hostname</emphasis>
+    which is a free-form UTF-8 hostname for presentation to the user. User interfaces should ensure that the
+    pretty hostname and the static hostname stay in sync. E.g. when the former is <literal>Lennart’s
+    Computer</literal> the latter should be <literal>lennarts-computer</literal>. If no pretty hostname is
+    set this setting will be the empty string. Applications should then find a suitable fallback, such as the
+    dynamic hostname.</para>
 
-    <para>The <emphasis>icon name</emphasis> is a name following the XDG icon naming spec. If not set,
-    information such as the chassis type (see below) is used to find a suitable fallback icon name
-    (i.e. <literal>computer-laptop</literal> vs. <literal>computer-desktop</literal> is picked based on the
-    chassis information). If no such data is available, the empty string is returned. In that case an application
-    should fall back to a replacement icon, for example <literal>computer</literal>. If this property is set
-    to the empty string, the automatic fallback name selection is enabled again.</para>
+    <para>The <varname>IconName</varname> property exposes the <emphasis>icon name</emphasis> following the
+    XDG icon naming spec. If not set, information such as the chassis type (see below) is used to find a
+    suitable fallback icon name (i.e. <literal>computer-laptop</literal>
+    vs. <literal>computer-desktop</literal> is picked based on the chassis information). If no such data is
+    available, the empty string is returned. In that case an application should fall back to a replacement
+    icon, for example <literal>computer</literal>. If this property is set to the empty string, the automatic
+    fallback name selection is enabled again.</para>
 
-    <para>The <emphasis>chassis type</emphasis> should be one of the currently defined chassis types:
-    <literal>desktop</literal>, <literal>laptop</literal>, <literal>server</literal>,
-    <literal>tablet</literal>, <literal>handset</literal>, as well as the special chassis types
-    <literal>vm</literal> and <literal>container</literal> for virtualized systems. Note that in most cases
-    the chassis type will be determined automatically from DMI/SMBIOS/ACPI firmware information. Writing to
-    this setting is hence useful only to override misdetected chassis types, or to configure the chassis type if
-    it could not be auto-detected. Set this property to the empty string to reenable the automatic detection of
-    the chassis type from firmware information.</para>
+    <para>The <varname>Chassis</varname> property exposes a <emphasis>chassis type</emphasis>, one of the
+    currently defined chassis types: <literal>desktop</literal>, <literal>laptop</literal>,
+    <literal>server</literal>, <literal>tablet</literal>, <literal>handset</literal>, as well as the special
+    chassis types <literal>vm</literal> and <literal>container</literal> for virtualized systems. Note that
+    in most cases the chassis type will be determined automatically from DMI/SMBIOS/ACPI firmware
+    information. Writing to this setting is hence useful only to override misdetected chassis types, or to
+    configure the chassis type if it could not be auto-detected. Set this property to the empty string to
+    reenable the automatic detection of the chassis type from firmware information.</para>
 
     <para>Note that <filename>systemd-hostnamed</filename> starts only on request and terminates after a
     short idle period. This effectively means that <function>PropertyChanged</function> messages are not sent
     out for changes made directly on the files (as in: administrator edits the files with vi). This is
     the intended behavior: manual configuration changes should require manual reloading.</para>
 
-    <para>The transient (dynamic) hostname maps directly to the kernel hostname. This hostname should be
-    assumed to be highly dynamic, and hence should be watched directly, without depending on
-    <function>PropertyChanged</function> messages from <filename>systemd-hostnamed</filename>. To accomplish
-    this, open <filename>/proc/sys/kernel/hostname</filename> and
+    <para>The transient (dynamic) hostname exposed by the <varname>Hostname</varname> property maps directly
+    to the kernel hostname. This hostname should be assumed to be highly dynamic, and hence should be watched
+    directly, without depending on <function>PropertyChanged</function> messages from
+    <filename>systemd-hostnamed</filename>. To accomplish this, open
+    <filename>/proc/sys/kernel/hostname</filename> and
     <citerefentry project="man-pages"><refentrytitle>poll</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for <constant>SIGHUP</constant> which is triggered by the kernel every time the hostname changes. Again:
     this is special for the transient (dynamic) hostname, and does not apply to the configured (fixed)
@@ -206,15 +204,17 @@ node /org/freedesktop/hostname1 {
     for that. For more information on these files and syscalls see the respective man pages.</para>
 
     <refsect2>
-      <title>Methods and Properties</title>
+      <title>Methods</title>
 
-      <para><function>SetHostname()</function> sets the transient (dynamic) hostname which is exposed by the
-      <varname>Hostname</varname> property. If empty, the transient hostname is set to the static hostname.
-      </para>
+      <para><function>SetHostname()</function> sets the transient (dynamic) hostname, which is used if no
+      static hostname is set. This value must be an internet-style hostname, 7-bit lowercase ASCII, no
+      special chars/spaces. An empty string will unset the transient hostname.</para>
 
       <para><function>SetStaticHostname()</function> sets the static hostname which is exposed by the
-      <varname>StaticHostname</varname> property. If empty, the built-in default of
-      <literal>&FALLBACK_HOSTNAME;</literal> is used.</para>
+      <varname>StaticHostname</varname> property. When called with an empty argument, the static
+      configuration in <filename>/etc/hostname</filename> is removed. Since the static hostname has the
+      highest priority, calling this function usually affects also the <varname>Hostname</varname> property
+      and the effective hostname configured in the kernel.</para>
 
       <para><function>SetPrettyHostname()</function> sets the pretty hostname which is exposed by the
       <varname>PrettyHostname</varname> property.</para>
@@ -286,10 +286,6 @@ node /org/freedesktop/hostname1 {
     <filename>/etc/hosts</filename>, we recommend using <filename>systemd-hostnamed</filename> in combination
     with <citerefentry><refentrytitle>nss-myhostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
-
-    <para>A client that wants to change the local hostname for DHCP/mDNS should invoke
-    <code>SetHostname("newname", false)</code> as soon as the name is available and afterwards reset it via
-    <code>SetHostname("")</code>.</para>
 
     <para>Here are some recommendations to follow when generating a static (internet) hostname from a pretty
     name:

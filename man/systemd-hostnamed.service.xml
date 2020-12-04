@@ -51,9 +51,15 @@
       </listitem>
     </itemizedlist></para>
 
+    <para>The static hostname is stored in <filename>/etc/hostname</filename>, see
+    <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
+    information. The pretty hostname, chassis type, and icon name are stored in
+    <filename>/etc/machine-info</filename>, see
+    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
     <para>The tool
-    <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    is a command line client to this service.</para>
+    <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> is a
+    command line client to this service.</para>
 
     <para>See
     <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
