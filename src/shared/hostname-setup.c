@@ -17,7 +17,7 @@
 #include "string-util.h"
 #include "util.h"
 
-int sethostname_idempotent(const char *s) {
+static int sethostname_idempotent_full(const char *s, bool really) {
         char buf[HOST_NAME_MAX + 1] = {};
 
         assert(s);
@@ -28,10 +28,15 @@ int sethostname_idempotent(const char *s) {
         if (streq(buf, s))
                 return 0;
 
-        if (sethostname(s, strlen(s)) < 0)
+        if (really &&
+            sethostname(s, strlen(s)) < 0)
                 return -errno;
 
         return 1;
+}
+
+int sethostname_idempotent(const char *s) {
+        return sethostname_idempotent_full(s, true);
 }
 
 int shorten_overlong(const char *s, char **ret) {
@@ -134,7 +139,7 @@ static bool hostname_is_set(void) {
         return true;
 }
 
-int hostname_setup(void) {
+int hostname_setup(bool really) {
         _cleanup_free_ char *b = NULL;
         const char *hn = NULL;
         bool enoent = false;
@@ -174,10 +179,15 @@ int hostname_setup(void) {
                 hn = FALLBACK_HOSTNAME;
         }
 
-        r = sethostname_idempotent(hn);
+        r = sethostname_idempotent_full(hn, really);
         if (r < 0)
                 return log_warning_errno(r, "Failed to set hostname to <%s>: %m", hn);
+        if (r == 0)
+                log_debug("Hostname was already set to <%s>.", hn);
+        else
+                log_info("Hostname %s to <%s>.",
+                         really ? "set" : "would have been set",
+                         hn);
 
-        log_info("Set hostname to <%s>.", hn);
-        return 0;
+        return r;
 }

@@ -330,8 +330,7 @@ tests += [
 
         [['src/test/test-hostname-setup.c'],
          [],
-         [],
-         '', 'unsafe'],
+         []],
 
         [['src/test/test-hostname-util.c'],
          [],

@@ -59,15 +59,11 @@ static void test_read_etc_hostname(void) {
 }
 
 static void test_hostname_setup(void) {
-        int r;
-
-        r = hostname_setup();
-        if (r < 0)
-                log_error_errno(r, "hostname: %m");
+        hostname_setup(false);
 }
 
 int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
+        test_setup_logging(LOG_DEBUG);
 
         test_read_etc_hostname();
         test_hostname_setup();
