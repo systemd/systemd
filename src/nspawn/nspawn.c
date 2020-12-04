@@ -46,6 +46,7 @@
 #include "fs-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "io-util.h"

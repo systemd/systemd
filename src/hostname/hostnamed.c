@@ -17,6 +17,7 @@
 #include "env-util.h"
 #include "fileio-label.h"
 #include "fileio.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "main-func.h"

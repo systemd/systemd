@@ -32,7 +32,7 @@
 #include "fsck-util.h"
 #include "gpt.h"
 #include "hexdecoct.h"
-#include "hostname-util.h"
+#include "hostname-setup.h"
 #include "id128-util.h"
 #include "mkdir.h"
 #include "mount-util.h"

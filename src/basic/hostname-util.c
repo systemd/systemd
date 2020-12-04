@@ -7,27 +7,9 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "hostname-util.h"
-#include "macro.h"
 #include "string-util.h"
 #include "strv.h"
-
-bool hostname_is_set(void) {
-        struct utsname u;
-
-        assert_se(uname(&u) >= 0);
-
-        if (isempty(u.nodename))
-                return false;
-
-        /* This is the built-in kernel default hostname */
-        if (streq(u.nodename, "(none)"))
-                return false;
-
-        return true;
-}
 
 char* gethostname_malloc(void) {
         struct utsname u;
@@ -207,106 +189,4 @@ bool is_localhost(const char *hostname) {
                 endswith_no_case(hostname, ".localhost.") ||
                 endswith_no_case(hostname, ".localhost.localdomain") ||
                 endswith_no_case(hostname, ".localhost.localdomain.");
-}
-
-int sethostname_idempotent(const char *s) {
-        char buf[HOST_NAME_MAX + 1] = {};
-
-        assert(s);
-
-        if (gethostname(buf, sizeof(buf)) < 0)
-                return -errno;
-
-        if (streq(buf, s))
-                return 0;
-
-        if (sethostname(s, strlen(s)) < 0)
-                return -errno;
-
-        return 1;
-}
-
-int shorten_overlong(const char *s, char **ret) {
-        char *h, *p;
-
-        /* Shorten an overlong name to HOST_NAME_MAX or to the first dot,
-         * whatever comes earlier. */
-
-        assert(s);
-
-        h = strdup(s);
-        if (!h)
-                return -ENOMEM;
-
-        if (hostname_is_valid(h, 0)) {
-                *ret = h;
-                return 0;
-        }
-
-        p = strchr(h, '.');
-        if (p)
-                *p = 0;
-
-        strshorten(h, HOST_NAME_MAX);
-
-        if (!hostname_is_valid(h, 0)) {
-                free(h);
-                return -EDOM;
-        }
-
-        *ret = h;
-        return 1;
-}
-
-int read_etc_hostname_stream(FILE *f, char **ret) {
-        int r;
-
-        assert(f);
-        assert(ret);
-
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-                char *p;
-
-                r = read_line(f, LONG_LINE_MAX, &line);
-                if (r < 0)
-                        return r;
-                if (r == 0) /* EOF without any hostname? the file is empty, let's treat that exactly like no file at all: ENOENT */
-                        return -ENOENT;
-
-                p = strstrip(line);
-
-                /* File may have empty lines or comments, ignore them */
-                if (!IN_SET(*p, '\0', '#')) {
-                        char *copy;
-
-                        hostname_cleanup(p); /* normalize the hostname */
-
-                        if (!hostname_is_valid(p, VALID_HOSTNAME_TRAILING_DOT)) /* check that the hostname we return is valid */
-                                return -EBADMSG;
-
-                        copy = strdup(p);
-                        if (!copy)
-                                return -ENOMEM;
-
-                        *ret = copy;
-                        return 0;
-                }
-        }
-}
-
-int read_etc_hostname(const char *path, char **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
-
-        assert(ret);
-
-        if (!path)
-                path = "/etc/hostname";
-
-        f = fopen(path, "re");
-        if (!f)
-                return -errno;
-
-        return read_etc_hostname_stream(f, ret);
-
 }
