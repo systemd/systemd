@@ -323,6 +323,7 @@ static int context_update_kernel_hostname(
 
         const char *static_hn, *hn;
         struct utsname u;
+        int r;
 
         assert(c);
 
@@ -352,8 +353,9 @@ static int context_update_kernel_hostname(
         else
                 hn = FALLBACK_HOSTNAME;
 
-        if (sethostname_idempotent(hn) < 0)
-                return -errno;
+        r = sethostname_idempotent(hn);
+        if (r < 0)
+                return r;
 
         (void) nscd_flush_cache(STRV_MAKE("hosts"));
 
