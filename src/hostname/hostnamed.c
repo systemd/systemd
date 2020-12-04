@@ -312,15 +312,11 @@ static char* context_fallback_icon_name(Context *c) {
         return strdup("computer");
 }
 
-static bool hostname_is_useful(const char *hn) {
-        return !isempty(hn) && !is_localhost(hn);
-}
-
 static int context_update_kernel_hostname(
                 Context *c,
                 const char *transient_hn) {
 
-        const char *static_hn, *hn;
+        const char *hn;
         struct utsname u;
         int r;
 
@@ -333,20 +329,13 @@ static int context_update_kernel_hostname(
                         isempty(u.nodename) || streq(u.nodename, "(none)") ? NULL : u.nodename;
         }
 
-        static_hn = c->data[PROP_STATIC_HOSTNAME];
-
-        /* /etc/hostname with something other than "localhost"
-         * has the highest preference ... */
-        if (hostname_is_useful(static_hn))
-                hn = static_hn;
+        /* /etc/hostname has the highest preference ... */
+        if (c->data[PROP_STATIC_HOSTNAME])
+                hn = c->data[PROP_STATIC_HOSTNAME];
 
         /* ... the transient hostname, (ie: DHCP) comes next ... */
         else if (!isempty(transient_hn))
                 hn = transient_hn;
-
-        /* ... fallback to static "localhost.*" ignored above ... */
-        else if (!isempty(static_hn))
-                hn = static_hn;
 
         /* ... and the ultimate fallback */
         else

@@ -39,8 +39,8 @@
     and this tool distinguish three different hostnames: the high-level "pretty" hostname which might include
     all kinds of special characters (e.g. "Lennart's Laptop"), the "static" hostname which is the
     user-configured hostname (e.g. "lennarts-laptop"), and the transient hostname which is a fallback value
-    received from network configuration (e.g. "node12345678"). If a static hostname is set, and is valid
-    (something other than localhost), then the transient hostname is not used.</para>
+    received from network configuration (e.g. "node12345678"). If a static hostname is set to a valid value,
+    then the transient hostname is not used.</para>
 
     <para>Note that the pretty hostname has little restrictions on the characters and length used, while the static and
     transient hostnames are limited to the usually accepted characters of Internet domain names, and 64 characters at
