@@ -64,6 +64,7 @@ node /org/freedesktop/hostname1 {
       readonly s PrettyHostname = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s FallbackHostname = '...';
+      readonly s HostnameSource = '...';
       readonly s IconName = '...';
       readonly s Chassis = '...';
       readonly s Deployment = '...';
@@ -116,6 +117,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-property" generated="True" extra-ref="PrettyHostname"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FallbackHostname"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="HostnameSource"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IconName"/>
 
@@ -170,6 +173,11 @@ node /org/freedesktop/hostname1 {
 
     <para>The <varname>FallbackHostname</varname> property exposes the fallback hostname (configured at
     compilation time).</para>
+
+    <para>The <varname>HostnameSource</varname> property exposes the origin of the currently configured
+    hostname. One of <literal>static</literal> (set from <filename>/etc/hostname</filename>),
+    <literal>transient</literal> (a non-permanent hostname from an external source),
+    <literal>fallback</literal> (the compiled-in fallback value).</para>
 
     <para>The <varname>IconName</varname> property exposes the <emphasis>icon name</emphasis> following the
     XDG icon naming spec. If not set, information such as the chassis type (see below) is used to find a

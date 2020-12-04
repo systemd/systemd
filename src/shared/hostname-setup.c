@@ -9,11 +9,13 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "macro.h"
 #include "proc-cmdline.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "util.h"
 
@@ -37,6 +39,26 @@ static int sethostname_idempotent_full(const char *s, bool really) {
 
 int sethostname_idempotent(const char *s) {
         return sethostname_idempotent_full(s, true);
+}
+
+bool get_hostname_filtered(char ret[static HOST_NAME_MAX + 1]) {
+        char buf[HOST_NAME_MAX + 1] = {};
+
+        /* Returns true if we got a good hostname, false otherwise. */
+
+        if (gethostname(buf, sizeof(buf) - 1) < 0)
+                return false;  /* This can realistically only fail with ENAMETOOLONG.
+                                * Let's treat that case the same as an invalid hostname. */
+
+        if (isempty(buf))
+                return false;
+
+        /* This is the built-in kernel default hostname */
+        if (streq(buf, "(none)"))
+                return false;
+
+        memcpy(ret, buf, sizeof buf);
+        return true;
 }
 
 int shorten_overlong(const char *s, char **ret) {
@@ -123,24 +145,26 @@ int read_etc_hostname(const char *path, char **ret) {
         return read_etc_hostname_stream(f, ret);
 }
 
-static bool hostname_is_set(void) {
-        struct utsname u;
+void hostname_update_source_hint(const char *hostname, HostnameSource source) {
+        int r;
 
-        assert_se(uname(&u) >= 0);
+        /* Why save the value and not just create a flag file? This way we will
+         * notice if somebody sets the hostname directly (not going through hostnamed).
+         */
 
-        if (isempty(u.nodename))
-                return false;
-
-        /* This is the built-in kernel default hostname */
-        if (streq(u.nodename, "(none)"))
-                return false;
-
-        return true;
+        if (source == HOSTNAME_FALLBACK) {
+                r = write_string_file("/run/systemd/fallback-hostname", hostname,
+                                      WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_ATOMIC);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to create \"/run/systemd/fallback-hostname\": %m");
+        } else
+                unlink_or_warn("/run/systemd/fallback-hostname");
 }
 
 int hostname_setup(bool really) {
         _cleanup_free_ char *b = NULL;
         const char *hn = NULL;
+        HostnameSource source;
         bool enoent = false;
         int r;
 
@@ -148,9 +172,10 @@ int hostname_setup(bool really) {
         if (r < 0)
                 log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
         else if (r > 0) {
-                if (hostname_is_valid(b, true))
+                if (hostname_is_valid(b, true)) {
                         hn = b;
-                else  {
+                        source = HOSTNAME_TRANSIENT;
+                } else  {
                         log_warning("Hostname specified on kernel command line is invalid, ignoring: %s", b);
                         b = mfree(b);
                 }
@@ -163,19 +188,27 @@ int hostname_setup(bool really) {
                                 enoent = true;
                         else
                                 log_warning_errno(r, "Failed to read configured hostname: %m");
-                } else
+                } else {
                         hn = b;
+                        source = HOSTNAME_STATIC;
+                }
         }
 
         if (isempty(hn)) {
                 /* Don't override the hostname if it is already set and not explicitly configured */
-                if (hostname_is_set())
+
+                char buf[HOST_NAME_MAX + 1] = {};
+                if (get_hostname_filtered(buf)) {
+                        log_debug("No hostname configured, leaving existing hostname <%s> in place.", buf);
                         return 0;
+                }
 
                 if (enoent)
-                        log_info("No hostname configured.");
+                        log_info("No hostname configured, using fallback hostname.");
 
                 hn = FALLBACK_HOSTNAME;
+                source = HOSTNAME_FALLBACK;
+
         }
 
         r = sethostname_idempotent_full(hn, really);
@@ -188,5 +221,16 @@ int hostname_setup(bool really) {
                          really ? "set" : "would have been set",
                          hn);
 
+        if (really)
+                hostname_update_source_hint(hn, source);
+
         return r;
 }
+
+static const char* const hostname_source_table[] = {
+        [HOSTNAME_STATIC]    = "static",
+        [HOSTNAME_TRANSIENT] = "transient",
+        [HOSTNAME_FALLBACK]  = "fallback",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(hostname_source, HostnameSource);
