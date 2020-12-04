@@ -359,8 +359,7 @@ static int context_update_kernel_hostname(
                 return r;
 
         (void) nscd_flush_cache(STRV_MAKE("hosts"));
-
-        return 0;
+        return r; /* 0 if no change, 1 if something was done  */
 }
 
 static int context_write_data_static_hostname(Context *c) {
@@ -627,11 +626,15 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         if (r < 0) {
                 log_error_errno(r, "Failed to set hostname: %m");
                 return sd_bus_error_set_errnof(error, r, "Failed to set hostname: %m");
+        } else if (r == 0)
+                log_debug("Hostname was already set to <%s>.", name);
+        else {
+                log_info("Hostname set to <%s>", name);
+
+                (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                                      "/org/freedesktop/hostname1", "org.freedesktop.hostname1",
+                                                      "Hostname", "HostnameSource", NULL);
         }
-
-        log_info("Changed hostname to '%s'", name);
-
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "Hostname", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
@@ -691,7 +694,8 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
 
         log_info("Changed static hostname to '%s'", strna(c->data[PROP_STATIC_HOSTNAME]));
 
-        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "StaticHostname", NULL);
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
+                                              "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "StaticHostname", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
