@@ -84,8 +84,8 @@ int print_qrcode(FILE *out, const char *header, const char *string) {
         r = dlsym_many_and_warn(
                         dl,
                         LOG_DEBUG,
-                        &sym_QRcode_encodeString, "QRcode_encodeString",
-                        &sym_QRcode_free, "QRcode_free",
+                        DLSYM_ARG(QRcode_encodeString),
+                        DLSYM_ARG(QRcode_free),
                         NULL);
         if (r < 0)
                 return r;

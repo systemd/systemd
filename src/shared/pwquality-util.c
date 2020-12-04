@@ -38,14 +38,14 @@ int dlopen_pwquality(void) {
         r = dlsym_many_and_warn(
                         dl,
                         LOG_DEBUG,
-                        &sym_pwquality_check, "pwquality_check",
-                        &sym_pwquality_default_settings, "pwquality_default_settings",
-                        &sym_pwquality_free_settings, "pwquality_free_settings",
-                        &sym_pwquality_generate, "pwquality_generate",
-                        &sym_pwquality_get_str_value, "pwquality_get_str_value",
-                        &sym_pwquality_read_config, "pwquality_read_config",
-                        &sym_pwquality_set_int_value, "pwquality_set_int_value",
-                        &sym_pwquality_strerror, "pwquality_strerror",
+                        DLSYM_ARG(pwquality_check),
+                        DLSYM_ARG(pwquality_default_settings),
+                        DLSYM_ARG(pwquality_free_settings),
+                        DLSYM_ARG(pwquality_generate),
+                        DLSYM_ARG(pwquality_get_str_value),
+                        DLSYM_ARG(pwquality_read_config),
+                        DLSYM_ARG(pwquality_set_int_value),
+                        DLSYM_ARG(pwquality_strerror),
                         NULL);
         if (r < 0)
                 return r;
