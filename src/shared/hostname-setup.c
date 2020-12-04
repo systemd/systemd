@@ -121,7 +121,6 @@ int read_etc_hostname(const char *path, char **ret) {
                 return -errno;
 
         return read_etc_hostname_stream(f, ret);
-
 }
 
 static bool hostname_is_set(void) {

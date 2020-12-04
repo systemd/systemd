@@ -68,11 +68,9 @@ typedef struct Context {
 } Context;
 
 static void context_reset(Context *c, uint64_t mask) {
-        int p;
-
         assert(c);
 
-        for (p = 0; p < _PROP_MAX; p++) {
+        for (int p = 0; p < _PROP_MAX; p++) {
                 if (!FLAGS_SET(mask, UINT64_C(1) << p))
                         continue;
 
@@ -366,12 +364,11 @@ static int context_write_data_static_hostname(Context *c) {
         assert(c);
 
         if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
-
                 if (unlink("/etc/hostname") < 0)
                         return errno == ENOENT ? 0 : -errno;
-
                 return 0;
         }
+
         return write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
 }
 
@@ -386,7 +383,7 @@ static int context_write_data_machine_info(Context *c) {
         };
 
         _cleanup_strv_free_ char **l = NULL;
-        int r, p;
+        int r;
 
         assert(c);
 
@@ -394,7 +391,7 @@ static int context_write_data_machine_info(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        for (p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
+        for (int p = PROP_PRETTY_HOSTNAME; p <= PROP_LOCATION; p++) {
                 _cleanup_free_ char *t = NULL;
                 char **u;
 
