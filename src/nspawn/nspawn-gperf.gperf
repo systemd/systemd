@@ -25,6 +25,7 @@ Exec.Parameters,              config_parse_strv,           0,                 of
 Exec.Environment,             config_parse_strv,           0,                 offsetof(Settings, environment)
 Exec.User,                    config_parse_string,         0,                 offsetof(Settings, user)
 Exec.Capability,              config_parse_capability,     0,                 offsetof(Settings, capability)
+Exec.AmbientCapability,       config_parse_capability,     0,                 offsetof(Settings, ambient_capability)
 Exec.DropCapability,          config_parse_capability,     0,                 offsetof(Settings, drop_capability)
 Exec.KillSignal,              config_parse_signal,         0,                 offsetof(Settings, kill_signal)
 Exec.Personality,             config_parse_personality,    0,                 offsetof(Settings, personality)

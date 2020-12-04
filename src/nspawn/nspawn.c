@@ -165,6 +165,7 @@ static uint64_t arg_caps_retain =
         (1ULL << CAP_SYS_PTRACE) |
         (1ULL << CAP_SYS_RESOURCE) |
         (1ULL << CAP_SYS_TTY_CONFIG);
+static uint64_t arg_caps_ambient = 0;
 static CapabilityQuintet arg_full_capabilities = CAPABILITY_QUINTET_NULL;
 static CustomMount *arg_custom_mounts = NULL;
 static size_t arg_n_custom_mounts = 0;
@@ -379,6 +380,9 @@ static int help(void) {
                "     --capability=CAP       In addition to the default, retain specified\n"
                "                            capability\n"
                "     --drop-capability=CAP  Drop the specified capability from the default set\n"
+               "     --ambient-capability=CAP\n"
+               "                            Sets the specified capability for the started\n"
+               "                            process. Not useful if booting a machine.\n"
                "     --no-new-privileges    Set PR_SET_NO_NEW_PRIVS flag for container payload\n"
                "     --system-call-filter=LIST|~LIST\n"
                "                            Permit/prohibit specific system calls\n"
@@ -648,6 +652,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_UUID,
                 ARG_READ_ONLY,
                 ARG_CAPABILITY,
+                ARG_AMBIENT_CAPABILITY,
                 ARG_DROP_CAPABILITY,
                 ARG_LINK_JOURNAL,
                 ARG_BIND,
@@ -709,6 +714,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "uuid",                   required_argument, NULL, ARG_UUID                   },
                 { "read-only",              no_argument,       NULL, ARG_READ_ONLY              },
                 { "capability",             required_argument, NULL, ARG_CAPABILITY             },
+                { "ambient-capability",     required_argument, NULL, ARG_AMBIENT_CAPABILITY     },
                 { "drop-capability",        required_argument, NULL, ARG_DROP_CAPABILITY        },
                 { "no-new-privileges",      required_argument, NULL, ARG_NO_NEW_PRIVILEGES      },
                 { "link-journal",           required_argument, NULL, ARG_LINK_JOURNAL           },
@@ -1018,6 +1024,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_READ_ONLY;
                         break;
 
+                case ARG_AMBIENT_CAPABILITY: {
+                        uint64_t m;
+                        r = parse_capability_spec(optarg, &m);
+                        if (r <= 0)
+                                return r;
+                        arg_caps_ambient |= m;
+                        arg_settings_mask |= SETTING_CAPABILITY;
+                        break;
+                }
                 case ARG_CAPABILITY:
                 case ARG_DROP_CAPABILITY: {
                         uint64_t m;
@@ -1756,6 +1771,17 @@ static int verify_arguments(void) {
         if (arg_expose_ports)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--port= is not supported, compiled without libiptc support.");
 #endif
+
+        if (arg_caps_ambient) {
+                if (arg_caps_ambient == (uint64_t)-1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= does not support the value all.");
+
+                if ((arg_caps_ambient & arg_caps_retain) != arg_caps_ambient)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= setting is not fully covered by Capability= setting.");
+
+                if (arg_start_mode == START_BOOT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= setting is not useful for boot mode.");
+        }
 
         r = custom_mount_check_all();
         if (r < 0)
@@ -2619,13 +2645,13 @@ static int drop_capabilities(uid_t uid) {
                         q.effective = uid == 0 ? q.bounding : 0;
 
                 if (q.inheritable == (uint64_t) -1)
-                        q.inheritable = uid == 0 ? q.bounding : 0;
+                        q.inheritable = uid == 0 ? q.bounding : arg_caps_ambient;
 
                 if (q.permitted == (uint64_t) -1)
-                        q.permitted = uid == 0 ? q.bounding : 0;
+                        q.permitted = uid == 0 ? q.bounding : arg_caps_ambient;
 
                 if (q.ambient == (uint64_t) -1 && ambient_capabilities_supported())
-                        q.ambient = 0;
+                        q.ambient = arg_caps_ambient;
 
                 if (capability_quintet_mangle(&q))
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Cannot set capabilities that are not in the current bounding set.");
@@ -2634,9 +2660,9 @@ static int drop_capabilities(uid_t uid) {
                 q = (CapabilityQuintet) {
                         .bounding = arg_caps_retain,
                         .effective = uid == 0 ? arg_caps_retain : 0,
-                        .inheritable = uid == 0 ? arg_caps_retain : 0,
-                        .permitted = uid == 0 ? arg_caps_retain : 0,
-                        .ambient = ambient_capabilities_supported() ? 0 : (uint64_t) -1,
+                        .inheritable = uid == 0 ? arg_caps_retain : arg_caps_ambient,
+                        .permitted = uid == 0 ? arg_caps_retain : arg_caps_ambient,
+                        .ambient = ambient_capabilities_supported() ? arg_caps_ambient : (uint64_t) -1,
                 };
 
                 /* If we're not using OCI, proceed with mangled capabilities (so we don't error out)
@@ -4067,6 +4093,7 @@ static int merge_settings(Settings *settings, const char *path) {
         if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
                 uint64_t plus, minus;
                 uint64_t network_minus = 0;
+                uint64_t ambient;
 
                 /* Note that we copy both the simple plus/minus caps here, and the full quintet from the
                  * Settings structure */
@@ -4098,6 +4125,12 @@ static int merge_settings(Settings *settings, const char *path) {
                         else
                                 arg_full_capabilities = settings->full_capabilities;
                 }
+
+                ambient = settings->ambient_capability;
+                if (!arg_settings_trusted && ambient != 0)
+                        log_warning("Ignoring AmbientCapability= setting, file %s is not trusted.", path);
+                else
+                        arg_caps_ambient |= ambient;
         }
 
         if ((arg_settings_mask & SETTING_KILL_SIGNAL) == 0 &&
