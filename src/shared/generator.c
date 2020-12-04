@@ -564,7 +564,7 @@ int generator_write_cryptsetup_unit_section(
         fprintf(f,
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
-                "After=cryptsetup-pre.target\n"
+                "After=cryptsetup-pre.target systemd-udevd-kernel.socket\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n");
 
