@@ -190,7 +190,34 @@
         <filename>/run/system/nspawn/</filename> (see above). On the
         other hand, <varname>DropCapability=</varname> takes effect in
         all cases. If the special value <literal>all</literal> is passed, all
-        capabilities are retained (or dropped).</para></listitem>
+        capabilities are retained (or dropped).</para>
+        <para>These settings change the bounding set of capabilities which
+        also limits the ambient capabilities as given with the
+        <varname>AmbientCapability=</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>AmbientCapability=</varname></term>
+        <listitem><para>Takes a space-separated list of Linux process
+        capabilities (see
+        <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details). The <varname>AmbientCapability=</varname> setting
+        specifies capability which will be passed to to started program
+        in the inheritable and ambient capability sets. This will grant
+        these capabilities to this process. This setting correspond to
+        the <option>--ambient-capability=</option> command line switch.
+        </para>
+
+        <para>The value <literal>all</literal> is not supported for this
+        setting.</para>
+
+        <para>The setting of <varname>AmbientCapability=</varname> must
+        be covered by the bounding set settings which were established by
+        <varname>Capability=</varname> and <varname>DropCapability=</varname>.
+        </para>
+
+        <para>Note that <varname>AmbientCapability=</varname> is a privileged
+        setting (see above).</para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -157,6 +157,7 @@ typedef struct Settings {
         char *user;
         uint64_t capability;
         uint64_t drop_capability;
+        uint64_t ambient_capability;
         int kill_signal;
         unsigned long personality;
         sd_id128_t machine_id;

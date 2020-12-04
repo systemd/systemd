@@ -1002,7 +1002,11 @@
         If the special value <literal>all</literal> is passed, all capabilities are retained.</para>
 
         <para>If the special value of <literal>help</literal> is passed, the program will print known
-        capability names and exit.</para></listitem>
+        capability names and exit.</para>
+
+        <para>This option sets the bounding set of capabilities which
+        also limits the ambient capabilities as given with the
+        <option>--ambient-capability=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1014,7 +1018,32 @@
         above).</para>
 
         <para>If the special value of <literal>help</literal> is passed, the program will print known
-        capability names and exit.</para></listitem>
+        capability names and exit.</para>
+
+        <para>This option sets the bounding set of capabilities which
+        also limits the ambient capabilities as given with the
+        <option>--ambient-capability=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--ambient-capability=</option></term>
+
+        <listitem><para>Specify one or more additional capabilities to
+        pass in the inheritable and ambient set to the program started
+        within the container. The value <literal>all</literal> is not
+        supported for this setting.</para>
+
+        <para>All capabilities specified here must be in the set
+        allowed with the <option>--capability=</option> and
+        <option>--drop-capability=</option> options. Otherwise, an
+        error message will be shown.</para>
+
+        <para>This option cannot be combined with the boot mode of the
+        container (as requested via <option>--boot</option>).</para>
+
+        <para>If the special value of <literal>help</literal> is
+        passed, the program will print known capability names and
+        exit.</para></listitem>
       </varlistentry>
 
       <varlistentry>
