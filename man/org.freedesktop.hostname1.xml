@@ -62,6 +62,8 @@ node /org/freedesktop/hostname1 {
       readonly s Hostname = '...';
       readonly s StaticHostname = '...';
       readonly s PrettyHostname = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s FallbackHostname = '...';
       readonly s IconName = '...';
       readonly s Chassis = '...';
       readonly s Deployment = '...';
@@ -113,6 +115,8 @@ node /org/freedesktop/hostname1 {
 
     <variablelist class="dbus-property" generated="True" extra-ref="PrettyHostname"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="FallbackHostname"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="IconName"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Chassis"/>
@@ -163,6 +167,9 @@ node /org/freedesktop/hostname1 {
     Computer</literal> the latter should be <literal>lennarts-computer</literal>. If no pretty hostname is
     set this setting will be the empty string. Applications should then find a suitable fallback, such as the
     dynamic hostname.</para>
+
+    <para>The <varname>FallbackHostname</varname> property exposes the fallback hostname (configured at
+    compilation time).</para>
 
     <para>The <varname>IconName</varname> property exposes the <emphasis>icon name</emphasis> following the
     XDG icon naming spec. If not set, information such as the chassis type (see below) is used to find a

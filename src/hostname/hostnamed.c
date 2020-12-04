@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "def.h"
@@ -461,6 +462,8 @@ static int property_get_static_hostname(
         return sd_bus_message_append(reply, "s", c->data[PROP_STATIC_HOSTNAME]);
 }
 
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_fallback_hostname, "s", FALLBACK_HOSTNAME);
+
 static int property_get_machine_info_field(
                 sd_bus *bus,
                 const char *path,
@@ -850,6 +853,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("Hostname", "s", property_get_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StaticHostname", "s", property_get_static_hostname, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("PrettyHostname", "s", property_get_machine_info_field, offsetof(Context, data) + sizeof(char*) * PROP_PRETTY_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("FallbackHostname", "s", property_get_fallback_hostname, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IconName", "s", property_get_icon_name, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Chassis", "s", property_get_chassis, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Deployment", "s", property_get_machine_info_field, offsetof(Context, data) + sizeof(char*) * PROP_DEPLOYMENT, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
