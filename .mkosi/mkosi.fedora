@@ -23,6 +23,7 @@ BuildPackages=
         diffutils
         docbook-style-xsl
         elfutils-devel
+        findutils
         gcc
         gettext
         git
