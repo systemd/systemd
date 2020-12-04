@@ -106,7 +106,7 @@ static int unit_file_add_dir(
         /* This adds [original_root]/path to dirs, if it exists. */
 
         r = chase_symlinks(path, original_root, 0, &chased, NULL);
-        if (r == -ENOENT) /* Ignore -ENOENT, after all most units won't have a drop-in dir. */
+        if (IN_SET(r, -ENOENT, -EACCES)) /* Ignore -ENOENT and -EACCES, after all most units won't have a drop-in dir. */
                 return 0;
         if (r == -ENAMETOOLONG) {
                 /* Also, ignore -ENAMETOOLONG but log about it. After all, users are not even able to create the
