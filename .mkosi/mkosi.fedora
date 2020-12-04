@@ -23,6 +23,7 @@ BuildPackages=
         diffutils
         docbook-style-xsl
         elfutils-devel
+        findutils
         gcc
         gettext
         git
@@ -64,6 +65,7 @@ BuildPackages=
         python3-devel
         python3-lxml
         qrencode-devel
+        rpm
         tree
         valgrind-devel
         xz-devel
