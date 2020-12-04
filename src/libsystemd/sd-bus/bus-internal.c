@@ -91,8 +91,10 @@ bool interface_name_is_valid(const char *p) {
                                 (!dot && *q >= '0' && *q <= '9') ||
                                 *q == '_';
 
-                        if (!good)
+                        if (!good) {
+                                log_debug("The interface %s is invalid as it contains special character %c", p, *q);
                                 return false;
+                        }
 
                         dot = false;
                 }
