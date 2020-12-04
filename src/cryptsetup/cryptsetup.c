@@ -14,6 +14,7 @@
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
 #include "cryptsetup-pkcs11.h"
+#include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
 #include "escape.h"
@@ -34,6 +35,7 @@
 #include "random-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tpm2-util.h"
 
 /* internal helper */
 #define ANY_LUKS "LUKS"
@@ -72,6 +74,9 @@ static bool arg_fido2_device_auto = false;
 static void *arg_fido2_cid = NULL;
 static size_t arg_fido2_cid_size = 0;
 static char *arg_fido2_rp_id = NULL;
+static char *arg_tpm2_device = NULL;
+static bool arg_tpm2_device_auto = false;
+static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -81,6 +86,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_cid, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_rp_id, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 
 /* Options Debian's crypttab knows we don't:
 
@@ -327,6 +333,36 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         return log_oom();
 
+        } else if ((val = startswith(option, "tpm2-device="))) {
+
+                if (streq(val, "auto")) {
+                        arg_tpm2_device = mfree(arg_tpm2_device);
+                        arg_tpm2_device_auto = true;
+                } else {
+                        r = free_and_strdup(&arg_tpm2_device, val);
+                        if (r < 0)
+                                return log_oom();
+
+                        arg_tpm2_device_auto = false;
+                }
+
+        } else if ((val = startswith(option, "tpm2-pcrs="))) {
+
+                if (isempty(val))
+                        arg_tpm2_pcr_mask = 0;
+                else {
+                        uint32_t mask;
+
+                        r = tpm2_parse_pcrs(val, &mask);
+                        if (r < 0)
+                                return r;
+
+                        if (arg_tpm2_pcr_mask == UINT32_MAX)
+                                arg_tpm2_pcr_mask = mask;
+                        else
+                                arg_tpm2_pcr_mask |= mask;
+                }
+
         } else if ((val = startswith(option, "try-empty-password="))) {
 
                 r = parse_boolean(val);
@@ -556,10 +592,10 @@ static int attach_tcrypt(
         assert(name);
         assert(key_file || key_data || !strv_isempty(passwords));
 
-        if (arg_pkcs11_uri || arg_pkcs11_uri_auto || arg_fido2_device || arg_fido2_device_auto)
+        if (arg_pkcs11_uri || arg_pkcs11_uri_auto || arg_fido2_device || arg_fido2_device_auto || arg_tpm2_device || arg_tpm2_device_auto)
                 /* Ask for a regular password */
                 return log_error_errno(SYNTHETIC_ERRNO(EAGAIN),
-                                       "Sorry, but tcrypt devices are currently not supported in conjunction with pkcs11/fido2 support.");
+                                       "Sorry, but tcrypt devices are currently not supported in conjunction with pkcs11/fido2/tpm2 support.");
 
         if (arg_tcrypt_hidden)
                 params.flags |= CRYPT_TCRYPT_HIDDEN_HEADER;
@@ -907,6 +943,190 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
         return 0;
 }
 
+static int make_tpm2_device_monitor(sd_event *event, sd_device_monitor **ret) {
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_device_monitor_new(&monitor);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate device monitor: %m");
+
+        r = sd_device_monitor_filter_add_match_subsystem_devtype(monitor, "tpmrm", NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to configure device monitor: %m");
+
+        r = sd_device_monitor_attach_event(monitor, event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach device monitor: %m");
+
+        r = sd_device_monitor_start(monitor, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start device monitor: %m");
+
+        *ret = TAKE_PTR(monitor);
+        return 0;
+}
+
+static int attach_luks_or_plain_or_bitlk_by_tpm2(
+                struct crypt_device *cd,
+                const char *name,
+                const char *key_file,
+                const void *key_data,
+                size_t key_data_size,
+                usec_t until,
+                uint32_t flags,
+                bool pass_volume_key) {
+
+        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_free_ char *friendly = NULL;
+        int keyslot = arg_key_slot, r;
+        size_t decrypted_key_size;
+
+        assert(cd);
+        assert(name);
+        assert(arg_tpm2_device || arg_tpm2_device_auto);
+
+        friendly = friendly_disk_name(crypt_get_device_name(cd), name);
+        if (!friendly)
+                return log_oom();
+
+        for (;;) {
+                bool processed = false;
+
+                if (key_file || key_data) {
+                        /* If key data is specified, use that */
+
+                        r = acquire_tpm2_key(
+                                        name,
+                                        arg_tpm2_device,
+                                        arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT : arg_tpm2_pcr_mask,
+                                        key_file, arg_keyfile_size, arg_keyfile_offset,
+                                        key_data, key_data_size,
+                                        NULL, 0, /* we don't know the policy hash */
+                                        &decrypted_key, &decrypted_key_size);
+                        if (r >= 0)
+                                break;
+                        if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
+                                return r;
+                } else {
+                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
+                        size_t blob_size, policy_hash_size;
+                        bool found_some = false;
+                        int token = 0; /* first token to look at */
+
+                        /* If no key data is specified, look for it in the header. In order to support
+                         * software upgrades we'll iterate through all suitable tokens, maybe one of them
+                         * works. */
+
+                        for (;;) {
+                                uint32_t pcr_mask;
+
+                                r = find_tpm2_auto_data(
+                                                cd,
+                                                arg_tpm2_pcr_mask, /* if != UINT32_MAX we'll only look for tokens with this PCR mask */
+                                                token, /* search for the token with this index, or any later index than this */
+                                                &pcr_mask,
+                                                &blob, &blob_size,
+                                                &policy_hash, &policy_hash_size,
+                                                &keyslot,
+                                                &token);
+                                if (r == -ENXIO) {
+                                        /* No futher TPM2 tokens found in the LUKS2 header.*/
+                                        if (found_some)
+                                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                                       "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");
+                                        else
+                                                return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
+                                                                       "No TPM2 metadata enrolled in LUKS2 header, falling back to traditional unlocking.");
+                                }
+                                if (r < 0)
+                                        return r;
+
+                                found_some = true;
+
+                                r = acquire_tpm2_key(
+                                                name,
+                                                arg_tpm2_device,
+                                                pcr_mask,
+                                                NULL, 0, 0, /* no key file */
+                                                blob, blob_size,
+                                                policy_hash, policy_hash_size,
+                                                &decrypted_key, &decrypted_key_size);
+                                if (r != -EPERM)
+                                        break;
+
+                                token++; /* try a different token next time */
+                        }
+
+                        if (r >= 0)
+                                break;
+                        if (r != -EAGAIN) /* EAGAIN means: no tpm2 chip found */
+                                return r;
+                }
+
+                if (!monitor) {
+                        /* We didn't find the TPM2 device. In this case, watch for it via udev. Let's create
+                         * an event loop and monitor first. */
+
+                        assert(!event);
+
+                        r = sd_event_default(&event);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+                        r = make_tpm2_device_monitor(event, &monitor);
+                        if (r < 0)
+                                return r;
+
+                        log_info("TPM2 device not present for unlocking %s, waiting for it to become available.", friendly);
+
+                        /* Let's immediately rescan in case the device appeared in the time we needed
+                         * to create and configure the monitor */
+                        continue;
+                }
+
+                for (;;) {
+                        /* Wait for one event, and then eat all subsequent events until there are no
+                         * further ones */
+                        r = sd_event_run(event, processed ? 0 : UINT64_MAX);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to run event loop: %m");
+                        if (r == 0)
+                                break;
+
+                        processed = true;
+                }
+
+                log_debug("Got one or more potentially relevant udev events, rescanning for TPM2...");
+        }
+
+        if (pass_volume_key)
+                r = crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+        else {
+                _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+
+                /* Before using this key as passphrase we base64 encode it, for compat with homed */
+
+                r = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                if (r < 0)
+                        return log_oom();
+
+                r = crypt_activate_by_passphrase(cd, name, keyslot, base64_encoded, strlen(base64_encoded), flags);
+        }
+        if (r == -EPERM) {
+                log_error_errno(r, "Failed to activate with TPM2 decrypted key. (Key incorrect?)");
+                return -EAGAIN; /* log actual error, but return EAGAIN */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to activate with TPM2 acquired key: %m");
+
+        return 0;
+}
+
 static int attach_luks_or_plain_or_bitlk_by_key_data(
                 struct crypt_device *cd,
                 const char *name,
@@ -1083,6 +1303,8 @@ static int attach_luks_or_plain_or_bitlk(
                  crypt_get_volume_key_size(cd)*8,
                  crypt_get_device_name(cd));
 
+        if (arg_tpm2_device || arg_tpm2_device_auto)
+                return attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
         if (arg_fido2_device || arg_fido2_device_auto)
                 return attach_luks_or_plain_or_bitlk_by_fido2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
         if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
@@ -1305,14 +1527,14 @@ static int run(int argc, char *argv[]) {
 
                         /* When we were able to acquire multiple keys, let's always process them in this order:
                          *
-                         *    1. A key acquired via PKCS#11 or FIDO2 token
+                         *    1. A key acquired via PKCS#11 or FIDO2 token, or TPM2 chip
                          *    2. The discovered key: i.e. key_data + key_data_size
                          *    3. The configured key: i.e. key_file + arg_keyfile_offset + arg_keyfile_size
                          *    4. The empty password, in case arg_try_empty_password is set
                          *    5. We enquire the user for a password
                          */
 
-                        if (!key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto && !arg_fido2_device && !arg_fido2_device_auto) {
+                        if (!key_file && !key_data && !arg_pkcs11_uri && !arg_pkcs11_uri_auto && !arg_fido2_device && !arg_fido2_device_auto && !arg_tpm2_device && !arg_tpm2_device_auto) {
 
                                 if (arg_try_empty_password) {
                                         /* Hmm, let's try an empty password now, but only once */
@@ -1353,6 +1575,8 @@ static int run(int argc, char *argv[]) {
                         arg_pkcs11_uri_auto = false;
                         arg_fido2_device = mfree(arg_fido2_device);
                         arg_fido2_device_auto = false;
+                        arg_tpm2_device = mfree(arg_tpm2_device);
+                        arg_tpm2_device_auto = false;
                 }
 
                 if (arg_tries != 0 && tries >= arg_tries)

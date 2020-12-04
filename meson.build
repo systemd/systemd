@@ -2382,6 +2382,7 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 src/cryptsetup/cryptsetup-keyfile.c
                 src/cryptsetup/cryptsetup-keyfile.h
                 src/cryptsetup/cryptsetup-pkcs11.h
+                src/cryptsetup/cryptsetup-tpm2.h
                 src/cryptsetup/cryptsetup.c
 '''.split())
 
@@ -2391,6 +2392,10 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
 
         if conf.get('HAVE_LIBFIDO2') == 1
                 systemd_cryptsetup_sources += files('src/cryptsetup/cryptsetup-fido2.c')
+        endif
+
+        if conf.get('HAVE_TPM2') == 1
+                systemd_cryptsetup_sources += files('src/cryptsetup/cryptsetup-tpm2.c')
         endif
 
         executable(
