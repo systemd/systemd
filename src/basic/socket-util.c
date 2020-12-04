@@ -23,10 +23,7 @@
 #include "format-util.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
-#include "missing_socket.h"
-#include "missing_network.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -1267,72 +1264,6 @@ int socket_set_recvpktinfo(int fd, int af, bool b) {
         }
 }
 
-int socket_set_recverr(int fd, int af, bool b) {
-        int r;
-
-        if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
-        }
-
-        switch (af) {
-
-        case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_RECVERR, b);
-
-        case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVERR, b);
-
-        default:
-                return -EAFNOSUPPORT;
-        }
-}
-
-int socket_set_recvttl(int fd, int af, bool b) {
-        int r;
-
-        if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
-        }
-
-        switch (af) {
-
-        case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_RECVTTL, b);
-
-        case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, b);
-
-        default:
-                return -EAFNOSUPPORT;
-        }
-}
-
-int socket_set_ttl(int fd, int af, int ttl) {
-        int r;
-
-        if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
-        }
-
-        switch (af) {
-
-        case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_TTL, ttl);
-
-        case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, ttl);
-
-        default:
-                return -EAFNOSUPPORT;
-        }
-}
-
 int socket_set_unicast_if(int fd, int af, int ifi) {
         be32_t ifindex_be = htobe32(ifi);
         int r;
@@ -1362,7 +1293,7 @@ int socket_set_unicast_if(int fd, int af, int ifi) {
         }
 }
 
-int socket_set_freebind(int fd, int af, bool b) {
+int socket_set_option(int fd, int af, int opt_ipv4, int opt_ipv6, int val) {
         int r;
 
         if (af == AF_UNSPEC) {
@@ -1374,32 +1305,10 @@ int socket_set_freebind(int fd, int af, bool b) {
         switch (af) {
 
         case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_FREEBIND, b);
+                return setsockopt_int(fd, IPPROTO_IP, opt_ipv4, val);
 
         case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_FREEBIND, b);
-
-        default:
-                return -EAFNOSUPPORT;
-        }
-}
-
-int socket_set_transparent(int fd, int af, bool b) {
-        int r;
-
-        if (af == AF_UNSPEC) {
-                r = socket_get_family(fd, &af);
-                if (r < 0)
-                        return r;
-        }
-
-        switch (af) {
-
-        case AF_INET:
-                return setsockopt_int(fd, IPPROTO_IP, IP_TRANSPARENT, b);
-
-        case AF_INET6:
-                return setsockopt_int(fd, IPPROTO_IPV6, IPV6_TRANSPARENT, b);
+                return setsockopt_int(fd, IPPROTO_IPV6, opt_ipv6, val);
 
         default:
                 return -EAFNOSUPPORT;

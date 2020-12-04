@@ -15,6 +15,7 @@
 #include <sys/un.h>
 
 #include "macro.h"
+#include "missing_network.h"
 #include "missing_socket.h"
 #include "sparse-endian.h"
 
@@ -264,9 +265,20 @@ ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
 
 int socket_get_family(int fd, int *ret);
 int socket_set_recvpktinfo(int fd, int af, bool b);
-int socket_set_recverr(int fd, int af, bool b);
-int socket_set_recvttl(int fd, int af, bool b);
-int socket_set_ttl(int fd, int af, int ttl);
 int socket_set_unicast_if(int fd, int af, int ifi);
-int socket_set_freebind(int fd, int af, bool b);
-int socket_set_transparent(int fd, int af, bool b);
+int socket_set_option(int fd, int af, int opt_ipv4, int opt_ipv6, int val);
+static inline int socket_set_recverr(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_RECVERR, IPV6_RECVERR, b);
+}
+static inline int socket_set_recvttl(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_RECVTTL, IPV6_RECVHOPLIMIT, b);
+}
+static inline int socket_set_ttl(int fd, int af, int ttl) {
+        return socket_set_option(fd, af, IP_TTL, IPV6_UNICAST_HOPS, ttl);
+}
+static inline int socket_set_freebind(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_FREEBIND, IPV6_FREEBIND, b);
+}
+static inline int socket_set_transparent(int fd, int af, bool b) {
+        return socket_set_option(fd, af, IP_TRANSPARENT, IPV6_TRANSPARENT, b);
+}
