@@ -483,7 +483,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
-        if (address_exists(link, AF_INET6, &gateway)) {
+        if (link_has_ipv6_address(link, &gateway.in6) > 0) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buffer = NULL;
 

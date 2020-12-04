@@ -447,29 +447,23 @@ int address_get(Link *link, const Address *in, Address **ret) {
         return -ENOENT;
 }
 
-static bool address_exists_internal(Set *addresses, int family, const union in_addr_union *in_addr) {
-        Address *address;
+int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
+        _cleanup_(address_freep) Address *a = NULL;
+        int r;
 
-        SET_FOREACH(address, addresses) {
-                if (address->family != family)
-                        continue;
-                if (in_addr_equal(address->family, &address->in_addr, in_addr))
-                        return true;
-        }
-
-        return false;
-}
-
-bool address_exists(Link *link, int family, const union in_addr_union *in_addr) {
         assert(link);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-        assert(in_addr);
+        assert(address);
 
-        if (address_exists_internal(link->addresses, family, in_addr))
-                return true;
-        if (address_exists_internal(link->addresses_foreign, family, in_addr))
-                return true;
-        return false;
+        r = address_new(&a);
+        if (r < 0)
+                return r;
+
+        /* address_compare_func() only compares the local address for IPv6 case. So, it is enough to
+         * set only family and the address. */
+        a->family = AF_INET6;
+        a->in_addr.in6 = *address;
+
+        return address_get(link, a, NULL) >= 0;
 }
 
 static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
