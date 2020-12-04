@@ -2216,6 +2216,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'prohibit 202.54.1.4 proto static')
 
+        print('### ip -6 route show type blackhole')
+        output = check_output('ip -6 route show type blackhole')
+        print(output)
+        self.assertIn('blackhole 2001:1234:5678::2 dev lo proto static', output)
+
+        print('### ip -6 route show type unreachable')
+        output = check_output('ip -6 route show type unreachable')
+        print(output)
+        self.assertIn('unreachable 2001:1234:5678::3 dev lo proto static', output)
+
+        print('### ip -6 route show type prohibit')
+        output = check_output('ip -6 route show type prohibit')
+        print(output)
+        self.assertIn('prohibit 2001:1234:5678::4 dev lo proto static', output)
+
         print('### ip route show 192.168.10.1')
         output = check_output('ip route show 192.168.10.1')
         print(output)
@@ -2242,6 +2257,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_unit_to_networkd_unit_path('25-address-static.network')
         check_output(*networkctl_cmd, 'reload', env=env)
+        time.sleep(1)
         self.wait_online(['dummy98:routable'])
 
         # check all routes managed by Manager are removed
@@ -2260,8 +2276,24 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertEqual(output, '')
 
+        print('### ip -6 route show type blackhole')
+        output = check_output('ip -6 route show type blackhole')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -6 route show type unreachable')
+        output = check_output('ip -6 route show type unreachable')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -6 route show type prohibit')
+        output = check_output('ip -6 route show type prohibit')
+        print(output)
+        self.assertEqual(output, '')
+
         remove_unit_from_networkd_path(['25-address-static.network'])
         check_output(*networkctl_cmd, 'reload', env=env)
+        time.sleep(1)
         self.wait_online(['dummy98:routable'])
 
         # check all routes managed by Manager are reconfigured
@@ -2280,6 +2312,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'prohibit 202.54.1.4 proto static')
 
+        print('### ip -6 route show type blackhole')
+        output = check_output('ip -6 route show type blackhole')
+        print(output)
+        self.assertIn('blackhole 2001:1234:5678::2 dev lo proto static', output)
+
+        print('### ip -6 route show type unreachable')
+        output = check_output('ip -6 route show type unreachable')
+        print(output)
+        self.assertIn('unreachable 2001:1234:5678::3 dev lo proto static', output)
+
+        print('### ip -6 route show type prohibit')
+        output = check_output('ip -6 route show type prohibit')
+        print(output)
+        self.assertIn('prohibit 2001:1234:5678::4 dev lo proto static', output)
+
         rc = call("ip link del dummy98")
         self.assertEqual(rc, 0)
         time.sleep(2)
@@ -2297,6 +2344,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         print('### ip route show type prohibit')
         output = check_output('ip route show type prohibit')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -6 route show type blackhole')
+        output = check_output('ip -6 route show type blackhole')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -6 route show type unreachable')
+        output = check_output('ip -6 route show type unreachable')
+        print(output)
+        self.assertEqual(output, '')
+
+        print('### ip -6 route show type prohibit')
+        output = check_output('ip -6 route show type prohibit')
         print(output)
         self.assertEqual(output, '')
 

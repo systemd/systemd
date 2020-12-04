@@ -49,6 +49,18 @@ Type=prohibit
 Destination=202.54.1.4
 
 [Route]
+Type=blackhole
+Destination=2001:1234:5678::2
+
+[Route]
+Type=unreachable
+Destination=2001:1234:5678::3
+
+[Route]
+Type=prohibit
+Destination=2001:1234:5678::4
+
+[Route]
 Type=local
 Destination=149.10.123.1
 
