@@ -10,6 +10,17 @@ We welcome all contributions to systemd. If you notice a bug or a missing
 feature, please feel invited to fix it, and submit your work as a GitHub Pull
 Request (PR) at https://github.com/systemd/systemd/pull/new.
 
+systemd uses the meson build system. meson works by generating build files to a
+separate directory (it does not support in-tree builds) and then building from
+that directory. To build systemd in a directory called `build` and run the tests:
+
+```sh
+$ meson setup build
+$ cd build
+$ meson compile
+$ meson test
+```
+
 Please make sure to follow our [Coding Style](CODING_STYLE.md) when submitting patches.
 Also have a look at our [Contribution Guidelines](CONTRIBUTING.md).
 
