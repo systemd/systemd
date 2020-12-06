@@ -95,7 +95,7 @@ if [ "$WITH_TESTS" = 1 ] ; then
 
         ninja -C "$BUILDDIR" test
 fi
-ninja -C "$BUILDDIR" install
+meson install -C "$BUILDDIR"
 
 mkdir -p "$DESTDIR"/etc
 
