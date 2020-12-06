@@ -859,25 +859,15 @@ static int mount_sysfs(const MountEntry *m) {
 }
 
 static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
+        _cleanup_free_ char *opts = NULL;
         const char *entry_path;
-        int r;
+        int r, n;
 
         assert(m);
         assert(ns_info);
 
-        entry_path = mount_entry_path(m);
-
-        /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in
-         * one. i.e we don't reuse existing mounts here under any condition, we want a new instance owned by
-         * our user namespace and with our hidepid= settings applied. Hence, let's get rid of everything
-         * mounted on /proc/ first. */
-
-        (void) mkdir_p_label(entry_path, 0755);
-        (void) umount_recursive(entry_path, 0);
-
         if (ns_info->protect_proc != PROTECT_PROC_DEFAULT ||
             ns_info->proc_subset != PROC_SUBSET_ALL) {
-                _cleanup_free_ char *opts = NULL;
 
                 /* Starting with kernel 5.8 procfs' hidepid= logic is truly per-instance (previously it
                  * pretended to be per-instance but actually was per-namespace), hence let's make use of it
@@ -891,23 +881,40 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                                ns_info->proc_subset == PROC_SUBSET_PID ? ",subset=pid" : "");
                 if (!opts)
                         return -ENOMEM;
-
-                r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
-                if (r < 0) {
-                        if (r != -EINVAL)
-                                return r;
-
-                        /* If this failed with EINVAL then this likely means the textual hidepid= stuff is
-                         * not supported by the kernel, and thus the per-instance hidepid= neither, which
-                         * means we really don't want to use it, since it would affect our host's /proc
-                         * mount. Hence let's gracefully fallback to a classic, unrestricted version. */
-                } else
-                        return 1;
         }
 
-        r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
-        if (r < 0)
-                return r;
+        entry_path = mount_entry_path(m);
+        (void) mkdir_p_label(entry_path, 0755);
+
+        /* Mount a new instance, so that we get the one that matches our user namespace, if we are running in
+         * one. i.e we don't reuse existing mounts here under any condition, we want a new instance owned by
+         * our user namespace and with our hidepid= settings applied. Hence, let's get rid of everything
+         * mounted on /proc/ first. */
+
+        n = umount_recursive(entry_path, 0);
+
+        r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+        if (r == -EINVAL && opts)
+                /* If this failed with EINVAL then this likely means the textual hidepid= stuff is
+                 * not supported by the kernel, and thus the per-instance hidepid= neither, which
+                 * means we really don't want to use it, since it would affect our host's /proc
+                 * mount. Hence let's gracefully fallback to a classic, unrestricted version. */
+                r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r == -EPERM) {
+                /* When we do not have enough priviledge to mount /proc, fallback to use existing /proc. */
+
+                if (n > 0)
+                        /* /proc or some of sub-mounts are umounted in the above. Refuse incomplete tree.
+                         * Propagate the original error code returned by mount() in the above. */
+                        return -EPERM;
+
+                r = path_is_mount_point(entry_path, NULL, 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
+                if (r == 0)
+                        /* /proc is not mounted. Propagate the original error code. */
+                        return -EPERM;
+        }
 
         return 1;
 }
