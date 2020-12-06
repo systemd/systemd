@@ -95,7 +95,13 @@ if [ "$WITH_TESTS" = 1 ] ; then
 
         ninja -C "$BUILDDIR" test
 fi
-meson install -C "$BUILDDIR"
+
+# Ubuntu Focal is stuck with meson 0.53.0.
+if [ "$(meson -v | cut -d . -f 2)" -gt 53 ] ; then
+        meson install -C "$BUILDDIR" --quiet --no-rebuild
+else
+        meson install -C "$BUILDDIR" --no-rebuild
+fi
 
 mkdir -p "$DESTDIR"/etc
 
