@@ -59,6 +59,8 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 #  define systemd_NR_memfd_create 385
 #elif defined __aarch64__
 #  define systemd_NR_memfd_create 279
+#elif defined __alpha__
+#  define systemd_NR_memfd_create 512
 #elif defined(__powerpc__)
 #  define systemd_NR_memfd_create 360
 #elif defined __s390__
@@ -116,6 +118,8 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #  define systemd_NR_getrandom 384
 #elif defined(__aarch64__)
 #  define systemd_NR_getrandom 278
+#elif defined(__alpha__)
+#  define systemd_NR_getrandom 511
 #elif defined(__ia64__)
 #  define systemd_NR_getrandom systemd_SC_arch_bias(318)
 #elif defined(__m68k__)
@@ -190,6 +194,8 @@ static inline pid_t missing_gettid(void) {
 #  define systemd_NR_name_to_handle_at 370
 #elif defined __aarch64__
 #  define systemd_NR_name_to_handle_at 264
+#elif defined(__alpha__)
+#  define systemd_NR_name_to_handle_at 497
 #elif defined(__powerpc__)
 #  define systemd_NR_name_to_handle_at 345
 #elif defined __s390__ || defined __s390x__
@@ -247,6 +253,8 @@ static inline int missing_name_to_handle_at(int fd, const char *name, struct fil
 #  define systemd_NR_setns 268
 #elif defined __arm__
 #  define systemd_NR_setns 375
+#elif defined __alpha__
+#  define systemd_NR_setns 501
 #elif defined(__x86_64__)
 #  define systemd_NR_setns systemd_SC_arch_bias(308)
 #elif defined(__i386__)
@@ -314,6 +322,8 @@ static inline pid_t raw_getpid(void) {
 #  define systemd_NR_renameat2 382
 #elif defined __aarch64__
 #  define systemd_NR_renameat2 276
+#elif defined __alpha__
+#  define systemd_NR_renameat2 510
 #elif defined _MIPS_SIM
 #  if _MIPS_SIM == _MIPS_SIM_ABI32
 #    define systemd_NR_renameat2 systemd_SC_arch_bias(351)
@@ -425,6 +435,8 @@ static inline key_serial_t missing_request_key(const char *type, const char *des
 #  define systemd_NR_copy_file_range 391
 #elif defined __aarch64__
 #  define systemd_NR_copy_file_range 285
+#elif defined __alpha__
+#  define systemd_NR_copy_file_range 519
 #elif defined __powerpc__
 #  define systemd_NR_copy_file_range 379
 #elif defined __arc__
@@ -481,6 +493,8 @@ static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in,
 #  define systemd_NR_bpf 280
 #elif defined __arm__
 #  define systemd_NR_bpf 386
+#elif defined __alpha__
+#  define systemd_NR_bpf 515
 #elif defined(__powerpc__)
 #  define systemd_NR_bpf 361
 #elif defined __sparc__
@@ -541,6 +555,8 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #    define systemd_NR_pkey_mprotect 288
 #  elif defined __arm__
 #    define systemd_NR_pkey_mprotect 394
+#  elif defined __alpha__
+#    define systemd_NR_pkey_mprotect 524
 #  elif defined __powerpc__
 #    define systemd_NR_pkey_mprotect 386
 #  elif defined __s390__
