@@ -319,7 +319,10 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 for (const char *p = value;;) {
                         _cleanup_free_ char *word = NULL;
 
-                        r = extract_first_word(&p, &word, NULL, 0);
+                        /* udev rules may set escaped strings, and sd-device does not modify the input
+                         * strings. So, it is also necessary to keep the strings received through
+                         * sd-device-monitor. */
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
                                 return r;
                         if (r == 0)
