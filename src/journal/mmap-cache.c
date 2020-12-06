@@ -57,7 +57,7 @@ struct MMapCache {
         unsigned n_ref;
         unsigned n_windows;
 
-        unsigned n_hit, n_missed;
+        unsigned n_context_cache_hit, n_window_list_hit, n_missed;
 
         Hashmap *fds;
         Context *contexts[MMAP_CACHE_MAX_CONTEXTS];
@@ -520,14 +520,14 @@ int mmap_cache_get(
         /* Check whether the current context is the right one already */
         r = try_context(m, f, prot, context, keep_always, offset, size, ret, ret_size);
         if (r != 0) {
-                m->n_hit++;
+                m->n_context_cache_hit++;
                 return r;
         }
 
         /* Search for a matching mmap */
         r = find_mmap(m, f, prot, context, keep_always, offset, size, ret, ret_size);
         if (r != 0) {
-                m->n_hit++;
+                m->n_window_list_hit++;
                 return r;
         }
 
@@ -540,7 +540,7 @@ int mmap_cache_get(
 void mmap_cache_stats_log_debug(MMapCache *m) {
         assert(m);
 
-        log_debug("mmap cache statistics: %u hit, %u miss", m->n_hit, m->n_missed);
+        log_debug("mmap cache statistics: %u context cache hit, %u window list hit, %u miss", m->n_context_cache_hit, m->n_window_list_hit, m->n_missed);
 }
 
 static void mmap_cache_process_sigbus(MMapCache *m) {
