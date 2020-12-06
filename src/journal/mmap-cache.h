@@ -22,8 +22,7 @@ int mmap_cache_get(
         uint64_t offset,
         size_t size,
         struct stat *st,
-        void **ret,
-        size_t *ret_size);
+        void **ret);
 MMapFileDescriptor * mmap_cache_add_fd(MMapCache *m, int fd, int prot);
 void mmap_cache_free_fd(MMapCache *m, MMapFileDescriptor *f);
 

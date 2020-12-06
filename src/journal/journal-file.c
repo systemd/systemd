@@ -724,8 +724,7 @@ static int journal_file_move_to(
                 bool keep_always,
                 uint64_t offset,
                 uint64_t size,
-                void **ret,
-                size_t *ret_size) {
+                void **ret) {
 
         int r;
 
@@ -751,7 +750,7 @@ static int journal_file_move_to(
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_get(f->mmap, f->cache_fd, type_to_context(type), keep_always, offset, size, &f->last_stat, ret, ret_size);
+        return mmap_cache_get(f->mmap, f->cache_fd, type_to_context(type), keep_always, offset, size, &f->last_stat, ret);
 }
 
 static uint64_t minimum_header_size(Object *o) {
@@ -923,7 +922,6 @@ static int journal_file_check_object(JournalFile *f, uint64_t offset, Object *o)
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret) {
         int r;
         void *t;
-        size_t tsize;
         Object *o;
         uint64_t s;
 
@@ -942,7 +940,7 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        "Attempt to move to object located in file header: %" PRIu64,
                                        offset);
 
-        r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t, &tsize);
+        r = journal_file_move_to(f, type, false, offset, sizeof(ObjectHeader), &t);
         if (r < 0)
                 return r;
 
@@ -973,13 +971,11 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                                        "Attempt to move to object of unexpected type: %" PRIu64,
                                        offset);
 
-        if (s > tsize) {
-                r = journal_file_move_to(f, type, false, offset, s, &t, NULL);
-                if (r < 0)
-                        return r;
+        r = journal_file_move_to(f, type, false, offset, s, &t);
+        if (r < 0)
+                return r;
 
-                o = (Object*) t;
-        }
+        o = (Object*) t;
 
         r = journal_file_check_object(f, offset, o);
         if (r < 0)
@@ -1062,7 +1058,7 @@ int journal_file_append_object(
         if (r < 0)
                 return r;
 
-        r = journal_file_move_to(f, type, false, p, size, &t, NULL);
+        r = journal_file_move_to(f, type, false, p, size, &t);
         if (r < 0)
                 return r;
 
@@ -1165,7 +1161,7 @@ int journal_file_map_data_hash_table(JournalFile *f) {
                                  OBJECT_DATA_HASH_TABLE,
                                  true,
                                  p, s,
-                                 &t, NULL);
+                                 &t);
         if (r < 0)
                 return r;
 
@@ -1191,7 +1187,7 @@ int journal_file_map_field_hash_table(JournalFile *f) {
                                  OBJECT_FIELD_HASH_TABLE,
                                  true,
                                  p, s,
-                                 &t, NULL);
+                                 &t);
         if (r < 0)
                 return r;
 
@@ -3510,7 +3506,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        r = mmap_cache_get(f->mmap, f->cache_fd, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h, NULL);
+        r = mmap_cache_get(f->mmap, f->cache_fd, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
         if (r == -EINVAL) {
                 /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
                  * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
