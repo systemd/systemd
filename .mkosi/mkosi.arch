@@ -54,6 +54,7 @@ BuildPackages=
         zstd
 
 Packages=
+        gdb
         libidn2
         qrencode
 

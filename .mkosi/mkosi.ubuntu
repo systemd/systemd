@@ -66,6 +66,8 @@ BuildPackages=
         zstd
 
 Packages=
+        gdb
+        libidn2-0
         libqrencode4
         locales
         libidn2-0

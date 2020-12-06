@@ -62,6 +62,7 @@ BuildPackages=
         timezone
 
 Packages=
+        gdb
         # brought in via meson->python3
         libp11-kit0
         # --bootable=no

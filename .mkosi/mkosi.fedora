@@ -72,6 +72,7 @@ BuildPackages=
         zstd
 
 Packages=
+        gdb
         # libfido2 + libzstd can be dropped once the Fedora RPM gets a dependency on them
         libfido2
         libzstd
