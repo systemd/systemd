@@ -200,16 +200,17 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
+        /* Return NSS_STATUS_UNAVAIL when communication with systemd-resolved fails, allowing falling
+         * back to other nss modules. Treat all other error conditions as NOTFOUND. This includes
+         * DNSSEC errors and suchlike. (We don't use UNAVAIL in this case so that the nsswitch.conf
+         * configuration can distinguish such executed but negative replies from complete failure to
+         * talk to resolved). */
         r = varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id, NULL);
-        if (r < 0) {
+        if (r < 0)
+                goto fail;
+        if (!isempty(error_id)) {
                 if (!error_shall_fallback(error_id))
                         goto not_found;
-
-                /* Return NSS_STATUS_UNAVAIL when communication with systemd-resolved fails, allowing falling
-                   back to other nss modules. Treat all other error conditions as NOTFOUND. This includes
-                   DNSSEC errors and suchlike. (We don't use UNAVAIL in this case so that the nsswitch.conf
-                   configuration can distinguish such executed but negative replies from complete failure to
-                   talk to resolved). */
                 goto fail;
         }
 
@@ -352,10 +353,11 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 goto fail;
 
         r = varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id, NULL);
-        if (r < 0) {
+        if (r < 0)
+                goto fail;
+        if (!isempty(error_id)) {
                 if (!error_shall_fallback(error_id))
                         goto not_found;
-
                 goto fail;
         }
 
@@ -555,10 +557,11 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 goto fail;
 
         r = varlink_call(link, "io.systemd.Resolve.ResolveAddress", cparams, &rparams, &error_id, NULL);
-        if (r < 0) {
+        if (r < 0)
+                goto fail;
+        if (!isempty(error_id)) {
                 if (!error_shall_fallback(error_id))
                         goto not_found;
-
                 goto fail;
         }
 
