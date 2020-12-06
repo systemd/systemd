@@ -1976,3 +1976,38 @@ IteratedCache* iterated_cache_free(IteratedCache *cache) {
 
         return mfree(cache);
 }
+
+int set_strjoin(Set *s, const char *separator, char **ret) {
+        size_t separator_len, allocated = 0, len = 0;
+        _cleanup_free_ char *str = NULL;
+        const char *value;
+        bool first = true;
+
+        assert(ret);
+
+        separator_len = strlen_ptr(separator);
+
+        SET_FOREACH(value, s) {
+                size_t l = strlen_ptr(value);
+
+                if (l == 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(str, allocated, len + l + (first ? 0 : separator_len) + 1))
+                        return -ENOMEM;
+
+                if (separator_len > 0 && !first) {
+                        memcpy(str + len, separator, separator_len);
+                        len += separator_len;
+                }
+
+                memcpy(str + len, value, l);
+                len += l;
+                first = false;
+        }
+        if (str)
+                str[len] = '\0';
+
+        *ret = TAKE_PTR(str);
+        return 0;
+}
