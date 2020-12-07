@@ -554,7 +554,10 @@ static int journal_file_verify_header(JournalFile *f) {
 
         arena_size = le64toh(READ_NOW(f->header->arena_size));
 
-        if (UINT64_MAX - header_size < arena_size || header_size + arena_size > (uint64_t) f->last_stat.st_size)
+        if (UINT64_MAX - header_size < arena_size)
+                return -ENODATA;
+
+        if (f->header->state != STATE_ARCHIVED && header_size + arena_size > (uint64_t) f->last_stat.st_size)
                 return -ENODATA;
 
         if (le64toh(f->header->tail_object_offset) > header_size + arena_size)
