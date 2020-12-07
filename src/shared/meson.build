@@ -173,7 +173,6 @@ shared_sources = files('''
         net-condition.h
         netif-naming-scheme.c
         netif-naming-scheme.h
-        nscd-flush.c
         nscd-flush.h
         nsflags.c
         nsflags.h
@@ -306,6 +305,10 @@ if conf.get('HAVE_PAM') == 1
         pam-util.c
         pam-util.h
 '''.split())
+endif
+
+if conf.get('ENABLE_NSCD') == 1
+        shared_sources += files('nscd-flush.c')
 endif
 
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')

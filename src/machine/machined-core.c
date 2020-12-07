@@ -5,6 +5,7 @@
 #include "strv.h"
 #include "user-util.h"
 
+#if ENABLE_NSCD
 static int on_nscd_cache_flush_event(sd_event_source *s, void *userdata) {
         /* Let's ask glibc's nscd daemon to flush its caches. We request this for the three database machines may show
          * up in: the hosts database (for resolvable machine names) and the user and group databases (for the user ns
@@ -35,6 +36,7 @@ int manager_enqueue_nscd_cache_flush(Manager *m) {
 
         return 0;
 }
+#endif
 
 int manager_find_machine_for_uid(Manager *m, uid_t uid, Machine **ret_machine, uid_t *ret_internal_uid) {
         Machine *machine;

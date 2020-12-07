@@ -92,17 +92,6 @@ tests += [
           libblkid],
          '', 'manual'],
 
-        [['src/test/test-nscd-flush.c'],
-         [libcore,
-          libshared],
-         [threads,
-          librt,
-          libseccomp,
-          libselinux,
-          libmount,
-          libblkid],
-         '', 'manual'],
-
         [['src/test/test-loopback.c'],
          [libcore,
           libshared],
@@ -826,6 +815,20 @@ tests += [
          [libshared],
          [libdl]],
 ]
+
+if conf.get('ENABLE_NSCD') == 1
+        tests += [
+                [['src/test/test-nscd-flush.c'],
+                 [libcore,
+                  libshared],
+                 [threads,
+                  librt,
+                  libseccomp,
+                  libselinux,
+                  libmount,
+                  libblkid],
+                 '', 'manual']]
+endif
 
 ############################################################
 
