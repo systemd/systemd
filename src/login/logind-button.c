@@ -8,12 +8,12 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "async.h"
 #include "fd-util.h"
 #include "logind-button.h"
 #include "missing_input.h"
 #include "string-util.h"
 #include "util.h"
-#include "async.h"
 
 #define CONST_MAX4(a, b, c, d) CONST_MAX(CONST_MAX(a, b), CONST_MAX(c, d))
 
@@ -60,11 +60,7 @@ void button_free(Button *b) {
         sd_event_source_unref(b->io_event_source);
         sd_event_source_unref(b->check_event_source);
 
-        if (b->fd >= 0)
-                /* If the device has been unplugged close() returns
-                 * ENODEV, let's ignore this, hence we don't use
-                 * safe_close() */
-                (void) asynchronous_close(b->fd);
+        asynchronous_close(b->fd);
 
         free(b->name);
         free(b->seat);
@@ -312,14 +308,14 @@ static int button_set_mask(const char *name, int fd) {
 }
 
 int button_open(Button *b) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_(asynchronous_closep) int fd = -1;
         const char *p;
         char name[256];
         int r;
 
         assert(b);
 
-        b->fd = safe_close(b->fd);
+        b->fd = asynchronous_close(b->fd);
 
         p = strjoina("/dev/input/", b->name);
 
@@ -330,12 +326,10 @@ int button_open(Button *b) {
         r = button_suitable(fd);
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether input device %s is relevant to us: %m", p);
-        if (r == 0) {
-                b->fd = TAKE_FD(fd);
+        if (r == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                        "Device %s does not expose keys or switches relevant to us, ignoring.", p);
-        }
-        
+
         if (ioctl(fd, EVIOCGNAME(sizeof name), name) < 0)
                 return log_error_errno(errno, "Failed to get input name for %s: %m", p);
 
