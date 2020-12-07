@@ -69,3 +69,6 @@ Packages=
         libqrencode4
         locales
         libidn2-0
+
+[Host]
+QemuHeadless=yes

@@ -80,3 +80,6 @@ Packages=
 
 BuildDirectory=mkosi.builddir
 Cache=mkosi.cache
+
+[Host]
+QemuHeadless=yes

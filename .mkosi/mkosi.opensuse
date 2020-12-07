@@ -76,3 +76,6 @@ Packages=
         libseccomp2
         pam
         util-linux
+
+[Host]
+QemuHeadless=yes

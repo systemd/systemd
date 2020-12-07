@@ -56,3 +56,6 @@ BuildPackages=
 Packages=
         libidn2
         qrencode
+
+[Host]
+QemuHeadless=yes
