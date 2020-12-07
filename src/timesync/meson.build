@@ -6,6 +6,14 @@ systemd_timesyncd_sources = files('''
         timesyncd-bus.h
         timesyncd-conf.c
         timesyncd-conf.h
+        timesyncd-nts-client.c
+        timesyncd-nts-client.h
+        timesyncd-ntp-extension.c
+        timesyncd-ntp-extension.h
+        timesyncd-ntske-client.c
+        timesyncd-ntske-client.h
+        timesyncd-ntske-protocol.c
+        timesyncd-ntske-protocol.h
         timesyncd-manager.c
         timesyncd-manager.h
         timesyncd-ntp-message.h
@@ -44,6 +52,14 @@ tests += [
         [['src/timesync/test-timesync.c',
           'src/timesync/timesyncd-manager.c',
           'src/timesync/timesyncd-manager.h',
+          'src/timesync/timesyncd-nts-client.c',
+          'src/timesync/timesyncd-nts-client.h',
+          'src/timesync/timesyncd-ntp-extension.c',
+          'src/timesync/timesyncd-ntp-extension.h',
+          'src/timesync/timesyncd-ntske-client.c',
+          'src/timesync/timesyncd-ntske-client.h',
+          'src/timesync/timesyncd-ntske-protocol.c',
+          'src/timesync/timesyncd-ntske-protocol.h',
           'src/timesync/timesyncd-conf.c',
           'src/timesync/timesyncd-conf.h',
           'src/timesync/timesyncd-server.c',

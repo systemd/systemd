@@ -78,17 +78,25 @@ int server_name_new(
         } else if (type == SERVER_FALLBACK) {
                 LIST_FIND_TAIL(names, m->fallback_servers, tail);
                 LIST_INSERT_AFTER(names, m->fallback_servers, tail, n);
+        } else if (type == SERVER_NTSKE) {
+                LIST_FIND_TAIL(names, m->ntske_servers, tail);
+                LIST_INSERT_AFTER(names, m->ntske_servers, tail, n);
         } else
                 assert_not_reached("Unknown server type");
 
         n->manager = m;
 
-        if (type != SERVER_FALLBACK &&
+        if (type != SERVER_FALLBACK && type != SERVER_NTSKE &&
             m->current_server_name &&
-            m->current_server_name->type == SERVER_FALLBACK)
+            m->current_server_name->type == SERVER_FALLBACK) {
                 manager_set_server_name(m, NULL);
 
-        log_debug("Added new server %s.", string);
+                log_debug("Added new server %s.", string);
+        } else if (type == SERVER_NTSKE) {
+                manager_set_ntske_server_name(m, n);
+
+                log_debug("Added new ntske server %s.", string);
+        }
 
         if (ret)
                 *ret = n;
@@ -109,6 +117,8 @@ ServerName *server_name_free(ServerName *n) {
                         LIST_REMOVE(names, n->manager->link_servers, n);
                 else if (n->type == SERVER_FALLBACK)
                         LIST_REMOVE(names, n->manager->fallback_servers, n);
+                else if (n->type == SERVER_NTSKE)
+                        LIST_REMOVE(names, n->manager->ntske_servers, n);
                 else
                         assert_not_reached("Unknown server type");
 
