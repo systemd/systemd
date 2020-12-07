@@ -319,7 +319,9 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 for (const char *p = value;;) {
                         _cleanup_free_ char *word = NULL;
 
-                        r = extract_first_word(&p, &word, NULL, 0);
+                        /* /dev/disk/by-label entries contain backslash escape sequences which must be
+                         * retained verbatim if the label contains forward slashes */
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_RETAIN_ESCAPE);
                         if (r < 0)
                                 return r;
                         if (r == 0)
