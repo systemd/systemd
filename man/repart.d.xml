@@ -492,12 +492,19 @@
       <varlistentry>
         <term><varname>Encrypt=</varname></term>
 
-        <listitem><para>Takes a boolean parameter, defaulting to false. If true the partition will be
+        <listitem><para>Takes one of <literal>off</literal>, <literal>key-file</literal>,
+        <literal>tpm2</literal> and <literal>key-file+tpm2</literal> (alternatively, also accepts a boolean
+        value, which is mapped to <literal>off</literal> when false, and <literal>key-file</literal> when
+        true). Defaults to <literal>off</literal>. If not <literal>off</literal> the partition will be
         formatted with a LUKS2 superblock, before the blocks configured with <varname>CopyBlocks=</varname>
         are copied in or the file system configured with <varname>Format=</varname> is created.</para>
 
-        <para>The LUKS2 UUID is automatically derived from the partition UUID in a stable fashion. A single
-        key is added to the LUKS2 superblock, configurable with the <option>--key-file=</option> switch to
+        <para>The LUKS2 UUID is automatically derived from the partition UUID in a stable fashion. If
+        <literal>key-file</literal> or <literal>key-file+tpm2</literal> is used a key is added to the LUKS2
+        superblock, configurable with the <option>--key-file=</option> switch to
+        <command>systemd-repart</command>. If <literal>tpm2</literal> or <literal>key-file+tpm2</literal> is
+        used a key is added to the LUKS2 superblock that is enrolled to the local TPM2 chip, as configured
+        with the <option>--tpm2-device=</option> and <option>--tpm2-pcrs=</option> options to
         <command>systemd-repart</command>.</para>
 
         <para>When used this slightly alters the size allocation logic as the implicit, minimal size limits
@@ -627,7 +634,8 @@ SizeMaxBytes=64M
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>sfdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='man-pages'><refentrytitle>sfdisk</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

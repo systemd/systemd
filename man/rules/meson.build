@@ -825,6 +825,7 @@ manpages = [
   '8',
   ['systemd-coredump.socket', 'systemd-coredump@.service'],
   'ENABLE_COREDUMP'],
+ ['systemd-cryptenroll', '1', [], 'HAVE_LIBCRYPTSETUP'],
  ['systemd-cryptsetup-generator', '8', [], 'HAVE_LIBCRYPTSETUP'],
  ['systemd-cryptsetup@.service',
   '8',
