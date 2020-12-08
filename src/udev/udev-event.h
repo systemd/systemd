@@ -42,9 +42,11 @@ typedef struct UdevEvent {
         bool name_final;
         bool devlink_final;
         bool run_final;
+        bool log_level_was_debug;
+        int default_log_level;
 } UdevEvent;
 
-UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl);
+UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl, int log_level);
 UdevEvent *udev_event_free(UdevEvent *event);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_free);
 

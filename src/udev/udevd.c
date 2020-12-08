@@ -84,6 +84,7 @@ typedef struct Manager {
         LIST_HEAD(struct event, events);
         const char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
+        int log_level;
 
         UdevRules *rules;
         Hashmap *properties;
@@ -443,7 +444,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
 
         log_device_uevent(dev, "Processing device");
 
-        udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl);
+        udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl, manager->log_level);
         if (!udev_event)
                 return -ENOMEM;
 
@@ -539,6 +540,9 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
         r = worker_send_message(manager->worker_watch[WRITE_END]);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to send signal to main daemon, ignoring: %m");
+
+        /* Reset the log level, as it might be changed by "OPTIONS=log_level=". */
+        log_set_max_level_all_realms(manager->log_level);
 
         return 1;
 }
@@ -1064,6 +1068,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
         case UDEV_CTRL_SET_LOG_LEVEL:
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
                 log_set_max_level_all_realms(value->intval);
+                manager->log_level = value->intval;
                 manager_kill_workers(manager);
                 break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
@@ -1707,6 +1712,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         r = device_monitor_enable_receiving(manager->monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind netlink socket: %m");
+
+        manager->log_level = log_get_max_level();
 
         *ret = TAKE_PTR(manager);
 
