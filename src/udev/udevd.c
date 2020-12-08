@@ -100,8 +100,8 @@ typedef struct Manager {
 
         usec_t last_usec;
 
-        bool stop_exec_queue:1;
-        bool exit:1;
+        bool stop_exec_queue;
+        bool exit;
 } Manager;
 
 enum event_state {
