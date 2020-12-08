@@ -1484,7 +1484,9 @@ void log_setup_service(void) {
 void log_setup_cli(void) {
         /* Sets up logging the way it is most appropriate for running a program as a CLI utility. */
 
-        log_show_color(true);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment_cli();
         (void) log_open();
+        if (log_on_console() && show_color < 0)
+                log_show_color(true);
 }
