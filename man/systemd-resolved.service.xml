@@ -87,7 +87,7 @@
   <refsect1>
     <title>Synthetic Records</title>
 
-    <para><command>systemd-resolved</command> synthetizes DNS resource records (RRs) for the following
+    <para><command>systemd-resolved</command> synthesizes DNS resource records (RRs) for the following
     cases:</para>
 
     <itemizedlist>
@@ -126,10 +126,10 @@
 
       <listitem><para>Single-label names are resolved using LLMNR on all local interfaces where LLMNR is
       enabled. Lookups for IPv4 addresses are only sent via LLMNR on IPv4, and lookups for IPv6 addresses are
-      only sent via LLMNR on IPv6. Note that lookups for single-label synthetized names are not routed to
+      only sent via LLMNR on IPv6. Note that lookups for single-label synthesized names are not routed to
       LLMNR, MulticastDNS or unicast DNS.</para></listitem>
 
-      <listitem><para>Queries for the address records (A and AAAA) of single-label non-synthetized names are
+      <listitem><para>Queries for the address records (A and AAAA) of single-label non-synthesized names are
       resolved via unicast DNS using search domains. For any interface which defines search domains, such
       look-ups are routed to that interface, suffixed with each of the search domains defined on that
       interface in turn. When global search domains are defined, such look-ups are routed to all interfaces,
@@ -203,7 +203,7 @@
     determined based on the configured DNS domains for a link: if there's a route-only domain other than
     <literal>~.</literal>, it defaults to false, otherwise to true.</para>
 
-    <para>Effectively this means: in order to support single-label non-synthetized names, define appropriate
+    <para>Effectively this means: in order to support single-label non-synthesized names, define appropriate
     search domains. In order to preferably route all DNS queries not explicitly matched by routing domain
     configuration to a specific link, configure a <literal>~.</literal> route-only domain on it. This will
     ensure that other links will not be considered for these queries (unless they too carry such a routing
