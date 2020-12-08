@@ -1518,30 +1518,6 @@ _public_ const char *sd_device_get_devlink_next(sd_device *device) {
         return v;
 }
 
-static char *join_string_set(Set *s) {
-        size_t ret_allocated = 0, ret_len;
-        _cleanup_free_ char *ret = NULL;
-        const char *tag;
-
-        if (!GREEDY_REALLOC(ret, ret_allocated, 2))
-                return NULL;
-
-        strcpy(ret, ":");
-        ret_len = 1;
-
-        SET_FOREACH(tag, s) {
-                char *e;
-
-                if (!GREEDY_REALLOC(ret, ret_allocated, ret_len + strlen(tag) + 2))
-                        return NULL;
-
-                e = stpcpy(stpcpy(ret + ret_len, tag), ":");
-                ret_len = e - ret;
-        }
-
-        return TAKE_PTR(ret);
-}
-
 int device_properties_prepare(sd_device *device) {
         int r;
 
@@ -1557,23 +1533,16 @@ int device_properties_prepare(sd_device *device) {
 
         if (device->property_devlinks_outdated) {
                 _cleanup_free_ char *devlinks = NULL;
-                size_t devlinks_allocated = 0, devlinks_len = 0;
-                const char *devlink;
 
-                for (devlink = sd_device_get_devlink_first(device); devlink; devlink = sd_device_get_devlink_next(device)) {
-                        char *e;
-
-                        if (!GREEDY_REALLOC(devlinks, devlinks_allocated, devlinks_len + strlen(devlink) + 2))
-                                return -ENOMEM;
-                        if (devlinks_len > 0)
-                                stpcpy(devlinks + devlinks_len++, " ");
-                        e = stpcpy(devlinks + devlinks_len, devlink);
-                        devlinks_len = e - devlinks;
-                }
-
-                r = device_add_property_internal(device, "DEVLINKS", devlinks);
+                r = set_strjoin(device->devlinks, " ", &devlinks);
                 if (r < 0)
                         return r;
+
+                if (!isempty(devlinks)) {
+                        r = device_add_property_internal(device, "DEVLINKS", devlinks);
+                        if (r < 0)
+                                return r;
+                }
 
                 device->property_devlinks_outdated = false;
         }
@@ -1581,22 +1550,22 @@ int device_properties_prepare(sd_device *device) {
         if (device->property_tags_outdated) {
                 _cleanup_free_ char *tags = NULL;
 
-                tags = join_string_set(device->all_tags);
-                if (!tags)
-                        return -ENOMEM;
+                r = set_strjoin(device->all_tags, ":", &tags);
+                if (r < 0)
+                        return r;
 
-                if (!streq(tags, ":")) {
+                if (!isempty(tags)) {
                         r = device_add_property_internal(device, "TAGS", tags);
                         if (r < 0)
                                 return r;
                 }
 
-                free(tags);
-                tags = join_string_set(device->current_tags);
-                if (!tags)
-                        return -ENOMEM;
+                tags = mfree(tags);
+                r = set_strjoin(device->current_tags, ":", &tags);
+                if (r < 0)
+                        return r;
 
-                if (!streq(tags, ":")) {
+                if (!isempty(tags)) {
                         r = device_add_property_internal(device, "CURRENT_TAGS", tags);
                         if (r < 0)
                                 return r;
