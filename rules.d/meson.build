@@ -5,6 +5,7 @@ install_data(
         install_dir : udevrulesdir)
 
 rules = files('''
+        60-aspm.rules
         60-autosuspend.rules
         60-block.rules
         60-cdrom_id.rules
