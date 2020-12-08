@@ -1653,20 +1653,6 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
         return r;
 }
 
-static uint64_t client_compute_timeout(sd_dhcp_client *client, uint32_t lifetime, double factor) {
-        assert(client);
-        assert(client->request_sent);
-        assert(lifetime > 0);
-
-        if (lifetime > 3)
-                lifetime -= 3;
-        else
-                lifetime = 0;
-
-        return client->request_sent + (lifetime * USEC_PER_SEC * factor) +
-                + (random_u32() & 0x1fffff);
-}
-
 static int client_set_lease_timeouts(sd_dhcp_client *client) {
         usec_t time_now;
         char time_string[FORMAT_TIMESPAN_MAX];
@@ -1691,49 +1677,31 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return r;
         assert(client->request_sent <= time_now);
 
-        /* convert the various timeouts from relative (secs) to absolute (usecs) */
-        client->expire_time = client_compute_timeout(client, client->lease->lifetime, 1);
-        if (client->lease->t1 > 0 && client->lease->t2 > 0) {
-                /* both T1 and T2 are given */
-                if (client->lease->t1 < client->lease->t2 &&
-                    client->lease->t2 < client->lease->lifetime) {
-                        /* they are both valid */
-                        client->t2_time = client_compute_timeout(client, client->lease->t2, 1);
-                        client->t1_time = client_compute_timeout(client, client->lease->t1, 1);
-                } else {
-                        /* discard both */
-                        client->t2_time = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
-                        client->lease->t2 = (client->lease->lifetime * 7) / 8;
-                        client->t1_time = client_compute_timeout(client, client->lease->lifetime, 0.5);
-                        client->lease->t1 = client->lease->lifetime / 2;
-                }
-        } else if (client->lease->t2 > 0 && client->lease->t2 < client->lease->lifetime) {
-                /* only T2 is given, and it is valid */
-                client->t2_time = client_compute_timeout(client, client->lease->t2, 1);
-                client->t1_time = client_compute_timeout(client, client->lease->lifetime, 0.5);
-                client->lease->t1 = client->lease->lifetime / 2;
-                if (client->t2_time <= client->t1_time) {
-                        /* the computed T1 would be invalid, so discard T2 */
-                        client->t2_time = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
-                        client->lease->t2 = (client->lease->lifetime * 7) / 8;
-                }
-        } else if (client->lease->t1 > 0 && client->lease->t1 < client->lease->lifetime) {
-                /* only T1 is given, and it is valid */
-                client->t1_time = client_compute_timeout(client, client->lease->t1, 1);
-                client->t2_time = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
-                client->lease->t2 = (client->lease->lifetime * 7) / 8;
-                if (client->t2_time <= client->t1_time) {
-                        /* the computed T2 would be invalid, so discard T1 */
-                        client->t2_time = client_compute_timeout(client, client->lease->lifetime, 0.5);
-                        client->lease->t2 = client->lease->lifetime / 2;
-                }
-        } else {
-                /* fall back to the default timeouts */
-                client->t1_time = client_compute_timeout(client, client->lease->lifetime, 0.5);
-                client->lease->t1 = client->lease->lifetime / 2;
-                client->t2_time = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
-                client->lease->t2 = (client->lease->lifetime * 7) / 8;
-        }
+        /* verify that 0 < t2 < lifetime */
+        if (client->lease->t2 == 0 || client->lease->t2 >= client->lease->lifetime)
+                client->lease->t2 = T2_DEFAULT(client->lease->lifetime);
+        /* verify that 0 < t1 < lifetime */
+        if (client->lease->t1 == 0 || client->lease->t1 >= client->lease->t2)
+                client->lease->t1 = T1_DEFAULT(client->lease->lifetime);
+        /* now, if t1 >= t2, t1 *must* be T1_DEFAULT, since the previous check
+         * could not evalate to false if t1 >= t2; so setting t2 to T2_DEFAULT
+         * guarantees t1 < t2. */
+        if (client->lease->t1 >= client->lease->t2)
+                client->lease->t2 = T2_DEFAULT(client->lease->lifetime);
+
+        client->expire_time = client->request_sent + client->lease->lifetime * USEC_PER_SEC;
+        client->t1_time = client->request_sent + client->lease->t1 * USEC_PER_SEC;
+        client->t2_time = client->request_sent + client->lease->t2 * USEC_PER_SEC;
+
+        /* RFC2131 section 4.4.5:
+         * Times T1 and T2 SHOULD be chosen with some random "fuzz".
+         * Since the RFC doesn't specify here the exact 'fuzz' to use,
+         * we use the range from section 4.1: -1 to +1 sec. */
+        client->t1_time = usec_sub_signed(client->t1_time, RFC2131_RANDOM_FUZZ);
+        client->t2_time = usec_sub_signed(client->t2_time, RFC2131_RANDOM_FUZZ);
+
+        /* after fuzzing, ensure t2 is still >= t1 */
+        client->t2_time = MAX(client->t1_time, client->t2_time);
 
         /* arm lifetime timeout */
         r = event_reset_time(client->event, &client->timeout_expire,
