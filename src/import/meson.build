@@ -77,3 +77,5 @@ tests += [
          [libz],
          'HAVE_ZLIB', 'manual'],
 ]
+
+subdir('user')
