@@ -134,7 +134,7 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #  endif
 #elif defined(__powerpc__)
 #  define systemd_NR_getrandom 359
-#elif defined(__s390x__)
+#elif defined(__s390__)
 #  define systemd_NR_getrandom 349
 #elif defined(__x86_64__)
 #  define systemd_NR_getrandom systemd_SC_arch_bias(318)
@@ -206,7 +206,7 @@ static inline pid_t missing_gettid(void) {
 #  endif
 #elif defined(__powerpc__)
 #  define systemd_NR_name_to_handle_at 345
-#elif defined(__s390__) || defined(__s390x__)
+#elif defined(__s390__)
 #  define systemd_NR_name_to_handle_at 335
 #elif defined(__x86_64__)
 #  define systemd_NR_name_to_handle_at systemd_SC_arch_bias(303)
@@ -269,7 +269,7 @@ static inline int missing_name_to_handle_at(int fd, const char *name, struct fil
 #  endif
 #elif defined(__powerpc__)
 #  define systemd_NR_setns 350
-#elif defined(__s390__) || defined(__s390x__)
+#elif defined(__s390__)
 #  define systemd_NR_setns 339
 #elif defined(__x86_64__)
 #  define systemd_NR_setns systemd_SC_arch_bias(308)
@@ -336,7 +336,7 @@ static inline pid_t raw_getpid(void) {
 #  endif
 #elif defined(__powerpc__)
 #  define systemd_NR_renameat2 357
-#elif defined(__s390__) || defined(__s390x__)
+#elif defined(__s390__)
 #  define systemd_NR_renameat2 347
 #elif defined(__x86_64__)
 #  define systemd_NR_renameat2 systemd_SC_arch_bias(316)
@@ -608,7 +608,7 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #  endif
 #elif defined(__powerpc__)
 #  define systemd_NR_statx 383
-#elif defined(__s390__) || defined(__s390x__)
+#elif defined(__s390__)
 #  define systemd_NR_statx 379
 #elif defined(__sparc__)
 #  define systemd_NR_statx 360
