@@ -1227,7 +1227,6 @@ static int client_timeout_resend(
         DHCP_CLIENT_DONT_DESTROY(client);
         usec_t next_timeout;
         uint64_t time_now;
-        uint32_t time_left;
         int r;
 
         assert(s);
@@ -1241,19 +1240,11 @@ static int client_timeout_resend(
         switch (client->state) {
 
         case DHCP_STATE_RENEWING:
-                time_left = (client->lease->t2 - client->lease->t1) / 2;
-                if (time_left < 60)
-                        time_left = 60;
-
-                next_timeout = time_now + time_left * USEC_PER_SEC;
+                next_timeout = client_compute_reacquisition_timeout(time_now, client->t2_time);
                 break;
 
         case DHCP_STATE_REBINDING:
-                time_left = (client->lease->lifetime - client->lease->t2) / 2;
-                if (time_left < 60)
-                        time_left = 60;
-
-                next_timeout = time_now + time_left * USEC_PER_SEC;
+                next_timeout = client_compute_reacquisition_timeout(time_now, client->expire_time);
                 break;
 
         case DHCP_STATE_REBOOTING:
@@ -1279,14 +1270,13 @@ static int client_timeout_resend(
 
                 client->attempt++;
                 next_timeout = time_now + ((UINT64_C(1) << MIN(client->attempt, (uint64_t) 6)) - 1) * USEC_PER_SEC;
+                next_timeout += (random_u32() & 0x1fffff);
                 break;
 
         case DHCP_STATE_STOPPED:
                 r = -EINVAL;
                 goto error;
         }
-
-        next_timeout += (random_u32() & 0x1fffff);
 
         r = event_reset_time(client->event, &client->timeout_resend,
                              clock_boottime_or_monotonic(),
