@@ -36,6 +36,8 @@ in_units = [
         ['machine.slice',                       'ENABLE_MACHINED'],
         ['systemd-machined.service',            'ENABLE_MACHINED',
          'dbus-org.freedesktop.machine1.service'],
+        ['systemd-importd.service',             'ENABLE_IMPORTD',
+         'dbus-org.freedesktop.import1.service'],
 ]
 
 foreach tuple : in_units
