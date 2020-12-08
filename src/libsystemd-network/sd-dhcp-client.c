@@ -29,6 +29,7 @@
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "utf8.h"
 #include "web-util.h"
 
@@ -728,6 +729,37 @@ static void client_stop(sd_dhcp_client *client, int error) {
         client_notify(client, error);
 
         client_initialize(client);
+}
+
+/* RFC2131 section 4.1:
+ * retransmission delays should include -1 to +1 sec of random 'fuzz'. */
+#define RFC2131_RANDOM_FUZZ \
+        ((int64_t)(random_u64() % (2 * USEC_PER_SEC)) - (int64_t)USEC_PER_SEC)
+
+/* RFC2131 section 4.1:
+ * for retransmission delays, timeout should start at 4s then double
+ * each attempt with max of 64s, with -1 to +1 sec of random 'fuzz' added.
+ * This assumes the first call will be using attempt 1. */
+static usec_t client_compute_request_timeout(usec_t now, uint64_t attempt) {
+        usec_t timeout = (UINT64_C(1) << MIN(attempt + 1, UINT64_C(6))) * USEC_PER_SEC;
+
+        return usec_sub_signed(usec_add(now, timeout), RFC2131_RANDOM_FUZZ);
+}
+
+/* RFC2131 section 4.4.5:
+ * T1 defaults to (0.5 * duration_of_lease).
+ * T2 defaults to (0.875 * duration_of_lease). */
+#define T1_DEFAULT(lifetime) ((lifetime) / 2)
+#define T2_DEFAULT(lifetime) (((lifetime) * 7) / 8)
+
+/* RFC2131 section 4.4.5:
+ * the client SHOULD wait one-half of the remaining time until T2 (in RENEWING state)
+ * and one-half of the remaining lease time (in REBINDING state), down to a minimum
+ * of 60 seconds.
+ * Note that while the default T1/T2 initial times do have random 'fuzz' applied,
+ * the RFC sec 4.4.5 does not mention adding any fuzz to retries. */
+static usec_t client_compute_reacquisition_timeout(usec_t now, usec_t expire) {
+        return MAX(usec_sub_unsigned(expire, now) / 2, 60 * USEC_PER_SEC);
 }
 
 static int cmp_uint8(const uint8_t *a, const uint8_t *b) {
