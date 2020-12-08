@@ -15,6 +15,12 @@
 #include <asm/sgidefs.h>
 #endif
 
+#if defined(__x86_64__) && defined(__ILP32__)
+#define systemd_SC_arch_bias(x) ((x) | /* __X32_SYSCALL_BIT */ 0x40000000)
+#else
+#define systemd_SC_arch_bias(x) (x)
+#endif
+
 #include "missing_keyctl.h"
 #include "missing_stat.h"
 
@@ -40,7 +46,7 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 #      undef __NR_memfd_create
 #    endif
 #    if defined __x86_64__
-#      define __NR_memfd_create 319
+#      define __NR_memfd_create systemd_SC_arch_bias(319)
 #    elif defined __arm__
 #      define __NR_memfd_create 385
 #    elif defined __aarch64__
@@ -87,7 +93,7 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #      undef __NR_getrandom
 #    endif
 #    if defined __x86_64__
-#      define __NR_getrandom 318
+#      define __NR_getrandom systemd_SC_arch_bias(318)
 #    elif defined(__i386__)
 #      define __NR_getrandom 355
 #    elif defined(__arm__)
@@ -150,7 +156,7 @@ static inline pid_t missing_gettid(void) {
 #      undef __NR_name_to_handle_at
 #    endif
 #    if defined(__x86_64__)
-#      define __NR_name_to_handle_at 303
+#      define __NR_name_to_handle_at systemd_SC_arch_bias(303)
 #    elif defined(__i386__)
 #      define __NR_name_to_handle_at 341
 #    elif defined(__arm__)
@@ -191,7 +197,7 @@ static inline int missing_name_to_handle_at(int fd, const char *name, struct fil
 #      undef __NR_setns
 #    endif
 #    if defined(__x86_64__)
-#      define __NR_setns 308
+#      define __NR_setns systemd_SC_arch_bias(308)
 #    elif defined(__i386__)
 #      define __NR_setns 346
 #    elif defined(__arc__)
@@ -232,7 +238,7 @@ static inline pid_t raw_getpid(void) {
 #      undef __NR_renameat2
 #    endif
 #    if defined __x86_64__
-#      define __NR_renameat2 316
+#      define __NR_renameat2 systemd_SC_arch_bias(316)
 #    elif defined __arm__
 #      define __NR_renameat2 382
 #    elif defined __aarch64__
@@ -333,7 +339,7 @@ static inline key_serial_t missing_request_key(const char *type, const char *des
 #      undef __NR_copy_file_range
 #    endif
 #    if defined(__x86_64__)
-#      define __NR_copy_file_range 326
+#      define __NR_copy_file_range systemd_SC_arch_bias(326)
 #    elif defined(__i386__)
 #      define __NR_copy_file_range 377
 #    elif defined __s390__
@@ -377,7 +383,7 @@ static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in,
 #    if defined __i386__
 #      define __NR_bpf 357
 #    elif defined __x86_64__
-#      define __NR_bpf 321
+#      define __NR_bpf systemd_SC_arch_bias(321)
 #    elif defined __aarch64__
 #      define __NR_bpf 280
 #    elif defined __arm__
@@ -418,7 +424,7 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #    if defined __i386__
 #      define __NR_pkey_mprotect 380
 #    elif defined __x86_64__
-#      define __NR_pkey_mprotect 329
+#      define __NR_pkey_mprotect systemd_SC_arch_bias(329)
 #    elif defined __arm__
 #      define __NR_pkey_mprotect 394
 #    elif defined __aarch64__
@@ -462,7 +468,7 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #    elif defined __sparc__
 #      define __NR_statx 360
 #    elif defined __x86_64__
-#      define __NR_statx 332
+#      define __NR_statx systemd_SC_arch_bias(332)
 #    else
 #      warning "__NR_statx not defined for your architecture"
 #    endif
@@ -551,7 +557,7 @@ static inline long missing_get_mempolicy(int *mode, unsigned long *nodemask,
 #    elif defined __ia64__
 #      define systemd_NR_pidfd_send_signal (424 + 1024)
 #    else
-#      define __NR_pidfd_send_signal 424
+#      define __NR_pidfd_send_signal systemd_SC_arch_bias(424)
 #    endif
 #  endif
 static inline int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, unsigned flags) {
@@ -588,7 +594,7 @@ static inline int missing_pidfd_send_signal(int fd, int sig, siginfo_t *info, un
 #    elif defined __ia64__
 #      define systemd_NR_pidfd_open (434 + 1024)
 #    else
-#      define __NR_pidfd_open 434
+#      define __NR_pidfd_open systemd_SC_arch_bias(434)
 #    endif
 #  endif
 static inline int missing_pidfd_open(pid_t pid, unsigned flags) {
