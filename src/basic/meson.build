@@ -344,6 +344,7 @@ arch_list = [
         'arm64',
         'i386',
         'ia64',
+        'loongarch64',
         'm68k',
         'mips64',
         'mips64n32',
