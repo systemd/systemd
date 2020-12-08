@@ -334,7 +334,7 @@ static inline pid_t raw_getpid(void) {
 #  elif _MIPS_SIM == _MIPS_SIM_ABI64
 #    define systemd_NR_renameat2 systemd_SC_arch_bias(311)
 #  endif
-#elif defined(__powerpc64__)
+#elif defined(__powerpc__)
 #  define systemd_NR_renameat2 357
 #elif defined(__s390__) || defined(__s390x__)
 #  define systemd_NR_renameat2 347
@@ -606,7 +606,7 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #  elif _MIPS_SIM == _MIPS_SIM_ABI64
 #    define systemd_NR_statx systemd_SC_arch_bias(326)
 #  endif
-#elif defined(__powerpc64__)
+#elif defined(__powerpc__)
 #  define systemd_NR_statx 383
 #elif defined(__s390__) || defined(__s390x__)
 #  define systemd_NR_statx 379
