@@ -387,11 +387,10 @@ static int write_to_console(
                 iovec[n++] = IOVEC_MAKE_STRING(prefix);
         }
 
-        if (show_time) {
-                if (format_timestamp(header_time, sizeof(header_time), now(CLOCK_REALTIME))) {
-                        iovec[n++] = IOVEC_MAKE_STRING(header_time);
-                        iovec[n++] = IOVEC_MAKE_STRING(" ");
-                }
+        if (show_time &&
+            format_timestamp(header_time, sizeof(header_time), now(CLOCK_REALTIME))) {
+                iovec[n++] = IOVEC_MAKE_STRING(header_time);
+                iovec[n++] = IOVEC_MAKE_STRING(" ");
         }
 
         if (show_tid) {
