@@ -2937,8 +2937,10 @@ int manager_loop(Manager *m) {
                 usec_t wait_usec, watchdog_usec;
 
                 watchdog_usec = manager_get_watchdog(m, WATCHDOG_RUNTIME);
-                if (timestamp_is_set(watchdog_usec))
+                if (m->runtime_watchdog_running)
                         (void) watchdog_ping();
+                else if (timestamp_is_set(watchdog_usec))
+                        manager_retry_runtime_watchdog(m);
 
                 if (!ratelimit_below(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
@@ -3408,14 +3410,18 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
 
         if (t == WATCHDOG_RUNTIME)
                 if (!timestamp_is_set(m->watchdog_overridden[WATCHDOG_RUNTIME])) {
-                        if (timestamp_is_set(timeout))
+                        if (timestamp_is_set(timeout)) {
                                 r = watchdog_set_timeout(&timeout);
-                        else
+
+                                if (r >= 0)
+                                        m->runtime_watchdog_running = true;
+                        } else {
                                 watchdog_close(true);
+                                m->runtime_watchdog_running = false;
+                        }
                 }
 
-        if (r >= 0)
-                m->watchdog[t] = timeout;
+        m->watchdog[t] = timeout;
 }
 
 int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
@@ -3433,16 +3439,34 @@ int manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
                 usec_t *p;
 
                 p = timestamp_is_set(timeout) ? &timeout : &m->watchdog[t];
-                if (timestamp_is_set(*p))
+                if (timestamp_is_set(*p)) {
                         r = watchdog_set_timeout(p);
-                else
+
+                        if (r >= 0)
+                                m->runtime_watchdog_running = true;
+                } else {
                         watchdog_close(true);
+                        m->runtime_watchdog_running = false;
+                }
         }
 
-        if (r >= 0)
-                m->watchdog_overridden[t] = timeout;
+        m->watchdog_overridden[t] = timeout;
 
         return 0;
+}
+
+void manager_retry_runtime_watchdog(Manager *m) {
+        int r = 0;
+
+        assert(m);
+
+        if (timestamp_is_set(m->watchdog_overridden[WATCHDOG_RUNTIME]))
+                r = watchdog_set_timeout(&m->watchdog_overridden[WATCHDOG_RUNTIME]);
+        else
+                r = watchdog_set_timeout(&m->watchdog[WATCHDOG_RUNTIME]);
+
+        if (r >= 0)
+                m->runtime_watchdog_running = true;
 }
 
 static void manager_deserialize_uid_refs_one_internal(
