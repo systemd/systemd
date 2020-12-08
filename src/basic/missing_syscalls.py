@@ -59,6 +59,8 @@ DEF_TEMPLATE_B = '''\
 #    define systemd_NR_{syscall} {nr_i386}
 #  elif defined(__ia64__)
 #    define systemd_NR_{syscall} {nr_ia64}
+#  elif defined(__loongarch64)
+#    define systemd_NR_{syscall} {nr_loongarch64}
 #  elif defined(__m68k__)
 #    define systemd_NR_{syscall} {nr_m68k}
 #  elif defined(_MIPS_SIM)
