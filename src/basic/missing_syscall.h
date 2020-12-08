@@ -84,7 +84,7 @@ static inline int missing_pivot_root(const char *new_root, const char *put_old) 
 #elif defined(__x86_64__)
 #  define systemd_NR_memfd_create systemd_SC_arch_bias(319)
 #else
-#  warning "memfd_create() syscall number unknown for your architecture"
+#  warning "memfd_create() syscall number is unknown for your architecture"
 #endif
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
@@ -147,7 +147,7 @@ static inline int missing_memfd_create(const char *name, unsigned int flags) {
 #elif defined(__x86_64__)
 #  define systemd_NR_getrandom systemd_SC_arch_bias(318)
 #else
-#  warning "getrandom() syscall number unknown for your architecture"
+#  warning "getrandom() syscall number is unknown for your architecture"
 #endif
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
@@ -225,7 +225,7 @@ static inline pid_t missing_gettid(void) {
 #elif defined(__x86_64__)
 #  define systemd_NR_name_to_handle_at systemd_SC_arch_bias(303)
 #else
-#  warning "name_to_handle_at number is not defined"
+#  warning "name_to_handle_at() syscall number is unknown for your architecture"
 #endif
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
@@ -294,7 +294,7 @@ static inline int missing_name_to_handle_at(int fd, const char *name, struct fil
 #elif defined(__x86_64__)
 #  define systemd_NR_setns systemd_SC_arch_bias(308)
 #else
-#  warning "setns() syscall number unknown for your architecture"
+#  warning "setns() syscall number is unknown for your architecture"
 #endif
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
@@ -367,7 +367,7 @@ static inline pid_t raw_getpid(void) {
 #elif defined(__x86_64__)
 #  define systemd_NR_renameat2 systemd_SC_arch_bias(316)
 #else
-#  warning "renameat2() syscall number unknown for your architecture"
+#  warning "renameat2() syscall number is unknown for your architecture"
 #endif
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
@@ -482,7 +482,7 @@ static inline key_serial_t missing_request_key(const char *type, const char *des
 #elif defined(__x86_64__)
 #  define systemd_NR_copy_file_range systemd_SC_arch_bias(326)
 #else
-#  warning "copy_file_range() syscall number unknown for your architecture"
+#  warning "copy_file_range() syscall number is unknown for your architecture"
 #endif
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
@@ -548,7 +548,7 @@ static inline ssize_t missing_copy_file_range(int fd_in, loff_t *off_in,
 #elif defined(__x86_64__)
 #  define systemd_NR_bpf systemd_SC_arch_bias(321)
 #else
-#  warning "bpf() syscall number unknown for your architecture"
+#  warning "bpf() syscall number is unknown for your architecture"
 #endif
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
@@ -614,7 +614,7 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #  elif defined(__x86_64__)
 #    define systemd_NR_pkey_mprotect systemd_SC_arch_bias(329)
 #  else
-#    warning "pkey_mprotect() syscall number unknown for your architecture"
+#    warning "pkey_mprotect() syscall number is unknown for your architecture"
 #  endif
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
@@ -665,7 +665,7 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #elif defined(__x86_64__)
 #  define systemd_NR_statx systemd_SC_arch_bias(332)
 #else
-#  warning "statx() syscall number unknown for your architecture"
+#  warning "statx() syscall number is unknown for your architecture"
 #endif
 
 /* may be (invalid) negative number due to libseccomp, see PR 13319 */
