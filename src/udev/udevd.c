@@ -436,23 +436,12 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
-        DeviceAction action;
-        uint64_t seqnum;
         int r;
 
         assert(manager);
         assert(dev);
 
-        r = device_get_seqnum(dev, &seqnum);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get SEQNUM: %m");
-
-        r = device_get_action(dev, &action);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get ACTION: %m");
-
-        log_device_debug(dev, "Processing device (SEQNUM=%"PRIu64", ACTION=%s)",
-                         seqnum, device_action_to_string(action));
+        log_device_uevent(dev, "Processing device");
 
         udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl);
         if (!udev_event)
@@ -521,9 +510,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         } else
                 (void) udev_watch_end(dev);
 
-        log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) processed",
-                         seqnum, device_action_to_string(action));
-
+        log_device_uevent(dev, "Device processed");
         return 0;
 }
 
@@ -655,13 +642,7 @@ static void event_run(Manager *manager, struct event *event) {
         assert(manager);
         assert(event);
 
-        if (DEBUG_LOGGING) {
-                DeviceAction action;
-
-                r = device_get_action(event->dev, &action);
-                log_device_debug(event->dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) ready for processing",
-                                 event->seqnum, r >= 0 ? device_action_to_string(action) : "<unknown>");
-        }
+        log_device_uevent(event->dev, "Device ready for processing");
 
         HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state != WORKER_IDLE)
@@ -704,7 +685,6 @@ static void event_run(Manager *manager, struct event *event) {
 static int event_queue_insert(Manager *manager, sd_device *dev) {
         _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
         struct event *event;
-        DeviceAction action;
         uint64_t seqnum;
         int r;
 
@@ -716,11 +696,6 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
         /* We only accepts devices received by device monitor. */
         r = device_get_seqnum(dev, &seqnum);
-        if (r < 0)
-                return r;
-
-        /* Refuse devices do not have ACTION property. */
-        r = device_get_action(dev, &action);
         if (r < 0)
                 return r;
 
@@ -753,8 +728,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
         LIST_APPEND(event, manager->events, event);
 
-        log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) is queued",
-                         seqnum, device_action_to_string(action));
+        log_device_uevent(dev, "Device is queued");
 
         return 0;
 }
