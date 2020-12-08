@@ -27,6 +27,7 @@ int (*sym_crypt_resize)(struct crypt_device *cd, const char *name, uint64_t new_
 int (*sym_crypt_set_data_device)(struct crypt_device *cd, const char *device);
 void (*sym_crypt_set_debug_level)(int level);
 void (*sym_crypt_set_log_callback)(struct crypt_device *cd, void (*log)(int level, const char *msg, void *usrptr), void *usrptr);
+int (*sym_crypt_set_pbkdf_type)(struct crypt_device *cd, const struct crypt_pbkdf_type *pbkdf) = NULL;
 int (*sym_crypt_token_json_get)(struct crypt_device *cd, int token, const char **json) = NULL;
 int (*sym_crypt_token_json_set)(struct crypt_device *cd, int token, const char *json) = NULL;
 int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
@@ -64,6 +65,7 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_set_data_device),
                         DLSYM_ARG(crypt_set_debug_level),
                         DLSYM_ARG(crypt_set_log_callback),
+                        DLSYM_ARG(crypt_set_pbkdf_type),
                         DLSYM_ARG(crypt_token_json_get),
                         DLSYM_ARG(crypt_token_json_set),
                         DLSYM_ARG(crypt_volume_key_get),
@@ -111,6 +113,30 @@ void cryptsetup_enable_logging(struct crypt_device *cd) {
 
         sym_crypt_set_log_callback(cd, cryptsetup_log_glue, NULL);
         sym_crypt_set_debug_level(DEBUG_LOGGING ? CRYPT_DEBUG_ALL : CRYPT_DEBUG_NONE);
+}
+
+int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd) {
+
+        static const struct crypt_pbkdf_type minimal_pbkdf = {
+                .hash = "sha512",
+                .type = CRYPT_KDF_PBKDF2,
+                .iterations = 1,
+                .time_ms = 1,
+        };
+
+        int r;
+
+        /* Sets a minimal PKBDF in case we already have a high entropy key. */
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_set_pbkdf_type(cd, &minimal_pbkdf);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 int cryptsetup_get_token_as_json(
