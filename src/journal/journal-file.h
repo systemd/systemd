@@ -53,6 +53,7 @@ typedef enum OfflineState {
         OFFLINE_CANCEL,
         OFFLINE_AGAIN_FROM_SYNCING,
         OFFLINE_AGAIN_FROM_OFFLINING,
+        OFFLINE_FAILED,
         OFFLINE_DONE
 } OfflineState;
 
@@ -64,6 +65,7 @@ typedef struct JournalFile {
 
         int flags;
         int prot;
+        int fsync_error; /* permanently set to -errno when an fsync() has failed */
         bool writable:1;
         bool compress_xz:1;
         bool compress_lz4:1;
