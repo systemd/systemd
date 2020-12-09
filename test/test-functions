@@ -676,6 +676,19 @@ install_missing_libraries() {
     for i in $initdir{,/usr}/{sbin,bin}/* $initdir{,/usr}/lib/systemd/{,tests/{,manual/,unsafe/}}*; do
         LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+$LD_LIBRARY_PATH:}$(get_ldpath $i):$(get_ldpath $i)/src/udev" inst_libs $i
     done
+
+    # A number of dependencies is now optional via dlopen, so the install
+    # script will not pick them up, since it looks at linkage.
+    for lib in libcryptsetup libidn libidn2 pwquality libqrencode; do
+            if pkg-config --exists ${lib}; then
+                    path=$(pkg-config --variable=libdir ${lib})
+                    if ! [[ ${lib} =~ ^lib ]]; then
+                            lib="lib${lib}"
+                    fi
+                    inst_libs "${path}/${lib}.so"
+                    inst_library "${path}/${lib}.so"
+            fi
+    done
 }
 
 cleanup_loopdev() {
