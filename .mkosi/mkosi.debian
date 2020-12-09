@@ -66,7 +66,7 @@ Packages=
         libidn2-0
         libqrencode4
         locales
-        libidn2-0
+        strace
 
 [Host]
 QemuHeadless=yes

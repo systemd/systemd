@@ -76,6 +76,7 @@ Packages=
         libqrencode4
         libseccomp2
         pam
+        strace
         util-linux
 
 [Host]

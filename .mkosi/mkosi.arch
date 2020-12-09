@@ -57,6 +57,7 @@ Packages=
         gdb
         libidn2
         qrencode
+        strace
 
 [Host]
 QemuHeadless=yes

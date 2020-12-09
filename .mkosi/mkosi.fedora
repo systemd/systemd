@@ -78,6 +78,7 @@ Packages=
         libzstd
         # procps-ng provides a set of useful utilies (ps, free, etc)
         procps-ng
+        strace
 
 BuildDirectory=mkosi.builddir
 Cache=mkosi.cache
