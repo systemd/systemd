@@ -830,7 +830,8 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         }
 
         if (STR_IN_SET(field, "IPIngressFilterPath",
-                              "IPEgressFilterPath")) {
+                              "IPEgressFilterPath",
+                              "BPFProgram")) {
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "as", 0);
                 else
