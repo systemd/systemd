@@ -1089,8 +1089,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
         switch (type) {
         case UDEV_CTRL_SET_LOG_LEVEL:
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
-                log_set_max_level_realm(LOG_REALM_UDEV, value->intval);
-                log_set_max_level_realm(LOG_REALM_SYSTEMD, value->intval);
+                log_set_max_level_all_realms(value->intval);
                 manager_kill_workers(manager);
                 break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
