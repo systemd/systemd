@@ -214,20 +214,23 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (!filename)
                 return log_oom();
 
-        if (!add && unlink(filename) == 0)
-                (void) rmdir(dirname);
-
-        if (add)
-                do {
+        if (!add) {
+                if (unlink(filename) == 0)
+                        (void) rmdir(dirname);
+        } else
+                for (;;) {
                         _cleanup_close_ int fd = -1;
 
                         r = mkdir_parents(filename, 0755);
                         if (!IN_SET(r, 0, -ENOENT))
-                                break;
+                                return r;
+
                         fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
-                        if (fd < 0)
-                                r = -errno;
-                } while (r == -ENOENT);
+                        if (fd >= 0)
+                                break;
+                        if (errno != ENOENT)
+                                return -errno;
+                }
 
         /* If the database entry is not written yet we will just do one iteration and possibly wrong symlink
          * will be fixed in the second invocation. */
