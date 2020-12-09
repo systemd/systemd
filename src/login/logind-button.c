@@ -68,19 +68,9 @@ void button_free(Button *b) {
 }
 
 int button_set_seat(Button *b, const char *sn) {
-        char *s;
-
         assert(b);
-        assert(sn);
 
-        s = strdup(sn);
-        if (!s)
-                return -ENOMEM;
-
-        free(b->seat);
-        b->seat = s;
-
-        return 0;
+        return free_and_strdup(&b->seat, sn);
 }
 
 static void button_lid_switch_handle_action(Manager *manager, bool is_edge) {
