@@ -23,5 +23,6 @@ int tar_strip_suffixes(const char *name, char **ret);
 int raw_strip_suffixes(const char *name, char **ret);
 
 int import_assign_pool_quota_and_warn(const char *path);
+int import_subvol_make_and_warn(const char *root, const char *path);
 
 int import_set_nocow_and_log(int fd, const char *path);

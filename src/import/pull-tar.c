@@ -415,11 +415,7 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
 
         mkdir_parents_label(i->temp_path, 0700);
 
-        r = btrfs_subvol_make_fallback(i->temp_path, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create directory/subvolume %s: %m", i->temp_path);
-        if (r > 0) /* actually btrfs subvol */
-                (void) import_assign_pool_quota_and_warn(i->temp_path);
+        (void) import_subvol_make_and_warn(i->image_root, i->temp_path);
 
         j->disk_fd = import_fork_tar_x(i->temp_path, &i->tar_pid);
         if (j->disk_fd < 0)
