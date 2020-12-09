@@ -696,6 +696,12 @@
           <para>If these settings are used multiple times in the same unit all the specified programs are attached. If an
           empty string is assigned to these settings the program list is reset and all previous specified programs ignored.</para>
 
+          <para>If the path <replaceable>BPF_FS_PROGRAM_PATH</replaceable> in <varname>IPIngressFilterPath=</varname> assignment
+          is already being handled by <varname>BPFProgram=</varname> ingress hook, e.g.
+          <varname>BPFProgram=</varname><constant>ingress</constant>:<replaceable>BPF_FS_PROGRAM_PATH</replaceable>,
+          the assignment will be still considered valid and the program will be attached to a cgroup. Same for
+          <varname>IPEgressFilterPath=</varname> path and <constant>egress</constant> hook.</para>
+
           <para>Note that for socket-activated services, the IP filter programs configured on the socket unit apply to
           all sockets associated with it directly, but not to any sockets created by the ultimately activated services
           for it. Conversely, the IP filter programs configured for the service are not applied to any sockets passed into
@@ -707,6 +713,52 @@
           support is not enabled in the underlying kernel or container manager). These settings will fail the service in
           that case. If compatibility with such systems is desired it is hence recommended to attach your filter manually
           (requires <varname>Delegate=</varname><constant>yes</constant>) instead of using this setting.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BPFProgram=<replaceable>type</replaceable><constant>:</constant><replaceable>program-path</replaceable></varname></term>
+        <listitem>
+          <para>Add a custom cgroup BPF program.</para>
+
+          <para><varname>BPFProgram=</varname> allows attaching BPF hooks to the cgroup of a systemd unit.
+          (This generalizes the functionality exposed via <varname>IPEgressFilterPath=</varname> for egress and
+          <varname>IPIngressFilterPath=</varname> for ingress.)
+          Cgroup-bpf hooks in the form of BPF programs loaded to the BPF filesystem are attached with cgroup-bpf attach
+          flags determined by the unit. For details about attachment types and flags see <ulink
+          url="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/include/uapi/linux/bpf.h"/>.
+          For general BPF documentation please refer to <ulink url="https://www.kernel.org/doc/html/latest/bpf/index.html"/>.</para>
+
+          <para>The specification of BPF program consists of a <replaceable>type</replaceable> followed by a
+          <replaceable>program-path</replaceable> with <literal>:</literal> as the separator:
+          <replaceable>type</replaceable><constant>:</constant><replaceable>program-path</replaceable>.</para>
+
+          <para><replaceable>type</replaceable> is the string name of BPF attach type also used in
+          <command>bpftool</command>. <replaceable>type</replaceable> can be one of <constant>egress</constant>,
+          <constant>ingress</constant>, <constant>sock_create</constant>, <constant>sock_ops</constant>,
+          <constant>device</constant>, <constant>bind4</constant>, <constant>bind6</constant>,
+          <constant>connect4</constant>, <constant>connect6</constant>, <constant>post_bind4</constant>,
+          <constant>post_bind6</constant>, <constant>sendmsg4</constant>, <constant>sendmsg6</constant>,
+          <constant>sysctl</constant>, <constant>recvmsg4</constant>, <constant>recvmsg6</constant>,
+          <constant>getsockopt</constant>, <constant>setsockopt</constant>.</para>
+
+          <para>Setting <varname>BPFProgram=</varname> to an empty value makes previous assignments ineffective.</para>
+          <para>Multiple assignments of the same <replaceable>type</replaceable>:<replaceable>program-path</replaceable>
+          value have the same effect as a single assignment: the program with the path <replaceable>program-path</replaceable>
+          will be attached to cgroup hook <replaceable>type</replaceable> just once.</para>
+          <para>If BPF <constant>egress</constant> pinned to <replaceable>program-path</replaceable> path is already being
+          handled by <varname>IPEgressFilterPath=</varname>, <varname>BPFProgram=</varname>
+          assignment will be considered valid and <varname>BPFProgram=</varname> will be attached to a cgroup.
+          Similarly for <constant>ingress</constant> hook and <varname>IPIngressFilterPath=</varname> assignment.</para>
+
+          <para>BPF programs passed with <varname>BPFProgram=</varname> are attached to the cgroup of a unit with BPF
+          attach flag <constant>multi</constant>, that allows further attachments of the same
+          <replaceable>type</replaceable> within cgroup hierarchy topped by the unit cgroup.</para>
+
+          <para>Examples:<programlisting>
+BPFProgram=egress:/sys/fs/bpf/egress-hook
+BPFProgram=bind6:/sys/fs/bpf/sock-addr-hook
+</programlisting></para>
         </listitem>
       </varlistentry>
 
