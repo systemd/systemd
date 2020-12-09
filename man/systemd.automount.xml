@@ -63,6 +63,10 @@
     for mount dependencies here. For example, you should not set
     <varname>After=network-online.target</varname> or similar on network
     filesystems. Doing so may result in an ordering cycle.</para>
+
+    <para>Note that automount support on Linux is privileged, automount units are hence only available in the
+    system service manager (and root's user service manager), but not in unprivileged user's service
+    manager.</para>
   </refsect1>
 
   <refsect1>
