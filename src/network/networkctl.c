@@ -36,12 +36,15 @@
 #include "glob-util.h"
 #include "hwdb-util.h"
 #include "ipvlan-util.h"
+#include "json.h"
 #include "local-addresses.h"
 #include "locale-util.h"
 #include "logs-show.h"
 #include "macro.h"
 #include "macvlan-util.h"
 #include "main-func.h"
+#include "network-cloud-azure.h"
+#include "network-cloud-util.h"
 #include "netlink-util.h"
 #include "network-internal.h"
 #include "network-util.h"
@@ -211,6 +214,8 @@ typedef struct LinkInfo {
         char *ssid;
         struct ether_addr bssid;
 
+        NetworkCloudManager *cloud_manager;
+
         bool has_mac_address:1;
         bool has_permanent_mac_address:1;
         bool has_tx_queues:1;
@@ -241,6 +246,27 @@ static const LinkInfo* link_info_array_free(LinkInfo *array) {
         return mfree(array);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_array_free);
+
+static int acquire_azure_cloud_metadata(NetworkCloudManager **ret) {
+        _cleanup_(network_cloud_manager_freep) NetworkCloudManager *m = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        int r;
+
+        r = azure_acquire_cloud_metadata_from_imds(true, &m);
+        if (r < 0)
+                return r;
+
+        r = json_parse((char *) m->payload, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = azure_parse_json_object(m, v);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
 
 static int decode_netdev(sd_netlink_message *m, LinkInfo *info) {
         const char *received_kind;
@@ -1383,6 +1409,52 @@ static int show_logs(const LinkInfo *info) {
                         NULL);
 }
 
+static int link_dump_azure_cloud_network_data(const LinkInfo *info, Table *table) {
+        _cleanup_strv_free_ char **public_ips = NULL, **private_ips = NULL;
+        NetworkCloudMetaData *d;
+        AzureCloudMetadata *i;
+        int r;
+
+        assert(info);
+
+        if (!info->cloud_manager)
+                return 0;
+
+        d = ordered_hashmap_get(info->cloud_manager->interfaces_by_mac, &info->permanent_mac_address);
+        if (!d)
+                return 0;
+
+        ORDERED_HASHMAP_FOREACH(i, d->ipv4) {
+                _cleanup_free_ char *public = NULL, *private = NULL;
+
+                r = in_addr_to_string(AF_INET, &i->public_ip, &public);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend(&public_ips, public);
+                if (r < 0)
+                        return r;
+
+                r = in_addr_to_string(AF_INET, &i->private_ip, &private);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend(&private_ips, private);
+                if (r < 0)
+                        return r;
+        }
+
+        r = dump_list(table, "Azure Public IP:", public_ips);
+        if (r < 0)
+                return r;
+
+        r = dump_list(table, "Azure Private IP:", private_ips);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int link_status_one(
                 sd_bus *bus,
                 sd_netlink *rtnl,
@@ -2041,6 +2113,9 @@ static int link_status_one(
         r = dump_addresses(rtnl, lease, table, info->ifindex);
         if (r < 0)
                 return r;
+
+        (void) link_dump_azure_cloud_network_data(info, table);
+
         r = dump_gateways(rtnl, hwdb, table, info->ifindex);
         if (r < 0)
                 return r;
@@ -2209,6 +2284,7 @@ static int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
 }
 
 static int link_status(int argc, char *argv[], void *userdata) {
+        _cleanup_(network_cloud_manager_freep) NetworkCloudManager *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
@@ -2237,6 +2313,10 @@ static int link_status(int argc, char *argv[], void *userdata) {
                 c = acquire_link_info(bus, rtnl, argv + 1, &links);
         if (c < 0)
                 return c;
+
+        r = acquire_azure_cloud_metadata(&m);
+        if (r >= 0)
+                links->cloud_manager = m;
 
         for (i = 0; i < c; i++) {
                 if (i > 0)
