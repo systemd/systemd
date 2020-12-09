@@ -89,3 +89,8 @@ Cache=mkosi.cache
 
 [Host]
 QemuHeadless=yes
+NetworkVeth=yes
+
+[Validation]
+Password=
+Autologin=yes
