@@ -51,7 +51,7 @@ static int journal_fd = -1;
 
 static bool syslog_is_stream = false;
 
-static bool show_color = false;
+static int show_color = -1; /* tristate */
 static bool show_location = false;
 static bool show_time = false;
 static bool show_tid = false;
@@ -387,11 +387,10 @@ static int write_to_console(
                 iovec[n++] = IOVEC_MAKE_STRING(prefix);
         }
 
-        if (show_time) {
-                if (format_timestamp(header_time, sizeof(header_time), now(CLOCK_REALTIME))) {
-                        iovec[n++] = IOVEC_MAKE_STRING(header_time);
-                        iovec[n++] = IOVEC_MAKE_STRING(" ");
-                }
+        if (show_time &&
+            format_timestamp(header_time, sizeof(header_time), now(CLOCK_REALTIME))) {
+                iovec[n++] = IOVEC_MAKE_STRING(header_time);
+                iovec[n++] = IOVEC_MAKE_STRING(" ");
         }
 
         if (show_tid) {
@@ -399,12 +398,12 @@ static int write_to_console(
                 iovec[n++] = IOVEC_MAKE_STRING(tid_string);
         }
 
-        if (show_color)
+        if (log_get_show_color())
                 get_log_colors(LOG_PRI(level), &on, &off, NULL);
 
         if (show_location) {
                 const char *lon = "", *loff = "";
-                if (show_color) {
+                if (log_get_show_color()) {
                         lon = ANSI_HIGHLIGHT_YELLOW4;
                         loff = ANSI_NORMAL;
                 }
@@ -1222,7 +1221,7 @@ void log_show_color(bool b) {
 }
 
 bool log_get_show_color(void) {
-        return show_color;
+        return show_color > 0; /* Defaults to false. */
 }
 
 void log_show_location(bool b) {
@@ -1485,7 +1484,9 @@ void log_setup_service(void) {
 void log_setup_cli(void) {
         /* Sets up logging the way it is most appropriate for running a program as a CLI utility. */
 
-        log_show_color(true);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment_cli();
         (void) log_open();
+        if (log_on_console() && show_color < 0)
+                log_show_color(true);
 }
