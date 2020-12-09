@@ -59,6 +59,9 @@
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note that swap
     units cannot be templated, nor is possible to add multiple names to a swap unit by creating additional symlinks to
     it.</para>
+
+    <para>Note that swap support on Linux is privileged, swap units are hence only available in the system
+    service manager (and root's user service manager), but not in unprivileged user's service manager.</para>
   </refsect1>
 
   <refsect1>
