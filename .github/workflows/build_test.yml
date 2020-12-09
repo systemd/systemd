@@ -10,6 +10,9 @@ on:
       - 'meson_options.txt'
       - 'src/**'
       - 'test/fuzz/**'
+  push:
+    branches:
+      master
 
 jobs:
   build:
@@ -25,5 +28,15 @@ jobs:
     steps:
       - name: Repository checkout
         uses: actions/checkout@v1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v1
+        with:
+          languages: cpp, python
+          queries: ./.lgtm/cpp-queries
+
       - name: Build check (${{ env.COMPILER }}-${{ env.COMPILER_VERSION }})
         run: sudo -E .github/workflows/ubuntu-build-check.sh
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v1
