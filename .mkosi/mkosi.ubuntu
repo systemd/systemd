@@ -82,3 +82,8 @@ Packages=
 
 [Host]
 QemuHeadless=yes
+NetworkVeth=yes
+
+[Validation]
+Password=
+Autologin=yes
