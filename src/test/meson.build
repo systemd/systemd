@@ -71,6 +71,10 @@ tests += [
           libshared],
          []],
 
+        [['src/test/test-dlopen-so.c'],
+         [libshared],
+         []],
+
         [['src/test/test-job-type.c'],
          [libcore,
           libshared],
