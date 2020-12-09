@@ -44,9 +44,16 @@ typedef enum LogTarget{
 #define ERRNO_VALUE(val)                    (abs(val) & 255)
 
 void log_set_target(LogTarget target);
+
 void log_set_max_level_realm(LogRealm realm, int level);
+
 #define log_set_max_level(level)                \
         log_set_max_level_realm(LOG_REALM, (level))
+
+static inline void log_set_max_level_all_realms(int level) {
+        for (LogRealm realm = 0; realm < _LOG_REALM_MAX; realm++)
+                log_set_max_level_realm(realm, level);
+}
 
 void log_set_facility(int facility);
 
