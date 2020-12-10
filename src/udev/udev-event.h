@@ -34,17 +34,19 @@ typedef struct UdevEvent {
         unsigned builtin_run;
         unsigned builtin_ret;
         UdevRuleEscapeType esc:8;
-        bool inotify_watch:1;
-        bool inotify_watch_final:1;
-        bool group_final:1;
-        bool owner_final:1;
-        bool mode_final:1;
-        bool name_final:1;
-        bool devlink_final:1;
-        bool run_final:1;
+        bool inotify_watch;
+        bool inotify_watch_final;
+        bool group_final;
+        bool owner_final;
+        bool mode_final;
+        bool name_final;
+        bool devlink_final;
+        bool run_final;
+        bool log_level_was_debug;
+        int default_log_level;
 } UdevEvent;
 
-UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl);
+UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl, int log_level);
 UdevEvent *udev_event_free(UdevEvent *event);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_free);
 

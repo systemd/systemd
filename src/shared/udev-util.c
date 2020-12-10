@@ -324,6 +324,20 @@ bool device_for_action(sd_device *dev, DeviceAction action) {
         return a == action;
 }
 
+void log_device_uevent(sd_device *device, const char *str) {
+        DeviceAction action = _DEVICE_ACTION_INVALID;
+        uint64_t seqnum = 0;
+
+        if (!DEBUG_LOGGING)
+                return;
+
+        (void) device_get_seqnum(device, &seqnum);
+        (void) device_get_action(device, &action);
+        log_device_debug(device, "%s%s(SEQNUM=%"PRIu64", ACTION=%s)",
+                         strempty(str), isempty(str) ? "" : " ",
+                         seqnum, strna(device_action_to_string(action)));
+}
+
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
         char *i, *j;
         int r;

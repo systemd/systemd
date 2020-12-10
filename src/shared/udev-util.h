@@ -33,4 +33,6 @@ int device_wait_for_devlink(const char *path, const char *subsystem, usec_t dead
 int device_is_renaming(sd_device *dev);
 bool device_for_action(sd_device *dev, DeviceAction action);
 
+void log_device_uevent(sd_device *device, const char *str);
+
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos);

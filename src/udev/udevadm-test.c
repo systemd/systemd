@@ -138,7 +138,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         /* don't read info from the db */
         device_seal(dev);
 
-        event = udev_event_new(dev, 0, NULL);
+        event = udev_event_new(dev, 0, NULL, LOG_DEBUG);
 
         assert_se(sigfillset(&mask) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, &sigmask_orig) >= 0);

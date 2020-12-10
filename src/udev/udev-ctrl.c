@@ -44,10 +44,10 @@ struct udev_ctrl {
         int sock_connect;
         union sockaddr_union saddr;
         socklen_t addrlen;
-        bool bound:1;
-        bool cleanup_socket:1;
-        bool connected:1;
-        bool maybe_disconnected:1;
+        bool bound;
+        bool cleanup_socket;
+        bool connected;
+        bool maybe_disconnected;
         sd_event *event;
         sd_event_source *event_source;
         sd_event_source *event_source_connect;

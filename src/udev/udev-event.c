@@ -51,7 +51,7 @@ typedef struct Spawn {
         size_t result_len;
 } Spawn;
 
-UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl) {
+UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl, int log_level) {
         UdevEvent *event;
 
         assert(dev);
@@ -68,6 +68,8 @@ UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rt
                 .uid = UID_INVALID,
                 .gid = GID_INVALID,
                 .mode = MODE_INVALID,
+                .log_level_was_debug = log_level == LOG_DEBUG,
+                .default_log_level = log_level,
         };
 
         return event;

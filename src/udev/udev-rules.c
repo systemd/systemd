@@ -25,6 +25,7 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "sysctl-util.h"
+#include "syslog-util.h"
 #include "udev-builtin.h"
 #include "udev-event.h"
 #include "udev-rules.h"
@@ -104,6 +105,7 @@ typedef enum {
         TK_A_OPTIONS_DB_PERSIST,            /* no argument */
         TK_A_OPTIONS_INOTIFY_WATCH,         /* boolean */
         TK_A_OPTIONS_DEVLINK_PRIORITY,      /* int */
+        TK_A_OPTIONS_LOG_LEVEL,             /* string of log level or "reset" */
         TK_A_OWNER,                         /* user name */
         TK_A_GROUP,                         /* group name */
         TK_A_MODE,                          /* mode string */
@@ -834,6 +836,17 @@ static int parse_token(UdevRules *rules, const char *key, char *attr, UdevRuleOp
                         if (r < 0)
                                 return log_token_error_errno(rules, r, "Failed to parse link priority '%s': %m", tmp);
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_DEVLINK_PRIORITY, op, NULL, INT_TO_PTR(prio));
+                } else if ((tmp = startswith(value, "log_level="))) {
+                        int level;
+
+                        if (streq(tmp, "reset"))
+                                level = -1;
+                        else {
+                                level = log_level_from_string(tmp);
+                                if (level < 0)
+                                        return log_token_error_errno(rules, level, "Failed to parse log level '%s': %m", tmp);
+                        }
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_LOG_LEVEL, op, NULL, INT_TO_PTR(level));
                 } else {
                         log_token_warning(rules, "Invalid value for OPTIONS key, ignoring: '%s'", value);
                         return 0;
@@ -1858,6 +1871,22 @@ static int udev_rule_apply_token_to_event(
         case TK_A_OPTIONS_DEVLINK_PRIORITY:
                 device_set_devlink_priority(dev, PTR_TO_INT(token->data));
                 break;
+        case TK_A_OPTIONS_LOG_LEVEL: {
+                int level = PTR_TO_INT(token->data);
+
+                if (level < 0)
+                        level = event->default_log_level;
+
+                log_set_max_level_all_realms(level);
+
+                if (level == LOG_DEBUG && !event->log_level_was_debug) {
+                        /* The log level becomes LOG_DEBUG at first time. Let's log basic information. */
+                        log_device_uevent(dev, "The log level is changed to 'debug' while processing device");
+                        event->log_level_was_debug = true;
+                }
+
+                break;
+        }
         case TK_A_OWNER: {
                 char owner[UTIL_NAME_SIZE];
                 const char *ow = owner;

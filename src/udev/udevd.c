@@ -84,6 +84,7 @@ typedef struct Manager {
         LIST_HEAD(struct event, events);
         const char *cgroup;
         pid_t pid; /* the process that originally allocated the manager object */
+        int log_level;
 
         UdevRules *rules;
         Hashmap *properties;
@@ -100,8 +101,8 @@ typedef struct Manager {
 
         usec_t last_usec;
 
-        bool stop_exec_queue:1;
-        bool exit:1;
+        bool stop_exec_queue;
+        bool exit;
 } Manager;
 
 enum event_state {
@@ -436,25 +437,14 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
 static int worker_process_device(Manager *manager, sd_device *dev) {
         _cleanup_(udev_event_freep) UdevEvent *udev_event = NULL;
         _cleanup_close_ int fd_lock = -1;
-        DeviceAction action;
-        uint64_t seqnum;
         int r;
 
         assert(manager);
         assert(dev);
 
-        r = device_get_seqnum(dev, &seqnum);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get SEQNUM: %m");
+        log_device_uevent(dev, "Processing device");
 
-        r = device_get_action(dev, &action);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get ACTION: %m");
-
-        log_device_debug(dev, "Processing device (SEQNUM=%"PRIu64", ACTION=%s)",
-                         seqnum, device_action_to_string(action));
-
-        udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl);
+        udev_event = udev_event_new(dev, arg_exec_delay_usec, manager->rtnl, manager->log_level);
         if (!udev_event)
                 return -ENOMEM;
 
@@ -521,9 +511,7 @@ static int worker_process_device(Manager *manager, sd_device *dev) {
         } else
                 (void) udev_watch_end(dev);
 
-        log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) processed",
-                         seqnum, device_action_to_string(action));
-
+        log_device_uevent(dev, "Device processed");
         return 0;
 }
 
@@ -552,6 +540,9 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
         r = worker_send_message(manager->worker_watch[WRITE_END]);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to send signal to main daemon, ignoring: %m");
+
+        /* Reset the log level, as it might be changed by "OPTIONS=log_level=". */
+        log_set_max_level_all_realms(manager->log_level);
 
         return 1;
 }
@@ -655,13 +646,7 @@ static void event_run(Manager *manager, struct event *event) {
         assert(manager);
         assert(event);
 
-        if (DEBUG_LOGGING) {
-                DeviceAction action;
-
-                r = device_get_action(event->dev, &action);
-                log_device_debug(event->dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) ready for processing",
-                                 event->seqnum, r >= 0 ? device_action_to_string(action) : "<unknown>");
-        }
+        log_device_uevent(event->dev, "Device ready for processing");
 
         HASHMAP_FOREACH(worker, manager->workers) {
                 if (worker->state != WORKER_IDLE)
@@ -704,7 +689,6 @@ static void event_run(Manager *manager, struct event *event) {
 static int event_queue_insert(Manager *manager, sd_device *dev) {
         _cleanup_(sd_device_unrefp) sd_device *clone = NULL;
         struct event *event;
-        DeviceAction action;
         uint64_t seqnum;
         int r;
 
@@ -716,11 +700,6 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
         /* We only accepts devices received by device monitor. */
         r = device_get_seqnum(dev, &seqnum);
-        if (r < 0)
-                return r;
-
-        /* Refuse devices do not have ACTION property. */
-        r = device_get_action(dev, &action);
         if (r < 0)
                 return r;
 
@@ -753,8 +732,7 @@ static int event_queue_insert(Manager *manager, sd_device *dev) {
 
         LIST_APPEND(event, manager->events, event);
 
-        log_device_debug(dev, "Device (SEQNUM=%"PRIu64", ACTION=%s) is queued",
-                         seqnum, device_action_to_string(action));
+        log_device_uevent(dev, "Device is queued");
 
         return 0;
 }
@@ -1090,6 +1068,7 @@ static int on_ctrl_msg(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, co
         case UDEV_CTRL_SET_LOG_LEVEL:
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
                 log_set_max_level_all_realms(value->intval);
+                manager->log_level = value->intval;
                 manager_kill_workers(manager);
                 break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
@@ -1733,6 +1712,8 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         r = device_monitor_enable_receiving(manager->monitor);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind netlink socket: %m");
+
+        manager->log_level = log_get_max_level();
 
         *ret = TAKE_PTR(manager);
 

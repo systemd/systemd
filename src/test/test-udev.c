@@ -102,7 +102,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open device '%s'", devpath);
 
-        assert_se(event = udev_event_new(dev, 0, NULL));
+        assert_se(event = udev_event_new(dev, 0, NULL, log_get_max_level()));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 
