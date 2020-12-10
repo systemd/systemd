@@ -50,7 +50,6 @@
 /* Maximum number of missed replies before selecting another source. */
 #define NTP_MAX_MISSED_REPLIES          2
 
-#define RETRY_USEC (30*USEC_PER_SEC)
 #define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
 #define RATELIMIT_BURST 10
 
@@ -787,7 +786,8 @@ int manager_connect(Manager *m) {
         if (!ratelimit_below(&m->ratelimit)) {
                 log_debug("Delaying attempts to contact servers.");
 
-                r = sd_event_add_time_relative(m->event, &m->event_retry, clock_boottime_or_monotonic(), RETRY_USEC, 0, manager_retry_connect, m);
+                r = sd_event_add_time_relative(m->event, &m->event_retry, clock_boottime_or_monotonic(), m->connection_retry_usec,
+                                               0, manager_retry_connect, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create retry timer: %m");
 
@@ -1084,6 +1084,8 @@ int manager_new(Manager **ret) {
         m->max_root_distance_usec = NTP_MAX_ROOT_DISTANCE;
         m->poll_interval_min_usec = NTP_POLL_INTERVAL_MIN_USEC;
         m->poll_interval_max_usec = NTP_POLL_INTERVAL_MAX_USEC;
+
+        m->connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC;
 
         m->server_socket = m->clock_watch_fd = -1;
 

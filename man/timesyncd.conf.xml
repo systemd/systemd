@@ -91,6 +91,12 @@
         <varname>PollIntervalMaxSec=</varname> defaults to 2048 seconds.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ConnectionRetrySec=</varname></term>
+        <listitem><para>Specifies the delaying attempts to contact servers after network is online. Takes a time value (in seconds).
+        Defaults to 30 seconds and must not be smaller than 1 seconds.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

@@ -124,5 +124,10 @@ int manager_parse_config_file(Manager *m) {
                 m->poll_interval_max_usec = MAX(NTP_POLL_INTERVAL_MAX_USEC, m->poll_interval_min_usec * 32);
         }
 
+        if (m->connection_retry_usec < 1 * USEC_PER_SEC) {
+                log_warning("Invalid ConnectionRetrySec=. Using default value.");
+                m->connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC;
+        }
+
         return r;
 }
