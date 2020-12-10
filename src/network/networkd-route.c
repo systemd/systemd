@@ -1192,8 +1192,6 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
 
         assert(link);
         assert(link->route_messages > 0);
-        assert(IN_SET(link->state, LINK_STATE_CONFIGURING,
-                      LINK_STATE_FAILED, LINK_STATE_LINGER));
 
         link->route_messages--;
 
