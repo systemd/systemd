@@ -97,7 +97,7 @@ static int create_device(void) {
                 "Conflicts=umount.target\n"
                 "BindsTo=%s %s\n"
                 "IgnoreOnIsolate=true\n"
-                "After=cryptsetup-pre.target %s %s\n"
+                "After=cryptsetup-pre.target systemd-udevd-kernel.socket %s %s\n"
                 "Before=cryptsetup.target umount.target\n"
                 "\n[Service]\n"
                 "Type=oneshot\n"
