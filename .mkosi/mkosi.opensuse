@@ -10,6 +10,7 @@ Release=tumbleweed
 [Output]
 Format=raw_btrfs
 Bootable=yes
+HostonlyInitrd=yes
 
 [Partitions]
 RootSize=3G
