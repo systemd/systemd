@@ -187,8 +187,6 @@ option('install-sysconfdir', type : 'boolean', value : true,
 
 option('fallback-hostname', type : 'string', value : 'localhost',
        description : 'the hostname used if none configured')
-option('compat-gateway-hostname', type : 'boolean', value : 'false',
-       description : 'allow "gateway" as the symbolic name for default gateway')
 option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], value : 'unified',
        description : 'default cgroup hierarchy')
