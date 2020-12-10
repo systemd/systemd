@@ -449,6 +449,9 @@ _pure_ static int compare_with_location(const JournalFile *f, const Location *l,
             f->current_realtime == l->realtime &&
             l->xor_hash_set &&
             f->current_xor_hash == l->xor_hash &&
+            l->seqnum_set &&
+            sd_id128_equal(f->header->seqnum_id, l->seqnum_id) &&
+            f->current_seqnum == l->seqnum &&
             f != current_file)
                 return 0;
 
