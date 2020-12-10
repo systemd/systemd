@@ -91,6 +91,22 @@ static void print_property(sd_device *dev, bool test, const char *name, const ch
         } else if (streq(name, "BOOT_SYSTEM_ID")) {
                 blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(dev, test, "ID_FS_BOOT_SYSTEM_ID", s);
+
+        } else if (streq(name, "VOLUME_ID")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_VOLUME_ID", s);
+
+        } else if (streq(name, "LOGICAL_VOLUME_ID")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_LOGICAL_VOLUME_ID", s);
+
+        } else if (streq(name, "VOLUME_SET_ID")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_VOLUME_SET_ID", s);
+
+        } else if (streq(name, "DATA_PREPARER_ID")) {
+                blkid_encode_string(value, s, sizeof(s));
+                udev_builtin_add_property(dev, test, "ID_FS_DATA_PREPARER_ID", s);
         }
 }
 
