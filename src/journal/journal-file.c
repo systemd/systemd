@@ -2741,12 +2741,14 @@ int journal_file_compare_locations(JournalFile *af, JournalFile *bf) {
         assert(af->location_type == LOCATION_SEEK);
         assert(bf->location_type == LOCATION_SEEK);
 
-        /* If contents and timestamps match, these entries are
-         * identical, even if the seqnum does not match */
+        /* If contents, timestamps and seqnum match, these entries are
+         * identical*/
         if (sd_id128_equal(af->current_boot_id, bf->current_boot_id) &&
             af->current_monotonic == bf->current_monotonic &&
             af->current_realtime == bf->current_realtime &&
-            af->current_xor_hash == bf->current_xor_hash)
+            af->current_xor_hash == bf->current_xor_hash &&
+            sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id) &&
+            af->current_seqnum == bf->current_seqnum)
                 return 0;
 
         if (sd_id128_equal(af->header->seqnum_id, bf->header->seqnum_id)) {
