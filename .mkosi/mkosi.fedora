@@ -10,6 +10,7 @@ Release=33
 [Output]
 Format=gpt_ext4
 Bootable=yes
+HostonlyInitrd=yes
 
 [Partitions]
 RootSize=3G

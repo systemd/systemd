@@ -11,6 +11,7 @@ Repositories=main,universe
 [Output]
 Format=raw_btrfs
 Bootable=yes
+HostonlyInitrd=yes
 
 [Partitions]
 RootSize=2G
