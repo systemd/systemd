@@ -94,7 +94,7 @@
 
           <row>
             <entry><varname>powervm</varname></entry>
-            <entry>IBM PowerVM hypervisor - comes as firmware with some IBM POWER servers</entry>
+            <entry>IBM PowerVM hypervisor — comes as firmware with some IBM POWER servers</entry>
           </row>
 
           <row>
