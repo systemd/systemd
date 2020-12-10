@@ -1977,15 +1977,25 @@ IteratedCache* iterated_cache_free(IteratedCache *cache) {
         return mfree(cache);
 }
 
-int set_strjoin(Set *s, const char *separator, char **ret) {
+int set_strjoin(Set *s, const char *separator, bool wrap_with_separator, char **ret) {
         size_t separator_len, allocated = 0, len = 0;
         _cleanup_free_ char *str = NULL;
         const char *value;
-        bool first = true;
+        bool first;
 
         assert(ret);
 
+        if (set_isempty(s)) {
+                *ret = NULL;
+                return 0;
+        }
+
         separator_len = strlen_ptr(separator);
+
+        if (separator_len == 0)
+                wrap_with_separator = false;
+
+        first = !wrap_with_separator;
 
         SET_FOREACH(value, s) {
                 size_t l = strlen_ptr(value);
@@ -1993,7 +2003,7 @@ int set_strjoin(Set *s, const char *separator, char **ret) {
                 if (l == 0)
                         continue;
 
-                if (!GREEDY_REALLOC(str, allocated, len + l + (first ? 0 : separator_len) + 1))
+                if (!GREEDY_REALLOC(str, allocated, len + l + (first ? 0 : separator_len) + (wrap_with_separator ? separator_len : 0) + 1))
                         return -ENOMEM;
 
                 if (separator_len > 0 && !first) {
@@ -2005,8 +2015,13 @@ int set_strjoin(Set *s, const char *separator, char **ret) {
                 len += l;
                 first = false;
         }
-        if (str)
-                str[len] = '\0';
+
+        if (wrap_with_separator) {
+                memcpy(str + len, separator, separator_len);
+                len += separator_len;
+        }
+
+        str[len] = '\0';
 
         *ret = TAKE_PTR(str);
         return 0;

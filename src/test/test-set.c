@@ -154,50 +154,77 @@ static void test_set_strjoin(void) {
         _cleanup_set_free_ Set *m = NULL;
         _cleanup_free_ char *joined = NULL;
 
-        assert_se(set_strjoin(m, NULL, &joined) >= 0);
+        /* Empty set */
+        assert_se(set_strjoin(m, NULL, false, &joined) >= 0);
         assert_se(!joined);
-        assert_se(set_strjoin(m, "", &joined) >= 0);
+        assert_se(set_strjoin(m, "", false, &joined) >= 0);
         assert_se(!joined);
-        assert_se(set_strjoin(m, " ", &joined) >= 0);
+        assert_se(set_strjoin(m, " ", false, &joined) >= 0);
         assert_se(!joined);
-        assert_se(set_strjoin(m, "xxx", &joined) >= 0);
+        assert_se(set_strjoin(m, "xxx", false, &joined) >= 0);
+        assert_se(!joined);
+        assert_se(set_strjoin(m, NULL, true, &joined) >= 0);
+        assert_se(!joined);
+        assert_se(set_strjoin(m, "", true, &joined) >= 0);
+        assert_se(!joined);
+        assert_se(set_strjoin(m, " ", true, &joined) >= 0);
+        assert_se(!joined);
+        assert_se(set_strjoin(m, "xxx", true, &joined) >= 0);
         assert_se(!joined);
 
+        /* Single entry */
         assert_se(set_put_strdup(&m, "aaa") == 1);
-
-        assert_se(set_strjoin(m, NULL, &joined) >= 0);
+        assert_se(set_strjoin(m, NULL, false, &joined) >= 0);
         assert_se(streq(joined, "aaa"));
-
         joined = mfree(joined);
-        assert_se(set_strjoin(m, "", &joined) >= 0);
+        assert_se(set_strjoin(m, "", false, &joined) >= 0);
         assert_se(streq(joined, "aaa"));
-
         joined = mfree(joined);
-        assert_se(set_strjoin(m, " ", &joined) >= 0);
+        assert_se(set_strjoin(m, " ", false, &joined) >= 0);
         assert_se(streq(joined, "aaa"));
-
         joined = mfree(joined);
-        assert_se(set_strjoin(m, "xxx", &joined) >= 0);
+        assert_se(set_strjoin(m, "xxx", false, &joined) >= 0);
         assert_se(streq(joined, "aaa"));
+        joined = mfree(joined);
+        assert_se(set_strjoin(m, NULL, true, &joined) >= 0);
+        assert_se(streq(joined, "aaa"));
+        joined = mfree(joined);
+        assert_se(set_strjoin(m, "", true, &joined) >= 0);
+        assert_se(streq(joined, "aaa"));
+        joined = mfree(joined);
+        assert_se(set_strjoin(m, " ", true, &joined) >= 0);
+        assert_se(streq(joined, " aaa "));
+        joined = mfree(joined);
+        assert_se(set_strjoin(m, "xxx", true, &joined) >= 0);
+        assert_se(streq(joined, "xxxaaaxxx"));
 
+        /* Two entries */
         assert_se(set_put_strdup(&m, "bbb") == 1);
         assert_se(set_put_strdup(&m, "aaa") == 0);
-
         joined = mfree(joined);
-        assert_se(set_strjoin(m, NULL, &joined) >= 0);
+        assert_se(set_strjoin(m, NULL, false, &joined) >= 0);
         assert_se(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
-
         joined = mfree(joined);
-        assert_se(set_strjoin(m, "", &joined) >= 0);
+        assert_se(set_strjoin(m, "", false, &joined) >= 0);
         assert_se(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
-
         joined = mfree(joined);
-        assert_se(set_strjoin(m, " ", &joined) >= 0);
+        assert_se(set_strjoin(m, " ", false, &joined) >= 0);
         assert_se(STR_IN_SET(joined, "aaa bbb", "bbb aaa"));
-
         joined = mfree(joined);
-        assert_se(set_strjoin(m, "xxx", &joined) >= 0);
+        assert_se(set_strjoin(m, "xxx", false, &joined) >= 0);
         assert_se(STR_IN_SET(joined, "aaaxxxbbb", "bbbxxxaaa"));
+        joined = mfree(joined);
+        assert_se(set_strjoin(m, NULL, true, &joined) >= 0);
+        assert_se(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
+        joined = mfree(joined);
+        assert_se(set_strjoin(m, "", true, &joined) >= 0);
+        assert_se(STR_IN_SET(joined, "aaabbb", "bbbaaa"));
+        joined = mfree(joined);
+        assert_se(set_strjoin(m, " ", true, &joined) >= 0);
+        assert_se(STR_IN_SET(joined, " aaa bbb ", " bbb aaa "));
+        joined = mfree(joined);
+        assert_se(set_strjoin(m, "xxx", true, &joined) >= 0);
+        assert_se(STR_IN_SET(joined, "xxxaaaxxxbbbxxx", "xxxbbbxxxaaaxxx"));
 }
 
 int main(int argc, const char *argv[]) {

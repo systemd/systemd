@@ -1534,7 +1534,7 @@ int device_properties_prepare(sd_device *device) {
         if (device->property_devlinks_outdated) {
                 _cleanup_free_ char *devlinks = NULL;
 
-                r = set_strjoin(device->devlinks, " ", &devlinks);
+                r = set_strjoin(device->devlinks, " ", false, &devlinks);
                 if (r < 0)
                         return r;
 
@@ -1550,7 +1550,7 @@ int device_properties_prepare(sd_device *device) {
         if (device->property_tags_outdated) {
                 _cleanup_free_ char *tags = NULL;
 
-                r = set_strjoin(device->all_tags, ":", &tags);
+                r = set_strjoin(device->all_tags, ":", true, &tags);
                 if (r < 0)
                         return r;
 
@@ -1561,7 +1561,7 @@ int device_properties_prepare(sd_device *device) {
                 }
 
                 tags = mfree(tags);
-                r = set_strjoin(device->current_tags, ":", &tags);
+                r = set_strjoin(device->current_tags, ":", true, &tags);
                 if (r < 0)
                         return r;
 
