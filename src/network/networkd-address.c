@@ -153,26 +153,40 @@ static bool address_may_have_broadcast(const Address *a) {
         return a->family == AF_INET && in4_addr_is_null(&a->in_addr_peer.in) && a->prefixlen <= 30;
 }
 
+static uint32_t address_prefix(const Address *a) {
+        assert(a);
+
+        /* make sure we don't try to shift by 32.
+         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
+        if (a->prefixlen == 0)
+                return 0;
+
+        if (a->in_addr_peer.in.s_addr != 0)
+                return be32toh(a->in_addr_peer.in.s_addr) >> (32 - a->prefixlen);
+        else
+                return be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
+}
+
 void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
 
-        if (!IN_SET(a->family, AF_INET, AF_INET6))
-                /* treat non-IPv4 or IPv6 address family as AF_UNSPEC */
-                return;
+        switch (a->family) {
+        case AF_INET:
+                siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
 
-        if (a->family == AF_INET)
-                siphash24_compress_string(a->label, state);
+                uint32_t prefix = address_prefix(a);
+                siphash24_compress(&prefix, sizeof(prefix), state);
 
-        siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
-        /* local address */
-        siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
-        /* peer address */
-        siphash24_compress(&a->in_addr_peer, FAMILY_ADDRESS_SIZE(a->family), state);
-
-        if (address_may_have_broadcast(a))
-                siphash24_compress(&a->broadcast, sizeof(a->broadcast), state);
+                _fallthrough_;
+        case AF_INET6:
+                siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
+                break;
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                break;
+        }
 }
 
 int address_compare_func(const Address *a1, const Address *a2) {
@@ -182,32 +196,25 @@ int address_compare_func(const Address *a1, const Address *a2) {
         if (r != 0)
                 return r;
 
-        if (!IN_SET(a1->family, AF_INET, AF_INET6))
-                /* treat non-IPv4 or IPv6 address family as AF_UNSPEC */
-                return 0;
-
-        if (a1->family == AF_INET) {
-                r = strcmp_ptr(a1->label, a2->label);
+        switch (a1->family) {
+        case AF_INET:
+                /* See kernel's find_matching_ifa() in net/ipv4/devinet.c */
+                r = CMP(a1->prefixlen, a2->prefixlen);
                 if (r != 0)
                         return r;
+
+                r = CMP(address_prefix(a1), address_prefix(a2));
+                if (r != 0)
+                        return r;
+
+                _fallthrough_;
+        case AF_INET6:
+                /* See kernel's ipv6_get_ifaddr() in net/ipv6/addrconf.c */
+                return memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
+        default:
+                /* treat any other address family as AF_UNSPEC */
+                return 0;
         }
-
-        r = CMP(a1->prefixlen, a2->prefixlen);
-        if (r != 0)
-                return r;
-
-        r = memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
-        if (r != 0)
-                return r;
-
-        r = memcmp(&a1->in_addr_peer, &a2->in_addr_peer, FAMILY_ADDRESS_SIZE(a1->family));
-        if (r != 0)
-                return r;
-
-        if (address_may_have_broadcast(a1))
-                return CMP(a1->broadcast.s_addr, a2->broadcast.s_addr);
-
-        return 0;
 }
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(address_hash_ops, Address, address_hash_func, address_compare_func, address_free);
@@ -440,29 +447,23 @@ int address_get(Link *link, const Address *in, Address **ret) {
         return -ENOENT;
 }
 
-static bool address_exists_internal(Set *addresses, int family, const union in_addr_union *in_addr) {
-        Address *address;
+int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
+        _cleanup_(address_freep) Address *a = NULL;
+        int r;
 
-        SET_FOREACH(address, addresses) {
-                if (address->family != family)
-                        continue;
-                if (in_addr_equal(address->family, &address->in_addr, in_addr))
-                        return true;
-        }
-
-        return false;
-}
-
-bool address_exists(Link *link, int family, const union in_addr_union *in_addr) {
         assert(link);
-        assert(IN_SET(family, AF_INET, AF_INET6));
-        assert(in_addr);
+        assert(address);
 
-        if (address_exists_internal(link->addresses, family, in_addr))
-                return true;
-        if (address_exists_internal(link->addresses_foreign, family, in_addr))
-                return true;
-        return false;
+        r = address_new(&a);
+        if (r < 0)
+                return r;
+
+        /* address_compare_func() only compares the local address for IPv6 case. So, it is enough to
+         * set only family and the address. */
+        a->family = AF_INET6;
+        a->in_addr.in6 = *address;
+
+        return address_get(link, a, NULL) >= 0;
 }
 
 static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
