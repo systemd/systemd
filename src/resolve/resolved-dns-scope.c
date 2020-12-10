@@ -522,13 +522,8 @@ DnsScopeMatch dns_scope_good_domain(
         if (dns_name_endswith(domain, "invalid") > 0)
                 return DNS_SCOPE_NO;
 
-        /* Never go to network for the _gateway domain, it's something special, synthesized locally. Note
-         * that we don't use is_gateway_hostname() here, since that has support for the legacy "gateway"
-         * hostname (without the prefix underscore), which we don't want to filter on all protocols. i.e. we
-         * don't want to filter "gateway" on classic DNS, since there might very well be such a host inside
-         * some search domain, and we shouldn't block that. We do filter it in LLMNR however (and on mDNS by
-         * side-effect, since it's a single-label name which mDNS doesn't accept anyway). */
-        if (dns_name_equal(domain, "_gateway") > 0)
+        /* Never go to network for the _gateway domain, it's something special, synthesized locally. */
+        if (is_gateway_hostname(domain))
                 return DNS_SCOPE_NO;
 
         switch (s->protocol) {

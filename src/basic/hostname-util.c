@@ -212,20 +212,6 @@ bool is_localhost(const char *hostname) {
                 endswith_no_case(hostname, ".localhost.localdomain.");
 }
 
-bool is_gateway_hostname(const char *hostname) {
-        assert(hostname);
-
-        /* This tries to identify the valid syntaxes for the our
-         * synthetic "gateway" host. */
-
-        return
-                strcaseeq(hostname, "_gateway") || strcaseeq(hostname, "_gateway.")
-#if ENABLE_COMPAT_GATEWAY_HOSTNAME
-                || strcaseeq(hostname, "gateway") || strcaseeq(hostname, "gateway.")
-#endif
-                ;
-}
-
 int sethostname_idempotent(const char *s) {
         char buf[HOST_NAME_MAX + 1] = {};
 

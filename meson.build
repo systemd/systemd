@@ -667,9 +667,6 @@ if fallback_hostname == '' or fallback_hostname[0] == '.' or fallback_hostname[0
 endif
 conf.set_quoted('FALLBACK_HOSTNAME', fallback_hostname)
 
-conf.set10('ENABLE_COMPAT_GATEWAY_HOSTNAME', get_option('compat-gateway-hostname'))
-gateway_hostnames = ['_gateway'] + (conf.get('ENABLE_COMPAT_GATEWAY_HOSTNAME') == 1 ? ['gateway'] : [])
-
 default_hierarchy = get_option('default-hierarchy')
 conf.set_quoted('DEFAULT_HIERARCHY_NAME', default_hierarchy,
                 description : 'default cgroup hierarchy as string')
@@ -3687,7 +3684,6 @@ status = [
         'nobody user name:                  @0@'.format(nobody_user),
         'nobody group name:                 @0@'.format(nobody_group),
         'fallback hostname:                 @0@'.format(get_option('fallback-hostname')),
-        'symbolic gateway hostnames:        @0@'.format(', '.join(gateway_hostnames)),
 
         'default DNSSEC mode:               @0@'.format(default_dnssec),
         'default DNS-over-TLS mode:         @0@'.format(default_dns_over_tls),
