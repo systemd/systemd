@@ -1515,13 +1515,14 @@ if opt == 'openssl' and conf.get('HAVE_OPENSSL') == 0
 endif
 conf.set10('PREFER_OPENSSL',
            opt == 'openssl' or (opt == 'auto' and conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_GCRYPT') == 0))
-have_openssl_or_gcrypt = conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1
+conf.set10('HAVE_OPENSSL_OR_GCRYPT',
+           conf.get('HAVE_OPENSSL') == 1 or conf.get('HAVE_GCRYPT') == 1)
 lib_openssl_or_gcrypt = conf.get('PREFER_OPENSSL') == 1 ? libopenssl : libgcrypt
 
 want_importd = get_option('importd')
 if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
-                have_openssl_or_gcrypt and
+                conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
                 conf.get('HAVE_ZLIB') == 1 and
                 conf.get('HAVE_XZ') == 1)
         if want_importd == 'true' and not have
@@ -2165,6 +2166,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                              libbasic_gcrypt,
                              libsystemd_resolve_core],
                 dependencies : [threads,
+                                lib_openssl_or_gcrypt,
                                 libgpg_error,
                                 libm,
                                 libidn],
@@ -4051,9 +4053,9 @@ else
         found += 'static-libudev(@0@)'.format(static_libudev)
 endif
 
-if have_openssl_or_gcrypt and conf.get('PREFER_OPENSSL') == 1
+if conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and conf.get('PREFER_OPENSSL') == 1
         found += 'cryptolib(openssl)'
-elif have_openssl_or_gcrypt
+elif conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1
         found += 'cryptolib(gcrypt)'
 else
         missing += cryptolib
