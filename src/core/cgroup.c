@@ -2484,6 +2484,10 @@ void unit_prune_cgroup(Unit *u) {
 
         (void) unit_get_cpu_usage(u, NULL); /* Cache the last CPU usage value before we destroy the cgroup */
 
+#if HAVE_LIBBPF
+        (void) cleanup_lsm_bpf(u->cgroup_path); /* Remove cgroup from the global LSM BPF map */
+#endif
+
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
         r = cg_trim_everywhere(u->manager->cgroup_supported, u->cgroup_path, !is_root_slice);
