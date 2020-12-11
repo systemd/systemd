@@ -2152,22 +2152,21 @@ static int link_configure_continue(Link *link) {
 }
 
 static int link_reconfigure_internal(Link *link, sd_netlink_message *m, bool force) {
+        _cleanup_strv_free_ char **s = NULL;
         Network *network;
         int r;
 
-        if (m) {
-                _cleanup_strv_free_ char **s = NULL;
+        assert(m);
 
-                r = sd_netlink_message_get_errno(m);
-                if (r < 0)
-                        return r;
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                return r;
 
-                r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &s);
-                if (r < 0 && r != -ENODATA)
-                        return r;
+        r = sd_netlink_message_read_strv(m, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &s);
+        if (r < 0 && r != -ENODATA)
+                return r;
 
-                strv_free_and_replace(link->alternative_names, s);
-        }
+        strv_free_and_replace(link->alternative_names, s);
 
         r = network_get(link->manager, link->iftype, link->sd_device,
                         link->ifname, link->alternative_names, link->driver,
@@ -2256,8 +2255,11 @@ int link_reconfigure(Link *link, bool force) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
-        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
-                return 0;
+        /* When link in pending or initialized state, then link_configure() will be called. To prevent
+         * the function be called multiple times simultaneously, refuse to reconfigure the interface in
+         * these case. */
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
+                return 0; /* o means no-op. */
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK,
                                      link->ifindex);
@@ -2272,7 +2274,7 @@ int link_reconfigure(Link *link, bool force) {
 
         link_ref(link);
 
-        return 0;
+        return 1; /* 1 means the interface will be reconfigured. */
 }
 
 static int link_initialized_and_synced(Link *link) {
@@ -2576,7 +2578,7 @@ static int link_carrier_gained(Link *link) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                r = link_reconfigure_internal(link, NULL, false);
+                r = link_reconfigure(link, false);
                 if (r < 0) {
                         link_enter_failed(link);
                         return r;
