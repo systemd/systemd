@@ -134,6 +134,8 @@ libcore_sources = '''
 subdir('bpf/socket_bind')
 if conf.get('BPF_FRAMEWORK') == 1
         libcore_sources += [socket_bind_skel_h]
+        subdir('bpf/restrict_fs')
+        libcore_sources += [restrict_fs_skel_h]
 endif
 
 subdir('bpf/restrict_ifaces')
