@@ -1139,11 +1139,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Host name %s is not valid.", optarg);
 
-                        hostname_cleanup(optarg);
                         r = free_and_strdup(&arg_hostname, optarg);
                         if (r < 0)
                                 return log_oom();
 
+                        hostname_cleanup(arg_hostname);
                         break;
 
                 case ARG_MACHINE_ID:
