@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#if HAVE_GCRYPT
-#include <gcrypt.h>
-#endif
 #include <netinet/in.h>
 #include <sys/socket.h>
 
@@ -13,7 +10,7 @@
 #include "string-util.h"
 #include "hexdecoct.h"
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
 
 static void test_dnssec_verify_dns_key(void) {
 
@@ -174,11 +171,7 @@ static void test_dnssec_verify_rfc8080_ed25519_example1(void) {
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
                                 rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
-#if GCRYPT_VERSION_NUMBER >= 0x010600
         assert_se(result == DNSSEC_VALIDATED);
-#else
-        assert_se(result == DNSSEC_UNSUPPORTED_ALGORITHM);
-#endif
 }
 
 static void test_dnssec_verify_rfc8080_ed25519_example2(void) {
@@ -266,11 +259,7 @@ static void test_dnssec_verify_rfc8080_ed25519_example2(void) {
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
                                 rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
-#if GCRYPT_VERSION_NUMBER >= 0x010600
         assert_se(result == DNSSEC_VALIDATED);
-#else
-        assert_se(result == DNSSEC_UNSUPPORTED_ALGORITHM);
-#endif
 }
 
 static void test_dnssec_verify_rfc6605_example1(void) {
@@ -792,7 +781,7 @@ static void test_dnssec_nsec3_hash(void) {
 
 int main(int argc, char *argv[]) {
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         test_dnssec_verify_dns_key();
         test_dnssec_verify_rfc8080_ed25519_example1();
         test_dnssec_verify_rfc8080_ed25519_example2();
