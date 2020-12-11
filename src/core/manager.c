@@ -930,6 +930,14 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                 r = manager_setup_sigchld_event_source(m);
                 if (r < 0)
                         return r;
+
+#if HAVE_LIBBPF
+                if (MANAGER_IS_SYSTEM(m) && lsm_bpf_supported()) {
+                        r = lsm_bpf_setup(m);
+                        if (r < 0)
+                                return r;
+                }
+#endif
         }
 
         if (test_run_flags == 0) {
@@ -1534,6 +1542,10 @@ Manager* manager_free(Manager *m) {
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
                 m->prefix[dt] = mfree(m->prefix[dt]);
         free(m->received_credentials);
+
+#if BPF_FRAMEWORK
+        lsm_bpf_destroy(m->restrict_fs);
+#endif
 
         return mfree(m);
 }
