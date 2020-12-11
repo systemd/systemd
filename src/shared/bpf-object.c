@@ -136,3 +136,33 @@ int bpf_object_resize_map(const struct bpf_object *object, const char *map_name,
 
         return bpf_map__resize(map, max_entries);
 }
+
+int bpf_object_set_inner_map_fd(const struct bpf_object *object, const char *map_name, int inner_map_fd) {
+        struct bpf_map *map;
+        int r;
+
+        map = bpf_object__find_map_by_name(object, map_name);
+        if (!map)
+                return -ENOENT;
+
+        r = bpf_map__set_inner_map_fd(map, inner_map_fd);
+        if (r < 0)
+                return -EBADF;
+
+        return 0;
+}
+
+int bpf_object_find_program_by_title(const struct bpf_object *object, const char *title, struct bpf_program **ret_prog) {
+        _cleanup_free_ struct bpf_program *_prog = NULL;
+
+        assert(ret_prog);
+        assert(*ret_prog == NULL);
+
+        _prog = bpf_object__find_program_by_title(object, title);
+        if (!_prog)
+                return -EINVAL;
+
+        *ret_prog = TAKE_PTR(_prog);
+
+        return 0;
+}
