@@ -1461,27 +1461,22 @@ int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *vali
         return 0;
 }
 
-static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
+static hash_md_t nsec3_hash_to_hash_md(uint8_t algorithm) {
 
-        /* Translates a DNSSEC NSEC3 hash algorithm into a gcrypt digest identifier */
+        /* Translates a DNSSEC NSEC3 hash algorithm into an openssl/gcrypt digest identifier */
 
         switch (algorithm) {
 
         case NSEC3_ALGORITHM_SHA1:
-                return GCRY_MD_SHA1;
+                return OPENSSL_OR_GCRYPT(EVP_sha1(), GCRY_MD_SHA1);
 
         default:
-                return -EOPNOTSUPP;
+                return OPENSSL_OR_GCRYPT(NULL, -EOPNOTSUPP);
         }
 }
 
 int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
-        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
-        gcry_error_t err;
-        size_t hash_size;
-        int algorithm;
-        void *result;
         int r;
 
         assert(nsec3);
@@ -1496,13 +1491,55 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
                                        "Ignoring NSEC3 RR %s with excessive number of iterations.",
                                        dns_resource_record_to_string(nsec3));
 
-        algorithm = nsec3_hash_to_gcrypt_md(nsec3->nsec3.algorithm);
+        hash_md_t algorithm = nsec3_hash_to_hash_md(nsec3->nsec3.algorithm);
+#if PREFER_OPENSSL
+        if (!algorithm)
+                return -EOPNOTSUPP;
+
+        size_t hash_size = EVP_MD_size(algorithm);
+        assert(hash_size > 0);
+
+        if (nsec3->nsec3.next_hashed_name_size != hash_size)
+                return -EINVAL;
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        if (!ctx)
+                return -ENOMEM;
+
+        if (EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
+                return -EIO;
+
+        r = dns_name_to_wire_format(name, wire_format, sizeof(wire_format), true);
+        if (r < 0)
+                return r;
+
+        if (EVP_DigestUpdate(ctx, wire_format, r) <= 0)
+                return -EIO;
+        if (EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
+                return -EIO;
+
+        uint8_t result[EVP_MAX_MD_SIZE];
+        if (EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
+                return -EIO;
+
+        for (unsigned k = 0; k < nsec3->nsec3.iterations; k++) {
+                if (EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
+                        return -EIO;
+                if (EVP_DigestUpdate(ctx, result, hash_size) <= 0)
+                        return -EIO;
+                if (EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
+                        return -EIO;
+
+                if (EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
+                        return -EIO;
+        }
+#else
         if (algorithm < 0)
                 return algorithm;
 
         initialize_libgcrypt(false);
 
-        hash_size = gcry_md_get_algo_dlen(algorithm);
+        unsigned hash_size = gcry_md_get_algo_dlen(algorithm);
         assert(hash_size > 0);
 
         if (nsec3->nsec3.next_hashed_name_size != hash_size)
@@ -1512,14 +1549,15 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (r < 0)
                 return r;
 
-        err = gcry_md_open(&md, algorithm, 0);
+        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
+        gcry_error_t err = gcry_md_open(&md, algorithm, 0);
         if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
                 return -EIO;
 
         gcry_md_write(md, wire_format, r);
         gcry_md_write(md, nsec3->nsec3.salt, nsec3->nsec3.salt_size);
 
-        result = gcry_md_read(md, 0);
+        void *result = gcry_md_read(md, 0);
         if (!result)
                 return -EIO;
 
@@ -1535,6 +1573,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
                 if (!result)
                         return -EIO;
         }
+#endif
 
         memcpy(ret, result, hash_size);
         return (int) hash_size;
@@ -1554,8 +1593,14 @@ static int nsec3_is_good(DnsResourceRecord *rr, DnsResourceRecord *nsec3) {
                 return 0;
 
         /* Ignore NSEC3 RRs whose algorithm we don't know */
-        if (nsec3_hash_to_gcrypt_md(rr->nsec3.algorithm) < 0)
+#if PREFER_OPENSSL
+        if (!nsec3_hash_to_hash_md(rr->nsec3.algorithm))
                 return 0;
+#else
+        if (nsec3_hash_to_hash_md(rr->nsec3.algorithm) < 0)
+                return 0;
+#endif
+
         /* Ignore NSEC3 RRs with an excessive number of required iterations */
         if (rr->nsec3.iterations > NSEC3_ITERATIONS_MAX)
                 return 0;
