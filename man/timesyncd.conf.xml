@@ -75,6 +75,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NetworkTimeSecurity=</varname></term>
+        <listitem><para>A space-separated list of Network Time Security (NTS) server host
+        names or IP addresses to be used. Network Time Security (NTS), a mechanism for
+        using Transport Layer Security (TLS) and Authenticated Encryption
+        with Associated Data (AEAD) to provide cryptographic security for the
+        client-server mode of the Network Time Protocol (NTP).
+        When the empty string is assigned, the list of NTS servers is reset,
+        and all assignments prior to this one will have no effect.
+        If this option is not given, a compiled-in list of NTP servers
+        is used instead.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RootDistanceMaxSec=</varname></term>
         <listitem><para>Maximum acceptable root distance. Takes a time value (in seconds).
         Defaults to 5 seconds.</para></listitem>

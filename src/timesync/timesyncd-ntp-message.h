@@ -20,6 +20,8 @@
  */
 #define OFFSET_1900_1970        UINT64_C(2208988800)
 
+#define NTP_EXTENSION_MESSAGE_SIZE_MAX 4096
+
 struct ntp_ts {
         be32_t sec;
         be32_t frac;
@@ -42,4 +44,8 @@ struct ntp_msg {
         struct ntp_ts origin_time;
         struct ntp_ts recv_time;
         struct ntp_ts trans_time;
+
+        uint8_t extensions[NTP_EXTENSION_MESSAGE_SIZE_MAX];
 } _packed_;
+
+#define NTP_HEADER_SIZE (size_t) offsetof(struct ntp_msg, extensions)

@@ -403,6 +403,8 @@ possible_link_flags = [
         '-Wl,-z,relro',
         '-Wl,-z,now',
         '-fstack-protector',
+        '-lcrypto',
+        '-lssl'
 ]
 
 if cc.get_id() == 'clang'
@@ -1310,6 +1312,10 @@ else
         libdbus = []
 endif
 conf.set10('HAVE_DBUS', have)
+
+# NTS support in timesyncd requires new APIs compared to the minimum supported version
+have_gnutls_for_nts = (conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.3'))
+conf.set10('GNUTLS_FOR_NTS', have_gnutls_for_nts)
 
 default_dnssec = get_option('default-dnssec')
 if skip_deps
@@ -2546,6 +2552,7 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                 include_directories : includes,
                 link_with : [timesyncd_link_with],
                 dependencies : [threads,
+                                libopenssl,
                                 libm],
                 install_rpath : rootlibexecdir,
                 install : true,
