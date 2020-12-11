@@ -667,11 +667,12 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
         r = link_reconfigure(l, true);
         if (r < 0)
                 return r;
-
-        link_set_state(l, LINK_STATE_INITIALIZED);
-        r = link_save_and_clean(l);
-        if (r < 0)
-                return r;
+        if (r > 0) {
+                link_set_state(l, LINK_STATE_INITIALIZED);
+                r = link_save_and_clean(l);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_bus_reply_method_return(message, NULL);
 }
