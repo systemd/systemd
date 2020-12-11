@@ -932,8 +932,6 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
         assert(link);
         assert(link->ifname);
         assert(link->address_messages > 0);
-        assert(IN_SET(link->state, LINK_STATE_CONFIGURING,
-               LINK_STATE_FAILED, LINK_STATE_LINGER));
 
         link->address_messages--;
 
@@ -958,16 +956,11 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) 
                  * will not be called automatically. So, call it here. */
                 a = set_first(link->static_addresses);
                 if (!a) {
-                        log_link_warning(link, "No static address is stored.");
-                        link_enter_failed(link);
+                        log_link_debug(link, "No static address is stored. Already removed?");
                         return 1;
                 }
-                if (!a->callback) {
-                        log_link_warning(link, "Address ready callback is not set.");
-                        link_enter_failed(link);
-                        return 1;
-                }
-                r = a->callback(a);
+
+                r = static_address_ready_callback(a);
                 if (r < 0)
                         link_enter_failed(link);
         }
@@ -1008,6 +1001,11 @@ int link_set_addresses(Link *link) {
         if (link->address_remove_messages != 0) {
                 log_link_debug(link, "Removing old addresses, new addresses will be configured later.");
                 link->request_static_addresses = true;
+                return 0;
+        }
+
+        if (link->address_messages != 0) {
+                log_link_debug(link, "Static addresses are configuring.");
                 return 0;
         }
 

@@ -1192,8 +1192,6 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
 
         assert(link);
         assert(link->route_messages > 0);
-        assert(IN_SET(link->state, LINK_STATE_CONFIGURING,
-                      LINK_STATE_FAILED, LINK_STATE_LINGER));
 
         link->route_messages--;
 
@@ -1238,6 +1236,11 @@ int link_set_routes(Link *link) {
                 /* During configuring addresses, the link lost its carrier. As networkd is dropping
                  * the addresses now, let's not configure the routes either. */
                 return 0;
+
+        if (link->route_messages != 0) {
+                log_link_debug(link, "Static routes are configuring.");
+                return 0;
+        }
 
         r = link_set_routing_policy_rules(link);
         if (r < 0)

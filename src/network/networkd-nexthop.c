@@ -312,6 +312,11 @@ int link_set_nexthop(Link *link) {
         assert(link);
         assert(link->network);
 
+        if (link->nexthop_messages != 0) {
+                log_link_debug(link, "Nexthops are configuring.");
+                return 0;
+        }
+
         link->static_nexthops_configured = false;
 
         HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {

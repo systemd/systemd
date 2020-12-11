@@ -39,8 +39,15 @@ int link_configure_traffic_control(Link *link) {
         TrafficControl *tc;
         int r;
 
+        assert(link);
+        assert(link->network);
+
+        if (link->tc_messages != 0) {
+                log_link_debug(link, "Traffic control is configuring.");
+                return 0;
+        }
+
         link->tc_configured = false;
-        link->tc_messages = 0;
 
         ORDERED_HASHMAP_FOREACH(tc, link->network->tc_by_section) {
                 r = traffic_control_configure(link, tc);

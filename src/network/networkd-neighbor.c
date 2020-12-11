@@ -294,6 +294,11 @@ int link_set_neighbors(Link *link) {
         assert(link->network);
         assert(link->state != _LINK_STATE_INVALID);
 
+        if (link->neighbor_messages != 0) {
+                log_link_debug(link, "Neighbors are configuring.");
+                return 0;
+        }
+
         link->neighbors_configured = false;
 
         HASHMAP_FOREACH(neighbor, link->network->neighbors_by_section) {
