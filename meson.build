@@ -2166,6 +2166,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                              libbasic_gcrypt,
                              libsystemd_resolve_core],
                 dependencies : [threads,
+                                lib_openssl_or_gcrypt,
                                 libgpg_error,
                                 libm,
                                 libidn],
