@@ -487,7 +487,7 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
                 if (r < 0)
                         return r;
 
-                if (asprintf(&address, "x-machine-kernel:pid=%1$" PID_PRI ";x-machine-unix:pid=%1$" PID_PRI, m->leader) < 0)
+                if (asprintf(&address, "x-machine-unix:pid=%" PID_PRI, m->leader) < 0)
                         return -ENOMEM;
 
                 bus->address = address;
