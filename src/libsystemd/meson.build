@@ -96,12 +96,17 @@ disable_mempool_c = files('disable-mempool.c')
 
 libsystemd_c_args = ['-fvisibility=default']
 
+libsystemd_link_with = [libbasic]
+if conf.get('LIBSYSTEMD_OPENSSL') == 1
+        libsystemd_link_with += libbasic_openssl
+endif
+
 libsystemd_static = static_library(
         'systemd_static',
         libsystemd_sources,
         install : false,
         include_directories : includes,
-        link_with : libbasic,
+        link_with : libsystemd_link_with,
         dependencies : [threads,
                         librt],
         c_args : libsystemd_c_args)

@@ -11,12 +11,17 @@
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
-#include "khash.h"
 #include "macro.h"
 #include "missing_syscall.h"
 #include "random-util.h"
 #include "user-util.h"
 #include "util.h"
+
+#if LIBSYSTEMD_OPENSSL
+#include "openssl-util.h"
+#else
+#include "khash.h"
+#endif
 
 _public_ char *sd_id128_to_string(sd_id128_t id, char s[_SD_ARRAY_STATIC SD_ID128_STRING_MAX]) {
         unsigned n;
@@ -270,6 +275,26 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
         return 0;
 }
 
+#if LIBSYSTEMD_OPENSSL
+static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret) {
+        sd_id128_t result;
+        uint8_t p[DIGEST_MAX];
+        unsigned int len;
+        int r;
+
+        assert(ret);
+
+        r = hmac_sha256(base.bytes, sizeof(base), app_id.bytes, sizeof(app_id), p, &len);
+        if (r < 0)
+                return r;
+
+        /* We chop off the trailing 16 bytes */
+        memcpy(&result, p, MIN(len, sizeof(result)));
+
+        *ret = id128_make_v4_uuid(result);
+        return 0;
+}
+#else
 static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret) {
         _cleanup_(khash_unrefp) khash *h = NULL;
         sd_id128_t result;
@@ -296,6 +321,7 @@ static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret)
         *ret = id128_make_v4_uuid(result);
         return 0;
 }
+#endif
 
 _public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
         sd_id128_t id;

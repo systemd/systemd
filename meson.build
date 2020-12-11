@@ -1165,6 +1165,10 @@ else
 endif
 conf.set10('HAVE_OPENSSL', have)
 
+want_libsystemd_openssl = get_option('libsystemd-openssl')
+conf.set10('LIBSYSTEMD_OPENSSL', want_libsystemd_openssl != 'false' and
+        conf.get('HAVE_OPENSSL') == 1 and not skip_deps)
+
 want_p11kit = get_option('p11kit')
 if want_p11kit != 'false' and not skip_deps
         libp11kit = dependency('p11-kit-1',

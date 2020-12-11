@@ -325,6 +325,8 @@ option('gnutls', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gnutls support')
 option('openssl', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'openssl support')
+option('libsystemd-openssl', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'link libsystemd with openssl')
 option('p11kit', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'p11kit support')
 option('libfido2', type : 'combo', choices : ['auto', 'true', 'false'],

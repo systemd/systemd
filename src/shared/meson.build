@@ -178,7 +178,6 @@ shared_sources = files('''
         nsflags.h
         numa-util.c
         numa-util.h
-        openssl-util.h
         os-util.c
         os-util.h
         output-mode.c
@@ -390,6 +389,7 @@ libshared = shared_library(
         link_whole : [libshared_static,
                       libbasic,
                       libbasic_gcrypt,
+                      libbasic_openssl,
                       libsystemd_static,
                       libjournal_client],
         c_args : ['-fvisibility=default'],
