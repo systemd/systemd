@@ -22,7 +22,7 @@ journal_client_sources = files('''
         sd-journal.c
 '''.split())
 
-if conf.get('HAVE_GCRYPT') == 1
+if conf.get('HAVE_OPENSSL') == 1
         journal_client_sources += files('''
                 journal-authenticate.c
                 journal-authenticate.h

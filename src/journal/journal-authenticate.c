@@ -146,7 +146,9 @@ int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime) {
                 if (epoch == goal)
                         return 0;
 
-                FSPRG_Evolve(f->fsprg_state);
+                r = FSPRG_Evolve(f->fsprg_state);
+                if (r < 0)
+                        return r;
                 epoch = FSPRG_GetEpoch(f->fsprg_state);
         }
 }
@@ -170,8 +172,7 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
                         return 0;
 
                 if (goal == epoch+1) {
-                        FSPRG_Evolve(f->fsprg_state);
-                        return 0;
+                        return FSPRG_Evolve(f->fsprg_state);
                 }
         } else {
                 f->fsprg_state_size = FSPRG_stateinbytes(FSPRG_RECOMMENDED_SECPAR);
@@ -185,8 +186,7 @@ int journal_file_fsprg_seek(JournalFile *f, uint64_t goal) {
 
         msk = alloca(FSPRG_mskinbytes(FSPRG_RECOMMENDED_SECPAR));
         FSPRG_GenMK(msk, NULL, f->fsprg_seed, f->fsprg_seed_size, FSPRG_RECOMMENDED_SECPAR);
-        FSPRG_Seek(f->fsprg_state, goal, msk, f->fsprg_seed, f->fsprg_seed_size);
-        return 0;
+        return FSPRG_Seek(f->fsprg_state, goal, msk, f->fsprg_seed, f->fsprg_seed_size);
 }
 
 int journal_file_maybe_append_tag(JournalFile *f, uint64_t realtime) {
