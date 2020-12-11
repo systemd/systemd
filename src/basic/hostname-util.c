@@ -89,6 +89,8 @@ int gethostname_strict(char **ret) {
 }
 
 bool valid_ldh_char(char c) {
+        /* "LDH" → "Letters, digits, hyphens", as per RFC 5890, Section 2.3.1 */
+
         return
                 (c >= 'a' && c <= 'z') ||
                 (c >= 'A' && c <= 'Z') ||
