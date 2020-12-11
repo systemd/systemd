@@ -156,7 +156,13 @@ if have_gnu_efi
                 compile_args += ['-mno-sse',
                                  '-mno-mmx']
         elif efi_arch == 'arm'
-                compile_args += ['-mgeneral-regs-only']
+                if cc.has_argument('-mgeneral-regs-only')
+                        compile_args += ['-mgeneral-regs-only']
+                endif
+
+                if cc.has_argument('-mfpu=none')
+                        compile_args += ['-mfpu=none']
+                endif
         endif
         if get_option('werror') == true
                 compile_args += ['-Werror']
