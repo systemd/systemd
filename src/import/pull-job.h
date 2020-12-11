@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <gcrypt.h>
+#include <openssl/evp.h>
 
 #include "curl-util.h"
 #include "import-compress.h"
@@ -76,7 +76,7 @@ struct PullJob {
         bool allow_sparse;
 
         bool calc_checksum;
-        gcry_md_hd_t checksum_context;
+        EVP_MD_CTX *checksum_ctx;
 
         char *checksum;
 
