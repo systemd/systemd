@@ -119,6 +119,13 @@ libcore_sources = '''
         unit.h
 '''.split()
 
+if conf.get('HAVE_LIBBPF') == 1
+        libcore_sources += files('''
+        bpf-lsm.c
+        bpf-lsm.h
+'''.split())
+endif
+
 if conf.get('BUILD_BPF') == 1
         subdir('bpf')
         libcore_sources += [restrict_fs_hexdump_h]
