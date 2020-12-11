@@ -22,7 +22,7 @@ static int sethostname_idempotent_full(const char *s, bool really) {
 
         assert(s);
 
-        if (gethostname(buf, sizeof(buf)) < 0)
+        if (gethostname(buf, sizeof(buf) - 1) < 0)
                 return -errno;
 
         if (streq(buf, s))
