@@ -230,7 +230,6 @@ Features:
   - port resolved over from libgcrypt (DNSSEC code)
   - port journald + fsprg over from libgcrypt
   - when that's done: kill khash.c
-  - when that's done: kill gnutls support in resolved
 
 * when we resize disks (homed?) always round up to 4K sectors, not 512K
 

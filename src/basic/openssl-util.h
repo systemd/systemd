@@ -31,6 +31,12 @@ int openssl_hash(
         uint8_t *md,
         unsigned int *md_len);
 
+int string_hashsum(
+        const char *s,
+        size_t len,
+        const EVP_MD *md_algorithm,
+        char **out);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(X509*, X509_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(EVP_MD_CTX*, EVP_MD_CTX_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(X509_NAME*, X509_NAME_free);
@@ -71,6 +77,22 @@ static inline int sha256(
                 unsigned int *md_len) {
 #if HAVE_OPENSSL
         return openssl_hash(EVP_sha256(), msg, msg_len, md, md_len);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+static inline int string_hashsum_sha224(const char *s, size_t len, char **out) {
+#if HAVE_OPENSSL
+        return string_hashsum(s, len, EVP_sha224(), out);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+static inline int string_hashsum_sha256(const char *s, size_t len, char **out) {
+#if HAVE_OPENSSL
+        return string_hashsum(s, len, EVP_sha256(), out);
 #else
         return -EOPNOTSUPP;
 #endif

@@ -3,6 +3,7 @@
 #if HAVE_OPENSSL
 
 #include "openssl-util.h"
+#include "hexdecoct.h"
 #include "macro.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(HMAC_CTX*, HMAC_CTX_free);
@@ -83,6 +84,33 @@ int openssl_hash(
                 *md_len = len;
 
         return 0;
+}
+
+int string_hashsum(
+        const char *s,
+        size_t len,
+        const EVP_MD *md_algorithm,
+        char **out) {
+
+        uint8_t hash[DIGEST_MAX];
+        size_t hash_size;
+        char *enc;
+        int r;
+
+        hash_size = EVP_MD_size(md_algorithm);
+        assert(hash_size > 0);
+
+        r = openssl_hash(md_algorithm, s, len, hash, NULL);
+        if (r < 0)
+                return r;
+
+        enc = hexmem(hash, hash_size);
+        if (!enc)
+                return -ENOMEM;
+
+        *out = enc;
+        return 0;
+
 }
 
 #endif

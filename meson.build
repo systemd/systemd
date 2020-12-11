@@ -1320,8 +1320,8 @@ default_dnssec = get_option('default-dnssec')
 if skip_deps
         default_dnssec = 'no'
 endif
-if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
-        message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
+if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
+        message('default-dnssec cannot be set to yes or allow-downgrade when openssl is disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'
 endif
 conf.set('DEFAULT_DNSSEC_MODE',
@@ -1396,7 +1396,7 @@ if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
                 conf.get('HAVE_ZLIB') == 1 and
                 conf.get('HAVE_XZ') == 1 and
-                conf.get('HAVE_GCRYPT') == 1)
+                conf.get('HAVE_OPENSSL') == 1)
         if want_importd == 'true' and not have
                 error('importd support was requested, but dependencies are not available')
         endif
@@ -1663,6 +1663,7 @@ install_libsystemd_static = static_library(
                         libblkid,
                         libmount,
                         libselinux,
+                        libopenssl,
                         libgcrypt],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 

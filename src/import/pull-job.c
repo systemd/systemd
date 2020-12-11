@@ -7,7 +7,6 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "io-util.h"
