@@ -885,9 +885,8 @@ void log_assert_failed_return_realm(
                    "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
 }
 
-int log_oom_internal(LogRealm realm, const char *file, int line, const char *func) {
-        return log_internal_realm(LOG_REALM_PLUS_LEVEL(realm, LOG_ERR),
-                                  ENOMEM, file, line, func, "Out of memory.");
+int log_oom_internal(int level, const char *file, int line, const char *func) {
+        return log_internal_realm(level, ENOMEM, file, line, func, "Out of memory.");
 }
 
 int log_format_iovec(

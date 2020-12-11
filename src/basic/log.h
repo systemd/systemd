@@ -168,7 +168,7 @@ int log_struct_internal(
                 const char *format, ...) _printf_(6,0) _sentinel_;
 
 int log_oom_internal(
-                LogRealm realm,
+                int level,
                 const char *file,
                 int line,
                 const char *func);
@@ -286,7 +286,8 @@ int log_emergency_level(void);
         log_dump_internal(LOG_REALM_PLUS_LEVEL(LOG_REALM, level), \
                           0, PROJECT_FILE, __LINE__, __func__, buffer)
 
-#define log_oom() log_oom_internal(LOG_REALM, PROJECT_FILE, __LINE__, __func__)
+#define log_oom() log_oom_internal(LOG_REALM_PLUS_LEVEL(LOG_REALM, LOG_ERR), PROJECT_FILE, __LINE__, __func__)
+#define log_oom_debug() log_oom_internal(LOG_REALM_PLUS_LEVEL(LOG_REALM, LOG_DEBUG), PROJECT_FILE, __LINE__, __func__)
 
 bool log_on_console(void) _pure_;
 
