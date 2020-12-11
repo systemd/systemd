@@ -717,7 +717,7 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode))
                 return -EINVAL;
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 
@@ -787,7 +787,7 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
         if (r < 0)
                 return r;
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 
@@ -852,7 +852,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 
@@ -932,7 +932,7 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
         if (isempty(local))
                 local = NULL;
-        else if (!machine_name_is_valid(local))
+        else if (!hostname_is_valid(local, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local name %s is invalid", local);
 

@@ -985,7 +985,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(optarg))
                                 arg_machine = mfree(arg_machine);
                         else {
-                                if (!machine_name_is_valid(optarg))
+                                if (!hostname_is_valid(optarg, 0))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Invalid machine name: %s", optarg);
 
@@ -999,7 +999,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(optarg))
                                 arg_hostname = mfree(arg_hostname);
                         else {
-                                if (!hostname_is_valid(optarg, false))
+                                if (!hostname_is_valid(optarg, 0))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Invalid hostname: %s", optarg);
 
@@ -2984,7 +2984,7 @@ static int determine_names(void) {
                         return log_oom();
 
                 hostname_cleanup(arg_machine);
-                if (!machine_name_is_valid(arg_machine))
+                if (!hostname_is_valid(arg_machine, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine machine name automatically, please use -M.");
 
                 if (arg_ephemeral) {

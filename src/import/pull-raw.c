@@ -651,7 +651,7 @@ int raw_pull_start(
         if (!http_url_is_valid(url))
                 return -EINVAL;
 
-        if (local && !machine_name_is_valid(local))
+        if (local && !hostname_is_valid(local, 0))
                 return -EINVAL;
 
         if (i->raw_job)

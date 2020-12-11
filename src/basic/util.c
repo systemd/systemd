@@ -165,7 +165,7 @@ int container_get_leader(const char *machine, pid_t *pid) {
                 return 0;
         }
 
-        if (!machine_name_is_valid(machine))
+        if (!hostname_is_valid(machine, 0))
                 return -EINVAL;
 
         p = strjoina("/run/systemd/machines/", machine);

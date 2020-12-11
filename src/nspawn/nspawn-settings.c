@@ -701,7 +701,7 @@ int config_parse_hostname(
         assert(rvalue);
         assert(s);
 
-        if (!hostname_is_valid(rvalue, false)) {
+        if (!hostname_is_valid(rvalue, 0)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid hostname, ignoring: %s", rvalue);
                 return 0;
         }

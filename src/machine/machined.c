@@ -166,7 +166,7 @@ static int manager_enumerate_machines(Manager *m) {
                 if (startswith(de->d_name, "unit:"))
                         continue;
 
-                if (!machine_name_is_valid(de->d_name))
+                if (!hostname_is_valid(de->d_name, 0))
                         continue;
 
                 k = manager_add_machine(m, de->d_name, &machine);

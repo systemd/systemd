@@ -462,7 +462,7 @@ static int oci_hostname(const char *name, JsonVariant *v, JsonDispatchFlags flag
 
         assert_se(n = json_variant_string(v));
 
-        if (!hostname_is_valid(n, false))
+        if (!hostname_is_valid(n, 0))
                 return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                 "Hostname string is not a valid hostname: %s", n);
 

@@ -1561,7 +1561,7 @@ static int make_service_name(const char *name, char **ret) {
         assert(name);
         assert(ret);
 
-        if (!machine_name_is_valid(name))
+        if (!hostname_is_valid(name, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Invalid machine name %s.", name);
 
@@ -1881,7 +1881,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
         local = ll;
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Local name %s is not a suitable machine name.",
                                        local);
@@ -1941,7 +1941,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 
         local = ll;
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Local name %s is not a suitable machine name.",
                                        local);
@@ -1995,7 +1995,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Need either path or local name.");
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Local name %s is not a suitable machine name.",
                                        local);
@@ -2048,7 +2048,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         local = argv[1];
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Machine name %s is not valid.", local);
 
@@ -2090,7 +2090,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         assert(bus);
 
         local = argv[1];
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Machine name %s is not valid.", local);
 
@@ -2155,7 +2155,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local))
+                if (!hostname_is_valid(local, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Local name %s is not a suitable machine name.",
                                                local);
@@ -2211,7 +2211,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local))
+                if (!hostname_is_valid(local, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Local name %s is not a suitable machine name.",
                                                local);

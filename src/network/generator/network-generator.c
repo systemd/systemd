@@ -601,7 +601,7 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
 
         if (p != value) {
                 hostname = strndupa(value, p - value);
-                if (!hostname_is_valid(hostname, false))
+                if (!hostname_is_valid(hostname, 0))
                         return -EINVAL;
         }
 

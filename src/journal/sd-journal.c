@@ -1981,7 +1981,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
         assert_return(machine, -EINVAL);
         assert_return(ret, -EINVAL);
         assert_return((flags & ~OPEN_CONTAINER_ALLOWED_FLAGS) == 0, -EINVAL);
-        assert_return(machine_name_is_valid(machine), -EINVAL);
+        assert_return(hostname_is_valid(machine, 0), -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(NULL, p,

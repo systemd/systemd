@@ -10,40 +10,40 @@
 #include "util.h"
 
 static void test_hostname_is_valid(void) {
-        assert_se(hostname_is_valid("foobar", false));
-        assert_se(hostname_is_valid("foobar.com", false));
-        assert_se(!hostname_is_valid("foobar.com.", false));
-        assert_se(hostname_is_valid("fooBAR", false));
-        assert_se(hostname_is_valid("fooBAR.com", false));
-        assert_se(!hostname_is_valid("fooBAR.", false));
-        assert_se(!hostname_is_valid("fooBAR.com.", false));
-        assert_se(!hostname_is_valid("fööbar", false));
-        assert_se(!hostname_is_valid("", false));
-        assert_se(!hostname_is_valid(".", false));
-        assert_se(!hostname_is_valid("..", false));
-        assert_se(!hostname_is_valid("foobar.", false));
-        assert_se(!hostname_is_valid(".foobar", false));
-        assert_se(!hostname_is_valid("foo..bar", false));
-        assert_se(!hostname_is_valid("foo.bar..", false));
-        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", false));
-        assert_se(!hostname_is_valid("au-xph5-rvgrdsb5hcxc-47et3a5vvkrc-server-wyoz4elpdpe3.openstack.local", false));
+        assert_se(hostname_is_valid("foobar", 0));
+        assert_se(hostname_is_valid("foobar.com", 0));
+        assert_se(!hostname_is_valid("foobar.com.", 0));
+        assert_se(hostname_is_valid("fooBAR", 0));
+        assert_se(hostname_is_valid("fooBAR.com", 0));
+        assert_se(!hostname_is_valid("fooBAR.", 0));
+        assert_se(!hostname_is_valid("fooBAR.com.", 0));
+        assert_se(!hostname_is_valid("fööbar", 0));
+        assert_se(!hostname_is_valid("", 0));
+        assert_se(!hostname_is_valid(".", 0));
+        assert_se(!hostname_is_valid("..", 0));
+        assert_se(!hostname_is_valid("foobar.", 0));
+        assert_se(!hostname_is_valid(".foobar", 0));
+        assert_se(!hostname_is_valid("foo..bar", 0));
+        assert_se(!hostname_is_valid("foo.bar..", 0));
+        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", 0));
+        assert_se(!hostname_is_valid("au-xph5-rvgrdsb5hcxc-47et3a5vvkrc-server-wyoz4elpdpe3.openstack.local", 0));
 
-        assert_se(hostname_is_valid("foobar", true));
-        assert_se(hostname_is_valid("foobar.com", true));
-        assert_se(hostname_is_valid("foobar.com.", true));
-        assert_se(hostname_is_valid("fooBAR", true));
-        assert_se(hostname_is_valid("fooBAR.com", true));
-        assert_se(!hostname_is_valid("fooBAR.", true));
-        assert_se(hostname_is_valid("fooBAR.com.", true));
-        assert_se(!hostname_is_valid("fööbar", true));
-        assert_se(!hostname_is_valid("", true));
-        assert_se(!hostname_is_valid(".", true));
-        assert_se(!hostname_is_valid("..", true));
-        assert_se(!hostname_is_valid("foobar.", true));
-        assert_se(!hostname_is_valid(".foobar", true));
-        assert_se(!hostname_is_valid("foo..bar", true));
-        assert_se(!hostname_is_valid("foo.bar..", true));
-        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", true));
+        assert_se(hostname_is_valid("foobar", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(hostname_is_valid("foobar.com", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(hostname_is_valid("foobar.com.", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(hostname_is_valid("fooBAR", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(hostname_is_valid("fooBAR.com", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid("fooBAR.", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(hostname_is_valid("fooBAR.com.", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid("fööbar", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid("", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid(".", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid("..", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid("foobar.", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid(".foobar", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid("foo..bar", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid("foo.bar..", VALID_HOSTNAME_TRAILING_DOT));
+        assert_se(!hostname_is_valid("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", VALID_HOSTNAME_TRAILING_DOT));
 }
 
 static void test_hostname_cleanup(void) {
@@ -151,7 +151,7 @@ static void test_hostname_malloc(void) {
 }
 
 static void test_fallback_hostname(void) {
-        if (!hostname_is_valid(FALLBACK_HOSTNAME, false)) {
+        if (!hostname_is_valid(FALLBACK_HOSTNAME, 0)) {
                 log_error("Configured fallback hostname \"%s\" is not valid.", FALLBACK_HOSTNAME);
                 exit(EXIT_FAILURE);
         }

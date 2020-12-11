@@ -973,7 +973,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                 return -EINVAL;
 
         if (machine) {
-                if (!streq(machine, ".host") && !machine_name_is_valid(machine))
+                if (!hostname_is_valid(machine, VALID_HOSTNAME_DOT_HOST))
                         return -EINVAL;
 
                 free_and_replace(b->machine, machine);
@@ -1448,7 +1448,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                 }
 
                 if (!in_charset(p, "0123456789") || *p == '\0') {
-                        if (!machine_name_is_valid(p) || got_forward_slash)
+                        if (!hostname_is_valid(p, 0) || got_forward_slash)
                                 return -EINVAL;
 
                         m = TAKE_PTR(p);
@@ -1463,7 +1463,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
 interpret_port_as_machine_old_syntax:
                 /* Let's make sure this is not a port of some kind,
                  * and is a valid machine name. */
-                if (!in_charset(m, "0123456789") && machine_name_is_valid(m))
+                if (!in_charset(m, "0123456789") && hostname_is_valid(m, 0))
                         c = strjoina(",argv", p ? "7" : "5", "=--machine=", m);
         }
 
@@ -1538,7 +1538,7 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *machine) {
 
         assert_return(machine, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(streq(machine, ".host") || machine_name_is_valid(machine), -EINVAL);
+        assert_return(hostname_is_valid(machine, VALID_HOSTNAME_DOT_HOST), -EINVAL);
 
         r = sd_bus_new(&b);
         if (r < 0)
