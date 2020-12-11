@@ -2223,10 +2223,10 @@ int link_reconfigure(Link *link, bool force) {
         int r;
 
         /* When link in pending or initialized state, then link_configure() will be called. To prevent
-         * the function be called multiple times simultaneously, refuse to reconfigure the interface in
-         * these case. */
+         * the function from being called multiple times simultaneously, refuse to reconfigure the
+         * interface in these cases. */
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
-                return 0; /* o means no-op. */
+                return 0; /* 0 means no-op. */
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK,
                                      link->ifindex);
