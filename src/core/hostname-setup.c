@@ -34,12 +34,11 @@ int hostname_setup(void) {
 
         if (!hn) {
                 r = read_etc_hostname(NULL, &b);
-                if (r < 0) {
-                        if (r == -ENOENT)
-                                enoent = true;
-                        else
-                                log_warning_errno(r, "Failed to read configured hostname: %m");
-                } else
+                if (r == -ENOENT)
+                        enoent = true;
+                else if (r < 0)
+                        log_warning_errno(r, "Failed to read configured hostname, ignoring: %m");
+                else
                         hn = b;
         }
 
