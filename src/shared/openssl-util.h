@@ -46,11 +46,16 @@ int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size)
 typedef const EVP_MD* hash_md_t;
 typedef const EVP_MD* hash_algorithm_t;
 typedef int hash_curve_t;
+typedef EVP_MD_CTX* hash_context_t;
 #  define OPENSSL_OR_GCRYPT(a, b) (a)
 #else
+
+#  include <gcrypt.h>
+
 /* The gcrypt definition */
 typedef int hash_md_t;
 typedef const char* hash_algorithm_t;
 typedef const char* hash_curve_t;
+typedef gcry_md_hd_t hash_context_t;
 #  define OPENSSL_OR_GCRYPT(a, b) (b)
 #endif
