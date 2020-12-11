@@ -1367,6 +1367,29 @@ int cg_pid_get_machine_name(pid_t pid, char **machine) {
         return cg_path_get_machine_name(cgroup, machine);
 }
 
+int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
+        int mnt_id = -1;
+
+        assert(path);
+        assert(ret);
+
+        union {
+                struct file_handle f_handle;
+                uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
+        } buf = {
+                .f_handle.handle_bytes = sizeof(uint64_t),
+        };
+
+        /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
+         * name_to_handle_at_loop() does in mountpoint-util.c */
+        if (name_to_handle_at(AT_FDCWD, path, &buf.f_handle, &mnt_id, 0) < 0)
+                return -errno;
+
+        *ret = *(uint64_t *) buf.f_handle.f_handle;
+
+        return 0;
+}
+
 int cg_path_get_session(const char *path, char **session) {
         _cleanup_free_ char *unit = NULL;
         char *start, *end;
