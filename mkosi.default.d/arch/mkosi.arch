@@ -12,6 +12,7 @@ Distribution=arch
 BuildPackages=
         acl
         bzip2
+        clang
         cryptsetup
         curl
         dbus
@@ -26,6 +27,7 @@ BuildPackages=
         inetutils
         iptables
         kmod
+        libbpf
         libcap
         libgcrypt
         libidn2
@@ -34,6 +36,7 @@ BuildPackages=
         libutil-linux
         libxkbcommon
         libxslt
+        llvm
         lz4
         meson
         pam
@@ -48,6 +51,7 @@ BuildPackages=
 
 Packages=
         gdb
+        libbpf
         libidn2
         nano
         qrencode
