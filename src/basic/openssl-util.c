@@ -8,14 +8,14 @@
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(HMAC_CTX*, HMAC_CTX_free);
 
-int hmac(
+int openssl_hmac(
         const EVP_MD *alg,
         const uint8_t *key,
-        int key_len,
-        const uint8_t *msg,
-        int msg_len,
+        size_t key_len,
+        const void *msg,
+        size_t msg_len,
         uint8_t *md,
-        unsigned int *md_len) {
+        size_t *md_len) {
 
         _cleanup_(HMAC_CTX_freep) HMAC_CTX *ctx = NULL;
         unsigned int len;
@@ -54,7 +54,7 @@ int openssl_hash(
         const void *msg,
         size_t msg_len,
         uint8_t *md,
-        unsigned int *md_len) {
+        size_t *md_len) {
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = NULL;
         unsigned int len;
         int r;

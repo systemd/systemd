@@ -16,21 +16,21 @@
 
 #define DIGEST_MAX EVP_MAX_MD_SIZE
 
-int hmac(
+int openssl_hmac(
         const EVP_MD *alg,
         const uint8_t *key,
-        int key_len,
-        const uint8_t *msg,
-        int msg_len,
+        size_t key_len,
+        const void *msg,
+        size_t msg_len,
         uint8_t *md,
-        unsigned int *md_len);
+        size_t *md_len);
 
 int openssl_hash(
         const EVP_MD *alg,
         const void *msg,
         size_t msg_len,
         uint8_t *md,
-        unsigned int *md_len);
+        size_t *md_len);
 
 int string_hashsum(
         const char *s,
@@ -59,13 +59,13 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ECDSA_SIG*, ECDSA_SIG_free);
 
 static inline int hmac_sha256(
                 const uint8_t *key,
-                int key_len,
-                const uint8_t *msg,
-                int msg_len,
+                size_t key_len,
+                const void *msg,
+                size_t msg_len,
                 uint8_t *md,
-                unsigned int *md_len) {
+                size_t *md_len) {
 #if HAVE_OPENSSL
-        return hmac(EVP_sha256(), key, key_len, msg, msg_len, md, md_len);
+        return openssl_hmac(EVP_sha256(), key, key_len, msg, msg_len, md, md_len);
 #else
         return -EOPNOTSUPP;
 #endif
@@ -75,7 +75,7 @@ static inline int sha256(
                 const void *msg,
                 uint8_t msg_len,
                 uint8_t *md,
-                unsigned int *md_len) {
+                size_t *md_len) {
 #if HAVE_OPENSSL
         return openssl_hash(EVP_sha256(), msg, msg_len, md, md_len);
 #else

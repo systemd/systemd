@@ -279,7 +279,7 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
 static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret) {
         sd_id128_t result;
         uint8_t p[DIGEST_MAX];
-        unsigned int len;
+        size_t len;
         int r;
 
         assert(ret);
