@@ -905,6 +905,14 @@ int manager_new(UnitFileScope scope, ManagerTestRunFlags test_run_flags, Manager
                         return r;
         }
 
+#if HAVE_LIBBPF
+        if (MANAGER_IS_SYSTEM(m) && lsm_bpf_supported()) {
+                r = lsm_bpf_setup(m);
+                if (r < 0)
+                        return r;
+        }
+#endif
+
         if (test_run_flags == 0) {
                 if (MANAGER_IS_SYSTEM(m))
                         r = mkdir_label("/run/systemd/units", 0755);
@@ -1503,6 +1511,10 @@ Manager* manager_free(Manager *m) {
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
                 m->prefix[dt] = mfree(m->prefix[dt]);
         free(m->received_credentials);
+
+#if BPF_FRAMEWORK
+        lsm_bpf_destroy(m->restrict_fs);
+#endif
 
         return mfree(m);
 }
