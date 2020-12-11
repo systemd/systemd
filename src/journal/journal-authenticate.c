@@ -5,7 +5,7 @@
 
 #include "fd-util.h"
 #include "fsprg.h"
-#include "gcrypt-util.h"
+#include "openssl-util.h"
 #include "hexdecoct.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
@@ -27,6 +27,7 @@ static uint64_t journal_file_tag_seqnum(JournalFile *f) {
 int journal_file_append_tag(JournalFile *f) {
         Object *o;
         uint64_t p;
+        uint8_t md[DIGEST_MAX];
         int r;
 
         assert(f);
@@ -37,7 +38,7 @@ int journal_file_append_tag(JournalFile *f) {
         if (!f->hmac_running)
                 return 0;
 
-        assert(f->hmac);
+        assert(f->hctx);
 
         r = journal_file_append_object(f, OBJECT_TAG, sizeof(struct TagObject), &o, &p);
         if (r < 0)
@@ -57,7 +58,9 @@ int journal_file_append_tag(JournalFile *f) {
                 return r;
 
         /* Get the HMAC tag and store it in the object */
-        memcpy(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH);
+        if (HMAC_Final(f->hctx, md, NULL) <= 0)
+                return -EIO;
+        memcpy(o->tag.tag, md, TAG_LENGTH);
         f->hmac_running = false;
 
         return 0;
@@ -74,9 +77,12 @@ int journal_file_hmac_start(JournalFile *f) {
                 return 0;
 
         /* Prepare HMAC for next cycle */
-        gcry_md_reset(f->hmac);
+        if (HMAC_CTX_reset(f->hctx) <= 0)
+                return -EIO;
+        if (HMAC_Init_ex(f->hctx, key, sizeof(key), RND_HASH, NULL) <= 0)
+                return -EIO;
+
         FSPRG_GetKey(f->fsprg_state, key, sizeof(key), 0);
-        gcry_md_setkey(f->hmac, key, sizeof(key));
 
         f->hmac_running = true;
 
@@ -236,25 +242,32 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
                         return -EBADMSG;
         }
 
-        gcry_md_write(f->hmac, o, offsetof(ObjectHeader, payload));
+        if (HMAC_Update(f->hctx, (uint8_t*) o, offsetof(ObjectHeader, payload)) <= 0)
+                return -EIO;
 
         switch (o->object.type) {
 
         case OBJECT_DATA:
                 /* All but hash and payload are mutable */
-                gcry_md_write(f->hmac, &o->data.hash, sizeof(o->data.hash));
-                gcry_md_write(f->hmac, o->data.payload, le64toh(o->object.size) - offsetof(DataObject, payload));
+                if (HMAC_Update(f->hctx, (uint8_t*) &o->data.hash, sizeof(o->data.hash)) <= 0)
+                        return -EIO;
+                if (HMAC_Update(f->hctx, o->data.payload,
+                                le64toh(o->object.size) - offsetof(DataObject, payload)))
+                        return -EIO;
                 break;
 
         case OBJECT_FIELD:
                 /* Same here */
-                gcry_md_write(f->hmac, &o->field.hash, sizeof(o->field.hash));
-                gcry_md_write(f->hmac, o->field.payload, le64toh(o->object.size) - offsetof(FieldObject, payload));
+                if (HMAC_Update(f->hctx, (uint8_t*) &o->field.hash, sizeof(o->field.hash)) <= 0)
+                        return -EIO;
+                if (HMAC_Update(f->hctx, o->field.payload, le64toh(o->object.size) - offsetof(FieldObject, payload)) <= 0)
+                        return -EIO;
                 break;
 
         case OBJECT_ENTRY:
                 /* All */
-                gcry_md_write(f->hmac, &o->entry.seqnum, le64toh(o->object.size) - offsetof(EntryObject, seqnum));
+                if (HMAC_Update(f->hctx, (uint8_t*) &o->entry.seqnum, le64toh(o->object.size) - offsetof(EntryObject, seqnum)) <= 0)
+                        return -EIO;
                 break;
 
         case OBJECT_FIELD_HASH_TABLE:
@@ -265,8 +278,10 @@ int journal_file_hmac_put_object(JournalFile *f, ObjectType type, Object *o, uin
 
         case OBJECT_TAG:
                 /* All but the tag itself */
-                gcry_md_write(f->hmac, &o->tag.seqnum, sizeof(o->tag.seqnum));
-                gcry_md_write(f->hmac, &o->tag.epoch, sizeof(o->tag.epoch));
+                if (HMAC_Update(f->hctx, (uint8_t*) &o->tag.seqnum, sizeof(o->tag.seqnum)) <= 0)
+                        return -EIO;
+                if (HMAC_Update(f->hctx, (uint8_t*) &o->tag.epoch, sizeof(o->tag.epoch)) <= 0)
+                        return -EIO;
                 break;
         default:
                 return -EINVAL;
@@ -294,10 +309,18 @@ int journal_file_hmac_put_header(JournalFile *f) {
          * tail_entry_monotonic, n_data, n_fields, n_tags,
          * n_entry_arrays. */
 
-        gcry_md_write(f->hmac, f->header->signature, offsetof(Header, state) - offsetof(Header, signature));
-        gcry_md_write(f->hmac, &f->header->file_id, offsetof(Header, boot_id) - offsetof(Header, file_id));
-        gcry_md_write(f->hmac, &f->header->seqnum_id, offsetof(Header, arena_size) - offsetof(Header, seqnum_id));
-        gcry_md_write(f->hmac, &f->header->data_hash_table_offset, offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset));
+        if (HMAC_Update(f->hctx, f->header->signature,
+                        offsetof(Header, state) - offsetof(Header, signature)) <= 0)
+                return -EIO;
+        if (HMAC_Update(f->hctx, (uint8_t*) &f->header->file_id,
+                        offsetof(Header, boot_id) - offsetof(Header, file_id)) <= 0)
+                return -EIO;
+        if (HMAC_Update(f->hctx, (uint8_t*) &f->header->seqnum_id,
+                        offsetof(Header, arena_size) - offsetof(Header, seqnum_id)) <= 0)
+                return -EIO;
+        if (HMAC_Update(f->hctx, (uint8_t*) &f->header->data_hash_table_offset,
+                        offsetof(Header, tail_object_offset) - offsetof(Header, data_hash_table_offset)) <= 0)
+                return -EIO;
 
         return 0;
 }
@@ -411,16 +434,12 @@ finish:
 }
 
 int journal_file_hmac_setup(JournalFile *f) {
-        gcry_error_t e;
-
         if (!f->seal)
                 return 0;
 
-        initialize_libgcrypt(true);
-
-        e = gcry_md_open(&f->hmac, GCRY_MD_SHA256, GCRY_MD_FLAG_HMAC);
-        if (e != 0)
-                return -EOPNOTSUPP;
+        f->hctx = HMAC_CTX_new();
+        if(!f->hctx)
+                return -ENOMEM;
 
         return 0;
 }

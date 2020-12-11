@@ -34,6 +34,7 @@ extern "C" {
 
 #define FSPRG_RECOMMENDED_SECPAR 1536
 #define FSPRG_RECOMMENDED_SEEDLEN (96/8)
+#define RND_HASH EVP_sha256()
 
 size_t FSPRG_mskinbytes(unsigned secpar) _const_;
 size_t FSPRG_mpkinbytes(unsigned secpar) _const_;

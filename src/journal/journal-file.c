@@ -404,8 +404,8 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         free(f->fsprg_seed);
 
-        if (f->hmac)
-                gcry_md_close(f->hmac);
+        if (f->hctx)
+                HMAC_CTX_free(f->hctx);
 #endif
 
         return mfree(f);

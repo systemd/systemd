@@ -36,7 +36,6 @@
 #define ISVALID_SECPAR(secpar) (((secpar) % 16 == 0) && ((secpar) >= 16) && ((secpar) <= 16384))
 #define VALIDATE_SECPAR(secpar) assert(ISVALID_SECPAR(secpar));
 
-#define RND_HASH_OPENSSL EVP_sha256()
 #define RND_GEN_P 0x01
 #define RND_GEN_Q 0x02
 #define RND_GEN_X 0x03
@@ -120,9 +119,9 @@ static int det_randomize(void *buf, size_t buflen, const void *seed, size_t seed
         if (!ctx2)
                 return -ENOMEM;
 
-        olen = EVP_MD_size(RND_HASH_OPENSSL);
+        olen = EVP_MD_size(RND_HASH);
 
-        if (EVP_DigestInit_ex(ctx1, RND_HASH_OPENSSL, NULL) <= 0)
+        if (EVP_DigestInit_ex(ctx1, RND_HASH, NULL) <= 0)
                 return -EIO;
 
         if (EVP_DigestUpdate(ctx1, seed, seedlen) <= 0)
