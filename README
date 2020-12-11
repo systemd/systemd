@@ -187,7 +187,7 @@ REQUIREMENTS:
         polkit (optional)
 
         To build in directory build/:
-          meson build/ && ninja -C build
+          meson setup build/ && meson compile -C build/
 
         Any configuration options can be specified as -Darg=value... arguments
         to meson. After the build directory is initially configured, meson will
@@ -197,10 +197,10 @@ REQUIREMENTS:
         their current values.
 
         Useful commands:
-          ninja -v some/target
-          ninja test
-          sudo ninja install
-          DESTDIR=... ninja install
+          meson compile -v -C build/ some/target
+          meson test -C build/
+          sudo meson install -C build/
+          DESTDIR=... meson install -C build/
 
         A tarball can be created with:
           git archive --format=tar --prefix=systemd-222/ v222 | xz > systemd-222.tar.xz

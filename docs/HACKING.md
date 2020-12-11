@@ -81,8 +81,8 @@ $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
 $ vim src/core/main.c                     # or wherever you'd like to make your changes
 $ meson build                             # configure the build
-$ ninja -C build                          # build it locally, see if everything compiles fine
-$ ninja -C build test                     # run some simple regression tests
+$ meson compile -C build                  # build it locally, see if everything compiles fine
+$ meson test -C build                     # run some simple regression tests
 $ ln -s .mkosi/mkosi.fedora mkosi.default # Configure mkosi to build a fedora image
 $ (umask 077; echo 123 > mkosi.rootpw)    # set root password used by mkosi
 $ sudo mkosi                              # build a test image
