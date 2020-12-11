@@ -388,13 +388,13 @@ static int dnssec_eddsa_verify(
                         dnskey->dnskey.key, key_size);
 }
 
-static void md_add_uint8(gcry_md_hd_t md, uint8_t v) {
-        gcry_md_write(md, &v, sizeof(v));
+static int md_add_uint8(EVP_MD_CTX *ctx, uint8_t v) {
+        return EVP_DigestUpdate(ctx, &v, sizeof(v));
 }
 
-static void md_add_uint16(gcry_md_hd_t md, uint16_t v) {
+static int md_add_uint16(EVP_MD_CTX *ctx, uint16_t v) {
         v = htobe16(v);
-        gcry_md_write(md, &v, sizeof(v));
+        return EVP_DigestUpdate(ctx, &v, sizeof(v));
 }
 
 static void fwrite_uint8(FILE *fp, uint8_t v) {
@@ -994,32 +994,33 @@ int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
         return 0;
 }
 
-static int digest_to_gcrypt_md(uint8_t algorithm) {
+static const EVP_MD* digest_to_openssl_md(uint8_t algorithm) {
 
         /* Translates a DNSSEC digest algorithm into a gcrypt digest identifier */
 
         switch (algorithm) {
 
         case DNSSEC_DIGEST_SHA1:
-                return GCRY_MD_SHA1;
+                return EVP_sha1();
 
         case DNSSEC_DIGEST_SHA256:
-                return GCRY_MD_SHA256;
+                return EVP_sha256();
 
         case DNSSEC_DIGEST_SHA384:
-                return GCRY_MD_SHA384;
+                return EVP_sha384();
 
         default:
-                return -EOPNOTSUPP;
+                return NULL;
         }
 }
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
-        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = NULL;
         size_t hash_size;
-        int md_algorithm, r;
-        void *result;
+        const EVP_MD *md_algorithm;
+        int r;
+        uint8_t result[DIGEST_MAX];
 
         assert(dnskey);
         assert(ds);
@@ -1042,13 +1043,11 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (dnssec_keytag(dnskey, mask_revoke) != ds->ds.key_tag)
                 return 0;
 
-        initialize_libgcrypt(false);
+        md_algorithm = digest_to_openssl_md(ds->ds.digest_type);
+        if (!md_algorithm)
+                return -EOPNOTSUPP;
 
-        md_algorithm = digest_to_gcrypt_md(ds->ds.digest_type);
-        if (md_algorithm < 0)
-                return md_algorithm;
-
-        hash_size = gcry_md_get_algo_dlen(md_algorithm);
+        hash_size = EVP_MD_size(md_algorithm);
         assert(hash_size > 0);
 
         if (ds->ds.digest_size != hash_size)
@@ -1058,21 +1057,31 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (r < 0)
                 return r;
 
-        gcry_md_open(&md, md_algorithm, 0);
-        if (!md)
+        ctx = EVP_MD_CTX_new();
+        if (!ctx)
+                return -ENOMEM;
+
+        if (EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
                 return -EIO;
 
-        gcry_md_write(md, wire_format, r);
-        if (mask_revoke)
-                md_add_uint16(md, dnskey->dnskey.flags & ~DNSKEY_FLAG_REVOKE);
-        else
-                md_add_uint16(md, dnskey->dnskey.flags);
-        md_add_uint8(md, dnskey->dnskey.protocol);
-        md_add_uint8(md, dnskey->dnskey.algorithm);
-        gcry_md_write(md, dnskey->dnskey.key, dnskey->dnskey.key_size);
+        if (EVP_DigestUpdate(ctx, wire_format, r) <= 0)
+                return -EIO;
 
-        result = gcry_md_read(md, 0);
-        if (!result)
+        if (mask_revoke)
+                md_add_uint16(ctx, dnskey->dnskey.flags & ~DNSKEY_FLAG_REVOKE);
+        else
+                md_add_uint16(ctx, dnskey->dnskey.flags);
+
+        r = md_add_uint8(ctx, dnskey->dnskey.protocol);
+        if (r <= 0)
+                return r;
+        r = md_add_uint8(ctx, dnskey->dnskey.algorithm);
+        if (r <= 0)
+                return r;
+        if (EVP_DigestUpdate(ctx, dnskey->dnskey.key, dnskey->dnskey.key_size) <= 0)
+                return -EIO;
+
+        if (EVP_DigestFinal_ex(ctx, result, NULL) <=0)
                 return -EIO;
 
         return memcmp(result, ds->ds.digest, ds->ds.digest_size) == 0;
