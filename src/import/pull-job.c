@@ -12,6 +12,7 @@
 #include "import-util.h"
 #include "io-util.h"
 #include "machine-pool.h"
+#include "openssl-util.h"
 #include "parse-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
