@@ -21,6 +21,9 @@
 #include "alloc-util.h"
 #include "apparmor-setup.h"
 #include "architecture.h"
+#if HAVE_LIBBPF
+#include "bpf-lsm.h"
+#endif
 #include "build.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -2853,6 +2856,16 @@ int main(int argc, char *argv[]) {
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
+
+#if HAVE_LIBBPF
+        if (MANAGER_IS_SYSTEM(m) && lsm_bpf_supported()) {
+                r = lsm_bpf_setup();
+                if (r < 0) {
+                        error_message = "Failed to load and attach LSM BPF";
+                        goto finish;
+                }
+        }
+#endif
 
         (void) invoke_main_loop(m,
                                 &saved_rlimit_nofile,
