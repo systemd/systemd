@@ -2,20 +2,20 @@
 
 #include <bpf/bpf.h>
 #include <sys/resource.h>
+#include <unistd.h>
 
 #include "architecture.h"
 #include "bpf-object.h"
-#include "bpf/allow_bind/allow-bind-hexdump.h"
+#include "bpf/restrict_fs/restrict-fs-hexdump.h"
+
 #include "set.h"
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(bpf_object_freep) struct bpf_object *obj = NULL;
-        Set *progs = NULL;
-        uint8_t dummy = 1;
         struct rlimit rl;
-        uint16_t key;
-        int r, fd;
+        int r, fd, inner_fd;
+        uint64_t dummy = 1;
 
         assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
@@ -24,27 +24,26 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock(), skipping.");
 
-        if (!bpf_probe_prog_type(BPF_PROG_TYPE_CGROUP_SOCK_ADDR, /*ifindex=*/0))
-                return log_tests_skipped("BPF program type cgroup_sock_addr is not supported.");
-
-        r = bpf_object_new(allow_bind_hexdump_buffer, sizeof(allow_bind_hexdump_buffer), &obj);
+        r = bpf_object_new(restrict_fs_hexdump_buffer, sizeof(restrict_fs_hexdump_buffer), &obj);
         assert_se(r == 0);
+
+        inner_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(__u32), sizeof(__u32), 128, 0);
+        assert_se(inner_fd >= 0);
+
+        r = bpf_object_set_inner_map_fd(obj, "cgroup_hash", inner_fd);
+        assert_se(r >= 0);
 
         r = bpf_object_load(obj);
         assert_se(r >= 0);
 
-        r = bpf_object_get_programs(obj, &progs);
-        assert_se(r >= 0);
+        close(inner_fd);
 
-        assert_se(set_size(progs) == 2);
-
-        bpf_object_resize_map(obj, "allow_ports", 128);
-        assert_se(r >= 0);
-
-        fd = bpf_object_get_map_fd(obj, "allow_ports");
+        fd = bpf_object_get_map_fd(obj, "cgroup_hash");
         assert_se(fd >= 0);
 
-        r = bpf_map_update_elem(fd, &key, &dummy, BPF_ANY);
+        inner_fd = bpf_create_map(BPF_MAP_TYPE_HASH, sizeof(__u32), sizeof(__u32), 128, 0);
+
+        r = bpf_map_update_elem(fd, &dummy, &inner_fd, BPF_ANY);
         assert_se(r == 0);
 
         return 0;
