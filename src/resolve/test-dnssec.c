@@ -173,7 +173,7 @@ static void test_dnssec_verify_rfc8080_ed25519_example1(void) {
         assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
-                                rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
+                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
 #if GCRYPT_VERSION_NUMBER >= 0x010600
         assert_se(result == DNSSEC_VALIDATED);
 #else
@@ -265,13 +265,196 @@ static void test_dnssec_verify_rfc8080_ed25519_example2(void) {
         assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
-                                rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
+                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
 #if GCRYPT_VERSION_NUMBER >= 0x010600
         assert_se(result == DNSSEC_VALIDATED);
 #else
         assert_se(result == DNSSEC_UNSUPPORTED_ALGORITHM);
 #endif
 }
+
+static void test_dnssec_verify_rfc6605_example1(void) {
+        static const uint8_t signature_blob[] = {
+                0xab, 0x1e, 0xb0, 0x2d, 0x8a, 0xa6, 0x87, 0xe9, 0x7d, 0xa0, 0x22, 0x93, 0x37, 0xaa, 0x88, 0x73,
+                0xe6, 0xf0, 0xeb, 0x26, 0xbe, 0x28, 0x9f, 0x28, 0x33, 0x3d, 0x18, 0x3f, 0x5d, 0x3b, 0x7a, 0x95,
+                0xc0, 0xc8, 0x69, 0xad, 0xfb, 0x74, 0x8d, 0xae, 0xe3, 0xc5, 0x28, 0x6e, 0xed, 0x66, 0x82, 0xc1,
+                0x2e, 0x55, 0x33, 0x18, 0x6b, 0xac, 0xed, 0x9c, 0x26, 0xc1, 0x67, 0xa9, 0xeb, 0xae, 0x95, 0x0b,
+        };
+
+        static const uint8_t ds_fprint[] = {
+                0x6f, 0x87, 0x3c, 0x73, 0x57, 0xde, 0xd9, 0xee, 0xf8, 0xef, 0xbd, 0x76, 0xed, 0xbd, 0xbb, 0xd7,
+                0x5e, 0x7a, 0xe7, 0xa6, 0x9d, 0xeb, 0x6e, 0x7a, 0x7f, 0x8d, 0xb8, 0xeb, 0x6e, 0x5b, 0x7f, 0x97,
+                0x35, 0x7b, 0x6e, 0xfb, 0xd1, 0xc7, 0xba, 0x77, 0xa7, 0xb7, 0xed, 0xd7, 0xfa, 0xd5, 0xdd, 0x7b,
+        };
+
+        static const uint8_t dnskey_blob[] = {
+                0x1a, 0x88, 0xc8, 0x86, 0x15, 0xd4, 0x37, 0xfb, 0xb8, 0xbf, 0x9e, 0x19, 0x42, 0xa1, 0x92, 0x9f,
+                0x28, 0x56, 0x27, 0x06, 0xae, 0x6c, 0x2b, 0xd3, 0x99, 0xe7, 0xb1, 0xbf, 0xb6, 0xd1, 0xe9, 0xe7,
+                0x5b, 0x92, 0xb4, 0xaa, 0x42, 0x91, 0x7a, 0xe1, 0xc6, 0x1b, 0x70, 0x1e, 0xf0, 0x35, 0xc3, 0xfe,
+                0x7b, 0xe3, 0x00, 0x9c, 0xba, 0xfe, 0x5a, 0x2f, 0x71, 0x31, 0x6c, 0x90, 0x2d, 0xcf, 0x0d, 0x00,
+        };
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *a = NULL,
+                *rrsig = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnssecResult result;
+
+        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.net.");
+        assert_se(dnskey);
+
+        dnskey->dnskey.flags = 257;
+        dnskey->dnskey.protocol = 3;
+        dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_ECDSAP256SHA256;
+        dnskey->dnskey.key_size = sizeof(dnskey_blob);
+        dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
+        assert_se(dnskey->dnskey.key);
+
+        log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
+
+        ds = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.net.");
+        assert_se(ds);
+
+        ds->ds.key_tag = 55648;
+        ds->ds.algorithm = DNSSEC_ALGORITHM_ECDSAP256SHA256;
+        ds->ds.digest_type = DNSSEC_DIGEST_SHA256;
+        ds->ds.digest_size = sizeof(ds_fprint);
+        ds->ds.digest = memdup(ds_fprint, ds->ds.digest_size);
+        assert_se(ds->ds.digest);
+
+        log_info("DS: %s", strna(dns_resource_record_to_string(ds)));
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.net");
+        assert_se(a);
+
+        a->a.in_addr.s_addr = inet_addr("192.0.2.1");
+
+        log_info("A: %s", strna(dns_resource_record_to_string(a)));
+
+        rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.net.");
+        assert_se(rrsig);
+
+        rrsig->rrsig.type_covered = DNS_TYPE_A;
+        rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_ECDSAP256SHA256;
+        rrsig->rrsig.labels = 3;
+        rrsig->rrsig.expiration = 1284026679;
+        rrsig->rrsig.inception = 1281607479;
+        rrsig->rrsig.key_tag = 55648;
+        rrsig->rrsig.original_ttl = 3600;
+        rrsig->rrsig.signer = strdup("example.net.");
+        assert_se(rrsig->rrsig.signer);
+        rrsig->rrsig.signature_size = sizeof(signature_blob);
+        rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
+        assert_se(rrsig->rrsig.signature);
+
+        log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
+
+        assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+
+        answer = dns_answer_new(1);
+        assert_se(answer);
+        assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+
+        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
+                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
+        assert_se(result == DNSSEC_VALIDATED);
+}
+
+static void test_dnssec_verify_rfc6605_example2(void) {
+        static const uint8_t signature_blob[] = {
+                0xfc, 0xbe, 0x61, 0x0c, 0xa2, 0x2f, 0x18, 0x3c, 0x88, 0xd5, 0xf7, 0x00, 0x45, 0x7d, 0xf3, 0xeb,
+                0x9a, 0xab, 0x98, 0xfb, 0x15, 0xcf, 0xbd, 0xd0, 0x0f, 0x53, 0x2b, 0xe4, 0x21, 0x2a, 0x3a, 0x22,
+                0xcf, 0xf7, 0x98, 0x71, 0x42, 0x8b, 0xae, 0xae, 0x81, 0x82, 0x79, 0x93, 0xaf, 0xcc, 0x56, 0xb1,
+                0xb1, 0x3f, 0x06, 0x96, 0xbe, 0xf8, 0x85, 0xb6, 0xaf, 0x44, 0xa6, 0xb2, 0x24, 0xdb, 0xb2, 0x74,
+                0x2b, 0xb3, 0x59, 0x34, 0x92, 0x3d, 0xdc, 0xfb, 0xc2, 0x7a, 0x97, 0x2f, 0x96, 0xdd, 0x70, 0x9c,
+                0xee, 0xb1, 0xd9, 0xc8, 0xd1, 0x14, 0x8c, 0x44, 0xec, 0x71, 0xc0, 0x68, 0xa9, 0x59, 0xc2, 0x66,
+
+        };
+
+        static const uint8_t ds_fprint[] = {
+                0xef, 0x67, 0x7b, 0x6f, 0xad, 0xbd, 0xef, 0xa7, 0x1e, 0xd3, 0xae, 0x37, 0xf1, 0xef, 0x5c, 0xd1,
+                0xb7, 0xf7, 0xd7, 0xdd, 0x35, 0xdd, 0xc7, 0xfc, 0xd3, 0x57, 0xf4, 0xf5, 0xe7, 0x1c, 0xf3, 0x86,
+                0xfc, 0x77, 0xb7, 0xbd, 0xe3, 0xde, 0x5f, 0xdb, 0xb7, 0xb7, 0xd3, 0x97, 0x3a, 0x6b, 0xd6, 0xf4,
+                0xe7, 0xad, 0xda, 0xf5, 0xbe, 0x5f, 0xe1, 0xdd, 0xbc, 0xf3, 0x8d, 0x39, 0x73, 0x7d, 0x34, 0xf1,
+                0xaf, 0x78, 0xe9, 0xd7, 0xfd, 0xf3, 0x77, 0x7a,
+        };
+
+        static const uint8_t dnskey_blob[] = {
+                0xc4, 0xa6, 0x1a, 0x36, 0x15, 0x9d, 0x18, 0xe7, 0xc9, 0xfa, 0x73, 0xeb, 0x2f, 0xcf, 0xda, 0xae,
+                0x4c, 0x1f, 0xd8, 0x46, 0x37, 0x30, 0x32, 0x7e, 0x48, 0x4a, 0xca, 0x8a, 0xf0, 0x55, 0x4a, 0xe9,
+                0xb5, 0xc3, 0xf7, 0xa0, 0xb1, 0x7b, 0xd2, 0x00, 0x3b, 0x4d, 0x26, 0x1c, 0x9e, 0x9b, 0x94, 0x42,
+                0x3a, 0x98, 0x10, 0xe8, 0xaf, 0x17, 0xd4, 0x34, 0x52, 0x12, 0x4a, 0xdb, 0x61, 0x0f, 0x8e, 0x07,
+                0xeb, 0xfc, 0xfe, 0xe5, 0xf8, 0xe4, 0xd0, 0x70, 0x63, 0xca, 0xe9, 0xeb, 0x91, 0x7a, 0x1a, 0x5b,
+                0xab, 0xf0, 0x8f, 0xe6, 0x95, 0x53, 0x60, 0x17, 0xa5, 0xbf, 0xa9, 0x32, 0x37, 0xee, 0x6e, 0x34,
+        };
+
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *a = NULL,
+                *rrsig = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        DnssecResult result;
+
+        dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.net.");
+        assert_se(dnskey);
+
+        dnskey->dnskey.flags = 257;
+        dnskey->dnskey.protocol = 3;
+        dnskey->dnskey.algorithm = DNSSEC_ALGORITHM_ECDSAP384SHA384;
+        dnskey->dnskey.key_size = sizeof(dnskey_blob);
+        dnskey->dnskey.key = memdup(dnskey_blob, sizeof(dnskey_blob));
+        assert_se(dnskey->dnskey.key);
+
+        log_info("DNSKEY: %s", strna(dns_resource_record_to_string(dnskey)));
+
+        ds = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "example.net.");
+        assert_se(ds);
+
+        ds->ds.key_tag = 10771;
+        ds->ds.algorithm = DNSSEC_ALGORITHM_ECDSAP384SHA384;
+        ds->ds.digest_type = DNSSEC_DIGEST_SHA384;
+        ds->ds.digest_size = sizeof(ds_fprint);
+        ds->ds.digest = memdup(ds_fprint, ds->ds.digest_size);
+        assert_se(ds->ds.digest);
+
+        log_info("DS: %s", strna(dns_resource_record_to_string(ds)));
+
+        a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "www.example.net");
+        assert_se(a);
+
+        a->a.in_addr.s_addr = inet_addr("192.0.2.1");
+
+        log_info("A: %s", strna(dns_resource_record_to_string(a)));
+
+        rrsig = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_RRSIG, "www.example.net.");
+        assert_se(rrsig);
+
+        rrsig->rrsig.type_covered = DNS_TYPE_A;
+        rrsig->rrsig.algorithm = DNSSEC_ALGORITHM_ECDSAP384SHA384;
+        rrsig->rrsig.labels = 3;
+        rrsig->rrsig.expiration = 1284027625;
+        rrsig->rrsig.inception = 1281608425;
+        rrsig->rrsig.key_tag = 10771;
+        rrsig->rrsig.original_ttl = 3600;
+        rrsig->rrsig.signer = strdup("example.net.");
+        assert_se(rrsig->rrsig.signer);
+        rrsig->rrsig.signature_size = sizeof(signature_blob);
+        rrsig->rrsig.signature = memdup(signature_blob, rrsig->rrsig.signature_size);
+        assert_se(rrsig->rrsig.signature);
+
+        log_info("RRSIG: %s", strna(dns_resource_record_to_string(rrsig)));
+
+        assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
+        assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
+
+        answer = dns_answer_new(1);
+        assert_se(answer);
+        assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
+
+        assert_se(dnssec_verify_rrset(answer, a->key, rrsig, dnskey,
+                                      rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
+        assert_se(result == DNSSEC_VALIDATED);
+}
+
 static void test_dnssec_verify_rrset(void) {
 
         static const uint8_t signature_blob[] = {
@@ -613,6 +796,8 @@ int main(int argc, char *argv[]) {
         test_dnssec_verify_dns_key();
         test_dnssec_verify_rfc8080_ed25519_example1();
         test_dnssec_verify_rfc8080_ed25519_example2();
+        test_dnssec_verify_rfc6605_example1();
+        test_dnssec_verify_rfc6605_example2();
         test_dnssec_verify_rrset();
         test_dnssec_verify_rrset2();
         test_dnssec_verify_rrset3();
