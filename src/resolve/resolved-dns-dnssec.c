@@ -617,13 +617,23 @@ static int dnssec_eddsa_verify(
                         dnskey->dnskey.key, key_size);
 }
 
-static void md_add_uint8(gcry_md_hd_t md, uint8_t v) {
-        gcry_md_write(md, &v, sizeof(v));
+static int md_add_uint8(hash_context_t ctx, uint8_t v) {
+#if PREFER_OPENSSL
+        return EVP_DigestUpdate(ctx, &v, sizeof(v));
+#else
+        gcry_md_write(ctx, &v, sizeof(v));
+        return 0;
+#endif
 }
 
-static void md_add_uint16(gcry_md_hd_t md, uint16_t v) {
+static int md_add_uint16(hash_context_t ctx, uint16_t v) {
         v = htobe16(v);
-        gcry_md_write(md, &v, sizeof(v));
+#if PREFER_OPENSSL
+        return EVP_DigestUpdate(ctx, &v, sizeof(v));
+#else
+        gcry_md_write(ctx, &v, sizeof(v));
+        return 0;
+#endif
 }
 
 static void fwrite_uint8(FILE *fp, uint8_t v) {
@@ -1289,33 +1299,29 @@ int dnssec_has_rrsig(DnsAnswer *a, const DnsResourceKey *key) {
         return 0;
 }
 
-static int digest_to_gcrypt_md(uint8_t algorithm) {
+static hash_md_t digest_to_hash_md(uint8_t algorithm) {
 
-        /* Translates a DNSSEC digest algorithm into a gcrypt digest identifier */
+        /* Translates a DNSSEC digest algorithm into an openssl/gcrypt digest identifier */
 
         switch (algorithm) {
 
         case DNSSEC_DIGEST_SHA1:
-                return GCRY_MD_SHA1;
+                return OPENSSL_OR_GCRYPT(EVP_sha1(), GCRY_MD_SHA1);
 
         case DNSSEC_DIGEST_SHA256:
-                return GCRY_MD_SHA256;
+                return OPENSSL_OR_GCRYPT(EVP_sha256(), GCRY_MD_SHA256);
 
         case DNSSEC_DIGEST_SHA384:
-                return GCRY_MD_SHA384;
+                return OPENSSL_OR_GCRYPT(EVP_sha384(), GCRY_MD_SHA384);
 
         default:
-                return -EOPNOTSUPP;
+                return OPENSSL_OR_GCRYPT(NULL, -EOPNOTSUPP);
         }
 }
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
-        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
-        gcry_error_t err;
-        size_t hash_size;
-        int md_algorithm, r;
-        void *result;
+        int r;
 
         assert(dnskey);
         assert(ds);
@@ -1338,23 +1344,65 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (dnssec_keytag(dnskey, mask_revoke) != ds->ds.key_tag)
                 return 0;
 
-        initialize_libgcrypt(false);
+        r = dns_name_to_wire_format(dns_resource_key_name(dnskey->key), wire_format, sizeof wire_format, true);
+        if (r < 0)
+                return r;
 
-        md_algorithm = digest_to_gcrypt_md(ds->ds.digest_type);
-        if (md_algorithm < 0)
-                return md_algorithm;
+        hash_md_t md_algorithm = digest_to_hash_md(ds->ds.digest_type);
 
-        hash_size = gcry_md_get_algo_dlen(md_algorithm);
+#if PREFER_OPENSSL
+        if (!md_algorithm)
+                return -EOPNOTSUPP;
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = NULL;
+        uint8_t result[EVP_MAX_MD_SIZE];
+
+        unsigned hash_size = EVP_MD_size(md_algorithm);
         assert(hash_size > 0);
 
         if (ds->ds.digest_size != hash_size)
                 return 0;
 
-        r = dns_name_to_wire_format(dns_resource_key_name(dnskey->key), wire_format, sizeof(wire_format), true);
-        if (r < 0)
-                return r;
+        ctx = EVP_MD_CTX_new();
+        if (!ctx)
+                return -ENOMEM;
 
-        err = gcry_md_open(&md, md_algorithm, 0);
+        if (EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
+                return -EIO;
+
+        if (EVP_DigestUpdate(ctx, wire_format, r) <= 0)
+                return -EIO;
+
+        if (mask_revoke)
+                md_add_uint16(ctx, dnskey->dnskey.flags & ~DNSKEY_FLAG_REVOKE);
+        else
+                md_add_uint16(ctx, dnskey->dnskey.flags);
+
+        r = md_add_uint8(ctx, dnskey->dnskey.protocol);
+        if (r <= 0)
+                return r;
+        r = md_add_uint8(ctx, dnskey->dnskey.algorithm);
+        if (r <= 0)
+                return r;
+        if (EVP_DigestUpdate(ctx, dnskey->dnskey.key, dnskey->dnskey.key_size) <= 0)
+                return -EIO;
+
+        if (EVP_DigestFinal_ex(ctx, result, NULL) <= 0)
+                return -EIO;
+
+#else
+        if (md_algorithm < 0)
+                return -EOPNOTSUPP;
+
+        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
+
+        size_t hash_size = gcry_md_get_algo_dlen(md_algorithm);
+        assert(hash_size > 0);
+
+        if (ds->ds.digest_size != hash_size)
+                return 0;
+
+        gcry_error_t err = gcry_md_open(&md, md_algorithm, 0);
         if (gcry_err_code(err) != GPG_ERR_NO_ERROR || !md)
                 return -EIO;
 
@@ -1367,9 +1415,10 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         md_add_uint8(md, dnskey->dnskey.algorithm);
         gcry_md_write(md, dnskey->dnskey.key, dnskey->dnskey.key_size);
 
-        result = gcry_md_read(md, 0);
+        void *result = gcry_md_read(md, 0);
         if (!result)
                 return -EIO;
+#endif
 
         return memcmp(result, ds->ds.digest, ds->ds.digest_size) == 0;
 }
