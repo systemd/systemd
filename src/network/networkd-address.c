@@ -1004,6 +1004,11 @@ int link_set_addresses(Link *link) {
                 return 0;
         }
 
+        if (link->address_messages != 0) {
+                log_link_debug(link, "Static addresses are configuring.");
+                return 0;
+        }
+
         ORDERED_HASHMAP_FOREACH(ad, link->network->addresses_by_section) {
                 bool update;
 

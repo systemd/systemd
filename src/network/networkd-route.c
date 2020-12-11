@@ -1237,6 +1237,11 @@ int link_set_routes(Link *link) {
                  * the addresses now, let's not configure the routes either. */
                 return 0;
 
+        if (link->route_messages != 0) {
+                log_link_debug(link, "Static routes are configuring.");
+                return 0;
+        }
+
         r = link_set_routing_policy_rules(link);
         if (r < 0)
                 return r;

@@ -199,6 +199,11 @@ int link_set_bridge_mdb(Link *link) {
         assert(link);
         assert(link->manager);
 
+        if (link->bridge_mdb_messages != 0) {
+                log_link_debug(link, "MDB entries are configuring.");
+                return 0;
+        }
+
         link->bridge_mdb_configured = false;
 
         if (!link->network)

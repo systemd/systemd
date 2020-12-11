@@ -663,6 +663,11 @@ int link_set_routing_policy_rules(Link *link) {
         assert(link);
         assert(link->network);
 
+        if (link->routing_policy_rule_messages != 0) {
+                log_link_debug(link, "Routing policy rules are configuring.");
+                return 0;
+        }
+
         link->routing_policy_rules_configured = false;
 
         HASHMAP_FOREACH(rule, link->network->rules_by_section) {
