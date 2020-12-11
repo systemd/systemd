@@ -13,6 +13,8 @@ libcore_sources = '''
         bpf-firewall.h
         bpf-foreign.c
         bpf-foreign.h
+        bpf-lsm.c
+        bpf-lsm.h
         bpf-socket-bind.c
         bpf-socket-bind.h
         cgroup.c
