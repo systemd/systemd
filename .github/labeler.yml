@@ -9,7 +9,7 @@ network:
 udev:
   - any: ['src/udev/**/*', 'src/libudev/*']
 selinux: 
-  - '**/*selinux*'
+  - *selinux*
 apparmor: 
   - '**/apparmor*'
 meson:
