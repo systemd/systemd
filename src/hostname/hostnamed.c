@@ -689,7 +689,10 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
                 return sd_bus_error_set_errnof(error, r, "Failed to set static hostname: %m");
         }
 
-        log_info("Changed static hostname to '%s'", strna(c->data[PROP_STATIC_HOSTNAME]));
+        if (c->data[PROP_STATIC_HOSTNAME])
+                log_info("Changed static hostname to <%s>", c->data[PROP_STATIC_HOSTNAME]);
+        else
+                log_info("Unset static hostname.");
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m),
                                               "/org/freedesktop/hostname1", "org.freedesktop.hostname1", "StaticHostname", NULL);
