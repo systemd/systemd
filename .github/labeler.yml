@@ -1,0 +1,29 @@
+hwdb:
+  - hwdb.d/**/*
+units:
+  - units/**/*
+documentation:
+  - NEWS
+  - man/*
+  - docs/*
+network:
+  - src/libsystemd-network/**/*
+  - src/network/**/*
+udev:
+  - src/udev/**/*
+  - src/libudev/*
+selinux:
+  - '**/*selinux*'
+apparmor:
+  - '**/*apparmor*'
+meson:
+  - '**/meson.build'
+  - meson_option.txt
+busctl:
+  - src/busctl/*
+systemctl:
+  - src/systemctl/*
+journal:
+  - src/journal/*
+journal-remote:
+  - src/journal-remote/*
