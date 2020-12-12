@@ -3,13 +3,22 @@ hwdb:
 units:
   - units/**/*
 documentation:
-  - any: ['man/*', 'docs/*', 'NEWS']
+  - NEWS
+  - man/*
+  - docs/*
 network:
-  - any: ['src/libsystemd-network/**/*', 'src/network/**/*']
+  - src/libsystemd-network/**/*
+  - src/network/**/*
 udev:
-  - any: ['src/udev/**/*', 'src/libudev/*']
+  - src/udev/**/*
+  - src/libudev/*
+selinux: 
+  - **/*selinux*
+apparmor: 
+  - **/apparmor*
 meson:
-  - any: ['**/meson.build', 'meson_option.txt']
+  - **/meson.build
+  - meson_option.txt
 busctl:
   - src/busctl/*
 systemctl: 
