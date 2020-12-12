@@ -8,10 +8,6 @@ network:
   - any: ['src/libsystemd-network/**/*', 'src/network/**/*']
 udev:
   - any: ['src/udev/**/*', 'src/libudev/*']
-selinux: 
-  - *selinux*
-apparmor: 
-  - '**/apparmor*'
 meson:
   - any: ['**/meson.build', 'meson_option.txt']
 busctl:
