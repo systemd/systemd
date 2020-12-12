@@ -1505,6 +1505,20 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*300E[457]*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*200E[45]*:*
  KEYBOARD_KEY_ce=!                                      # Fn+F1  launch control setting
 
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*356V[45]*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*355V[45]*:pvr*
+ KEYBOARD_KEY_ce=!prog1                  # Fn+F1  launch control setting
+ KEYBOARD_KEY_89=!brightnessdown         # Fn+F2  brightness down
+ KEYBOARD_KEY_88=!brightnessup           # Fn+F3  brightness up
+ KEYBOARD_KEY_82=!switchvideomode        # Fn+F4  display toggle
+ KEYBOARD_KEY_f7=!f22                    # Fn+F5  touchpad on
+ KEYBOARD_KEY_f9=!f23                    # Fn+F5  touchpad off
+ KEYBOARD_KEY_a0=!mute                   # Fn+F6  mute
+ KEYBOARD_KEY_ae=!volumedown             # Fn+F7  volume down
+ KEYBOARD_KEY_b0=!volumeup               # Fn+F8  volume up
+ KEYBOARD_KEY_b3=!prog2                  # Fn+F11 toggle fan/cool mode
+ KEYBOARD_KEY_d5=!wlan                   # Fn+F12 toggle wifi
+
 # Series 5
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*530U*:*
  KEYBOARD_KEY_ce=!prog1                                 # Fn+F1 launch settings
