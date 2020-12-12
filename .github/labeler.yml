@@ -12,10 +12,6 @@ network:
 udev:
   - src/udev/**/*
   - src/libudev/*
-selinux: 
-  - **/*selinux*
-apparmor: 
-  - **/apparmor*
 meson:
   - **/meson.build
   - meson_option.txt
