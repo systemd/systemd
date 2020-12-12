@@ -9,9 +9,9 @@ network:
 udev:
   - any: ['src/udev/**/*', 'src/libudev/*']
 selinux: 
-  - '**/*selinux*'
+  - ./**/*selinux*
 apparmor: 
-  - '**/apparmor*'
+  - ./**/apparmor*
 meson:
   - any: ['**/meson.build', 'meson_option.txt']
 busctl:
@@ -22,7 +22,3 @@ journal:
   - src/journal/*
 journal-remote:
   - src/journal-remote/*
-
- 
-  
- 
