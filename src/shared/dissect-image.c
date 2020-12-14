@@ -1672,7 +1672,7 @@ static int verity_can_reuse(
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
         /* Ensure that, if signatures are supported, we only reuse the device if the previous mount used the
          * same settings, so that a previous unsigned mount will not be reused if the user asks to use
-         * signing for the new one, and viceversa. */
+         * signing for the new one, and vice versa. */
         if (!!verity->root_hash_sig != !!(crypt_params.flags & CRYPT_VERITY_ROOT_HASH_SIGNATURE))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
 #endif

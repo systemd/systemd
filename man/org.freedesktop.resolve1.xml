@@ -329,7 +329,7 @@ node /org/freedesktop/resolve1 {
 
         <listitem><para>Alternatively, leave both the service name and type empty and specify the full
         domain name of the SRV record (i.e. prefixed with the service type) in the domain parameter. (No IDNA
-        coversion is applied in this mode.)</para></listitem>
+        conversion is applied in this mode.)</para></listitem>
       </orderedlist>
 
       <para>The <varname>family</varname> parameter of the <function>ResolveService()</function> method encodes

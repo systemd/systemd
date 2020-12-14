@@ -7,7 +7,7 @@
 #
 # Run after sys-script.py
 # Usage: sd-script.py <directory> <num>
-# <num> is the number of device nodes (disks + partititions)
+# <num> is the number of device nodes (disks + partitions)
 # to create in addition to what sys-script.py already did.
 # The script can be run several times in a row if <num> is increased,
 # adding yet more device entries.

@@ -27,7 +27,7 @@
 /* An arbitrary limit on the length of the chains of components. We don't want to
  * build a very long linked list, which would be slow to iterate over and might cause
  * our stack to overflow. It's unlikely that legitimate uses require more than a few
- * linked compenents anyway. */
+ * linked components anyway. */
 #define CALENDARSPEC_COMPONENTS_MAX 240
 
 /* Let's make sure that the microsecond component is safe to be stored in an 'int' */

@@ -474,8 +474,7 @@ static int names_platform(sd_device *dev, struct netnames *names, bool test) {
 
         /* Platform devices are named after ACPI table match, and instance id
          * eg. "/sys/devices/platform/HISI00C2:00");
-         * The Vendor (3 or 4 char), followed by hexdecimal model number : instance id.
-         */
+         * The Vendor (3 or 4 char), followed by hexadecimal model number : instance id. */
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
         if (sscanf(syspath, pattern, vendor, &model, &instance, &ethid) != 4)

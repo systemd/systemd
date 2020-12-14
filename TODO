@@ -1008,7 +1008,7 @@ Features:
   - logind: when the power button is pressed short, just popup a
     logout dialog. If it is pressed for 1s, do the usual
     shutdown. Inspiration are Macs here.
-  - expose "Locked" property on logind sesison objects
+  - expose "Locked" property on logind session objects
   - maybe allow configuration of the StopTimeout for session scopes
   - rename session scope so that it includes the UID. THat way
     the session scope can be arranged freely in slices and we don't have
