@@ -25,7 +25,6 @@
 
 #include "device-nodes.h"
 #include "fd-util.h"
-#include "libudev-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "udev-util.h"

@@ -19,7 +19,6 @@
 #include "bus-util.h"
 #include "fd-util.h"
 #include "io-util.h"
-#include "libudev-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"

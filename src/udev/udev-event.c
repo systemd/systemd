@@ -17,7 +17,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "format-util.h"
-#include "libudev-util.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"

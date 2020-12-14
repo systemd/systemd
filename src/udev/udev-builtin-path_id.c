@@ -17,7 +17,6 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
-#include "libudev-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysexits.h"

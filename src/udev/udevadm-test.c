@@ -16,7 +16,6 @@
 
 #include "device-private.h"
 #include "device-util.h"
-#include "libudev-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"

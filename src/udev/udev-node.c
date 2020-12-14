@@ -15,7 +15,6 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "libudev-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "selinux-util.h"

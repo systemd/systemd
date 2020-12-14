@@ -18,7 +18,6 @@
 #include "device-nodes.h"
 #include "device-util.h"
 #include "fd-util.h"
-#include "libudev-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"

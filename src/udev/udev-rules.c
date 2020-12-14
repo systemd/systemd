@@ -14,7 +14,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
-#include "libudev-util.h"
 #include "list.h"
 #include "mkdir.h"
 #include "nulstr-util.h"

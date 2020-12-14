@@ -20,7 +20,6 @@
 #include "build.h"
 #include "device-nodes.h"
 #include "fd-util.h"
-#include "libudev-util.h"
 #include "scsi_id.h"
 #include "string-util.h"
 #include "strxcpyx.h"
