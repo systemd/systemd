@@ -383,7 +383,6 @@ libshared_static = static_library(
 
 libshared = shared_library(
         libshared_name,
-        libudev_sources,
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],

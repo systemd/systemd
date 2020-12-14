@@ -106,8 +106,7 @@ fuzzers += [
          []],
 
         [['src/fuzz/fuzz-udev-rules.c'],
-         [libudev_core,
-          libudev_static,
+         [libudevd_core,
           libshared],
          [threads,
           libacl]],

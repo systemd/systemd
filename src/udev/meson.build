@@ -16,7 +16,7 @@ udevadm_sources = files('''
         udevd.c
 '''.split())
 
-libudev_core_sources = '''
+libudevd_core_sources = '''
         udev-ctrl.c
         udev-ctrl.h
         udev-event.c
@@ -42,17 +42,17 @@ libudev_core_sources = '''
 '''.split()
 
 if conf.get('HAVE_KMOD') == 1
-        libudev_core_sources += ['udev-builtin-kmod.c']
+        libudevd_core_sources += ['udev-builtin-kmod.c']
 endif
 
 if conf.get('HAVE_BLKID') == 1
-        libudev_core_sources += ['udev-builtin-blkid.c']
+        libudevd_core_sources += ['udev-builtin-blkid.c']
 endif
 
 if conf.get('HAVE_ACL') == 1
-        libudev_core_sources += ['udev-builtin-uaccess.c',
-                                 logind_acl_c,
-                                 sd_login_sources]
+        libudevd_core_sources += ['udev-builtin-uaccess.c',
+                                  logind_acl_c,
+                                  sd_login_sources]
 endif
 
 ############################################################
@@ -105,15 +105,17 @@ else
         udev_rpath = ''
 endif
 
+libudev_includes = [includes, include_directories('../libudev')]
+
 libudev_basic = static_library(
         'udev-basic',
         libudev_sources,
-        include_directories : includes,
+        include_directories : libudev_includes,
         c_args : ['-fvisibility=default'])
 
 libudev_static = static_library(
         'udev_static',
-        include_directories : includes,
+        include_directories : libudev_includes,
         link_with : udev_link_with,
         link_whole : libudev_basic)
 
@@ -126,7 +128,7 @@ install_libudev_static = static_library(
         libsystemd_sources,
         libudev_sources,
         disable_mempool_c,
-        include_directories : includes,
+        include_directories : libudev_includes,
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
         install_dir : rootlibdir,
@@ -139,7 +141,7 @@ libudev = shared_library(
         'udev',
         disable_mempool_c,
         version : libudev_version,
-        include_directories : includes,
+        include_directories : libudev_includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
         link_with : [libsystemd_static, libshared_static],
@@ -149,13 +151,15 @@ libudev = shared_library(
         install : true,
         install_dir : rootlibdir)
 
-libudev_core_includes = [includes, include_directories('net')]
-libudev_core = static_library(
+############################################################
+
+libudevd_core_includes = [includes, include_directories('net')]
+libudevd_core = static_library(
         'udev-core',
-        libudev_core_sources,
+        libudevd_core_sources,
         link_config_gperf_c,
         keyboard_keys_from_name_h,
-        include_directories : libudev_core_includes,
+        include_directories : libudevd_core_includes,
         c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
         link_with : udev_link_with,
         dependencies : [libblkid, libkmod])
@@ -179,7 +183,7 @@ foreach prog : [['ata_id/ata_id.c'],
                    include_directories : includes,
                    c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
                    dependencies : [versiondep],
-                   link_with : [libudev_static],
+                   link_with : udev_link_with,
                    install_rpath : udev_rpath,
                    install : true,
                    install_dir : udevlibexecdir)
@@ -204,8 +208,7 @@ endif
 fuzzers += [
         [['src/udev/net/fuzz-link-parser.c',
           'src/fuzz/fuzz.h'],
-         [libudev_core,
-          libudev_static,
+         [libudevd_core,
           libshared],
          [threads,
           libacl]],
