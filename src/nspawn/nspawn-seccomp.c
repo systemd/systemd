@@ -126,7 +126,7 @@ static int add_syscall_filters(
                  * @pkey
                  * @swap
                  *
-                 * bpf                (NB: bpffs is not namespaced!)
+                 * bpf
                  * fanotify_init
                  * fanotify_mark
                  * kexec_file_load
