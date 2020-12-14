@@ -839,6 +839,16 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
+        if (set_contains(link->network->ndisc_deny_listed_route_prefix, &gateway.in6)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *buf = NULL;
+
+                        (void) in_addr_to_string(AF_INET6, &gateway, &buf);
+                        log_link_debug(link, "Route Prefix '%s' is deny-listed, ignoring", strnull(buf));
+                }
+                return 0;
+        }
+
         if (link_has_ipv6_address(link, &gateway.in6) == 0) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
@@ -1378,8 +1388,8 @@ int config_parse_ndisc_deny_listed_prefix(
                 void *data,
                 void *userdata) {
 
-        Network *network = data;
-        const char *p;
+        Set **list = data;
+        bool is_route;
         int r;
 
         assert(filename);
@@ -1388,11 +1398,13 @@ int config_parse_ndisc_deny_listed_prefix(
         assert(data);
 
         if (isempty(rvalue)) {
-                network->ndisc_deny_listed_prefix = set_free_free(network->ndisc_deny_listed_prefix);
+                *list = set_free_free(*list);
                 return 0;
         }
 
-        for (p = rvalue;;) {
+        is_route = streq_ptr(lvalue, "RouteDenyList");
+
+        for (const char *p = rvalue;;) {
                 _cleanup_free_ char *n = NULL;
                 _cleanup_free_ struct in6_addr *a = NULL;
                 union in_addr_union ip;
@@ -1402,8 +1414,8 @@ int config_parse_ndisc_deny_listed_prefix(
                         return log_oom();
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse NDisc deny-listed prefix, ignoring assignment: %s",
-                                   rvalue);
+                                   "Failed to parse NDisc deny-listed %sprefix, ignoring assignment: %s",
+                                   is_route ? "route " : "", rvalue);
                         return 0;
                 }
                 if (r == 0)
@@ -1412,20 +1424,24 @@ int config_parse_ndisc_deny_listed_prefix(
                 r = in_addr_from_string(AF_INET6, n, &ip);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "NDisc deny-listed prefix is invalid, ignoring assignment: %s", n);
+                                   "NDisc deny-listed %sprefix is invalid, ignoring assignment: %s",
+                                   is_route ? "route " : "", n);
                         continue;
                 }
-
-                if (set_contains(network->ndisc_deny_listed_prefix, &ip.in6))
-                        continue;
 
                 a = newdup(struct in6_addr, &ip.in6, 1);
                 if (!a)
                         return log_oom();
 
-                r = set_ensure_consume(&network->ndisc_deny_listed_prefix, &in6_addr_hash_ops, TAKE_PTR(a));
+                r = set_ensure_consume(list, &in6_addr_hash_ops, TAKE_PTR(a));
                 if (r < 0)
                         return log_oom();
+                if (r == 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "NDisc deny-listed %sprefix entry %s is duplicated, ignoring assignment.",
+                                   is_route ? "route " : "", n);
+                if (r > 0)
+                        TAKE_PTR(a);
         }
 }
 
