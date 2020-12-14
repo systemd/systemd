@@ -44,6 +44,7 @@
 static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
 static const char* arg_field = NULL;
 static const char *arg_debugger = NULL;
+static char **arg_debugger_args = NULL;
 static const char *arg_directory = NULL;
 static char **arg_file = NULL;
 static PagerFlags arg_pager_flags = 0;
@@ -53,6 +54,7 @@ static const char* arg_output = NULL;
 static bool arg_reverse = false;
 static bool arg_quiet = false;
 
+STATIC_DESTRUCTOR_REGISTER(arg_debugger_args, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
 static int add_match(sd_journal *j, const char *match) {
@@ -161,20 +163,21 @@ static int help(void) {
                "  dump [MATCHES...]  Print first matching coredump to stdout\n"
                "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
                "\nOptions:\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version string\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "     --no-legend         Do not print the column headers\n"
-               "     --debugger=DEBUGGER Use the given debugger\n"
-               "  -1                     Show information about most recent entry only\n"
-               "  -S --since=DATE        Only print coredumps since the date\n"
-               "  -U --until=DATE        Only print coredumps until the date\n"
-               "  -r --reverse           Show the newest entries first\n"
-               "  -F --field=FIELD       List all values a certain field takes\n"
-               "  -o --output=FILE       Write output to FILE\n"
-               "     --file=PATH         Use journal file\n"
-               "  -D --directory=DIR     Use journal files from directory\n\n"
-               "  -q --quiet             Do not show info messages and privilege warning\n"
+               "  -h --help                    Show this help\n"
+               "     --version                 Print version string\n"
+               "     --no-pager                Do not pipe output into a pager\n"
+               "     --no-legend               Do not print the column headers\n"
+               "     --debugger=DEBUGGER       Use the given debugger\n"
+               "  -A --debugger-arguments=ARGS Pass the given arguments to the debugger\n"
+               "  -1                           Show information about most recent entry only\n"
+               "  -S --since=DATE              Only print coredumps since the date\n"
+               "  -U --until=DATE              Only print coredumps until the date\n"
+               "  -r --reverse                 Show the newest entries first\n"
+               "  -F --field=FIELD             List all values a certain field takes\n"
+               "  -o --output=FILE             Write output to FILE\n"
+               "     --file=PATH               Use journal file\n"
+               "  -D --directory=DIR           Use journal files from directory\n\n"
+               "  -q --quiet                   Do not show info messages and privilege warning\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
                , ansi_highlight()
@@ -197,26 +200,27 @@ static int parse_argv(int argc, char *argv[]) {
         int c, r;
 
         static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version" ,     no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER  },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
-                { "debugger",     required_argument, NULL, ARG_DEBUGGER  },
-                { "output",       required_argument, NULL, 'o'           },
-                { "field",        required_argument, NULL, 'F'           },
-                { "file",         required_argument, NULL, ARG_FILE      },
-                { "directory",    required_argument, NULL, 'D'           },
-                { "reverse",      no_argument,       NULL, 'r'           },
-                { "since",        required_argument, NULL, 'S'           },
-                { "until",        required_argument, NULL, 'U'           },
-                { "quiet",        no_argument,       NULL, 'q'           },
+                { "help",               no_argument,       NULL, 'h'           },
+                { "version" ,           no_argument,       NULL, ARG_VERSION   },
+                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER  },
+                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND },
+                { "debugger",           required_argument, NULL, ARG_DEBUGGER  },
+                { "debugger-arguments", required_argument, NULL, 'A'           },
+                { "output",             required_argument, NULL, 'o'           },
+                { "field",              required_argument, NULL, 'F'           },
+                { "file",               required_argument, NULL, ARG_FILE      },
+                { "directory",          required_argument, NULL, 'D'           },
+                { "reverse",            no_argument,       NULL, 'r'           },
+                { "since",              required_argument, NULL, 'S'           },
+                { "until",              required_argument, NULL, 'U'           },
+                { "quiet",              no_argument,       NULL, 'q'           },
                 {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ho:F:1D:rS:U:q", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:q", options, NULL)) >= 0)
                 switch(c) {
                 case 'h':
                         return help();
@@ -235,6 +239,15 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_DEBUGGER:
                         arg_debugger = optarg;
                         break;
+
+                case 'A': {
+                        _cleanup_strv_free_ char **l = NULL;
+                        r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
+                        strv_free_and_replace(arg_debugger_args, l);
+                        break;
+                }
 
                 case ARG_FILE:
                         r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
@@ -921,7 +934,8 @@ static int dump_core(int argc, char **argv, void *userdata) {
 
 static int run_debug(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *exe = NULL, *path = NULL, *debugger = NULL;
+        _cleanup_free_ char *exe = NULL, *path = NULL;
+        _cleanup_strv_free_ char **debugger_call = NULL;
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
@@ -938,9 +952,13 @@ static int run_debug(int argc, char **argv, void *userdata) {
                         arg_debugger = "gdb";
         }
 
-        debugger = strdup(arg_debugger);
-        if (!debugger)
-                return -ENOMEM;
+        r = strv_extend(&debugger_call, arg_debugger);
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extend_strv(&debugger_call, arg_debugger_args, false);
+        if (r < 0)
+                return log_oom();
 
         if (arg_field)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -981,22 +999,26 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
+        r = strv_extend_strv(&debugger_call, STRV_MAKE(exe, "-c", path), false);
+        if (r < 0)
+                return log_oom();
+
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT, -1);
 
-        fork_name = strjoina("(", debugger, ")");
+        fork_name = strjoina("(", debugger_call[0], ")");
 
         r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                execlp(debugger, debugger, exe, "-c", path, NULL);
+                execvp(debugger_call[0], debugger_call);
                 log_open();
-                log_error_errno(errno, "Failed to invoke %s: %m", debugger);
+                log_error_errno(errno, "Failed to invoke %s: %m", debugger_call[0]);
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check(debugger, pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check(debugger_call[0], pid, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, -1);
