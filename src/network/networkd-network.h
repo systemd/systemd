@@ -257,6 +257,7 @@ struct Network {
         IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client;
         uint32_t ipv6_accept_ra_route_table;
         Set *ndisc_deny_listed_prefix;
+        Set *ndisc_deny_listed_route_prefix;
         OrderedSet *ipv6_tokens;
 
         /* LLDP support */

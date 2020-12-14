@@ -2095,7 +2095,16 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         <varlistentry>
           <term><varname>DenyList=</varname></term>
           <listitem>
-            <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router advertisements in the list are ignored.</para>
+            <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router
+            advertisements in the list are ignored.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteDenyList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv6 route prefixes. IPv6 route prefixes supplied via
+            router advertisements in the list are ignored.</para>
           </listitem>
         </varlistentry>
 
