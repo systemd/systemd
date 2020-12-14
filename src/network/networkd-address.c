@@ -405,7 +405,8 @@ static int address_drop(Address *address) {
         bool ready;
         int r;
 
-        assert(address);
+        if (!address)
+                return 0;
 
         ready = address_is_ready(address);
         link = address->link;
@@ -466,6 +467,34 @@ int link_has_ipv6_address(Link *link, const struct in6_addr *address) {
         return address_get(link, a, NULL) >= 0;
 }
 
+static void log_address_debug(const Address *address, const char *str, const Link *link) {
+        assert(address);
+        assert(str);
+        assert(link);
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *addr = NULL, *peer = NULL;
+                char valid_buf[FORMAT_TIMESPAN_MAX];
+                const char *valid_str = NULL;
+                bool has_peer;
+
+                (void) in_addr_to_string(address->family, &address->in_addr, &addr);
+                has_peer = in_addr_is_null(address->family, &address->in_addr_peer) == 0;
+                if (has_peer)
+                        (void) in_addr_to_string(address->family, &address->in_addr_peer, &peer);
+
+                if (address->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
+                        valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
+                                                    address->cinfo.ifa_valid * USEC_PER_SEC,
+                                                    USEC_PER_SEC);
+
+                log_link_debug(link, "%s address: %s%s%s/%u (valid %s%s)",
+                               str, strnull(addr), has_peer ? " peer " : "",
+                               has_peer ? strnull(peer) : "", address->prefixlen,
+                               valid_str ? "for " : "forever", strempty(valid_str));
+        }
+}
+
 static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -500,12 +529,7 @@ int address_remove(
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *b = NULL;
-
-                (void) in_addr_to_string(address->family, &address->in_addr, &b);
-                log_link_debug(link, "Removing address %s", strna(b));
-        }
+        log_address_debug(address, "Removing", link);
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &req, RTM_DELADDR,
                                      link->ifindex, address->family);
@@ -807,12 +831,7 @@ int address_configure(
         if (acquired_address)
                 address = acquired_address;
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *str = NULL;
-
-                (void) in_addr_to_string(address->family, &address->in_addr, &str);
-                log_link_debug(link, "%s address: %s", update ? "Updating" : "Configuring", strna(str));
-        }
+        log_address_debug(address, update ? "Updating" : "Configuring", link);
 
         if (update)
                 r = sd_rtnl_message_new_addr_update(link->manager->rtnl, &req,
@@ -1058,15 +1077,11 @@ int link_set_addresses(Link *link) {
 
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(address_freep) Address *tmp = NULL;
-        _cleanup_free_ char *buf = NULL, *buf_peer = NULL;
         Link *link = NULL;
         uint16_t type;
         unsigned char flags;
         Address *address = NULL;
-        char valid_buf[FORMAT_TIMESPAN_MAX];
-        const char *valid_str = NULL;
         int ifindex, r;
-        bool has_peer = false;
 
         assert(rtnl);
         assert(message);
@@ -1154,8 +1169,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 } else if (r >= 0) {
                         if (in4_addr_equal(&tmp->in_addr.in, &tmp->in_addr_peer.in))
                                 tmp->in_addr_peer = IN_ADDR_NULL;
-                        else
-                                has_peer = true;
                 }
 
                 r = sd_netlink_message_read_in_addr(message, IFA_BROADCAST, &tmp->broadcast);
@@ -1182,7 +1195,6 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                                 log_link_warning_errno(link, r, "rtnl: could not get peer address from address message, ignoring: %m");
                                 return 0;
                         }
-                        has_peer = true;
                 } else if (r == -ENODATA) {
                         /* Does not have peer address. */
                         r = sd_netlink_message_read_in6_addr(message, IFA_ADDRESS, &tmp->in_addr.in6);
@@ -1201,39 +1213,28 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 assert_not_reached("Received unsupported address family");
         }
 
-        (void) in_addr_to_string(tmp->family, &tmp->in_addr, &buf);
-        (void) in_addr_to_string(tmp->family, &tmp->in_addr_peer, &buf_peer);
-
         r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &tmp->cinfo);
         if (r < 0 && r != -ENODATA) {
                 log_link_warning_errno(link, r, "rtnl: cannot get IFA_CACHEINFO attribute, ignoring: %m");
                 return 0;
-        } else if (r >= 0 && tmp->cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
-                valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
-                                            tmp->cinfo.ifa_valid * USEC_PER_SEC,
-                                            USEC_PER_SEC);
+        }
 
         (void) address_get(link, tmp, &address);
 
         switch (type) {
         case RTM_NEWADDR:
-                if (address)
-                        log_link_debug(link, "Remembering updated address: %s%s%s/%u (valid %s%s)",
-                                       strnull(buf), has_peer ? " peer " : "",
-                                       has_peer ? strnull(buf_peer) : "", tmp->prefixlen,
-                                       valid_str ? "for " : "forever", strempty(valid_str));
-                else {
+                log_address_debug(tmp, address ? "Remembering updated" : "Remembering foreign", link);
+                if (!address) {
                         /* An address appeared that we did not request */
                         r = address_add_foreign(link, tmp, &address);
                         if (r < 0) {
+                                _cleanup_free_ char *buf = NULL;
+
+                                (void) in_addr_to_string(tmp->family, &tmp->in_addr, &buf);
                                 log_link_warning_errno(link, r, "Failed to remember foreign address %s/%u, ignoring: %m",
                                                        strnull(buf), tmp->prefixlen);
                                 return 0;
-                        } else
-                                log_link_debug(link, "Remembering foreign address: %s%s%s/%u (valid %s%s)",
-                                               strnull(buf), has_peer ? " peer " : "",
-                                               has_peer ? strnull(buf_peer) : "", tmp->prefixlen,
-                                               valid_str ? "for " : "forever", strempty(valid_str));
+                        }
                 }
 
                 /* address_update() logs internally, so we don't need to here. */
@@ -1244,17 +1245,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 break;
 
         case RTM_DELADDR:
-                if (address) {
-                        log_link_debug(link, "Forgetting address: %s%s%s/%u (valid %s%s)",
-                                       strnull(buf), has_peer ? " peer " : "",
-                                       has_peer ? strnull(buf_peer) : "", tmp->prefixlen,
-                                       valid_str ? "for " : "forever", strempty(valid_str));
-                        (void) address_drop(address);
-                } else
-                        log_link_debug(link, "Kernel removed an address we don't remember: %s%s%s/%u (valid %s%s), ignoring.",
-                                       strnull(buf), has_peer ? " peer " : "",
-                                       has_peer ? strnull(buf_peer) : "", tmp->prefixlen,
-                                       valid_str ? "for " : "forever", strempty(valid_str));
+                log_address_debug(tmp, address ? "Forgetting" : "Kernel removed unknown", link);
+                (void) address_drop(address);
 
                 break;
 
