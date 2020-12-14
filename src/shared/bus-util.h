@@ -9,6 +9,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
+#include "errno-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -38,13 +39,21 @@ int bus_connect_transport(BusTransport transport, const char *host, bool user, s
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
 #define bus_log_address_error(r)                                        \
-        log_error_errno(r,                                              \
-                r == -ENOMEDIUM ? "Failed to set bus address: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined" : \
-                                  "Failed to set bus address: %m")
+        ({                                                              \
+                int _k = (r);                                           \
+                log_error_errno(_k,                                     \
+                                _k == -ENOMEDIUM ? "Failed to set bus address: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" : \
+                                                   "Failed to set bus address: %m"); \
+        })
+
 #define bus_log_connect_error(r)                                        \
-        log_error_errno(r,                                              \
-                r == -ENOMEDIUM ? "Failed to connect to bus: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined" : \
-                                  "Failed to connect to bus: %m")
+        ({                                                              \
+                int _k = (r);                                           \
+                log_error_errno(_k,                                     \
+                                _k == -ENOMEDIUM       ? "Failed to connect to bus: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)" : \
+                                ERRNO_IS_PRIVILEGE(_k) ? "Failed to connect to bus: Operation not permitted (consider using --machine=<user>@.host --user to connect to bus of other user)" : \
+                                                         "Failed to connect to bus: %m"); \
+        })
 
 #define bus_log_parse_error(r)                                  \
         log_error_errno(r, "Failed to parse bus message: %m")
