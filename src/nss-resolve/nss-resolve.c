@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <nss.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -16,6 +17,24 @@
 #include "string-util.h"
 #include "strv.h"
 #include "varlink.h"
+
+static JsonDispatchFlags json_dispatch_flags = 0;
+
+static void setup_logging(void) {
+        log_parse_environment();
+
+        if (DEBUG_LOGGING)
+                json_dispatch_flags = JSON_LOG;
+}
+
+static void setup_logging_once(void) {
+        static pthread_once_t once = PTHREAD_ONCE_INIT;
+        assert_se(pthread_once(&once, setup_logging) == 0);
+}
+
+#define NSS_ENTRYPOINT_BEGIN                    \
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);       \
+        setup_logging_once()
 
 NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
@@ -183,7 +202,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         int r;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(name);
         assert(pat);
@@ -214,7 +233,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 goto fail;
         }
 
-        r = json_dispatch(rparams, resolve_hostname_reply_dispatch_table, NULL, 0, &p);
+        r = json_dispatch(rparams, resolve_hostname_reply_dispatch_table, NULL, json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
         if (json_variant_is_blank_object(p.addresses))
@@ -223,7 +242,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
                 AddressParameters q = {};
 
-                r = json_dispatch(entry, address_parameters_dispatch_table, NULL, 0, &q);
+                r = json_dispatch(entry, address_parameters_dispatch_table, NULL, json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
@@ -260,7 +279,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
                 AddressParameters q = {};
 
-                r = json_dispatch(entry, address_parameters_dispatch_table, NULL, 0, &q);
+                r = json_dispatch(entry, address_parameters_dispatch_table, NULL, json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
@@ -327,7 +346,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         int r;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(name);
         assert(result);
@@ -361,7 +380,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 goto fail;
         }
 
-        r = json_dispatch(rparams, resolve_hostname_reply_dispatch_table, NULL, 0, &p);
+        r = json_dispatch(rparams, resolve_hostname_reply_dispatch_table, NULL, json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
         if (json_variant_is_blank_object(p.addresses))
@@ -370,7 +389,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
                 AddressParameters q = {};
 
-                r = json_dispatch(entry, address_parameters_dispatch_table, NULL, 0, &q);
+                r = json_dispatch(entry, address_parameters_dispatch_table, NULL, json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
@@ -415,7 +434,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.addresses) {
                 AddressParameters q = {};
 
-                r = json_dispatch(entry, address_parameters_dispatch_table, NULL, 0, &q);
+                r = json_dispatch(entry, address_parameters_dispatch_table, NULL, json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
@@ -527,7 +546,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         int r;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(addr);
         assert(result);
@@ -565,7 +584,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 goto fail;
         }
 
-        r = json_dispatch(rparams, resolve_address_reply_dispatch_table, NULL, 0, &p);
+        r = json_dispatch(rparams, resolve_address_reply_dispatch_table, NULL, json_dispatch_flags, &p);
         if (r < 0)
                 goto fail;
         if (json_variant_is_blank_object(p.names))
@@ -574,7 +593,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         JSON_VARIANT_ARRAY_FOREACH(entry, p.names) {
                 _cleanup_(name_parameters_destroy) NameParameters q = {};
 
-                r = json_dispatch(entry, name_parameters_dispatch_table, NULL, 0, &q);
+                r = json_dispatch(entry, name_parameters_dispatch_table, NULL, json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 
@@ -615,7 +634,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 size_t l;
                 char *z;
 
-                r = json_dispatch(entry, name_parameters_dispatch_table, NULL, 0, &q);
+                r = json_dispatch(entry, name_parameters_dispatch_table, NULL, json_dispatch_flags, &q);
                 if (r < 0)
                         goto fail;
 

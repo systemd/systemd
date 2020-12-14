@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "log.h"
 #include "macro.h"
 #include "nss-systemd.h"
 #include "nss-util.h"
@@ -72,6 +73,20 @@ static GetentData getgrent_data = {
         .mutex = PTHREAD_MUTEX_INITIALIZER
 };
 
+static void setup_logging(void) {
+        /* We need a dummy function because log_parse_environment is a macro. */
+        log_parse_environment();
+}
+
+static void setup_logging_once(void) {
+        static pthread_once_t once = PTHREAD_ONCE_INIT;
+        assert_se(pthread_once(&once, setup_logging) == 0);
+}
+
+#define NSS_ENTRYPOINT_BEGIN                    \
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);       \
+        setup_logging_once()
+
 NSS_GETPW_PROTOTYPES(systemd);
 NSS_GETGR_PROTOTYPES(systemd);
 NSS_PWENT_PROTOTYPES(systemd);
@@ -88,7 +103,7 @@ enum nss_status _nss_systemd_getpwnam_r(
         int e;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(name);
         assert(pwd);
@@ -139,7 +154,7 @@ enum nss_status _nss_systemd_getpwuid_r(
         int e;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(pwd);
         assert(errnop);
@@ -188,7 +203,7 @@ enum nss_status _nss_systemd_getgrnam_r(
         int e;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(name);
         assert(gr);
@@ -236,7 +251,7 @@ enum nss_status _nss_systemd_getgrgid_r(
         int e;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(gr);
         assert(errnop);
@@ -275,7 +290,7 @@ enum nss_status _nss_systemd_getgrgid_r(
 
 static enum nss_status nss_systemd_endent(GetentData *p) {
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(p);
 
@@ -298,7 +313,7 @@ enum nss_status _nss_systemd_endgrent(void) {
 
 enum nss_status _nss_systemd_setpwent(int stayopen) {
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
@@ -322,7 +337,7 @@ enum nss_status _nss_systemd_setpwent(int stayopen) {
 
 enum nss_status _nss_systemd_setgrent(int stayopen) {
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         if (_nss_systemd_is_blocked())
                 return NSS_STATUS_NOTFOUND;
@@ -349,7 +364,7 @@ enum nss_status _nss_systemd_getpwent_r(
         int r;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(result);
         assert(errnop);
@@ -396,7 +411,7 @@ enum nss_status _nss_systemd_getgrent_r(
         int r;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(result);
         assert(errnop);
@@ -525,7 +540,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
         int r;
 
         PROTECT_ERRNO;
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
+        NSS_ENTRYPOINT_BEGIN;
 
         assert(user_name);
         assert(start);
