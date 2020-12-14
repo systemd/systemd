@@ -20,6 +20,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* expose MS_NOSYMFOLLOW in various places
+
 * cryptsetup: optionally, when run during boot-up and password is never
   entered, and we are on AC power (or so), power off machine again
 
