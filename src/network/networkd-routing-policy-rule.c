@@ -264,6 +264,16 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
         }
 }
 
+static bool routing_policy_rule_equal(const RoutingPolicyRule *rule1, const RoutingPolicyRule *rule2) {
+        if (rule1 == rule2)
+                return true;
+
+        if (!rule1 || !rule2)
+                return false;
+
+        return routing_policy_rule_compare_func(rule1, rule2) == 0;
+}
+
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 routing_policy_rule_hash_ops,
                 RoutingPolicyRule,
@@ -337,12 +347,33 @@ static int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, 
         return routing_policy_rule_add_internal(m, &m->rules_foreign, rule, rule->family, ret);
 }
 
+static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int family, const char *str, const Link *link) {
+        assert(rule);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(str);
+
+        /* link may be NULL. */
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *from = NULL, *to = NULL;
+
+                (void) in_addr_to_string(family, &rule->from, &from);
+                (void) in_addr_to_string(family, &rule->to, &to);
+
+                log_link_debug(link,
+                               "%s routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
+                               str, rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen,
+                               strna(rule->iif), strna(rule->oif), rule->table);
+        }
+}
+
 static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(rule);
         assert(m);
-        assert(link);
+
+        /* link may be NULL. */
 
         if (in_addr_is_null(rule->family, &rule->from) == 0) {
                 r = netlink_message_append_in_addr_union(m, FRA_SRC, rule->family, &rule->from);
@@ -447,62 +478,42 @@ static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_n
         return 0;
 }
 
-static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         int r;
 
         assert(m);
-        assert(link);
-        assert(link->ifname);
-
-        link->routing_policy_rule_remove_messages--;
-
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
 
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not drop routing policy rule");
+                log_message_warning_errno(m, r, "Could not drop routing policy rule");
 
         return 1;
 }
 
-static int routing_policy_rule_remove(RoutingPolicyRule *rule, Link *link) {
+static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
         assert(rule);
-        assert(link);
-        assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(link->ifindex > 0);
+        assert(manager);
+        assert(manager->rtnl);
         assert(IN_SET(rule->family, AF_INET, AF_INET6));
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *from = NULL, *to = NULL;
+        log_routing_policy_rule_debug(rule, rule->family, "Removing", NULL);
 
-                (void) in_addr_to_string(rule->family, &rule->from, &from);
-                (void) in_addr_to_string(rule->family, &rule->to, &to);
-
-                log_link_debug(link,
-                               "Removing routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                               rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
-        }
-
-        r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_DELRULE, rule->family);
+        r = sd_rtnl_message_new_routing_policy_rule(manager->rtnl, &m, RTM_DELRULE, rule->family);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_DELRULE message: %m");
+                return log_error_errno(r, "Could not allocate RTM_DELRULE message: %m");
 
-        r = routing_policy_rule_set_netlink_message(rule, m, link);
+        r = routing_policy_rule_set_netlink_message(rule, m, NULL);
         if (r < 0)
                 return r;
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m,
-                               routing_policy_rule_remove_handler,
-                               link_netlink_destroy_callback, link);
+        r = sd_netlink_call_async(manager->rtnl, NULL, m,
+                                  routing_policy_rule_remove_handler,
+                                  NULL, NULL, 0, __func__);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
+                return log_error_errno(r, "Could not send rtnetlink message: %m");
 
         return 0;
 }
@@ -547,16 +558,7 @@ static int routing_policy_rule_configure_internal(RoutingPolicyRule *rule, int f
         assert(link->manager);
         assert(link->manager->rtnl);
 
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *from = NULL, *to = NULL;
-
-                (void) in_addr_to_string(family, &rule->from, &from);
-                (void) in_addr_to_string(family, &rule->to, &to);
-
-                log_link_debug(link,
-                               "Configuring routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                               rule->priority, strna(from), rule->from_prefixlen, strna(to), rule->to_prefixlen, strna(rule->iif), strna(rule->oif), rule->table);
-        }
+        log_routing_policy_rule_debug(rule, family, "Configuring", link);
 
         r = sd_rtnl_message_new_routing_policy_rule(link->manager->rtnl, &m, RTM_NEWRULE, family);
         if (r < 0)
@@ -616,19 +618,18 @@ static bool manager_links_have_routing_policy_rule(Manager *m, RoutingPolicyRule
                         continue;
 
                 HASHMAP_FOREACH(link_rule, link->network->rules_by_section)
-                        if (routing_policy_rule_compare_func(link_rule, rule) == 0)
+                        if (routing_policy_rule_equal(link_rule, rule))
                                 return true;
         }
 
         return false;
 }
 
-static void routing_policy_rule_purge(Manager *m, Link *link) {
+static void routing_policy_rule_purge(Manager *m) {
         RoutingPolicyRule *rule;
         int r;
 
         assert(m);
-        assert(link);
 
         SET_FOREACH(rule, m->rules_saved) {
                 RoutingPolicyRule *existing;
@@ -643,13 +644,11 @@ static void routing_policy_rule_purge(Manager *m, Link *link) {
                 /* Existing links do not have the saved rule. Let's drop the rule now, and re-configure it
                  * later when it is requested. */
 
-                r = routing_policy_rule_remove(existing, link);
+                r = routing_policy_rule_remove(existing, m);
                 if (r < 0) {
                         log_warning_errno(r, "Could not remove routing policy rules: %m");
                         continue;
                 }
-
-                link->routing_policy_rule_remove_messages++;
 
                 assert_se(set_remove(m->rules_foreign, existing) == existing);
                 routing_policy_rule_free(existing);
@@ -690,7 +689,7 @@ int link_set_routing_policy_rules(Link *link) {
                         return log_link_warning_errno(link, r, "Could not set routing policy rule: %m");
         }
 
-        routing_policy_rule_purge(link->manager, link);
+        routing_policy_rule_purge(link->manager);
         if (link->routing_policy_rule_messages == 0)
                 link->routing_policy_rules_configured = true;
         else {
@@ -703,7 +702,6 @@ int link_set_routing_policy_rules(Link *link) {
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
-        _cleanup_free_ char *from = NULL, *to = NULL;
         RoutingPolicyRule *rule = NULL;
         const char *iif = NULL, *oif = NULL;
         uint32_t suppress_prefixlen;
@@ -746,63 +744,28 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        switch (tmp->family) {
-        case AF_INET:
-                r = sd_netlink_message_read_in_addr(message, FRA_SRC, &tmp->from.in);
-                if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
+        r = netlink_message_read_in_addr_union(message, FRA_SRC, tmp->family, &tmp->from);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0) {
+                r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &tmp->from_prefixlen);
+                if (r < 0) {
+                        log_warning_errno(r, "rtnl: received rule message without valid source prefix length, ignoring: %m");
                         return 0;
-                } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &tmp->from_prefixlen);
-                        if (r < 0) {
-                                log_warning_errno(r, "rtnl: received rule message without valid source prefix length, ignoring: %m");
-                                return 0;
-                        }
                 }
+        }
 
-                r = sd_netlink_message_read_in_addr(message, FRA_DST, &tmp->to.in);
-                if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
+        r = netlink_message_read_in_addr_union(message, FRA_DST, tmp->family, &tmp->to);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0) {
+                r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &tmp->to_prefixlen);
+                if (r < 0) {
+                        log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");
                         return 0;
-                } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &tmp->to_prefixlen);
-                        if (r < 0) {
-                                log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");
-                                return 0;
-                        }
                 }
-
-                break;
-
-        case AF_INET6:
-                r = sd_netlink_message_read_in6_addr(message, FRA_SRC, &tmp->from.in6);
-                if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
-                        return 0;
-                } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &tmp->from_prefixlen);
-                        if (r < 0) {
-                                log_warning_errno(r, "rtnl: received rule message without valid source prefix length, ignoring: %m");
-                                return 0;
-                        }
-                }
-
-                r = sd_netlink_message_read_in6_addr(message, FRA_DST, &tmp->to.in6);
-                if (r < 0 && r != -ENODATA) {
-                        log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
-                        return 0;
-                } else if (r >= 0) {
-                        r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &tmp->to_prefixlen);
-                        if (r < 0) {
-                                log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");
-                                return 0;
-                        }
-                }
-
-                break;
-
-        default:
-                assert_not_reached("Received rule message with unsupported address family");
         }
 
         r = sd_rtnl_message_routing_policy_rule_get_flags(message, &flags);
@@ -894,19 +857,12 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
 
         (void) routing_policy_rule_get(m, tmp, &rule);
 
-        if (DEBUG_LOGGING) {
-                (void) in_addr_to_string(tmp->family, &tmp->from, &from);
-                (void) in_addr_to_string(tmp->family, &tmp->to, &to);
-        }
-
         switch (type) {
         case RTM_NEWRULE:
                 if (rule)
-                        log_debug("Received remembered routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Received remembered", NULL);
                 else {
-                        log_debug("Remembering foreign routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Remembering foreign", NULL);
                         r = routing_policy_rule_add_foreign(m, tmp, &rule);
                         if (r < 0) {
                                 log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
@@ -916,12 +872,10 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 break;
         case RTM_DELRULE:
                 if (rule) {
-                        log_debug("Forgetting routing policy rule: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32,
-                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Forgetting", NULL);
                         routing_policy_rule_free(rule);
                 } else
-                        log_debug("Kernel removed a routing policy rule we don't remember: priority: %"PRIu32", %s/%u -> %s/%u, iif: %s, oif: %s, table: %"PRIu32", ignoring.",
-                                  tmp->priority, strna(from), tmp->from_prefixlen, strna(to), tmp->to_prefixlen, strna(tmp->iif), strna(tmp->oif), tmp->table);
+                        log_routing_policy_rule_debug(tmp, tmp->family, "Kernel removed unknown", NULL);
                 break;
 
         default:
