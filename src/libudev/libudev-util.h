@@ -9,7 +9,6 @@
 #define UTIL_PATH_SIZE                      1024
 #define UTIL_NAME_SIZE                       512
 #define UTIL_LINE_SIZE                     16384
-int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value);
 
 /* Cleanup functions */
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev*, udev_unref);

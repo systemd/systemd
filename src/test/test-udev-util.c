@@ -235,6 +235,38 @@ static void test_udev_replace_whitespace(void) {
         test_udev_replace_whitespace_one_len("    hoge   hoge    ", 0, "");
 }
 
+static void test_udev_resolve_subsys_kernel_one(const char *str, bool read_value, int retval, const char *expected) {
+        char result[PATH_MAX] = "";
+        int r;
+
+        r = udev_resolve_subsys_kernel(str, result, sizeof(result), read_value);
+        log_info("\"%s\" → expect: \"%s\", %d, actual: \"%s\", %d", str, strnull(expected), retval, result, r);
+        assert_se(r == retval);
+        if (r >= 0)
+                assert_se(streq(result, expected));
+}
+
+static void test_udev_resolve_subsys_kernel(void) {
+        log_info("/* %s */", __func__);
+
+        test_udev_resolve_subsys_kernel_one("hoge", false, -EINVAL, NULL);
+        test_udev_resolve_subsys_kernel_one("[hoge", false, -EINVAL, NULL);
+        test_udev_resolve_subsys_kernel_one("[hoge/foo", false, -EINVAL, NULL);
+        test_udev_resolve_subsys_kernel_one("[hoge/]", false, -ENODEV, NULL);
+
+        test_udev_resolve_subsys_kernel_one("[net/lo]", false, 0, "/sys/devices/virtual/net/lo");
+        test_udev_resolve_subsys_kernel_one("[net/lo]/", false, 0, "/sys/devices/virtual/net/lo");
+        test_udev_resolve_subsys_kernel_one("[net/lo]hoge", false, 0, "/sys/devices/virtual/net/lo/hoge");
+        test_udev_resolve_subsys_kernel_one("[net/lo]/hoge", false, 0, "/sys/devices/virtual/net/lo/hoge");
+
+        test_udev_resolve_subsys_kernel_one("[net/lo]", true, -EINVAL, NULL);
+        test_udev_resolve_subsys_kernel_one("[net/lo]/", true, -EINVAL, NULL);
+        test_udev_resolve_subsys_kernel_one("[net/lo]hoge", true, 0, "");
+        test_udev_resolve_subsys_kernel_one("[net/lo]/hoge", true, 0, "");
+        test_udev_resolve_subsys_kernel_one("[net/lo]address", true, 0, "00:00:00:00:00:00");
+        test_udev_resolve_subsys_kernel_one("[net/lo]/address", true, 0, "00:00:00:00:00:00");
+}
+
 int main(int argc, char **argv) {
         test_parse_value();
         test_parse_value_with_backslashes();
@@ -253,6 +285,7 @@ int main(int argc, char **argv) {
         test_parse_value_unicode();
 
         test_udev_replace_whitespace();
+        test_udev_resolve_subsys_kernel();
 
         return EXIT_SUCCESS;
 }

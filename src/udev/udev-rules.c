@@ -76,7 +76,7 @@ typedef enum {
         TK_M_TAG,                           /* strv, sd_device_get_tag_first(), sd_device_get_tag_next() */
         TK_M_SUBSYSTEM,                     /* string, sd_device_get_subsystem() */
         TK_M_DRIVER,                        /* string, sd_device_get_driver() */
-        TK_M_ATTR,                          /* string, takes filename through attribute, sd_device_get_sysattr_value(), util_resolve_subsys_kernel(), etc. */
+        TK_M_ATTR,                          /* string, takes filename through attribute, sd_device_get_sysattr_value(), udev_resolve_subsys_kernel(), etc. */
         TK_M_SYSCTL,                        /* string, takes kernel parameter through attribute */
 
         /* matches parent parameters */
@@ -1396,7 +1396,7 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
                         return false;
                 break;
         case SUBST_TYPE_SUBSYS:
-                if (util_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0)
+                if (udev_resolve_subsys_kernel(name, vbuf, sizeof(vbuf), true) < 0)
                         return false;
                 value = vbuf;
                 break;
@@ -1641,7 +1641,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 if (!path_is_absolute(buf) &&
-                    util_resolve_subsys_kernel(buf, buf, sizeof(buf), false) < 0) {
+                    udev_resolve_subsys_kernel(buf, buf, sizeof(buf), false) < 0) {
                         char tmp[UTIL_PATH_SIZE];
 
                         r = sd_device_get_syspath(dev, &val);
@@ -2114,7 +2114,7 @@ static int udev_rule_apply_token_to_event(
                 const char *key_name = token->data;
                 char value[UTIL_NAME_SIZE];
 
-                if (util_resolve_subsys_kernel(key_name, buf, sizeof(buf), false) < 0 &&
+                if (udev_resolve_subsys_kernel(key_name, buf, sizeof(buf), false) < 0 &&
                     sd_device_get_syspath(dev, &val) >= 0)
                         strscpyl(buf, sizeof(buf), val, "/", key_name, NULL);
 
