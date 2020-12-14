@@ -53,7 +53,8 @@
 
     <para>By default, <command>systemd-coredump</command> will log the core dump including a backtrace
     if possible to the journal and store the core dump itself in an external file in
-    <filename>/var/lib/systemd/coredump</filename>.</para>
+    <filename>/var/lib/systemd/coredump</filename>. These core dumps are deleted after a few days by
+    default; see <filename>/usr/lib/tmpfiles.d/systemd.conf</filename> for details.</para>
 
     <para>The behavior of a specific program upon reception of a signal is governed by a few
     factors which are described in detail in
@@ -111,7 +112,8 @@
     <para>Resources used by core dump files are restricted in two ways. Parameters like maximum size of acquired
     core dumps and files can be set in files <filename>/etc/systemd/coredump.conf</filename> and snippets mentioned
     above. In addition the storage time of core dump files is restricted by <command>systemd-tmpfiles</command>,
-    corresponding settings are by default in <filename>/usr/lib/tmpfiles.d/systemd.conf</filename>.</para>
+    corresponding settings are by default in <filename>/usr/lib/tmpfiles.d/systemd.conf</filename>. The default is
+    to delete core dumps after a few days; see the above file for details.</para>
 
     <refsect2>
       <title>Disabling coredump processing</title>
