@@ -18,6 +18,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "device-nodes.h"
 #include "fd-util.h"
 #include "libudev-util.h"
 #include "scsi_id.h"
@@ -453,8 +454,8 @@ static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path) {
         if (retval)
                 return retval;
 
-        udev_util_encode_string(dev_scsi->vendor, vendor_enc_str, sizeof(vendor_enc_str));
-        udev_util_encode_string(dev_scsi->model, model_enc_str, sizeof(model_enc_str));
+        encode_devnode_name(dev_scsi->vendor, vendor_enc_str, sizeof(vendor_enc_str));
+        encode_devnode_name(dev_scsi->model, model_enc_str, sizeof(model_enc_str));
 
         udev_replace_whitespace(dev_scsi->vendor, vendor_str, sizeof(vendor_str)-1);
         udev_replace_chars(vendor_str, NULL);

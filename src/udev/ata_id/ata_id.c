@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "device-nodes.h"
 #include "fd-util.h"
 #include "libudev-util.h"
 #include "log.h"
@@ -483,7 +484,7 @@ int main(int argc, char *argv[]) {
 
         memcpy(model, id.model, 40);
         model[40] = '\0';
-        udev_util_encode_string(model, model_enc, sizeof(model_enc));
+        encode_devnode_name(model, model_enc, sizeof(model_enc));
         udev_replace_whitespace((char *) id.model, model, 40);
         udev_replace_chars(model, NULL);
         udev_replace_whitespace((char *) id.serial_no, serial, 20);

@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "device-nodes.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "libudev-util.h"
@@ -329,7 +330,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                         log_device_debug_errno(dev_scsi, r, "Failed to get SCSI vendor attribute: %m");
                         goto fallback;
                 }
-                udev_util_encode_string(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
+                encode_devnode_name(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
                 udev_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
                 udev_replace_chars(vendor_str, NULL);
 
@@ -338,7 +339,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                         log_device_debug_errno(dev_scsi, r, "Failed to get SCSI model attribute: %m");
                         goto fallback;
                 }
-                udev_util_encode_string(scsi_model, model_str_enc, sizeof(model_str_enc));
+                encode_devnode_name(scsi_model, model_str_enc, sizeof(model_str_enc));
                 udev_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
                 udev_replace_chars(model_str, NULL);
 
@@ -379,7 +380,7 @@ fallback:
 
                 if (sd_device_get_sysattr_value(dev_usb, "manufacturer", &usb_vendor) < 0)
                         usb_vendor = vendor_id;
-                udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
+                encode_devnode_name(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
                 udev_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
                 udev_replace_chars(vendor_str, NULL);
         }
@@ -389,7 +390,7 @@ fallback:
 
                 if (sd_device_get_sysattr_value(dev_usb, "product", &usb_model) < 0)
                         usb_model = product_id;
-                udev_util_encode_string(usb_model, model_str_enc, sizeof(model_str_enc));
+                encode_devnode_name(usb_model, model_str_enc, sizeof(model_str_enc));
                 udev_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
                 udev_replace_chars(model_str, NULL);
         }
