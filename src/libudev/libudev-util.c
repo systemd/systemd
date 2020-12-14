@@ -1,15 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <ctype.h>
-#include <errno.h>
-
-#include "sd-device.h"
-
 #include "device-nodes.h"
 #include "libudev-util.h"
-#include "string-util.h"
-#include "strxcpyx.h"
-#include "utf8.h"
 
 /**
  * SECTION:libudev-util
