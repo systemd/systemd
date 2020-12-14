@@ -484,11 +484,11 @@ int main(int argc, char *argv[]) {
         memcpy(model, id.model, 40);
         model[40] = '\0';
         udev_util_encode_string(model, model_enc, sizeof(model_enc));
-        util_replace_whitespace((char *) id.model, model, 40);
+        udev_replace_whitespace((char *) id.model, model, 40);
         util_replace_chars(model, NULL);
-        util_replace_whitespace((char *) id.serial_no, serial, 20);
+        udev_replace_whitespace((char *) id.serial_no, serial, 20);
         util_replace_chars(serial, NULL);
-        util_replace_whitespace((char *) id.fw_rev, revision, 8);
+        udev_replace_whitespace((char *) id.fw_rev, revision, 8);
         util_replace_chars(revision, NULL);
 
         if (export) {

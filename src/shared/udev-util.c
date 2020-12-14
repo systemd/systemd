@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <ctype.h>
 #include <errno.h>
 #include <unistd.h>
 
@@ -382,4 +383,46 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
         *ret_value = str;
         *ret_endpos = i + 1;
         return 0;
+}
+
+size_t udev_replace_whitespace(const char *str, char *to, size_t len) {
+        bool is_space = false;
+        size_t i, j;
+
+        assert(str);
+        assert(to);
+
+        /* Copy from 'str' to 'to', while removing all leading and trailing whitespace, and replacing
+         * each run of consecutive whitespace with a single underscore. The chars from 'str' are copied
+         * up to the \0 at the end of the string, or at most 'len' chars.  This appends \0 to 'to', at
+         * the end of the copied characters.
+         *
+         * If 'len' chars are copied into 'to', the final \0 is placed at len+1 (i.e. 'to[len] = \0'),
+         * so the 'to' buffer must have at least len+1 chars available.
+         *
+         * Note this may be called with 'str' == 'to', i.e. to replace whitespace in-place in a buffer.
+         * This function can handle that situation.
+         *
+         * Note that only 'len' characters are read from 'str'. */
+
+        i = strspn(str, WHITESPACE);
+
+        for (j = 0; j < len && i < len && str[i] != '\0'; i++) {
+                if (isspace(str[i])) {
+                        is_space = true;
+                        continue;
+                }
+
+                if (is_space) {
+                        if (j + 1 >= len)
+                                break;
+
+                        to[j++] = '_';
+                        is_space = false;
+                }
+                to[j++] = str[i];
+        }
+
+        to[j] = '\0';
+        return j;
 }

@@ -345,60 +345,6 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
         assert_se(hwdb == NULL);
 }
 
-static void test_util_replace_whitespace_one_len(const char *str, size_t len, const char *expected) {
-        _cleanup_free_ char *result = NULL;
-        int r;
-
-        result = new(char, len + 1);
-        assert_se(result);
-        r = util_replace_whitespace(str, result, len);
-        assert_se((size_t) r == strlen(expected));
-        assert_se(streq(result, expected));
-}
-
-static void test_util_replace_whitespace_one(const char *str, const char *expected) {
-        test_util_replace_whitespace_one_len(str, strlen(str), expected);
-}
-
-static void test_util_replace_whitespace(void) {
-        log_info("/* %s */", __func__);
-
-        test_util_replace_whitespace_one("hogehoge", "hogehoge");
-        test_util_replace_whitespace_one("hoge  hoge", "hoge_hoge");
-        test_util_replace_whitespace_one("  hoge  hoge  ", "hoge_hoge");
-        test_util_replace_whitespace_one("     ", "");
-        test_util_replace_whitespace_one("hoge ", "hoge");
-
-        test_util_replace_whitespace_one_len("hoge hoge    ", 9, "hoge_hoge");
-        test_util_replace_whitespace_one_len("hoge hoge    ", 8, "hoge_hog");
-        test_util_replace_whitespace_one_len("hoge hoge    ", 7, "hoge_ho");
-        test_util_replace_whitespace_one_len("hoge hoge    ", 6, "hoge_h");
-        test_util_replace_whitespace_one_len("hoge hoge    ", 5, "hoge");
-        test_util_replace_whitespace_one_len("hoge hoge    ", 4, "hoge");
-        test_util_replace_whitespace_one_len("hoge hoge    ", 3, "hog");
-        test_util_replace_whitespace_one_len("hoge hoge    ", 2, "ho");
-        test_util_replace_whitespace_one_len("hoge hoge    ", 1, "h");
-        test_util_replace_whitespace_one_len("hoge hoge    ", 0, "");
-
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 16, "hoge_hoge");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 15, "hoge_hoge");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 14, "hoge_hog");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 13, "hoge_ho");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 12, "hoge_h");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 11, "hoge");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 10, "hoge");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 9, "hoge");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 8, "hoge");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 7, "hog");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 6, "ho");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 5, "h");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 4, "");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 3, "");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 2, "");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 1, "");
-        test_util_replace_whitespace_one_len("    hoge   hoge    ", 0, "");
-}
-
 static void test_util_resolve_subsys_kernel_one(const char *str, bool read_value, int retval, const char *expected) {
         char result[UTIL_PATH_SIZE] = "";
         int r;
@@ -573,7 +519,6 @@ static int run(int argc, char *argv[]) {
         if (arg_monitor)
                 test_monitor(udev);
 
-        test_util_replace_whitespace();
         test_util_resolve_subsys_kernel();
 
         test_list();

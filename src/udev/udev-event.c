@@ -478,9 +478,9 @@ size_t udev_event_apply_format(UdevEvent *event,
 
                 /* FORMAT_SUBST_RESULT handles spaces itself */
                 if (replace_whitespace && type != FORMAT_SUBST_RESULT)
-                        /* util_replace_whitespace can replace in-place,
+                        /* udev_replace_whitespace can replace in-place,
                          * and does nothing if subst_len == 0 */
-                        subst_len = util_replace_whitespace(dest, dest, subst_len);
+                        subst_len = udev_replace_whitespace(dest, dest, subst_len);
 
                 dest += subst_len;
                 size -= subst_len;
