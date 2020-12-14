@@ -914,7 +914,8 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                 if (r == 0)
                         /* /proc is not mounted. Propagate the original error code. */
                         return -EPERM;
-        }
+        } else if (r < 0)
+                return r;
 
         return 1;
 }
