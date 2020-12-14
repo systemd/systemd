@@ -611,6 +611,7 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_b
         assert_return(call->sealed, -EPERM);
         assert_return(call->bus, -EINVAL);
         assert_return(!bus_pid_changed(call->bus), -ECHILD);
+        assert_return(ret, -EINVAL);
 
         if (!BUS_IS_OPEN(call->bus->state))
                 return -ENOTCONN;
