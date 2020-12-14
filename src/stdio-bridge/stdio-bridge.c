@@ -121,7 +121,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to allocate bus: %m");
 
         if (arg_transport == BUS_TRANSPORT_MACHINE)
-                r = bus_set_address_system_machine(a, arg_bus_path);
+                r = bus_set_address_machine(a, false, arg_bus_path);
         else
                 r = sd_bus_set_address(a, arg_bus_path);
         if (r < 0)
