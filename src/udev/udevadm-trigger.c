@@ -51,7 +51,7 @@ static int exec_list(sd_device_enumerator *e, const char *action, Set **settle_s
                                        "Failed to write '%s' to '%s'%s: %m",
                                        action, filename, ignore ? ", ignoring" : "");
                         if (IN_SET(r, -EACCES, -EROFS))
-                                /* Inovoked by unpriviledged user, or read only filesystem. Return earlier. */
+                                /* Inovoked by unprivileged user, or read only filesystem. Return earlier. */
                                 return r;
                         if (ret == 0 && !ignore)
                                 ret = r;

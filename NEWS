@@ -3809,7 +3809,7 @@ CHANGES WITH 237:
           by default even when owned by root and read-only. This behaviour was
           inherited from older tools, but there have been requests to remove
           it, and it's not obvious why this restriction was made in the first
-          place. Please speak up now, if you are aware of software that reqires
+          place. Please speak up now, if you are aware of software that requires
           this behaviour, otherwise we'll remove the restriction in v238.
 
         * A new environment variable $SYSTEMD_OFFLINE is now understood by
@@ -6907,7 +6907,7 @@ CHANGES WITH 220:
         * New /etc/fstab options x-systemd.requires= and
           x-systemd.requires-mounts-for= are now supported to express
           additional dependencies for mounts. This is useful for
-          journalling file systems that support external journal
+          journaling file systems that support external journal
           devices or overlay file systems that require underlying file
           systems to be mounted.
 
@@ -7521,7 +7521,7 @@ CHANGES WITH 218:
         * nspawn's --link-journal= switch gained two new values
           "try-guest" and "try-host" that work like "guest" and
           "host", but do not fail if the host has no persistent
-          journalling enabled. -j is now equivalent to
+          journaling enabled. -j is now equivalent to
           --link-journal=try-guest.
 
         * macvlan network devices created by nspawn will now have

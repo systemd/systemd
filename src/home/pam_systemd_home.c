@@ -898,7 +898,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                 return PAM_NEW_AUTHTOK_REQD;
 
         case -EOWNERDEAD:
-                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Password expired, change requird.");
+                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, "Password expired, change required.");
                 return PAM_NEW_AUTHTOK_REQD;
 
         case -EKEYREJECTED:
