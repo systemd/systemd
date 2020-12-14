@@ -820,7 +820,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        struct in6_addr gateway;
+        union in_addr_union gateway;
         uint32_t lifetime;
         unsigned preference, prefixlen;
         usec_t time_now;
@@ -835,9 +835,19 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (lifetime == 0)
                 return 0;
 
-        r = sd_ndisc_router_get_address(rt, &gateway);
+        r = sd_ndisc_router_get_address(rt, &gateway.in6);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
+
+        if (link_has_ipv6_address(link, &gateway.in6) == 0) {
+                _cleanup_free_ char *buf = NULL;
+
+                if (DEBUG_LOGGING) {
+                        (void) in_addr_to_string(AF_INET6, &gateway, &buf);
+                        log_link_debug(link, "Advertised route gateway, %s, is local to the link, ignoring route", strnull(buf));
+                }
+                return 0;
+        }
 
         r = sd_ndisc_router_route_get_prefixlen(rt, &prefixlen);
         if (r < 0)
@@ -860,7 +870,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->priority = link->network->dhcp6_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
-        route->gw.in6 = gateway;
+        route->gw.in6 = gateway.in6;
         route->gw_family = AF_INET6;
         route->dst_prefixlen = prefixlen;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
