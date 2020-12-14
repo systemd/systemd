@@ -152,7 +152,7 @@ static char format_type_to_char(FormatSubstitutionType t) {
         return '\0';
 }
 
-static int get_subst_type(const char **str, bool strict, FormatSubstitutionType *ret_type, char ret_attr[static UTIL_PATH_SIZE]) {
+static int get_subst_type(const char **str, bool strict, FormatSubstitutionType *ret_type, char ret_attr[static UDEV_PATH_SIZE]) {
         const char *p = *str, *q = NULL;
         size_t i;
 
@@ -198,10 +198,10 @@ static int get_subst_type(const char **str, bool strict, FormatSubstitutionType 
                         return -EINVAL;
 
                 len = end - start;
-                if (len == 0 || len >= UTIL_PATH_SIZE)
+                if (len == 0 || len >= UDEV_PATH_SIZE)
                         return -EINVAL;
 
-                strnscpy(ret_attr, UTIL_PATH_SIZE, start, len);
+                strnscpy(ret_attr, UDEV_PATH_SIZE, start, len);
                 q = end + 1;
         } else
                 *ret_attr = '\0';
@@ -339,7 +339,7 @@ static ssize_t udev_event_subst_format(
                 break;
         }
         case FORMAT_SUBST_ATTR: {
-                char vbuf[UTIL_NAME_SIZE];
+                char vbuf[UDEV_NAME_SIZE];
                 int count;
 
                 if (isempty(attr))
@@ -453,7 +453,7 @@ size_t udev_event_apply_format(UdevEvent *event,
 
         while (*s) {
                 FormatSubstitutionType type;
-                char attr[UTIL_PATH_SIZE];
+                char attr[UDEV_PATH_SIZE];
                 ssize_t subst_len;
 
                 r = get_subst_type(&s, false, &type, attr);
@@ -494,7 +494,7 @@ size_t udev_event_apply_format(UdevEvent *event,
 int udev_check_format(const char *value, size_t *offset, const char **hint) {
         FormatSubstitutionType type;
         const char *s = value;
-        char attr[UTIL_PATH_SIZE];
+        char attr[UDEV_PATH_SIZE];
         int r;
 
         while (*s) {

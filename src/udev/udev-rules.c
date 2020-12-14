@@ -1224,7 +1224,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                 size_t len;
                 char *line;
 
-                r = read_line(f, UTIL_LINE_SIZE, &buf);
+                r = read_line(f, UDEV_LINE_SIZE, &buf);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -1239,7 +1239,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                 len = strlen(line);
 
                 if (continuation && !ignore_line) {
-                        if (strlen(continuation) + len >= UTIL_LINE_SIZE)
+                        if (strlen(continuation) + len >= UDEV_LINE_SIZE)
                                 ignore_line = true;
 
                         if (!strextend(&continuation, line, NULL))
@@ -1377,7 +1377,7 @@ static bool token_match_string(UdevRuleToken *token, const char *str) {
 }
 
 static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *event) {
-        char nbuf[UTIL_NAME_SIZE], vbuf[UTIL_NAME_SIZE];
+        char nbuf[UDEV_NAME_SIZE], vbuf[UDEV_NAME_SIZE];
         const char *name, *value;
 
         assert(token);
@@ -1487,10 +1487,10 @@ static int import_parent_into_properties(sd_device *dev, const char *filter) {
         return 1;
 }
 
-static int attr_subst_subdir(char attr[static UTIL_PATH_SIZE]) {
+static int attr_subst_subdir(char attr[static UDEV_PATH_SIZE]) {
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
-        char buf[UTIL_PATH_SIZE], *p;
+        char buf[UDEV_PATH_SIZE], *p;
         const char *tail;
         size_t len, size;
 
@@ -1535,7 +1535,7 @@ static int udev_rule_apply_token_to_event(
                 Hashmap *properties_list) {
 
         UdevRuleToken *token;
-        char buf[UTIL_PATH_SIZE];
+        char buf[UDEV_PATH_SIZE];
         const char *val;
         size_t count;
         bool match;
@@ -1642,7 +1642,7 @@ static int udev_rule_apply_token_to_event(
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 if (!path_is_absolute(buf) &&
                     udev_resolve_subsys_kernel(buf, buf, sizeof(buf), false) < 0) {
-                        char tmp[UTIL_PATH_SIZE];
+                        char tmp[UDEV_PATH_SIZE];
 
                         r = sd_device_get_syspath(dev, &val);
                         if (r < 0)
@@ -1668,7 +1668,7 @@ static int udev_rule_apply_token_to_event(
                 return token->op == (match ? OP_MATCH : OP_NOMATCH);
         }
         case TK_M_PROGRAM: {
-                char result[UTIL_LINE_SIZE];
+                char result[UDEV_LINE_SIZE];
 
                 event->program_result = mfree(event->program_result);
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
@@ -1739,7 +1739,7 @@ static int udev_rule_apply_token_to_event(
                 return token->op == OP_MATCH;
         }
         case TK_M_IMPORT_PROGRAM: {
-                char result[UTIL_LINE_SIZE], *line, *pos;
+                char result[UDEV_LINE_SIZE], *line, *pos;
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 log_rule_debug(dev, rules, "Importing properties from results of '%s'", buf);
@@ -1888,7 +1888,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_OWNER: {
-                char owner[UTIL_NAME_SIZE];
+                char owner[UDEV_NAME_SIZE];
                 const char *ow = owner;
 
                 if (event->owner_final)
@@ -1905,7 +1905,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_GROUP: {
-                char group[UTIL_NAME_SIZE];
+                char group[UDEV_NAME_SIZE];
                 const char *gr = group;
 
                 if (event->group_final)
@@ -1922,7 +1922,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_MODE: {
-                char mode_str[UTIL_NAME_SIZE];
+                char mode_str[UDEV_NAME_SIZE];
 
                 if (event->mode_final)
                         break;
@@ -1969,7 +1969,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         case TK_A_SECLABEL: {
                 _cleanup_free_ char *name = NULL, *label = NULL;
-                char label_str[UTIL_LINE_SIZE] = {};
+                char label_str[UDEV_LINE_SIZE] = {};
 
                 name = strdup(token->data);
                 if (!name)
@@ -1999,7 +1999,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_ENV: {
                 const char *name = token->data;
-                char value_new[UTIL_NAME_SIZE], *p = value_new;
+                char value_new[UDEV_NAME_SIZE], *p = value_new;
                 size_t l = sizeof(value_new);
 
                 if (isempty(token->value)) {
@@ -2092,7 +2092,7 @@ static int udev_rule_apply_token_to_event(
 
                 p = skip_leading_chars(buf, NULL);
                 while (!isempty(p)) {
-                        char filename[UTIL_PATH_SIZE], *next;
+                        char filename[UDEV_PATH_SIZE], *next;
 
                         next = strchr(p, ' ');
                         if (next) {
@@ -2112,7 +2112,7 @@ static int udev_rule_apply_token_to_event(
         }
         case TK_A_ATTR: {
                 const char *key_name = token->data;
-                char value[UTIL_NAME_SIZE];
+                char value[UDEV_NAME_SIZE];
 
                 if (udev_resolve_subsys_kernel(key_name, buf, sizeof(buf), false) < 0 &&
                     sd_device_get_syspath(dev, &val) >= 0)
@@ -2132,7 +2132,7 @@ static int udev_rule_apply_token_to_event(
                 break;
         }
         case TK_A_SYSCTL: {
-                char value[UTIL_NAME_SIZE];
+                char value[UDEV_NAME_SIZE];
 
                 (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false);
                 (void) udev_event_apply_format(event, token->value, value, sizeof(value), false);
@@ -2305,7 +2305,7 @@ int udev_rules_apply_to_event(
 }
 
 static int apply_static_dev_perms(const char *devnode, uid_t uid, gid_t gid, mode_t mode, char **tags) {
-        char device_node[UTIL_PATH_SIZE], tags_dir[UTIL_PATH_SIZE], tag_symlink[UTIL_PATH_SIZE];
+        char device_node[UDEV_PATH_SIZE], tags_dir[UDEV_PATH_SIZE], tag_symlink[UDEV_PATH_SIZE];
         _cleanup_free_ char *unescaped_filename = NULL;
         struct stat stats;
         char **t;

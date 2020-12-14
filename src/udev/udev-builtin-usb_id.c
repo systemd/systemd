@@ -235,8 +235,8 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
         char model_str[64] = "";
         char model_str_enc[256];
         const char *product_id;
-        char serial_str[UTIL_NAME_SIZE] = "";
-        char packed_if_str[UTIL_NAME_SIZE] = "";
+        char serial_str[UDEV_NAME_SIZE] = "";
+        char packed_if_str[UDEV_NAME_SIZE] = "";
         char revision_str[64] = "";
         char type_str[64] = "";
         char instance_str[64] = "";

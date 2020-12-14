@@ -22,6 +22,7 @@
 #include "strv.h"
 #include "sysexits.h"
 #include "udev-builtin.h"
+#include "udev-util.h"
 
 _printf_(2,3)
 static void path_prepend(char **path, const char *fmt, ...) {
@@ -680,7 +681,7 @@ static int builtin_path_id(sd_device *dev, int argc, char *argv[], bool test) {
                 return -ENOENT;
 
         {
-                char tag[UTIL_NAME_SIZE];
+                char tag[UDEV_NAME_SIZE];
                 size_t i;
                 const char *p;
 

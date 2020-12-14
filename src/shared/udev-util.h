@@ -6,6 +6,10 @@
 #include "device-private.h"
 #include "time-util.h"
 
+#define UDEV_NAME_SIZE   512
+#define UDEV_PATH_SIZE  1024
+#define UDEV_LINE_SIZE 16384
+
 typedef enum ResolveNameTiming {
         RESOLVE_NAME_NEVER,
         RESOLVE_NAME_LATE,
