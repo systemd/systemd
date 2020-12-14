@@ -485,11 +485,11 @@ int main(int argc, char *argv[]) {
         model[40] = '\0';
         udev_util_encode_string(model, model_enc, sizeof(model_enc));
         udev_replace_whitespace((char *) id.model, model, 40);
-        util_replace_chars(model, NULL);
+        udev_replace_chars(model, NULL);
         udev_replace_whitespace((char *) id.serial_no, serial, 20);
-        util_replace_chars(serial, NULL);
+        udev_replace_chars(serial, NULL);
         udev_replace_whitespace((char *) id.fw_rev, revision, 8);
-        util_replace_chars(revision, NULL);
+        udev_replace_chars(revision, NULL);
 
         if (export) {
                 /* Set this to convey the disk speaks the ATA protocol */

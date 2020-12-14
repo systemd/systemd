@@ -75,49 +75,6 @@ int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize,
         return 0;
 }
 
-/* allow chars in allow list, plain ascii, hex-escaping and valid utf8 */
-size_t util_replace_chars(char *str, const char *allow) {
-        size_t i = 0, replaced = 0;
-
-        assert(str);
-
-        while (str[i] != '\0') {
-                int len;
-
-                if (allow_listed_char_for_devnode(str[i], allow)) {
-                        i++;
-                        continue;
-                }
-
-                /* accept hex encoding */
-                if (str[i] == '\\' && str[i+1] == 'x') {
-                        i += 2;
-                        continue;
-                }
-
-                /* accept valid utf8 */
-                len = utf8_encoded_valid_unichar(str + i, (size_t) -1);
-                if (len > 1) {
-                        i += len;
-                        continue;
-                }
-
-                /* if space is allowed, replace whitespace with ordinary space */
-                if (isspace(str[i]) && allow && strchr(allow, ' ')) {
-                        str[i] = ' ';
-                        i++;
-                        replaced++;
-                        continue;
-                }
-
-                /* everything else is replaced with '_' */
-                str[i] = '_';
-                i++;
-                replaced++;
-        }
-        return replaced;
-}
-
 /**
  * udev_util_encode_string:
  * @str: input string to be encoded

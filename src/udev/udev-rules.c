@@ -1684,7 +1684,7 @@ static int udev_rule_apply_token_to_event(
                 }
 
                 delete_trailing_chars(result, "\n");
-                count = util_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
+                count = udev_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
                 if (count > 0)
                         log_rule_debug(dev, rules, "Replaced %zu character(s) in result of \"%s\"",
                                        count, buf);
@@ -2048,7 +2048,7 @@ static int udev_rule_apply_token_to_event(
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false);
                 if (IN_SET(event->esc, ESCAPE_UNSET, ESCAPE_REPLACE)) {
-                        count = util_replace_chars(buf, "/");
+                        count = udev_replace_chars(buf, "/");
                         if (count > 0)
                                 log_rule_debug(dev, rules, "Replaced %zu character(s) from result of NAME=\"%s\"",
                                                count, token->value);
@@ -2082,9 +2082,9 @@ static int udev_rule_apply_token_to_event(
                 /* allow multiple symlinks separated by spaces */
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), event->esc != ESCAPE_NONE);
                 if (event->esc == ESCAPE_UNSET)
-                        count = util_replace_chars(buf, "/ ");
+                        count = udev_replace_chars(buf, "/ ");
                 else if (event->esc == ESCAPE_REPLACE)
-                        count = util_replace_chars(buf, "/");
+                        count = udev_replace_chars(buf, "/");
                 else
                         count = 0;
                 if (count > 0)

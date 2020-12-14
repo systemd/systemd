@@ -364,7 +364,7 @@ static ssize_t udev_event_subst_format(
                 if (val != vbuf)
                         strscpy(vbuf, sizeof(vbuf), val);
                 delete_trailing_chars(vbuf, NULL);
-                count = util_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
+                count = udev_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
                 if (count > 0)
                         log_device_debug(dev, "%i character(s) replaced", count);
                 l = strpcpy(&s, l, vbuf);

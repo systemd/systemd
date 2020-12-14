@@ -331,7 +331,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                 }
                 udev_util_encode_string(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
                 udev_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
-                util_replace_chars(vendor_str, NULL);
+                udev_replace_chars(vendor_str, NULL);
 
                 r = sd_device_get_sysattr_value(dev_scsi, "model", &scsi_model);
                 if (r < 0) {
@@ -340,7 +340,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                 }
                 udev_util_encode_string(scsi_model, model_str_enc, sizeof(model_str_enc));
                 udev_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
-                util_replace_chars(model_str, NULL);
+                udev_replace_chars(model_str, NULL);
 
                 r = sd_device_get_sysattr_value(dev_scsi, "type", &scsi_type);
                 if (r < 0) {
@@ -355,7 +355,7 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                         goto fallback;
                 }
                 udev_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str)-1);
-                util_replace_chars(revision_str, NULL);
+                udev_replace_chars(revision_str, NULL);
 
                 /*
                  * some broken devices have the same identifiers
@@ -381,7 +381,7 @@ fallback:
                         usb_vendor = vendor_id;
                 udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
                 udev_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
-                util_replace_chars(vendor_str, NULL);
+                udev_replace_chars(vendor_str, NULL);
         }
 
         if (model_str[0] == '\0') {
@@ -391,7 +391,7 @@ fallback:
                         usb_model = product_id;
                 udev_util_encode_string(usb_model, model_str_enc, sizeof(model_str_enc));
                 udev_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
-                util_replace_chars(model_str, NULL);
+                udev_replace_chars(model_str, NULL);
         }
 
         if (revision_str[0] == '\0') {
@@ -399,7 +399,7 @@ fallback:
 
                 if (sd_device_get_sysattr_value(dev_usb, "bcdDevice", &usb_rev) >= 0) {
                         udev_replace_whitespace(usb_rev, revision_str, sizeof(revision_str)-1);
-                        util_replace_chars(revision_str, NULL);
+                        udev_replace_chars(revision_str, NULL);
                 }
         }
 
@@ -418,7 +418,7 @@ fallback:
 
                         if (usb_serial) {
                                 udev_replace_whitespace(usb_serial, serial_str, sizeof(serial_str)-1);
-                                util_replace_chars(serial_str, NULL);
+                                udev_replace_chars(serial_str, NULL);
                         }
                 }
         }
