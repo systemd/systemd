@@ -897,7 +897,7 @@ void emit_bpf_firewall_warning(Unit *u) {
         static bool warned = false;
 
         if (!warned) {
-                bool quiet = bpf_firewall_unsupported_reason == -EPERM && detect_container();
+                bool quiet = bpf_firewall_unsupported_reason == -EPERM && detect_container() > 0;
 
                 log_unit_full_errno(u, quiet ? LOG_DEBUG : LOG_WARNING, bpf_firewall_unsupported_reason,
                                     "unit configures an IP firewall, but %s.\n"
