@@ -10,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "label.h"
 #include "ordered-set.h"
 #include "resolved-conf.h"
 #include "resolved-dns-server.h"
@@ -364,7 +365,7 @@ int manager_write_resolv_conf(Manager *m) {
                         log_error_errno(r, "Failed to move new %s into place: %m", PRIVATE_STUB_RESOLV_CONF);
 
         } else {
-                r = symlink_atomic(basename(PRIVATE_UPLINK_RESOLV_CONF), PRIVATE_STUB_RESOLV_CONF);
+                r = symlink_atomic_label(basename(PRIVATE_UPLINK_RESOLV_CONF), PRIVATE_STUB_RESOLV_CONF);
                 if (r < 0)
                         log_error_errno(r, "Failed to symlink %s: %m", PRIVATE_STUB_RESOLV_CONF);
         }
