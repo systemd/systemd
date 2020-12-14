@@ -1684,10 +1684,12 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/hostname",
                                 .mode = READONLY,
+                                .ignore = true,
                         };
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/domainname",
                                 .mode = READONLY,
+                                .ignore = true,
                         };
                 }
 
