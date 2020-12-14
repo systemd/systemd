@@ -137,7 +137,8 @@
         <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         will be used. This may be changed using the <option>--debugger=</option>
         option or the <varname>$SYSTEMD_DEBUGGER</varname> environment
-        variable.</para></listitem>
+        variable. Use the <option>--debugger-arguments=</option> option to pass extra
+        command line arguments to the debugger.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -215,6 +216,15 @@
         command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
         <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         will be used. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-A</option> <replaceable>ARGS</replaceable></term>
+        <term><option>--debugger-arguments=</option><replaceable>ARGS</replaceable></term>
+
+        <listitem><para>Pass the given <replaceable>ARGS</replaceable> as extra command line arguments
+        to the debugger. Quote as appropriate when <replaceable>ARGS</replaceable> contain whitespace.
+        (See Examples.)</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -321,6 +331,12 @@
       <title>Invoke gdb on the last core dump</title>
 
       <programlisting># coredumpctl debug</programlisting>
+    </example>
+
+    <example>
+      <title>Use gdb to display full register info from the last core dump</title>
+
+      <programlisting># coredumpctl debug --debugger-arguments="-batch -ex 'info all-registers'"</programlisting>
     </example>
 
     <example>
