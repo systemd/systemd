@@ -10,7 +10,6 @@
 #define UTIL_NAME_SIZE                       512
 #define UTIL_LINE_SIZE                     16384
 #define UDEV_ALLOWED_CHARS_INPUT        "/ $%?,"
-size_t util_path_encode(const char *src, char *dest, size_t size);
 size_t util_replace_chars(char *str, const char *white);
 int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value);
 

@@ -75,40 +75,6 @@ int util_resolve_subsys_kernel(const char *string, char *result, size_t maxsize,
         return 0;
 }
 
-size_t util_path_encode(const char *src, char *dest, size_t size) {
-        size_t i, j;
-
-        assert(src);
-        assert(dest);
-
-        for (i = 0, j = 0; src[i] != '\0'; i++) {
-                if (src[i] == '/') {
-                        if (j+4 >= size) {
-                                j = 0;
-                                break;
-                        }
-                        memcpy(&dest[j], "\\x2f", 4);
-                        j += 4;
-                } else if (src[i] == '\\') {
-                        if (j+4 >= size) {
-                                j = 0;
-                                break;
-                        }
-                        memcpy(&dest[j], "\\x5c", 4);
-                        j += 4;
-                } else {
-                        if (j+1 >= size) {
-                                j = 0;
-                                break;
-                        }
-                        dest[j] = src[i];
-                        j++;
-                }
-        }
-        dest[j] = '\0';
-        return j;
-}
-
 /* allow chars in allow list, plain ascii, hex-escaping and valid utf8 */
 size_t util_replace_chars(char *str, const char *allow) {
         size_t i = 0, replaced = 0;
