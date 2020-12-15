@@ -171,20 +171,27 @@
           <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
           interfaces atop a single lower-level physical interface, which will then only serve as a
           link/"bridge" device aggregating traffic to the same physical link and not participate in
-          the network otherwise.</para>
+          the network otherwise. Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Multicast=</varname></term>
         <listitem>
-          <para>Takes a boolean. If set to true, the multicast flag on the device is enabled.</para>
+          <para>Takes a boolean. If set to true, the multicast flag on the device is enabled. Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>AllMulticast=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, the driver retrieves all multicast packets from the network.
-          This happens when multicast routing is enabled.</para>
+          This happens when multicast routing is enabled. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Promiscuous=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, promiscuous mode of the interface is enabled.
+          Defaults to unset.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
