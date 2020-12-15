@@ -407,7 +407,7 @@ int sd_dhcp6_client_set_fqdn(
 
         /* Make sure FQDN qualifies as DNS and as Linux hostname */
         if (fqdn &&
-            !(hostname_is_valid(fqdn, false) && dns_name_is_valid(fqdn) > 0))
+            !(hostname_is_valid(fqdn, 0) && dns_name_is_valid(fqdn) > 0))
                 return -EINVAL;
 
         return free_and_strdup(&client->fqdn, fqdn);

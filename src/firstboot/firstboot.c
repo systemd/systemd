@@ -493,7 +493,7 @@ static int prompt_hostname(void) {
                         break;
                 }
 
-                if (!hostname_is_valid(h, true)) {
+                if (!hostname_is_valid(h, VALID_HOSTNAME_TRAILING_DOT)) {
                         log_error("Specified hostname invalid.");
                         continue;
                 }
@@ -1135,15 +1135,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_HOSTNAME:
-                        if (!hostname_is_valid(optarg, true))
+                        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Host name %s is not valid.", optarg);
 
-                        hostname_cleanup(optarg);
                         r = free_and_strdup(&arg_hostname, optarg);
                         if (r < 0)
                                 return log_oom();
 
+                        hostname_cleanup(arg_hostname);
                         break;
 
                 case ARG_MACHINE_ID:

@@ -1523,9 +1523,6 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         assert(machine);
         assert(boot_id);
 
-        if (!machine_name_is_valid(machine))
-                return -EINVAL;
-
         r = container_get_leader(machine, &pid);
         if (r < 0)
                 return r;

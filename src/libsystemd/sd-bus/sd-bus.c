@@ -41,6 +41,7 @@
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 
 #define log_debug_bus_message(m)                                         \
         do {                                                             \
@@ -973,7 +974,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                 return -EINVAL;
 
         if (machine) {
-                if (!streq(machine, ".host") && !machine_name_is_valid(machine))
+                if (!hostname_is_valid(machine, VALID_HOSTNAME_DOT_HOST))
                         return -EINVAL;
 
                 free_and_replace(b->machine, machine);
@@ -1448,7 +1449,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                 }
 
                 if (!in_charset(p, "0123456789") || *p == '\0') {
-                        if (!machine_name_is_valid(p) || got_forward_slash)
+                        if (!hostname_is_valid(p, 0) || got_forward_slash)
                                 return -EINVAL;
 
                         m = TAKE_PTR(p);
@@ -1463,7 +1464,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
 interpret_port_as_machine_old_syntax:
                 /* Let's make sure this is not a port of some kind,
                  * and is a valid machine name. */
-                if (!in_charset(m, "0123456789") && machine_name_is_valid(m))
+                if (!in_charset(m, "0123456789") && hostname_is_valid(m, 0))
                         c = strjoina(",argv", p ? "7" : "5", "=--machine=", m);
         }
 
@@ -1514,44 +1515,228 @@ _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
         return 0;
 }
 
-int bus_set_address_system_machine(sd_bus *b, const char *machine) {
-        _cleanup_free_ char *e = NULL;
+int bus_set_address_machine(sd_bus *b, bool user, const char *machine) {
+        const char *rhs;
         char *a;
 
         assert(b);
         assert(machine);
 
-        e = bus_address_escape(machine);
-        if (!e)
-                return -ENOMEM;
+        rhs = strchr(machine, '@');
+        if (rhs || user) {
+                _cleanup_free_ char *u = NULL, *eu = NULL, *erhs = NULL;
 
-        a = strjoin("x-machine-unix:machine=", e);
-        if (!a)
-                return -ENOMEM;
+                /* If there's an "@" in the container specification, we'll connect as a user specified at its
+                 * left hand side, which is useful in combination with user=true. This isn't as trivial as it
+                 * might sound: it's not sufficient to enter the container and connect to some socket there,
+                 * since the --user socket path depends on $XDG_RUNTIME_DIR which is set via PAM. Thus, to be
+                 * able to connect, we need to have a PAM session. Our way out?  We use systemd-run to get
+                 * into the container and acquire a PAM session there, and then invoke systemd-stdio-bridge
+                 * in it, which propagates the bus transport to us.*/
+
+                if (rhs) {
+                        if (rhs > machine)
+                                u = strndup(machine, rhs - machine);
+                        else
+                                u = getusername_malloc(); /* Empty user name, let's use the local one */
+                        if (!u)
+                                return -ENOMEM;
+
+                        eu = bus_address_escape(u);
+                        if (!eu)
+                                return -ENOMEM;
+
+                        rhs++;
+                } else {
+                        /* No "@" specified but we shall connect to the user instance? Then assume root (and
+                         * not a user named identically to the calling one). This means:
+                         *
+                         *     --machine=foobar --user    → connect to user bus of root user in container "foobar"
+                         *     --machine=@foobar --user   → connect to user bus of user named like the calling user in container "foobar"
+                         *
+                         * Why? so that behaviour for "--machine=foobar --system" is roughly similar to
+                         * "--machine=foobar --user": both times we unconditionally connect as root user
+                         * regardless what the calling user is. */
+
+                        rhs = machine;
+                }
+
+                if (!isempty(rhs)) {
+                        erhs = bus_address_escape(rhs);
+                        if (!erhs)
+                                return -ENOMEM;
+                }
+
+                /* systemd-run -M… -PGq --wait -pUser=… -pPAMName=login systemd-stdio-bridge */
+
+                a = strjoin("unixexec:path=systemd-run,"
+                            "argv1=-M", erhs ?: ".host", ","
+                            "argv2=-PGq,"
+                            "argv3=--wait,"
+                            "argv4=-pUser%3d", eu ?: "root", ",",
+                            "argv5=-pPAMName%3dlogin,"
+                            "argv6=systemd-stdio-bridge");
+                if (!a)
+                        return -ENOMEM;
+
+                if (user) {
+                        char *k;
+
+                        /* Ideally we'd use the "--user" switch to systemd-stdio-bridge here, but it's only
+                         * available in recent systemd versions. Using the "-p" switch with the explicit path
+                         * is a working alternative, and is compatible with older versions, hence that's what
+                         * we use here. */
+
+                        k = strjoin(a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus");
+                        if (!k)
+                                return -ENOMEM;
+
+                        free_and_replace(a, k);
+                }
+        } else {
+                _cleanup_free_ char *e = NULL;
+
+                /* Just a container name, we can go the simple way, and just join the container, and connect
+                 * to the well-known path of the system bus there. */
+
+                e = bus_address_escape(machine);
+                if (!e)
+                        return -ENOMEM;
+
+                a = strjoin("x-machine-unix:machine=", e);
+                if (!a)
+                        return -ENOMEM;
+        }
 
         return free_and_replace(b->address, a);
 }
 
-_public_ int sd_bus_open_system_machine(sd_bus **ret, const char *machine) {
+static int user_and_machine_valid(const char *user_and_machine) {
+        const char *h;
+
+        /* Checks if a container specification in the form "user@container" or just "container" is valid.
+         *
+         * If the "@" syntax is used we'll allow either the "user" or the "container" part to be omitted, but
+         * not both. */
+
+        h = strchr(user_and_machine, '@');
+        if (!h)
+                h = user_and_machine;
+        else {
+                _cleanup_free_ char *user = NULL;
+
+                user = strndup(user_and_machine, h - user_and_machine);
+                if (!user)
+                        return -ENOMEM;
+
+                if (!isempty(user) && !valid_user_group_name(user, VALID_USER_RELAX))
+                        return false;
+
+                h++;
+
+                if (isempty(h))
+                        return !isempty(user);
+        }
+
+        return hostname_is_valid(h, VALID_HOSTNAME_DOT_HOST);
+}
+
+static int user_and_machine_equivalent(const char *user_and_machine) {
+        _cleanup_free_ char *un = NULL;
+        const char *f;
+
+        /* Returns true if the specified user+machine name are actually equivalent to our own identity and
+         * our own host. If so we can shortcut things.  Why bother? Because that way we don't have to fork
+         * off short-lived worker processes that are then unavailable for authentication and logging in the
+         * peer. Moreover joining a namespace requires privileges. If we are in the right namespace anyway,
+         * we can avoid permission problems thus. */
+
+        assert(user_and_machine);
+
+        /* Omitting the user name means that we shall use the same user name as we run as locally, which
+         * means we'll end up on the same host, let's shortcut */
+        if (streq(user_and_machine, "@.host"))
+                return true;
+
+        /* Otherwise, if we are root, then we can also allow the ".host" syntax, as that's the user this
+         * would connect to. */
+        if (geteuid() == 0 && STR_IN_SET(user_and_machine, ".host", "root@.host"))
+                return true;
+
+        /* Otherwise, we have to figure our user name, and compare things with that. */
+        un = getusername_malloc();
+        if (!un)
+                return -ENOMEM;
+
+        f = startswith(user_and_machine, un);
+        if (!f)
+                return false;
+
+        return STR_IN_SET(f, "@", "@.host");
+}
+
+_public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machine) {
         _cleanup_(bus_freep) sd_bus *b = NULL;
         int r;
 
-        assert_return(machine, -EINVAL);
+        assert_return(user_and_machine, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(streq(machine, ".host") || machine_name_is_valid(machine), -EINVAL);
+
+        if (user_and_machine_equivalent(user_and_machine))
+                return sd_bus_open_system(ret);
+
+        r = user_and_machine_valid(user_and_machine);
+        if (r < 0)
+                return r;
+
+        assert_return(r > 0, -EINVAL);
 
         r = sd_bus_new(&b);
         if (r < 0)
                 return r;
 
-        r = bus_set_address_system_machine(b, machine);
+        r = bus_set_address_machine(b, false, user_and_machine);
         if (r < 0)
                 return r;
 
         b->bus_client = true;
-        b->trusted = false;
         b->is_system = true;
-        b->is_local = false;
+
+        r = sd_bus_start(b);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(b);
+        return 0;
+}
+
+_public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine) {
+        _cleanup_(bus_freep) sd_bus *b = NULL;
+        int r;
+
+        assert_return(user_and_machine, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        /* Shortcut things if we'd end up on this host and as the same user.  */
+        if (user_and_machine_equivalent(user_and_machine))
+                return sd_bus_open_user(ret);
+
+        r = user_and_machine_valid(user_and_machine);
+        if (r < 0)
+                return r;
+
+        assert_return(r > 0, -EINVAL);
+
+        r = sd_bus_new(&b);
+        if (r < 0)
+                return r;
+
+        r = bus_set_address_machine(b, true, user_and_machine);
+        if (r < 0)
+                return r;
+
+        b->bus_client = true;
+        b->trusted = true;
 
         r = sd_bus_start(b);
         if (r < 0)

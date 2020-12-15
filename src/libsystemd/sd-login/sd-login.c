@@ -847,7 +847,7 @@ _public_ int sd_get_machine_names(char ***machines) {
 
                 /* Filter out the unit: symlinks */
                 for (a = b = l; *a; a++) {
-                        if (startswith(*a, "unit:") || !machine_name_is_valid(*a))
+                        if (startswith(*a, "unit:") || !hostname_is_valid(*a, 0))
                                 free(*a);
                         else {
                                 *b = *a;
@@ -877,7 +877,7 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
                 if (!c)
                         return -ENOMEM;
         } else {
-                if (!machine_name_is_valid(machine))
+                if (!hostname_is_valid(machine, 0))
                         return -EINVAL;
 
                 p = strjoina("/run/systemd/machines/", machine);
@@ -899,7 +899,7 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) 
         const char *p;
         int r;
 
-        assert_return(machine_name_is_valid(machine), -EINVAL);
+        assert_return(hostname_is_valid(machine, 0), -EINVAL);
 
         p = strjoina("/run/systemd/machines/", machine);
         r = parse_env_file(NULL, p, "NETIF", &netif_line);

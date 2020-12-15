@@ -922,7 +922,7 @@ int config_parse_hostname(
         if (r < 0)
                 return r;
 
-        if (!hostname_is_valid(hn, false)) {
+        if (!hostname_is_valid(hn, 0)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Hostname is not valid, ignoring assignment: %s", rvalue);
                 return 0;

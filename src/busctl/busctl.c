@@ -121,7 +121,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                         break;
 
                 case BUS_TRANSPORT_MACHINE:
-                        r = bus_set_address_system_machine(bus, arg_host);
+                        r = bus_set_address_machine(bus, arg_user, arg_host);
                         break;
 
                 default:

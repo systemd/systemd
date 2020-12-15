@@ -739,6 +739,8 @@ global:
 
 LIBSYSTEMD_248 {
 global:
+        sd_bus_open_user_machine;
+
         sd_event_source_set_ratelimit;
         sd_event_source_get_ratelimit;
         sd_event_source_is_ratelimited;

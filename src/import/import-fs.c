@@ -126,7 +126,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         local = empty_or_dash_to_null(local);
 
         if (local) {
-                if (!machine_name_is_valid(local))
+                if (!hostname_is_valid(local, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Local image name '%s' is not valid.",
                                                local);

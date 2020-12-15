@@ -64,7 +64,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local))
+                if (!hostname_is_valid(local, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Local image name '%s' is not valid.",
                                                local);
@@ -159,7 +159,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 
                 local = ll;
 
-                if (!machine_name_is_valid(local))
+                if (!hostname_is_valid(local, 0))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Local image name '%s' is not valid.",
                                                local);

@@ -239,7 +239,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
                 return r;
-        if (!machine_name_is_valid(name))
+        if (!hostname_is_valid(name, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine name");
 
         r = sd_bus_message_read_array(message, 'y', &v, &n);

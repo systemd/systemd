@@ -89,6 +89,8 @@ int gethostname_strict(char **ret) {
 }
 
 bool valid_ldh_char(char c) {
+        /* "LDH" → "Letters, digits, hyphens", as per RFC 5890, Section 2.3.1 */
+
         return
                 (c >= 'a' && c <= 'z') ||
                 (c >= 'A' && c <= 'Z') ||
@@ -96,28 +98,24 @@ bool valid_ldh_char(char c) {
                 c == '-';
 }
 
-/**
- * Check if s looks like a valid hostname or FQDN. This does not do
- * full DNS validation, but only checks if the name is composed of
- * allowed characters and the length is not above the maximum allowed
- * by Linux (c.f. dns_name_is_valid()). Trailing dot is allowed if
- * allow_trailing_dot is true and at least two components are present
- * in the name. Note that due to the restricted charset and length
- * this call is substantially more conservative than
- * dns_name_is_valid().
- */
-bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
+bool hostname_is_valid(const char *s, ValidHostnameFlags flags) {
         unsigned n_dots = 0;
         const char *p;
         bool dot, hyphen;
 
+        /* Check if s looks like a valid hostname or FQDN. This does not do full DNS validation, but only
+         * checks if the name is composed of allowed characters and the length is not above the maximum
+         * allowed by Linux (c.f. dns_name_is_valid()). A trailing dot is allowed if
+         * VALID_HOSTNAME_TRAILING_DOT flag is set and at least two components are present in the name. Note
+         * that due to the restricted charset and length this call is substantially more conservative than
+         * dns_name_is_valid(). Doesn't accept empty hostnames, hostnames with leading dots, and hostnames
+         * with multiple dots in a sequence. Doesn't allow hyphens at the beginning or end of label. */
+
         if (isempty(s))
                 return false;
 
-        /* Doesn't accept empty hostnames, hostnames with
-         * leading dots, and hostnames with multiple dots in a
-         * sequence. Also ensures that the length stays below
-         * HOST_NAME_MAX. */
+        if (streq(s, ".host")) /* Used by the container logic to denote the "root container" */
+                return FLAGS_SET(flags, VALID_HOSTNAME_DOT_HOST);
 
         for (p = s, dot = hyphen = true; *p; p++)
                 if (*p == '.') {
@@ -143,14 +141,13 @@ bool hostname_is_valid(const char *s, bool allow_trailing_dot) {
                         hyphen = false;
                 }
 
-        if (dot && (n_dots < 2 || !allow_trailing_dot))
+        if (dot && (n_dots < 2 || !FLAGS_SET(flags, VALID_HOSTNAME_TRAILING_DOT)))
                 return false;
         if (hyphen)
                 return false;
 
-        if (p-s > HOST_NAME_MAX) /* Note that HOST_NAME_MAX is 64 on
-                                  * Linux, but DNS allows domain names
-                                  * up to 255 characters */
+        if (p-s > HOST_NAME_MAX) /* Note that HOST_NAME_MAX is 64 on Linux, but DNS allows domain names up to
+                                  * 255 characters */
                 return false;
 
         return true;
@@ -241,7 +238,7 @@ int shorten_overlong(const char *s, char **ret) {
         if (!h)
                 return -ENOMEM;
 
-        if (hostname_is_valid(h, false)) {
+        if (hostname_is_valid(h, 0)) {
                 *ret = h;
                 return 0;
         }
@@ -252,7 +249,7 @@ int shorten_overlong(const char *s, char **ret) {
 
         strshorten(h, HOST_NAME_MAX);
 
-        if (!hostname_is_valid(h, false)) {
+        if (!hostname_is_valid(h, 0)) {
                 free(h);
                 return -EDOM;
         }
@@ -285,7 +282,7 @@ int read_etc_hostname_stream(FILE *f, char **ret) {
 
                         hostname_cleanup(p); /* normalize the hostname */
 
-                        if (!hostname_is_valid(p, true)) /* check that the hostname we return is valid */
+                        if (!hostname_is_valid(p, VALID_HOSTNAME_TRAILING_DOT)) /* check that the hostname we return is valid */
                                 return -EBADMSG;
 
                         copy = strdup(p);

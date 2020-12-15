@@ -393,7 +393,7 @@ int raw_import_start(RawImport *i, int fd, const char *local, bool force_local, 
         assert(fd >= 0);
         assert(local);
 
-        if (!machine_name_is_valid(local))
+        if (!hostname_is_valid(local, 0))
                 return -EINVAL;
 
         if (i->input_fd >= 0)

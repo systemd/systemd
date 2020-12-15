@@ -14,10 +14,14 @@ char* gethostname_short_malloc(void);
 int gethostname_strict(char **ret);
 
 bool valid_ldh_char(char c) _const_;
-bool hostname_is_valid(const char *s, bool allow_trailing_dot) _pure_;
-char* hostname_cleanup(char *s);
 
-#define machine_name_is_valid(s) hostname_is_valid(s, false)
+typedef enum ValidHostnameFlags {
+        VALID_HOSTNAME_TRAILING_DOT = 1 << 0,   /* Accept trailing dot on multi-label names */
+        VALID_HOSTNAME_DOT_HOST     = 1 << 1,   /* Accept ".host" as valid hostname */
+} ValidHostnameFlags;
+
+bool hostname_is_valid(const char *s, ValidHostnameFlags flags) _pure_;
+char* hostname_cleanup(char *s);
 
 bool is_localhost(const char *hostname);
 

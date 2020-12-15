@@ -544,7 +544,7 @@ int sd_dhcp_client_set_hostname(
 
         /* Make sure hostnames qualify as DNS and as Linux hostnames */
         if (hostname &&
-            !(hostname_is_valid(hostname, false) && dns_name_is_valid(hostname) > 0))
+            !(hostname_is_valid(hostname, 0) && dns_name_is_valid(hostname) > 0))
                 return -EINVAL;
 
         return free_and_strdup(&client->hostname, hostname);
