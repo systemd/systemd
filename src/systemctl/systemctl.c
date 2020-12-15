@@ -51,7 +51,7 @@
 #include "initreq.h"
 #include "install.h"
 #include "io-util.h"
-#include "journal-util.h"
+#include "journal-file.h"
 #include "list.h"
 #include "locale-util.h"
 #include "log.h"

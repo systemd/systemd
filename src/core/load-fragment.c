@@ -37,7 +37,7 @@
 #include "io-util.h"
 #include "ioprio.h"
 #include "ip-protocol-list.h"
-#include "journal-util.h"
+#include "journal-file.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
