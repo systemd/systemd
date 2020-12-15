@@ -1194,6 +1194,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
         char e[2];
         int r;
+        usec_t ts;
 
         r = json_transform_message(m, &v);
         if (r < 0)
@@ -1202,6 +1203,10 @@ static int message_json(sd_bus_message *m, FILE *f) {
         e[0] = m->header->endian;
         e[1] = 0;
 
+        ts = m->realtime;
+        if (ts == 0)
+                ts = now(CLOCK_REALTIME);
+
         r = json_build(&w, JSON_BUILD_OBJECT(
                 JSON_BUILD_PAIR("type", JSON_BUILD_STRING(bus_message_type_to_string(m->header->type))),
                 JSON_BUILD_PAIR("endian", JSON_BUILD_STRING(e)),
@@ -1209,6 +1214,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
                 JSON_BUILD_PAIR("version", JSON_BUILD_INTEGER(m->header->version)),
                 JSON_BUILD_PAIR("cookie", JSON_BUILD_INTEGER(BUS_MESSAGE_COOKIE(m))),
                 JSON_BUILD_PAIR_CONDITION(m->reply_cookie != 0, "reply_cookie", JSON_BUILD_INTEGER(m->reply_cookie)),
+                JSON_BUILD_PAIR("timestamp-realtime", JSON_BUILD_UNSIGNED(ts)),
                 JSON_BUILD_PAIR_CONDITION(m->sender, "sender", JSON_BUILD_STRING(m->sender)),
                 JSON_BUILD_PAIR_CONDITION(m->destination, "destination", JSON_BUILD_STRING(m->destination)),
                 JSON_BUILD_PAIR_CONDITION(m->path, "path", JSON_BUILD_STRING(m->path)),
