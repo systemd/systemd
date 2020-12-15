@@ -15,6 +15,7 @@ Wants=systemd-udevd.service
 After=systemd-udevd-kernel.socket systemd-udevd-control.socket
 Before=sysinit.target
 ConditionPathIsReadWrite=/sys
+ConditionVirtualization=!container
 
 [Service]
 Type=oneshot
