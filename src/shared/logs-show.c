@@ -696,9 +696,11 @@ static int output_verbose(
 
                 c = memchr(data, '=', length);
                 if (!c)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid field.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+
                 fieldlen = c - (const char*) data;
+                if (!journal_field_valid(data, fieldlen, true))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
                 r = field_set_test(output_fields, data, fieldlen);
                 if (r < 0)
@@ -792,6 +794,7 @@ static int output_export(
                 sd_id128_to_string(boot_id, sid));
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
+                size_t fieldlen;
                 const char *c;
 
                 /* We already printed the boot id from the data in the header, hence let's suppress it here */
@@ -800,10 +803,13 @@ static int output_export(
 
                 c = memchr(data, '=', length);
                 if (!c)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid field.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
-                r = field_set_test(output_fields, data, c - (const char *) data);
+                fieldlen = c - (const char*) data;
+                if (!journal_field_valid(data, fieldlen, true))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
+
+                r = field_set_test(output_fields, data, fieldlen);
                 if (r < 0)
                         return r;
                 if (!r)
@@ -814,11 +820,11 @@ static int output_export(
                 else {
                         uint64_t le64;
 
-                        fwrite(data, c - (const char*) data, 1, f);
+                        fwrite(data, fieldlen, 1, f);
                         fputc('\n', f);
-                        le64 = htole64(length - (c - (const char*) data) - 1);
+                        le64 = htole64(length - fieldlen - 1);
                         fwrite(&le64, sizeof(le64), 1, f);
-                        fwrite(c + 1, length - (c - (const char*) data) - 1, 1, f);
+                        fwrite(c + 1, length - fieldlen - 1, 1, f);
                 }
 
                 fputc('\n', f);
@@ -955,6 +961,7 @@ static int update_json_data_split(
                 const void *data,
                 size_t size) {
 
+        size_t fieldlen;
         const char *eq;
         char *name;
 
@@ -968,14 +975,15 @@ static int update_json_data_split(
         if (!eq)
                 return 0;
 
-        if (eq == data)
-                return 0;
+        fieldlen = eq - (const char*) data;
+        if (!journal_field_valid(data, fieldlen, true))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid field.");
 
-        name = strndupa(data, eq - (const char*) data);
+        name = strndupa(data, fieldlen);
         if (output_fields && !set_contains(output_fields, name))
                 return 0;
 
-        return update_json_data(h, flags, name, eq + 1, size - (eq - (const char*) data) - 1);
+        return update_json_data(h, flags, name, eq + 1, size - fieldlen - 1);
 }
 
 static int output_json(
