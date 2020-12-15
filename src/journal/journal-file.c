@@ -1576,6 +1576,9 @@ static int journal_file_append_field(
         assert(f);
         assert(field && size > 0);
 
+        if (!journal_field_valid(field, size, true))
+                return -EBADMSG;
+
         hash = journal_file_hash_data(f, field, size);
 
         r = journal_file_find_field_object_with_hash(f, field, size, hash, &o, &p);
