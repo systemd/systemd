@@ -29,6 +29,7 @@
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "utf8.h"
 #include "web-util.h"
 
@@ -98,6 +99,9 @@ struct sd_dhcp_client {
         uint32_t fallback_lease_lifetime;
         uint32_t xid;
         usec_t start_time;
+        usec_t t1_time;
+        usec_t t2_time;
+        usec_t expire_time;
         uint64_t attempt;
         uint64_t max_attempts;
         OrderedHashmap *extra_options;
@@ -727,6 +731,37 @@ static void client_stop(sd_dhcp_client *client, int error) {
         client_initialize(client);
 }
 
+/* RFC2131 section 4.1:
+ * retransmission delays should include -1 to +1 sec of random 'fuzz'. */
+#define RFC2131_RANDOM_FUZZ \
+        ((int64_t)(random_u64() % (2 * USEC_PER_SEC)) - (int64_t)USEC_PER_SEC)
+
+/* RFC2131 section 4.1:
+ * for retransmission delays, timeout should start at 4s then double
+ * each attempt with max of 64s, with -1 to +1 sec of random 'fuzz' added.
+ * This assumes the first call will be using attempt 1. */
+static usec_t client_compute_request_timeout(usec_t now, uint64_t attempt) {
+        usec_t timeout = (UINT64_C(1) << MIN(attempt + 1, UINT64_C(6))) * USEC_PER_SEC;
+
+        return usec_sub_signed(usec_add(now, timeout), RFC2131_RANDOM_FUZZ);
+}
+
+/* RFC2131 section 4.4.5:
+ * T1 defaults to (0.5 * duration_of_lease).
+ * T2 defaults to (0.875 * duration_of_lease). */
+#define T1_DEFAULT(lifetime) ((lifetime) / 2)
+#define T2_DEFAULT(lifetime) (((lifetime) * 7) / 8)
+
+/* RFC2131 section 4.4.5:
+ * the client SHOULD wait one-half of the remaining time until T2 (in RENEWING state)
+ * and one-half of the remaining lease time (in REBINDING state), down to a minimum
+ * of 60 seconds.
+ * Note that while the default T1/T2 initial times do have random 'fuzz' applied,
+ * the RFC sec 4.4.5 does not mention adding any fuzz to retries. */
+static usec_t client_compute_reacquisition_timeout(usec_t now, usec_t expire) {
+        return MAX(usec_sub_unsigned(expire, now) / 2, 60 * USEC_PER_SEC);
+}
+
 static int cmp_uint8(const uint8_t *a, const uint8_t *b) {
         return CMP(*a, *b);
 }
@@ -1192,7 +1227,6 @@ static int client_timeout_resend(
         DHCP_CLIENT_DONT_DESTROY(client);
         usec_t next_timeout;
         uint64_t time_now;
-        uint32_t time_left;
         int r;
 
         assert(s);
@@ -1206,19 +1240,11 @@ static int client_timeout_resend(
         switch (client->state) {
 
         case DHCP_STATE_RENEWING:
-                time_left = (client->lease->t2 - client->lease->t1) / 2;
-                if (time_left < 60)
-                        time_left = 60;
-
-                next_timeout = time_now + time_left * USEC_PER_SEC;
+                next_timeout = client_compute_reacquisition_timeout(time_now, client->t2_time);
                 break;
 
         case DHCP_STATE_REBINDING:
-                time_left = (client->lease->lifetime - client->lease->t2) / 2;
-                if (time_left < 60)
-                        time_left = 60;
-
-                next_timeout = time_now + time_left * USEC_PER_SEC;
+                next_timeout = client_compute_reacquisition_timeout(time_now, client->expire_time);
                 break;
 
         case DHCP_STATE_REBOOTING:
@@ -1243,15 +1269,13 @@ static int client_timeout_resend(
                         goto error;
 
                 client->attempt++;
-                next_timeout = time_now + ((UINT64_C(1) << MIN(client->attempt, (uint64_t) 6)) - 1) * USEC_PER_SEC;
+                next_timeout = client_compute_request_timeout(time_now, client->attempt);
                 break;
 
         case DHCP_STATE_STOPPED:
                 r = -EINVAL;
                 goto error;
         }
-
-        next_timeout += (random_u32() & 0x1fffff);
 
         r = event_reset_time(client->event, &client->timeout_resend,
                              clock_boottime_or_monotonic(),
@@ -1618,25 +1642,8 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
         return r;
 }
 
-static uint64_t client_compute_timeout(sd_dhcp_client *client, uint32_t lifetime, double factor) {
-        assert(client);
-        assert(client->request_sent);
-        assert(lifetime > 0);
-
-        if (lifetime > 3)
-                lifetime -= 3;
-        else
-                lifetime = 0;
-
-        return client->request_sent + (lifetime * USEC_PER_SEC * factor) +
-                + (random_u32() & 0x1fffff);
-}
-
 static int client_set_lease_timeouts(sd_dhcp_client *client) {
         usec_t time_now;
-        uint64_t lifetime_timeout;
-        uint64_t t2_timeout;
-        uint64_t t1_timeout;
         char time_string[FORMAT_TIMESPAN_MAX];
         int r;
 
@@ -1659,93 +1666,76 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
                 return r;
         assert(client->request_sent <= time_now);
 
-        /* convert the various timeouts from relative (secs) to absolute (usecs) */
-        lifetime_timeout = client_compute_timeout(client, client->lease->lifetime, 1);
-        if (client->lease->t1 > 0 && client->lease->t2 > 0) {
-                /* both T1 and T2 are given */
-                if (client->lease->t1 < client->lease->t2 &&
-                    client->lease->t2 < client->lease->lifetime) {
-                        /* they are both valid */
-                        t2_timeout = client_compute_timeout(client, client->lease->t2, 1);
-                        t1_timeout = client_compute_timeout(client, client->lease->t1, 1);
-                } else {
-                        /* discard both */
-                        t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
-                        client->lease->t2 = (client->lease->lifetime * 7) / 8;
-                        t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
-                        client->lease->t1 = client->lease->lifetime / 2;
-                }
-        } else if (client->lease->t2 > 0 && client->lease->t2 < client->lease->lifetime) {
-                /* only T2 is given, and it is valid */
-                t2_timeout = client_compute_timeout(client, client->lease->t2, 1);
-                t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
-                client->lease->t1 = client->lease->lifetime / 2;
-                if (t2_timeout <= t1_timeout) {
-                        /* the computed T1 would be invalid, so discard T2 */
-                        t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
-                        client->lease->t2 = (client->lease->lifetime * 7) / 8;
-                }
-        } else if (client->lease->t1 > 0 && client->lease->t1 < client->lease->lifetime) {
-                /* only T1 is given, and it is valid */
-                t1_timeout = client_compute_timeout(client, client->lease->t1, 1);
-                t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
-                client->lease->t2 = (client->lease->lifetime * 7) / 8;
-                if (t2_timeout <= t1_timeout) {
-                        /* the computed T2 would be invalid, so discard T1 */
-                        t2_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
-                        client->lease->t2 = client->lease->lifetime / 2;
-                }
-        } else {
-                /* fall back to the default timeouts */
-                t1_timeout = client_compute_timeout(client, client->lease->lifetime, 0.5);
-                client->lease->t1 = client->lease->lifetime / 2;
-                t2_timeout = client_compute_timeout(client, client->lease->lifetime, 7.0 / 8.0);
-                client->lease->t2 = (client->lease->lifetime * 7) / 8;
-        }
+        /* verify that 0 < t2 < lifetime */
+        if (client->lease->t2 == 0 || client->lease->t2 >= client->lease->lifetime)
+                client->lease->t2 = T2_DEFAULT(client->lease->lifetime);
+        /* verify that 0 < t1 < lifetime */
+        if (client->lease->t1 == 0 || client->lease->t1 >= client->lease->t2)
+                client->lease->t1 = T1_DEFAULT(client->lease->lifetime);
+        /* now, if t1 >= t2, t1 *must* be T1_DEFAULT, since the previous check
+         * could not evalate to false if t1 >= t2; so setting t2 to T2_DEFAULT
+         * guarantees t1 < t2. */
+        if (client->lease->t1 >= client->lease->t2)
+                client->lease->t2 = T2_DEFAULT(client->lease->lifetime);
+
+        client->expire_time = client->request_sent + client->lease->lifetime * USEC_PER_SEC;
+        client->t1_time = client->request_sent + client->lease->t1 * USEC_PER_SEC;
+        client->t2_time = client->request_sent + client->lease->t2 * USEC_PER_SEC;
+
+        /* RFC2131 section 4.4.5:
+         * Times T1 and T2 SHOULD be chosen with some random "fuzz".
+         * Since the RFC doesn't specify here the exact 'fuzz' to use,
+         * we use the range from section 4.1: -1 to +1 sec. */
+        client->t1_time = usec_sub_signed(client->t1_time, RFC2131_RANDOM_FUZZ);
+        client->t2_time = usec_sub_signed(client->t2_time, RFC2131_RANDOM_FUZZ);
+
+        /* after fuzzing, ensure t2 is still >= t1 */
+        client->t2_time = MAX(client->t1_time, client->t2_time);
 
         /* arm lifetime timeout */
         r = event_reset_time(client->event, &client->timeout_expire,
                              clock_boottime_or_monotonic(),
-                             lifetime_timeout, 10 * USEC_PER_MSEC,
+                             client->expire_time, 10 * USEC_PER_MSEC,
                              client_timeout_expire, client,
                              client->event_priority, "dhcp4-lifetime", true);
         if (r < 0)
                 return r;
 
-        log_dhcp_client(client, "lease expires in %s",
-                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, lifetime_timeout - time_now, USEC_PER_SEC));
-
         /* don't arm earlier timeouts if this has already expired */
-        if (lifetime_timeout <= time_now)
+        if (client->expire_time <= time_now)
                 return 0;
+
+        log_dhcp_client(client, "lease expires in %s",
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, client->expire_time - time_now, USEC_PER_SEC));
 
         /* arm T2 timeout */
         r = event_reset_time(client->event, &client->timeout_t2,
                              clock_boottime_or_monotonic(),
-                             t2_timeout, 10 * USEC_PER_MSEC,
+                             client->t2_time, 10 * USEC_PER_MSEC,
                              client_timeout_t2, client,
                              client->event_priority, "dhcp4-t2-timeout", true);
         if (r < 0)
                 return r;
 
-        log_dhcp_client(client, "T2 expires in %s",
-                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, t2_timeout - time_now, USEC_PER_SEC));
-
         /* don't arm earlier timeout if this has already expired */
-        if (t2_timeout <= time_now)
+        if (client->t2_time <= time_now)
                 return 0;
+
+        log_dhcp_client(client, "T2 expires in %s",
+                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, client->t2_time - time_now, USEC_PER_SEC));
 
         /* arm T1 timeout */
         r = event_reset_time(client->event, &client->timeout_t1,
                              clock_boottime_or_monotonic(),
-                             t1_timeout, 10 * USEC_PER_MSEC,
+                             client->t1_time, 10 * USEC_PER_MSEC,
                              client_timeout_t1, client,
                              client->event_priority, "dhcp4-t1-timer", true);
         if (r < 0)
                 return r;
 
-        log_dhcp_client(client, "T1 expires in %s",
-                        format_timespan(time_string, FORMAT_TIMESPAN_MAX, t1_timeout - time_now, USEC_PER_SEC));
+        if (client->t1_time > time_now)
+                log_dhcp_client(client, "T1 expires in %s",
+                                format_timespan(time_string, FORMAT_TIMESPAN_MAX, client->t1_time - time_now, USEC_PER_SEC));
 
         return 0;
 }

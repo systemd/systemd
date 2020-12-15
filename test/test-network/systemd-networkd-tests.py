@@ -4104,7 +4104,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_unit_to_networkd_unit_path('25-veth.netdev', 'dhcp-server-veth-peer.network',
                                         'dhcp-client-with-ipv4ll.network')
         start_networkd()
-        self.wait_online(['veth99:degraded', 'veth-peer:routable'])
+        # we need to increase timeout above default, as this will need to wait for
+        # systemd-networkd to get the dhcpv4 transient failure event
+        self.wait_online(['veth99:degraded', 'veth-peer:routable'], timeout='60s')
 
         output = check_output('ip address show dev veth99')
         print(output)
