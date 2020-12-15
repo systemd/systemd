@@ -914,7 +914,8 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                 if (r == 0)
                         /* /proc is not mounted. Propagate the original error code. */
                         return -EPERM;
-        }
+        } else if (r < 0)
+                return r;
 
         return 1;
 }
@@ -1691,12 +1692,10 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/hostname",
                                 .mode = READONLY,
-                                .ignore = true,
                         };
                         *(m++) = (MountEntry) {
                                 .path_const = "/proc/sys/kernel/domainname",
                                 .mode = READONLY,
-                                .ignore = true,
                         };
                 }
 
