@@ -326,6 +326,9 @@ basic_sources += generated_gperf_headers
 basic_gcrypt_sources = files(
         'gcrypt-util.c',
         'gcrypt-util.h')
+basic_openssl_sources = files(
+        'openssl-util.c',
+        'openssl-util.h')
 
 libbasic = static_library(
         'basic',
@@ -348,4 +351,13 @@ libbasic_gcrypt = static_library(
         basic_gcrypt_sources,
         include_directories : includes,
         dependencies : [libgcrypt],
+        c_args : ['-fvisibility=default'])
+
+# A convenience library that is separate from libbasic to avoid
+# unnecessary linking to libopenssl.
+libbasic_openssl = static_library(
+        'basic-openssl',
+        basic_openssl_sources,
+        include_directories : includes,
+        dependencies : [libopenssl],
         c_args : ['-fvisibility=default'])

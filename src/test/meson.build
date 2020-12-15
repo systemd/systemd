@@ -778,10 +778,11 @@ tests += [
          [],
          []],
 
-        [['src/test/test-gcrypt-util.c'],
+        [['src/test/test-openssl-util.c'],
+         [libshared,
+          libbasic_openssl],
          [],
-         [],
-         'HAVE_GCRYPT'],
+         'HAVE_OPENSSL'],
 
         [['src/test/test-nss.c'],
          [],

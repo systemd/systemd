@@ -15,6 +15,7 @@ fuzzers += [
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,
+          libopenssl,
           libgpg_error,
           libm]],
 

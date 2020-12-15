@@ -16,6 +16,7 @@
 #include "journal-verify.h"
 #include "lookup3.h"
 #include "macro.h"
+#include "openssl-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "util.h"
@@ -819,13 +820,13 @@ int journal_file_verify(
         bool found_last = false;
         const char *tmp_dir = NULL;
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
         uint64_t last_tag = 0;
 #endif
         assert(f);
 
         if (key) {
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                 r = journal_file_parse_verification_key(f, key);
                 if (r < 0) {
                         log_error("Failed to parse seed.");
@@ -1095,8 +1096,9 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-#if HAVE_GCRYPT
+#if HAVE_OPENSSL
                         if (f->seal) {
+                                uint8_t md[DIGEST_MAX];
                                 uint64_t q, rt;
 
                                 debug(p, "Checking tag %"PRIu64"...", le64toh(o->tag.seqnum));
@@ -1145,7 +1147,9 @@ int journal_file_verify(
                                 if (r < 0)
                                         goto fail;
 
-                                if (memcmp(o->tag.tag, gcry_md_read(f->hmac, 0), TAG_LENGTH) != 0) {
+                                if (HMAC_Final(f->hctx, md, NULL) <= 0)
+                                        return -EIO;
+                                if (memcmp(o->tag.tag, md, TAG_LENGTH) != 0) {
                                         error(p, "Tag failed verification");
                                         r = -EBADMSG;
                                         goto fail;

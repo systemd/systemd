@@ -7,11 +7,11 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "io-util.h"
 #include "machine-pool.h"
+#include "openssl-util.h"
 #include "parse-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
@@ -30,8 +30,8 @@ PullJob* pull_job_unref(PullJob *j) {
 
         import_compress_free(&j->compress);
 
-        if (j->checksum_context)
-                gcry_md_close(j->checksum_context);
+        if (j->checksum_ctx)
+                EVP_MD_CTX_free(j->checksum_ctx);
 
         free(j->url);
         free(j->etag);
@@ -156,17 +156,19 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 goto finish;
         }
 
-        if (j->checksum_context) {
-                uint8_t *k;
+        if (j->checksum_ctx) {
+                uint8_t k[DIGEST_MAX];
+                unsigned int checksum_len;
 
-                k = gcry_md_read(j->checksum_context, GCRY_MD_SHA256);
-                if (!k) {
+                r = EVP_DigestFinal_ex(j->checksum_ctx, k, &checksum_len);
+
+                if (r == 0) {
                         log_error("Failed to get checksum.");
                         r = -EIO;
                         goto finish;
                 }
 
-                j->checksum = hexmem(k, gcry_md_get_algo_dlen(GCRY_MD_SHA256));
+                j->checksum = hexmem(k, checksum_len);
                 if (!j->checksum) {
                         r = log_oom();
                         goto finish;
@@ -271,8 +273,12 @@ static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
                                        "Content length incorrect.");
 
-        if (j->checksum_context)
-                gcry_md_write(j->checksum_context, p, sz);
+        if (j->checksum_ctx) {
+                r = EVP_DigestUpdate(j->checksum_ctx, p, sz);
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Could not hash chunk.");
+        }
 
         r = import_uncompress(&j->compress, p, sz, pull_job_write_uncompressed, j);
         if (r < 0)
@@ -308,9 +314,12 @@ static int pull_job_open_disk(PullJob *j) {
         }
 
         if (j->calc_checksum) {
-                initialize_libgcrypt(false);
+                j->checksum_ctx = EVP_MD_CTX_new();
+                if (!j->checksum_ctx)
+                        return log_oom();
 
-                if (gcry_md_open(&j->checksum_context, GCRY_MD_SHA256, 0) != 0)
+                r = EVP_DigestInit_ex(j->checksum_ctx, EVP_sha256(), NULL);
+                if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Failed to initialize hash context.");
         }

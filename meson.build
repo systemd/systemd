@@ -1162,6 +1162,10 @@ else
 endif
 conf.set10('HAVE_OPENSSL', have)
 
+want_libsystemd_openssl = get_option('libsystemd-openssl')
+conf.set10('LIBSYSTEMD_OPENSSL', want_libsystemd_openssl != 'false' and
+        conf.get('HAVE_OPENSSL') == 1 and not skip_deps)
+
 want_p11kit = get_option('p11kit')
 if want_p11kit != 'false' and not skip_deps
         libp11kit = dependency('p11-kit-1',
@@ -1313,8 +1317,8 @@ default_dnssec = get_option('default-dnssec')
 if skip_deps
         default_dnssec = 'no'
 endif
-if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
-        message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
+if default_dnssec != 'no' and conf.get('HAVE_OPENSSL') == 0
+        message('default-dnssec cannot be set to yes or allow-downgrade when openssl is disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'
 endif
 conf.set('DEFAULT_DNSSEC_MODE',
@@ -1389,7 +1393,7 @@ if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
                 conf.get('HAVE_ZLIB') == 1 and
                 conf.get('HAVE_XZ') == 1 and
-                conf.get('HAVE_GCRYPT') == 1)
+                conf.get('HAVE_OPENSSL') == 1)
         if want_importd == 'true' and not have
                 error('importd support was requested, but dependencies are not available')
         endif
@@ -1656,6 +1660,7 @@ install_libsystemd_static = static_library(
                         libblkid,
                         libmount,
                         libselinux,
+                        libopenssl,
                         libgcrypt],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
@@ -1952,6 +1957,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                 include_directories : includes,
                 link_with : [libshared,
                              libbasic_gcrypt,
+                             libbasic_openssl,
                              libsystemd_resolve_core],
                 dependencies : systemd_resolved_dependencies,
                 install_rpath : rootlibexecdir,
@@ -1964,6 +1970,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                 include_directories : includes,
                 link_with : [libshared,
                              libbasic_gcrypt,
+                             libbasic_openssl,
                              libsystemd_resolve_core],
                 dependencies : [threads,
                                 libgpg_error,
@@ -2600,7 +2607,8 @@ if conf.get('ENABLE_IMPORTD') == 1
                 'systemd-pull',
                 systemd_pull_sources,
                 include_directories : includes,
-                link_with : [libshared],
+                link_with : [libbasic_openssl,
+                             libshared],
                 dependencies : [versiondep,
                                 libcurl,
                                 libz,

@@ -4,8 +4,8 @@
 #include <inttypes.h>
 #include <sys/uio.h>
 
-#if HAVE_GCRYPT
-#  include <gcrypt.h>
+#if HAVE_OPENSSL
+#  include <openssl/hmac.h>
 #endif
 
 #include "sd-event.h"
@@ -111,8 +111,8 @@ typedef struct JournalFile {
         size_t compress_buffer_size;
 #endif
 
-#if HAVE_GCRYPT
-        gcry_md_hd_t hmac;
+#if HAVE_OPENSSL
+        HMAC_CTX *hctx;
         bool hmac_running;
 
         FSSHeader *fss_file;
