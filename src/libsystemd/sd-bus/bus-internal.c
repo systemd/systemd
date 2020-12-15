@@ -92,7 +92,14 @@ bool interface_name_is_valid(const char *p) {
                                 *q == '_';
 
                         if (!good) {
-                                log_debug("The interface %s is invalid as it contains special character %c", p, *q);
+                                if (DEBUG_LOGGING) {
+                                        _cleanup_free_ char *iface = NULL;
+                                        iface = cescape(p);
+                                        if (!iface)
+                                                log_oom();
+                                        else
+                                                log_debug("The interface %s is invalid as it contains special character %c", iface, *q);
+                                }
                                 return false;
                         }
 
