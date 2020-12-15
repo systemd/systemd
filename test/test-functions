@@ -227,6 +227,24 @@ function find_qemu_bin() {
     fi
 }
 
+# Compares argument #1=X.Y.Z (X&Y&Z = numeric) to the version of the installed qemu
+# returns 0 if newer or equal
+# returns 1 if older
+# returns 2 if failing
+function qemu_min_version() {
+    find_qemu_bin || return 2
+
+    # get version from binary
+    qemu_ver=$($QEMU_BIN --version | awk '/^QEMU emulator version ([0-9]*\.[0-9]*\.[0-9]*) / {print $4}')
+
+    # Check version string format
+    echo "$qemu_ver" | grep -q '^[0-9]*\.[0-9]*\.[0-9]*$' || return 2
+    echo "$1" | grep -q '^[0-9]*\.[0-9]*\.[0-9]*$' || return 2
+
+    # compare as last command to return that value
+    printf "%s\n%s\n" "$1" "$qemu_ver" | sort -V -C
+}
+
 # Return 0 if QEMU did run (then you must check the result state/logs for actual
 # success), or 1 if QEMU is not available.
 run_qemu() {
