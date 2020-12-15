@@ -281,22 +281,22 @@ int varlink_connect_address(Varlink **ret, const char *address) {
 
         r = sockaddr_un_set_path(&sockaddr.un, address);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to set socket address '%s': %m", address);
         sockaddr_len = r;
 
         r = varlink_new(&v);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to create varlink object: %m");
 
         v->fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (v->fd < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to create AF_UNIX socket: %m");
 
         v->fd = fd_move_above_stdio(v->fd);
 
         if (connect(v->fd, &sockaddr.sa, sockaddr_len) < 0) {
                 if (!IN_SET(errno, EAGAIN, EINPROGRESS))
-                        return -errno;
+                        return log_debug_errno(errno, "Failed to connect to %s: %m", address);
 
                 v->connecting = true; /* We are asynchronously connecting, i.e. the connect() is being
                                        * processed in the background. As long as that's the case the socket
@@ -312,7 +312,7 @@ int varlink_connect_address(Varlink **ret, const char *address) {
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
         *ret = TAKE_PTR(v);
-        return r;
+        return 0;
 }
 
 int varlink_connect_fd(Varlink **ret, int fd) {
@@ -324,11 +324,11 @@ int varlink_connect_fd(Varlink **ret, int fd) {
 
         r = fd_nonblock(fd, true);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to make fd %d nonblocking: %m", fd);
 
         r = varlink_new(&v);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to create varlink object: %m");
 
         v->fd = fd;
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
@@ -927,43 +927,57 @@ int varlink_process(Varlink *v) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         varlink_ref(v);
 
         r = varlink_write(v);
+        if (r < 0)
+                varlink_log_errno(v, r, "Write failed: %m");
         if (r != 0)
                 goto finish;
 
         r = varlink_dispatch_reply(v);
+        if (r < 0)
+                varlink_log_errno(v, r, "Reply dispatch failed: %m");
         if (r != 0)
                 goto finish;
 
         r = varlink_dispatch_method(v);
+        if (r < 0)
+                varlink_log_errno(v, r, "Method dispatch failed: %m");
         if (r != 0)
                 goto finish;
 
         r = varlink_parse_message(v);
+        if (r < 0)
+                varlink_log_errno(v, r, "Message parsing failed: %m");
         if (r != 0)
                 goto finish;
 
         r = varlink_read(v);
+        if (r < 0)
+                varlink_log_errno(v, r, "Read failed: %m");
         if (r != 0)
                 goto finish;
 
         r = varlink_test_disconnect(v);
+        assert(r >= 0);
         if (r != 0)
                 goto finish;
 
         r = varlink_dispatch_disconnect(v);
+        assert(r >= 0);
         if (r != 0)
                 goto finish;
 
         r = varlink_test_timeout(v);
+        assert(r >= 0);
         if (r != 0)
                 goto finish;
 
         r = varlink_dispatch_timeout(v);
+        assert(r >= 0);
         if (r != 0)
                 goto finish;
 
@@ -974,7 +988,7 @@ finish:
                 /* If we did some processing, make sure we are called again soon */
                 q = sd_event_source_set_enabled(v->defer_event_source, r > 0 ? SD_EVENT_ON : SD_EVENT_OFF);
                 if (q < 0)
-                        r = q;
+                        r = varlink_log_errno(v, q, "Failed to enable deferred event source: %m");
         }
 
         if (r < 0) {
@@ -1022,7 +1036,7 @@ int varlink_wait(Varlink *v, usec_t timeout) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         r = varlink_get_timeout(v, &t);
         if (r < 0)
@@ -1062,9 +1076,9 @@ int varlink_get_fd(Varlink *v) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
         if (v->fd < 0)
-                return -EBADF;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF), "No valid fd.");
 
         return v->fd;
 }
@@ -1075,7 +1089,7 @@ int varlink_get_events(Varlink *v) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         if (v->connecting) /* When processing an asynchronous connect(), we only wait for EPOLLOUT, which
                             * tells us that the connection is now complete. Before that we should neither
@@ -1099,7 +1113,7 @@ int varlink_get_timeout(Varlink *v, usec_t *ret) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE, VARLINK_CALLING) &&
             v->timeout != USEC_INFINITY) {
@@ -1119,7 +1133,7 @@ int varlink_flush(Varlink *v) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         for (;;) {
                 if (v->output_buffer_size == 0)
@@ -1137,7 +1151,7 @@ int varlink_flush(Varlink *v) {
 
                 r = fd_wait_for_event(v->fd, POLLOUT, USEC_INFINITY);
                 if (r < 0)
-                        return r;
+                        return varlink_log_errno(v, r, "Poll failed on fd: %m");
 
                 assert(r != 0);
 
@@ -1185,7 +1199,6 @@ static void varlink_detach_server(Varlink *v) {
 }
 
 int varlink_close(Varlink *v) {
-
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
@@ -1204,7 +1217,6 @@ int varlink_close(Varlink *v) {
 }
 
 Varlink* varlink_close_unref(Varlink *v) {
-
         if (!v)
                 return NULL;
 
@@ -1213,7 +1225,6 @@ Varlink* varlink_close_unref(Varlink *v) {
 }
 
 Varlink* varlink_flush_close_unref(Varlink *v) {
-
         if (!v)
                 return NULL;
 
@@ -1280,26 +1291,26 @@ int varlink_send(Varlink *v, const char *method, JsonVariant *parameters) {
         assert_return(method, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         /* We allow enqueuing multiple method calls at once! */
         if (!IN_SET(v->state, VARLINK_IDLE_CLIENT, VARLINK_AWAITING_REPLY))
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
         r = json_build(&m, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
                                        JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters)),
                                        JSON_BUILD_PAIR("oneway", JSON_BUILD_BOOLEAN(true))));
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         /* No state change here, this is one-way only after all */
         v->timestamp = now(CLOCK_MONOTONIC);
@@ -1318,7 +1329,7 @@ int varlink_sendb(Varlink *v, const char *method, ...) {
         va_end(ap);
 
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         return varlink_send(v, method, parameters);
 }
@@ -1331,25 +1342,25 @@ int varlink_invoke(Varlink *v, const char *method, JsonVariant *parameters) {
         assert_return(method, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         /* We allow enqueuing multiple method calls at once! */
         if (!IN_SET(v->state, VARLINK_IDLE_CLIENT, VARLINK_AWAITING_REPLY))
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
         r = json_build(&m, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
                                        JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters))));
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         varlink_set_state(v, VARLINK_AWAITING_REPLY);
         v->n_pending++;
@@ -1370,7 +1381,7 @@ int varlink_invokeb(Varlink *v, const char *method, ...) {
         va_end(ap);
 
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         return varlink_invoke(v, method, parameters);
 }
@@ -1383,27 +1394,27 @@ int varlink_observe(Varlink *v, const char *method, JsonVariant *parameters) {
         assert_return(method, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
         /* Note that we don't allow enqueuing multiple method calls when we are in more/continues mode! We
          * thus insist on an idle client here. */
         if (v->state != VARLINK_IDLE_CLIENT)
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
         r = json_build(&m, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
                                        JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters)),
                                        JSON_BUILD_PAIR("more", JSON_BUILD_BOOLEAN(true))));
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
-                return r;
-
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         varlink_set_state(v, VARLINK_AWAITING_REPLY_MORE);
         v->n_pending++;
@@ -1424,7 +1435,7 @@ int varlink_observeb(Varlink *v, const char *method, ...) {
         va_end(ap);
 
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         return varlink_observe(v, method, parameters);
 }
@@ -1444,25 +1455,25 @@ int varlink_call(
         assert_return(method, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
         if (!IN_SET(v->state, VARLINK_IDLE_CLIENT))
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
         r = json_build(&m, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method)),
                                        JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters))));
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         varlink_set_state(v, VARLINK_CALLING);
         v->n_pending++;
@@ -1504,10 +1515,10 @@ int varlink_call(
 
         case VARLINK_PENDING_DISCONNECT:
         case VARLINK_DISCONNECTED:
-                return -ECONNRESET;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
 
         case VARLINK_PENDING_TIMEOUT:
-                return -ETIME;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
 
         default:
                 assert_not_reached("Unexpected state after method call.");
@@ -1532,7 +1543,7 @@ int varlink_callb(
         va_end(ap);
 
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         return varlink_call(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
 }
@@ -1552,15 +1563,15 @@ int varlink_reply(Varlink *v, JsonVariant *parameters) {
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
         r = json_build(&m, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters))));
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
                 /* We just replied to a method call that was let hanging for a while (i.e. we were outside of
@@ -1601,25 +1612,25 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
         assert_return(error_id, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
         if (!IN_SET(v->state,
                     VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE,
                     VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
         r = json_build(&m, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("error", JSON_BUILD_STRING(error_id)),
                                        JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters))));
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         if (IN_SET(v->state, VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE)) {
                 v->current = json_variant_unref(v->current);
@@ -1643,7 +1654,7 @@ int varlink_errorb(Varlink *v, const char *error_id, ...) {
         va_end(ap);
 
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         return varlink_error(v, error_id, parameters);
 }
@@ -1683,23 +1694,23 @@ int varlink_notify(Varlink *v, JsonVariant *parameters) {
         assert_return(v, -EINVAL);
 
         if (v->state == VARLINK_DISCONNECTED)
-                return -ENOTCONN;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
         if (!IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE))
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
         r = varlink_sanitize_parameters(&parameters);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
         r = json_build(&m, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters)),
                                        JSON_BUILD_PAIR("continues", JSON_BUILD_BOOLEAN(true))));
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
         /* No state change, as more is coming */
         return 1;
@@ -1717,7 +1728,7 @@ int varlink_notifyb(Varlink *v, ...) {
         va_end(ap);
 
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         return varlink_notify(v, parameters);
 }
@@ -1726,7 +1737,7 @@ int varlink_bind_reply(Varlink *v, VarlinkReply callback) {
         assert_return(v, -EINVAL);
 
         if (callback && v->reply_callback && callback != v->reply_callback)
-                return -EBUSY;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
         v->reply_callback = callback;
 
@@ -1774,10 +1785,10 @@ int varlink_get_peer_uid(Varlink *v, uid_t *ret) {
 
         r = varlink_acquire_ucred(v);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
 
         if (!uid_is_valid(v->ucred.uid))
-                return -ENODATA;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer uid is invalid.");
 
         *ret = v->ucred.uid;
         return 0;
@@ -1791,10 +1802,10 @@ int varlink_get_peer_pid(Varlink *v, pid_t *ret) {
 
         r = varlink_acquire_ucred(v);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
 
         if (!pid_is_valid(v->ucred.pid))
-                return -ENODATA;
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer uid is invalid.");
 
         *ret = v->ucred.pid;
         return 0;
@@ -1867,7 +1878,7 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
 
         r = sd_event_source_set_io_events(v->io_event_source, e);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to set source events: %m");
 
         r = varlink_get_timeout(v, &until);
         if (r < 0)
@@ -1877,12 +1888,12 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
         if (have_timeout) {
                 r = sd_event_source_set_time(v->time_event_source, until);
                 if (r < 0)
-                        return r;
+                        return varlink_log_errno(v, r, "Failed to set source time: %m");
         }
 
         r = sd_event_source_set_enabled(v->time_event_source, have_timeout ? SD_EVENT_ON : SD_EVENT_OFF);
         if (r < 0)
-                return r;
+                return varlink_log_errno(v, r, "Failed to enable event source: %m");
 
         return 1;
 }
@@ -1910,7 +1921,7 @@ int varlink_attach_event(Varlink *v, sd_event *e, int64_t priority) {
         else {
                 r = sd_event_default(&v->event);
                 if (r < 0)
-                        return r;
+                        return varlink_log_errno(v, r, "Failed to create event source: %m");
         }
 
         r = sd_event_add_time(v->event, &v->time_event_source, CLOCK_MONOTONIC, 0, 0, time_callback, v);
@@ -1960,6 +1971,7 @@ int varlink_attach_event(Varlink *v, sd_event *e, int64_t priority) {
         return 0;
 
 fail:
+        varlink_log_errno(v, r, "Failed to setup event source: %m");
         varlink_detach_event(v);
         return r;
 }
@@ -1987,7 +1999,7 @@ int varlink_server_new(VarlinkServer **ret, VarlinkServerFlags flags) {
 
         s = new(VarlinkServer, 1);
         if (!s)
-                return -ENOMEM;
+                return log_oom_debug();
 
         *s = (VarlinkServer) {
                 .n_ref = 1,
@@ -2207,7 +2219,7 @@ int varlink_server_listen_fd(VarlinkServer *s, int fd) {
 
         ss = new(VarlinkServerSocket, 1);
         if (!ss)
-                return -ENOMEM;
+                return log_oom_debug();
 
         *ss = (VarlinkServerSocket) {
                 .server = s,
@@ -2369,7 +2381,7 @@ sd_event *varlink_server_get_event(VarlinkServer *s) {
 }
 
 int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMethod callback) {
-        char *m;
+        _cleanup_free_ char *m = NULL;
         int r;
 
         assert_return(s, -EINVAL);
@@ -2377,21 +2389,20 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
         assert_return(callback, -EINVAL);
 
         if (startswith(method, "org.varlink.service."))
-                return -EEXIST;
+                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Cannot bind server to '%s'.", method);
 
-        r = hashmap_ensure_allocated(&s->methods, &string_hash_ops);
-        if (r < 0)
-                return r;
+        if (hashmap_ensure_allocated(&s->methods, &string_hash_ops) < 0)
+                return log_oom_debug();
 
         m = strdup(method);
         if (!m)
-                return -ENOMEM;
+                return log_oom_debug();
 
         r = hashmap_put(s->methods, m, callback);
-        if (r < 0) {
-                free(m);
-                return r;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to register callback: %m");
+        if (r > 0)
+                TAKE_PTR(m);
 
         return 0;
 }
@@ -2426,7 +2437,7 @@ int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect callback) {
         assert_return(s, -EINVAL);
 
         if (callback && s->connect_callback && callback != s->connect_callback)
-                return -EBUSY;
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
         s->connect_callback = callback;
         return 0;
@@ -2436,7 +2447,7 @@ int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect callback)
         assert_return(s, -EINVAL);
 
         if (callback && s->disconnect_callback && callback != s->disconnect_callback)
-                return -EBUSY;
+                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
         s->disconnect_callback = callback;
         return 0;
