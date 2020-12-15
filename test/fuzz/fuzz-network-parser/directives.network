@@ -38,6 +38,7 @@ MTUBytes=
 Multicast=
 MACAddress=
 Group=
+Promiscuous=
 [SR-IOV]
 VirtualFunction=
 MACSpoofCheck=
