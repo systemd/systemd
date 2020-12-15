@@ -3,9 +3,9 @@
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-message.h"
+#include "escape.h"
 #include "hexdecoct.h"
 #include "string-util.h"
-#include "escape.h"
 
 bool object_path_is_valid(const char *p) {
         const char *q;
@@ -94,12 +94,8 @@ bool interface_name_is_valid(const char *p) {
 
                         if (!good) {
                                 if (DEBUG_LOGGING) {
-                                        _cleanup_free_ char *iface = NULL;
-                                        iface = cescape(p);
-                                        if (!iface)
-                                                log_oom();
-                                        else
-                                                log_debug("The interface %s is invalid as it contains special character %c", iface, *q);
+                                        _cleanup_free_ char *iface = cescape(p);
+                                        log_debug("The interface %s is invalid as it contains special character", strnull(iface));
                                 }
                                 return false;
                         }
