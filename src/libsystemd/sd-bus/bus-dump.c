@@ -55,6 +55,15 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                 f = stdout;
 
         if (flags & BUS_MESSAGE_DUMP_WITH_HEADER) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                const char *p;
+                usec_t ts = m->realtime;
+
+                if (ts == 0)
+                        ts = now(CLOCK_REALTIME);
+
+                p = format_timestamp_us_utc(buf, sizeof(buf), ts);
+
                 fprintf(f,
                         "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%"PRIi64,
                         m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
@@ -81,6 +90,8 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
 
                 if (m->reply_cookie != 0)
                         fprintf(f, "  ReplyCookie=%" PRIu64, m->reply_cookie);
+
+                fprintf(f, "  Timestamp=\"%s\"", strna(p));
 
                 fputs("\n", f);
 
