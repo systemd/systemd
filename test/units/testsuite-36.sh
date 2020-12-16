@@ -221,7 +221,7 @@ else
     pid1StartUnitWithStrace $testUnit
     systemctlCheckNUMAProperties $testUnit "default" "0"
     pid1StopUnit $testUnit
-    # Maks must be ignored
+    # Mask must be ignored
     grep "set_mempolicy(MPOL_DEFAULT, NULL" $straceLog
 
     echo "Unit file NUMAPolicy support - Bind policy w/o mask"
@@ -276,7 +276,7 @@ else
     pid1StartUnitWithStrace $testUnit
     systemctlCheckNUMAProperties $testUnit "local" "0"
     pid1StopUnit $testUnit
-    # Maks must be ignored
+    # Mask must be ignored
     grep -E "set_mempolicy\((MPOL_LOCAL|0x4 [^,]*), NULL" $straceLog
 
     echo "Unit file CPUAffinity=NUMA support"
