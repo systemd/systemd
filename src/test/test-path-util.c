@@ -82,9 +82,9 @@ static void test_path(void) {
         assert_se(streq(basename("/aa///file..."), "file..."));
         assert_se(streq(basename("file.../"), ""));
 
-        fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
+        fd = open("/proc", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
-        assert_se(fd_is_mount_point(fd, "/", 0) > 0);
+        assert_se(fd_is_mount_point(fd, "/proc", 0) > 0);
 
         test_path_simplify("aaa/bbb////ccc", "aaa/bbb/ccc", "aaa/bbb/ccc");
         test_path_simplify("//aaa/.////ccc", "/aaa/./ccc", "/aaa/ccc");
