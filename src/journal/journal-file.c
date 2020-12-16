@@ -1521,6 +1521,44 @@ int journal_file_find_data_object(
                         ret, ret_offset);
 }
 
+bool journal_field_valid(const char *p, size_t l, bool allow_protected) {
+        const char *a;
+
+        /* We kinda enforce POSIX syntax recommendations for
+           environment variables here, but make a couple of additional
+           requirements.
+
+           http://pubs.opengroup.org/onlinepubs/000095399/basedefs/xbd_chap08.html */
+
+        if (l == (size_t) -1)
+                l = strlen(p);
+
+        /* No empty field names */
+        if (l <= 0)
+                return false;
+
+        /* Don't allow names longer than 64 chars */
+        if (l > 64)
+                return false;
+
+        /* Variables starting with an underscore are protected */
+        if (!allow_protected && p[0] == '_')
+                return false;
+
+        /* Don't allow digits as first character */
+        if (p[0] >= '0' && p[0] <= '9')
+                return false;
+
+        /* Only allow A-Z0-9 and '_' */
+        for (a = p; a < p + l; a++)
+                if ((*a < 'A' || *a > 'Z') &&
+                    (*a < '0' || *a > '9') &&
+                    *a != '_')
+                        return false;
+
+        return true;
+}
+
 static int journal_file_append_field(
                 JournalFile *f,
                 const void *field, uint64_t size,
@@ -1533,6 +1571,9 @@ static int journal_file_append_field(
 
         assert(f);
         assert(field && size > 0);
+
+        if (!journal_field_valid(field, size, true))
+                return -EBADMSG;
 
         hash = journal_file_hash_data(f, field, size);
 

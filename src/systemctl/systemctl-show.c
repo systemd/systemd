@@ -16,7 +16,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
-#include "journal-util.h"
+#include "journal-file.h"
 #include "list.h"
 #include "locale-util.h"
 #include "memory-util.h"
