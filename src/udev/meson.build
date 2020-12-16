@@ -164,7 +164,7 @@ libudevd_core = static_library(
         link_with : udev_link_with,
         dependencies : [libblkid, libkmod])
 
-foreach prog : [['ata_id/ata_id.c'],
+udev_id_progs = [['ata_id/ata_id.c'],
                 ['cdrom_id/cdrom_id.c'],
                 ['fido_id/fido_id.c',
                  'fido_id/fido_id_desc.c',
@@ -179,6 +179,7 @@ foreach prog : [['ata_id/ata_id.c'],
                  'mtd_probe/mtd_probe.h',
                  'mtd_probe/probe_smartmedia.c']]
 
+foreach prog : udev_id_progs
         executable(prog[0].split('/')[0],
                    prog,
                    include_directories : includes,
