@@ -17,7 +17,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "format-util.h"
-#include "libudev-util.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -152,7 +151,7 @@ static char format_type_to_char(FormatSubstitutionType t) {
         return '\0';
 }
 
-static int get_subst_type(const char **str, bool strict, FormatSubstitutionType *ret_type, char ret_attr[static UTIL_PATH_SIZE]) {
+static int get_subst_type(const char **str, bool strict, FormatSubstitutionType *ret_type, char ret_attr[static UDEV_PATH_SIZE]) {
         const char *p = *str, *q = NULL;
         size_t i;
 
@@ -198,10 +197,10 @@ static int get_subst_type(const char **str, bool strict, FormatSubstitutionType 
                         return -EINVAL;
 
                 len = end - start;
-                if (len == 0 || len >= UTIL_PATH_SIZE)
+                if (len == 0 || len >= UDEV_PATH_SIZE)
                         return -EINVAL;
 
-                strnscpy(ret_attr, UTIL_PATH_SIZE, start, len);
+                strnscpy(ret_attr, UDEV_PATH_SIZE, start, len);
                 q = end + 1;
         } else
                 *ret_attr = '\0';
@@ -339,14 +338,14 @@ static ssize_t udev_event_subst_format(
                 break;
         }
         case FORMAT_SUBST_ATTR: {
-                char vbuf[UTIL_NAME_SIZE];
+                char vbuf[UDEV_NAME_SIZE];
                 int count;
 
                 if (isempty(attr))
                         return -EINVAL;
 
                 /* try to read the value specified by "[dmi/id]product_name" */
-                if (util_resolve_subsys_kernel(attr, vbuf, sizeof(vbuf), true) == 0)
+                if (udev_resolve_subsys_kernel(attr, vbuf, sizeof(vbuf), true) == 0)
                         val = vbuf;
 
                 /* try to read the attribute the device */
@@ -364,7 +363,7 @@ static ssize_t udev_event_subst_format(
                 if (val != vbuf)
                         strscpy(vbuf, sizeof(vbuf), val);
                 delete_trailing_chars(vbuf, NULL);
-                count = util_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
+                count = udev_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
                 if (count > 0)
                         log_device_debug(dev, "%i character(s) replaced", count);
                 l = strpcpy(&s, l, vbuf);
@@ -453,7 +452,7 @@ size_t udev_event_apply_format(UdevEvent *event,
 
         while (*s) {
                 FormatSubstitutionType type;
-                char attr[UTIL_PATH_SIZE];
+                char attr[UDEV_PATH_SIZE];
                 ssize_t subst_len;
 
                 r = get_subst_type(&s, false, &type, attr);
@@ -478,9 +477,9 @@ size_t udev_event_apply_format(UdevEvent *event,
 
                 /* FORMAT_SUBST_RESULT handles spaces itself */
                 if (replace_whitespace && type != FORMAT_SUBST_RESULT)
-                        /* util_replace_whitespace can replace in-place,
+                        /* udev_replace_whitespace can replace in-place,
                          * and does nothing if subst_len == 0 */
-                        subst_len = util_replace_whitespace(dest, dest, subst_len);
+                        subst_len = udev_replace_whitespace(dest, dest, subst_len);
 
                 dest += subst_len;
                 size -= subst_len;
@@ -494,7 +493,7 @@ size_t udev_event_apply_format(UdevEvent *event,
 int udev_check_format(const char *value, size_t *offset, const char **hint) {
         FormatSubstitutionType type;
         const char *s = value;
-        char attr[UTIL_PATH_SIZE];
+        char attr[UDEV_PATH_SIZE];
         int r;
 
         while (*s) {

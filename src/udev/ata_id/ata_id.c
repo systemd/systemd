@@ -23,8 +23,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "device-nodes.h"
 #include "fd-util.h"
-#include "libudev-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "udev-util.h"
@@ -483,13 +483,13 @@ int main(int argc, char *argv[]) {
 
         memcpy(model, id.model, 40);
         model[40] = '\0';
-        udev_util_encode_string(model, model_enc, sizeof(model_enc));
-        util_replace_whitespace((char *) id.model, model, 40);
-        util_replace_chars(model, NULL);
-        util_replace_whitespace((char *) id.serial_no, serial, 20);
-        util_replace_chars(serial, NULL);
-        util_replace_whitespace((char *) id.fw_rev, revision, 8);
-        util_replace_chars(revision, NULL);
+        encode_devnode_name(model, model_enc, sizeof(model_enc));
+        udev_replace_whitespace((char *) id.model, model, 40);
+        udev_replace_chars(model, NULL);
+        udev_replace_whitespace((char *) id.serial_no, serial, 20);
+        udev_replace_chars(serial, NULL);
+        udev_replace_whitespace((char *) id.fw_rev, revision, 8);
+        udev_replace_chars(revision, NULL);
 
         if (export) {
                 /* Set this to convey the disk speaks the ATA protocol */

@@ -15,12 +15,13 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "device-nodes.h"
 #include "device-util.h"
 #include "fd-util.h"
-#include "libudev-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
+#include "udev-util.h"
 
 static void set_usb_iftype(char *to, int if_class_num, size_t len) {
         const char *type = "generic";
@@ -234,8 +235,8 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
         char model_str[64] = "";
         char model_str_enc[256];
         const char *product_id;
-        char serial_str[UTIL_NAME_SIZE] = "";
-        char packed_if_str[UTIL_NAME_SIZE] = "";
+        char serial_str[UDEV_NAME_SIZE] = "";
+        char packed_if_str[UDEV_NAME_SIZE] = "";
         char revision_str[64] = "";
         char type_str[64] = "";
         char instance_str[64] = "";
@@ -328,18 +329,18 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                         log_device_debug_errno(dev_scsi, r, "Failed to get SCSI vendor attribute: %m");
                         goto fallback;
                 }
-                udev_util_encode_string(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
-                util_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
-                util_replace_chars(vendor_str, NULL);
+                encode_devnode_name(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
+                udev_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
+                udev_replace_chars(vendor_str, NULL);
 
                 r = sd_device_get_sysattr_value(dev_scsi, "model", &scsi_model);
                 if (r < 0) {
                         log_device_debug_errno(dev_scsi, r, "Failed to get SCSI model attribute: %m");
                         goto fallback;
                 }
-                udev_util_encode_string(scsi_model, model_str_enc, sizeof(model_str_enc));
-                util_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
-                util_replace_chars(model_str, NULL);
+                encode_devnode_name(scsi_model, model_str_enc, sizeof(model_str_enc));
+                udev_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
+                udev_replace_chars(model_str, NULL);
 
                 r = sd_device_get_sysattr_value(dev_scsi, "type", &scsi_type);
                 if (r < 0) {
@@ -353,8 +354,8 @@ static int builtin_usb_id(sd_device *dev, int argc, char *argv[], bool test) {
                         log_device_debug_errno(dev_scsi, r, "Failed to get SCSI revision attribute: %m");
                         goto fallback;
                 }
-                util_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str)-1);
-                util_replace_chars(revision_str, NULL);
+                udev_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str)-1);
+                udev_replace_chars(revision_str, NULL);
 
                 /*
                  * some broken devices have the same identifiers
@@ -378,9 +379,9 @@ fallback:
 
                 if (sd_device_get_sysattr_value(dev_usb, "manufacturer", &usb_vendor) < 0)
                         usb_vendor = vendor_id;
-                udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
-                util_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
-                util_replace_chars(vendor_str, NULL);
+                encode_devnode_name(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
+                udev_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
+                udev_replace_chars(vendor_str, NULL);
         }
 
         if (model_str[0] == '\0') {
@@ -388,17 +389,17 @@ fallback:
 
                 if (sd_device_get_sysattr_value(dev_usb, "product", &usb_model) < 0)
                         usb_model = product_id;
-                udev_util_encode_string(usb_model, model_str_enc, sizeof(model_str_enc));
-                util_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
-                util_replace_chars(model_str, NULL);
+                encode_devnode_name(usb_model, model_str_enc, sizeof(model_str_enc));
+                udev_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
+                udev_replace_chars(model_str, NULL);
         }
 
         if (revision_str[0] == '\0') {
                 const char *usb_rev;
 
                 if (sd_device_get_sysattr_value(dev_usb, "bcdDevice", &usb_rev) >= 0) {
-                        util_replace_whitespace(usb_rev, revision_str, sizeof(revision_str)-1);
-                        util_replace_chars(revision_str, NULL);
+                        udev_replace_whitespace(usb_rev, revision_str, sizeof(revision_str)-1);
+                        udev_replace_chars(revision_str, NULL);
                 }
         }
 
@@ -416,8 +417,8 @@ fallback:
                                 }
 
                         if (usb_serial) {
-                                util_replace_whitespace(usb_serial, serial_str, sizeof(serial_str)-1);
-                                util_replace_chars(serial_str, NULL);
+                                udev_replace_whitespace(usb_serial, serial_str, sizeof(serial_str)-1);
+                                udev_replace_chars(serial_str, NULL);
                         }
                 }
         }

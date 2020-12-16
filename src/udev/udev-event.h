@@ -16,6 +16,7 @@
 
 #define READ_END  0
 #define WRITE_END 1
+#define UDEV_ALLOWED_CHARS_INPUT        "/ $%?,"
 
 typedef struct UdevEvent {
         sd_device *dev;

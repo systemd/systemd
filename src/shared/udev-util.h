@@ -6,6 +6,10 @@
 #include "device-private.h"
 #include "time-util.h"
 
+#define UDEV_NAME_SIZE   512
+#define UDEV_PATH_SIZE  1024
+#define UDEV_LINE_SIZE 16384
+
 typedef enum ResolveNameTiming {
         RESOLVE_NAME_NEVER,
         RESOLVE_NAME_LATE,
@@ -36,3 +40,9 @@ bool device_for_action(sd_device *dev, DeviceAction action);
 void log_device_uevent(sd_device *device, const char *str);
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos);
+size_t udev_replace_whitespace(const char *str, char *to, size_t len);
+size_t udev_replace_chars(char *str, const char *allow);
+int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value);
+
+int udev_queue_is_empty(void);
+int udev_queue_init(void);

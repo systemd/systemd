@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <ctype.h>
 #include <errno.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "device-nodes.h"
 #include "device-util.h"
 #include "env-file.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
@@ -14,6 +18,7 @@
 #include "signal-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strxcpyx.h"
 #include "udev-util.h"
 #include "utf8.h"
 
@@ -382,4 +387,172 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
         *ret_value = str;
         *ret_endpos = i + 1;
         return 0;
+}
+
+size_t udev_replace_whitespace(const char *str, char *to, size_t len) {
+        bool is_space = false;
+        size_t i, j;
+
+        assert(str);
+        assert(to);
+
+        /* Copy from 'str' to 'to', while removing all leading and trailing whitespace, and replacing
+         * each run of consecutive whitespace with a single underscore. The chars from 'str' are copied
+         * up to the \0 at the end of the string, or at most 'len' chars.  This appends \0 to 'to', at
+         * the end of the copied characters.
+         *
+         * If 'len' chars are copied into 'to', the final \0 is placed at len+1 (i.e. 'to[len] = \0'),
+         * so the 'to' buffer must have at least len+1 chars available.
+         *
+         * Note this may be called with 'str' == 'to', i.e. to replace whitespace in-place in a buffer.
+         * This function can handle that situation.
+         *
+         * Note that only 'len' characters are read from 'str'. */
+
+        i = strspn(str, WHITESPACE);
+
+        for (j = 0; j < len && i < len && str[i] != '\0'; i++) {
+                if (isspace(str[i])) {
+                        is_space = true;
+                        continue;
+                }
+
+                if (is_space) {
+                        if (j + 1 >= len)
+                                break;
+
+                        to[j++] = '_';
+                        is_space = false;
+                }
+                to[j++] = str[i];
+        }
+
+        to[j] = '\0';
+        return j;
+}
+
+size_t udev_replace_chars(char *str, const char *allow) {
+        size_t i = 0, replaced = 0;
+
+        assert(str);
+
+        /* allow chars in allow list, plain ascii, hex-escaping and valid utf8. */
+
+        while (str[i] != '\0') {
+                int len;
+
+                if (allow_listed_char_for_devnode(str[i], allow)) {
+                        i++;
+                        continue;
+                }
+
+                /* accept hex encoding */
+                if (str[i] == '\\' && str[i+1] == 'x') {
+                        i += 2;
+                        continue;
+                }
+
+                /* accept valid utf8 */
+                len = utf8_encoded_valid_unichar(str + i, (size_t) -1);
+                if (len > 1) {
+                        i += len;
+                        continue;
+                }
+
+                /* if space is allowed, replace whitespace with ordinary space */
+                if (isspace(str[i]) && allow && strchr(allow, ' ')) {
+                        str[i] = ' ';
+                        i++;
+                        replaced++;
+                        continue;
+                }
+
+                /* everything else is replaced with '_' */
+                str[i] = '_';
+                i++;
+                replaced++;
+        }
+        return replaced;
+}
+
+int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize, bool read_value) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_free_ char *temp = NULL;
+        char *subsys, *sysname, *attr;
+        const char *val;
+        int r;
+
+        assert(string);
+        assert(result);
+
+        /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
+
+        if (string[0] != '[')
+                return -EINVAL;
+
+        temp = strdup(string);
+        if (!temp)
+                return -ENOMEM;
+
+        subsys = &temp[1];
+
+        sysname = strchr(subsys, '/');
+        if (!sysname)
+                return -EINVAL;
+        sysname[0] = '\0';
+        sysname = &sysname[1];
+
+        attr = strchr(sysname, ']');
+        if (!attr)
+                return -EINVAL;
+        attr[0] = '\0';
+        attr = &attr[1];
+        if (attr[0] == '/')
+                attr = &attr[1];
+        if (attr[0] == '\0')
+                attr = NULL;
+
+        if (read_value && !attr)
+                return -EINVAL;
+
+        r = sd_device_new_from_subsystem_sysname(&dev, subsys, sysname);
+        if (r < 0)
+                return r;
+
+        if (read_value) {
+                r = sd_device_get_sysattr_value(dev, attr, &val);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (r == -ENOENT)
+                        result[0] = '\0';
+                else
+                        strscpy(result, maxsize, val);
+                log_debug("value '[%s/%s]%s' is '%s'", subsys, sysname, attr, result);
+        } else {
+                r = sd_device_get_syspath(dev, &val);
+                if (r < 0)
+                        return r;
+
+                strscpyl(result, maxsize, val, attr ? "/" : NULL, attr ?: NULL, NULL);
+                log_debug("path '[%s/%s]%s' is '%s'", subsys, sysname, strempty(attr), result);
+        }
+        return 0;
+}
+
+int udev_queue_is_empty(void) {
+        return access("/run/udev/queue", F_OK) < 0 ?
+                (errno == ENOENT ? true : -errno) : false;
+}
+
+int udev_queue_init(void) {
+        _cleanup_close_ int fd = -1;
+
+        fd = inotify_init1(IN_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (inotify_add_watch(fd, "/run/udev" , IN_DELETE) < 0)
+                return -errno;
+
+        return TAKE_FD(fd);
 }

@@ -42,8 +42,6 @@ SUBSYSTEM=="block", KERNEL=="nbd*", ENV{DEVTYPE}=="disk", TEST!="pid", ENV{SYSTE
 # just an identification string for systemd, so whether the path actually is
 # accessible or not does not matter as long as it is unique and in the
 # filesystem namespace.
-#
-# http://cgit.freedesktop.org/systemd/systemd/tree/src/libudev/libudev-enumerate.c#n955
 
 SUBSYSTEM=="net", KERNEL!="lo", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/net/devices/$name"
 SUBSYSTEM=="bluetooth", TAG+="systemd", ENV{SYSTEMD_ALIAS}+="/sys/subsystem/bluetooth/devices/%k", \

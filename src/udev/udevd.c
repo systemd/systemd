@@ -42,7 +42,6 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "io-util.h"
-#include "libudev-device-internal.h"
 #include "limits-util.h"
 #include "list.h"
 #include "main-func.h"

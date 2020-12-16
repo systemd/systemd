@@ -15,7 +15,6 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "libudev-util.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "selinux-util.h"
@@ -192,6 +191,40 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
         return 0;
 }
 
+static size_t escape_path(const char *src, char *dest, size_t size) {
+        size_t i, j;
+
+        assert(src);
+        assert(dest);
+
+        for (i = 0, j = 0; src[i] != '\0'; i++) {
+                if (src[i] == '/') {
+                        if (j+4 >= size) {
+                                j = 0;
+                                break;
+                        }
+                        memcpy(&dest[j], "\\x2f", 4);
+                        j += 4;
+                } else if (src[i] == '\\') {
+                        if (j+4 >= size) {
+                                j = 0;
+                                break;
+                        }
+                        memcpy(&dest[j], "\\x5c", 4);
+                        j += 4;
+                } else {
+                        if (j+1 >= size) {
+                                j = 0;
+                                break;
+                        }
+                        dest[j] = src[i];
+                        j++;
+                }
+        }
+        dest[j] = '\0';
+        return j;
+}
+
 /* manage "stack of names" with possibly specified device priorities */
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *target = NULL, *filename = NULL, *dirname = NULL;
@@ -206,7 +239,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get id_filename: %m");
 
-        util_path_encode(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
+        escape_path(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
         dirname = path_join("/run/udev/links/", name_enc);
         if (!dirname)
                 return log_oom();

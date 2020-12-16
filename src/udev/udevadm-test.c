@@ -16,7 +16,6 @@
 
 #include "device-private.h"
 #include "device-util.h"
-#include "libudev-util.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strxcpyx.h"
@@ -26,7 +25,7 @@
 
 static const char *arg_action = "add";
 static ResolveNameTiming arg_resolve_name_timing = RESOLVE_NAME_EARLY;
-static char arg_syspath[UTIL_PATH_SIZE] = {};
+static char arg_syspath[UDEV_PATH_SIZE] = {};
 
 static int help(void) {
 
@@ -149,7 +148,7 @@ int test_main(int argc, char *argv[], void *userdata) {
                 printf("%s=%s\n", key, value);
 
         ORDERED_HASHMAP_FOREACH_KEY(val, cmd, event->run_list) {
-                char program[UTIL_PATH_SIZE];
+                char program[UDEV_PATH_SIZE];
 
                 (void) udev_event_apply_format(event, cmd, program, sizeof(program), false);
                 printf("run: '%s'\n", program);
