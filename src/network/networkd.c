@@ -9,6 +9,7 @@
 
 #include "capability-util.h"
 #include "daemon-util.h"
+#include "firewall-util.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "networkd-conf.h"
@@ -91,6 +92,10 @@ static int run(int argc, char *argv[]) {
         r = manager_enumerate(m);
         if (r < 0)
                 return r;
+
+        r = fw_ctx_new(&m->fw_ctx);
+        if (r < 0)
+                log_warning_errno(r, "Could not initialize firewall, IPMasquerade= option not available: %m");
 
         r = manager_start(m);
         if (r < 0)

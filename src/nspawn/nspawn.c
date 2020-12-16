@@ -1771,11 +1771,6 @@ static int verify_arguments(void) {
         if (arg_expose_ports && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
 
-#if ! HAVE_LIBIPTC
-        if (arg_expose_ports)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--port= is not supported, compiled without libiptc support.");
-#endif
-
         if (arg_caps_ambient) {
                 if (arg_caps_ambient == (uint64_t)-1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= does not support the value all.");
@@ -2475,14 +2470,19 @@ static int setup_kmsg(int kmsg_socket) {
         return 0;
 }
 
+struct ExposeArgs {
+        union in_addr_union address;
+        struct FirewallContext *fw_ctx;
+};
+
 static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        union in_addr_union *exposed = userdata;
+        struct ExposeArgs *args = userdata;
 
         assert(rtnl);
         assert(m);
-        assert(exposed);
+        assert(args);
 
-        expose_port_execute(rtnl, arg_expose_ports, exposed);
+        expose_port_execute(rtnl, &args->fw_ctx, arg_expose_ports, &args->address);
         return 0;
 }
 
@@ -4467,7 +4467,7 @@ static int run_container(
                bool secondary,
                FDSet *fds,
                char veth_name[IFNAMSIZ], bool *veth_created,
-               union in_addr_union *exposed,
+               struct ExposeArgs *expose_args,
                int *master, pid_t *pid, int *ret) {
 
         static const struct sigaction sa = {
@@ -4896,11 +4896,11 @@ static int run_container(
         (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
 
         if (arg_expose_ports) {
-                r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, exposed, &rtnl);
+                r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, expose_args, &rtnl);
                 if (r < 0)
                         return r;
 
-                (void) expose_port_execute(rtnl, arg_expose_ports, exposed);
+                (void) expose_port_execute(rtnl, &expose_args->fw_ctx, arg_expose_ports, &expose_args->address);
         }
 
         rtnl_socket_pair[0] = safe_close(rtnl_socket_pair[0]);
@@ -5027,7 +5027,7 @@ static int run_container(
                 return 0; /* finito */
         }
 
-        expose_port_flush(arg_expose_ports, exposed);
+        expose_port_flush(&expose_args->fw_ctx, arg_expose_ports, &expose_args->address);
 
         (void) remove_veth_links(veth_name, arg_network_veth_extra);
         *veth_created = false;
@@ -5156,12 +5156,13 @@ static int run(int argc, char *argv[]) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, n_fd_passed, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
-        union in_addr_union exposed = {};
+        struct ExposeArgs expose_args = {};
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_(fw_ctx_freep) FirewallContext *fw_ctx = NULL;
         pid_t pid = 0;
 
         log_parse_environment();
@@ -5518,12 +5519,20 @@ static int run(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if (arg_expose_ports) {
+                r = fw_ctx_new(&fw_ctx);
+                if (r < 0) {
+                        log_error_errno(r, "Cannot expose configured ports, firewall initialization failed: %m");
+                        goto finish;
+                }
+                expose_args.fw_ctx = fw_ctx;
+        }
         for (;;) {
                 r = run_container(dissected_image,
                                   secondary,
                                   fds,
                                   veth_name, &veth_created,
-                                  &exposed, &master,
+                                  &expose_args, &master,
                                   &pid, &ret);
                 if (r <= 0)
                         break;
@@ -5573,7 +5582,7 @@ finish:
                 (void) rm_rf(p, REMOVE_ROOT);
         }
 
-        expose_port_flush(arg_expose_ports, &exposed);
+        expose_port_flush(&fw_ctx, arg_expose_ports, &expose_args.address);
 
         if (veth_created)
                 (void) remove_veth_links(veth_name, arg_network_veth_extra);

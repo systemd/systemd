@@ -22,6 +22,7 @@
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "local-addresses.h"
 #include "netlink-util.h"
 #include "network-internal.h"
@@ -911,6 +912,8 @@ void manager_free(Manager *m) {
         free(m->dynamic_hostname);
 
         safe_close(m->ethtool_fd);
+
+        m->fw_ctx = fw_ctx_free(m->fw_ctx);
 
         free(m);
 }

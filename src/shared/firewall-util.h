@@ -6,15 +6,22 @@
 
 #include "in-addr-util.h"
 
-#if HAVE_LIBIPTC
+typedef struct FirewallContext FirewallContext;
+
+int fw_ctx_new(FirewallContext **ret);
+FirewallContext *fw_ctx_free(FirewallContext *fw_ctx);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(FirewallContext *, fw_ctx_free);
 
 int fw_add_masquerade(
+                FirewallContext **fw_ctx,
                 bool add,
                 int af,
                 const union in_addr_union *source,
                 unsigned source_prefixlen);
 
 int fw_add_local_dnat(
+                FirewallContext **fw_ctx,
                 bool add,
                 int af,
                 int protocol,
@@ -22,26 +29,3 @@ int fw_add_local_dnat(
                 const union in_addr_union *remote,
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote);
-
-#else
-
-static inline int fw_add_masquerade(
-                bool add,
-                int af,
-                const union in_addr_union *source,
-                unsigned source_prefixlen) {
-        return -EOPNOTSUPP;
-}
-
-static inline int fw_add_local_dnat(
-                bool add,
-                int af,
-                int protocol,
-                uint16_t local_port,
-                const union in_addr_union *remote,
-                uint16_t remote_port,
-                const union in_addr_union *previous_remote) {
-        return -EOPNOTSUPP;
-}
-
-#endif

@@ -101,7 +101,10 @@ shared_sources = files('''
         fdset.h
         fileio-label.c
         fileio-label.h
+        firewall-util.c
+        firewall-util-nft.c
         firewall-util.h
+        firewall-util-private.h
         format-table.c
         format-table.h
         fsck-util.h
@@ -295,7 +298,7 @@ if conf.get('HAVE_SECCOMP') == 1
 endif
 
 if conf.get('HAVE_LIBIPTC') == 1
-        shared_sources += files('firewall-util.c')
+        shared_sources += files('firewall-util-iptables.c')
 endif
 
 if conf.get('HAVE_KMOD') == 1

@@ -226,6 +226,41 @@ int sd_netlink_send(sd_netlink *nl,
         return 1;
 }
 
+int sd_netlink_sendv(sd_netlink *nl,
+                     sd_netlink_message *messages[],
+                     size_t msgcount,
+                     uint32_t **ret_serial) {
+        _cleanup_free_ uint32_t *serials = NULL;
+        unsigned i;
+        int r;
+
+        assert_return(nl, -EINVAL);
+        assert_return(!rtnl_pid_changed(nl), -ECHILD);
+        assert_return(messages, -EINVAL);
+
+        if (ret_serial) {
+                serials = new0(uint32_t, msgcount);
+                if (!serials)
+                        return -ENOMEM;
+        }
+
+        for (i = 0; i < msgcount; i++) {
+                assert_return(!messages[i]->sealed, -EPERM);
+                rtnl_seal_message(nl, messages[i]);
+                if (serials)
+                        serials[i] = rtnl_message_get_serial(messages[i]);
+        }
+
+        r = socket_writev_message(nl, messages, msgcount);
+        if (r < 0)
+                return r;
+
+        if (ret_serial)
+                *ret_serial = TAKE_PTR(serials);
+
+        return r;
+}
+
 int rtnl_rqueue_make_room(sd_netlink *rtnl) {
         assert(rtnl);
 
@@ -586,21 +621,15 @@ int sd_netlink_call_async(
         return k;
 }
 
-int sd_netlink_call(sd_netlink *rtnl,
-                sd_netlink_message *message,
-                uint64_t usec,
-                sd_netlink_message **ret) {
+int sd_netlink_read(sd_netlink *rtnl,
+                    uint32_t serial,
+                    uint64_t usec,
+                    sd_netlink_message **ret) {
         usec_t timeout;
-        uint32_t serial;
         int r;
 
         assert_return(rtnl, -EINVAL);
         assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
-        assert_return(message, -EINVAL);
-
-        r = sd_netlink_send(rtnl, message, &serial);
-        if (r < 0)
-                return r;
 
         timeout = calc_elapse(usec);
 
@@ -668,6 +697,24 @@ int sd_netlink_call(sd_netlink *rtnl,
                 else if (r == 0)
                         return -ETIMEDOUT;
         }
+}
+
+int sd_netlink_call(sd_netlink *rtnl,
+                sd_netlink_message *message,
+                uint64_t usec,
+                sd_netlink_message **ret) {
+        uint32_t serial;
+        int r;
+
+        assert_return(rtnl, -EINVAL);
+        assert_return(!rtnl_pid_changed(rtnl), -ECHILD);
+        assert_return(message, -EINVAL);
+
+        r = sd_netlink_send(rtnl, message, &serial);
+        if (r < 0)
+                return r;
+
+        return sd_netlink_read(rtnl, serial, usec, ret);
 }
 
 int sd_netlink_get_events(const sd_netlink *rtnl) {

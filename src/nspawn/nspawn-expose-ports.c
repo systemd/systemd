@@ -82,7 +82,7 @@ void expose_port_free_all(ExposePort *p) {
         }
 }
 
-int expose_port_flush(ExposePort* l, union in_addr_union *exposed) {
+int expose_port_flush(FirewallContext **fw_ctx, ExposePort* l, union in_addr_union *exposed) {
         ExposePort *p;
         int r, af = AF_INET;
 
@@ -97,7 +97,8 @@ int expose_port_flush(ExposePort* l, union in_addr_union *exposed) {
         log_debug("Lost IP address.");
 
         LIST_FOREACH(ports, p, l) {
-                r = fw_add_local_dnat(false,
+                r = fw_add_local_dnat(fw_ctx,
+                                      false,
                                       af,
                                       p->protocol,
                                       p->host_port,
@@ -112,7 +113,7 @@ int expose_port_flush(ExposePort* l, union in_addr_union *exposed) {
         return 0;
 }
 
-int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *exposed) {
+int expose_port_execute(sd_netlink *rtnl, FirewallContext **fw_ctx, ExposePort *l, union in_addr_union *exposed) {
         _cleanup_free_ struct local_address *addresses = NULL;
         union in_addr_union new_exposed;
         ExposePort *p;
@@ -136,7 +137,7 @@ int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *ex
                 addresses[0].scope < RT_SCOPE_LINK;
 
         if (!add)
-                return expose_port_flush(l, exposed);
+                return expose_port_flush(fw_ctx, l, exposed);
 
         new_exposed = addresses[0].address;
         if (in_addr_equal(af, exposed, &new_exposed))
@@ -150,7 +151,8 @@ int expose_port_execute(sd_netlink *rtnl, ExposePort *l, union in_addr_union *ex
 
         LIST_FOREACH(ports, p, l) {
 
-                r = fw_add_local_dnat(true,
+                r = fw_add_local_dnat(fw_ctx,
+                                      true,
                                       af,
                                       p->protocol,
                                       p->host_port,
@@ -188,7 +190,7 @@ int expose_port_watch_rtnl(
                 sd_event *event,
                 int recv_fd,
                 sd_netlink_message_handler_t handler,
-                union in_addr_union *exposed,
+                void *userdata,
                 sd_netlink **ret) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int fd, r;
@@ -207,11 +209,11 @@ int expose_port_watch_rtnl(
                 return log_error_errno(r, "Failed to create rtnl object: %m");
         }
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_NEWADDR, handler, NULL, exposed, "nspawn-NEWADDR");
+        r = sd_netlink_add_match(rtnl, NULL, RTM_NEWADDR, handler, NULL, userdata, "nspawn-NEWADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_NEWADDR messages: %m");
 
-        r = sd_netlink_add_match(rtnl, NULL, RTM_DELADDR, handler, NULL, exposed, "nspawn-DELADDR");
+        r = sd_netlink_add_match(rtnl, NULL, RTM_DELADDR, handler, NULL, userdata, "nspawn-DELADDR");
         if (r < 0)
                 return log_error_errno(r, "Failed to subscribe to RTM_DELADDR messages: %m");
 
