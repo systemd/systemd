@@ -196,18 +196,18 @@ int sd_rtnl_message_addrlabel_set_prefixlen(sd_netlink_message *m, unsigned char
 int sd_rtnl_message_addrlabel_get_prefixlen(const sd_netlink_message *m, unsigned char *prefixlen);
 
 int sd_rtnl_message_new_routing_policy_rule(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int ifal_family);
-int sd_rtnl_message_routing_policy_rule_set_tos(sd_netlink_message *m, unsigned char tos);
-int sd_rtnl_message_routing_policy_rule_get_tos(const sd_netlink_message *m, unsigned char *tos);
-int sd_rtnl_message_routing_policy_rule_set_table(sd_netlink_message *m, unsigned char table);
-int sd_rtnl_message_routing_policy_rule_get_table(const sd_netlink_message *m, unsigned char *table);
-int sd_rtnl_message_routing_policy_rule_set_rtm_src_prefixlen(sd_netlink_message *m, unsigned char len);
-int sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(const sd_netlink_message *m, unsigned char *len);
-int sd_rtnl_message_routing_policy_rule_set_rtm_dst_prefixlen(sd_netlink_message *m, unsigned char len);
-int sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(const sd_netlink_message *m, unsigned char *len);
-int sd_rtnl_message_routing_policy_rule_set_rtm_type(sd_netlink_message *m, unsigned char type);
-int sd_rtnl_message_routing_policy_rule_get_rtm_type(const sd_netlink_message *m, unsigned char *type);
-int sd_rtnl_message_routing_policy_rule_set_flags(sd_netlink_message *m, unsigned flags);
-int sd_rtnl_message_routing_policy_rule_get_flags(const sd_netlink_message *m, unsigned *flags);
+int sd_rtnl_message_routing_policy_rule_set_tos(sd_netlink_message *m, uint8_t tos);
+int sd_rtnl_message_routing_policy_rule_get_tos(const sd_netlink_message *m, uint8_t *tos);
+int sd_rtnl_message_routing_policy_rule_set_table(sd_netlink_message *m, uint8_t table);
+int sd_rtnl_message_routing_policy_rule_get_table(const sd_netlink_message *m, uint8_t *table);
+int sd_rtnl_message_routing_policy_rule_set_fib_src_prefixlen(sd_netlink_message *m, uint8_t len);
+int sd_rtnl_message_routing_policy_rule_get_fib_src_prefixlen(const sd_netlink_message *m, uint8_t *len);
+int sd_rtnl_message_routing_policy_rule_set_fib_dst_prefixlen(sd_netlink_message *m, uint8_t len);
+int sd_rtnl_message_routing_policy_rule_get_fib_dst_prefixlen(const sd_netlink_message *m, uint8_t *len);
+int sd_rtnl_message_routing_policy_rule_set_fib_type(sd_netlink_message *m, uint8_t type);
+int sd_rtnl_message_routing_policy_rule_get_fib_type(const sd_netlink_message *m, uint8_t *type);
+int sd_rtnl_message_routing_policy_rule_set_flags(sd_netlink_message *m, uint32_t flags);
+int sd_rtnl_message_routing_policy_rule_get_flags(const sd_netlink_message *m, uint32_t *flags);
 
 int sd_rtnl_message_new_qdisc(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int tcm_family, int tcm_ifindex);
 int sd_rtnl_message_set_qdisc_parent(sd_netlink_message *m, uint32_t parent);
