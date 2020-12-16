@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-TEST_DESCRIPTION="test MUMAPolicy= and NUMAMask= options"
+TEST_DESCRIPTION="test NUMAPolicy= and NUMAMask= options"
 TEST_NO_NSPAWN=1
 . $TEST_BASE_DIR/test-functions
 if qemu_min_version "5.2.0"; then
