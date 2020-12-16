@@ -199,7 +199,7 @@
     specified as the special string <literal>.host</literal> the connection is made to the local system. This
     is useful to connect to the local system bus as specific user, e.g. <literal>foobar@.host</literal> to
     connect to the local system bus as local user <literal>foobar</literal>. If the <literal>@</literal>
-    syntax is used either the left-hand side or the right-hand side may be ommited (but not both) in which
+    syntax is used either the left-hand side or the right-hand side may be omitted (but not both) in which
     case the local user name or <literal>.host</literal> is implied. If the <literal>@</literal> syntax is
     not used the connection is always made as root user. See
     <citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>

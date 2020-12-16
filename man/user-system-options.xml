@@ -51,7 +51,7 @@
       system is made (which is useful to connect to a specific user's user bus: <literal>--user
       --machine=lennart@.host</literal>). If the <literal>@</literal> syntax is not used, the connection is
       made as root user. If the <literal>@</literal> syntax is used either the left hand side or the right hand
-      side may be ommitted (but not both) in which case the local user name and <literal>.host</literal> are
+      side may be omitted (but not both) in which case the local user name and <literal>.host</literal> are
       implied.</para>
     </listitem>
   </varlistentry>
