@@ -112,68 +112,74 @@ static void test_login(void) {
 
         if (session) {
                 r = sd_session_is_active(session);
-                assert_se(r >= 0);
-                log_info("sd_session_is_active(\"%s\") → %s", session, yes_no(r));
+                if (r == -ENXIO)
+                        log_notice("sd_session_is_active() failed with ENXIO, it seems logind is not running.");
+                else {
+                        /* All those tests will fail with ENXIO, so let's skip them. */
 
-                r = sd_session_is_remote(session);
-                assert_se(r >= 0);
-                log_info("sd_session_is_remote(\"%s\") → %s", session, yes_no(r));
+                        assert_se(r >= 0);
+                        log_info("sd_session_is_active(\"%s\") → %s", session, yes_no(r));
 
-                r = sd_session_get_state(session, &state);
-                assert_se(r == 0);
-                log_info("sd_session_get_state(\"%s\") → \"%s\"", session, state);
+                        r = sd_session_is_remote(session);
+                        assert_se(r >= 0);
+                        log_info("sd_session_is_remote(\"%s\") → %s", session, yes_no(r));
 
-                assert_se(sd_session_get_uid(session, &u) >= 0);
-                log_info("sd_session_get_uid(\"%s\") → "UID_FMT, session, u);
-                assert_se(u == u2);
+                        r = sd_session_get_state(session, &state);
+                        assert_se(r == 0);
+                        log_info("sd_session_get_state(\"%s\") → \"%s\"", session, state);
 
-                assert_se(sd_session_get_type(session, &type) >= 0);
-                log_info("sd_session_get_type(\"%s\") → \"%s\"", session, type);
+                        assert_se(sd_session_get_uid(session, &u) >= 0);
+                        log_info("sd_session_get_uid(\"%s\") → "UID_FMT, session, u);
+                        assert_se(u == u2);
 
-                assert_se(sd_session_get_class(session, &class) >= 0);
-                log_info("sd_session_get_class(\"%s\") → \"%s\"", session, class);
+                        assert_se(sd_session_get_type(session, &type) >= 0);
+                        log_info("sd_session_get_type(\"%s\") → \"%s\"", session, type);
 
-                r = sd_session_get_display(session, &display);
-                assert_se(IN_SET(r, 0, -ENODATA));
-                log_info("sd_session_get_display(\"%s\") → \"%s\"", session, strna(display));
+                        assert_se(sd_session_get_class(session, &class) >= 0);
+                        log_info("sd_session_get_class(\"%s\") → \"%s\"", session, class);
 
-                r = sd_session_get_remote_user(session, &remote_user);
-                assert_se(IN_SET(r, 0, -ENODATA));
-                log_info("sd_session_get_remote_user(\"%s\") → \"%s\"",
-                         session, strna(remote_user));
+                        r = sd_session_get_display(session, &display);
+                        assert_se(IN_SET(r, 0, -ENODATA));
+                        log_info("sd_session_get_display(\"%s\") → \"%s\"", session, strna(display));
 
-                r = sd_session_get_remote_host(session, &remote_host);
-                assert_se(IN_SET(r, 0, -ENODATA));
-                log_info("sd_session_get_remote_host(\"%s\") → \"%s\"",
-                         session, strna(remote_host));
+                        r = sd_session_get_remote_user(session, &remote_user);
+                        assert_se(IN_SET(r, 0, -ENODATA));
+                        log_info("sd_session_get_remote_user(\"%s\") → \"%s\"",
+                                 session, strna(remote_user));
 
-                r = sd_session_get_seat(session, &seat);
-                if (r >= 0) {
-                        assert_se(seat);
+                        r = sd_session_get_remote_host(session, &remote_host);
+                        assert_se(IN_SET(r, 0, -ENODATA));
+                        log_info("sd_session_get_remote_host(\"%s\") → \"%s\"",
+                                 session, strna(remote_host));
 
-                        log_info("sd_session_get_seat(\"%s\") → \"%s\"", session, seat);
+                        r = sd_session_get_seat(session, &seat);
+                        if (r >= 0) {
+                                assert_se(seat);
+
+                                log_info("sd_session_get_seat(\"%s\") → \"%s\"", session, seat);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-                        r = sd_seat_can_multi_session(seat);
+                                r = sd_seat_can_multi_session(seat);
 #pragma GCC diagnostic pop
-                        assert_se(r == 1);
-                        log_info("sd_session_can_multi_seat(\"%s\") → %s", seat, yes_no(r));
+                                assert_se(r == 1);
+                                log_info("sd_session_can_multi_seat(\"%s\") → %s", seat, yes_no(r));
 
-                        r = sd_seat_can_tty(seat);
-                        assert_se(r >= 0);
-                        log_info("sd_session_can_tty(\"%s\") → %s", seat, yes_no(r));
+                                r = sd_seat_can_tty(seat);
+                                assert_se(r >= 0);
+                                log_info("sd_session_can_tty(\"%s\") → %s", seat, yes_no(r));
 
-                        r = sd_seat_can_graphical(seat);
-                        assert_se(r >= 0);
-                        log_info("sd_session_can_graphical(\"%s\") → %s", seat, yes_no(r));
-                } else {
-                        log_info_errno(r, "sd_session_get_seat(\"%s\"): %m", session);
-                        assert_se(r == -ENODATA);
+                                r = sd_seat_can_graphical(seat);
+                                assert_se(r >= 0);
+                                log_info("sd_session_can_graphical(\"%s\") → %s", seat, yes_no(r));
+                        } else {
+                                log_info_errno(r, "sd_session_get_seat(\"%s\"): %m", session);
+                                assert_se(r == -ENODATA);
+                        }
+
+                        assert_se(sd_uid_get_state(u, &state2) == 0);
+                        log_info("sd_uid_get_state("UID_FMT", …) → %s", u, state2);
                 }
-
-                assert_se(sd_uid_get_state(u, &state2) == 0);
-                log_info("sd_uid_get_state("UID_FMT", …) → %s", u, state2);
         }
 
         if (seat) {
@@ -214,7 +220,7 @@ static void test_login(void) {
         assert_se(sd_get_seats(NULL) == r);
 
         r = sd_seat_get_active(NULL, &t, NULL);
-        assert_se(IN_SET(r, 0, -ENODATA));
+        assert_se(IN_SET(r, 0, -ENODATA, -ENXIO));
         log_info("sd_seat_get_active(NULL, …) (active session on current seat) → %s / \"%s\"", e(r), strnull(t));
         free(t);
 
