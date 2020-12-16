@@ -235,7 +235,7 @@ function qemu_min_version() {
     find_qemu_bin || return 2
 
     # get version from binary
-    qemu_ver=$($QEMU_BIN --version | awk '/^QEMU emulator version ([0-9]*\.[0-9]*\.[0-9]*) / {print $4}')
+    qemu_ver=$($QEMU_BIN --version | awk '/^QEMU emulator version ([0-9]*\.[0-9]*\.[0-9]*)/ {print $4}')
 
     # Check version string format
     echo "$qemu_ver" | grep -q '^[0-9]*\.[0-9]*\.[0-9]*$' || return 2
