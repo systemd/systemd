@@ -297,7 +297,7 @@ Features:
   initrd had set.
 
 * sd-event: add native support for P_ALL waitid() watching, then move PID 1 to
-  it fo reaping assigned but unknown children. This needs to some special care
+  it for reaping assigned but unknown children. This needs to some special care
   to operate somewhat sensibly in light of priorities: P_ALL will return
   arbitrary processes, regardless of the priority we want to watch them with,
   hence on each event loop iteration check all processes which we shall watch

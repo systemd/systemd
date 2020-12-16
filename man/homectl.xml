@@ -515,7 +515,7 @@
       <varlistentry>
         <term><option>--tasks-max=</option><replaceable>TASKS</replaceable></term>
 
-        <listitem><para>Takes a non-zero unsigned integer as argument. Configures the maximum numer of tasks
+        <listitem><para>Takes a non-zero unsigned integer as argument. Configures the maximum number of tasks
         (i.e. threads, where each process is at least one thread) the user may have at any given time. This
         limit applies to all tasks forked off the user's sessions, even if they change user identity via
         <citerefentry project='man-pages'><refentrytitle>su</refentrytitle><manvolnum>1</manvolnum></citerefentry>
