@@ -1240,9 +1240,14 @@ ColorMode get_color_mode(void) {
 
                 else if (getpid_cached() == 1)
                         /* PID1 outputs to the console without holding it open all the time.
-                         * Also note the Linux console can only handle 16 colors.
-                         */
-                        cached_color_mode = getenv_terminal_is_dumb() ? COLOR_OFF : COLOR_16;
+                         *
+                         * Note that the Linux console can only display 16 colors. We still enable 256 color
+                         * mode even for PID1 output though (which typically goes to the Linux console),
+                         * since the Linux console is able to parse the 256 color sequences and automatically
+                         * map them to the closest color in the 16 color palette (since kernel 3.16). Doing
+                         * 256 colors is nice for people who invoke systemd in a container or via a serial
+                         * link or such, and use a true 256 color terminal to do so. */
+                        cached_color_mode = getenv_terminal_is_dumb() ? COLOR_OFF : COLOR_256;
                 else
                         cached_color_mode = terminal_is_dumb() ? COLOR_OFF : COLOR_256;
         }
