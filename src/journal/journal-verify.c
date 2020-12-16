@@ -41,7 +41,9 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
 
         fputs("\r", stdout);
         if (colors_enabled())
-                fputs("\x1B[?25l" ANSI_HIGHLIGHT_GREEN, stdout);
+                fputs("\x1B[?25l", stdout);
+
+        fputs(ansi_highlight_green(), stdout);
 
         for (i = 0; i < j; i++)
                 fputs("\xe2\x96\x88", stdout);

@@ -481,7 +481,7 @@ int ask_password_tty(
 
                 if (!(flags & ASK_PASSWORD_SILENT) && !(flags & ASK_PASSWORD_ECHO)) {
                         if (use_color)
-                                (void) loop_write(ttyfd, ANSI_GREY, STRLEN(ANSI_GREY), false);
+                                (void) loop_write(ttyfd, ansi_grey(), strlen(ansi_grey()), false);
                         (void) loop_write(ttyfd, PRESS_TAB, strlen(PRESS_TAB), false);
                         press_tab_visible = true;
                 }

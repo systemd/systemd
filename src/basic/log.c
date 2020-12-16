@@ -404,7 +404,7 @@ static int write_to_console(
         if (show_location) {
                 const char *lon = "", *loff = "";
                 if (log_get_show_color()) {
-                        lon = ANSI_HIGHLIGHT_YELLOW4;
+                        lon = ansi_highlight_yellow4();
                         loff = ANSI_NORMAL;
                 }
 

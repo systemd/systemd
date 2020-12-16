@@ -67,7 +67,7 @@ static int print_catalog(FILE *f, sd_journal *j) {
                 prefix = "--";
 
         if (colors_enabled())
-                newline = strjoina(ANSI_NORMAL "\n" ANSI_GREY, prefix, ANSI_NORMAL " " ANSI_GREEN);
+                newline = strjoina(ANSI_NORMAL "\n", ansi_grey(), prefix, ANSI_NORMAL " ", ansi_green());
         else
                 newline = strjoina("\n", prefix, " ");
 
@@ -76,7 +76,7 @@ static int print_catalog(FILE *f, sd_journal *j) {
                 return log_oom();
 
         if (colors_enabled())
-                fprintf(f, ANSI_GREY "%s" ANSI_NORMAL " " ANSI_GREEN, prefix);
+                fprintf(f, "%s%s %s%s", ansi_grey(), prefix, ANSI_NORMAL, ansi_green());
         else
                 fprintf(f, "%s ", prefix);
 
