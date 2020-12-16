@@ -901,7 +901,7 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                  * mount. Hence let's gracefully fallback to a classic, unrestricted version. */
                 r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
         if (r == -EPERM) {
-                /* When we do not have enough priviledge to mount /proc, fallback to use existing /proc. */
+                /* When we do not have enough privileges to mount /proc, fallback to use existing /proc. */
 
                 if (n > 0)
                         /* /proc or some of sub-mounts are umounted in the above. Refuse incomplete tree.

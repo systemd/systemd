@@ -3711,7 +3711,7 @@ int journal_file_dispose(int dir_fd, const char *fname) {
 
         assert(fname);
 
-        /* Renames a journal file to *.journal~, i.e. to mark it as corruped or otherwise uncleanly shutdown. Note that
+        /* Renames a journal file to *.journal~, i.e. to mark it as corrupted or otherwise uncleanly shutdown. Note that
          * this is done without looking into the file or changing any of its contents. The idea is that this is called
          * whenever something is suspicious and we want to move the file away and make clear that it is not accessed
          * for writing anymore. */
