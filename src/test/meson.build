@@ -105,17 +105,6 @@ tests += [
           libmount,
           libblkid]],
 
-        [['src/test/test-hostname.c'],
-         [libcore,
-          libshared],
-         [threads,
-          librt,
-          libseccomp,
-          libselinux,
-          libmount,
-          libblkid],
-         '', 'unsafe'],
-
         [['src/test/test-dns-domain.c'],
          [libcore,
           libshared],
@@ -336,6 +325,10 @@ tests += [
          []],
 
         [['src/test/test-user-util.c'],
+         [],
+         []],
+
+        [['src/test/test-hostname-setup.c'],
          [],
          []],
 

@@ -8,6 +8,7 @@
 #include "escape.h"
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
 #include "parse-util.h"
 #include "network-internal.h"

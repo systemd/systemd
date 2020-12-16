@@ -2064,7 +2064,7 @@ static int initialize_runtime(
                         }
 
                         status_welcome();
-                        hostname_setup();
+                        (void) hostname_setup(true);
                         /* Force transient machine-id on first boot. */
                         machine_id_setup(NULL, first_boot, arg_machine_id, NULL);
                         (void) loopback_setup();

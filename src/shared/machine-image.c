@@ -22,7 +22,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "hostname-util.h"
+#include "hostname-setup.h"
 #include "id128-util.h"
 #include "lockfile-util.h"
 #include "log.h"

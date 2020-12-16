@@ -6,8 +6,8 @@
 #include "fileio.h"
 #include "hostname-util.h"
 #include "string-util.h"
+#include "tests.h"
 #include "tmpfile-util.h"
-#include "util.h"
 
 static void test_hostname_is_valid(void) {
         assert_se(hostname_is_valid("foobar", 0));
@@ -91,55 +91,6 @@ static void test_hostname_cleanup(void) {
         assert_se(streq(hostname_cleanup(s), "xxxx.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"));
 }
 
-static void test_read_etc_hostname(void) {
-        char path[] = "/tmp/hostname.XXXXXX";
-        char *hostname;
-        int fd;
-
-        fd = mkostemp_safe(path);
-        assert(fd > 0);
-        close(fd);
-
-        /* simple hostname */
-        assert_se(write_string_file(path, "foo", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(read_etc_hostname(path, &hostname) == 0);
-        assert_se(streq(hostname, "foo"));
-        hostname = mfree(hostname);
-
-        /* with comment */
-        assert_se(write_string_file(path, "# comment\nfoo", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(read_etc_hostname(path, &hostname) == 0);
-        assert_se(hostname);
-        assert_se(streq(hostname, "foo"));
-        hostname = mfree(hostname);
-
-        /* with comment and extra whitespace */
-        assert_se(write_string_file(path, "# comment\n\n foo ", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(read_etc_hostname(path, &hostname) == 0);
-        assert_se(hostname);
-        assert_se(streq(hostname, "foo"));
-        hostname = mfree(hostname);
-
-        /* cleans up name */
-        assert_se(write_string_file(path, "!foo/bar.com", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(read_etc_hostname(path, &hostname) == 0);
-        assert_se(hostname);
-        assert_se(streq(hostname, "foobar.com"));
-        hostname = mfree(hostname);
-
-        /* no value set */
-        hostname = (char*) 0x1234;
-        assert_se(write_string_file(path, "# nothing here\n", WRITE_STRING_FILE_CREATE) == 0);
-        assert_se(read_etc_hostname(path, &hostname) == -ENOENT);
-        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
-
-        /* nonexisting file */
-        assert_se(read_etc_hostname("/non/existing", &hostname) == -ENOENT);
-        assert_se(hostname == (char*) 0x1234);  /* does not touch argument on error */
-
-        unlink(path);
-}
-
 static void test_hostname_malloc(void) {
         _cleanup_free_ char *h = NULL, *l = NULL;
 
@@ -158,12 +109,10 @@ static void test_fallback_hostname(void) {
 }
 
 int main(int argc, char *argv[]) {
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_INFO);
 
         test_hostname_is_valid();
         test_hostname_cleanup();
-        test_read_etc_hostname();
         test_hostname_malloc();
 
         test_fallback_hostname();

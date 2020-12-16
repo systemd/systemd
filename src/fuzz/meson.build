@@ -123,7 +123,7 @@ fuzzers += [
          [libshared],
          []],
 
-        [['src/fuzz/fuzz-hostname-util.c'],
+        [['src/fuzz/fuzz-hostname-setup.c'],
          [libshared],
          []],
 

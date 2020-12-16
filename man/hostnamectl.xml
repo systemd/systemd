@@ -32,33 +32,23 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>hostnamectl</command> may be used to query and
-    change the system hostname and related settings.</para>
+    <para><command>hostnamectl</command> may be used to query and change the system hostname and related
+    settings.</para>
 
-    <para>This tool distinguishes three different hostnames: the
-    high-level "pretty" hostname which might include all kinds of
-    special characters (e.g. "Lennart's Laptop"), the static hostname
-    which is used to initialize the kernel hostname at boot (e.g.
-    "lennarts-laptop"), and the transient hostname which is a fallback
-    value received from network configuration. If a static hostname is
-    set, and is valid (something other than localhost), then the
-    transient hostname is not used.</para>
+    <para><citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and this tool distinguish three different hostnames: the high-level "pretty" hostname which might include
+    all kinds of special characters (e.g. "Lennart's Laptop"), the "static" hostname which is the
+    user-configured hostname (e.g. "lennarts-laptop"), and the transient hostname which is a fallback value
+    received from network configuration (e.g. "node12345678"). If a static hostname is set to a valid value,
+    then the transient hostname is not used.</para>
 
     <para>Note that the pretty hostname has little restrictions on the characters and length used, while the static and
     transient hostnames are limited to the usually accepted characters of Internet domain names, and 64 characters at
     maximum (the latter being a Linux limitation).</para>
 
-    <para>The static hostname is stored in
-    <filename>/etc/hostname</filename>, see
-    <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more information. The pretty hostname, chassis type, and icon
-    name are stored in <filename>/etc/machine-info</filename>, see
-    <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
     <para>Use
-    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    to initialize the system hostname for mounted (but not booted)
-    system images.</para>
+    <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry> to
+    initialize the system hostname for mounted (but not booted) system images.</para>
   </refsect1>
 
   <refsect1>

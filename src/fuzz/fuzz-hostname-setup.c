@@ -4,7 +4,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fuzz.h"
-#include "hostname-util.h"
+#include "hostname-setup.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL;

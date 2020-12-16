@@ -115,6 +115,8 @@ shared_sources = files('''
         gpt.h
         group-record.c
         group-record.h
+        hostname-setup.c
+        hostname-setup.h
         id128-print.c
         id128-print.h
         idn-util.c
