@@ -380,7 +380,7 @@ static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_n
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_SRC attribute: %m");
 
-                r = sd_rtnl_message_routing_policy_rule_set_rtm_src_prefixlen(m, rule->from_prefixlen);
+                r = sd_rtnl_message_routing_policy_rule_set_fib_src_prefixlen(m, rule->from_prefixlen);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set source prefix length: %m");
         }
@@ -390,7 +390,7 @@ static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_n
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_DST attribute: %m");
 
-                r = sd_rtnl_message_routing_policy_rule_set_rtm_dst_prefixlen(m, rule->to_prefixlen);
+                r = sd_rtnl_message_routing_policy_rule_set_fib_dst_prefixlen(m, rule->to_prefixlen);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not set destination prefix length: %m");
         }
@@ -749,7 +749,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
                 return 0;
         } else if (r >= 0) {
-                r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &tmp->from_prefixlen);
+                r = sd_rtnl_message_routing_policy_rule_get_fib_src_prefixlen(message, &tmp->from_prefixlen);
                 if (r < 0) {
                         log_warning_errno(r, "rtnl: received rule message without valid source prefix length, ignoring: %m");
                         return 0;
@@ -761,7 +761,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
                 return 0;
         } else if (r >= 0) {
-                r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &tmp->to_prefixlen);
+                r = sd_rtnl_message_routing_policy_rule_get_fib_dst_prefixlen(message, &tmp->to_prefixlen);
                 if (r < 0) {
                         log_warning_errno(r, "rtnl: received rule message without valid destination prefix length, ignoring: %m");
                         return 0;
