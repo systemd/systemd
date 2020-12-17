@@ -22,8 +22,32 @@ Features:
 
 * expose MS_NOSYMFOLLOW in various places
 
+* Add concept for upgrading TPM2 enrollments, maybe a new switch
+  --pcrs=4:<hash> or so, i.e. select a PCR to include in the hash, and then
+  override its hash
+
+* homed: store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
+  systemd-cryptsetup, so that it can unlock homed volumes
+
+* cryptenroll: politely refuse enrolling new keys to homed volumes, since we
+  we cannot update identity info
+
+* TPM2: auto-reenroll in cryptsetup, as fallback for hosed firmware upgrades
+  and such
+
+* cryptsetup: if only recovery keys are registered and no regular passphrases,
+  ask user for "recovery key", not "passphrase"
+
+* cyptsetup: add option for automatically removing empty password slot on boot
+
 * cryptsetup: optionally, when run during boot-up and password is never
-  entered, and we are on AC power (or so), power off machine again
+  entered, and we are on battery power (or so), power off machine again
+
+* cryptsetup: when FIDO2/PKCS#11/TPM2 token/chip didn't show up after some
+  time, abort the attempt, fallback to asking for pw
+
+* cryptsetup: when waiting for FIDO2/PKCS#11 token, tell plymouth that, and
+  allow plymouth to abort the waiting and enter pw instead
 
 * when configuring loopback netif, and it fails due to EPERM, eat up error if
   it happens to be set up alright already.
@@ -200,9 +224,6 @@ Features:
   thus allows defining OS images which can be A/B updated and we default to the
   newest version automatically, both in nspawn and in sd-boot
 
-* cryptsetup: support FIDO2 tokens for deriving keys (i.e. do what homed can do
-  also in plain cryptsetup)
-
 * systemd-gpt-auto should probably set x-systemd.growfs on the mounts it
   creates
 
@@ -240,12 +261,6 @@ Features:
 
 * add growvol and makevol options for /etc/crypttab, similar to
   x-systemd.growfs and x-systemd-makefs.
-
-* hook up the TPM to /etc/crypttab, with a new option that is similar to the
-  new PKCS#11 option in crypttab, and allows unlocking a LUKS volume via a key
-  unsealed from the TPM. Optionally, if TPM is not available fall back to
-  TPM-less mode, and set up linear DM mapping instead (inspired by kpartx), so
-  that the device paths stay the same, regardless if crypto is used or not.
 
 * systemd-repart: by default generate minimized partition tables (i.e. tables
   that only cover the space actually used, excluding any free space at the

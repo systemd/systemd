@@ -66,6 +66,7 @@ BuildPackages=
         python3-lxml
         qrencode-devel
         rpm
+        tpm2-tss-devel
         tree
         valgrind-devel
         xz-devel
@@ -79,6 +80,7 @@ Packages=
         # procps-ng provides a set of useful utilies (ps, free, etc)
         procps-ng
         strace
+        tpm2-tss
 
 BuildDirectory=mkosi.builddir
 Cache=mkosi.cache

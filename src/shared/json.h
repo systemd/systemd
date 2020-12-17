@@ -58,6 +58,7 @@ typedef enum JsonVariantType {
 
 int json_variant_new_stringn(JsonVariant **ret, const char *s, size_t n);
 int json_variant_new_base64(JsonVariant **ret, const void *p, size_t n);
+int json_variant_new_hex(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_integer(JsonVariant **ret, intmax_t i);
 int json_variant_new_unsigned(JsonVariant **ret, uintmax_t u);
 int json_variant_new_real(JsonVariant **ret, long double d);
@@ -227,6 +228,7 @@ enum {
         _JSON_BUILD_LITERAL,
         _JSON_BUILD_STRV,
         _JSON_BUILD_BASE64,
+        _JSON_BUILD_HEX,
         _JSON_BUILD_ID128,
         _JSON_BUILD_BYTE_ARRAY,
         _JSON_BUILD_MAX,
@@ -249,6 +251,7 @@ enum {
 #define JSON_BUILD_LITERAL(l) _JSON_BUILD_LITERAL, ({ const char *_x = l; _x; })
 #define JSON_BUILD_STRV(l) _JSON_BUILD_STRV, ({ char **_x = l; _x; })
 #define JSON_BUILD_BASE64(p, n) _JSON_BUILD_BASE64, ({ const void *_x = p; _x; }), ({ size_t _y = n; _y; })
+#define JSON_BUILD_HEX(p, n) _JSON_BUILD_HEX, ({ const void *_x = p; _x; }), ({ size_t _y = n; _y; })
 #define JSON_BUILD_ID128(id) _JSON_BUILD_ID128, ({ sd_id128_t _x = id; _x; })
 #define JSON_BUILD_BYTE_ARRAY(v, n) _JSON_BUILD_BYTE_ARRAY, ({ const void *_x = v; _x; }), ({ size_t _y = n; _y; })
 
@@ -351,6 +354,7 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
         })
 
 int json_variant_unbase64(JsonVariant *v, void **ret, size_t *ret_size);
+int json_variant_unhex(JsonVariant *v, void **ret, size_t *ret_size);
 
 const char *json_variant_type_to_string(JsonVariantType t);
 JsonVariantType json_variant_type_from_string(const char *s);

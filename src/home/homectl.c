@@ -18,6 +18,7 @@
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
 #include "homectl-recovery-key.h"
+#include "libfido2-util.h"
 #include "locale-util.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -3146,7 +3147,7 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *p;
 
                         if (streq(optarg, "list"))
-                                return list_pkcs11_tokens();
+                                return pkcs11_list_tokens();
 
                         /* If --pkcs11-token-uri= is specified we always drop everything old */
                         FOREACH_STRING(p, "pkcs11TokenUri", "pkcs11EncryptedKey") {
@@ -3163,7 +3164,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "auto")) {
                                 _cleanup_free_ char *found = NULL;
 
-                                r = find_pkcs11_token_auto(&found);
+                                r = pkcs11_find_token_auto(&found);
                                 if (r < 0)
                                         return r;
                                 r = strv_consume(&arg_pkcs11_token_uri, TAKE_PTR(found));
@@ -3184,7 +3185,7 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *p;
 
                         if (streq(optarg, "list"))
-                                return list_fido2_devices();
+                                return fido2_list_devices();
 
                         FOREACH_STRING(p, "fido2HmacCredential", "fido2HmacSalt") {
                                 r = drop_from_identity(p);
@@ -3200,7 +3201,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "auto")) {
                                 _cleanup_free_ char *found = NULL;
 
-                                r = find_fido2_auto(&found);
+                                r = fido2_find_device_auto(&found);
                                 if (r < 0)
                                         return r;
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "json.h"
 #include "macro.h"
 
 #if HAVE_LIBCRYPTSETUP
@@ -24,6 +25,9 @@ extern int (*sym_crypt_resize)(struct crypt_device *cd, const char *name, uint64
 extern int (*sym_crypt_set_data_device)(struct crypt_device *cd, const char *device);
 extern void (*sym_crypt_set_debug_level)(int level);
 extern void (*sym_crypt_set_log_callback)(struct crypt_device *cd, void (*log)(int level, const char *msg, void *usrptr), void *usrptr);
+extern int (*sym_crypt_set_pbkdf_type)(struct crypt_device *cd, const struct crypt_pbkdf_type *pbkdf);
+extern int (*sym_crypt_token_json_get)(struct crypt_device *cd, int token, const char **json);
+extern int (*sym_crypt_token_json_set)(struct crypt_device *cd, int token, const char *json);
 extern int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
 
 int dlopen_cryptsetup(void);
@@ -32,5 +36,15 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct crypt_device *, crypt_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct crypt_device *, sym_crypt_free);
 
 void cryptsetup_enable_logging(struct crypt_device *cd);
+
+int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd);
+
+int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *verify_type, JsonVariant **ret);
+int cryptsetup_get_keyslot_from_token(JsonVariant *v);
+int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v);
+
+/* Stolen from cryptsetup's sources. We use to iterate through all tokens defined for a volume. Ideally, we'd
+ * be able to query this via some API, but there appears to be none currently in libcryptsetup. */
+#define LUKS2_TOKENS_MAX 32
 
 #endif

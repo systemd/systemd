@@ -35,6 +35,7 @@ BuildPackages=
         libdbus-1-dev
         libdw-dev
         libfdisk-dev
+        libfido2-dev
         libgcrypt20-dev
         libgnutls28-dev
         libidn2-0-dev
@@ -50,6 +51,8 @@ BuildPackages=
         libqrencode-dev
         libseccomp-dev
         libsmartcols-dev
+        libssl-dev
+        libtss2-dev
         libxkbcommon-dev
         libxtables-dev
         libzstd-dev
@@ -67,8 +70,11 @@ BuildPackages=
 
 Packages=
         gdb
+        libfido2-1
         libidn2-0
         libqrencode4
+        # We pull in the -dev package here, since the binary ones appear to change names too often, and the -dev package pulls the right deps in automatically
+        libtss2-dev
         locales
         strace
 

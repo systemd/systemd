@@ -146,6 +146,8 @@ shared_sources = files('''
         json.h
         libcrypt-util.c
         libcrypt-util.h
+        libfido2-util.c
+        libfido2-util.h
         libmount-util.h
         linux/auto_dev-ioctl.h
         linux/bpf.h
@@ -183,6 +185,7 @@ shared_sources = files('''
         nsflags.h
         numa-util.c
         numa-util.h
+        openssl-util.c
         openssl-util.h
         os-util.c
         os-util.h
@@ -234,6 +237,8 @@ shared_sources = files('''
         tmpfile-util-label.h
         tomoyo-util.c
         tomoyo-util.h
+        tpm2-util.c
+        tpm2-util.h
         udev-util.c
         udev-util.h
         uid-range.c

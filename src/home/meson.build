@@ -19,8 +19,6 @@ systemd_homework_sources = files('''
         homework-quota.h
         homework.c
         homework.h
-        modhex.c
-        modhex.h
         user-record-util.c
         user-record-util.h
 '''.split())
@@ -52,8 +50,6 @@ systemd_homed_sources = files('''
         homed-varlink.c
         homed-varlink.h
         homed.c
-        modhex.c
-        modhex.h
         user-record-pwquality.c
         user-record-pwquality.h
         user-record-sign.c
@@ -80,8 +76,6 @@ homectl_sources = files('''
         homectl-recovery-key.c
         homectl-recovery-key.h
         homectl.c
-        modhex.c
-        modhex.h
         user-record-pwquality.c
         user-record-pwquality.h
         user-record-util.c
@@ -92,8 +86,6 @@ pam_systemd_home_sym = 'src/home/pam_systemd_home.sym'
 pam_systemd_home_c = files('''
         home-util.c
         home-util.h
-        modhex.c
-        modhex.h
         pam_systemd_home.c
         user-record-util.c
         user-record-util.h
@@ -112,11 +104,3 @@ if conf.get('ENABLE_HOMED') == 1
                              install_dir : pkgsysconfdir)
         endif
 endif
-
-tests += [
-        [['src/home/test-modhex.c',
-          'src/home/modhex.c',
-          'src/home/modhex.h'],
-         [],
-         []],
-]

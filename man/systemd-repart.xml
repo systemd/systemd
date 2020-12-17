@@ -300,12 +300,23 @@
         <term><option>--key-file=</option></term>
 
         <listitem><para>Takes a file system path. Configures the encryption key to use when setting up LUKS2
-        volumes configured with the <varname>Encrypt=</varname> setting in partition files. Should refer to a
-        regular file containing the key, or an <constant>AF_UNIX</constant> stream socket in the file
-        system. In the latter case a connection is made to it and the key read from it. If this switch is not
-        specified the empty key (i.e. zero length key) is used. This behaviour is useful for setting up encrypted
-        partitions during early first boot that receive their user-supplied password only in a later setup
-        step.</para></listitem>
+        volumes configured with the <varname>Encrypt=key-file</varname> setting in partition files. Should
+        refer to a regular file containing the key, or an <constant>AF_UNIX</constant> stream socket in the
+        file system. In the latter case a connection is made to it and the key read from it. If this switch
+        is not specified the empty key (i.e. zero length key) is used. This behaviour is useful for setting
+        up encrypted partitions during early first boot that receive their user-supplied password only in a
+        later setup step.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-device=</option></term>
+        <term><option>--tpm2-pcrs=</option></term>
+
+        <listitem><para>Configures the TPM2 device and list of PCRs to use for LUKS2 volumes configured with
+        the <varname>Encrypt=tpm2</varname> option. These options take the same parameters as the identically
+        named options to
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and have the same effect on partitions where TPM2 enrollment is requested.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -314,11 +325,18 @@
   </refsect1>
 
   <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 

@@ -50,13 +50,14 @@
 
     <orderedlist>
       <listitem><para>If a key file is explicitly configured (via the third column in
-      <filename>/etc/crypttab</filename>), a key read from it is used. If a PKCS#11 token is configured
-      (using the <varname>pkcs11-uri=</varname> option) the key is decrypted before use.</para></listitem>
+      <filename>/etc/crypttab</filename>), a key read from it is used. If a PKCS#11 token, FIDO2 token or
+      TPM2 device is configured (using the <varname>pkcs11-uri=</varname>, <varname>fido2-device=</varname>,
+      <varname>tpm2-device=</varname> options) the key is decrypted before use.</para></listitem>
 
       <listitem><para>If no key file is configured explicitly this way, a key file is automatically loaded
       from <filename>/etc/cryptsetup-keys.d/<replaceable>volume</replaceable>.key</filename> and
       <filename>/run/cryptsetup-keys.d/<replaceable>volume</replaceable>.key</filename>, if present. Here
-      too, if a PKCS#11 token is configured, any key found this way is decrypted before
+      too, if a PKCS#11/FIDO2/TPM2 token/device is configured, any key found this way is decrypted before
       use.</para></listitem>
 
       <listitem><para>If the <varname>try-empty-password</varname> option is specified it is then attempted
@@ -77,6 +78,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='die-net'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
      </para>
   </refsect1>

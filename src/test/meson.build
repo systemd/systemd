@@ -212,6 +212,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-modhex.c'],
+         [],
+         []],
+
         [['src/test/test-libmount.c'],
          [],
          [threads,

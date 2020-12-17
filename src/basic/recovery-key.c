@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
-#include "modhex.h"
-#include "macro.h"
 #include "memory-util.h"
+#include "random-util.h"
+#include "recovery-key.h"
 
 const char modhex_alphabet[16] = {
         'c', 'b', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'n', 'r', 't', 'u', 'v'
@@ -29,24 +27,24 @@ int normalize_recovery_key(const char *password, char **ret) {
 
         l = strlen(password);
         if (!IN_SET(l,
-                    MODHEX_RAW_LENGTH*2,          /* syntax without dashes */
-                    MODHEX_FORMATTED_LENGTH-1))   /* syntax with dashes */
+                    RECOVERY_KEY_MODHEX_RAW_LENGTH*2,          /* syntax without dashes */
+                    RECOVERY_KEY_MODHEX_FORMATTED_LENGTH-1))   /* syntax with dashes */
                 return -EINVAL;
 
-        mangled = new(char, MODHEX_FORMATTED_LENGTH);
+        mangled = new(char, RECOVERY_KEY_MODHEX_FORMATTED_LENGTH);
         if (!mangled)
                 return -ENOMEM;
 
-        for (size_t i = 0, j = 0; i < MODHEX_RAW_LENGTH; i++) {
+        for (size_t i = 0, j = 0; i < RECOVERY_KEY_MODHEX_RAW_LENGTH; i++) {
                 size_t k;
                 int a, b;
 
-                if (l == MODHEX_RAW_LENGTH*2)
+                if (l == RECOVERY_KEY_MODHEX_RAW_LENGTH*2)
                         /* Syntax without dashes */
                         k = i * 2;
                 else {
                         /* Syntax with dashes */
-                        assert(l == MODHEX_FORMATTED_LENGTH-1);
+                        assert(l == RECOVERY_KEY_MODHEX_FORMATTED_LENGTH-1);
                         k = i * 2 + i / 4;
 
                         if (i > 0 && i % 4 == 0 && password[k-1] != '-')
@@ -67,8 +65,42 @@ int normalize_recovery_key(const char *password, char **ret) {
                         mangled[j++] = '-';
         }
 
-        mangled[MODHEX_FORMATTED_LENGTH-1] = 0;
+        mangled[RECOVERY_KEY_MODHEX_FORMATTED_LENGTH-1] = 0;
 
         *ret = TAKE_PTR(mangled);
+        return 0;
+}
+
+int make_recovery_key(char **ret) {
+        _cleanup_(erase_and_freep) char *formatted = NULL;
+        _cleanup_(erase_and_freep) uint8_t *key = NULL;
+        int r;
+
+        assert(ret);
+
+        key = new(uint8_t, RECOVERY_KEY_MODHEX_RAW_LENGTH);
+        if (!key)
+                return -ENOMEM;
+
+        r = genuine_random_bytes(key, RECOVERY_KEY_MODHEX_RAW_LENGTH, RANDOM_BLOCK);
+        if (r < 0)
+                return r;
+
+        /* Let's now format it as 64 modhex chars, and after each 8 chars insert a dash */
+        formatted = new(char, RECOVERY_KEY_MODHEX_FORMATTED_LENGTH);
+        if (!formatted)
+                return -ENOMEM;
+
+        for (size_t i = 0, j = 0; i < RECOVERY_KEY_MODHEX_RAW_LENGTH; i++) {
+                formatted[j++] = modhex_alphabet[key[i] >> 4];
+                formatted[j++] = modhex_alphabet[key[i] & 0xF];
+
+                if (i % 4 == 3)
+                        formatted[j++] = '-';
+        }
+
+        formatted[RECOVERY_KEY_MODHEX_FORMATTED_LENGTH-1] = 0;
+
+        *ret = TAKE_PTR(formatted);
         return 0;
 }

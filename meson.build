@@ -1185,6 +1185,17 @@ else
 endif
 conf.set10('HAVE_LIBFIDO2', have)
 
+want_tpm2 = get_option('tpm2')
+if want_tpm2 != 'false' and not skip_deps
+        tpm2 = dependency('tss2-esys tss2-rc tss2-mu',
+                              required : want_tpm2 == 'true')
+        have = tpm2.found()
+else
+        have = false
+        tpm2 = []
+endif
+conf.set10('HAVE_TPM2', have)
+
 want_elfutils = get_option('elfutils')
 if want_elfutils != 'false' and not skip_deps
         libdw = dependency('libdw',
@@ -2271,8 +2282,7 @@ if conf.get('ENABLE_HOMED') == 1
                                 libcrypt,
                                 libopenssl,
                                 libfdisk,
-                                libp11kit,
-                                libfido2],
+                                libp11kit],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -2298,7 +2308,6 @@ if conf.get('ENABLE_HOMED') == 1
                                 libcrypt,
                                 libopenssl,
                                 libp11kit,
-                                libfido2,
                                 libdl],
                 install_rpath : rootlibexecdir,
                 install : true,
@@ -2369,14 +2378,24 @@ executable(
 
 if conf.get('HAVE_LIBCRYPTSETUP') == 1
         systemd_cryptsetup_sources = files('''
-                src/cryptsetup/cryptsetup-pkcs11.h
+                src/cryptsetup/cryptsetup-fido2.h
                 src/cryptsetup/cryptsetup-keyfile.c
                 src/cryptsetup/cryptsetup-keyfile.h
+                src/cryptsetup/cryptsetup-pkcs11.h
+                src/cryptsetup/cryptsetup-tpm2.h
                 src/cryptsetup/cryptsetup.c
 '''.split())
 
         if conf.get('HAVE_P11KIT') == 1
                 systemd_cryptsetup_sources += files('src/cryptsetup/cryptsetup-pkcs11.c')
+        endif
+
+        if conf.get('HAVE_LIBFIDO2') == 1
+                systemd_cryptsetup_sources += files('src/cryptsetup/cryptsetup-fido2.c')
+        endif
+
+        if conf.get('HAVE_TPM2') == 1
+                systemd_cryptsetup_sources += files('src/cryptsetup/cryptsetup-tpm2.c')
         endif
 
         executable(
@@ -2417,6 +2436,47 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : systemgeneratordir)
+
+        systemd_cryptenroll_sources = files('''
+                src/cryptenroll/cryptenroll-fido2.h
+                src/cryptenroll/cryptenroll-list.c
+                src/cryptenroll/cryptenroll-list.h
+                src/cryptenroll/cryptenroll-password.c
+                src/cryptenroll/cryptenroll-password.h
+                src/cryptenroll/cryptenroll-pkcs11.h
+                src/cryptenroll/cryptenroll-recovery.c
+                src/cryptenroll/cryptenroll-recovery.h
+                src/cryptenroll/cryptenroll-tpm2.h
+                src/cryptenroll/cryptenroll-wipe.c
+                src/cryptenroll/cryptenroll-wipe.h
+                src/cryptenroll/cryptenroll.c
+                src/cryptenroll/cryptenroll.h
+'''.split())
+
+        if conf.get('HAVE_P11KIT') == 1 and conf.get('HAVE_OPENSSL') == 1
+                systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-pkcs11.c')
+        endif
+
+        if conf.get('HAVE_LIBFIDO2') == 1
+                systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-fido2.c')
+        endif
+
+        if conf.get('HAVE_TPM2') == 1
+                systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-tpm2.c')
+        endif
+
+        executable(
+                'systemd-cryptenroll',
+                systemd_cryptenroll_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [libcryptsetup,
+                                libdl,
+                                libopenssl,
+                                libp11kit],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : bindir)
 endif
 
 if conf.get('HAVE_SYSV_COMPAT') == 1
@@ -3737,6 +3797,7 @@ foreach tuple : [
         ['libfdisk'],
         ['p11kit'],
         ['libfido2'],
+        ['tpm2'],
         ['AUDIT'],
         ['IMA'],
         ['AppArmor'],

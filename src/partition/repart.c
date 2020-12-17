@@ -34,6 +34,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
+#include "hexdecoct.h"
 #include "id128-util.h"
 #include "json.h"
 #include "list.h"
@@ -54,9 +55,11 @@
 #include "specifier.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tpm2-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -107,14 +110,26 @@ static bool arg_json = false;
 static JsonFormatFlags arg_json_format_flags = 0;
 static void *arg_key = NULL;
 static size_t arg_key_size = 0;
+static char *arg_tpm2_device = NULL;
+static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 
 typedef struct Partition Partition;
 typedef struct FreeArea FreeArea;
 typedef struct Context Context;
+
+typedef enum EncryptMode {
+        ENCRYPT_OFF,
+        ENCRYPT_KEY_FILE,
+        ENCRYPT_TPM2,
+        ENCRYPT_KEY_FILE_TPM2,
+        _ENCRYPT_MODE_MAX,
+        _ENCRYPT_MODE_INVALID = -1,
+} EncryptMode;
 
 struct Partition {
         char *definition_path;
@@ -149,7 +164,7 @@ struct Partition {
 
         char *format;
         char **copy_files;
-        bool encrypt;
+        EncryptMode encrypt;
 
         LIST_FIELDS(Partition, partitions);
 };
@@ -176,6 +191,15 @@ struct Context {
 
         sd_id128_t seed;
 };
+
+static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
+        [ENCRYPT_OFF] = "off",
+        [ENCRYPT_KEY_FILE] = "key-file",
+        [ENCRYPT_TPM2] = "tpm2",
+        [ENCRYPT_KEY_FILE_TPM2] = "key-file+tpm2",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
 
 static uint64_t round_down_size(uint64_t v, uint64_t p) {
         return (v / p) * p;
@@ -388,12 +412,12 @@ static uint64_t partition_min_size(const Partition *p) {
         if (!PARTITION_EXISTS(p)) {
                 uint64_t d = 0;
 
-                if (p->encrypt)
+                if (p->encrypt != ENCRYPT_OFF)
                         d += round_up_size(LUKS2_METADATA_SIZE, 4096);
 
                 if (p->copy_blocks_size != UINT64_MAX)
                         d += round_up_size(p->copy_blocks_size, 4096);
-                else if (p->format || p->encrypt) {
+                else if (p->format || p->encrypt != ENCRYPT_OFF) {
                         uint64_t f;
 
                         /* If we shall synthesize a file system, take minimal fs size into account (assumed to be 4K if not known) */
@@ -1137,6 +1161,8 @@ static int config_parse_copy_files(
         return 0;
 }
 
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_encrypt, encrypt_mode, EncryptMode, ENCRYPT_OFF, "Invalid encryption mode");
+
 static int partition_read_definition(Partition *p, const char *path) {
 
         ConfigTableItem table[] = {
@@ -1154,7 +1180,7 @@ static int partition_read_definition(Partition *p, const char *path) {
                 { "Partition", "CopyBlocks",      config_parse_path,       0, &p->copy_blocks_path },
                 { "Partition", "Format",          config_parse_fstype,     0, &p->format           },
                 { "Partition", "CopyFiles",       config_parse_copy_files, 0, p                    },
-                { "Partition", "Encrypt",         config_parse_bool,       0, &p->encrypt          },
+                { "Partition", "Encrypt",         config_parse_encrypt,    0, &p->encrypt          },
                 {}
         };
         int r;
@@ -1188,7 +1214,7 @@ static int partition_read_definition(Partition *p, const char *path) {
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format=swap and CopyFiles= cannot be combined, refusing.");
 
-        if (!p->format && (!strv_isempty(p->copy_files) || (p->encrypt && !p->copy_blocks_path))) {
+        if (!p->format && (!strv_isempty(p->copy_files) || (p->encrypt != ENCRYPT_OFF && !p->copy_blocks_path))) {
                 /* Pick "ext4" as file system if we are configured to copy files or encrypt the device */
                 p->format = strdup("ext4");
                 if (!p->format)
@@ -2376,7 +2402,9 @@ static int partition_encrypt(
         int r;
 
         assert(p);
-        assert(p->encrypt);
+        assert(p->encrypt != ENCRYPT_OFF);
+
+        log_debug("Encryption mode for partition %" PRIu64 ": %s", p->partno, encrypt_mode_to_string(p->encrypt));
 
         r = dlopen_cryptsetup();
         if (r < 0)
@@ -2425,15 +2453,61 @@ static int partition_encrypt(
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
-        r = sym_crypt_keyslot_add_by_volume_key(
-                        cd,
-                        CRYPT_ANY_SLOT,
-                        volume_key,
-                        volume_key_size,
-                        strempty(arg_key),
-                        arg_key_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to add LUKS2 key: %m");
+        if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
+                r = sym_crypt_keyslot_add_by_volume_key(
+                                cd,
+                                CRYPT_ANY_SLOT,
+                                volume_key,
+                                volume_key_size,
+                                strempty(arg_key),
+                                arg_key_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add LUKS2 key: %m");
+        }
+
+        if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
+#if HAVE_TPM2
+                _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_(erase_and_freep) void *secret = NULL;
+                _cleanup_free_ void *blob = NULL, *hash = NULL;
+                size_t secret_size, blob_size, hash_size;
+                int keyslot;
+
+                r = tpm2_seal(arg_tpm2_device, arg_tpm2_pcr_mask, &secret, &secret_size, &blob, &blob_size, &hash, &hash_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seal to TPM2: %m");
+
+                r = base64mem(secret, secret_size, &base64_encoded);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to base64 encode secret key: %m");
+
+                r = cryptsetup_set_minimal_pbkdf(cd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set minimal PBKDF: %m");
+
+                keyslot = sym_crypt_keyslot_add_by_volume_key(
+                                cd,
+                                CRYPT_ANY_SLOT,
+                                volume_key,
+                                volume_key_size,
+                                base64_encoded,
+                                strlen(base64_encoded));
+                if (keyslot < 0)
+                        return log_error_errno(keyslot, "Failed to add new TPM2 key to %s: %m", node);
+
+                r = tpm2_make_luks2_json(keyslot, arg_tpm2_pcr_mask, blob, blob_size, hash, hash_size, &v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
+
+                r = cryptsetup_add_token_json(cd, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add TPM2 JSON token to LUKS2 header: %m");
+#else
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Support for TPM2 enrollment not enabled.");
+#endif
+        }
 
         r = sym_crypt_activate_by_volume_key(
                         cd,
@@ -2521,7 +2595,7 @@ static int context_copy_blocks(Context *context) {
                 if (whole_fd < 0)
                         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
-                if (p->encrypt) {
+                if (p->encrypt != ENCRYPT_OFF) {
                         r = loop_device_make(whole_fd, O_RDWR, p->offset, p->new_size, 0, &d);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
@@ -2554,7 +2628,7 @@ static int context_copy_blocks(Context *context) {
                 if (fsync(target_fd) < 0)
                         return log_error_errno(r, "Failed to synchronize copied data blocks: %m");
 
-                if (p->encrypt) {
+                if (p->encrypt != ENCRYPT_OFF) {
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
 
                         r = deactivate_luks(cd, encrypted);
@@ -2743,7 +2817,7 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to lock loopback device: %m");
 
-                if (p->encrypt) {
+                if (p->encrypt != ENCRYPT_OFF) {
                         r = partition_encrypt(p, d->node, &cd, &encrypted, &encrypted_dev_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
@@ -2773,7 +2847,7 @@ static int context_mkfs(Context *context) {
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
 
                 /* The file system is now created, no need to delay udev further */
-                if (p->encrypt)
+                if (p->encrypt != ENCRYPT_OFF)
                         if (flock(encrypted_dev_fd, LOCK_UN) < 0)
                                 return log_error_errno(errno, "Failed to unlock LUKS device: %m");
 
@@ -2788,7 +2862,7 @@ static int context_mkfs(Context *context) {
                  * if we don't sync before detaching a block device the in-flight sectors possibly won't hit
                  * the disk. */
 
-                if (p->encrypt) {
+                if (p->encrypt != ENCRYPT_OFF) {
                         if (fsync(encrypted_dev_fd) < 0)
                                 return log_error_errno(r, "Failed to synchronize LUKS volume: %m");
                         encrypted_dev_fd = safe_close(encrypted_dev_fd);
@@ -3420,6 +3494,9 @@ static int help(void) {
                "     --root=PATH          Operate relative to root path\n"
                "     --definitions=DIR    Find partitions in specified directory\n"
                "     --key-file=PATH      Key to use when encrypting partitions\n"
+               "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
+               "     --tpm2-pcrs=PCR1,PCR2,…\n"
+               "                          TPM2 PCR indexes to use for TPM2 enrollment\n"
                "     --seed=UUID          128bit seed UUID to derive all UUIDs from\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --json=pretty|short|off\n"
@@ -3449,6 +3526,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SIZE,
                 ARG_JSON,
                 ARG_KEY_FILE,
+                ARG_TPM2_DEVICE,
+                ARG_TPM2_PCRS,
         };
 
         static const struct option options[] = {
@@ -3466,6 +3545,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "size",              required_argument, NULL, ARG_SIZE              },
                 { "json",              required_argument, NULL, ARG_JSON              },
                 { "key-file",          required_argument, NULL, ARG_KEY_FILE          },
+                { "tpm2-device",       required_argument, NULL, ARG_TPM2_DEVICE       },
+                { "tpm2-pcrs",         required_argument, NULL, ARG_TPM2_PCRS         },
                 {}
         };
 
@@ -3635,6 +3716,43 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_TPM2_DEVICE: {
+                        _cleanup_free_ char *device = NULL;
+
+                        if (streq(optarg, "list"))
+                                return tpm2_list_devices();
+
+                        if (!streq(optarg, "auto")) {
+                                device = strdup(optarg);
+                                if (!device)
+                                        return log_oom();
+                        }
+
+                        free(arg_tpm2_device);
+                        arg_tpm2_device = TAKE_PTR(device);
+                        break;
+                }
+
+                case ARG_TPM2_PCRS: {
+                        uint32_t mask;
+
+                        if (isempty(optarg)) {
+                                arg_tpm2_pcr_mask = 0;
+                                break;
+                        }
+
+                        r = tpm2_parse_pcrs(optarg, &mask);
+                        if (r < 0)
+                                return r;
+
+                        if (arg_tpm2_pcr_mask == UINT32_MAX)
+                                arg_tpm2_pcr_mask = mask;
+                        else
+                                arg_tpm2_pcr_mask |= mask;
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -3666,6 +3784,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to a device node or loopback file must be specified when --empty=force, --empty=require or --empty=create are used.");
+
+        if (arg_tpm2_pcr_mask == UINT32_MAX)
+                arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
 
         return 1;
 }

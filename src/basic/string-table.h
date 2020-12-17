@@ -84,6 +84,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(name,type) _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,static)
 
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name,type,yes) _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name,type,yes,)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name,type,yes) _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name,type,yes,static)
 
 /* For string conversions where numbers are also acceptable */
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \

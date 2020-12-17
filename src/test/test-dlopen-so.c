@@ -5,11 +5,13 @@
 
 #include "cryptsetup-util.h"
 #include "idn-util.h"
+#include "libfido2-util.h"
 #include "macro.h"
 #include "main-func.h"
 #include "pwquality-util.h"
 #include "qrcode-util.h"
 #include "tests.h"
+#include "tpm2-util.h"
 
 static int run(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
@@ -32,6 +34,14 @@ static int run(int argc, char **argv) {
 
 #if HAVE_QRENCODE
         assert_se(dlopen_qrencode() >= 0);
+#endif
+
+#if HAVE_TPM2
+        assert_se(dlopen_tpm2() >= 0);
+#endif
+
+#if HAVE_LIBFIDO2
+        assert_se(dlopen_libfido2() >= 0);
 #endif
 
         return 0;
