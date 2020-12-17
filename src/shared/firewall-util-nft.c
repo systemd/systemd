@@ -1062,6 +1062,8 @@ again:
                 int tmp = fw_nftables_recreate_table(ctx->nfnl, af, transaction, tsize);
 
                 if (tmp == 0) {
+                        /* table created anew; previous address already gone */
+                        previous_remote = NULL;
                         retry = false;
                         goto again;
                 }
