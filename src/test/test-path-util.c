@@ -7,7 +7,6 @@
 #include "exec-util.h"
 #include "fd-util.h"
 #include "macro.h"
-#include "mountpoint-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
@@ -42,8 +41,6 @@ static void test_path_simplify(const char *in, const char *out, const char *out_
 }
 
 static void test_path(void) {
-        _cleanup_close_ int fd = -1;
-
         log_info("/* %s */", __func__);
 
         test_path_compare("/goo", "/goo", 0);
@@ -81,10 +78,6 @@ static void test_path(void) {
         assert_se(streq(basename("/aa///.file"), ".file"));
         assert_se(streq(basename("/aa///file..."), "file..."));
         assert_se(streq(basename("file.../"), ""));
-
-        fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
-        assert_se(fd >= 0);
-        assert_se(fd_is_mount_point(fd, "/", 0) > 0);
 
         test_path_simplify("aaa/bbb////ccc", "aaa/bbb/ccc", "aaa/bbb/ccc");
         test_path_simplify("//aaa/.////ccc", "/aaa/./ccc", "/aaa/ccc");
