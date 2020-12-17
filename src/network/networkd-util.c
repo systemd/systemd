@@ -53,6 +53,16 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_link_local_address_family, link_local_addr
                          AddressFamily, "Failed to parse option");
 DEFINE_STRING_TABLE_LOOKUP(dhcp_lease_server_type, sd_dhcp_lease_server_type);
 
+static AddressFamily address_family_compat_from_string(const char *s) {
+        if (streq_ptr(s, "yes"))         /* compat name */
+                return ADDRESS_FAMILY_IPV4;
+        if (streq_ptr(s, "both"))
+                return ADDRESS_FAMILY_YES;
+        return address_family_from_string(s);
+}
+DEFINE_CONFIG_PARSE_ENUM(config_parse_address_family_compat, address_family_compat,
+                         AddressFamily, "Failed to parse option");
+
 int config_parse_address_family_with_kernel(
                 const char* unit,
                 const char *filename,
