@@ -124,6 +124,29 @@ static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id
         return safe_atoi(p, mnt_id);
 }
 
+static bool filename_possibly_with_slash_suffix(const char *s) {
+        const char *slash, *copied;
+
+        /* Checks whether the specified string is either file name, or a filename with a suffix of
+         * slashes. But nothing else.
+         *
+         * this is OK: foo, bar, foo/, bar/, foo//, bar///
+         * this is not OK: "", "/", "/foo", "foo/bar", ".", ".." … */
+
+        slash = strchr(s, '/');
+        if (!slash)
+                return filename_is_valid(s);
+
+        if (slash - s > FILENAME_MAX) /* We want to allocate on the stack below, hence do a size check first */
+                return false;
+
+        if (slash[strspn(slash, "/")] != 0) /* Check that the suffix consist only of one or more slashes */
+                return false;
+
+        copied = strndupa(s, slash - s);
+        return filename_is_valid(copied);
+}
+
 int fd_is_mount_point(int fd, const char *filename, int flags) {
         _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
         int mount_id = -1, mount_id_parent = -1;
@@ -133,6 +156,11 @@ int fd_is_mount_point(int fd, const char *filename, int flags) {
 
         assert(fd >= 0);
         assert(filename);
+
+        /* Insist that the specified filename is actually a filename, and not a path, i.e. some inode further
+         * up or down the tree then immediately below the specified directory fd. */
+        if (!filename_possibly_with_slash_suffix(filename))
+                return -EINVAL;
 
         /* First we will try the name_to_handle_at() syscall, which
          * tells us the mount id and an opaque file "handle". It is
