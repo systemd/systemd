@@ -936,7 +936,7 @@ int journal_file_verify(
                     !!(o->object.flags & OBJECT_COMPRESSED_LZ4) +
                     !!(o->object.flags & OBJECT_COMPRESSED_ZSTD) > 1) {
                         error(p, "Object has multiple compression flags set");
-                        r = -EINVAL;
+                        r = -EBADMSG;
                         goto fail;
                 }
 
