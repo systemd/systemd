@@ -130,6 +130,7 @@ int dlopen_libfido2(void) {
 static int verify_features(
                 fido_dev_t *d,
                 const char *path,
+                int log_level, /* the log level to use when device is not FIDO2 with hmac-secret */
                 bool *ret_has_rk,
                 bool *ret_has_client_pin,
                 bool *ret_has_up,
@@ -147,7 +148,8 @@ static int verify_features(
         assert(path);
 
         if (!sym_fido_dev_is_fido2(d))
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                return log_full_errno(log_level,
+                                      SYNTHETIC_ERRNO(ENODEV),
                                        "Specified device %s is not a FIDO2 device.", path);
 
         di = sym_fido_cbor_info_new();
@@ -183,7 +185,8 @@ static int verify_features(
         }
 
         if (!found_extension)
-                return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
+                return log_full_errno(log_level,
+                                      SYNTHETIC_ERRNO(ENODEV),
                                        "Specified device %s is a FIDO2 device, but does not support the required HMAC-SECRET extension.", path);
 
         log_debug("Has rk ('Resident Key') support: %s\n"
@@ -243,7 +246,7 @@ static int fido2_use_hmac_hash_specific_token(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
 
-        r = verify_features(d, path, NULL, &has_client_pin, &has_up, NULL);
+        r = verify_features(d, path, LOG_ERR, NULL, &has_client_pin, &has_up, NULL);
         if (r < 0)
                 return r;
 
@@ -496,7 +499,7 @@ int fido2_generate_hmac_hash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to open FIDO2 device %s: %s", device, sym_fido_strerr(r));
 
-        r = verify_features(d, device, &has_rk, &has_client_pin, &has_up, &has_uv);
+        r = verify_features(d, device, LOG_ERR, &has_rk, &has_client_pin, &has_up, &has_uv);
         if (r < 0)
                 return r;
 
@@ -697,6 +700,30 @@ int fido2_generate_hmac_hash(
 }
 #endif
 
+#if HAVE_LIBFIDO2
+static int check_device_is_fido2_with_hmac_secret(const char *path) {
+        _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
+        int r;
+
+        d = sym_fido_dev_new();
+        if (!d)
+                return log_oom();
+
+        r = sym_fido_dev_open(d, path);
+        if (r != FIDO_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to open FIDO2 device %s: %s", path, sym_fido_strerr(r));
+
+        r = verify_features(d, path, LOG_DEBUG, NULL, NULL, NULL, NULL);
+        if (r == -ENODEV) /* Not a FIDO2 device, or not implementing 'hmac-secret' */
+                return false;
+        if (r < 0)
+                return r;
+
+        return true;
+}
+#endif
+
 int fido2_list_devices(void) {
 #if HAVE_LIBFIDO2
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -739,6 +766,12 @@ int fido2_list_devices(void) {
                                             "Failed to get device information for FIDO device %zu.", i);
                         goto finish;
                 }
+
+                r = check_device_is_fido2_with_hmac_secret(sym_fido_dev_info_path(entry));
+                if (r < 0)
+                        goto finish;
+                if (!r)
+                        continue;
 
                 r = table_add_many(
                                 t,
@@ -804,6 +837,14 @@ int fido2_find_device_auto(char **ret) {
         if (!entry) {
                 r = log_error_errno(SYNTHETIC_ERRNO(EIO),
                                     "Failed to get device information for FIDO device 0.");
+                goto finish;
+        }
+
+        r = check_device_is_fido2_with_hmac_secret(sym_fido_dev_info_path(entry));
+        if (r < 0)
+                goto finish;
+        if (!r) {
+                r = log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "FIDO device discovered does not implement FIDO2 with 'hmac-secret' extension.");
                 goto finish;
         }
 
