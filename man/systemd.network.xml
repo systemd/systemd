@@ -1261,6 +1261,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
             unset.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>Type=</varname></term>
+          <listitem>
+            <para>Specifies Routing Policy Database (RPDB) rule type. Takes one of <literal>blackhole</literal>,
+            <literal>unreachable</literal> or <literal>prohibit</literal>.
+            </para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect1>
 

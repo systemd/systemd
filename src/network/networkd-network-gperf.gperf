@@ -161,6 +161,7 @@ RoutingPolicyRule.InvertRule,                config_parse_routing_policy_rule_in
 RoutingPolicyRule.Family,                    config_parse_routing_policy_rule_family,                  0,                             0
 RoutingPolicyRule.User,                      config_parse_routing_policy_rule_uid_range,               0,                             0
 RoutingPolicyRule.SuppressPrefixLength,      config_parse_routing_policy_rule_suppress_prefixlen,      0,                             0
+RoutingPolicyRule.Type,                      config_parse_routing_policy_rule_type,                    0,                             0
 Route.Gateway,                               config_parse_gateway,                                     0,                             0
 Route.Destination,                           config_parse_destination,                                 0,                             0
 Route.Source,                                config_parse_destination,                                 0,                             0

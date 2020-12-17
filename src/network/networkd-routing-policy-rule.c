@@ -15,9 +15,19 @@
 #include "networkd-util.h"
 #include "parse-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+
+static const char *const fr_act_type_table[__FR_ACT_MAX] = {
+        [FR_ACT_BLACKHOLE]   = "blackhole",
+        [FR_ACT_UNREACHABLE] = "unreachable",
+        [FR_ACT_PROHIBIT]    = "prohibit",
+};
+
+assert_cc(__FR_ACT_MAX <= UINT8_MAX);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(fr_act_type, int);
 
 RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
         if (!rule)
@@ -56,6 +66,7 @@ static int routing_policy_rule_new(RoutingPolicyRule **ret) {
                 .uid_range.start = UID_INVALID,
                 .uid_range.end = UID_INVALID,
                 .suppress_prefixlen = -1,
+                .type = FR_ACT_TO_TBL,
         };
 
         *ret = rule;
@@ -126,6 +137,7 @@ static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *
         dest->to_prefixlen = src->to_prefixlen;
         dest->invert_rule = src->invert_rule;
         dest->tos = src->tos;
+        dest->type = src->type;
         dest->fwmark = src->fwmark;
         dest->fwmask = src->fwmask;
         dest->priority = src->priority;
@@ -158,6 +170,7 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
                 siphash24_compress_boolean(rule->invert_rule, state);
 
                 siphash24_compress(&rule->tos, sizeof(rule->tos), state);
+                siphash24_compress(&rule->type, sizeof(rule->type), state);
                 siphash24_compress(&rule->fwmark, sizeof(rule->fwmark), state);
                 siphash24_compress(&rule->fwmask, sizeof(rule->fwmask), state);
                 siphash24_compress(&rule->priority, sizeof(rule->priority), state);
@@ -210,6 +223,10 @@ static int routing_policy_rule_compare_func(const RoutingPolicyRule *a, const Ro
                         return r;
 
                 r = CMP(a->tos, b->tos);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->type, b->type);
                 if (r != 0)
                         return r;
 
@@ -473,6 +490,12 @@ static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_n
                 r = sd_netlink_message_append_u32(m, FRA_SUPPRESS_PREFIXLEN, (uint32_t) rule->suppress_prefixlen);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append FRA_SUPPRESS_PREFIXLEN attribute: %m");
+        }
+
+        if (rule->type != FR_ACT_TO_TBL) {
+                r = sd_rtnl_message_routing_policy_rule_set_fib_type(m, rule->type);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append FIB rule type attribute: %m");
         }
 
         return 0;
@@ -801,7 +824,13 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
 
         r = sd_rtnl_message_routing_policy_rule_get_tos(message, &tmp->tos);
         if (r < 0 && r != -ENODATA) {
-                log_warning_errno(r, "rtnl: could not get ip rule TOS, ignoring: %m");
+                log_warning_errno(r, "rtnl: could not get FIB rule TOS, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_routing_policy_rule_get_fib_type(message, &tmp->type);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FIB rule type, ignoring: %m");
                 return 0;
         }
 
@@ -1415,6 +1444,45 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
         return 0;
 }
 
+int config_parse_routing_policy_rule_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(routing_policy_rule_free_or_set_invalidp) RoutingPolicyRule *n = NULL;
+        Network *network = userdata;
+        int r, t;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = routing_policy_rule_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return log_oom();
+
+        t = fr_act_type_from_string(rvalue);
+        if (t < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Could not parse FIB rule type \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        n->type = (uint8_t) t;
+        n = NULL;
+
+        return 0;
+}
+
 static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
         if (section_is_invalid(rule->section))
                 return -EINVAL;
@@ -1491,6 +1559,13 @@ int routing_policy_serialize_rules(Set *rules, FILE *f) {
                         fprintf(f, "%stos=%hhu",
                                 space ? " " : "",
                                 rule->tos);
+                        space = true;
+                }
+
+                if (rule->type != 0) {
+                        fprintf(f, "%stype=%hhu",
+                                space ? " " : "",
+                                rule->type);
                         space = true;
                 }
 
@@ -1668,6 +1743,12 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                                 r = safe_atou8(b, &rule->tos);
                                 if (r < 0) {
                                         log_warning_errno(r, "Failed to parse RPDB rule TOS, ignoring: %s", b);
+                                        continue;
+                                }
+                        } else if (streq(a, "type")) {
+                                r = safe_atou8(b, &rule->type);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to parse RPDB rule type, ignoring: %s", b);
                                         continue;
                                 }
                         } else if (streq(a, "table")) {
