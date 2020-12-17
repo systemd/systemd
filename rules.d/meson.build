@@ -17,7 +17,6 @@ rules = files('''
         60-serial.rules
         70-joystick.rules
         70-mouse.rules
-        70-memory.rules
         70-touchpad.rules
         75-net-description.rules
         75-probe_mtd.rules
@@ -27,6 +26,10 @@ rules = files('''
 
 if conf.get('HAVE_KMOD') == 1
         rules += files('80-drivers.rules')
+endif
+
+if dmi_arches.contains(host_machine.cpu_family())
+        rules += files('70-memory.rules')
 endif
 
 install_data(rules,
