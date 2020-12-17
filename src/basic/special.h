@@ -42,6 +42,7 @@
 #define SPECIAL_SWAP_TARGET "swap.target"
 #define SPECIAL_NETWORK_ONLINE_TARGET "network-online.target"
 #define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
+#define SPECIAL_TIME_SET_TARGET "time-set.target"
 #define SPECIAL_BASIC_TARGET "basic.target"
 
 /* LSB compatibility */

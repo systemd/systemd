@@ -99,13 +99,20 @@ static int timer_add_default_dependencies(Timer *t) {
                 if (r < 0)
                         return r;
 
-                LIST_FOREACH(value, v, t->values)
-                        if (v->base == TIMER_CALENDAR) {
-                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, SPECIAL_TIME_SYNC_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                LIST_FOREACH(value, v, t->values) {
+                        const char *target;
+
+                        if (v->base != TIMER_CALENDAR)
+                                continue;
+
+                        FOREACH_STRING(target, SPECIAL_TIME_SYNC_TARGET, SPECIAL_TIME_SET_TARGET) {
+                                r = unit_add_dependency_by_name(UNIT(t), UNIT_AFTER, target, true, UNIT_DEPENDENCY_DEFAULT);
                                 if (r < 0)
                                         return r;
-                                break;
                         }
+
+                        break;
+                }
         }
 
         return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
