@@ -590,8 +590,6 @@ static int dmi_table(int64_t base, uint32_t len, uint16_t num, const char *devme
 
 /* Same thing for SMBIOS3 entry points */
 static int smbios3_decode(const uint8_t *buf, const char *devmem, bool no_file_offset) {
-        uint64_t offset;
-
         /* Don't let checksum run beyond the buffer */
         if (buf[0x06] > 0x20)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -601,11 +599,7 @@ static int smbios3_decode(const uint8_t *buf, const char *devmem, bool no_file_o
         if (!verify_checksum(buf, buf[0x06]))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Faied to verify checksum.");
 
-        offset = QWORD(buf + 0x10);
-        if (!no_file_offset && (offset >> 32) != 0 && sizeof(int64_t) < 8)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "64-bit addresses not supported.");
-
-        return dmi_table(offset, DWORD(buf + 0x0C), 0, devmem, no_file_offset);
+        return dmi_table(QWORD(buf + 0x10), DWORD(buf + 0x0C), 0, devmem, no_file_offset);
 }
 
 static int smbios_decode(const uint8_t *buf, const char *devmem, bool no_file_offset) {
