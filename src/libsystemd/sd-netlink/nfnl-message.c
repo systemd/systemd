@@ -122,21 +122,18 @@ int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret
 
         r = sd_netlink_message_append_u32(m, NFTA_HOOK_HOOKNUM, htobe32(hook));
         if (r < 0)
-                goto cancel;
+                return r;
 
         r = sd_netlink_message_append_u32(m, NFTA_HOOK_PRIORITY, htobe32(prio));
         if (r < 0)
-                goto cancel;
+                return r;
 
         r = sd_netlink_message_close_container(m);
         if (r < 0)
-                goto cancel;
+                return r;
 
         *ret = TAKE_PTR(m);
         return 0;
-cancel:
-        sd_netlink_message_cancel_array(m);
-        return r;
 }
 
 int sd_nfnl_nft_message_del_table(sd_netlink *nfnl, sd_netlink_message **ret,
@@ -243,6 +240,7 @@ int sd_nfnl_nft_message_new_setelems_begin(sd_netlink *nfnl, sd_netlink_message 
         r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
         if (r < 0)
                 return r;
+
         *ret = TAKE_PTR(m);
         return r;
 }
@@ -267,6 +265,7 @@ int sd_nfnl_nft_message_del_setelems_begin(sd_netlink *nfnl, sd_netlink_message 
         r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
         if (r < 0)
                 return r;
+
         *ret = TAKE_PTR(m);
         return r;
 }
@@ -283,10 +282,9 @@ static int sd_nfnl_add_data(sd_netlink_message *m, uint16_t attr, const void *da
         return sd_netlink_message_close_container(m); /* attr */
 }
 
-int sd_nfnl_nft_message_add_setelem(sd_netlink_message *m,
-                                       uint32_t num,
-                                       const void *key, uint32_t klen,
-                                       const void *data, uint32_t dlen) {
+int sd_nfnl_nft_message_add_setelem(sd_netlink_message *m, uint32_t num,
+                                    const void *key, uint32_t klen,
+                                    const void *data, uint32_t dlen) {
         int r;
 
         r = sd_netlink_message_open_array(m, num);

@@ -101,10 +101,10 @@ shared_sources = files('''
         fdset.h
         fileio-label.c
         fileio-label.h
-        firewall-util.c
         firewall-util-nft.c
-        firewall-util.h
         firewall-util-private.h
+        firewall-util.c
+        firewall-util.h
         format-table.c
         format-table.h
         fsck-util.h

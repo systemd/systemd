@@ -90,7 +90,7 @@ int acquire_fido2_key(
 
                 r = ask_password_auto("Please enter security token PIN:", "drive-harddisk", NULL, "fido2-pin", until, flags, &pins);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to ask for user pasword: %m");
+                        return log_error_errno(r, "Failed to ask for user password: %m");
 
                 flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
         }

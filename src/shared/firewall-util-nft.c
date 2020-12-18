@@ -314,11 +314,12 @@ static int nfnl_add_expr_masq(sd_netlink_message *m) {
         return sd_netlink_message_close_container(m); /* NFTA_LIST_ELEM */
 }
 
-/* -t nat -A POSTROUTING -p protocol -s source/pflen -o out_interface -d destionation/pflen -j MASQUERADE */
 static int sd_nfnl_message_new_masq_rule(sd_netlink *nfnl, sd_netlink_message **ret, int family,
                                          const char *chain) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
+
+        /* -t nat -A POSTROUTING -p protocol -s source/pflen -o out_interface -d destination/pflen -j MASQUERADE */
 
         r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, NFT_SYSTEMD_TABLE_NAME, chain);
         if (r < 0)
@@ -351,13 +352,15 @@ static int sd_nfnl_message_new_masq_rule(sd_netlink *nfnl, sd_netlink_message **
         return 0;
 }
 
-/* -t nat -A PREROUTING -p protocol --dport local_port -i in_interface -s source/pflen -d destionation/pflen -j DNAT --to-destination remote_addr:remote_port */
 static int sd_nfnl_message_new_dnat_rule_pre(sd_netlink *nfnl, sd_netlink_message **ret, int family,
                                              const char *chain) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         enum nft_registers proto_reg;
         uint32_t local = RTN_LOCAL;
         int r;
+
+        /* -t nat -A PREROUTING -p protocol --dport local_port -i in_interface -s source/pflen
+         * -d destination/pflen -j DNAT --to-destination remote_addr:remote_port */
 
         r = sd_nfnl_nft_message_new_rule(nfnl, &m, family, NFT_SYSTEMD_TABLE_NAME, chain);
         if (r < 0)
@@ -471,7 +474,7 @@ static int sd_nfnl_message_new_dnat_rule_out(sd_netlink *nfnl, sd_netlink_messag
                 return r;
 
         /* 4th statement: dnat connection to address/port retrieved by the
-         * preceeding expression. */
+         * preceding expression. */
         proto_reg = NFT_REG32_02;
         r = nfnl_add_expr_dnat(m, family, NFT_REG32_01, proto_reg);
         if (r < 0)
@@ -788,7 +791,7 @@ static int nft_message_add_setelem_iprange(sd_netlink_message *m,
  * In the nftables case, everything gets removed. The next add operation
  * will yield -ENOENT.
  *
- * If we see -ENOENT on add, replay the inital table setup.
+ * If we see -ENOENT on add, replay the initial table setup.
  * If that works, re-do the add operation.
  *
  * Note that this doesn't protect against external sabotage such as a

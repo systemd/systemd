@@ -139,7 +139,7 @@ int socket_bind(sd_netlink *nl);
 int socket_broadcast_group_ref(sd_netlink *nl, unsigned group);
 int socket_broadcast_group_unref(sd_netlink *nl, unsigned group);
 int socket_write_message(sd_netlink *nl, sd_netlink_message *m);
-int socket_writev_message(sd_netlink *nl, sd_netlink_message *m[], size_t msgcount);
+int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount);
 int socket_read_message(sd_netlink *nl);
 
 int rtnl_rqueue_make_room(sd_netlink *rtnl);

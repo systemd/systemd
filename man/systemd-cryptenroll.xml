@@ -246,7 +246,7 @@
 
         <programlisting>systemd-cryptenroll /dev/sda1 --wipe-slot=tpm2 --tpm2-device=auto</programlisting>
 
-        <para>The above command will enroll the TPM2 chip, and then wipe all previously crated TPM2
+        <para>The above command will enroll the TPM2 chip, and then wipe all previously created TPM2
         enrollments on the LUKS2 volume, leaving only the newly created one. Combining wiping and enrollment
         may also be used to replace enrollments of different types, for example for changing from a PKCS#11
         enrollment to a FIDO2 one:</para>

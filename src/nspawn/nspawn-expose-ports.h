@@ -3,11 +3,10 @@
 
 #include <inttypes.h>
 
-#include "firewall-util.h"
-
 #include "sd-event.h"
 #include "sd-netlink.h"
 
+#include "firewall-util.h"
 #include "in-addr-util.h"
 #include "list.h"
 

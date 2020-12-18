@@ -227,7 +227,7 @@ int sd_netlink_send(sd_netlink *nl,
 }
 
 int sd_netlink_sendv(sd_netlink *nl,
-                     sd_netlink_message *messages[],
+                     sd_netlink_message **messages,
                      size_t msgcount,
                      uint32_t **ret_serial) {
         _cleanup_free_ uint32_t *serials = NULL;
@@ -237,6 +237,7 @@ int sd_netlink_sendv(sd_netlink *nl,
         assert_return(nl, -EINVAL);
         assert_return(!rtnl_pid_changed(nl), -ECHILD);
         assert_return(messages, -EINVAL);
+        assert_return(msgcount > 0, -EINVAL);
 
         if (ret_serial) {
                 serials = new0(uint32_t, msgcount);

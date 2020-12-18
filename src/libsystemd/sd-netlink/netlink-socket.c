@@ -238,13 +238,14 @@ int socket_write_message(sd_netlink *nl, sd_netlink_message *m) {
         return k;
 }
 
-int socket_writev_message(sd_netlink *nl, sd_netlink_message *m[], size_t msgcount) {
+int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcount) {
         _cleanup_free_ struct iovec *iovs = NULL;
         ssize_t k;
         size_t i;
 
         assert(nl);
-        assert(msgcount);
+        assert(m);
+        assert(msgcount > 0);
 
         iovs = new0(struct iovec, msgcount);
         if (!iovs)

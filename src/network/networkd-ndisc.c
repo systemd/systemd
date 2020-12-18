@@ -840,9 +840,9 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
         if (link_has_ipv6_address(link, &gateway.in6) == 0) {
-                _cleanup_free_ char *buf = NULL;
-
                 if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *buf = NULL;
+
                         (void) in_addr_to_string(AF_INET6, &gateway, &buf);
                         log_link_debug(link, "Advertised route gateway, %s, is local to the link, ignoring route", strnull(buf));
                 }
