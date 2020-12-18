@@ -81,10 +81,12 @@
         units involved with early boot or late system shutdown should disable the
         <varname>DefaultDependencies=</varname> option.</para></listitem>
 
-        <listitem><para>Timer units
-        with at least one <varname>OnCalendar=</varname> directive will have an additional <varname>After=</varname>
-        dependency on <filename>time-sync.target</filename> to avoid being started before the system clock has been
-        correctly set.</para></listitem>
+        <listitem><para>Timer units with at least one <varname>OnCalendar=</varname> directive acquire a pair
+        of additional <varname>After=</varname> dependencies on <filename>time-set.target</filename> and
+        <filename>time-sync.target</filename>, in order to avoid being started before the system clock has
+        been correctly set. See
+        <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details on these two targets.</para></listitem>
       </itemizedlist>
     </refsect2>
   </refsect1>
