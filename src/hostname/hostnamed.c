@@ -20,6 +20,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "libudev.h"
 #include "main-func.h"
 #include "missing_capability.h"
 #include "nscd-flush.h"
@@ -27,6 +28,7 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "sd-device.h"
 #include "selinux-util.h"
 #include "service-util.h"
 #include "signal-util.h"
@@ -49,6 +51,9 @@ enum {
         PROP_CHASSIS,
         PROP_DEPLOYMENT,
         PROP_LOCATION,
+
+        PROP_HARDWARE_VENDOR,
+        PROP_HARDWARE_MODEL,
 
         /* Read from /etc/os-release (or /usr/lib/os-release) */
         PROP_OS_PRETTY_NAME,
@@ -424,6 +429,54 @@ static int context_write_data_machine_info(Context *c) {
         }
 
         return write_env_file_label("/etc/machine-info", l);
+}
+
+static int property_get_hardware_vendor(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        const char *hardware_vendor = NULL;
+        int r;
+
+        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
+                return sd_bus_message_append(reply, "s", NULL);
+        }
+
+        if (sd_device_get_property_value(device, "ID_VENDOR_FROM_DATABASE", &hardware_vendor) < 0)
+                (void) sd_device_get_property_value(device, "ID_VENDOR", &hardware_vendor);
+
+        return sd_bus_message_append(reply, "s", hardware_vendor);
+}
+
+static int property_get_hardware_model(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        const char *hardware_model = NULL;
+        int r;
+
+        r = sd_device_new_from_syspath(&device, "/sys/class/dmi/id");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to open /sys/class/dmi/id device, ignoring: %m");
+                return sd_bus_message_append(reply, "s", NULL);
+        }
+
+        if (sd_device_get_property_value(device, "ID_MODEL_FROM_DATABASE", &hardware_model) < 0)
+                (void) sd_device_get_property_value(device, "ID_MODEL", &hardware_model);
+
+        return sd_bus_message_append(reply, "s", hardware_model);
 }
 
 static int property_get_hostname(
@@ -903,6 +956,8 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemCPEName", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("HomeURL", "s", property_get_os_release_field, offsetof(Context, data) + sizeof(char*) * PROP_OS_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareVendor", "s", property_get_hardware_vendor, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HardwareModel", "s", property_get_hardware_model, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_NAMES("SetHostname",
                                  "sb",

@@ -89,4 +89,7 @@ KERNEL=="udmabuf", GROUP="kvm"
 
 SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK += "ptp_kvm"
 
+SUBSYSTEM=="dmi", ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="", ENV{ID_VENDOR}="$attr{sys_vendor}", ENV{ID_MODEL}="$attr{product_name}"
+SUBSYSTEM=="dmi", ENV{ID_SYSFS_ATTRIBUTE_MODEL}=="product_version", ENV{ID_VENDOR}="$attr{sys_vendor}", ENV{ID_MODEL}="$attr{product_version}"
+
 LABEL="default_end"
