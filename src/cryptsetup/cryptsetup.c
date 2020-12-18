@@ -1035,7 +1035,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &keyslot,
                                                 &token);
                                 if (r == -ENXIO) {
-                                        /* No futher TPM2 tokens found in the LUKS2 header.*/
+                                        /* No further TPM2 tokens found in the LUKS2 header.*/
                                         if (found_some)
                                                 return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN),
                                                                        "No TPM2 metadata matching the current system state found in LUKS2 header, falling back to traditional unlocking.");

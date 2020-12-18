@@ -258,7 +258,7 @@ static int find_slot_tokens(struct crypt_device *cd, Set *wipe_slots, Set *keep_
                                 return log_oom();
                 }
 
-                /* And of course, als remember the tokens to remove. */
+                /* And of course, also remember the tokens to remove. */
                 if (shall_wipe)
                         if (set_put(wipe_tokens, INT_TO_PTR(token)) < 0)
                                 return log_oom();

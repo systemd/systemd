@@ -280,9 +280,9 @@ static void test_fd_is_mount_point(void) {
         assert_se(fd_is_mount_point(fd, "proc", 0) > 0);
         assert_se(fd_is_mount_point(fd, "proc/", 0) > 0);
 
-        /* /root's entire raison d'etre is to be on the root file system (i.e. not in /home/ which might be
-         * split off), so that the user can always log in, so it cannot be a mount point unless the system is
-         * borked. Let's allow for it to be missing though. */
+        /* /root's entire reason for being is to be on the root file system (i.e. not in /home/ which
+         * might be split off), so that the user can always log in, so it cannot be a mount point unless
+         * the system is borked. Let's allow for it to be missing though. */
         assert_se(IN_SET(fd_is_mount_point(fd, "root", 0), -ENOENT, 0));
         assert_se(IN_SET(fd_is_mount_point(fd, "root/", 0), -ENOENT, 0));
 }

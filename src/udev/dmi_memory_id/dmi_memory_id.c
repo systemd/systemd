@@ -572,7 +572,7 @@ static int dmi_table(int64_t base, uint32_t len, uint16_t num, const char *devme
 
         /*
          * When reading from sysfs or from a dump file, the file may be
-         * shorter than announced. For SMBIOS v3 this is expcted, as we
+         * shorter than announced. For SMBIOS v3 this is expected, as we
          * only know the maximum table size, not the actual table size.
          * For older implementations (and for SMBIOS v3 too), this
          * would be the result of the kernel truncating the table on
@@ -599,7 +599,7 @@ static int smbios3_decode(const uint8_t *buf, const char *devmem, bool no_file_o
                                        buf[0x06], 0x18U);
 
         if (!verify_checksum(buf, buf[0x06]))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Faied to verify checksum.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to verify checksum.");
 
         offset = QWORD(buf + 0x10);
         if (!no_file_offset && (offset >> 32) != 0 && sizeof(int64_t) < 8)

@@ -90,7 +90,7 @@ static int help(void) {
                "     --tpm2-device=PATH\n"
                "                       Enroll a TPM2 device\n"
                "     --tpm2-pcrs=PCR1,PCR2,PCR3,…\n"
-               "                       Specifiy TPM2 PCRs to seal against\n"
+               "                       Specify TPM2 PCRs to seal against\n"
                "     --wipe-slot=SLOT1,SLOT2,…\n"
                "                       Wipe specified slots\n"
                "\nSee the %s for details.\n"
@@ -390,7 +390,7 @@ static int prepare_luks(
                                 password,
                                 strlen(password));
                 if (r < 0)
-                        return log_error_errno(r, "Password from environent variable $PASSWORD did not work.");
+                        return log_error_errno(r, "Password from environment variable $PASSWORD did not work.");
         } else {
                 AskPasswordFlags ask_password_flags = ASK_PASSWORD_PUSH_CACHE|ASK_PASSWORD_ACCEPT_CACHED;
                 _cleanup_free_ char *question = NULL, *disk_path = NULL;
