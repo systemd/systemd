@@ -51,6 +51,7 @@ typedef enum MountMode {
         EMPTY_DIR,
         SYSFS,
         PROCFS,
+        RUN,
         READONLY,
         READWRITE,
         TMPFS,
@@ -76,12 +77,13 @@ typedef struct MountEntry {
         LIST_HEAD(MountOptions, image_options);
 } MountEntry;
 
-/* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
+/* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
  * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
 static const MountEntry apivfs_table[] = {
         { "/proc",               PROCFS,       false },
         { "/dev",                BIND_DEV,     false },
         { "/sys",                SYSFS,        false },
+        { "/run",                RUN,          false, .options_const = "mode=755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
 };
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
@@ -945,6 +947,20 @@ static int mount_tmpfs(const MountEntry *m) {
         return 1;
 }
 
+static int mount_run(const MountEntry *m) {
+        int r;
+
+        assert(m);
+
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0 && r != -ENOENT)
+                return log_debug_errno(r, "Unable to determine whether /run is already mounted: %m");
+        if (r > 0) /* make this a NOP if /run is already a mount point */
+                return 0;
+
+        return mount_tmpfs(m);
+}
+
 static int mount_images(const MountEntry *m) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(decrypted_image_unrefp) DecryptedImage *decrypted_image = NULL;
@@ -1169,6 +1185,9 @@ static int apply_mount(
 
         case PROCFS:
                 return mount_procfs(m, ns_info);
+
+        case RUN:
+                return mount_run(m);
 
         case MOUNT_IMAGES:
                 return mount_images(m);
