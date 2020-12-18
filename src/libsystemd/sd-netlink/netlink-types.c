@@ -1467,7 +1467,7 @@ static const NLTypeSystem nfnl_nft_rule_expr_type_system = {
 static const NLType nfnl_nft_rule_types[] = {
         [NFTA_RULE_TABLE]       = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
         [NFTA_RULE_CHAIN]       = { .type = NETLINK_TYPE_STRING, .size = NFT_TABLE_MAXNAMELEN - 1 },
-        [NFTA_RULE_EXPRESSIONS]	= { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_rule_expr_type_system }
+        [NFTA_RULE_EXPRESSIONS] = { .type = NETLINK_TYPE_NESTED, .type_system = &nfnl_nft_rule_expr_type_system }
 };
 
 static const NLTypeSystem nfnl_nft_rule_type_system = {
