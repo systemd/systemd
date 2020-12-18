@@ -122,21 +122,18 @@ int sd_nfnl_nft_message_new_basechain(sd_netlink *nfnl, sd_netlink_message **ret
 
         r = sd_netlink_message_append_u32(m, NFTA_HOOK_HOOKNUM, htobe32(hook));
         if (r < 0)
-                goto cancel;
+                return r;
 
         r = sd_netlink_message_append_u32(m, NFTA_HOOK_PRIORITY, htobe32(prio));
         if (r < 0)
-                goto cancel;
+                return r;
 
         r = sd_netlink_message_close_container(m);
         if (r < 0)
-                goto cancel;
+                return r;
 
         *ret = TAKE_PTR(m);
         return 0;
-cancel:
-        sd_netlink_message_cancel_array(m);
-        return r;
 }
 
 int sd_nfnl_nft_message_del_table(sd_netlink *nfnl, sd_netlink_message **ret,
