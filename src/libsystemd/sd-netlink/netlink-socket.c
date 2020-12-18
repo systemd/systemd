@@ -244,7 +244,8 @@ int socket_writev_message(sd_netlink *nl, sd_netlink_message **m, size_t msgcoun
         size_t i;
 
         assert(nl);
-        assert(msgcount);
+        assert(m);
+        assert(msgcount > 0);
 
         iovs = new0(struct iovec, msgcount);
         if (!iovs)
