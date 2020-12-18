@@ -1022,10 +1022,12 @@
             units with at least one <varname>OnCalendar=</varname>
             directive. </para>
 
-            <para>Unless
+            <para>This target might get reached before the clock is actually synchronized to an accurate reference
+            clock. To prevent that, enable
             <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            is enabled, this target might get reached before the clock
-            is actually synchronized.</para>
+            if you're using
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+            or an equivalent service for other NTP implementations.</para>
           </listitem>
         </varlistentry>
       </variablelist>
