@@ -184,15 +184,23 @@ if dmi_arches.contains(host_machine.cpu_family())
 endif
 
 foreach prog : udev_id_progs
-        executable(prog[0].split('/')[0],
-                   prog,
-                   include_directories : includes,
-                   c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
-                   dependencies : [versiondep],
-                   link_with : udev_link_with,
-                   install_rpath : udev_rpath,
-                   install : true,
-                   install_dir : udevlibexecdir)
+        name = prog[0].split('/')[0]
+
+        exe = executable(
+                name,
+                prog,
+                include_directories : includes,
+                c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
+                dependencies : [versiondep],
+                link_with : udev_link_with,
+                install_rpath : udev_rpath,
+                install : true,
+                install_dir : udevlibexecdir)
+
+        # TODO: let's use a dictionary instead as soon as we can depend on meson >= 0.47.
+        if name == 'dmi_memory_id'
+                dmi_memory_id_path = exe.full_path()
+        endif
 endforeach
 
 if install_sysconfdir

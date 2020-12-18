@@ -124,6 +124,8 @@ else
         message('Skipping udev-test because perl is not available')
 endif
 
+############################################################
+
 if conf.get('ENABLE_HWDB') == 1
         hwdb_test_sh = find_program('hwdb-test.sh')
         if want_tests != 'false'
@@ -133,11 +135,29 @@ if conf.get('ENABLE_HWDB') == 1
         endif
 endif
 
-if want_tests != false and dmi_arches.contains(host_machine.cpu_family())
+############################################################
+
+if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
         udev_dmi_memory_id_test = find_program('udev-dmi-memory-id-test.sh')
-        test('udev-dmi-memory-id-test',
-                udev_dmi_memory_id_test,
-                timeout : 90)
+
+        if git.found()
+                out = run_command(
+                        git,
+                        '--git-dir=@0@/.git'.format(project_source_root),
+                        'ls-files', ':/test/dmidecode-dumps/*.bin')
+        else
+                out = run_command(
+                        'sh', '-c', 'ls @0@/test/dmidecode-dumps/*.bin'.format(project_source_root))
+        endif
+
+        foreach p : out.stdout().split()
+                source = join_paths(project_source_root, p)
+                name = 'dmidecode_' + p.split('/')[-1].split('.')[0]
+
+                test(name,
+                     udev_dmi_memory_id_test,
+                     args : [dmi_memory_id_path, source, source + '.txt'])
+        endforeach
 endif
 
 subdir('fuzz')
