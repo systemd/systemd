@@ -602,8 +602,11 @@ static int smbios3_decode(const uint8_t *buf, const char *devmem, bool no_file_o
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to verify checksum.");
 
         offset = QWORD(buf + 0x10);
-        if (!no_file_offset && (offset >> 32) != 0 && sizeof(int64_t) < 8)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "64-bit addresses not supported.");
+
+#if __SIZEOF_SIZE_T__ != 8
+        if (!no_file_offset && (offset >> 32) != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "64-bit addresses not supported on 32-bit systems.");
+#endif
 
         return dmi_table(offset, DWORD(buf + 0x0C), 0, devmem, no_file_offset);
 }
