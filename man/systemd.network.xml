@@ -2101,10 +2101,28 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>PrefixAllowList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router
+            advertisements in the list are allowed. Note that if <varname>PrefixAllowList=</varname> is
+            configured then <varname>PrefixDenyList=</varname> is ignored.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>RouteDenyList=</varname></term>
           <listitem>
             <para>A whitespace-separated list of IPv6 route prefixes. IPv6 route prefixes supplied via
             router advertisements in the list are ignored.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouteAllowList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv6 route prefixes. IPv6 route prefixes supplied via
+            router advertisements in the list are allowed. Note that if <varname>RouteAllowList=</varname> is
+            configured then <varname>RouteDenyList=</varname> is ignored.</para>
           </listitem>
         </varlistentry>
 
