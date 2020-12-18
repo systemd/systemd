@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-/* systemd service to wait until kernel realtime clock is synchronized */
+/* systemd service to wait until kernel system clock is synchronized */
 
 #include <errno.h>
 #include <stdbool.h>
@@ -20,9 +20,9 @@
 #include "time-util.h"
 
 typedef struct ClockState {
-        int timerfd_fd;                  /* non-negative is descriptor from timerfd_create */
-        int adjtime_state;               /* return value from last adjtimex(2) call */
-        sd_event_source *timerfd_event_source; /* non-null is the active io event source */
+        int timerfd_fd;                        /* the file descriptor from timerfd_create */
+        int adjtime_state;                     /* the return value from last adjtimex(2) call */
+        sd_event_source *timerfd_event_source; /* the active io event source */
         int inotify_fd;
         sd_event_source *inotify_event_source;
         int run_systemd_wd;
@@ -100,9 +100,7 @@ static int clock_state_update(
                 ClockState *sp,
                 sd_event *event) {
 
-        char buf[MAX((size_t)FORMAT_TIMESTAMP_MAX, STRLEN("unrepresentable"))];
         struct timex tx = {};
-        const char * ts;
         usec_t t;
         int r;
 
@@ -149,28 +147,35 @@ static int clock_state_update(
         if (tx.status & STA_NANO)
                 tx.time.tv_usec /= 1000;
         t = timeval_load(&tx.time);
-        ts = format_timestamp_style(buf, sizeof(buf), t, TIMESTAMP_US_UTC);
-        if (!ts)
-                strcpy(buf, "unrepresentable");
-        log_info("adjtime state %d status %x time %s", sp->adjtime_state, tx.status, ts);
 
-        sp->has_watchfile = access("/run/systemd/timesync/synchronized", F_OK) >= 0;
-        if (sp->has_watchfile)
-                /* Presence of watch file overrides adjtime_state */
-                r = 0;
-        else if (sp->adjtime_state == TIME_ERROR) {
-                /* Not synchronized.  Do a one-shot wait on the descriptor and inform the caller we need to keep
-                 * running. */
+        if (DEBUG_LOGGING) {
+                char buf[FORMAT_TIMESTAMP_MAX];
+                const char *ts;
+
+                ts = format_timestamp_style(buf, sizeof buf, t, TIMESTAMP_US_UTC);
+                log_info("adjtime state %d status %x time %s",
+                          sp->adjtime_state, tx.status, ts ?: "unrepresentable");
+        }
+
+        if (access("/run/systemd/timesync/synchronized", F_OK) >= 0) {
+                sp->has_watchfile = true;
+
+                r = 0; /* Synchronized. Presence of watch file overrides adjtime_state */
+
+        } else if (sp->adjtime_state == TIME_ERROR) {
                 r = sd_event_add_io(event, &sp->timerfd_event_source, sp->timerfd_fd,
                                     EPOLLIN, timerfd_handler, sp);
                 if (r < 0) {
                         log_error_errno(r, "Failed to create time change monitor source: %m");
                         goto finish;
                 }
-                r = 1;
+
+                log_debug("Waiting for the kernel to report the clock being set...");
+                r = 1; /* Not synchronized. Do a one-shot wait on the descriptor and inform the caller we
+                        * need to keep running. */
+
         } else
-                /* Synchronized; we can exit. */
-                r = 0;
+                r = 0; /* Synchronized; we can exit. */
 
  finish:
         if (r <= 0)
@@ -187,6 +192,8 @@ static int run(int argc, char * argv[]) {
                 .run_systemd_timesync_wd = -1,
         };
         int r;
+
+        log_setup_service();
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
@@ -233,10 +240,12 @@ static int run(int argc, char * argv[]) {
         }
 
         if (state.has_watchfile)
-                log_debug("Exit enabled by: /run/systemd/timesync/synchronized");
+                log_info("Time is synchronized (/run/systemd/timesync/synchronized is present).");
 
         if (state.adjtime_state == TIME_ERROR)
-                log_info("Exit without adjtimex synchronized.");
+                log_notice("Exiting before time synchronization was achieved.");
+        else
+                log_info("Time is synchronized.");
 
         return r;
 }
