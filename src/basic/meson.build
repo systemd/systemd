@@ -114,7 +114,11 @@ basic_sources = files('''
         linux/libc-compat.h
         linux/loadavg.h
         linux/netdevice.h
+        linux/netfilter/nf_tables.h
+        linux/netfilter/nfnetlink.h
         linux/netlink.h
+        linux/nexthop.h
+        linux/pkt_sched.h
         linux/rtnetlink.h
         linux/wireguard.h
         list.h
