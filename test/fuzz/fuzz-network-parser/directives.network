@@ -275,6 +275,7 @@ InvertRule=
 Family=
 SuppressPrefixLength=
 User=
+Type=
 [IPv6SendRA]
 RouterPreference=
 DNSLifetimeSec=

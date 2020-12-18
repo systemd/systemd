@@ -57,34 +57,34 @@ int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
         test_rule_serialization("basic parsing",
-                                "RULE=family=AF_INET from=1.2.3.4/32 to=2.3.4.5/32 tos=5 priority=10 fwmark=1/2 invert_rule=yes table=10", NULL);
+                                "RULE=family=AF_INET from=1.2.3.4/32 to=2.3.4.5/32 tos=5 type=1 priority=10 fwmark=1/2 invert_rule=yes table=10", NULL);
 
         test_rule_serialization("ignored values",
                                 "RULE=something=to=ignore from=1.2.3.4/32 from=1.2.3.4/32"
-                                "   \t  to=2.3.4.5/24 to=2.3.4.5/32 tos=5 fwmark=2 fwmark=1 table=10 table=20",
-                                "RULE=family=AF_INET from=1.2.3.4/32 to=2.3.4.5/32 tos=5 fwmark=1 invert_rule=no table=20");
+                                "   \t  to=2.3.4.5/24 to=2.3.4.5/32 tos=5 type=1 fwmark=2 fwmark=1 table=10 table=20",
+                                "RULE=family=AF_INET from=1.2.3.4/32 to=2.3.4.5/32 tos=5 type=1 fwmark=1 invert_rule=no table=20");
 
         test_rule_serialization("ipv6",
-                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 invert_rule=yes table=6", NULL);
+                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 type=1 invert_rule=yes table=6", NULL);
 
-        assert_se(asprintf(&p, "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 invert_rule=no table=%d", RT_TABLE_MAIN) >= 0);
+        assert_se(asprintf(&p, "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 type=1 invert_rule=no table=%d", RT_TABLE_MAIN) >= 0);
         test_rule_serialization("default table",
                                 "RULE=from=1::2/64 to=2::3/64", p);
 
         test_rule_serialization("incoming interface",
                                 "RULE=from=1::2/64 to=2::3/64 table=1 iif=lo",
-                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 iif=lo invert_rule=no table=1");
+                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 type=1 iif=lo invert_rule=no table=1");
 
         test_rule_serialization("outgoing interface",
-                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 oif=eth0 invert_rule=no table=1", NULL);
+                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 type=1 oif=eth0 invert_rule=no table=1", NULL);
 
         test_rule_serialization("freeing interface names",
-                                "RULE=from=1::2/64 to=2::3/64 family=AF_INET6 iif=e0 iif=e1 oif=e0 oif=e1 table=1",
-                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 iif=e1 oif=e1 invert_rule=no table=1");
+                                "RULE=from=1::2/64 to=2::3/64 family=AF_INET6 type=1 iif=e0 iif=e1 oif=e0 oif=e1 table=1",
+                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 type=1 iif=e1 oif=e1 invert_rule=no table=1");
 
         test_rule_serialization("ignoring invalid family",
                                 "RULE=from=1::2/64 to=2::3/64 family=AF_UNSEPC family=AF_INET table=1",
-                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 invert_rule=no table=1");
+                                "RULE=family=AF_INET6 from=1::2/64 to=2::3/64 type=1 invert_rule=no table=1");
 
         return 0;
 }

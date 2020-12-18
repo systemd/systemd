@@ -23,7 +23,10 @@ typedef struct RoutingPolicyRule {
         bool invert_rule;
 
         uint8_t tos;
+        uint8_t type;
         uint8_t protocol;
+        uint8_t to_prefixlen;
+        uint8_t from_prefixlen;
 
         uint32_t table;
         uint32_t fwmark;
@@ -32,8 +35,6 @@ typedef struct RoutingPolicyRule {
 
         AddressFamily address_family; /* Specified by Family= */
         int family; /* Automatically determined by From= or To= */
-        unsigned char to_prefixlen;
-        unsigned char from_prefixlen;
 
         char *iif;
         char *oif;
@@ -71,3 +72,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_invert);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_family);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_uid_range);
 CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_suppress_prefixlen);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_type);
