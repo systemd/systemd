@@ -2,6 +2,8 @@
 #pragma once
 
 #include <linux/fs.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 #include "missing_fs.h"
 
@@ -32,8 +34,13 @@
          FS_NOCOW_FL        |                   \
          FS_PROJINHERIT_FL)
 
-int chattr_fd(int fd, unsigned value, unsigned mask, unsigned *previous);
-int chattr_path(const char *p, unsigned value, unsigned mask, unsigned *previous);
+int chattr_full(const char *path, int fd, unsigned value, unsigned mask, unsigned *ret_previous, unsigned *ret_final, bool fallback);
+static inline int chattr_fd(int fd, unsigned value, unsigned mask, unsigned *previous) {
+        return chattr_full(NULL, fd, value, mask, previous, NULL, false);
+}
+static inline int chattr_path(const char *path, unsigned value, unsigned mask, unsigned *previous) {
+        return chattr_full(path, -1, value, mask, previous, NULL, false);
+}
 
 int read_attr_fd(int fd, unsigned *ret);
 int read_attr_path(const char *p, unsigned *ret);

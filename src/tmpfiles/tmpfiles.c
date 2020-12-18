@@ -1308,11 +1308,15 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
         if (procfs_fd < 0)
                 return log_error_errno(procfs_fd, "Failed to re-open '%s': %m", path);
 
-        r = chattr_fd(procfs_fd, f, item->attribute_mask, NULL);
-        if (r < 0)
-                log_full_errno(IN_SET(r, -ENOTTY, -EOPNOTSUPP) ? LOG_DEBUG : LOG_WARNING,
-                               r,
-                               "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
+        unsigned previous, current;
+        r = chattr_full(NULL, procfs_fd, f, item->attribute_mask, &previous, &current, true);
+        if (r == -ENOANO)
+                log_warning("Cannot set file attributes for '%s', maybe due to incompatiblity in specified attributes, "
+                            "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
+                            path, previous, current, (previous & ~item->attribute_mask) | (f & item->attribute_mask));
+        else if (r < 0)
+                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Cannot set file attributes for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
                                path, item->attribute_value, item->attribute_mask);
 
         return 0;
