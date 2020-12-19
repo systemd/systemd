@@ -4,7 +4,6 @@ units:
   - units/**/*
 documentation:
   - NEWS
-  - man/*
   - docs/*
 network:
   - src/libsystemd-network/**/*
@@ -17,7 +16,6 @@ selinux:
 apparmor:
   - '**/*apparmor*'
 meson:
-  - '**/meson.build'
   - meson_option.txt
 busctl:
   - src/busctl/*
