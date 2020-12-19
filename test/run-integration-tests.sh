@@ -30,10 +30,10 @@ if [ $do_clean = 1 ]; then
     [ -n "$args_no_clean" ] || exit 0
 fi
 
-pass_blacklist() {
-    for marker in $BLACKLIST_MARKERS; do
+pass_deny_list() {
+    for marker in $DENY_LIST_MARKERS $BLACKLIST_MARKERS; do
         if [ -f "$1/$marker" ]; then
-            echo "========== BLACKLISTED: $1 ($marker) =========="
+            echo "========== DENY-LISTED: $1 ($marker) =========="
             return 1
         fi
     done
@@ -43,7 +43,7 @@ pass_blacklist() {
 for TEST in TEST-??-* ; do
     COUNT=$(($COUNT+1))
 
-    pass_blacklist $TEST || continue
+    pass_deny_list $TEST || continue
     start=$(date +%s)
 
     echo -e "\n--x-- Running $TEST --x--"
