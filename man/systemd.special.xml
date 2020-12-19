@@ -1018,7 +1018,16 @@
             in. systemd automatically adds dependencies of type
             <varname>After=</varname> for this target unit to all SysV
             init script service units with an LSB header referring to
-            the <literal>$time</literal> facility. </para>
+            the <literal>$time</literal> facility, and also to all timer
+            units with at least one <varname>OnCalendar=</varname>
+            directive. </para>
+
+            <para>This target might get reached before the clock is actually synchronized to an accurate reference
+            clock. To prevent that, enable
+            <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            if you're using
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+            or an equivalent service for other NTP implementations.</para>
           </listitem>
         </varlistentry>
       </variablelist>
