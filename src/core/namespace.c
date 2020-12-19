@@ -1184,29 +1184,19 @@ static int apply_mount(
                 bool try_again = false;
 
                 if (r == -ENOENT && make) {
-                        struct stat st;
+                        int q;
 
                         /* Hmm, either the source or the destination are missing. Let's see if we can create
                            the destination, then try again. */
 
-                        if (stat(what, &st) < 0)
-                                log_error_errno(errno, "Mount point source '%s' is not accessible: %m", what);
-                        else {
-                                int q;
+                        (void) mkdir_parents(mount_entry_path(m), 0755);
 
-                                (void) mkdir_parents(mount_entry_path(m), 0755);
-
-                                if (S_ISDIR(st.st_mode))
-                                        q = mkdir(mount_entry_path(m), 0755) < 0 ? -errno : 0;
-                                else
-                                        q = touch(mount_entry_path(m));
-
-                                if (q < 0)
-                                        log_error_errno(q, "Failed to create destination mount point node '%s': %m",
-                                                        mount_entry_path(m));
-                                else
-                                        try_again = true;
-                        }
+                        q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
+                        if (q < 0)
+                                log_error_errno(q, "Failed to create destination mount point node '%s': %m",
+                                                mount_entry_path(m));
+                        else
+                                try_again = true;
                 }
 
                 if (try_again)

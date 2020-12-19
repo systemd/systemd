@@ -32,6 +32,7 @@
 #include "missing_capability.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -908,10 +909,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         /* Second, we mount the source file or directory to a directory inside of our MS_SLAVE playground. */
         mount_tmp = strjoina(mount_slave, "/mount");
-        if (S_ISDIR(st.st_mode))
-                r = mkdir_errno_wrapper(mount_tmp, 0700);
-        else
-                r = touch(mount_tmp);
+        r = make_mount_point_inode_from_stat(&st, mount_tmp, 0700);
         if (r < 0) {
                 sd_bus_error_set_errnof(error, r, "Failed to create temporary mount point %s: %m", mount_tmp);
                 goto finish;
@@ -1003,12 +1001,8 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 }
 
                 if (make_file_or_directory) {
-                        if (S_ISDIR(st.st_mode))
-                                (void) mkdir_p(dest, 0755);
-                        else {
-                                (void) mkdir_parents(dest, 0755);
-                                (void) mknod(dest, S_IFREG|0600, 0);
-                        }
+                        (void) mkdir_parents(dest, 0755);
+                        (void) make_mount_point_inode_from_stat(&st, dest, 0700);
                 }
 
                 mount_inside = strjoina("/run/host/incoming/", basename(mount_outside));
