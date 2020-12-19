@@ -73,7 +73,9 @@ Packages=
         # We pull in the -dev package here, since the binary ones appear to change names too often, and the -dev package pulls the right deps in automatically
         libtss2-dev
         locales
+        nano
         strace
+        vim-tiny
 
 [Host]
 QemuHeadless=yes

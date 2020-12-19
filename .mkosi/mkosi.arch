@@ -56,8 +56,10 @@ BuildPackages=
 Packages=
         gdb
         libidn2
+        nano
         qrencode
         strace
+        vi
 
 [Host]
 QemuHeadless=yes
