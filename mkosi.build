@@ -98,9 +98,9 @@ fi
 
 # Ubuntu Focal is stuck with meson 0.53.0.
 if [ "$(meson -v | cut -d . -f 2)" -gt 53 ] ; then
-        meson install -C "$BUILDDIR" --quiet --no-rebuild
+        meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed
 else
-        meson install -C "$BUILDDIR" --no-rebuild
+        meson install -C "$BUILDDIR" --no-rebuild --only-changed
 fi
 
 mkdir -p "$DESTDIR"/etc
