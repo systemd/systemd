@@ -7,7 +7,7 @@ if [ $# -gt 0 ]; then
 else
     args="setup run clean-again"
 fi
-args_no_clean=$(sed -r 's/\bclean\b//g' <<<$args)
+args_no_clean=$(sed -r 's/\bclean.*\b//g' <<<$args)
 do_clean=$( [ "$args" = "$args_no_clean" ]; echo $? )
 
 ninja -C "$BUILD_DIR"
