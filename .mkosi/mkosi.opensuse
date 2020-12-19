@@ -76,8 +76,10 @@ Packages=
         libqrencode4
         libseccomp2
         pam
+        nano
         strace
         util-linux
+        vi
 
 [Host]
 QemuHeadless=yes
