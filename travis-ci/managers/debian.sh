@@ -19,9 +19,12 @@ ADDITIONAL_DEPS=(
     clang
     fdisk
     libfdisk-dev
+    libfido2-dev
     libp11-kit-dev
     libpwquality-dev
+    libqrencode-dev
     libssl-dev
+    libtss2-dev
     libzstd-dev
     perl
     python3-libevdev

@@ -33,6 +33,7 @@ ADDITIONAL_DEPS=(
     perl
     python3-evdev
     python3-pyparsing
+    tpm2-tss-devel
 )
 
 info() {
