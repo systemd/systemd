@@ -1588,9 +1588,16 @@
         <listitem>
           <para>Sets a comma-separated list of IP (v4 or v6) addresses with CIDR masks
           from which this peer is allowed to send incoming traffic and to
-          which outgoing traffic for this peer is directed. The catch-all
-          0.0.0.0/0 may be specified for matching all IPv4 addresses, and
-          ::/0 may be specified for matching all IPv6 addresses. </para>
+          which outgoing traffic for this peer is directed.</para>
+          <para>The catch-all 0.0.0.0/0 may be specified for matching all IPv4 addresses,
+          and ::/0 may be specified for matching all IPv6 addresses.</para>
+          <para>Note that this only affects "routing inside the network interface itself",
+          as in, which wireguard peer packets with a specific destination address are sent to,
+          and what source addresses are accepted from which peer.</para>
+          <para>To cause packets to be sent via wireguard in first place, a route needs
+          to be added, as well - either in the <literal>[Routes]</literal> section on the
+          <literal>.network</literal> matching the wireguard interface, or outside of networkd.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
