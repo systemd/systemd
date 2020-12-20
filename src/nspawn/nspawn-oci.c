@@ -444,6 +444,8 @@ static int oci_process(const char *name, JsonVariant *v, JsonDispatchFlags flags
 }
 
 static int oci_root(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
+        Settings *s = userdata;
+        int r;
 
         static const JsonDispatch table[] = {
                 { "path",     JSON_VARIANT_STRING,  json_dispatch_string,  offsetof(Settings, root)      },
@@ -451,7 +453,21 @@ static int oci_root(const char *name, JsonVariant *v, JsonDispatchFlags flags, v
                 {}
         };
 
-        return json_dispatch(v, table, oci_unexpected, flags, userdata);
+        r = json_dispatch(v, table, oci_unexpected, flags, s);
+        if (r < 0)
+                return r;
+
+        if (s->root && !path_is_absolute(s->root)) {
+                char *joined;
+
+                joined = path_join(s->bundle, s->root);
+                if (!joined)
+                        return log_oom();
+
+                free_and_replace(s->root, joined);
+        }
+
+        return 0;
 }
 
 static int oci_hostname(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
