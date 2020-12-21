@@ -820,7 +820,7 @@ int journal_file_verify(
         bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
         uint64_t n_weird = 0, n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
         usec_t last_usec = 0;
-        int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
+        _cleanup_close_ int data_fd = -1, entry_fd = -1, entry_array_fd = -1;
         MMapFileDescriptor *cache_data_fd = NULL, *cache_entry_fd = NULL, *cache_entry_array_fd = NULL;
         unsigned i;
         bool found_last = false;
@@ -1289,10 +1289,6 @@ int journal_file_verify(
         mmap_cache_free_fd(f->mmap, cache_entry_fd);
         mmap_cache_free_fd(f->mmap, cache_entry_array_fd);
 
-        safe_close(data_fd);
-        safe_close(entry_fd);
-        safe_close(entry_array_fd);
-
         if (first_contained)
                 *first_contained = le64toh(f->header->head_entry_realtime);
         if (last_validated)
@@ -1311,15 +1307,6 @@ fail:
                   p,
                   (unsigned long long) f->last_stat.st_size,
                   100 * p / f->last_stat.st_size);
-
-        if (data_fd >= 0)
-                safe_close(data_fd);
-
-        if (entry_fd >= 0)
-                safe_close(entry_fd);
-
-        if (entry_array_fd >= 0)
-                safe_close(entry_array_fd);
 
         mmap_cache_free_fd(f->mmap, cache_data_fd);
         mmap_cache_free_fd(f->mmap, cache_entry_fd);
