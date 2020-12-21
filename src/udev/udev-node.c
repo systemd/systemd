@@ -227,7 +227,7 @@ static size_t escape_path(const char *src, char *dest, size_t size) {
 
 /* manage "stack of names" with possibly specified device priorities */
 static int link_update(sd_device *dev, const char *slink, bool add) {
-        _cleanup_free_ char *target = NULL, *filename = NULL, *dirname = NULL;
+        _cleanup_free_ char *filename = NULL, *dirname = NULL;
         char name_enc[PATH_MAX];
         const char *id_filename;
         int i, r, retries;
@@ -270,6 +270,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         retries = sd_device_get_is_initialized(dev) > 0 ? LINK_UPDATE_MAX_RETRIES : 1;
 
         for (i = 0; i < retries; i++) {
+                _cleanup_free_ char *target = NULL;
                 struct stat st1 = {}, st2 = {};
 
                 r = stat(dirname, &st1);
