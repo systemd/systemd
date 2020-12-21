@@ -90,23 +90,28 @@ static void flush_progress(void) {
         fflush(stdout);
 }
 
+static void flush_progress_level(int level) {
+        if (log_get_max_level() >= level)
+                flush_progress();
+}
+
 #define debug(_offset, _fmt, ...) do {                                  \
-                flush_progress();                                       \
+                flush_progress_level(LOG_DEBUG);                        \
                 log_debug(OFSfmt": " _fmt, _offset, ##__VA_ARGS__);     \
         } while (0)
 
 #define warning(_offset, _fmt, ...) do {                                \
-                flush_progress();                                       \
+                flush_progress_level(LOG_WARNING);                      \
                 log_warning(OFSfmt": " _fmt, _offset, ##__VA_ARGS__);   \
         } while (0)
 
 #define error(_offset, _fmt, ...) do {                                  \
-                flush_progress();                                       \
+                flush_progress_level(LOG_ERR);                          \
                 log_error(OFSfmt": " _fmt, (uint64_t)_offset, ##__VA_ARGS__); \
         } while (0)
 
-#define error_errno(_offset, error, _fmt, ...) do {               \
-                flush_progress();                                       \
+#define error_errno(_offset, error, _fmt, ...) do {                     \
+                flush_progress_level(LOG_ERR);                          \
                 log_error_errno(error, OFSfmt": " _fmt, (uint64_t)_offset, ##__VA_ARGS__); \
         } while (0)
 
