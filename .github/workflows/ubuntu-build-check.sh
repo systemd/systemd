@@ -37,6 +37,7 @@ PACKAGES=(
     libpwquality-dev
     libqrencode-dev
     libssl-dev
+    libtss2-dev
     libxkbcommon-dev
     libxtables-dev
     libzstd-dev

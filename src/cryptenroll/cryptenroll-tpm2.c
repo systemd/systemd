@@ -61,7 +61,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 uint32_t pcr_mask) {
 
         _cleanup_(erase_and_freep) void *secret = NULL, *secret2 = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *a = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         size_t secret_size, secret2_size, blob_size, hash_size;
         _cleanup_free_ void *blob = NULL, *hash = NULL;
