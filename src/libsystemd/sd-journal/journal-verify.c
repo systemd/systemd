@@ -806,7 +806,7 @@ static int verify_entry_array(
         return 0;
 }
 
-int journal_file_verify(
+static int verify_journal_file(
                 JournalFile *f,
                 const char *key,
                 usec_t *first_contained, usec_t *last_validated, usec_t *last_contained,
@@ -1312,4 +1312,38 @@ fail:
         mmap_cache_free_fd(f->mmap, cache_entry_array_fd);
 
         return r;
+}
+
+int journal_file_verify(
+                JournalFile *f,
+                const char *key,
+                usec_t *first_contained, usec_t *last_validated, usec_t *last_contained,
+                bool show_progress) {
+
+        le64_t tail_object_offset;
+        uint8_t state;
+        int r;
+
+        assert(f);
+
+        state = READ_NOW(f->header->state);
+
+        /* Remember where the last object lives when we started the verification so we can check
+         * later whether new ojbects have been appended if something goes wrong. */
+        if (state != STATE_ARCHIVED)
+                tail_object_offset = READ_NOW(f->header->tail_object_offset);
+
+        r = verify_journal_file(f, key, first_contained, last_validated, last_contained, show_progress);
+        if (r != -EBADMSG || state == STATE_ARCHIVED)
+                return r;
+
+        /* So we detected a potential file corruption. Make sure no new object was added since we
+         * started the validation otherwise the picture we took of the journal file at the
+         * beginning of the validation might have become outdated hence inconsistent with the data
+         * we expect to read. If that's the case, we return EAGAIN so the caller can choose to
+         * retry the verification. */
+         if (tail_object_offset != READ_NOW(f->header->tail_object_offset))
+                 return -EAGAIN;
+
+         return r;
 }
