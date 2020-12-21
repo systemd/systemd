@@ -334,6 +334,16 @@ int journal_importer_process_data(JournalImporter *imp) {
                         if (r < 0)
                                 return r;
                 } else {
+                        if (!journal_field_valid(line, n - 1, true)) {
+                                char buf[64], *t;
+
+                                t = strndupa(line, n - 1);
+                                log_debug("Ignoring invalid field: \"%s\"",
+                                          cellescape(buf, sizeof buf, t));
+
+                                return 0;
+                        }
+
                         /* replace \n with = */
                         line[n-1] = '=';
 
