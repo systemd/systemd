@@ -2029,12 +2029,16 @@ static int verify(sd_journal *j) {
                         log_info("PASS: %s", f->path);
 
                         if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
-                                if (validated > 0) {
-                                        log_info("=> Validated from %s to %s, final %s entries not sealed.",
+                                if (last == validated)
+                                        log_info("=> Validated from %s to %s, all entries sealed.",
+                                                 format_timestamp_maybe_utc(a, sizeof(a), first),
+                                                 format_timestamp_maybe_utc(b, sizeof(b), validated));
+                                else if (validated > 0)
+                                        log_info("=> Validated from %s to %s, final %s of entries not sealed.",
                                                  format_timestamp_maybe_utc(a, sizeof(a), first),
                                                  format_timestamp_maybe_utc(b, sizeof(b), validated),
-                                                 format_timespan(c, sizeof(c), last > validated ? last - validated : 0, 0));
-                                } else if (last > 0)
+                                                 format_timespan(c, sizeof(c), last - validated, 0));
+                                else if (last > 0)
                                         log_info("=> No sealing yet, %s of entries not sealed.",
                                                  format_timespan(c, sizeof(c), last - first, 0));
                                 else
