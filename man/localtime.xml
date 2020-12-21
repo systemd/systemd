@@ -41,6 +41,9 @@
     symlink target name of <filename>/etc/localtime</filename>, this
     file may not be a normal file or hardlink.</para>
 
+    <para>If <filename>/etc/localtime</filename> is missing, the
+    default <literal>UTC</literal> timezone is used.</para>
+
     <para>The timezone may be overridden for individual programs by
     using the <varname>$TZ</varname> environment variable. See
     <citerefentry project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
