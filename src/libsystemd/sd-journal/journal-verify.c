@@ -1321,14 +1321,9 @@ fail:
         if (entry_array_fd >= 0)
                 safe_close(entry_array_fd);
 
-        if (cache_data_fd)
-                mmap_cache_free_fd(f->mmap, cache_data_fd);
-
-        if (cache_entry_fd)
-                mmap_cache_free_fd(f->mmap, cache_entry_fd);
-
-        if (cache_entry_array_fd)
-                mmap_cache_free_fd(f->mmap, cache_entry_array_fd);
+        mmap_cache_free_fd(f->mmap, cache_data_fd);
+        mmap_cache_free_fd(f->mmap, cache_entry_fd);
+        mmap_cache_free_fd(f->mmap, cache_entry_array_fd);
 
         return r;
 }
