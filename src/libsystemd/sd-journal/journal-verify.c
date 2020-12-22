@@ -834,15 +834,14 @@ int journal_file_verify(
         if (key) {
 #if HAVE_GCRYPT
                 r = journal_file_parse_verification_key(f, key);
-                if (r < 0) {
-                        log_error("Failed to parse seed.");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse seed: %m");
 #else
                 return -EOPNOTSUPP;
 #endif
         } else if (f->seal)
-                return -ENOKEY;
+                return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
+                                       "File has sealing enabled but no verification key was provided.");
 
         r = var_tmp_dir(&tmp_dir);
         if (r < 0) {

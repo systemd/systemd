@@ -2013,11 +2013,6 @@ static int verify(sd_journal *j) {
                 int k;
                 usec_t first = 0, validated = 0, last = 0;
 
-#if HAVE_GCRYPT
-                if (!arg_verify_key && JOURNAL_HEADER_SEALED(f->header))
-                        log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
-#endif
-
                 k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, true);
                 if (k == -EINVAL)
                         /* If the key was invalid give up right-away. */
@@ -2028,7 +2023,9 @@ static int verify(sd_journal *j) {
                         char a[FORMAT_TIMESTAMP_MAX], b[FORMAT_TIMESTAMP_MAX], c[FORMAT_TIMESPAN_MAX];
                         log_info("PASS: %s", f->path);
 
-                        if (arg_verify_key && JOURNAL_HEADER_SEALED(f->header)) {
+                        if (f->seal) {
+                                assert(arg_verify_key);
+
                                 if (last == validated)
                                         log_info("=> Validated from %s to %s, all entries sealed.",
                                                  format_timestamp_maybe_utc(a, sizeof(a), first),
