@@ -60,6 +60,8 @@ static bool arg_verify = false;
 static bool arg_discards = false;
 static bool arg_same_cpu_crypt = false;
 static bool arg_submit_from_crypt_cpus = false;
+static bool arg_no_read_workqueue = false;
+static bool arg_no_write_workqueue = false;
 static bool arg_tcrypt_hidden = false;
 static bool arg_tcrypt_system = false;
 static bool arg_tcrypt_veracrypt = false;
@@ -236,6 +238,10 @@ static int parse_one_option(const char *option) {
                 arg_same_cpu_crypt = true;
         else if (streq(option, "submit-from-crypt-cpus"))
                 arg_submit_from_crypt_cpus = true;
+        else if (streq(option, "no-read-workqueue"))
+                arg_no_read_workqueue = true;
+        else if (streq(option, "no-write-workqueue"))
+                arg_no_write_workqueue = true;
         else if (streq(option, "luks"))
                 arg_type = ANY_LUKS;
 /* since cryptsetup 2.3.0 (Feb 2020) */
@@ -1351,6 +1357,12 @@ static uint32_t determine_flags(void) {
 
         if (arg_submit_from_crypt_cpus)
                 flags |= CRYPT_ACTIVATE_SUBMIT_FROM_CRYPT_CPUS;
+
+        if (arg_no_read_workqueue)
+                flags |= CRYPT_ACTIVATE_NO_READ_WORKQUEUE;
+
+        if (arg_no_write_workqueue)
+                flags |= CRYPT_ACTIVATE_NO_WRITE_WORKQUEUE;
 
 #ifdef CRYPT_ACTIVATE_SERIALIZE_MEMORY_HARD_PBKDF
         /* Try to decrease the risk of OOM event if memory hard key derivation function is in use */
