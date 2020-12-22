@@ -28,6 +28,7 @@ AssertPathIsSymbolicLink=
 AssertSecurity=
 AssertUser=
 AssertVirtualization=
+BPFProgram=
 Before=
 BindTo=
 BindsTo=

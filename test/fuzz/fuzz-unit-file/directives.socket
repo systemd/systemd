@@ -5,6 +5,7 @@ AllowedCPUs=
 AllowedMemoryNodes=
 AmbientCapabilities=
 AppArmorProfile=
+BPFProgram=
 Backlog=
 BindIPv6Only=
 BindPaths=
