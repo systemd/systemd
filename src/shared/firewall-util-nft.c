@@ -30,6 +30,9 @@
 
 #define UDP_DPORT_OFFSET 2
 
+void nft_in6addr_to_range(const union in_addr_union *source, unsigned int prefixlen,
+                          struct in6_addr *start, struct in6_addr *end);
+
 static int nfnl_netlink_sendv(sd_netlink *nfnl,
                               sd_netlink_message *messages[],
                               size_t msgcount) {
@@ -845,8 +848,8 @@ static int fw_nftables_recreate_table(sd_netlink *nfnl, int af, sd_netlink_messa
         return 0;
 }
 
-static void nft_in6addr_to_range(const union in_addr_union *source, unsigned int prefixlen,
-                                 struct in6_addr *ret_start, struct in6_addr *ret_end) {
+void nft_in6addr_to_range(const union in_addr_union *source, unsigned int prefixlen,
+                          struct in6_addr *ret_start, struct in6_addr *ret_end) {
         uint8_t carry = 0;
         int i, j;
 
