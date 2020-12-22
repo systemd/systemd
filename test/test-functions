@@ -1058,8 +1058,14 @@ EOF
 }
 
 install_user_dbus() {
-    inst $ROOTLIBDIR/user/dbus.socket
-    inst_symlink /usr/lib/systemd/user/sockets.target.wants/dbus.socket || inst_symlink /etc/systemd/user/sockets.target.wants/dbus.socket
+    local userunitdir
+    if ! userunitdir=$(pkg-config --variable=systemduserunitdir systemd); then
+        echo "WARNING! Cannot determine userunitdir from pkg-config, assuming /usr/lib/systemd/user" >&2
+        local userunitdir=/usr/lib/systemd/user
+    fi
+
+    inst $userunitdir/dbus.socket
+    inst_symlink $userunitdir/sockets.target.wants/dbus.socket || inst_symlink /etc/systemd/user/sockets.target.wants/dbus.socket
 
     # Append the After= dependency on dbus in case it isn't already set up
     mkdir -p "$initdir/etc/systemd/system/user@.service.d/"
@@ -1069,16 +1075,16 @@ After=dbus.service
 EOF
 
     # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
-    if [ -f $ROOTLIBDIR/user/dbus-broker.service ]; then
-        inst $ROOTLIBDIR/user/dbus-broker.service
+    if [ -f $userunitdir/dbus-broker.service ]; then
+        inst $userunitdir/dbus-broker.service
         inst_symlink /etc/systemd/user/dbus.service
     elif [ -f $ROOTLIBDIR/system/dbus-daemon.service ]; then
         # Fedora rawhide replaced dbus.service with dbus-daemon.service
-        inst $ROOTLIBDIR/user/dbus-daemon.service
+        inst $userunitdir/dbus-daemon.service
         # Alias symlink
         inst_symlink /etc/systemd/user/dbus.service
     else
-        inst $ROOTLIBDIR/user/dbus.service
+        inst $userunitdir/dbus.service
     fi
 }
 
