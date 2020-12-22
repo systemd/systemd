@@ -873,6 +873,7 @@ ReadWritePaths=
 RemoveIPC=
 ReserveVT=
 RestrictAddressFamilies=
+RestrictFileSystems=
 RestrictNamespaces=
 RestrictRealtime=
 RestrictSUIDSGID=
