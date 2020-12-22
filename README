@@ -35,6 +35,8 @@ LICENSE:
 REQUIREMENTS:
         Linux kernel >= 3.13
         Linux kernel >= 4.2 for unified cgroup hierarchy support
+        Linux kernel >= 4.10 for cgroup-bpf egress and ingress hooks
+        Linux kernel >= 4.15 for cgroup-bpf device hook
         Linux kernel >= 5.4 for signed Verity images support
 
         Kernel Config Options:
@@ -97,6 +99,8 @@ REQUIREMENTS:
 
         Required for IPAddressDeny= and IPAddressAllow= in resource control
         unit settings
+          CONFIG_BPF
+          CONFIG_BPF_SYSCALL
           CONFIG_CGROUP_BPF
 
         For UEFI systems:
