@@ -273,6 +273,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>no-read-workqueue</option></term>
+
+        <listitem><para>Bypass dm-crypt internal workqueue and process read requests synchronously. The
+        default is to queue these requests and process them asynchronously.</para>
+
+        <para>This requires kernel 5.9 or newer.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>no-write-workqueue</option></term>
+
+        <listitem><para>Bypass dm-crypt internal workqueue and process write requests synchronously. The
+        default is to queue these requests and process them asynchronously.</para>
+
+        <para>This requires kernel 5.9 or newer.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>skip=</option></term>
 
         <listitem><para>How many 512-byte sectors of the encrypted data to skip at the
