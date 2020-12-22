@@ -2,6 +2,7 @@ slice
 [Slice]
 AllowedCPUs=
 AllowedMemoryNodes=
+BPFProgram=
 BlockIOAccounting=
 BlockIODeviceWeight=
 BlockIOReadBandwidth=
