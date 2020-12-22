@@ -14,12 +14,12 @@ test_create_image() {
     (
         LOG_LEVEL=5
         setup_basic_environment
+        mask_supporting_services
 
         # install tests manually so the test is functional even when -Dinstall-tests=false
         mkdir -p $initdir/usr/lib/systemd/tests/testdata/units/
         cp -v $(dirname $0)/../units/{testsuite-01,end}.service $initdir/usr/lib/systemd/tests/testdata/units/
     )
-    setup_nspawn_root
 }
 
 do_test "$@" 01
