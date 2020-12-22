@@ -1575,7 +1575,7 @@ inst_binary() {
     # In such cases, let's check if the binary indeed exists in the image
     # before doing any other chcecks. If it does, immediately return with
     # success.
-    [[ $# -eq 1 && -e $initdir/$1 ]] && return 0
+    [[ $# -eq 1 && -e $initdir/$1 || -e $initdir/bin/$1 || -e $initdir/sbin/$1 || -e $initdir/usr/bin/$1 || -e $initdir/usr/sbin/$1 ]] && return 0
 
     _bin=$(find_binary "$1") || return 1
     _target=${2:-$_bin}
