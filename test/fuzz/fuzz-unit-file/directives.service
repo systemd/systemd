@@ -30,6 +30,7 @@ AssertPathIsSymbolicLink=
 AssertSecurity=
 AssertUser=
 AssertVirtualization=
+BPFProgram=
 Backlog=
 Before=
 BindIPv6Only=
