@@ -6,6 +6,14 @@
 #if HAVE_LIBCRYPTSETUP
 #include <libcryptsetup.h>
 
+/* These next two are defined in libcryptsetup.h from cryptsetup version 2.3.4 forwards. */
+#ifndef CRYPT_ACTIVATE_NO_READ_WORKQUEUE
+#define CRYPT_ACTIVATE_NO_READ_WORKQUEUE (1 << 24)
+#endif
+#ifndef CRYPT_ACTIVATE_NO_WRITE_WORKQUEUE
+#define CRYPT_ACTIVATE_NO_WRITE_WORKQUEUE (1 << 25)
+#endif
+
 extern int (*sym_crypt_activate_by_passphrase)(struct crypt_device *cd, const char *name, int keyslot, const char *passphrase, size_t passphrase_size, uint32_t flags);
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
 extern int (*sym_crypt_activate_by_signed_key)(struct crypt_device *cd, const char *name, const char *volume_key, size_t volume_key_size, const char *signature, size_t signature_size, uint32_t flags);
