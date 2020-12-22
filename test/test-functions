@@ -2107,6 +2107,11 @@ do_test() {
         exit 0
     fi
 
+    if [ -n "$TEST_NO_QEMU" ] && [ -n "$TEST_NO_NSPAWN" ]; then
+        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: both QEMU and nspawn disabled" >&2
+        exit 0
+    fi
+
     # Detect lib paths
     [[ $libdir ]] || for libdir in /lib64 /lib; do
         [[ -d $libdir ]] && libdirs+=" $libdir" && break
