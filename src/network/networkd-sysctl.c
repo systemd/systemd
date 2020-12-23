@@ -100,6 +100,10 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         if (!link->network)
                 return 0;
 
+        // this is the special "kernel" value
+        if (link->network->ipv6_privacy_extensions == _IPV6_PRIVACY_EXTENSIONS_INVALID)
+                return 0;
+
         return sysctl_write_ip_property_int(AF_INET6, link->ifname, "use_tempaddr", (int) link->network->ipv6_privacy_extensions);
 }
 
@@ -194,7 +198,7 @@ int link_set_sysctl(Link *link) {
 
         r = link_set_ipv6_privacy_extensions(link);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extension for interface, ignoring: %m");
+                log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extensions for interface, ignoring: %m");
 
         r = link_set_ipv6_accept_ra(link);
         if (r < 0)
