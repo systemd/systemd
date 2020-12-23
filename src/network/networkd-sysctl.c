@@ -194,7 +194,7 @@ int link_set_sysctl(Link *link) {
 
         r = link_set_ipv6_privacy_extensions(link);
         if (r < 0)
-                log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extension for interface, ignoring: %m");
+                log_link_warning_errno(link, r, "Cannot configure IPv6 privacy extensions for interface, ignoring: %m");
 
         r = link_set_ipv6_accept_ra(link);
         if (r < 0)
