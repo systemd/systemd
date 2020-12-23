@@ -704,7 +704,8 @@
           this way is used, similar to the behavior if "yes" is specified. If the check is not successful (and thus
           the UID/GID range indicated in the root directory's file owner is already used elsewhere) a new – currently
           unused – UID/GID range of 65536 UIDs/GIDs is randomly chosen between the host UID/GIDs of 524288 and
-          1878982656, always starting at a multiple of 65536. This setting implies
+          1878982656, always starting at a multiple of 65536, and, if possible, consistently hashed from the machine
+          name. This setting implies
           <option>--private-users-chown</option> (see below), which has the effect that the files and directories in
           the container's directory tree will be owned by the appropriate users of the range picked. Using this option
           makes user namespace behavior fully automatic. Note that the first invocation of a previously unused
