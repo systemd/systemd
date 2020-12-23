@@ -61,10 +61,59 @@ This is based on crypttab(5).
     <variablelist class='fstab-options'>
 
       <varlistentry>
+        <term><option>superblock=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Use dm-verity with or without permanent on-disk superblock.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>format=<replaceable>NUMBER</replaceable></option></term>
+
+        <listitem><para>Specifies the hash version type. Format type 0 is original Chrome OS version. Format type 1 is
+        modern version.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>data-block-size=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>Used block size for the data device. (Note kernel supports only page-size as maximum
+        here; Multiples of 512 bytes.) </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>hash-block-size=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>Used block size for the hash device. (Note kernel supports only page-size as maximum
+        here; Multiples of 512 bytes.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>data-blocks=<replaceable>BLOCKS</replaceable></option></term>
+
+        <listitem><para>Number of blocks of data device used in verification. If not specified, the whole device is
+        used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>hash-offset=<replaceable>BYTES</replaceable></option></term>
 
         <listitem><para>Offset of hash area/superblock on <literal>hash-device</literal>. (Multiples of 512 bytes.)
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>salt=<replaceable>HEX</replaceable></option></term>
+
+        <listitem><para>Salt used for format or verification. Format is a hexadecimal string; 256 bytes long maximum;
+        <literal>-</literal>is the special value for empty.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>uuid=<replaceable>UUID</replaceable></option></term>
+
+        <listitem><para>Use the provided UUID for format command instead of generating new one. The UUID must be
+        provided in standard UUID format, e.g. 12345678-1234-1234-1234-123456789abc.</para></listitem>
+        <listitem><para></para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -99,6 +148,13 @@ This is based on crypttab(5).
         WARNING: It provides a reduced level of security because only offline tampering of the data device's content
         will be detected, not online tampering. This option is available since Linux kernel version 4.17.
         </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>hash=<replaceable>HASH</replaceable></option></term>
+
+        <listitem><para>Hash algorithm for dm-verity. This should be the name of the algorithm, like "sha1". For default
+        see <command>veritysetup --help</command>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
