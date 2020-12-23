@@ -1275,6 +1275,9 @@ static int client_timeout_resend(
         case DHCP_STATE_STOPPED:
                 r = -EINVAL;
                 goto error;
+
+        default:
+                assert_not_reached("Unhandled choice");
         }
 
         r = event_reset_time(client->event, &client->timeout_resend,
