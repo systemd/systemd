@@ -100,6 +100,10 @@ static int link_set_ipv6_privacy_extensions(Link *link) {
         if (!link->network)
                 return 0;
 
+        // this is the special "kernel" value
+        if (link->network->ipv6_privacy_extensions == _IPV6_PRIVACY_EXTENSIONS_INVALID)
+                return 0;
+
         return sysctl_write_ip_property_int(AF_INET6, link->ifname, "use_tempaddr", (int) link->network->ipv6_privacy_extensions);
 }
 
