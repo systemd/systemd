@@ -200,22 +200,24 @@ static void log_job_error_with_service_result(const char* service, const char *r
 
                 if (i < ELEMENTSOF(explanations)) {
                         log_error("Job for %s failed because %s.\n"
-                                  "See \"%s status %s\" and \"%s -xe\" for details.\n",
+                                  "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
                                   service,
                                   explanations[i].explanation,
                                   systemctl,
                                   service_shell_quoted ?: "<service>",
-                                  journalctl);
+                                  journalctl,
+                                  service_shell_quoted ?: "<service>");
                         goto finish;
                 }
         }
 
         log_error("Job for %s failed.\n"
-                  "See \"%s status %s\" and \"%s -xe\" for details.\n",
+                  "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
                   service,
                   systemctl,
                   service_shell_quoted ?: "<service>",
-                  journalctl);
+                  journalctl,
+                  service_shell_quoted ?: "<service>");
 
 finish:
         /* For some results maybe additional explanation is required */
