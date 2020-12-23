@@ -497,7 +497,7 @@ int server_open_syslog_socket(Server *s, const char *syslog_socket) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add syslog server fd to event loop: %m");
 
-        r = sd_event_source_set_priority(s->syslog_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        r = sd_event_source_set_priority(s->syslog_event_source, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust syslog event source priority: %m");
 
