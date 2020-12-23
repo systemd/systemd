@@ -16,10 +16,22 @@
 #include "string-util.h"
 #include "terminal-util.h"
 
+static char *arg_hash = NULL;
+static bool arg_no_superblock = false;
+static int arg_format = 1;
+static uint64_t arg_data_block_size = 4096;
+static uint64_t arg_hash_block_size = 4096;
+static uint64_t arg_data_blocks = 0;
 static uint64_t arg_hash_offset = 0;
+static void *arg_salt = NULL;
+static uint64_t arg_salt_size = 32;
+static char *arg_uuid = NULL;
 static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
 static char *arg_root_hash_signature = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_salt, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_uuid, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
 
 static int help(void) {
@@ -109,11 +121,63 @@ static int parse_options(const char *options) {
                 else if (streq(word, "panic-on-corruption"))
                         arg_activate_flags |= CRYPT_ACTIVATE_PANIC_ON_CORRUPTION;
 #endif
-                else if ((val = startswith(word, "hash-offset="))) {
+                else if ((val = startswith(word, "no-superblock="))) {
+
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to parse %s, ignoring: %m", word);
+
+                        arg_no_superblock = r;
+                } else if ((val = startswith(word, "format="))) {
+
+                        r = safe_atoi(val, &arg_format);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to parse %s, ignoring: %m", word);
+                } else if ((val = startswith(word, "data-block-size="))) {
+
+                        r = safe_atou64(val, &arg_data_block_size);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to parse %s, ignoring: %m", word);
+                } else if ((val = startswith(word, "hash-block-size="))) {
+
+                        r = safe_atou64(val, &arg_hash_block_size);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to parse %s, ignoring: %m", word);
+                } else if ((val = startswith(word, "data-blocks="))) {
+
+                        r = safe_atou64(val, &arg_data_blocks);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to parse %s, ignoring: %m", word);
+                } else if ((val = startswith(word, "hash-offset="))) {
 
                         r = safe_atou64(val, &arg_hash_offset);
                         if (r < 0)
                                 log_error_errno(r, "Failed to parse %s, ignoring: %m", word);
+                } else if ((val = startswith(word, "salt="))) {
+
+                        if (!*val) {
+                                free(arg_salt);
+                                arg_salt = NULL;
+                                arg_salt_size = 32;
+                        } else if (streq(val, "-")) {
+                                free(arg_salt);
+                                arg_salt = NULL;
+                                arg_salt_size = 0;
+                        } else {
+                                r = unhexmem(val, strlen(val), &arg_salt, &arg_salt_size);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                } else if ((val = startswith(word, "uuid="))) {
+
+                        r = free_and_strdup(&arg_uuid, val);
+                        if (r < 0)
+                                return log_oom();
+                } else if ((val = startswith(word, "hash="))) {
+
+                        r = free_and_strdup(&arg_hash, val);
+                        if (r < 0)
+                                return log_oom();
                 } else if ((val = startswith(word, "root-hash-signature="))) {
 
                         r = looks_like_roothashsig(val);
@@ -148,6 +212,7 @@ static int run(int argc, char *argv[]) {
         umask(0022);
 
         if (streq(argv[1], "attach")) {
+                struct crypt_params_verity params = {};
                 _cleanup_free_ void *m = NULL;
                 struct crypt_params_verity p = {};
                 crypt_status_info status;
@@ -180,9 +245,31 @@ static int run(int argc, char *argv[]) {
                         p.hash_area_offset = arg_hash_offset;
                 }
 
-                r = crypt_load(cd, CRYPT_VERITY, &p);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load verity superblock: %m");
+                if (!arg_no_superblock) {
+                        p.hash_area_offset = arg_hash_offset;
+
+                        r = crypt_load(cd, CRYPT_VERITY, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to load verity superblock: %m");
+                } else {
+                        p.hash_name = arg_hash;
+                        p.data_device = argv[3];
+                        p.salt = NULL;
+                        p.salt_size = 32;
+                        p.salt = arg_salt;
+                        p.salt_size = arg_salt_size;
+                        p.hash_type = arg_format;
+                        p.data_block_size = arg_data_block_size;
+                        p.hash_block_size = arg_hash_block_size;
+                        p.data_size = arg_data_blocks;
+                        p.hash_area_offset = arg_hash_offset;
+                        p.flags = CRYPT_VERITY_NO_HEADER;
+
+                        r = crypt_format(cd, CRYPT_VERITY, NULL, NULL, arg_uuid, NULL, 0, &params);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to format verity superblock: %m");
+                }
+
 
                 r = crypt_set_data_device(cd, argv[3]);
                 if (r < 0)
