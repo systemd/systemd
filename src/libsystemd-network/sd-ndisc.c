@@ -221,8 +221,7 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         if (!rt)
                 return -ENOMEM;
 
-        r = icmp6_receive(fd, NDISC_ROUTER_RAW(rt), rt->raw_size, &rt->address,
-                     &rt->timestamp);
+        r = icmp6_receive(fd, NDISC_ROUTER_RAW(rt), rt->raw_size, &rt->address, &rt->timestamp);
         if (r < 0) {
                 switch (r) {
                 case -EADDRNOTAVAIL:
