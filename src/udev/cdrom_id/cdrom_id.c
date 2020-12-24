@@ -124,16 +124,23 @@ static unsigned cd_media_track_count_data;
 static unsigned cd_media_track_count_audio;
 static unsigned long long int cd_media_session_last_offset;
 
-#define ERRCODE(s)        ((((s)[2] & 0x0F) << 16) | ((s)[12] << 8) | ((s)[13]))
-#define SK(errcode)        (((errcode) >> 16) & 0xF)
-#define ASC(errcode)        (((errcode) >> 8) & 0xFF)
-#define ASCQ(errcode)        ((errcode) & 0xFF)
+#define ERRCODE(s)      ((((s)[2] & 0x0F) << 16) | ((s)[12] << 8) | ((s)[13]))
+#define SK(errcode)     (((errcode) >> 16) & 0xF)
+#define ASC(errcode)    (((errcode) >> 8) & 0xFF)
+#define ASCQ(errcode)   ((errcode) & 0xFF)
+#define CHECK_CONDITION 0x01
 
-static void info_scsi_cmd_err(const char *cmd, int err) {
-        if (err == -1)
-                log_debug("%s failed", cmd);
-        else
-                log_debug("%s failed with SK=%Xh/ASC=%02Xh/ACQ=%02Xh", cmd, SK(err), ASC(err), ASCQ(err));
+static int log_scsi_debug_errno(int error, const char *msg) {
+        assert(error != 0);
+
+        /* error < 0 means errno-style error, error > 0 means SCSI error */
+
+        if (error < 0)
+                return log_debug_errno(error, "Failed to %s: %m", msg);
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                               "Failed to %s with SK=%X/ASC=%02X/ACQ=%02X",
+                               msg, SK(error), ASC(error), ASCQ(error));
 }
 
 struct scsi_cmd {
@@ -161,10 +168,14 @@ static void scsi_cmd_set(struct scsi_cmd *cmd, size_t i, unsigned char arg) {
         cmd->cgc.cmd[i] = arg;
 }
 
-#define CHECK_CONDITION 0x01
-
 static int scsi_cmd_run(struct scsi_cmd *cmd, int fd, unsigned char *buf, size_t bufsize) {
-        int ret = 0;
+        int r;
+
+        assert(cmd);
+        assert(fd >= 0);
+        assert(buf || bufsize == 0);
+
+        /* Return 0 on success. On failure, return negative errno or positive error code. */
 
         if (bufsize > 0) {
                 cmd->sg_io.dxferp = buf;
@@ -173,19 +184,31 @@ static int scsi_cmd_run(struct scsi_cmd *cmd, int fd, unsigned char *buf, size_t
         } else
                 cmd->sg_io.dxfer_direction = SG_DXFER_NONE;
 
-        if (ioctl(fd, SG_IO, &cmd->sg_io))
-                return -1;
+        if (ioctl(fd, SG_IO, &cmd->sg_io) < 0)
+                return -errno;
 
         if ((cmd->sg_io.info & SG_INFO_OK_MASK) != SG_INFO_OK) {
-                errno = EIO;
-                ret = -1;
                 if (cmd->sg_io.masked_status & CHECK_CONDITION) {
-                        ret = ERRCODE(cmd->_sense.u);
-                        if (ret == 0)
-                                ret = -1;
+                        r = ERRCODE(cmd->_sense.u);
+                        if (r != 0)
+                                return r;
                 }
+                return -EIO;
         }
-        return ret;
+
+        return 0;
+}
+
+static int scsi_cmd_run_and_log(struct scsi_cmd *cmd, int fd, unsigned char *buf, size_t bufsize, const char *msg) {
+        int r;
+
+        assert(msg);
+
+        r = scsi_cmd_run(cmd, fd, buf, bufsize);
+        if (r != 0)
+                return log_scsi_debug_errno(r, msg);
+
+        return 0;
 }
 
 static int media_lock(int fd, bool lock) {
@@ -205,18 +228,13 @@ static int media_lock(int fd, bool lock) {
 
 static int media_eject(int fd) {
         struct scsi_cmd sc;
-        int err;
 
         scsi_cmd_init(&sc);
         scsi_cmd_set(&sc, 0, GPCMD_START_STOP_UNIT);
         scsi_cmd_set(&sc, 4, 0x02);
         scsi_cmd_set(&sc, 5, 0);
-        err = scsi_cmd_run(&sc, fd, NULL, 0);
-        if (err != 0) {
-                info_scsi_cmd_err("START_STOP_UNIT", err);
-                return -1;
-        }
-        return 0;
+
+        return scsi_cmd_run_and_log(&sc, fd, NULL, 0, "start/stop unit");
 }
 
 static int cd_capability_compat(int fd) {
@@ -254,20 +272,18 @@ static int cd_media_compat(int fd) {
 static int cd_inquiry(int fd) {
         struct scsi_cmd sc;
         unsigned char inq[36];
-        int err;
+        int r;
 
         scsi_cmd_init(&sc);
         scsi_cmd_set(&sc, 0, GPCMD_INQUIRY);
         scsi_cmd_set(&sc, 4, sizeof(inq));
         scsi_cmd_set(&sc, 5, 0);
-        err = scsi_cmd_run(&sc, fd, inq, sizeof(inq));
-        if (err != 0) {
-                info_scsi_cmd_err("INQUIRY", err);
-                return -1;
-        }
+        r = scsi_cmd_run_and_log(&sc, fd, inq, sizeof(inq), "inquire");
+        if (r < 0)
+                return r;
 
         if ((inq[0] & 0x1F) != 5)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "not an MMC unit");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Not an MMC unit");
 
         log_debug("INQUIRY: [%.8s][%.16s][%.4s]", inq + 8, inq + 16, inq + 32);
         return 0;
@@ -627,7 +643,7 @@ static int feature_profiles(const unsigned char *profiles, size_t size) {
 static int cd_profiles_old_mmc(int fd) {
         struct scsi_cmd sc;
         size_t len;
-        int err;
+        int r;
 
         disc_information discinfo;
 
@@ -635,32 +651,30 @@ static int cd_profiles_old_mmc(int fd) {
         scsi_cmd_set(&sc, 0, GPCMD_READ_DISC_INFO);
         scsi_cmd_set(&sc, 8, sizeof(discinfo.disc_information_length));
         scsi_cmd_set(&sc, 9, 0);
-        err = scsi_cmd_run(&sc, fd, (unsigned char *)&discinfo.disc_information_length, sizeof(discinfo.disc_information_length));
-
-        if (err == 0) {
+        r = scsi_cmd_run_and_log(&sc, fd, (unsigned char *)&discinfo.disc_information_length, sizeof(discinfo.disc_information_length), "read disc information");
+        if (r >= 0) {
                 /* Not all drives have the same disc_info length, so requeue
                  * packet with the length the drive tells us it can supply */
                 len = be16toh(discinfo.disc_information_length) + sizeof(discinfo.disc_information_length);
                 if (len > sizeof(discinfo))
                         len = sizeof(discinfo);
+
                 scsi_cmd_init(&sc);
                 scsi_cmd_set(&sc, 0, GPCMD_READ_DISC_INFO);
                 scsi_cmd_set(&sc, 8, len);
                 scsi_cmd_set(&sc, 9, 0);
-                err = scsi_cmd_run(&sc, fd, (unsigned char *)&discinfo, len);
+                r = scsi_cmd_run_and_log(&sc, fd, (unsigned char *)&discinfo, len, "read disc information");
         }
-
-        if (err != 0) {
-                info_scsi_cmd_err("READ DISC INFORMATION", err);
+        if (r < 0) {
                 if (cd_media == 1) {
-                        log_debug("no current profile, but disc is present; assuming CD-ROM");
+                        log_debug("No current profile, but disc is present; assuming CD-ROM.");
                         cd_media_cd_rom = 1;
                         cd_media_track_count = 1;
                         cd_media_track_count_data = 1;
                         return 0;
                 } else
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
-                                               "no current profile, assuming no media");
+                                               "no current profile, assuming no media.");
         };
 
         cd_media = 1;
@@ -675,6 +689,7 @@ static int cd_profiles_old_mmc(int fd) {
                 cd_media_cd_rom = 1;
                 log_debug("profile 0x08 media_cd_rom");
         }
+
         return 0;
 }
 
@@ -685,26 +700,23 @@ static int cd_profiles(int fd) {
         unsigned cur_profile = 0;
         unsigned len;
         unsigned i;
-        int err;
-        int ret;
-
-        ret = -1;
+        int r, ret = -1;
 
         /* First query the current profile */
         scsi_cmd_init(&sc);
         scsi_cmd_set(&sc, 0, GPCMD_GET_CONFIGURATION);
         scsi_cmd_set(&sc, 8, 8);
         scsi_cmd_set(&sc, 9, 0);
-        err = scsi_cmd_run(&sc, fd, features, 8);
-        if (err != 0) {
-                info_scsi_cmd_err("GET CONFIGURATION", err);
+        r = scsi_cmd_run(&sc, fd, features, 8);
+        if (r != 0) {
                 /* handle pre-MMC2 drives which do not support GET CONFIGURATION */
-                if (SK(err) == 0x5 && IN_SET(ASC(err), 0x20, 0x24)) {
-                        log_debug("drive is pre-MMC2 and does not support 46h get configuration command");
-                        log_debug("trying to work around the problem");
-                        ret = cd_profiles_old_mmc(fd);
+                if (r > 0 && SK(r) == 0x5 && IN_SET(ASC(r), 0x20, 0x24)) {
+                        log_debug("Drive is pre-MMC2 and does not support 46h get configuration command; "
+                                  "trying to work around the problem.");
+                        return cd_profiles_old_mmc(fd);
                 }
-                goto out;
+
+                return log_scsi_debug_errno(r, "get configuration");
         }
 
         cur_profile = features[6] << 8 | features[7];
@@ -730,11 +742,9 @@ static int cd_profiles(int fd) {
         scsi_cmd_set(&sc, 7, ( len >> 8 ) & 0xff);
         scsi_cmd_set(&sc, 8, len & 0xff);
         scsi_cmd_set(&sc, 9, 0);
-        err = scsi_cmd_run(&sc, fd, features, len);
-        if (err != 0) {
-                info_scsi_cmd_err("GET CONFIGURATION", err);
-                return -1;
-        }
+        r = scsi_cmd_run_and_log(&sc, fd, features, len, "get configuration");
+        if (r < 0)
+                return r;
 
         /* parse the length once more, in case the drive decided to have other features suddenly :) */
         len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
@@ -761,7 +771,7 @@ static int cd_profiles(int fd) {
                         break;
                 }
         }
-out:
+
         return ret;
 }
 
@@ -774,17 +784,15 @@ static int cd_media_info(int fd) {
                 "complete",
                 "other"
         };
-        int err;
+        int r;
 
         scsi_cmd_init(&sc);
         scsi_cmd_set(&sc, 0, GPCMD_READ_DISC_INFO);
         scsi_cmd_set(&sc, 8, sizeof(header));
         scsi_cmd_set(&sc, 9, 0);
-        err = scsi_cmd_run(&sc, fd, header, sizeof(header));
-        if (err != 0) {
-                info_scsi_cmd_err("READ DISC INFORMATION", err);
-                return -1;
-        };
+        r = scsi_cmd_run_and_log(&sc, fd, header, sizeof(header), "read disc information");
+        if (r < 0)
+                return r;
 
         cd_media = 1;
         log_debug("disk type %02x", header[8]);
@@ -819,11 +827,10 @@ static int cd_media_info(int fd) {
                         scsi_cmd_set(&sc, 7, 0xC0);
                         scsi_cmd_set(&sc, 9, sizeof(dvdstruct));
                         scsi_cmd_set(&sc, 11, 0);
-                        err = scsi_cmd_run(&sc, fd, dvdstruct, sizeof(dvdstruct));
-                        if (err != 0) {
-                                info_scsi_cmd_err("READ DVD STRUCTURE", err);
-                                return -1;
-                        }
+                        r = scsi_cmd_run_and_log(&sc, fd, dvdstruct, sizeof(dvdstruct), "read DVD structure");
+                        if (r < 0)
+                                return r;
+
                         if (dvdstruct[4] & 0x02) {
                                 cd_media_state = media_status[2];
                                 log_debug("write-protected DVD-RAM media inserted");
@@ -835,11 +842,9 @@ static int cd_media_info(int fd) {
                         scsi_cmd_set(&sc, 0, GPCMD_READ_FORMAT_CAPACITIES);
                         scsi_cmd_set(&sc, 8, sizeof(format));
                         scsi_cmd_set(&sc, 9, 0);
-                        err = scsi_cmd_run(&sc, fd, format, sizeof(format));
-                        if (err != 0) {
-                                info_scsi_cmd_err("READ DVD FORMAT CAPACITIES", err);
-                                return -1;
-                        }
+                        r = scsi_cmd_run_and_log(&sc, fd, format, sizeof(format), "read DVD format capacities");
+                        if (r < 0)
+                                return r;
 
                         len = format[3];
                         if (len & 7 || len < 16)
@@ -876,11 +881,10 @@ static int cd_media_info(int fd) {
                 scsi_cmd_set(&sc, 5, 0);
                 scsi_cmd_set(&sc, 8, sizeof(buffer)/2048);
                 scsi_cmd_set(&sc, 9, 0);
-                err = scsi_cmd_run(&sc, fd, buffer, sizeof(buffer));
-                if (err != 0) {
+                r = scsi_cmd_run_and_log(&sc, fd, buffer, sizeof(buffer), "read first 32 blocks");
+                if (r < 0) {
                         cd_media = 0;
-                        info_scsi_cmd_err("READ FIRST 32 BLOCKS", err);
-                        return -1;
+                        return r;
                 }
 
                 /* if any non-zero data is found in sector 16 (iso and udf) or
@@ -922,18 +926,16 @@ static int cd_media_toc(int fd) {
         unsigned char toc[65536];
         unsigned len, i, num_tracks;
         unsigned char *p;
-        int err;
+        int r;
 
         scsi_cmd_init(&sc);
         scsi_cmd_set(&sc, 0, GPCMD_READ_TOC_PMA_ATIP);
         scsi_cmd_set(&sc, 6, 1);
         scsi_cmd_set(&sc, 8, sizeof(header));
         scsi_cmd_set(&sc, 9, 0);
-        err = scsi_cmd_run(&sc, fd, header, sizeof(header));
-        if (err != 0) {
-                info_scsi_cmd_err("READ TOC", err);
-                return -1;
-        }
+        r = scsi_cmd_run_and_log(&sc, fd, header, sizeof(header), "read TOC");
+        if (r < 0)
+                return r;
 
         len = (header[0] << 8 | header[1]) + 2;
         log_debug("READ TOC: len: %d, start track: %d, end track: %d", len, header[2], header[3]);
@@ -954,11 +956,9 @@ static int cd_media_toc(int fd) {
         scsi_cmd_set(&sc, 7, (len >> 8) & 0xff);
         scsi_cmd_set(&sc, 8, len & 0xff);
         scsi_cmd_set(&sc, 9, 0);
-        err = scsi_cmd_run(&sc, fd, toc, len);
-        if (err != 0) {
-                info_scsi_cmd_err("READ TOC (tracks)", err);
-                return -1;
-        }
+        r = scsi_cmd_run_and_log(&sc, fd, toc, len, "read TOC (tracks)");
+        if (r < 0)
+                return r;
 
         /* Take care to not iterate beyond the last valid track as specified in
          * the TOC, but also avoid going beyond the TOC length, just in case
@@ -984,14 +984,14 @@ static int cd_media_toc(int fd) {
         scsi_cmd_set(&sc, 2, 1); /* Session Info */
         scsi_cmd_set(&sc, 8, sizeof(header));
         scsi_cmd_set(&sc, 9, 0);
-        err = scsi_cmd_run(&sc, fd, header, sizeof(header));
-        if (err != 0) {
-                info_scsi_cmd_err("READ TOC (multi session)", err);
-                return -1;
-        }
+        r = scsi_cmd_run_and_log(&sc, fd, header, sizeof(header), "read TOC (multi session)");
+        if (r < 0)
+                return r;
+
         len = header[4+4] << 24 | header[4+5] << 16 | header[4+6] << 8 | header[4+7];
         log_debug("last track %u starts at block %u", header[4+2], len);
         cd_media_session_last_offset = (unsigned long long int)len * 2048;
+
         return 0;
 }
 
