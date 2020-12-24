@@ -606,6 +606,8 @@ static Network *network_free(Network *network) {
 
         ordered_set_free(network->router_search_domains);
         free(network->router_dns);
+        set_free_free(network->ndisc_deny_listed_router);
+        set_free_free(network->ndisc_allow_listed_router);
         set_free_free(network->ndisc_deny_listed_prefix);
         set_free_free(network->ndisc_allow_listed_prefix);
         set_free_free(network->ndisc_deny_listed_route_prefix);

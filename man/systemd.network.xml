@@ -2093,6 +2093,23 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
         </varlistentry>
 
         <varlistentry>
+          <term><varname>RouterDenyList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv6 router addresses. Any information advertised by
+            the listed router is ignored.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>RouterAllowList=</varname></term>
+          <listitem>
+            <para>A whitespace-separated list of IPv6 router addresses. Only information advertised by
+            the listed router is accepted. Note that if <varname>RouterAllowList=</varname> is
+            configured then <varname>RouterDenyList=</varname> is ignored.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>PrefixDenyList=</varname></term>
           <listitem>
             <para>A whitespace-separated list of IPv6 prefixes. IPv6 prefixes supplied via router

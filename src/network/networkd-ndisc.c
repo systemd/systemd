@@ -70,7 +70,10 @@ void network_adjust_ipv6_accept_ra(Network *network) {
                 /* default to accept RA if ip_forward is disabled and ignore RA if ip_forward is enabled */
                 network->ipv6_accept_ra = !FLAGS_SET(network->ip_forward, ADDRESS_FAMILY_IPV6);
 
-        /* When PrefixAllowList= or RouteAllowList= are specified, then PrefixDenyList= or RouteDenyList= are ignored. */
+        /* When RouterAllowList=, PrefixAllowList= or RouteAllowList= are specified, then
+         * RouterDenyList=, PrefixDenyList= or RouteDenyList= are ignored, respectively. */
+        if (!set_isempty(network->ndisc_allow_listed_router))
+                network->ndisc_deny_listed_router = set_free_free(network->ndisc_deny_listed_router);
         if (!set_isempty(network->ndisc_allow_listed_prefix))
                 network->ndisc_deny_listed_prefix = set_free_free(network->ndisc_deny_listed_prefix);
         if (!set_isempty(network->ndisc_allow_listed_route_prefix))
@@ -1168,7 +1171,7 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
-        struct in6_addr router;
+        union in_addr_union router;
         uint64_t flags;
         NDiscAddress *na;
         NDiscRoute *nr;
@@ -1179,21 +1182,36 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         assert(link->manager);
         assert(rt);
 
+        r = sd_ndisc_router_get_address(rt, &router.in6);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
+
+        if ((!set_isempty(link->network->ndisc_allow_listed_router) &&
+             !set_contains(link->network->ndisc_allow_listed_router, &router.in6)) ||
+            set_contains(link->network->ndisc_deny_listed_router, &router.in6)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *buf = NULL;
+
+                        (void) in_addr_to_string(AF_INET6, &router, &buf);
+                        if (!set_isempty(link->network->ndisc_allow_listed_router))
+                                log_link_debug(link, "Router '%s' is not in allow list, ignoring", strna(buf));
+                        else
+                                log_link_debug(link, "Router '%s' is in deny list, ignoring", strna(buf));
+                }
+                return 0;
+        }
+
         link->ndisc_addresses_configured = false;
         link->ndisc_routes_configured = false;
 
         link_dirty(link);
 
-        r = sd_ndisc_router_get_address(rt, &router);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get router address from RA: %m");
-
         SET_FOREACH(na, link->ndisc_addresses)
-                if (IN6_ARE_ADDR_EQUAL(&na->router, &router))
+                if (IN6_ARE_ADDR_EQUAL(&na->router, &router.in6))
                         na->marked = true;
 
         SET_FOREACH(nr, link->ndisc_routes)
-                if (IN6_ARE_ADDR_EQUAL(&nr->router, &router))
+                if (IN6_ARE_ADDR_EQUAL(&nr->router, &router.in6))
                         nr->marked = true;
 
         r = sd_ndisc_router_get_flags(rt, &flags);

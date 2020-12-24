@@ -256,6 +256,8 @@ struct Network {
         DHCPUseDomains ipv6_accept_ra_use_domains;
         IPv6AcceptRAStartDHCP6Client ipv6_accept_ra_start_dhcp6_client;
         uint32_t ipv6_accept_ra_route_table;
+        Set *ndisc_deny_listed_router;
+        Set *ndisc_allow_listed_router;
         Set *ndisc_deny_listed_prefix;
         Set *ndisc_allow_listed_prefix;
         Set *ndisc_deny_listed_route_prefix;
