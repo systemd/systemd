@@ -1440,8 +1440,6 @@ int config_parse_ndisc_deny_listed_prefix(
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "NDisc deny-listed %sprefix entry %s is duplicated, ignoring assignment.",
                                    is_route ? "route " : "", n);
-                if (r > 0)
-                        TAKE_PTR(a);
         }
 }
 
