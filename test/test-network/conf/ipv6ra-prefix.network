@@ -15,3 +15,7 @@ Assign=yes
 [IPv6RoutePrefix]
 Route=2001:db0:fff::/64
 LifetimeSec=1000
+
+[IPv6RoutePrefix]
+Route=2001:db1:fff::/64
+LifetimeSec=1000
