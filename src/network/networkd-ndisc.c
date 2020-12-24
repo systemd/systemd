@@ -849,7 +849,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
 
-        if (link_has_ipv6_address(link, &gateway.in6) == 0) {
+        if (link_has_ipv6_address(link, &gateway.in6) > 0) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
 
