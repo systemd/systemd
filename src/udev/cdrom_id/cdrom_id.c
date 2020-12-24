@@ -25,6 +25,7 @@
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
+#include "sort-util.h"
 #include "udev-util.h"
 
 static bool arg_eject = false;
@@ -32,94 +33,66 @@ static bool arg_lock = false;
 static bool arg_unlock = false;
 static const char *arg_node = NULL;
 
+typedef enum Feature {
+        FEATURE_RW_NONREMOVABLE = 0x01,
+        FEATURE_RW_REMOVABLE    = 0x02,
+
+        FEATURE_MO_SE           = 0x03, /* sector erase */
+        FEATURE_MO_WO           = 0x04, /* write once */
+        FEATURE_MO_AS           = 0x05, /* advance storage */
+
+        FEATURE_CD_ROM          = 0x08,
+        FEATURE_CD_R            = 0x09,
+        FEATURE_CD_RW           = 0x0a,
+
+        FEATURE_DVD_ROM         = 0x10,
+        FEATURE_DVD_R           = 0x11,
+        FEATURE_DVD_RAM         = 0x12,
+        FEATURE_DVD_RW_RO       = 0x13, /* restricted overwrite mode */
+        FEATURE_DVD_RW_SEQ      = 0x14, /* sequential mode */
+        FEATURE_DVD_R_DL_SEQ    = 0x15, /* sequential recording */
+        FEATURE_DVD_R_DL_JR     = 0x16, /* jump recording */
+        FEATURE_DVD_RW_DL       = 0x17,
+        FEATURE_DVD_R_DDR       = 0x18, /* download disc recording - dvd for css managed recording */
+        FEATURE_DVD_PLUS_RW     = 0x1a,
+        FEATURE_DVD_PLUS_R      = 0x1b,
+
+        FEATURE_DDCD_ROM        = 0x20,
+        FEATURE_DDCD_R          = 0x21,
+        FEATURE_DDCD_RW         = 0x22,
+
+        FEATURE_DVD_PLUS_RW_DL  = 0x2a,
+        FEATURE_DVD_PLUS_R_DL   = 0x2b,
+
+        FEATURE_BD              = 0x40,
+        FEATURE_BD_R_SRM        = 0x41, /* sequential recording mode */
+        FEATURE_BD_R_RRM        = 0x42, /* random recording mode */
+        FEATURE_BD_RE           = 0x43,
+
+        FEATURE_HDDVD           = 0x50,
+        FEATURE_HDDVD_R         = 0x51,
+        FEATURE_HDDVD_RAM       = 0x52,
+        FEATURE_HDDVD_RW        = 0x53,
+        FEATURE_HDDVD_R_DL      = 0x58,
+        FEATURE_HDDVD_RW_DL     = 0x5a,
+
+        FEATURE_MRW,
+        FEATURE_MRW_W,
+
+        _FEATURE_MAX,
+        _FEATURE_INVALID = -1,
+} Feature;
+
 typedef struct Context {
         int fd;
+
+        Feature *drive_features;
+        size_t n_drive_feature;
+        size_t n_allocated;
+
+        Feature media_feature;
+        bool has_media;
 } Context;
-
-/* device info */
-static unsigned cd_rw_nonremovable;
-static unsigned cd_rw_removable;
-static unsigned cd_cd_rom;
-static unsigned cd_cd_r;
-static unsigned cd_cd_rw;
-static unsigned cd_ddcd_rom;
-static unsigned cd_ddcd_r;
-static unsigned cd_ddcd_rw;
-static unsigned cd_dvd_rom;
-static unsigned cd_dvd_r;
-static unsigned cd_dvd_r_ddr;
-static unsigned cd_dvd_r_dl;
-static unsigned cd_dvd_r_dl_seq;
-static unsigned cd_dvd_r_dl_jr;
-static unsigned cd_dvd_rw;
-static unsigned cd_dvd_rw_ro;
-static unsigned cd_dvd_rw_seq;
-static unsigned cd_dvd_rw_dl;
-static unsigned cd_dvd_ram;
-static unsigned cd_dvd_plus_r;
-static unsigned cd_dvd_plus_rw;
-static unsigned cd_dvd_plus_r_dl;
-static unsigned cd_dvd_plus_rw_dl;
-static unsigned cd_bd;
-static unsigned cd_bd_r;
-static unsigned cd_bd_r_srm;
-static unsigned cd_bd_r_rrm;
-static unsigned cd_bd_re;
-static unsigned cd_hddvd;
-static unsigned cd_hddvd_r;
-static unsigned cd_hddvd_r_dl;
-static unsigned cd_hddvd_ram;
-static unsigned cd_hddvd_rw;
-static unsigned cd_hddvd_rw_dl;
-static unsigned cd_mo;
-static unsigned cd_mo_se;
-static unsigned cd_mo_wo;
-static unsigned cd_mo_as;
-static unsigned cd_mrw;
-static unsigned cd_mrw_w;
-
-/* media info */
-static unsigned cd_media;
-static unsigned cd_media_rw_nonremovable;
-static unsigned cd_media_rw_removable;
-static unsigned cd_media_cd_rom;
-static unsigned cd_media_cd_r;
-static unsigned cd_media_cd_rw;
-static unsigned cd_media_ddcd_rom;
-static unsigned cd_media_ddcd_r;
-static unsigned cd_media_ddcd_rw;
-static unsigned cd_media_dvd_rom;
-static unsigned cd_media_dvd_r;
-static unsigned cd_media_dvd_r_ddr; /* download disc recording - dvd for css managed recording */
-static unsigned cd_media_dvd_r_dl;
-static unsigned cd_media_dvd_r_dl_seq; /* sequential recording */
-static unsigned cd_media_dvd_r_dl_jr; /* jump recording */
-static unsigned cd_media_dvd_rw;
-static unsigned cd_media_dvd_rw_ro; /* restricted overwrite mode */
-static unsigned cd_media_dvd_rw_seq; /* sequential mode */
-static unsigned cd_media_dvd_rw_dl;
-static unsigned cd_media_dvd_ram;
-static unsigned cd_media_dvd_plus_r;
-static unsigned cd_media_dvd_plus_rw;
-static unsigned cd_media_dvd_plus_r_dl;
-static unsigned cd_media_dvd_plus_rw_dl;
-static unsigned cd_media_bd;
-static unsigned cd_media_bd_r;
-static unsigned cd_media_bd_r_srm; /* sequential recording mode */
-static unsigned cd_media_bd_r_rrm; /* random recording mode */
-static unsigned cd_media_bd_re;
-static unsigned cd_media_hddvd;
-static unsigned cd_media_hddvd_r;
-static unsigned cd_media_hddvd_r_dl;
-static unsigned cd_media_hddvd_ram;
-static unsigned cd_media_hddvd_rw;
-static unsigned cd_media_hddvd_rw_dl;
-static unsigned cd_media_mo;
-static unsigned cd_media_mo_se; /* sector erase */
-static unsigned cd_media_mo_wo; /* write once */
-static unsigned cd_media_mo_as; /* advance storage */
-static unsigned cd_media_mrw;
-static unsigned cd_media_mrw_w;
 
 static const char *cd_media_state = NULL;
 static unsigned cd_media_session_next;
@@ -134,6 +107,7 @@ static void context_clear(Context *c) {
                 return;
 
         safe_close(c->fd);
+        free(c->drive_features);
 }
 
 static void context_init(Context *c) {
@@ -141,7 +115,31 @@ static void context_init(Context *c) {
 
         *c = (Context) {
                 .fd = -1,
+                .media_feature = _FEATURE_INVALID,
         };
+}
+
+static bool drive_has_feature(const Context *c, Feature f) {
+        assert(c);
+
+        for (size_t i = 0; i < c->n_drive_feature; i++)
+                if (c->drive_features[i] == f)
+                        return true;
+
+        return false;
+}
+
+static int set_drive_feature(Context *c, Feature f) {
+        assert(c);
+
+        if (drive_has_feature(c, f))
+                return 0;
+
+        if (!GREEDY_REALLOC(c->drive_features, c->n_allocated, c->n_drive_feature + 1))
+                return -ENOMEM;
+
+        c->drive_features[c->n_drive_feature++] = f;
+        return 1;
 }
 
 #define ERRCODE(s)      ((((s)[2] & 0x0F) << 16) | ((s)[12] << 8) | ((s)[13]))
@@ -254,7 +252,7 @@ static int media_eject(int fd) {
 }
 
 static int cd_capability_compat(Context *c) {
-        int capability;
+        int capability, r;
 
         assert(c);
 
@@ -262,20 +260,42 @@ static int cd_capability_compat(Context *c) {
         if (capability < 0)
                 return log_debug_errno(errno, "CDROM_GET_CAPABILITY failed");
 
-        if (capability & CDC_CD_R)
-                cd_cd_r = 1;
-        if (capability & CDC_CD_RW)
-                cd_cd_rw = 1;
-        if (capability & CDC_DVD)
-                cd_dvd_rom = 1;
-        if (capability & CDC_DVD_R)
-                cd_dvd_r = 1;
-        if (capability & CDC_DVD_RAM)
-                cd_dvd_ram = 1;
-        if (capability & CDC_MRW)
-                cd_mrw = 1;
-        if (capability & CDC_MRW_W)
-                cd_mrw_w = 1;
+        if (capability & CDC_CD_R) {
+                r = set_drive_feature(c, FEATURE_CD_R);
+                if (r < 0)
+                        return log_oom_debug();
+        }
+        if (capability & CDC_CD_RW) {
+                r = set_drive_feature(c, FEATURE_CD_RW);
+                if (r < 0)
+                        return log_oom_debug();
+        }
+        if (capability & CDC_DVD) {
+                r = set_drive_feature(c, FEATURE_DVD_ROM);
+                if (r < 0)
+                        return log_oom_debug();
+        }
+        if (capability & CDC_DVD_R) {
+                r = set_drive_feature(c, FEATURE_DVD_R);
+                if (r < 0)
+                        return log_oom_debug();
+        }
+        if (capability & CDC_DVD_RAM) {
+                r = set_drive_feature(c, FEATURE_DVD_RAM);
+                if (r < 0)
+                        return log_oom_debug();
+        }
+        if (capability & CDC_MRW) {
+                r = set_drive_feature(c, FEATURE_MRW);
+                if (r < 0)
+                        return log_oom_debug();
+        }
+        if (capability & CDC_MRW_W) {
+                r = set_drive_feature(c, FEATURE_MRW_W);
+                if (r < 0)
+                        return log_oom_debug();
+        }
+
         return 0;
 }
 
@@ -285,7 +305,7 @@ static int cd_media_compat(Context *c) {
         if (ioctl(c->fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK)
                 return log_debug_errno(errno, "CDROM_DRIVE_STATUS != CDS_DISC_OK");
 
-        cd_media = 1;
+        c->has_media = true;
         return 0;
 }
 
@@ -311,354 +331,18 @@ static int cd_inquiry(Context *c) {
         return 0;
 }
 
-static void feature_profile_media(int cur_profile) {
-        switch (cur_profile) {
-        case 0x01:
-                log_debug("profile 0x%02x media_rw_nonremovable", cur_profile);
-                cd_media = 1;
-                cd_media_rw_nonremovable = 1;
-                break;
-        case 0x02:
-                log_debug("profile 0x%02x media_rw_removable", cur_profile);
-                cd_media = 1;
-                cd_media_rw_removable = 1;
-                break;
-        case 0x03:
-                log_debug("profile 0x%02x media_mo_se", cur_profile);
-                cd_media = 1;
-                cd_media_mo = 1;
-                cd_media_mo_se = 1;
-                break;
-        case 0x04:
-                log_debug("profile 0x%02x media_mo_wo", cur_profile);
-                cd_media = 1;
-                cd_media_mo = 1;
-                cd_media_mo_wo = 1;
-                break;
-        case 0x05:
-                log_debug("profile 0x%02x media_mo_as", cur_profile);
-                cd_media = 1;
-                cd_media_mo = 1;
-                cd_media_mo_as = 1;
-                break;
-        case 0x08:
-                log_debug("profile 0x%02x media_cd_rom", cur_profile);
-                cd_media = 1;
-                cd_media_cd_rom = 1;
-                break;
-        case 0x09:
-                log_debug("profile 0x%02x media_cd_r", cur_profile);
-                cd_media = 1;
-                cd_media_cd_r = 1;
-                break;
-        case 0x0a:
-                log_debug("profile 0x%02x media_cd_rw", cur_profile);
-                cd_media = 1;
-                cd_media_cd_rw = 1;
-                break;
-        case 0x10:
-                log_debug("profile 0x%02x media_dvd_ro", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_rom = 1;
-                break;
-        case 0x11:
-                log_debug("profile 0x%02x media_dvd_r", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_r = 1;
-                break;
-        case 0x12:
-                log_debug("profile 0x%02x media_dvd_ram", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_ram = 1;
-                break;
-        case 0x13:
-                log_debug("profile 0x%02x media_dvd_rw_ro", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_rw = 1;
-                cd_media_dvd_rw_ro = 1;
-                break;
-        case 0x14:
-                log_debug("profile 0x%02x media_dvd_rw_seq", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_rw = 1;
-                cd_media_dvd_rw_seq = 1;
-                break;
-        case 0x15:
-                log_debug("profile 0x%02x media_dvd_r_dl_seq", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_r_dl = 1;
-                cd_media_dvd_r_dl_seq = 1;
-                break;
-        case 0x16:
-                log_debug("profile 0x%02x media_dvd_r_dl_jr", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_r_dl = 1;
-                cd_media_dvd_r_dl_jr = 1;
-                break;
-        case 0x17:
-                log_debug("profile 0x%02x media_dvd_rw_dl", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_rw_dl = 1;
-                break;
-        case 0x18:
-                log_debug("profile 0x%02x media_dvd_r_ddr", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_r = 1;
-                cd_media_dvd_r_ddr = 1;
-                break;
-        case 0x1B:
-                log_debug("profile 0x%02x media_dvd_plus_r", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_plus_r = 1;
-                break;
-        case 0x1A:
-                log_debug("profile 0x%02x media_dvd_plus_rw", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_plus_rw = 1;
-                break;
-        case 0x20:
-                log_debug("profile 0x%02x media_ddcd_rom", cur_profile);
-                cd_media = 1;
-                cd_media_ddcd_rom = 1;
-                break;
-        case 0x21:
-                log_debug("profile 0x%02x media_ddcd_r", cur_profile);
-                cd_media = 1;
-                cd_media_ddcd_r = 1;
-                break;
-        case 0x22:
-                log_debug("profile 0x%02x media_ddcd_rw", cur_profile);
-                cd_media = 1;
-                cd_media_ddcd_rw = 1;
-                break;
-        case 0x2A:
-                log_debug("profile 0x%02x media_dvd_plus_rw_dl", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_plus_rw_dl = 1;
-                break;
-        case 0x2B:
-                log_debug("profile 0x%02x media_dvd_plus_r_dl", cur_profile);
-                cd_media = 1;
-                cd_media_dvd_plus_r_dl = 1;
-                break;
-        case 0x40:
-                log_debug("profile 0x%02x media_bd", cur_profile);
-                cd_media = 1;
-                cd_media_bd = 1;
-                break;
-        case 0x41:
-                log_debug("profile 0x%02x media_bd_r_srm", cur_profile);
-                cd_media = 1;
-                cd_media_bd_r = 1;
-                cd_media_bd_r_srm = 1;
-                break;
-        case 0x42:
-                log_debug("profile 0x%02x media_bd_r_rrm", cur_profile);
-                cd_media = 1;
-                cd_media_bd_r = 1;
-                cd_media_bd_r_rrm = 1;
-                break;
-        case 0x43:
-                log_debug("profile 0x%02x media_bd_re", cur_profile);
-                cd_media = 1;
-                cd_media_bd_re = 1;
-                break;
-        case 0x50:
-                log_debug("profile 0x%02x media_hddvd", cur_profile);
-                cd_media = 1;
-                cd_media_hddvd = 1;
-                break;
-        case 0x51:
-                log_debug("profile 0x%02x media_hddvd_r", cur_profile);
-                cd_media = 1;
-                cd_media_hddvd_r = 1;
-                break;
-        case 0x52:
-                log_debug("profile 0x%02x media_hddvd_ram", cur_profile);
-                cd_media = 1;
-                cd_media_hddvd_ram = 1;
-                break;
-        case 0x53:
-                log_debug("profile 0x%02x media_hddvd_rw", cur_profile);
-                cd_media = 1;
-                cd_media_hddvd_rw = 1;
-                break;
-        case 0x58:
-                log_debug("profile 0x%02x media_hddvd_r_dl", cur_profile);
-                cd_media = 1;
-                cd_media_hddvd_r_dl = 1;
-                break;
-        case 0x5A:
-                log_debug("profile 0x%02x media_hddvd_rw_dl", cur_profile);
-                cd_media = 1;
-                cd_media_hddvd_rw_dl = 1;
-                break;
-        default:
-                log_debug("profile 0x%02x <ignored>", cur_profile);
-                break;
+static int feature_profiles(Context *c, const unsigned char *profiles, size_t size) {
+        int r;
+
+        assert(c);
+
+        for (size_t i = 0; i + 4 <= size; i += 4) {
+                r = set_drive_feature(c, (Feature) (profiles[i] << 8 | profiles[i + 1]));
+                if (r < 0)
+                        return log_oom_debug();
         }
-}
 
-static int feature_profiles(const unsigned char *profiles, size_t size) {
-        unsigned i;
-
-        for (i = 0; i+4 <= size; i += 4) {
-                int profile;
-
-                profile = profiles[i] << 8 | profiles[i+1];
-                switch (profile) {
-                case 0x01:
-                        log_debug("profile 0x%02x rw_nonremovable", profile);
-                        cd_rw_nonremovable = 1;
-                        break;
-                case 0x02:
-                        log_debug("profile 0x%02x rw_removable", profile);
-                        cd_rw_removable = 1;
-                        break;
-                case 0x03:
-                        log_debug("profile 0x%02x mo_se", profile);
-                        cd_mo = 1;
-                        cd_mo_se = 1;
-                        break;
-                case 0x04:
-                        log_debug("profile 0x%02x mo_wo", profile);
-                        cd_mo = 1;
-                        cd_mo_wo = 1;
-                        break;
-                case 0x05:
-                        log_debug("profile 0x%02x mo_as", profile);
-                        cd_mo = 1;
-                        cd_mo_as = 1;
-                        break;
-                case 0x08:
-                        log_debug("profile 0x%02x cd_rom", profile);
-                        cd_cd_rom = 1;
-                        break;
-                case 0x09:
-                        log_debug("profile 0x%02x cd_r", profile);
-                        cd_cd_r = 1;
-                        break;
-                case 0x0A:
-                        log_debug("profile 0x%02x cd_rw", profile);
-                        cd_cd_rw = 1;
-                        break;
-                case 0x10:
-                        log_debug("profile 0x%02x dvd_rom", profile);
-                        cd_dvd_rom = 1;
-                        break;
-                case 0x11:
-                        log_debug("profile 0x%02x dvd_r", profile);
-                        cd_dvd_r = 1;
-                        break;
-                case 0x12:
-                        log_debug("profile 0x%02x dvd_ram", profile);
-                        cd_dvd_ram = 1;
-                        break;
-                case 0x13:
-                        log_debug("profile 0x%02x dvd_rw_ro", profile);
-                        cd_dvd_rw = 1;
-                        cd_dvd_rw_ro = 1;
-                        break;
-                case 0x14:
-                        log_debug("profile 0x%02x dvd_rw_seq", profile);
-                        cd_dvd_rw = 1;
-                        cd_dvd_rw_seq = 1;
-                        break;
-                case 0x15:
-                        log_debug("profile 0x%02x dvd_r_dl_seq", profile);
-                        cd_dvd_r_dl = 1;
-                        cd_dvd_r_dl_seq = 1;
-                        break;
-                case 0x16:
-                        log_debug("profile 0x%02x dvd_r_dl_jr", profile);
-                        cd_dvd_r_dl = 1;
-                        cd_dvd_r_dl_jr = 1;
-                        break;
-                case 0x17:
-                        log_debug("profile 0x%02x dvd_rw_dl", profile);
-                        cd_dvd_rw_dl = 1;
-                        break;
-                case 0x18:
-                        log_debug("profile 0x%02x dvd_r_ddr", profile);
-                        cd_dvd_r = 1;
-                        cd_dvd_r_ddr = 1;
-                        break;
-                case 0x1B:
-                        log_debug("profile 0x%02x dvd_plus_r", profile);
-                        cd_dvd_plus_r = 1;
-                        break;
-                case 0x1A:
-                        log_debug("profile 0x%02x dvd_plus_rw", profile);
-                        cd_dvd_plus_rw = 1;
-                        break;
-                case 0x20:
-                        log_debug("profile 0x%02x ddcd_rom", profile);
-                        cd_ddcd_rom = 1;
-                        break;
-                case 0x21:
-                        log_debug("profile 0x%02x ddcd_r", profile);
-                        cd_ddcd_r = 1;
-                        break;
-                case 0x22:
-                        log_debug("profile 0x%02x media_ddcd_rw", profile);
-                        cd_ddcd_rw = 1;
-                        break;
-                case 0x2A:
-                        log_debug("profile 0x%02x dvd_plus_rw_dl", profile);
-                        cd_dvd_plus_rw_dl = 1;
-                        break;
-                case 0x2B:
-                        log_debug("profile 0x%02x dvd_plus_r_dl", profile);
-                        cd_dvd_plus_r_dl = 1;
-                        break;
-                case 0x40:
-                        cd_bd = 1;
-                        log_debug("profile 0x%02x bd", profile);
-                        break;
-                case 0x41:
-                        cd_bd_r = 1;
-                        cd_bd_r_srm = 1;
-                        log_debug("profile 0x%02x bd_r_srm", profile);
-                        break;
-                case 0x42:
-                        cd_bd_r = 1;
-                        cd_bd_r_rrm = 1;
-                        log_debug("profile 0x%02x bd_r_rrm", profile);
-                        break;
-                case 0x43:
-                        cd_bd_re = 1;
-                        log_debug("profile 0x%02x bd_re", profile);
-                        break;
-                case 0x50:
-                        cd_hddvd = 1;
-                        log_debug("profile 0x%02x hddvd", profile);
-                        break;
-                case 0x51:
-                        cd_hddvd_r = 1;
-                        log_debug("profile 0x%02x hddvd_r", profile);
-                        break;
-                case 0x52:
-                        cd_hddvd_ram = 1;
-                        log_debug("profile 0x%02x hddvd_ram", profile);
-                        break;
-                case 0x53:
-                        cd_hddvd_rw = 1;
-                        log_debug("profile 0x%02x hddvd_rw", profile);
-                        break;
-                case 0x58:
-                        cd_hddvd_r_dl = 1;
-                        log_debug("profile 0x%02x hddvd_r_dl", profile);
-                        break;
-                case 0x5A:
-                        cd_hddvd_rw_dl = 1;
-                        log_debug("profile 0x%02x hddvd_rw_dl", profile);
-                        break;
-                default:
-                        log_debug("profile 0x%02x <ignored>", profile);
-                        break;
-                }
-        }
-        return 0;
+        return 1;
 }
 
 static int cd_profiles_old_mmc(Context *c) {
@@ -688,9 +372,9 @@ static int cd_profiles_old_mmc(Context *c) {
                 r = scsi_cmd_run_and_log(&sc, c->fd, (unsigned char *)&discinfo, len, "read disc information");
         }
         if (r < 0) {
-                if (cd_media == 1) {
+                if (c->has_media) {
                         log_debug("No current profile, but disc is present; assuming CD-ROM.");
-                        cd_media_cd_rom = 1;
+                        c->media_feature = FEATURE_CD_ROM;
                         cd_media_track_count = 1;
                         cd_media_track_count_data = 1;
                         return 1;
@@ -699,20 +383,16 @@ static int cd_profiles_old_mmc(Context *c) {
                                                "no current profile, assuming no media.");
         };
 
-        cd_media = 1;
+        c->has_media = true;
 
-        if (discinfo.erasable) {
-                cd_media_cd_rw = 1;
-                log_debug("profile 0x0a media_cd_rw");
-        } else if (discinfo.disc_status < 2 && cd_cd_r) {
-                cd_media_cd_r = 1;
-                log_debug("profile 0x09 media_cd_r");
-        } else {
-                cd_media_cd_rom = 1;
-                log_debug("profile 0x08 media_cd_rom");
-        }
+        if (discinfo.erasable)
+                c->media_feature = FEATURE_CD_RW;
+        else if (discinfo.disc_status < 2 && drive_has_feature(c, FEATURE_CD_R))
+                c->media_feature = FEATURE_CD_R;
+        else
+                c->media_feature = FEATURE_CD_ROM;
 
-        return 1;
+        return 0;
 }
 
 static int cd_profiles(Context *c) {
@@ -721,7 +401,6 @@ static int cd_profiles(Context *c) {
         unsigned cur_profile = 0;
         unsigned len;
         unsigned i;
-        bool has_media = false;
         int r;
 
         assert(c);
@@ -746,10 +425,12 @@ static int cd_profiles(Context *c) {
         cur_profile = features[6] << 8 | features[7];
         if (cur_profile > 0) {
                 log_debug("current profile 0x%02x", cur_profile);
-                feature_profile_media(cur_profile);
-                has_media = true;
-        } else
+                c->media_feature = (Feature) cur_profile;
+                c->has_media = true;
+        } else {
                 log_debug("no current profile, assuming no media");
+                c->has_media = false;
+        }
 
         len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
         log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
@@ -788,7 +469,7 @@ static int cd_profiles(Context *c) {
                 switch (feature) {
                 case 0x00:
                         log_debug("GET CONFIGURATION: feature 'profiles', with %i entries", features[i+3] / 4);
-                        feature_profiles(&features[i]+4, MIN(features[i+3], len - i - 4));
+                        feature_profiles(c, &features[i] + 4, MIN(features[i+3], len - i - 4));
                         break;
                 default:
                         log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i+3]);
@@ -796,7 +477,7 @@ static int cd_profiles(Context *c) {
                 }
         }
 
-        return has_media;
+        return c->has_media;
 }
 
 static int cd_media_info(Context *c) {
@@ -820,29 +501,29 @@ static int cd_media_info(Context *c) {
         if (r < 0)
                 return r;
 
-        cd_media = 1;
+        c->has_media = true;
         log_debug("disk type %02x", header[8]);
         log_debug("hardware reported media status: %s", media_status[header[2] & 3]);
 
         /* exclude plain CDROM, some fake cdroms return 0 for "blank" media here */
-        if (!cd_media_cd_rom)
+        if (c->media_feature != FEATURE_CD_ROM)
                 cd_media_state = media_status[header[2] & 3];
 
         /* fresh DVD-RW in restricted overwrite mode reports itself as
          * "appendable"; change it to "blank" to make it consistent with what
          * gets reported after blanking, and what userspace expects  */
-        if (cd_media_dvd_rw_ro && (header[2] & 3) == 1)
+        if (c->media_feature == FEATURE_DVD_RW_RO && (header[2] & 3) == 1)
                 cd_media_state = media_status[0];
 
         /* DVD+RW discs (and DVD-RW in restricted mode) once formatted are
          * always "complete", DVD-RAM are "other" or "complete" if the disc is
          * write protected; we need to check the contents if it is blank */
-        if ((cd_media_dvd_rw_ro || cd_media_dvd_plus_rw || cd_media_dvd_plus_rw_dl || cd_media_dvd_ram) && (header[2] & 3) > 1) {
+        if (IN_SET(c->media_feature, FEATURE_DVD_RW_RO, FEATURE_DVD_PLUS_RW, FEATURE_DVD_PLUS_RW_DL, FEATURE_DVD_RAM) && (header[2] & 3) > 1) {
                 unsigned char buffer[32 * 2048];
                 unsigned char len;
                 int offset;
 
-                if (cd_media_dvd_ram) {
+                if (c->media_feature == FEATURE_DVD_RAM) {
                         /* a write protected dvd-ram may report "complete" status */
 
                         unsigned char dvdstruct[8];
@@ -892,7 +573,7 @@ static int cd_media_info(Context *c) {
                                 break;
 
                             case 3:
-                                cd_media = 0; //return no media
+                                c->has_media = false;
                                 return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                                        "format capacities returned no media");
                         }
@@ -909,7 +590,7 @@ static int cd_media_info(Context *c) {
                 scsi_cmd_set(&sc, 9, 0);
                 r = scsi_cmd_run_and_log(&sc, c->fd, buffer, sizeof(buffer), "read first 32 blocks");
                 if (r < 0) {
-                        cd_media = 0;
+                        c->has_media = false;
                         return r;
                 }
 
@@ -938,7 +619,7 @@ static int cd_media_info(Context *c) {
 determined:
         /* "other" is e. g. DVD-RAM, can't append sessions there; DVDs in
          * restricted overwrite mode can never append, only in sequential mode */
-        if ((header[2] & 3) < 2 && !cd_media_dvd_rw_ro)
+        if ((header[2] & 3) < 2 && c->media_feature != FEATURE_DVD_RW_RO)
                 cd_media_session_next = header[10] << 8 | header[5];
         cd_media_session_count = header[9] << 8 | header[4];
         cd_media_track_count = header[11] << 8 | header[6];
@@ -1046,6 +727,127 @@ static int open_drive(Context *c) {
         return 0;
 }
 
+typedef struct FeatureToString {
+        Feature feature;
+        const char *str;
+} FeatureToString;
+
+static const FeatureToString feature_to_string[] = {
+        { .feature = FEATURE_RW_NONREMOVABLE, .str = "RW_NONREMOVABLE", },
+        { .feature = FEATURE_RW_REMOVABLE,    .str = "RW_REMOVABLE", },
+
+        { .feature = FEATURE_MO_SE,           .str = "MO_SE", },
+        { .feature = FEATURE_MO_WO,           .str = "MO_WO", },
+        { .feature = FEATURE_MO_AS,           .str = "MO_AS", },
+
+        { .feature = FEATURE_CD_ROM,          .str = "CD", },
+        { .feature = FEATURE_CD_R,            .str = "CD_R", },
+        { .feature = FEATURE_CD_RW,           .str = "CD_RW", },
+
+        { .feature = FEATURE_DVD_ROM,         .str = "DVD", },
+        { .feature = FEATURE_DVD_R,           .str = "DVD_R", },
+        { .feature = FEATURE_DVD_RAM,         .str = "DVD_RAM", },
+        { .feature = FEATURE_DVD_RW_RO,       .str = "DVD_RW_RO", },
+        { .feature = FEATURE_DVD_RW_SEQ,      .str = "DVD_RW_SEQ", },
+        { .feature = FEATURE_DVD_R_DL_SEQ,    .str = "DVD_R_DL_SEQ", },
+        { .feature = FEATURE_DVD_R_DL_JR,     .str = "DVD_R_DL_JR", },
+        { .feature = FEATURE_DVD_RW_DL,       .str = "DVD_RW_DL", },
+        { .feature = FEATURE_DVD_R_DDR,       .str = "DVD_R_DDR", },
+        { .feature = FEATURE_DVD_PLUS_RW,     .str = "DVD_PLUS_RW", },
+        { .feature = FEATURE_DVD_PLUS_R,      .str = "DVD_PLUS_R", },
+
+        { .feature = FEATURE_DDCD_ROM,        .str = "DDCD", },
+        { .feature = FEATURE_DDCD_R,          .str = "DDCD_R", },
+        { .feature = FEATURE_DDCD_RW,         .str = "DDCD_RW", },
+
+        { .feature = FEATURE_DVD_PLUS_RW_DL,  .str = "DVD_PLUS_RW_DL", },
+        { .feature = FEATURE_DVD_PLUS_R_DL,   .str = "DVD_PLUS_R_DL", },
+
+        { .feature = FEATURE_BD,              .str = "BD", },
+        { .feature = FEATURE_BD_R_SRM,        .str = "BD_R_SRM", },
+        { .feature = FEATURE_BD_R_RRM,        .str = "BD_R_RRM", },
+        { .feature = FEATURE_BD_RE,           .str = "BD_RE", },
+
+        { .feature = FEATURE_HDDVD,           .str = "HDDVD", },
+        { .feature = FEATURE_HDDVD_R,         .str = "HDDVD_R", },
+        { .feature = FEATURE_HDDVD_RAM,       .str = "HDDVD_RAM", },
+        { .feature = FEATURE_HDDVD_RW,        .str = "HDDVD_RW", },
+        { .feature = FEATURE_HDDVD_R_DL,      .str = "HDDVD_R_DL", },
+        { .feature = FEATURE_HDDVD_RW_DL,     .str = "HDDVD_RW_DL", },
+
+        { .feature = FEATURE_MRW,             .str = "MRW", },
+        { .feature = FEATURE_MRW_W,           .str = "MRW_W", },
+};
+
+static int feature_to_string_compare_func(const FeatureToString *a, const FeatureToString *b) {
+        assert(a);
+        assert(b);
+
+        return CMP(a->feature, b->feature);
+}
+
+static void print_feature(Feature feature, const char *prefix) {
+        FeatureToString *found, in = {
+                .feature = feature,
+        };
+
+        assert(prefix);
+
+        found = typesafe_bsearch(&in, feature_to_string, ELEMENTSOF(feature_to_string), feature_to_string_compare_func);
+        if (!found)
+                return (void) log_debug("Unknown feature 0x%02x, ignoring", (unsigned) feature);
+
+        printf("%s_%s=1\n", prefix, found->str);
+}
+
+static void print_properties(const Context *c) {
+        assert(c);
+
+        printf("ID_CDROM=1\n");
+        for (size_t i = 0; i < c->n_drive_feature; i++)
+                print_feature(c->drive_features[i], "ID_CDROM");
+
+        if (drive_has_feature(c, FEATURE_MO_SE) ||
+            drive_has_feature(c, FEATURE_MO_WO) ||
+            drive_has_feature(c, FEATURE_MO_AS))
+                printf("ID_CDROM_MO=1\n");
+
+        if (drive_has_feature(c, FEATURE_DVD_RW_RO) ||
+            drive_has_feature(c, FEATURE_DVD_RW_SEQ))
+                printf("ID_CDROM_DVD_RW=1\n");
+
+        if (drive_has_feature(c, FEATURE_DVD_R_DL_SEQ) ||
+            drive_has_feature(c, FEATURE_DVD_R_DL_JR))
+                printf("ID_CDROM_DVD_R_DL=1\n");
+
+        if (drive_has_feature(c, FEATURE_DVD_R_DDR))
+                printf("ID_CDROM_DVD_R=1\n");
+
+        if (drive_has_feature(c, FEATURE_BD_R_SRM) ||
+            drive_has_feature(c, FEATURE_BD_R_RRM))
+                printf("ID_CDROM_BD_R=1\n");
+
+        if (c->has_media) {
+                printf("ID_CDROM_MEDIA=1\n");
+                print_feature(c->media_feature, "ID_CDROM_MEDIA");
+
+                if (IN_SET(c->media_feature, FEATURE_MO_SE, FEATURE_MO_WO, FEATURE_MO_AS))
+                        printf("ID_CDROM_MEDIA_MO=1\n");
+
+                if (IN_SET(c->media_feature, FEATURE_DVD_RW_RO, FEATURE_DVD_RW_SEQ))
+                        printf("ID_CDROM_MEDIA_DVD_RW=1\n");
+
+                if (IN_SET(c->media_feature, FEATURE_DVD_R_DL_SEQ, FEATURE_DVD_R_DL_JR))
+                        printf("ID_CDROM_MEDIA_DVD_R_DL=1\n");
+
+                if (c->media_feature == FEATURE_DVD_R_DDR)
+                        printf("ID_CDROM_MEDIA_DVD_R=1\n");
+
+                if (IN_SET(c->media_feature, FEATURE_BD_R_SRM, FEATURE_BD_R_RRM))
+                        printf("ID_CDROM_MEDIA_BD_R=1\n");
+        }
+}
+
 static int help(void) {
         printf("Usage: %s [options] <device>\n"
                "  -l --lock-media    lock the media (to enable eject request events)\n"
@@ -1149,12 +951,12 @@ int main(int argc, char *argv[]) {
 
 work:
         /* lock the media, so we enable eject button events */
-        if (arg_lock && cd_media) {
+        if (arg_lock && c.has_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (lock)");
                 media_lock(c.fd, true);
         }
 
-        if (arg_unlock && cd_media) {
+        if (arg_unlock && c.has_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
                 media_lock(c.fd, false);
         }
@@ -1166,166 +968,7 @@ work:
                 media_eject(c.fd);
         }
 
-        printf("ID_CDROM=1\n");
-        if (cd_rw_nonremovable)
-                printf("ID_CDROM_RW_NONREMOVABLE=1\n");
-        if (cd_rw_removable)
-                printf("ID_CDROM_RW_REMOVABLE=1\n");
-        if (cd_cd_rom)
-                printf("ID_CDROM_CD=1\n");
-        if (cd_cd_r)
-                printf("ID_CDROM_CD_R=1\n");
-        if (cd_cd_rw)
-                printf("ID_CDROM_CD_RW=1\n");
-        if (cd_ddcd_rom)
-                printf("ID_CDROM_DDCD=1\n");
-        if (cd_ddcd_r)
-                printf("ID_CDROM_DDCD_R=1\n");
-        if (cd_ddcd_rw)
-                printf("ID_CDROM_DDCD_RW=1\n");
-        if (cd_dvd_rom)
-                printf("ID_CDROM_DVD=1\n");
-        if (cd_dvd_r)
-                printf("ID_CDROM_DVD_R=1\n");
-        if (cd_dvd_r_ddr)
-                printf("ID_CDROM_DVD_R_DDR=1\n");
-        if (cd_dvd_r_dl)
-                printf("ID_CDROM_DVD_R_DL=1\n");
-        if (cd_dvd_r_dl_seq)
-                printf("ID_CDROM_DVD_R_DL_SEQ=1\n");
-        if (cd_dvd_r_dl_jr)
-                printf("ID_CDROM_DVD_R_DL_JR=1\n");
-        if (cd_dvd_rw)
-                printf("ID_CDROM_DVD_RW=1\n");
-        if (cd_dvd_rw_ro)
-                printf("ID_CDROM_DVD_RW_RO=1\n");
-        if (cd_dvd_rw_seq)
-                printf("ID_CDROM_DVD_RW_SEQ=1\n");
-        if (cd_dvd_rw_dl)
-                printf("ID_CDROM_DVD_RW_DL=1\n");
-        if (cd_dvd_ram)
-                printf("ID_CDROM_DVD_RAM=1\n");
-        if (cd_dvd_plus_r)
-                printf("ID_CDROM_DVD_PLUS_R=1\n");
-        if (cd_dvd_plus_rw)
-                printf("ID_CDROM_DVD_PLUS_RW=1\n");
-        if (cd_dvd_plus_r_dl)
-                printf("ID_CDROM_DVD_PLUS_R_DL=1\n");
-        if (cd_dvd_plus_rw_dl)
-                printf("ID_CDROM_DVD_PLUS_RW_DL=1\n");
-        if (cd_bd)
-                printf("ID_CDROM_BD=1\n");
-        if (cd_bd_r)
-                printf("ID_CDROM_BD_R=1\n");
-        if (cd_bd_r_srm)
-                printf("ID_CDROM_BD_R_SRM=1\n");
-        if (cd_bd_r_rrm)
-                printf("ID_CDROM_BD_R_RRM=1\n");
-        if (cd_bd_re)
-                printf("ID_CDROM_BD_RE=1\n");
-        if (cd_hddvd)
-                printf("ID_CDROM_HDDVD=1\n");
-        if (cd_hddvd_r)
-                printf("ID_CDROM_HDDVD_R=1\n");
-        if (cd_hddvd_r_dl)
-                printf("ID_CDROM_HDDVD_R_DL=1\n");
-        if (cd_hddvd_ram)
-                printf("ID_CDROM_HDDVD_RAM=1\n");
-        if (cd_hddvd_rw)
-                printf("ID_CDROM_HDDVD_RW=1\n");
-        if (cd_hddvd_rw_dl)
-                printf("ID_CDROM_HDDVD_RW_DL=1\n");
-        if (cd_mo)
-                printf("ID_CDROM_MO=1\n");
-        if (cd_mo_se)
-                printf("ID_CDROM_MO_SE=1\n");
-        if (cd_mo_wo)
-                printf("ID_CDROM_MO_WO=1\n");
-        if (cd_mo_as)
-                printf("ID_CDROM_MO_AS=1\n");
-        if (cd_mrw)
-                printf("ID_CDROM_MRW=1\n");
-        if (cd_mrw_w)
-                printf("ID_CDROM_MRW_W=1\n");
-
-        if (cd_media)
-                printf("ID_CDROM_MEDIA=1\n");
-        if (cd_media_rw_nonremovable)
-                printf("ID_CDROM_MEDIA_RW_NONREMOVABLE=1\n");
-        if (cd_media_rw_removable)
-                printf("ID_CDROM_MEDIA_RW_REMOVABLE=1\n");
-        if (cd_media_mo)
-                printf("ID_CDROM_MEDIA_MO=1\n");
-        if (cd_media_mo_se)
-                printf("ID_CDROM_MEDIA_MO_SE=1\n");
-        if (cd_media_mo_wo)
-                printf("ID_CDROM_MEDIA_MO_WO=1\n");
-        if (cd_media_mo_as)
-                printf("ID_CDROM_MEDIA_MO_AS=1\n");
-        if (cd_media_mrw)
-                printf("ID_CDROM_MEDIA_MRW=1\n");
-        if (cd_media_mrw_w)
-                printf("ID_CDROM_MEDIA_MRW_W=1\n");
-        if (cd_media_cd_rom)
-                printf("ID_CDROM_MEDIA_CD=1\n");
-        if (cd_media_cd_r)
-                printf("ID_CDROM_MEDIA_CD_R=1\n");
-        if (cd_media_cd_rw)
-                printf("ID_CDROM_MEDIA_CD_RW=1\n");
-        if (cd_media_ddcd_rom)
-                printf("ID_CDROM_MEDIA_DDCD=1\n");
-        if (cd_media_ddcd_r)
-                printf("ID_CDROM_MEDIA_DDCD_R=1\n");
-        if (cd_media_ddcd_rw)
-                printf("ID_CDROM_MEDIA_DDCD_RW=1\n");
-        if (cd_media_dvd_rom)
-                printf("ID_CDROM_MEDIA_DVD=1\n");
-        if (cd_media_dvd_r)
-                printf("ID_CDROM_MEDIA_DVD_R=1\n");
-        if (cd_media_dvd_r_ddr)
-                printf("ID_CDROM_MEDIA_DVD_R_DDR=1\n");
-        if (cd_media_dvd_r_dl)
-                printf("ID_CDROM_MEDIA_DVD_R_DL=1\n");
-        if (cd_media_dvd_r_dl_seq)
-                printf("ID_CDROM_MEDIA_DVD_R_DL_SEQ=1\n");
-        if (cd_media_dvd_r_dl_jr)
-                printf("ID_CDROM_MEDIA_DVD_R_DL_JR=1\n");
-        if (cd_media_dvd_ram)
-                printf("ID_CDROM_MEDIA_DVD_RAM=1\n");
-        if (cd_media_dvd_rw)
-                printf("ID_CDROM_MEDIA_DVD_RW=1\n");
-        if (cd_media_dvd_rw_dl)
-                printf("ID_CDROM_MEDIA_DVD_RW_DL=1\n");
-        if (cd_media_dvd_plus_r)
-                printf("ID_CDROM_MEDIA_DVD_PLUS_R=1\n");
-        if (cd_media_dvd_plus_rw)
-                printf("ID_CDROM_MEDIA_DVD_PLUS_RW=1\n");
-        if (cd_media_dvd_plus_rw_dl)
-                printf("ID_CDROM_MEDIA_DVD_PLUS_RW_DL=1\n");
-        if (cd_media_dvd_plus_r_dl)
-                printf("ID_CDROM_MEDIA_DVD_PLUS_R_DL=1\n");
-        if (cd_media_bd)
-                printf("ID_CDROM_MEDIA_BD=1\n");
-        if (cd_media_bd_r)
-                printf("ID_CDROM_MEDIA_BD_R=1\n");
-        if (cd_media_bd_r_srm)
-                printf("ID_CDROM_MEDIA_BD_R_SRM=1\n");
-        if (cd_media_bd_r_rrm)
-                printf("ID_CDROM_MEDIA_BD_R_RRM=1\n");
-        if (cd_media_bd_re)
-                printf("ID_CDROM_MEDIA_BD_RE=1\n");
-        if (cd_media_hddvd)
-                printf("ID_CDROM_MEDIA_HDDVD=1\n");
-        if (cd_media_hddvd_r)
-                printf("ID_CDROM_MEDIA_HDDVD_R=1\n");
-        if (cd_media_hddvd_r_dl)
-                printf("ID_CDROM_MEDIA_HDDVD_R_DL=1\n");
-        if (cd_media_hddvd_ram)
-                printf("ID_CDROM_MEDIA_HDDVD_RAM=1\n");
-        if (cd_media_hddvd_rw)
-                printf("ID_CDROM_MEDIA_HDDVD_RW=1\n");
-        if (cd_media_hddvd_rw_dl)
-                printf("ID_CDROM_MEDIA_HDDVD_RW_DL=1\n");
+        print_properties(&c);
 
         if (cd_media_state)
                 printf("ID_CDROM_MEDIA_STATE=%s\n", cd_media_state);
