@@ -820,7 +820,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
-        union in_addr_union gateway;
+        union in_addr_union gateway, dst;
         uint32_t lifetime;
         unsigned preference, prefixlen;
         usec_t time_now;
@@ -835,19 +835,23 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         if (lifetime == 0)
                 return 0;
 
-        r = sd_ndisc_router_get_address(rt, &gateway.in6);
+        r = sd_ndisc_router_route_get_address(rt, &dst.in6);
         if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
+                return log_link_error_errno(link, r, "Failed to get route address: %m");
 
-        if (set_contains(link->network->ndisc_deny_listed_route_prefix, &gateway.in6)) {
+        if (set_contains(link->network->ndisc_deny_listed_route_prefix, &dst.in6)) {
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *buf = NULL;
 
-                        (void) in_addr_to_string(AF_INET6, &gateway, &buf);
+                        (void) in_addr_to_string(AF_INET6, &dst, &buf);
                         log_link_debug(link, "Route Prefix '%s' is deny-listed, ignoring", strnull(buf));
                 }
                 return 0;
         }
+
+        r = sd_ndisc_router_get_address(rt, &gateway.in6);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get gateway address from RA: %m");
 
         if (link_has_ipv6_address(link, &gateway.in6) > 0) {
                 if (DEBUG_LOGGING) {
@@ -880,14 +884,11 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->priority = link->network->dhcp6_route_metric;
         route->protocol = RTPROT_RA;
         route->pref = preference;
-        route->gw.in6 = gateway.in6;
+        route->gw = gateway;
         route->gw_family = AF_INET6;
+        route->dst = dst;
         route->dst_prefixlen = prefixlen;
         route->lifetime = time_now + lifetime * USEC_PER_SEC;
-
-        r = sd_ndisc_router_route_get_address(rt, &route->dst.in6);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Failed to get route address: %m");
 
         r = ndisc_route_configure(route, link, rt);
         if (r < 0)
