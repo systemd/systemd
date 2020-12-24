@@ -26,6 +26,11 @@
 #include "random-util.h"
 #include "udev-util.h"
 
+static bool arg_eject = false;
+static bool arg_lock = false;
+static bool arg_unlock = false;
+static const char *arg_node = NULL;
+
 /* device info */
 static unsigned cd_rw_nonremovable;
 static unsigned cd_rw_removable;
@@ -990,44 +995,40 @@ static int cd_media_toc(int fd) {
         return 0;
 }
 
-int main(int argc, char *argv[]) {
+static int help(void) {
+        printf("Usage: %s [options] <device>\n"
+               "  -l --lock-media    lock the media (to enable eject request events)\n"
+               "  -u --unlock-media  unlock the media\n"
+               "  -e --eject-media   eject the media\n"
+               "  -d --debug         print debug messages to stderr\n"
+               "  -h --help          print this help text\n"
+               "\n",
+               program_invocation_short_name);
+
+        return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
-                { "lock-media", no_argument, NULL, 'l' },
+                { "lock-media",   no_argument, NULL, 'l' },
                 { "unlock-media", no_argument, NULL, 'u' },
-                { "eject-media", no_argument, NULL, 'e' },
-                { "debug", no_argument, NULL, 'd' },
-                { "help", no_argument, NULL, 'h' },
+                { "eject-media",  no_argument, NULL, 'e' },
+                { "debug",        no_argument, NULL, 'd' },
+                { "help",         no_argument, NULL, 'h' },
                 {}
         };
-        bool eject = false;
-        bool lock = false;
-        bool unlock = false;
-        const char *node = NULL;
-        int fd = -1;
-        int cnt;
-        int rc = 0;
+        int c;
 
-        log_set_target(LOG_TARGET_AUTO);
-        udev_parse_config();
-        log_parse_environment();
-        log_open();
-
-        for (;;) {
-                int option;
-
-                option = getopt_long(argc, argv, "deluh", options, NULL);
-                if (option == -1)
-                        break;
-
-                switch (option) {
+        while ((c = getopt_long(argc, argv, "deluh", options, NULL)) >= 0)
+                switch (c) {
                 case 'l':
-                        lock = true;
+                        arg_lock = true;
                         break;
                 case 'u':
-                        unlock = true;
+                        arg_unlock = true;
                         break;
                 case 'e':
-                        eject = true;
+                        arg_eject = true;
                         break;
                 case 'd':
                         log_set_target(LOG_TARGET_CONSOLE);
@@ -1035,24 +1036,32 @@ int main(int argc, char *argv[]) {
                         log_open();
                         break;
                 case 'h':
-                        printf("Usage: %s [options] <device>\n"
-                               "  -l,--lock-media    lock the media (to enable eject request events)\n"
-                               "  -u,--unlock-media  unlock the media\n"
-                               "  -e,--eject-media   eject the media\n"
-                               "  -d,--debug         debug to stderr\n"
-                               "  -h,--help          print this help text\n\n",
-                               program_invocation_short_name);
-                        goto exit;
+                        return help();
                 default:
-                        rc = 1;
-                        goto exit;
+                        assert_not_reached("Unknown option");
                 }
-        }
 
-        node = argv[optind];
-        if (!node) {
-                log_error("no device");
-                rc = 1;
+        arg_node = argv[optind];
+        if (!arg_node)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No device is specified.");
+
+        return 1;
+}
+
+int main(int argc, char *argv[]) {
+        int fd = -1;
+        int cnt;
+        int rc = 0;
+        int r;
+
+        log_set_target(LOG_TARGET_AUTO);
+        udev_parse_config();
+        log_parse_environment();
+        log_open();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0) {
+                rc = r < 0;
                 goto exit;
         }
 
@@ -1060,7 +1069,7 @@ int main(int argc, char *argv[]) {
         for (cnt = 20; cnt > 0; cnt--) {
                 struct timespec duration;
 
-                fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
+                fd = open(arg_node, O_RDONLY|O_NONBLOCK|O_CLOEXEC);
                 if (fd >= 0 || errno != EBUSY)
                         break;
                 duration.tv_sec = 0;
@@ -1068,11 +1077,11 @@ int main(int argc, char *argv[]) {
                 nanosleep(&duration, NULL);
         }
         if (fd < 0) {
-                log_debug("unable to open '%s'", node);
+                log_debug("unable to open '%s'", arg_node);
                 rc = 1;
                 goto exit;
         }
-        log_debug("probing: '%s'", node);
+        log_debug("probing: '%s'", arg_node);
 
         /* same data as original cdrom_id */
         if (cd_capability_compat(fd) < 0) {
@@ -1102,17 +1111,17 @@ int main(int argc, char *argv[]) {
 
 work:
         /* lock the media, so we enable eject button events */
-        if (lock && cd_media) {
+        if (arg_lock && cd_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (lock)");
                 media_lock(fd, true);
         }
 
-        if (unlock && cd_media) {
+        if (arg_unlock && cd_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
                 media_lock(fd, false);
         }
 
-        if (eject) {
+        if (arg_eject) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
                 media_lock(fd, false);
                 log_debug("START_STOP_UNIT (eject)");
