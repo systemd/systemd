@@ -501,6 +501,117 @@ static const char * const media_state_table[_MEDIA_STATE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(media_state, MediaState);
 
+static int dvd_ram_media_update_state(Context *c) {
+        struct scsi_cmd sc;
+        unsigned char dvdstruct[8];
+        unsigned char format[12];
+        unsigned char len;
+        int r;
+
+        assert(c);
+
+        /* Return 1 if media state is determined. */
+
+        if (c->media_feature != FEATURE_DVD_RAM)
+                return 0;
+
+        /* a write protected dvd-ram may report "complete" status */
+        scsi_cmd_init(&sc);
+        scsi_cmd_set(&sc, 0, GPCMD_READ_DVD_STRUCTURE);
+        scsi_cmd_set(&sc, 7, 0xC0);
+        scsi_cmd_set(&sc, 9, sizeof(dvdstruct));
+        scsi_cmd_set(&sc, 11, 0);
+        r = scsi_cmd_run_and_log(&sc, c->fd, dvdstruct, sizeof(dvdstruct), "read DVD structure");
+        if (r < 0)
+                return r;
+
+        if (dvdstruct[4] & 0x02) {
+                c->media_state = MEDIA_STATE_COMPLETE;
+                log_debug("write-protected DVD-RAM media inserted");
+                return 1;
+        }
+
+        /* let's make sure we don't try to read unformatted media */
+        scsi_cmd_init(&sc);
+        scsi_cmd_set(&sc, 0, GPCMD_READ_FORMAT_CAPACITIES);
+        scsi_cmd_set(&sc, 8, sizeof(format));
+        scsi_cmd_set(&sc, 9, 0);
+        r = scsi_cmd_run_and_log(&sc, c->fd, format, sizeof(format), "read DVD format capacities");
+        if (r < 0)
+                return r;
+
+        len = format[3];
+        if (len & 7 || len < 16)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "invalid format capacities length");
+
+        switch(format[8] & 3) {
+        case 1:
+                /* This means that last format was interrupted or failed, blank dvd-ram discs are
+                 * factory formatted. Take no action here as it takes quite a while to reformat a
+                 * dvd-ram and it's not automatically started. */
+                log_debug("unformatted DVD-RAM media inserted");
+                return 1;
+
+        case 2:
+                log_debug("formatted DVD-RAM media inserted");
+                return 0;
+
+        case 3:
+                c->has_media = false;
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                                       "format capacities returned no media");
+        }
+
+        return 0;
+}
+
+static int dvd_media_update_state(Context *c) {
+        struct scsi_cmd sc;
+        unsigned char buffer[32 * 2048];
+        int offset, r;
+
+        r = dvd_ram_media_update_state(c);
+        if (r != 0)
+                return r;
+
+        /* Take a closer look at formatted media (unformatted DVD+RW
+         * has "blank" status", DVD-RAM was examined earlier) and check
+         * for ISO and UDF PVDs or a fs superblock presence and do it
+         * in one ioctl (we need just sectors 0 and 16) */
+
+        scsi_cmd_init(&sc);
+        scsi_cmd_set(&sc, 0, GPCMD_READ_10);
+        scsi_cmd_set(&sc, 5, 0);
+        scsi_cmd_set(&sc, 8, sizeof(buffer)/2048);
+        scsi_cmd_set(&sc, 9, 0);
+        r = scsi_cmd_run_and_log(&sc, c->fd, buffer, sizeof(buffer), "read first 32 blocks");
+        if (r < 0) {
+                c->has_media = false;
+                return r;
+        }
+
+        /* if any non-zero data is found in sector 16 (iso and udf) or
+         * eventually 0 (fat32 boot sector, ext2 superblock, etc), disc
+         * is assumed non-blank */
+
+        for (offset = 32768; offset < 32768 + 2048; offset++)
+                if (buffer[offset] != 0) {
+                        log_debug("data in block 16, assuming complete");
+                        return 0;
+                }
+
+        for (offset = 0; offset < 2048; offset++)
+                if (buffer[offset] != 0) {
+                        log_debug("data in block 0, assuming complete");
+                        return 0;
+                }
+
+        log_debug("no data in blocks 0 or 16, assuming blank");
+        c->media_state = MEDIA_STATE_BLANK;
+        return 0;
+}
+
 static int cd_media_info(Context *c) {
         struct scsi_cmd sc;
         unsigned char header[32];
@@ -538,104 +649,11 @@ static int cd_media_info(Context *c) {
          * write protected; we need to check the contents if it is blank */
         if (IN_SET(c->media_feature, FEATURE_DVD_RW_RO, FEATURE_DVD_PLUS_RW, FEATURE_DVD_PLUS_RW_DL, FEATURE_DVD_RAM) &&
             IN_SET(state, MEDIA_STATE_COMPLETE, MEDIA_STATE_OTHER)) {
-                unsigned char buffer[32 * 2048];
-                unsigned char len;
-                int offset;
-
-                if (c->media_feature == FEATURE_DVD_RAM) {
-                        /* a write protected dvd-ram may report "complete" status */
-
-                        unsigned char dvdstruct[8];
-                        unsigned char format[12];
-
-                        scsi_cmd_init(&sc);
-                        scsi_cmd_set(&sc, 0, GPCMD_READ_DVD_STRUCTURE);
-                        scsi_cmd_set(&sc, 7, 0xC0);
-                        scsi_cmd_set(&sc, 9, sizeof(dvdstruct));
-                        scsi_cmd_set(&sc, 11, 0);
-                        r = scsi_cmd_run_and_log(&sc, c->fd, dvdstruct, sizeof(dvdstruct), "read DVD structure");
-                        if (r < 0)
-                                return r;
-
-                        if (dvdstruct[4] & 0x02) {
-                                c->media_state = MEDIA_STATE_COMPLETE;
-                                log_debug("write-protected DVD-RAM media inserted");
-                                goto determined;
-                        }
-
-                        /* let's make sure we don't try to read unformatted media */
-                        scsi_cmd_init(&sc);
-                        scsi_cmd_set(&sc, 0, GPCMD_READ_FORMAT_CAPACITIES);
-                        scsi_cmd_set(&sc, 8, sizeof(format));
-                        scsi_cmd_set(&sc, 9, 0);
-                        r = scsi_cmd_run_and_log(&sc, c->fd, format, sizeof(format), "read DVD format capacities");
-                        if (r < 0)
-                                return r;
-
-                        len = format[3];
-                        if (len & 7 || len < 16)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "invalid format capacities length");
-
-                        switch(format[8] & 3) {
-                            case 1:
-                                log_debug("unformatted DVD-RAM media inserted");
-                                /* This means that last format was interrupted
-                                 * or failed, blank dvd-ram discs are factory
-                                 * formatted. Take no action here as it takes
-                                 * quite a while to reformat a dvd-ram and it's
-                                 * not automatically started */
-                                goto determined;
-
-                            case 2:
-                                log_debug("formatted DVD-RAM media inserted");
-                                break;
-
-                            case 3:
-                                c->has_media = false;
-                                return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
-                                                       "format capacities returned no media");
-                        }
-                }
-
-                /* Take a closer look at formatted media (unformatted DVD+RW
-                 * has "blank" status", DVD-RAM was examined earlier) and check
-                 * for ISO and UDF PVDs or a fs superblock presence and do it
-                 * in one ioctl (we need just sectors 0 and 16) */
-                scsi_cmd_init(&sc);
-                scsi_cmd_set(&sc, 0, GPCMD_READ_10);
-                scsi_cmd_set(&sc, 5, 0);
-                scsi_cmd_set(&sc, 8, sizeof(buffer)/2048);
-                scsi_cmd_set(&sc, 9, 0);
-                r = scsi_cmd_run_and_log(&sc, c->fd, buffer, sizeof(buffer), "read first 32 blocks");
-                if (r < 0) {
-                        c->has_media = false;
+                r = dvd_media_update_state(c);
+                if (r < 0)
                         return r;
-                }
-
-                /* if any non-zero data is found in sector 16 (iso and udf) or
-                 * eventually 0 (fat32 boot sector, ext2 superblock, etc), disc
-                 * is assumed non-blank */
-
-                for (offset = 32768; offset < (32768 + 2048); offset++) {
-                        if (buffer [offset]) {
-                                log_debug("data in block 16, assuming complete");
-                                goto determined;
-                        }
-                }
-
-                for (offset = 0; offset < 2048; offset++) {
-                        if (buffer [offset]) {
-                                log_debug("data in block 0, assuming complete");
-                                goto determined;
-                        }
-                }
-
-                c->media_state = MEDIA_STATE_BLANK;
-                log_debug("no data in blocks 0 or 16, assuming blank");
         }
 
-determined:
         /* "other" is e. g. DVD-RAM, can't append sessions there; DVDs in
          * restricted overwrite mode can never append, only in sequential mode */
         if (c->media_feature != FEATURE_DVD_RW_RO && IN_SET(state, MEDIA_STATE_BLANK, MEDIA_STATE_APPENDABLE))
