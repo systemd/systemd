@@ -635,7 +635,6 @@ static int feature_profiles(const unsigned char *profiles, size_t size) {
         return 0;
 }
 
-/* returns 0 if media was detected */
 static int cd_profiles_old_mmc(int fd) {
         struct scsi_cmd sc;
         size_t len;
@@ -667,7 +666,7 @@ static int cd_profiles_old_mmc(int fd) {
                         cd_media_cd_rom = 1;
                         cd_media_track_count = 1;
                         cd_media_track_count_data = 1;
-                        return 0;
+                        return 1;
                 } else
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                                "no current profile, assuming no media.");
@@ -686,17 +685,17 @@ static int cd_profiles_old_mmc(int fd) {
                 log_debug("profile 0x08 media_cd_rom");
         }
 
-        return 0;
+        return 1;
 }
 
-/* returns 0 if media was detected */
 static int cd_profiles(int fd) {
         struct scsi_cmd sc;
         unsigned char features[65530];
         unsigned cur_profile = 0;
         unsigned len;
         unsigned i;
-        int r, ret = -1;
+        bool has_media = false;
+        int r;
 
         /* First query the current profile */
         scsi_cmd_init(&sc);
@@ -719,7 +718,7 @@ static int cd_profiles(int fd) {
         if (cur_profile > 0) {
                 log_debug("current profile 0x%02x", cur_profile);
                 feature_profile_media(cur_profile);
-                ret = 0; /* we have media */
+                has_media = true;
         } else
                 log_debug("no current profile, assuming no media");
 
@@ -768,7 +767,7 @@ static int cd_profiles(int fd) {
                 }
         }
 
-        return ret;
+        return has_media;
 }
 
 static int cd_media_info(int fd) {
@@ -1090,16 +1089,16 @@ int main(int argc, char *argv[]) {
                 goto work;
 
         /* read drive and possibly current profile */
-        if (cd_profiles(fd) != 0)
-                goto work;
+        r = cd_profiles(fd);
+        if (r > 0) {
+                /* at this point we are guaranteed to have media in the drive - find out more about it */
 
-        /* at this point we are guaranteed to have media in the drive - find out more about it */
+                /* get session/track info */
+                cd_media_toc(fd);
 
-        /* get session/track info */
-        cd_media_toc(fd);
-
-        /* get writable media state */
-        cd_media_info(fd);
+                /* get writable media state */
+                cd_media_info(fd);
+        }
 
 work:
         /* lock the media, so we enable eject button events */
