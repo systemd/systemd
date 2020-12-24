@@ -212,18 +212,14 @@ static int scsi_cmd_run_and_log(struct scsi_cmd *cmd, int fd, unsigned char *buf
 }
 
 static int media_lock(int fd, bool lock) {
-        int err;
-
         /* disable the kernel's lock logic */
-        err = ioctl(fd, CDROM_CLEAR_OPTIONS, CDO_LOCK);
-        if (err < 0)
-                log_debug("CDROM_CLEAR_OPTIONS, CDO_LOCK failed");
+        if (ioctl(fd, CDROM_CLEAR_OPTIONS, CDO_LOCK) < 0)
+                log_debug_errno(errno, "Failed to issue ioctl(CDROM_CLEAR_OPTIONS, CDO_LOCK), ignoring: %m");
 
-        err = ioctl(fd, CDROM_LOCKDOOR, lock ? 1 : 0);
-        if (err < 0)
-                log_debug("CDROM_LOCKDOOR failed");
+        if (ioctl(fd, CDROM_LOCKDOOR, lock ? 1 : 0) < 0)
+                return log_debug_errno(errno, "Failed to issue ioctl(CDROM_LOCKDOOR): %m");
 
-        return err;
+        return 0;
 }
 
 static int media_eject(int fd) {
