@@ -310,9 +310,14 @@ UseDNS=
 DHCPv6Client=
 UseAutonomousPrefix=
 UseOnLinkPrefix=
+RouterAllowList=
+RouterDenyList=
+PrefixAllowList=
+PrefixDenyList=
+RouteAllowList=
+RouteDenyList=
 DenyList=
 BlackList=
-RouteDenyList=
 [DHCPServer]
 EmitNTP=
 PoolSize=
