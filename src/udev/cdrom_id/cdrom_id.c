@@ -92,15 +92,15 @@ typedef struct Context {
 
         Feature media_feature;
         bool has_media;
-} Context;
 
-static const char *cd_media_state = NULL;
-static unsigned cd_media_session_next;
-static unsigned cd_media_session_count;
-static unsigned cd_media_track_count;
-static unsigned cd_media_track_count_data;
-static unsigned cd_media_track_count_audio;
-static unsigned long long int cd_media_session_last_offset;
+        const char *media_state;
+        unsigned media_session_next;
+        unsigned media_session_count;
+        unsigned media_track_count;
+        unsigned media_track_count_data;
+        unsigned media_track_count_audio;
+        uint64_t media_session_last_offset;
+} Context;
 
 static void context_clear(Context *c) {
         if (!c)
@@ -375,8 +375,8 @@ static int cd_profiles_old_mmc(Context *c) {
                 if (c->has_media) {
                         log_debug("No current profile, but disc is present; assuming CD-ROM.");
                         c->media_feature = FEATURE_CD_ROM;
-                        cd_media_track_count = 1;
-                        cd_media_track_count_data = 1;
+                        c->media_track_count = 1;
+                        c->media_track_count_data = 1;
                         return 1;
                 } else
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
@@ -507,13 +507,13 @@ static int cd_media_info(Context *c) {
 
         /* exclude plain CDROM, some fake cdroms return 0 for "blank" media here */
         if (c->media_feature != FEATURE_CD_ROM)
-                cd_media_state = media_status[header[2] & 3];
+                c->media_state = media_status[header[2] & 3];
 
         /* fresh DVD-RW in restricted overwrite mode reports itself as
          * "appendable"; change it to "blank" to make it consistent with what
          * gets reported after blanking, and what userspace expects  */
         if (c->media_feature == FEATURE_DVD_RW_RO && (header[2] & 3) == 1)
-                cd_media_state = media_status[0];
+                c->media_state = media_status[0];
 
         /* DVD+RW discs (and DVD-RW in restricted mode) once formatted are
          * always "complete", DVD-RAM are "other" or "complete" if the disc is
@@ -539,7 +539,7 @@ static int cd_media_info(Context *c) {
                                 return r;
 
                         if (dvdstruct[4] & 0x02) {
-                                cd_media_state = media_status[2];
+                                c->media_state = media_status[2];
                                 log_debug("write-protected DVD-RAM media inserted");
                                 goto determined;
                         }
@@ -612,7 +612,7 @@ static int cd_media_info(Context *c) {
                         }
                 }
 
-                cd_media_state = media_status[0];
+                c->media_state = media_status[0];
                 log_debug("no data in blocks 0 or 16, assuming blank");
         }
 
@@ -620,9 +620,9 @@ determined:
         /* "other" is e. g. DVD-RAM, can't append sessions there; DVDs in
          * restricted overwrite mode can never append, only in sequential mode */
         if ((header[2] & 3) < 2 && c->media_feature != FEATURE_DVD_RW_RO)
-                cd_media_session_next = header[10] << 8 | header[5];
-        cd_media_session_count = header[9] << 8 | header[4];
-        cd_media_track_count = header[11] << 8 | header[6];
+                c->media_session_next = header[10] << 8 | header[5];
+        c->media_session_count = header[9] << 8 | header[4];
+        c->media_track_count = header[11] << 8 | header[6];
 
         return 0;
 }
@@ -683,9 +683,9 @@ static int cd_media_toc(Context *c) {
                      p[2], p[1] & 0x0f, is_data_track ? "data":"audio", block);
 
                 if (is_data_track)
-                        cd_media_track_count_data++;
+                        c->media_track_count_data++;
                 else
-                        cd_media_track_count_audio++;
+                        c->media_track_count_audio++;
         }
 
         scsi_cmd_init(&sc);
@@ -699,7 +699,7 @@ static int cd_media_toc(Context *c) {
 
         len = header[4+4] << 24 | header[4+5] << 16 | header[4+6] << 8 | header[4+7];
         log_debug("last track %u starts at block %u", header[4+2], len);
-        cd_media_session_last_offset = (unsigned long long int)len * 2048;
+        c->media_session_last_offset = (uint64_t) len * 2048;
 
         return 0;
 }
@@ -846,6 +846,21 @@ static void print_properties(const Context *c) {
                 if (IN_SET(c->media_feature, FEATURE_BD_R_SRM, FEATURE_BD_R_RRM))
                         printf("ID_CDROM_MEDIA_BD_R=1\n");
         }
+
+        if (c->media_state)
+                printf("ID_CDROM_MEDIA_STATE=%s\n", c->media_state);
+        if (c->media_session_next > 0)
+                printf("ID_CDROM_MEDIA_SESSION_NEXT=%u\n", c->media_session_next);
+        if (c->media_session_count > 0)
+                printf("ID_CDROM_MEDIA_SESSION_COUNT=%u\n", c->media_session_count);
+        if (c->media_session_count > 1 && c->media_session_last_offset > 0)
+                printf("ID_CDROM_MEDIA_SESSION_LAST_OFFSET=%" PRIu64 "\n", c->media_session_last_offset);
+        if (c->media_track_count > 0)
+                printf("ID_CDROM_MEDIA_TRACK_COUNT=%u\n", c->media_track_count);
+        if (c->media_track_count_audio > 0)
+                printf("ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=%u\n", c->media_track_count_audio);
+        if (c->media_track_count_data > 0)
+                printf("ID_CDROM_MEDIA_TRACK_COUNT_DATA=%u\n", c->media_track_count_data);
 }
 
 static int help(void) {
@@ -970,20 +985,6 @@ work:
 
         print_properties(&c);
 
-        if (cd_media_state)
-                printf("ID_CDROM_MEDIA_STATE=%s\n", cd_media_state);
-        if (cd_media_session_next > 0)
-                printf("ID_CDROM_MEDIA_SESSION_NEXT=%u\n", cd_media_session_next);
-        if (cd_media_session_count > 0)
-                printf("ID_CDROM_MEDIA_SESSION_COUNT=%u\n", cd_media_session_count);
-        if (cd_media_session_count > 1 && cd_media_session_last_offset > 0)
-                printf("ID_CDROM_MEDIA_SESSION_LAST_OFFSET=%llu\n", cd_media_session_last_offset);
-        if (cd_media_track_count > 0)
-                printf("ID_CDROM_MEDIA_TRACK_COUNT=%u\n", cd_media_track_count);
-        if (cd_media_track_count_audio > 0)
-                printf("ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=%u\n", cd_media_track_count_audio);
-        if (cd_media_track_count_data > 0)
-                printf("ID_CDROM_MEDIA_TRACK_COUNT_DATA=%u\n", cd_media_track_count_data);
 exit:
         log_close();
         return rc;
