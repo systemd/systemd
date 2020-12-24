@@ -26,6 +26,8 @@
 #include "memory-util.h"
 #include "random-util.h"
 #include "sort-util.h"
+#include "string-table.h"
+#include "string-util.h"
 #include "udev-util.h"
 
 static bool arg_eject = false;
@@ -83,6 +85,15 @@ typedef enum Feature {
         _FEATURE_INVALID = -1,
 } Feature;
 
+typedef enum MediaState {
+        MEDIA_STATE_BLANK      = 0,
+        MEDIA_STATE_APPENDABLE = 1,
+        MEDIA_STATE_COMPLETE   = 2,
+        MEDIA_STATE_OTHER      = 3,
+        _MEDIA_STATE_MAX,
+        _MEDIA_STATE_INVALID = -1,
+} MediaState;
+
 typedef struct Context {
         int fd;
 
@@ -93,7 +104,7 @@ typedef struct Context {
         Feature media_feature;
         bool has_media;
 
-        const char *media_state;
+        MediaState media_state;
         unsigned media_session_next;
         unsigned media_session_count;
         unsigned media_track_count;
@@ -116,6 +127,7 @@ static void context_init(Context *c) {
         *c = (Context) {
                 .fd = -1,
                 .media_feature = _FEATURE_INVALID,
+                .media_state = _MEDIA_STATE_INVALID,
         };
 }
 
@@ -480,15 +492,19 @@ static int cd_profiles(Context *c) {
         return c->has_media;
 }
 
+static const char * const media_state_table[_MEDIA_STATE_MAX] = {
+        [MEDIA_STATE_BLANK]      = "blank",
+        [MEDIA_STATE_APPENDABLE] = "appendable",
+        [MEDIA_STATE_COMPLETE]   = "complete",
+        [MEDIA_STATE_OTHER]      = "other",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(media_state, MediaState);
+
 static int cd_media_info(Context *c) {
         struct scsi_cmd sc;
         unsigned char header[32];
-        static const char *const media_status[] = {
-                "blank",
-                "appendable",
-                "complete",
-                "other"
-        };
+        MediaState state;
         int r;
 
         assert(c);
@@ -503,22 +519,25 @@ static int cd_media_info(Context *c) {
 
         c->has_media = true;
         log_debug("disk type %02x", header[8]);
-        log_debug("hardware reported media status: %s", media_status[header[2] & 3]);
+
+        state = (MediaState) (header[2] & 0x03);
+        log_debug("hardware reported media status: %s", strna(media_state_to_string(state)));
 
         /* exclude plain CDROM, some fake cdroms return 0 for "blank" media here */
         if (c->media_feature != FEATURE_CD_ROM)
-                c->media_state = media_status[header[2] & 3];
+                c->media_state = state;
 
         /* fresh DVD-RW in restricted overwrite mode reports itself as
          * "appendable"; change it to "blank" to make it consistent with what
-         * gets reported after blanking, and what userspace expects  */
-        if (c->media_feature == FEATURE_DVD_RW_RO && (header[2] & 3) == 1)
-                c->media_state = media_status[0];
+         * gets reported after blanking, and what userspace expects. */
+        if (c->media_feature == FEATURE_DVD_RW_RO && state == MEDIA_STATE_APPENDABLE)
+                c->media_state = MEDIA_STATE_BLANK;
 
         /* DVD+RW discs (and DVD-RW in restricted mode) once formatted are
          * always "complete", DVD-RAM are "other" or "complete" if the disc is
          * write protected; we need to check the contents if it is blank */
-        if (IN_SET(c->media_feature, FEATURE_DVD_RW_RO, FEATURE_DVD_PLUS_RW, FEATURE_DVD_PLUS_RW_DL, FEATURE_DVD_RAM) && (header[2] & 3) > 1) {
+        if (IN_SET(c->media_feature, FEATURE_DVD_RW_RO, FEATURE_DVD_PLUS_RW, FEATURE_DVD_PLUS_RW_DL, FEATURE_DVD_RAM) &&
+            IN_SET(state, MEDIA_STATE_COMPLETE, MEDIA_STATE_OTHER)) {
                 unsigned char buffer[32 * 2048];
                 unsigned char len;
                 int offset;
@@ -539,7 +558,7 @@ static int cd_media_info(Context *c) {
                                 return r;
 
                         if (dvdstruct[4] & 0x02) {
-                                c->media_state = media_status[2];
+                                c->media_state = MEDIA_STATE_COMPLETE;
                                 log_debug("write-protected DVD-RAM media inserted");
                                 goto determined;
                         }
@@ -612,14 +631,14 @@ static int cd_media_info(Context *c) {
                         }
                 }
 
-                c->media_state = media_status[0];
+                c->media_state = MEDIA_STATE_BLANK;
                 log_debug("no data in blocks 0 or 16, assuming blank");
         }
 
 determined:
         /* "other" is e. g. DVD-RAM, can't append sessions there; DVDs in
          * restricted overwrite mode can never append, only in sequential mode */
-        if ((header[2] & 3) < 2 && c->media_feature != FEATURE_DVD_RW_RO)
+        if (c->media_feature != FEATURE_DVD_RW_RO && IN_SET(state, MEDIA_STATE_BLANK, MEDIA_STATE_APPENDABLE))
                 c->media_session_next = header[10] << 8 | header[5];
         c->media_session_count = header[9] << 8 | header[4];
         c->media_track_count = header[11] << 8 | header[6];
@@ -801,6 +820,8 @@ static void print_feature(Feature feature, const char *prefix) {
 }
 
 static void print_properties(const Context *c) {
+        const char *state;
+
         assert(c);
 
         printf("ID_CDROM=1\n");
@@ -847,8 +868,9 @@ static void print_properties(const Context *c) {
                         printf("ID_CDROM_MEDIA_BD_R=1\n");
         }
 
-        if (c->media_state)
-                printf("ID_CDROM_MEDIA_STATE=%s\n", c->media_state);
+        state = media_state_to_string(c->media_state);
+        if (state)
+                printf("ID_CDROM_MEDIA_STATE=%s\n", state);
         if (c->media_session_next > 0)
                 printf("ID_CDROM_MEDIA_SESSION_NEXT=%u\n", c->media_session_next);
         if (c->media_session_count > 0)
