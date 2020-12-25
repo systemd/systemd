@@ -85,9 +85,9 @@
         <term><varname>systemd.verity_root_options=</varname></term>
 
         <listitem><para>Takes a comma-separated list of dm-verity options. Expects the following options
-        <option>ignore-corruption</option>, <option>restart-on-corruption</option>, <option>ignore-zero-blocks</option>,
-        <option>check-at-most-once</option>, <option>panic-on-corruption</option> and
-        <option>root-hash-signature</option>. See
+        <option>hash-offset=bytes</option>, <option>ignore-corruption</option>, <option>restart-on-corruption</option>,
+        <option>ignore-zero-blocks</option>, <option>check-at-most-once</option>, <option>panic-on-corruption</option>
+        and <option>root-hash-signature</option>. See
         <citerefentry project='die-net'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
         details.</para></listitem>
       </varlistentry>
