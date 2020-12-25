@@ -61,6 +61,13 @@ This is based on crypttab(5).
     <variablelist class='fstab-options'>
 
       <varlistentry>
+        <term><option>hash-offset=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>Offset of hash area/superblock on <literal>hash-device</literal>. (Multiples of 512 bytes.)
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>ignore-corruption</option></term>
         <term><option>restart-on-corruption</option></term>
         <term><option>panic-on-corruption</option></term>

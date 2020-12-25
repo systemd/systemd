@@ -10,12 +10,14 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
 
+static uint64_t arg_hash_offset = 0;
 static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
 static char *arg_root_hash_signature = NULL;
 
@@ -104,7 +106,17 @@ static int parse_options(const char *options) {
                 else if (streq(word, "panic-on-corruption"))
                         arg_activate_flags |= CRYPT_ACTIVATE_PANIC_ON_CORRUPTION;
 #endif
-                else if ((val = startswith(word, "root-hash-signature="))) {
+                else if ((val = startswith(word, "hash-offset="))) {
+                        uint64_t off;
+
+                        r = parse_size(val, 1024, &off);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse offset '%s': %m", word);
+                        if (off % 512 != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "hash-offset= expects a 512-byte aligned value.");
+
+                        arg_hash_offset = off;
+                } else if ((val = startswith(word, "root-hash-signature="))) {
                         r = save_roothashsig_option(val, /* strict= */ true);
                         if (r < 0)
                                 return r;
@@ -138,6 +150,7 @@ static int run(int argc, char *argv[]) {
         if (streq(verb, "attach")) {
                 const char *volume, *data_device, *verity_device, *root_hash, *options;
                 _cleanup_free_ void *m = NULL;
+                struct crypt_params_verity p = {};
                 crypt_status_info status;
                 size_t l;
 
@@ -173,9 +186,11 @@ static int run(int argc, char *argv[]) {
                         r = parse_options(options);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse options: %m");
+
+                        p.hash_area_offset = arg_hash_offset;
                 }
 
-                r = crypt_load(cd, CRYPT_VERITY, NULL);
+                r = crypt_load(cd, CRYPT_VERITY, &p);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load verity superblock: %m");
 
