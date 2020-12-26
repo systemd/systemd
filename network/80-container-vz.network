@@ -22,3 +22,4 @@ DHCPServer=yes
 IPMasquerade=yes
 LLDP=yes
 EmitLLDP=customer-bridge
+IPv6SendRA=yes
