@@ -47,6 +47,9 @@ Configuration variables
 TEST_NO_QEMU=1
     Don't run tests under QEMU
 
+TEST_QEMU_ONLY=1
+    Run only tests that require QEMU
+
 TEST_NO_NSPAWN=1
     Don't run tests under systemd-nspawn
 
