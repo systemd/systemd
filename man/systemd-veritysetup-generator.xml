@@ -94,7 +94,8 @@
         <option>salt=<replaceable>HEX</replaceable></option>, <option>uuid=<replaceable>UUID</replaceable></option>,
         <option>ignore-corruption</option>, <option>restart-on-corruption</option>, <option>ignore-zero-blocks</option>,
         <option>check-at-most-once</option>, <option>panic-on-corruption</option>,
-        <option>hash=<replaceable>HASH</replaceable></option> and
+        <option>hash=<replaceable>HASH</replaceable></option>, <option>fec-device=<replaceable>PATH</replaceable></option>,
+        <option>fec-offset=<replaceable>BYTES</replaceable></option>, <option>fec-roots=<replaceable>NUM</replaceable></option> and
         <option>root-hash-signature=<replaceable>PATH</replaceable>|base64:<replaceable>HEX</replaceable></option>. See
         <citerefentry project='die-net'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
         details.</para></listitem>
