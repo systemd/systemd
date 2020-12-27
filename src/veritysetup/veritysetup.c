@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
 #include "fileio.h"
+#include "fstab-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
@@ -28,11 +29,15 @@ static void *arg_salt = NULL;
 static uint64_t arg_salt_size = 32;
 static char *arg_uuid = NULL;
 static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
+static char *arg_fec_what = NULL;
+static uint64_t arg_fec_offset = 0;
+static uint64_t arg_fec_roots = 2;
 static char *arg_root_hash_signature = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_salt, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_uuid, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fec_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
 
 static int help(void) {
@@ -221,6 +226,42 @@ static int parse_options(const char *options) {
                         r = free_and_strdup(&arg_hash, val);
                         if (r < 0)
                                 return log_oom();
+                } else if ((val = startswith(word, "fec-device="))) {
+                        _cleanup_free_ char *what = NULL;
+
+                        what = fstab_node_to_udev_node(val);
+                        if (!what)
+                                return log_oom();
+
+                        if (!path_is_absolute(what))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "fec-device= expects an absolute path.");
+
+                        if (!path_is_normalized(what))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "fec-device= expects an normalized path.");
+
+                        r = free_and_strdup(&arg_fec_what, what);
+                        if (r < 0)
+                                return log_oom();
+                } else if ((val = startswith(word, "fec-offset="))) {
+                        uint64_t off;
+
+                        r = parse_size(val, 1024, &off);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse offset '%s': %m", word);
+                        if (off % 512 != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "fec-offset= expects a 512-byte aligned value.");
+
+                        arg_fec_offset = off;
+                } else if ((val = startswith(word, "fec-roots="))) {
+                        uint64_t u;
+
+                        r = safe_atou64(val, &u);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse number '%s', ignoring: %m", word);
+                        if (u < 2 || u > 24)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "fec-rootfs= expects a value between 2 and 24 (including).");
+
+                        arg_fec_roots = u;
                 } else if ((val = startswith(word, "root-hash-signature="))) {
                         r = save_roothashsig_option(val, /* strict= */ true);
                         if (r < 0)
@@ -295,7 +336,10 @@ static int run(int argc, char *argv[]) {
 
                 if (arg_superblock) {
                         p = (struct crypt_params_verity) {
+                                .fec_device = arg_fec_what,
                                 .hash_area_offset = arg_hash_offset,
+                                .fec_area_offset = arg_fec_offset,
+                                .fec_roots = arg_fec_roots,
                         };
 
                         r = crypt_load(cd, CRYPT_VERITY, &p);
@@ -305,6 +349,7 @@ static int run(int argc, char *argv[]) {
                         p = (struct crypt_params_verity) {
                                 .hash_name = arg_hash,
                                 .data_device = data_device,
+                                .fec_device = arg_fec_what,
                                 .salt = arg_salt,
                                 .salt_size = arg_salt_size,
                                 .hash_type = arg_format,
@@ -312,6 +357,8 @@ static int run(int argc, char *argv[]) {
                                 .hash_block_size = arg_hash_block_size,
                                 .data_size = arg_data_blocks,
                                 .hash_area_offset = arg_hash_offset,
+                                .fec_area_offset = arg_fec_offset,
+                                .fec_roots = arg_fec_roots,
                                 .flags = CRYPT_VERITY_NO_HEADER,
                         };
 
