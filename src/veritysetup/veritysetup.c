@@ -27,11 +27,15 @@ static void *arg_salt = NULL;
 static uint64_t arg_salt_size = 32;
 static char *arg_uuid = NULL;
 static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
+static char *arg_fec_what = NULL;
+static uint64_t arg_fec_offset = 0;
+static uint64_t arg_fec_roots = 2;
 static char *arg_root_hash_signature = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_salt, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_uuid, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_fec_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
 
 static int help(void) {
@@ -196,6 +200,21 @@ static int parse_options(const char *options) {
                         r = free_and_strdup(&arg_hash, val);
                         if (r < 0)
                                 return log_oom();
+                } else if ((val = startswith(word, "fec-device="))) {
+
+                        r = free_and_strdup(&arg_fec_what, val);
+                        if (r < 0)
+                                return log_oom();
+                } else if ((val = startswith(word, "fec-offset="))) {
+
+                        r = safe_atou64(val, &arg_fec_offset);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s, ignoring: %m", word);
+                } else if ((val = startswith(word, "fec-roots="))) {
+
+                        r = safe_atou64(val, &arg_fec_roots);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s, ignoring: %m", word);
                 } else if ((val = startswith(word, "root-hash-signature="))) {
 
                         r = looks_like_roothashsig(val);
@@ -265,6 +284,9 @@ static int run(int argc, char *argv[]) {
 
                 if (!arg_no_superblock) {
                         p.hash_area_offset = arg_hash_offset;
+                        p.fec_device = arg_fec_what;
+                        p.fec_area_offset = arg_fec_offset;
+                        p.fec_roots = arg_fec_roots;
 
                         r = crypt_load(cd, CRYPT_VERITY, &p);
                         if (r < 0)
@@ -272,6 +294,7 @@ static int run(int argc, char *argv[]) {
                 } else {
                         p.hash_name = arg_hash;
                         p.data_device = argv[3];
+                        p.fec_device = arg_fec_what;
                         p.salt = arg_salt;
                         p.salt_size = arg_salt_size;
                         p.hash_type = arg_format;
@@ -279,6 +302,8 @@ static int run(int argc, char *argv[]) {
                         p.hash_block_size = arg_hash_block_size;
                         p.data_size = arg_data_blocks;
                         p.hash_area_offset = arg_hash_offset;
+                        p.fec_area_offset = arg_fec_offset;
+                        p.fec_roots = arg_fec_roots;
                         p.flags = CRYPT_VERITY_NO_HEADER;
 
                         r = crypt_format(cd, CRYPT_VERITY, NULL, NULL, arg_uuid, NULL, 0, &params);
