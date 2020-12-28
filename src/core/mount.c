@@ -1010,7 +1010,9 @@ static void mount_enter_mounting(Mount *m) {
         p = get_mount_parameters_fragment(m);
         if (p && mount_is_bind(p)) {
                 r = mkdir_p_label(p->what, m->directory_mode);
-                if (r < 0)
+                /* mkdir_p_label() can return -EEXIST if the target path exists and is not a directory - which is
+                 * totally OK, in case the user wants us to overmount a non-directory inode. */
+                if (r < 0 && r != -EEXIST)
                         log_unit_error_errno(UNIT(m), r, "Failed to make bind mount source '%s': %m", p->what);
         }
 
