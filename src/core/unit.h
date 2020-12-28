@@ -303,6 +303,7 @@ typedef struct Unit {
 
         BPFLink *ipv4_allow_bind_bpf_link;
         BPFLink *ipv6_allow_bind_bpf_link;
+        FDSet *alow_bind_restored_fds;
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 

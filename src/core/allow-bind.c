@@ -111,7 +111,7 @@ int allow_bind_supported(void) {
         return can_link_bpf_program(obj->progs.allow_bind_v6);
 }
 
-int allow_bind_install(Unit *u) {
+static int allow_bind_install_impl(Unit *u) {
         _cleanup_(bpf_link_freep) struct bpf_link *ipv4 = NULL, *ipv6 = NULL;
         _cleanup_(allow_bind_bpf_freep) struct allow_bind_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
@@ -151,6 +151,13 @@ int allow_bind_install(Unit *u) {
 
         return 0;
 }
+
+int allow_bind_install(Unit *u) {
+        int r = allow_bind_install_impl(u);
+        fdset_close(u->alow_bind_restored_fds);
+        return r;
+}
+
 #else /* ! BPF_FRAMEWORK */
 int allow_bind_supported(void) {
         return 0;
@@ -160,5 +167,22 @@ int allow_bind_install(Unit *u) {
         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
                         "Failed to install AllowBind: BPF programs built from source code are not supported: %m");
 }
-
 #endif
+
+int allow_bind_restore(Unit *u, int fd) {
+        int r;
+
+        assert(u);
+
+        if (!u->alow_bind_restored_fds) {
+                u->alow_bind_restored_fds = fdset_new();
+                if (!u->alow_bind_restored_fds)
+                        return log_oom();
+        }
+
+        r = fdset_put(u->alow_bind_restored_fds, fd);
+        if (r < 0)
+                return log_unit_debug(u, "Failed to put allow-bind-link-fd %d to restored fdset", fd);
+
+        return 0;
+}
