@@ -1280,7 +1280,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
         int r;
 
         r = dlopen_idn();
-        if (r == EOPNOTSUPP) {
+        if (r == -EOPNOTSUPP) {
                 *ret = NULL;
                 return 0;
         }
