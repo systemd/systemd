@@ -119,7 +119,7 @@ int find_fido2_auto_data(
 
         /* Loads FIDO2 metadata from LUKS2 JSON token headers. */
 
-        for (int token = 0; token < LUKS2_TOKENS_MAX; token ++) {
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token ++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 JsonVariant *w;
 

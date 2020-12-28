@@ -1056,6 +1056,8 @@ if want_libcryptsetup != 'false' and not skip_deps
                    have and cc.has_function('crypt_set_metadata_size', dependencies : libcryptsetup))
         conf.set10('HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY',
                    have and cc.has_function('crypt_activate_by_signed_key', dependencies : libcryptsetup))
+        conf.set10('HAVE_CRYPT_TOKEN_MAX',
+                   have and cc.has_function('crypt_token_max', dependencies : libcryptsetup))
 else
         have = false
         libcryptsetup = []

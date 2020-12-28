@@ -99,7 +99,7 @@ static int find_slots_by_mask(
 
         /* Find all slots that are associated with a token of a type in the specified token type mask */
 
-        for (int token = 0; token < LUKS2_TOKENS_MAX; token++) {
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 JsonVariant *w, *z;
                 EnrollType t;
@@ -199,7 +199,7 @@ static int find_slot_tokens(struct crypt_device *cd, Set *wipe_slots, Set *keep_
         /* Find all tokens matching the slots we want to wipe, so that we can wipe them too. Also, for update
          * the slots sets according to the token data: add any other slots listed in the tokens we act on. */
 
-        for (int token = 0; token < LUKS2_TOKENS_MAX; token++) {
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 bool shall_wipe = false;
                 JsonVariant *w, *z;
