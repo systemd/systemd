@@ -5,6 +5,7 @@
 #endif
 
 #include "bpf-link.h"
+#include "serialize.h"
 
 #if HAVE_LIBBPF
 bool can_link_bpf_program(BpfProgram *prog) {
@@ -19,6 +20,17 @@ bool can_link_bpf_program(BpfProgram *prog) {
         return libbpf_get_error(link) == -EBADF;
 }
 
+int serialize_bpf_link(FILE *f, FDSet *fds, const char *key, BpfLink *link) {
+        int fd;
+
+        assert(key);
+        assert(link);
+        if (libbpf_get_error(link) != 0)
+                return -EINVAL;
+
+        return serialize_fd(f, fds, key, fd);
+}
+
 BpfLink *bpf_link_free(BpfLink *link) {
         if (link)
                (void) bpf_link__destroy(link);
@@ -28,6 +40,10 @@ BpfLink *bpf_link_free(BpfLink *link) {
 #else
 bool can_link_bpf_program(BpfProgram *prog) {
         return false;
+}
+
+int serialize_bpf_link(FILE *f, FDSet *fds, const char *key, BpfLink *link) {
+        return 0;
 }
 
 BpfLink *bpf_link_free(BpfLink *link) {
