@@ -987,7 +987,7 @@ int main(int argc, char *argv[]) {
 
         /* check for media - don't bail if there's no media as we still need to
          * to read profiles */
-        cd_media_compat(&c);
+        (void) cd_media_compat(&c);
 
         /* check if drive talks MMC */
         if (cd_inquiry(&c) < 0)
@@ -999,29 +999,29 @@ int main(int argc, char *argv[]) {
                 /* at this point we are guaranteed to have media in the drive - find out more about it */
 
                 /* get session/track info */
-                cd_media_toc(&c);
+                (void) cd_media_toc(&c);
 
                 /* get writable media state */
-                cd_media_info(&c);
+                (void) cd_media_info(&c);
         }
 
 work:
         /* lock the media, so we enable eject button events */
         if (arg_lock && c.has_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (lock)");
-                media_lock(c.fd, true);
+                (void) media_lock(c.fd, true);
         }
 
         if (arg_unlock && c.has_media) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
-                media_lock(c.fd, false);
+                (void) media_lock(c.fd, false);
         }
 
         if (arg_eject) {
                 log_debug("PREVENT_ALLOW_MEDIUM_REMOVAL (unlock)");
-                media_lock(c.fd, false);
+                (void) media_lock(c.fd, false);
                 log_debug("START_STOP_UNIT (eject)");
-                media_eject(c.fd);
+                (void) media_eject(c.fd);
         }
 
         print_properties(&c);
