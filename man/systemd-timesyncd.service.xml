@@ -29,35 +29,42 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-timesyncd</filename> is a system service
-    that may be used to synchronize the local system clock with a
-    remote Network Time Protocol server. It also saves the local time
-    to disk every time the clock has been synchronized and uses this
-    to possibly advance the system realtime clock on subsequent
-    reboots to ensure it monotonically advances even if the system
-    lacks a battery-buffered RTC chip.</para>
+    <para><filename>systemd-timesyncd</filename> is a system service that may be used to synchronize the
+    local system clock with a remote Network Time Protocol (NTP) server. It also saves the local time to disk
+    every time the clock has been synchronized and uses this to possibly advance the system realtime clock on
+    subsequent reboots to ensure it (roughly) monotonically advances even if the system lacks a
+    battery-buffered RTC chip.</para>
 
-    <para>The <filename>systemd-timesyncd</filename> service
-    specifically implements only SNTP. This minimalistic
-    service will set the system clock for large offsets or
-    slowly adjust it for smaller deltas. More complex use
-    cases are not covered by <filename>systemd-timesyncd</filename>.</para>
+    <para>The <filename>systemd-timesyncd</filename> service implements SNTP only. This minimalistic service
+    will step the system clock for large offsets or slowly adjust it for smaller deltas. Complex use cases
+    that require full NTP support (and where SNTP is not sufficient) are not covered by
+    <filename>systemd-timesyncd</filename>.</para>
 
-    <para>The NTP servers contacted are determined from the global
-    settings in
-    <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    the per-link static settings in <filename>.network</filename>
-    files, and the per-link dynamic settings received over DHCP. See
-    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more details.</para>
+    <para>The NTP servers contacted are determined from the global settings in
+    <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, the
+    per-link static settings in <filename>.network</filename> files, and the per-link dynamic settings
+    received over DHCP. See
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    further details.</para>
 
     <para><citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-    <command>set-ntp</command> command may be used to enable and
-    start, or disable and stop this service.</para>
+    <command>set-ntp</command> command may be used to enable and start, or disable and stop this
+    service.</para>
 
     <para><citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <command>timesync-status</command> or <command>show-timesync</command> command can be used to show the
     current status of this service.</para>
+
+    <para><filename>systemd-timesyncd</filename> initialization delays the start of units that are ordered
+    after <filename>time-set.target</filename> (see
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details) until the local time has been updated from <filename>/var/lib/systemd/timesync/clock</filename>
+    (see below) in order to make it roughly monotonic. It does not delay other units until synchronization
+    with an accurate reference time sources has been reached. Use
+    <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    to achieve that, which will delay start of units that are ordered after
+    <filename>time-sync.target</filename> until synchronization to an accurate reference clock is
+    reached.</para>
   </refsect1>
 
   <refsect1>
@@ -68,9 +75,10 @@
         <term><filename>/var/lib/systemd/timesync/clock</filename></term>
 
         <listitem>
-          <para>The modification time of this file indicates the timestamp of the last successful
-          synchronization (or at least the systemd build date, in case synchronization was not
-          possible).</para>
+          <para>The modification time ("mtime") of this file indicates the timestamp of the last successful
+          synchronization (or at least the systemd build date, in case synchronization was not possible). It
+          is used to ensure that the system clock remains roughly monotonic across reboots, in case no local
+          RTC is available.</para>
         </listitem>
       </varlistentry>
 
@@ -80,7 +88,7 @@
         <listitem>
           <para>A file that is touched on each successful synchronization, to assist
           <filename>systemd-time-wait-sync</filename> and other applications to detecting synchronization
-          events.</para>
+          with accurate reference clocks.</para>
         </listitem>
 
       </varlistentry>
@@ -95,6 +103,7 @@
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>hwclock</refentrytitle><manvolnum>8</manvolnum></citerefentry>

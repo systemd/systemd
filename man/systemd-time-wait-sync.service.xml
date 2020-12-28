@@ -29,15 +29,17 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-time-wait-sync</filename> is a system service that delays the start of units that depend on
-    <filename>time-sync.target</filename> until the system time has been synchronized with an accurate time source by
+    <para><filename>systemd-time-wait-sync</filename> is a system service that delays the start of units that
+    are ordered after <filename>time-sync.target</filename> (see
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details) until the system time has been synchronized with an accurate remote reference time source by
     <filename>systemd-timesyncd.service</filename>.</para>
 
-    <para><filename>systemd-timesyncd.service</filename> notifies on successful synchronization.
-    <filename>systemd-time-wait-sync</filename> also tries to detect when the kernel marks the time as synchronized,
-    but this detection is not reliable and is intended only as a fallback for other services that can be used to
-    synchronize time (e.g., ntpd, chronyd).</para>
-
+    <para><filename>systemd-timesyncd.service</filename> notifies <filename>systemd-time-wait-sync</filename>
+    about successful synchronization.  <filename>systemd-time-wait-sync</filename> also tries to detect when
+    the kernel marks the system clock as synchronized, but this detection is not reliable and is intended
+    only as a fallback for compatibility with alternative NTP services that can be used to synchronize time
+    (e.g., ntpd, chronyd).</para>
   </refsect1>
 
   <refsect1>

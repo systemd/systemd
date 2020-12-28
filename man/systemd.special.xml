@@ -998,36 +998,103 @@
         <varlistentry>
           <term><filename>time-set.target</filename></term>
           <listitem>
-            <para>Services responsible for setting the system clock from
-            a local source (such as a maintained timestamp file or
-            imprecise real-time clock) should pull in this target and
-            order themselves before it.  Services where approximate time
-            is desired should be ordered after this unit, but not pull
-            it in.  This target does not provide the accuracy guarantees
-            of <filename>time-sync.target</filename>.</para>
+            <para>Services responsible for setting the system clock (<constant>CLOCK_REALTIME</constant>)
+            from a local source (such as a maintained timestamp file or imprecise real-time clock) should
+            pull in this target and order themselves before it. Services where approximate, roughly monotonic
+            time is desired should be ordered after this unit, but not pull it in.</para>
+
+            <para>This target does not provide the accuracy guarantees of
+            <filename>time-sync.target</filename> (see below), however does not depend on remote clock
+            sources to be reachable, i.e. the target is typically not delayed by network problems and
+            similar. Use of this target is recommended for services where approximate clock accuracy and
+            rough monotonicity is desired but activation shall not be delayed for possibly unreliable network
+            communication.</para>
+
+            <para>The service manager automatically adds dependencies of type <varname>After=</varname> for
+            this target unit to all timer units with at least one <varname>OnCalendar=</varname>
+            directive.</para>
+
+            <para>The
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            service is a simple daemon that pulls in this target and orders itself before it. Besides
+            implementing the SNTP network protocol it maintains a timestamp file on disk whose modification
+            time is regularlary updated. At service start-up the local system clock is set from that modification time,
+            ensuring it increases roughly monotonically.</para>
+
+            <para>Note that ordering a unit after <filename>time-set.target</filename> only has effect if
+            there's actually a service ordered before it that delays it until the clock is adjusted for rough
+            monotonicity. Otherwise, this target might get reached before the clock is adjusted to be roughly
+            monotonic. Enable
+            <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+            or an alternative NTP implementation to delay the target.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><filename>time-sync.target</filename></term>
           <listitem>
-            <para>Services responsible for synchronizing the system
-            clock from a remote source (such as NTP client
-            implementations) should pull in this target and order
-            themselves before it. All services where correct time is
-            essential should be ordered after this unit, but not pull it
-            in. systemd automatically adds dependencies of type
-            <varname>After=</varname> for this target unit to all SysV
-            init script service units with an LSB header referring to
-            the <literal>$time</literal> facility, and also to all timer
-            units with at least one <varname>OnCalendar=</varname>
-            directive. </para>
+            <para>Services indicating completed synchronization of the system clock
+            (<constant>CLOCK_REALTIME</constant>) to a remote source should pull in this target and order
+            themselves before it. Services where accurate time is essential should be ordered after this
+            unit, but not pull it in.</para>
 
-            <para>This target might get reached before the clock is actually synchronized to an accurate reference
-            clock. To prevent that, enable
-            <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            if you're using
+            <para>The service manager automatically adds dependencies of type <varname>After=</varname> for
+            this target unit to all SysV init script service units with an LSB header referring to the
+            <literal>$time</literal> facility, as well to all timer units with at least one
+            <varname>OnCalendar=</varname> directive.</para>
+
+            <para>This target provides stricter clock accuracy guarantees than
+            <filename>time-set.target</filename> (see above), but likely requires
+            network communication and thus introduces unpredictable delays.
+            Services that require clock accuracy and where network
+            communication delays are acceptable should use this target. Services that require a less accurate
+            clock, and only approximate and roughly monotonic clock behaviour should use
+            <filename>time-set.target</filename> instead.</para>
+
+            <para>Note that ordering a unit after <filename>time-sync.target</filename> only has effect if
+            there's actually a service ordered before it that delays it until clock synchronization is
+            reached. Otherwise, this target might get reached before the clock is synchronized to any remote
+            accurate reference clock. When using
             <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-            or an equivalent service for other NTP implementations.</para>
+            enable
+            <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            to delay the target; or use an equivalent service for other NTP implementations.</para>
+
+            <table>
+              <title>Comparison</title>
+              <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+                <colspec colname="time-set" />
+                <colspec colname="time-sync" />
+                <thead>
+                  <row>
+                    <entry><filename>time-set.target</filename></entry>
+                    <entry><filename>time-sync.target</filename></entry>
+                  </row>
+                </thead>
+                <tbody>
+                  <row>
+                    <entry>"quick" to reach</entry>
+                    <entry>"slow" to reach</entry>
+                  </row>
+                  <row>
+                    <entry>typically uses local clock sources, boot process not affected by availability of external resources</entry>
+                    <entry>typically uses remote clock sources, inserts dependencies on remote resources into boot process</entry>
+                  </row>
+                  <row>
+                    <entry>reliable, because local</entry>
+                    <entry>unreliable, because typically network involved</entry>
+                  </row>
+                  <row>
+                    <entry>typically guarantees an approximate and roughly monotonic clock only</entry>
+                    <entry>typically guarantees an accurate clock</entry>
+                  </row>
+                  <row>
+                    <entry>implemented by <filename>systemd-timesyncd.service</filename></entry>
+                    <entry>implemented by <filename>systemd-time-wait-sync.service</filename></entry>
+                  </row>
+                </tbody>
+              </tgroup>
+            </table>
+
           </listitem>
         </varlistentry>
       </variablelist>
