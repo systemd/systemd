@@ -1018,7 +1018,7 @@
             <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             service is a simple daemon that pulls in this target and orders itself before it. Besides
             implementing the SNTP network protocol it maintains a timestamp file on disk whose modification
-            time is regularlary updated. At service start-up the local system clock is updated accordingly,
+            time is regularlary updated. At service start-up the local system clock is set from that modification time,
             ensuring it increases roughly monotonically.</para>
 
             <para>Note that ordering a unit after <filename>time-set.target</filename> only has effect if
@@ -1026,7 +1026,7 @@
             monotonicity. Otherwise, this target might get reached before the clock is adjusted to be roughly
             monotonic. Enable
             <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-            to achieve that — or an alternative NTP implementation.</para>
+            or an alternative NTP implementation to delay the target.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1043,9 +1043,9 @@
             <varname>OnCalendar=</varname> directive.</para>
 
             <para>This target provides stricter clock accuracy guarantees than
-            <filename>time-set.target</filename> (see above), but likely relies on possibly unreliable
-            network communication and thus might introduce possibly substantial activation delays for
-            services ordered after this target. Services that require clock accuracy and where network
+            <filename>time-set.target</filename> (see above), but likely requires
+            network communication and thus introduces unpredictable delays.
+            Services that require clock accuracy and where network
             communication delays are acceptable should use this target. Services that require a less accurate
             clock, and only approximate and roughly monotonic clock behaviour should use
             <filename>time-set.target</filename> instead.</para>
@@ -1057,7 +1057,7 @@
             <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
             enable
             <citerefentry><refentrytitle>systemd-time-wait-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            to achieve that; or use an equivalent service for other NTP implementations.</para>
+            to delay the target; or use an equivalent service for other NTP implementations.</para>
 
             <table>
               <title>Comparison</title>
