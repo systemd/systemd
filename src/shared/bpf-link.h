@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include <stddef.h>
+
 #include "macro.h"
+#include "serialize.h"
 
 #if HAVE_LIBBPF
 struct bpf_link;
@@ -15,6 +18,8 @@ typedef void BpfProgram;
 #endif
 
 bool can_link_bpf_program(BpfProgram *prog);
+
+int serialize_bpf_link(FILE *f, FDSet *fds, const char *key, BpfLink *link);
 
 BpfLink *bpf_link_free(BpfLink *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(BpfLink *, bpf_link_free);
