@@ -1644,6 +1644,18 @@ conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
 
+want_sysupdate = get_option('sysupdate')
+if want_sysupdate != 'false'
+        have = (conf.get('HAVE_OPENSSL') == 1 and
+                conf.get('HAVE_LIBFDISK') == 1)
+        if want_sysupdate == 'true' and not have
+                error('sysupdate support was requested, but dependencies are not available')
+        endif
+else
+        have = false
+endif
+conf.set10('ENABLE_SYSUPDATE', have)
+
 want_importd = get_option('importd')
 if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
@@ -2006,6 +2018,7 @@ subdir('src/rpm')
 subdir('src/shutdown')
 subdir('src/sysext')
 subdir('src/systemctl')
+subdir('src/sysupdate')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
@@ -3074,6 +3087,22 @@ if conf.get('ENABLE_REPART') == 1
         endif
 endif
 
+if conf.get('ENABLE_SYSUPDATE') == 1
+        exe = executable(
+                'systemd-sysupdate',
+                systemd_sysupdate_sources,
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads,
+                                libblkid,
+                                libfdisk,
+                                libopenssl],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootlibexecdir)
+        public_programs += exe
+endif
+
 if conf.get('ENABLE_VCONSOLE') == 1
         executable(
                 'systemd-vconsole-setup',
@@ -4117,6 +4146,7 @@ foreach tuple : [
         ['rfkill'],
         ['sysext'],
         ['systemd-analyze',       conf.get('ENABLE_ANALYZE') == 1],
+        ['sysupdate'],
         ['sysusers'],
         ['timedated'],
         ['timesyncd'],
