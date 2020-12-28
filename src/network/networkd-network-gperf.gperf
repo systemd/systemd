@@ -129,6 +129,7 @@ Network.IgnoreCarrierLoss,                   config_parse_tristate,             
 Network.KeepConfiguration,                   config_parse_keep_configuration,                          0,                             offsetof(Network, keep_configuration)
 Network.IPv6SendRA,                          config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
 Network.DHCPv6PrefixDelegation,              config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_pd)
+Network.FirewalldZone,                       config_parse_string,                                      0,                             offsetof(Network, firewalld_zone)
 Address.Address,                             config_parse_address,                                     0,                             0
 Address.Peer,                                config_parse_address,                                     0,                             0
 Address.Broadcast,                           config_parse_broadcast,                                   0,                             0

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone target="ACCEPT">
+  <short>systemd-networkd-virt</short>
+
+  <description>
+    The default policy of "ACCEPT" allows all packets to/from
+    interfaces in the zone to be forwarded, while the (*low priority*)
+    reject rule blocks any traffic destined for the host, except those
+    services explicitly listed (that list can be modified as required
+    by the local admin). This zone is intended to be used only by
+    systemd-networkd virtual networks.
+  </description>
+
+  <rule priority='32767'>
+    <reject/>
+  </rule>
+  <protocol value='icmp'/>
+  <protocol value='ipv6-icmp'/>
+  <service name='dhcp'/>
+  <service name='dhcpv6'/>
+  <service name='dns'/>
+  <service name='ssh'/>
+  <service name='tftp'/>
+</zone>

@@ -162,6 +162,7 @@ Metric=
 TTLPropagate=
 MultiPathRoute=
 [Network]
+FirewalldZone=
 IPv6DuplicateAddressDetection=
 IPMasquerade=
 ProxyARP=

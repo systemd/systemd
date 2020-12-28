@@ -10,6 +10,7 @@
 #include "bond.h"
 #include "bridge.h"
 #include "bus-util.h"
+#include "bus-error.h"
 #include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
@@ -1986,6 +1987,41 @@ static int link_drop_foreign_config(Link *link) {
         return link_drop_foreign_routes(link);
 }
 
+static int link_firewalld_zone_call(Link *link, const char *method) {
+        sd_bus *bus = link->manager->bus;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        if (!link->network || isempty(link->network->firewalld_zone))
+                return 0;
+
+        log_link_debug(link, "firewalld zone: %s %s", method, link->network->firewalld_zone);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.fedoraproject.FirewallD1",
+                        "/org/fedoraproject/FirewallD1",
+                        "org.fedoraproject.FirewallD1.zone",
+                        method,
+                        &error,
+                        NULL,
+                        "ss",
+                        link->network->firewalld_zone,
+                        link->ifname);
+        if (r < 0)
+                log_link_debug_errno(link, r, "Failed to set firewalld zone: %s, ignoring", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int link_remove_firewalld_zone(Link *link) {
+        return link_firewalld_zone_call(link, "removeInterface");
+}
+
+static int link_configure_firewalld_zone(Link *link) {
+        return link_firewalld_zone_call(link, "addInterface");
+}
+
 static int link_drop_config(Link *link) {
         int r;
 
@@ -2003,8 +2039,11 @@ static int link_drop_config(Link *link) {
 
         ndisc_flush(link);
 
+        link_remove_firewalld_zone(link);
+
         return 0;
 }
+
 
 int link_configure(Link *link) {
         int r;
@@ -2012,6 +2051,10 @@ int link_configure(Link *link) {
         assert(link);
         assert(link->network);
         assert(link->state == LINK_STATE_INITIALIZED);
+
+        r = link_configure_firewalld_zone(link);
+        if (r < 0)
+                return r;
 
         r = link_configure_traffic_control(link);
         if (r < 0)

@@ -240,6 +240,11 @@ if conf.get('ENABLE_NETWORKD') == 1
                              install_dir : pkgsysconfdir)
         endif
 
+        if install_firewalld
+                install_data('firewalld/systemd-networkd-virt.xml',
+                             install_dir : firewalldzonesdir)
+        endif
+
         fuzzers += [
     [['src/network/fuzz-netdev-parser.c',
       'src/fuzz/fuzz.h'],

@@ -79,6 +79,7 @@ struct Network {
         char *bond_name;
         char *vrf_name;
         Hashmap *stacked_netdev_names;
+        char *firewalld_zone;
 
         /* [Link] section */
         struct ether_addr *mac;

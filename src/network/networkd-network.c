@@ -659,6 +659,8 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp6_client_send_options);
         ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
 
+        free(network->firewalld_zone);
+
         return mfree(network);
 }
 
