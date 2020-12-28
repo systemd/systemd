@@ -37,6 +37,16 @@ extern int (*sym_crypt_set_pbkdf_type)(struct crypt_device *cd, const struct cry
 extern int (*sym_crypt_token_json_get)(struct crypt_device *cd, int token, const char **json);
 extern int (*sym_crypt_token_json_set)(struct crypt_device *cd, int token, const char *json);
 extern int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
+#if HAVE_CRYPT_TOKEN_MAX
+extern int (*sym_crypt_token_max)(const char *type);
+#else
+/* As a fallback, use the same hard-coded value libcryptsetup uses internally. */
+static inline int sym_crypt_token_max(_unused_ const char *type) {
+    assert(streq(type, CRYPT_LUKS2));
+
+    return 32;
+}
+#endif
 
 int dlopen_cryptsetup(void);
 
@@ -50,9 +60,5 @@ int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd);
 int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *verify_type, JsonVariant **ret);
 int cryptsetup_get_keyslot_from_token(JsonVariant *v);
 int cryptsetup_add_token_json(struct crypt_device *cd, JsonVariant *v);
-
-/* Stolen from cryptsetup's sources. We use to iterate through all tokens defined for a volume. Ideally, we'd
- * be able to query this via some API, but there appears to be none currently in libcryptsetup. */
-#define LUKS2_TOKENS_MAX 32
 
 #endif

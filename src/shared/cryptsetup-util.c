@@ -31,6 +31,9 @@ int (*sym_crypt_set_pbkdf_type)(struct crypt_device *cd, const struct crypt_pbkd
 int (*sym_crypt_token_json_get)(struct crypt_device *cd, int token, const char **json) = NULL;
 int (*sym_crypt_token_json_set)(struct crypt_device *cd, int token, const char *json) = NULL;
 int (*sym_crypt_volume_key_get)(struct crypt_device *cd, int keyslot, char *volume_key, size_t *volume_key_size, const char *passphrase, size_t passphrase_size);
+#if HAVE_CRYPT_TOKEN_MAX
+int (*sym_crypt_token_max)(const char *type);
+#endif
 
 int dlopen_cryptsetup(void) {
         _cleanup_(dlclosep) void *dl = NULL;
@@ -69,6 +72,9 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_token_json_get),
                         DLSYM_ARG(crypt_token_json_set),
                         DLSYM_ARG(crypt_volume_key_get),
+#if HAVE_CRYPT_TOKEN_MAX
+                        DLSYM_ARG(crypt_token_max),
+#endif
                         NULL);
         if (r < 0)
                 return r;

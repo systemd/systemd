@@ -84,7 +84,7 @@ int find_tpm2_auto_data(
 
         assert(cd);
 
-        for (token = start_token; token < LUKS2_TOKENS_MAX; token++) {
+        for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 JsonVariant *w, *e;
 
