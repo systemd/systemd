@@ -411,9 +411,8 @@ static int cd_profiles_old_mmc(Context *c) {
 static int cd_profiles(Context *c) {
         struct scsi_cmd sc;
         unsigned char features[65530];
-        unsigned cur_profile = 0;
-        unsigned len;
-        unsigned i;
+        unsigned cur_profile;
+        size_t len;
         int r;
 
         assert(c);
@@ -446,7 +445,7 @@ static int cd_profiles(Context *c) {
         }
 
         len = unaligned_read_be32(features);
-        log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
+        log_debug("GET CONFIGURATION: size of features buffer %zu", len);
 
         if (len > sizeof(features)) {
                 log_debug("cannot get features in a single query, truncating");
@@ -457,7 +456,7 @@ static int cd_profiles(Context *c) {
         /* Now get the full feature buffer */
         scsi_cmd_init(&sc);
         scsi_cmd_set(&sc, 0, GPCMD_GET_CONFIGURATION);
-        scsi_cmd_set(&sc, 7, ( len >> 8 ) & 0xff);
+        scsi_cmd_set(&sc, 7, (len >> 8) & 0xff);
         scsi_cmd_set(&sc, 8, len & 0xff);
         scsi_cmd_set(&sc, 9, 0);
         r = scsi_cmd_run_and_log(&sc, c->fd, features, len, "get configuration");
@@ -466,7 +465,7 @@ static int cd_profiles(Context *c) {
 
         /* parse the length once more, in case the drive decided to have other features suddenly :) */
         len = unaligned_read_be32(features);
-        log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
+        log_debug("GET CONFIGURATION: size of features buffer %zu", len);
 
         if (len > sizeof(features)) {
                 log_debug("cannot get features in a single query, truncating");
@@ -474,18 +473,18 @@ static int cd_profiles(Context *c) {
         }
 
         /* device features */
-        for (i = 8; i+4 < len; i += (4 + features[i+3])) {
+        for (size_t i = 8; i + 4 < len; i += 4 + features[i + 3]) {
                 unsigned feature;
 
                 feature = unaligned_read_be16(&features[i]);
 
                 switch (feature) {
                 case 0x00:
-                        log_debug("GET CONFIGURATION: feature 'profiles', with %i entries", features[i+3] / 4);
-                        feature_profiles(c, features + i + 4, MIN(features[i+3], len - i - 4));
+                        log_debug("GET CONFIGURATION: feature 'profiles', with %u entries", features[i + 3] / 4);
+                        feature_profiles(c, features + i + 4, MIN(features[i + 3], len - i - 4));
                         break;
                 default:
-                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i+3]);
+                        log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i + 3]);
                         break;
                 }
         }
@@ -570,7 +569,7 @@ static int dvd_ram_media_update_state(Context *c) {
 static int dvd_media_update_state(Context *c) {
         struct scsi_cmd sc;
         unsigned char buffer[32 * 2048];
-        int offset, r;
+        int r;
 
         r = dvd_ram_media_update_state(c);
         if (r != 0)
@@ -596,13 +595,13 @@ static int dvd_media_update_state(Context *c) {
          * eventually 0 (fat32 boot sector, ext2 superblock, etc), disc
          * is assumed non-blank */
 
-        for (offset = 32768; offset < 32768 + 2048; offset++)
+        for (size_t offset = 32768; offset < 32768 + 2048; offset++)
                 if (buffer[offset] != 0) {
                         log_debug("data in block 16, assuming complete");
                         return 0;
                 }
 
-        for (offset = 0; offset < 2048; offset++)
+        for (size_t offset = 0; offset < 2048; offset++)
                 if (buffer[offset] != 0) {
                         log_debug("data in block 0, assuming complete");
                         return 0;
@@ -669,8 +668,8 @@ static int cd_media_toc(Context *c) {
         struct scsi_cmd sc;
         unsigned char header[12];
         unsigned char toc[65536];
-        unsigned len, i, num_tracks;
-        unsigned char *p;
+        unsigned num_tracks;
+        size_t len;
         int r;
 
         assert(c);
@@ -685,17 +684,18 @@ static int cd_media_toc(Context *c) {
                 return r;
 
         len = unaligned_read_be16(header) + 2;
-        log_debug("READ TOC: len: %d, start track: %d, end track: %d", len, header[2], header[3]);
+        log_debug("READ TOC: len: %zu, start track: %u, end track: %u", len, header[2], header[3]);
+
         if (len > sizeof(toc))
                 return -1;
         if (len < 2)
                 return -1;
-        /* 2: first track, 3: last track */
-        num_tracks = header[3] - header[2] + 1;
-
         /* empty media has no tracks */
         if (len < 8)
                 return 0;
+
+        /* 2: first track, 3: last track */
+        num_tracks = header[3] - header[2] + 1;
 
         scsi_cmd_init(&sc);
         scsi_cmd_set(&sc, 0, GPCMD_READ_TOC_PMA_ATIP);
@@ -710,15 +710,15 @@ static int cd_media_toc(Context *c) {
         /* Take care to not iterate beyond the last valid track as specified in
          * the TOC, but also avoid going beyond the TOC length, just in case
          * the last track number is invalidly large */
-        for (p = toc+4, i = 4; i < len-8 && num_tracks > 0; i += 8, p += 8, --num_tracks) {
-                unsigned block;
-                unsigned is_data_track;
+        for (size_t i = 4; i + 8 < len && num_tracks > 0; i += 8, --num_tracks) {
+                bool is_data_track;
+                uint32_t block;
 
-                is_data_track = (p[1] & 0x04) != 0;
+                is_data_track = (toc[i + 1] & 0x04) != 0;
+                block = unaligned_read_be32(&toc[i + 4]);
 
-                block = unaligned_read_be32(&p[4]);
-                log_debug("track=%u info=0x%x(%s) start_block=%u",
-                          p[2], p[1] & 0x0f, is_data_track ? "data":"audio", block);
+                log_debug("track=%u info=0x%x(%s) start_block=%"PRIu32,
+                          toc[i + 2], toc[i + 1] & 0x0f, is_data_track ? "data":"audio", block);
 
                 if (is_data_track)
                         c->media_track_count_data++;
@@ -736,7 +736,7 @@ static int cd_media_toc(Context *c) {
                 return r;
 
         len = unaligned_read_be32(&header[8]);
-        log_debug("last track %u starts at block %u", header[4+2], len);
+        log_debug("last track %u starts at block %zu", header[4+2], len);
         c->media_session_last_offset = (uint64_t) len * 2048;
 
         return 0;
