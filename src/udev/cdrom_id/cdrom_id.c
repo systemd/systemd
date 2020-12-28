@@ -3,26 +3,14 @@
  * cdrom_id - optical drive and media information prober
  */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <limits.h>
 #include <linux/cdrom.h>
 #include <scsi/sg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "fd-util.h"
-#include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
 #include "sort-util.h"
