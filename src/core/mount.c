@@ -1010,7 +1010,7 @@ static void mount_enter_mounting(Mount *m) {
         p = get_mount_parameters_fragment(m);
         if (p && mount_is_bind(p)) {
                 r = mkdir_p_label(p->what, m->directory_mode);
-                if (r < 0)
+                if (r < 0 && r != -EEXIST)
                         log_unit_error_errno(UNIT(m), r, "Failed to make bind mount source '%s': %m", p->what);
         }
 
