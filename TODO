@@ -22,6 +22,10 @@ Features:
 
 * expose MS_NOSYMFOLLOW in various places
 
+* tpm2: support a PIN policy, i.e. allowing windows-style short authentication
+  passwords by using the TPM2 to enforce ratelimiting and such, use for
+  cryptsetup and homed
+
 * Add concept for upgrading TPM2 enrollments, maybe a new switch
   --pcrs=4:<hash> or so, i.e. select a PCR to include in the hash, and then
   override its hash
