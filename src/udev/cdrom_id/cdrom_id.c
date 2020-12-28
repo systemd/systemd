@@ -688,8 +688,6 @@ static int cd_media_toc(Context *c) {
 
         if (len > sizeof(toc))
                 return -1;
-        if (len < 2)
-                return -1;
         /* empty media has no tracks */
         if (len < 8)
                 return 0;
