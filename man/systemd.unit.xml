@@ -596,11 +596,11 @@
       <varlistentry>
         <term><varname>Wants=</varname></term>
 
-        <listitem><para>Configures requirement dependencies on other units. This option may be specified more
-        than once or multiple space-separated units may be specified in one option in which case dependencies
-        for all listed names will be created. Dependencies of this type may also be configured outside of the
-        unit configuration file by adding a symlink to a <filename>.wants/</filename> directory accompanying
-        the unit file. For details, see above.</para>
+        <listitem><para>Configures (weak) requirement dependencies on other units. This option may be
+        specified more than once or multiple space-separated units may be specified in one option in which
+        case dependencies for all listed names will be created. Dependencies of this type may also be
+        configured outside of the unit configuration file by adding a symlink to a
+        <filename>.wants/</filename> directory accompanying the unit file. For details, see above.</para>
 
         <para>Units listed in this option will be started if the configuring unit is. However, if the listed
         units fail to start or cannot be added to the transaction, this has no impact on the validity of the
@@ -619,7 +619,7 @@
       <varlistentry>
         <term><varname>Requires=</varname></term>
 
-        <listitem><para>Similar to <varname>Wants=</varname>, but declares a stronger
+        <listitem><para>Similar to <varname>Wants=</varname>, but declares a stronger requirement
         dependency. Dependencies of this type may also be configured by adding a symlink to a
         <filename>.requires/</filename> directory accompanying the unit file.</para>
 
