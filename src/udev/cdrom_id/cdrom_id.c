@@ -29,6 +29,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "udev-util.h"
+#include "unaligned.h"
 
 static bool arg_eject = false;
 static bool arg_lock = false;
@@ -349,7 +350,7 @@ static int feature_profiles(Context *c, const unsigned char *profiles, size_t si
         assert(c);
 
         for (size_t i = 0; i + 4 <= size; i += 4) {
-                r = set_drive_feature(c, (Feature) (profiles[i] << 8 | profiles[i + 1]));
+                r = set_drive_feature(c, (Feature) unaligned_read_be16(&profiles[i]));
                 if (r < 0)
                         return log_oom_debug();
         }
@@ -434,7 +435,7 @@ static int cd_profiles(Context *c) {
                 return log_scsi_debug_errno(r, "get configuration");
         }
 
-        cur_profile = features[6] << 8 | features[7];
+        cur_profile = unaligned_read_be16(&features[6]);
         if (cur_profile > 0) {
                 log_debug("current profile 0x%02x", cur_profile);
                 c->media_feature = (Feature) cur_profile;
@@ -444,7 +445,7 @@ static int cd_profiles(Context *c) {
                 c->has_media = false;
         }
 
-        len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
+        len = unaligned_read_be32(features);
         log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
 
         if (len > sizeof(features)) {
@@ -464,7 +465,7 @@ static int cd_profiles(Context *c) {
                 return r;
 
         /* parse the length once more, in case the drive decided to have other features suddenly :) */
-        len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
+        len = unaligned_read_be32(features);
         log_debug("GET CONFIGURATION: size of features buffer 0x%04x", len);
 
         if (len > sizeof(features)) {
@@ -476,12 +477,12 @@ static int cd_profiles(Context *c) {
         for (i = 8; i+4 < len; i += (4 + features[i+3])) {
                 unsigned feature;
 
-                feature = features[i] << 8 | features[i+1];
+                feature = unaligned_read_be16(&features[i]);
 
                 switch (feature) {
                 case 0x00:
                         log_debug("GET CONFIGURATION: feature 'profiles', with %i entries", features[i+3] / 4);
-                        feature_profiles(c, &features[i] + 4, MIN(features[i+3], len - i - 4));
+                        feature_profiles(c, features + i + 4, MIN(features[i+3], len - i - 4));
                         break;
                 default:
                         log_debug("GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes", feature, features[i+3]);
@@ -683,7 +684,7 @@ static int cd_media_toc(Context *c) {
         if (r < 0)
                 return r;
 
-        len = (header[0] << 8 | header[1]) + 2;
+        len = unaligned_read_be16(header) + 2;
         log_debug("READ TOC: len: %d, start track: %d, end track: %d", len, header[2], header[3]);
         if (len > sizeof(toc))
                 return -1;
@@ -715,9 +716,9 @@ static int cd_media_toc(Context *c) {
 
                 is_data_track = (p[1] & 0x04) != 0;
 
-                block = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
+                block = unaligned_read_be32(&p[4]);
                 log_debug("track=%u info=0x%x(%s) start_block=%u",
-                     p[2], p[1] & 0x0f, is_data_track ? "data":"audio", block);
+                          p[2], p[1] & 0x0f, is_data_track ? "data":"audio", block);
 
                 if (is_data_track)
                         c->media_track_count_data++;
@@ -734,7 +735,7 @@ static int cd_media_toc(Context *c) {
         if (r < 0)
                 return r;
 
-        len = header[4+4] << 24 | header[4+5] << 16 | header[4+6] << 8 | header[4+7];
+        len = unaligned_read_be32(&header[8]);
         log_debug("last track %u starts at block %u", header[4+2], len);
         c->media_session_last_offset = (uint64_t) len * 2048;
 
