@@ -294,21 +294,17 @@ static void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *
 }
 
 static int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y) {
-        int ret;
+        int r;
 
-        ret = dns_name_compare_func(dns_resource_key_name(x), dns_resource_key_name(y));
-        if (ret != 0)
-                return ret;
+        r = dns_name_compare_func(dns_resource_key_name(x), dns_resource_key_name(y));
+        if (r != 0)
+                return r;
 
-        ret = CMP(x->type, y->type);
-        if (ret != 0)
-                return ret;
+        r = CMP(x->type, y->type);
+        if (r != 0)
+                return r;
 
-        ret = CMP(x->class, y->class);
-        if (ret != 0)
-                return ret;
-
-        return 0;
+        return CMP(x->class, y->class);
 }
 
 DEFINE_HASH_OPS(dns_resource_key_hash_ops, DnsResourceKey, dns_resource_key_hash_func, dns_resource_key_compare_func);
