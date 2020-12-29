@@ -29,10 +29,8 @@ RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
         }
 
         if (rule->manager) {
-                if (set_get(rule->manager->rules, rule) == rule)
-                        set_remove(rule->manager->rules, rule);
-                if (set_get(rule->manager->rules_foreign, rule) == rule)
-                        set_remove(rule->manager->rules_foreign, rule);
+                set_remove(rule->manager->rules, rule);
+                set_remove(rule->manager->rules_foreign, rule);
         }
 
         network_config_section_free(rule->section);
