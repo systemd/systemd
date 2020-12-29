@@ -1790,7 +1790,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         '26-link-local-addressing-ipv6.network',
         'routing-policy-rule-dummy98.network',
         'routing-policy-rule-test1.network',
-        'routing-policy-rule-reconfigure.network',
+        'routing-policy-rule-reconfigure1.network',
+        'routing-policy-rule-reconfigure2.network',
     ]
 
     routing_policy_rule_tables = ['7', '8', '9', '1011']
@@ -2074,37 +2075,65 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             stop_networkd(remove_state_files=False)
 
     def test_routing_policy_rule_reconfigure(self):
-        copy_unit_to_networkd_unit_path('routing-policy-rule-reconfigure.network', '11-dummy.netdev')
+        copy_unit_to_networkd_unit_path('routing-policy-rule-reconfigure2.network', '11-dummy.netdev')
         start_networkd()
         self.wait_online(['test1:degraded'])
 
         output = check_output('ip rule list table 1011')
         print(output)
-        self.assertRegex(output, '10111:	from all fwmark 0x3f3 lookup 1011')
-        self.assertRegex(output, '10112:	from all oif test1 lookup 1011')
-        self.assertRegex(output, '10113:	from all iif test1 lookup 1011')
-        self.assertRegex(output, '10114:	from 192.168.8.254 lookup 1011')
+        self.assertIn('10111:	from all fwmark 0x3f3 lookup 1011', output)
+        self.assertIn('10112:	from all oif test1 lookup 1011', output)
+        self.assertIn('10113:	from all iif test1 lookup 1011', output)
+        self.assertIn('10114:	from 192.168.8.254 lookup 1011', output)
+
+        output = check_output('ip -6 rule list table 1011')
+        print(output)
+        self.assertIn('10112:	from all oif test1 lookup 1011', output)
+
+        copy_unit_to_networkd_unit_path('routing-policy-rule-reconfigure1.network', '11-dummy.netdev')
+        run(*networkctl_cmd, 'reload', env=env)
+        time.sleep(1)
+        self.wait_online(['test1:degraded'])
+
+        output = check_output('ip rule list table 1011')
+        print(output)
+        self.assertIn('10111:	from all fwmark 0x3f3 lookup 1011', output)
+        self.assertIn('10112:	from all oif test1 lookup 1011', output)
+        self.assertIn('10113:	from all iif test1 lookup 1011', output)
+        self.assertIn('10114:	from 192.168.8.254 lookup 1011', output)
+
+        output = check_output('ip -6 rule list table 1011')
+        print(output)
+        self.assertNotIn('10112:	from all oif test1 lookup 1011', output)
+        self.assertIn('10113:	from all iif test1 lookup 1011', output)
 
         run('ip rule delete priority 10111')
         run('ip rule delete priority 10112')
         run('ip rule delete priority 10113')
         run('ip rule delete priority 10114')
-        run('ip rule delete priority 10115')
+        run('ip -6 rule delete priority 10113')
 
         output = check_output('ip rule list table 1011')
         print(output)
         self.assertEqual(output, '')
 
-        run(*networkctl_cmd, 'reconfigure', 'test1', env=env)
+        output = check_output('ip -6 rule list table 1011')
+        print(output)
+        self.assertEqual(output, '')
 
+        run(*networkctl_cmd, 'reconfigure', 'test1', env=env)
         self.wait_online(['test1:degraded'])
 
         output = check_output('ip rule list table 1011')
         print(output)
-        self.assertRegex(output, '10111:	from all fwmark 0x3f3 lookup 1011')
-        self.assertRegex(output, '10112:	from all oif test1 lookup 1011')
-        self.assertRegex(output, '10113:	from all iif test1 lookup 1011')
-        self.assertRegex(output, '10114:	from 192.168.8.254 lookup 1011')
+        self.assertIn('10111:	from all fwmark 0x3f3 lookup 1011', output)
+        self.assertIn('10112:	from all oif test1 lookup 1011', output)
+        self.assertIn('10113:	from all iif test1 lookup 1011', output)
+        self.assertIn('10114:	from 192.168.8.254 lookup 1011', output)
+
+        output = check_output('ip -6 rule list table 1011')
+        print(output)
+        self.assertIn('10113:	from all iif test1 lookup 1011', output)
 
     @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):

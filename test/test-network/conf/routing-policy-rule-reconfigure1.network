@@ -21,7 +21,7 @@ OutgoingInterface=test1
 # iif
 [RoutingPolicyRule]
 Table=1011
-Family=ipv4
+Family=both
 Priority=10113
 IncomingInterface=test1
 
