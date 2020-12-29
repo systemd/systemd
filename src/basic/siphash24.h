@@ -5,9 +5,9 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <string.h>
 #include <sys/types.h>
 
+#include "string-util.h"
 #include "time-util.h"
 
 struct siphash {
@@ -33,11 +33,15 @@ static inline void siphash24_compress_usec_t(usec_t in, struct siphash *state) {
         siphash24_compress(&in, sizeof in, state);
 }
 
-static inline void siphash24_compress_string(const char *in, struct siphash *state) {
-        if (!in)
+static inline void siphash24_compress_safe(const void *in, size_t inlen, struct siphash *state) {
+        if (inlen == 0)
                 return;
 
-        siphash24_compress(in, strlen(in), state);
+        siphash24_compress(in, inlen, state);
+}
+
+static inline void siphash24_compress_string(const char *in, struct siphash *state) {
+        siphash24_compress_safe(in, strlen_ptr(in), state);
 }
 
 uint64_t siphash24_finalize(struct siphash *state);
