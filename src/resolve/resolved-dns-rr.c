@@ -1373,7 +1373,7 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
                 DnsTxtItem *j;
 
                 LIST_FOREACH(items, j, rr->txt.items) {
-                        siphash24_compress(j->data, j->length, state);
+                        siphash24_compress_safe(j->data, j->length, state);
 
                         /* Add an extra NUL byte, so that "a" followed by "b" doesn't result in the same hash as "ab"
                          * followed by "". */
@@ -1418,14 +1418,14 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
         case DNS_TYPE_SSHFP:
                 siphash24_compress(&rr->sshfp.algorithm, sizeof(rr->sshfp.algorithm), state);
                 siphash24_compress(&rr->sshfp.fptype, sizeof(rr->sshfp.fptype), state);
-                siphash24_compress(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size, state);
+                siphash24_compress_safe(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size, state);
                 break;
 
         case DNS_TYPE_DNSKEY:
                 siphash24_compress(&rr->dnskey.flags, sizeof(rr->dnskey.flags), state);
                 siphash24_compress(&rr->dnskey.protocol, sizeof(rr->dnskey.protocol), state);
                 siphash24_compress(&rr->dnskey.algorithm, sizeof(rr->dnskey.algorithm), state);
-                siphash24_compress(rr->dnskey.key, rr->dnskey.key_size, state);
+                siphash24_compress_safe(rr->dnskey.key, rr->dnskey.key_size, state);
                 break;
 
         case DNS_TYPE_RRSIG:
@@ -1437,7 +1437,7 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
                 siphash24_compress(&rr->rrsig.inception, sizeof(rr->rrsig.inception), state);
                 siphash24_compress(&rr->rrsig.key_tag, sizeof(rr->rrsig.key_tag), state);
                 dns_name_hash_func(rr->rrsig.signer, state);
-                siphash24_compress(rr->rrsig.signature, rr->rrsig.signature_size, state);
+                siphash24_compress_safe(rr->rrsig.signature, rr->rrsig.signature_size, state);
                 break;
 
         case DNS_TYPE_NSEC:
@@ -1451,15 +1451,15 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
                 siphash24_compress(&rr->ds.key_tag, sizeof(rr->ds.key_tag), state);
                 siphash24_compress(&rr->ds.algorithm, sizeof(rr->ds.algorithm), state);
                 siphash24_compress(&rr->ds.digest_type, sizeof(rr->ds.digest_type), state);
-                siphash24_compress(rr->ds.digest, rr->ds.digest_size, state);
+                siphash24_compress_safe(rr->ds.digest, rr->ds.digest_size, state);
                 break;
 
         case DNS_TYPE_NSEC3:
                 siphash24_compress(&rr->nsec3.algorithm, sizeof(rr->nsec3.algorithm), state);
                 siphash24_compress(&rr->nsec3.flags, sizeof(rr->nsec3.flags), state);
                 siphash24_compress(&rr->nsec3.iterations, sizeof(rr->nsec3.iterations), state);
-                siphash24_compress(rr->nsec3.salt, rr->nsec3.salt_size, state);
-                siphash24_compress(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, state);
+                siphash24_compress_safe(rr->nsec3.salt, rr->nsec3.salt_size, state);
+                siphash24_compress_safe(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, state);
                 /* FIXME: We leave the bitmaps out */
                 break;
 
@@ -1467,18 +1467,18 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
                 siphash24_compress(&rr->tlsa.cert_usage, sizeof(rr->tlsa.cert_usage), state);
                 siphash24_compress(&rr->tlsa.selector, sizeof(rr->tlsa.selector), state);
                 siphash24_compress(&rr->tlsa.matching_type, sizeof(rr->tlsa.matching_type), state);
-                siphash24_compress(rr->tlsa.data, rr->tlsa.data_size, state);
+                siphash24_compress_safe(rr->tlsa.data, rr->tlsa.data_size, state);
                 break;
 
         case DNS_TYPE_CAA:
                 siphash24_compress(&rr->caa.flags, sizeof(rr->caa.flags), state);
                 string_hash_func(rr->caa.tag, state);
-                siphash24_compress(rr->caa.value, rr->caa.value_size, state);
+                siphash24_compress_safe(rr->caa.value, rr->caa.value_size, state);
                 break;
 
         case DNS_TYPE_OPENPGPKEY:
         default:
-                siphash24_compress(rr->generic.data, rr->generic.data_size, state);
+                siphash24_compress_safe(rr->generic.data, rr->generic.data_size, state);
                 break;
         }
 }
