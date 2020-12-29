@@ -1257,7 +1257,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                 print_yes_no_line(false, have_bootloader_esp_uuid, "Boot loader sets ESP partition information");
                 if (have_bootloader_esp_uuid && !sd_id128_equal(esp_uuid, bootloader_esp_uuid))
-                        printf("WARNING: The boot loader reports different ESP UUID than detected!\n");
+                        printf("WARNING: The boot loader reports a different ESP UUID than detected!\n");
 
                 if (stub)
                         printf("         Stub: %s\n", stub);
