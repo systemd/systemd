@@ -1481,8 +1481,13 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
                                 "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
                                 rule->section->filename, rule->section->line);
 
-        if (rule->family == AF_UNSPEC && rule->address_family == ADDRESS_FAMILY_NO)
-                rule->family = AF_INET;
+        if (rule->family == AF_UNSPEC) {
+                if (IN_SET(rule->address_family, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_NO))
+                        rule->family = AF_INET;
+                else if (rule->address_family == ADDRESS_FAMILY_IPV6)
+                        rule->family = AF_INET6;
+                /* rule->family can be AF_UNSPEC only when Family=both. */
+        }
 
         /* Currently, [RoutingPolicyRule] does not have a setting to set FRA_L3MDEV flag. Please also
          * update routing_policy_rule_is_created_by_kernel() when a new setting which sets the flag is
