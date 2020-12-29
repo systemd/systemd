@@ -1479,7 +1479,7 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
         }
 }
 
-static int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y) {
+int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y) {
         int r;
 
         r = dns_resource_key_compare_func(x->key, y->key);
