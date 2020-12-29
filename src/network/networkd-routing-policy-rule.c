@@ -103,7 +103,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         return 0;
 }
 
-static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *src) {
+static int routing_policy_rule_copy(RoutingPolicyRule *dest, const RoutingPolicyRule *src) {
         _cleanup_free_ char *iif = NULL, *oif = NULL;
 
         assert(dest);
@@ -289,7 +289,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 routing_policy_rule_compare_func,
                 routing_policy_rule_free);
 
-static int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
+static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
 
         RoutingPolicyRule *existing;
 
@@ -312,7 +312,7 @@ static int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingP
         return -ENOENT;
 }
 
-static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
+static int routing_policy_rule_add_internal(Manager *m, Set **rules, const RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
         int r;
 
@@ -347,11 +347,11 @@ static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPoli
         return 0;
 }
 
-static int routing_policy_rule_add(Manager *m, RoutingPolicyRule *rule, int family, RoutingPolicyRule **ret) {
+static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *rule, int family, RoutingPolicyRule **ret) {
         return routing_policy_rule_add_internal(m, &m->rules, rule, family, ret);
 }
 
-static int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
+static int routing_policy_rule_add_foreign(Manager *m, const RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
         return routing_policy_rule_add_internal(m, &m->rules_foreign, rule, rule->family, ret);
 }
 
@@ -375,7 +375,7 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int fam
         }
 }
 
-static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
+static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(rule);
@@ -502,7 +502,7 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
         return 1;
 }
 
-static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager) {
+static int routing_policy_rule_remove(const RoutingPolicyRule *rule, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -560,7 +560,7 @@ static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-static int routing_policy_rule_configure_internal(RoutingPolicyRule *rule, int family, Link *link) {
+static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule, int family, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -596,7 +596,7 @@ static int routing_policy_rule_configure_internal(RoutingPolicyRule *rule, int f
         return 1;
 }
 
-static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link) {
+static int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link) {
         int r;
 
         if (IN_SET(rule->family, AF_INET, AF_INET6))
