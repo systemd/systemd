@@ -343,8 +343,6 @@ static int routing_policy_rule_add_internal(Manager *m, Set **rules, const Routi
         if (r < 0)
                 return r;
 
-        rule->manager = m;
-
         r = routing_policy_rule_copy(rule, in);
         if (r < 0)
                 return r;
@@ -356,6 +354,8 @@ static int routing_policy_rule_add_internal(Manager *m, Set **rules, const Routi
                 return r;
         if (r == 0)
                 return -EEXIST;
+
+        rule->manager = m;
 
         if (ret)
                 *ret = rule;
