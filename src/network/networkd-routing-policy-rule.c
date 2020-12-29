@@ -637,8 +637,9 @@ static int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *li
         return 0;
 }
 
-static bool links_have_routing_policy_rule(const Manager *m, const RoutingPolicyRule *rule, const Link *except) {
+static int links_have_routing_policy_rule(const Manager *m, const RoutingPolicyRule *rule, const Link *except) {
         Link *link;
+        int r;
 
         assert(m);
         assert(rule);
@@ -653,8 +654,29 @@ static bool links_have_routing_policy_rule(const Manager *m, const RoutingPolicy
                         continue;
 
                 HASHMAP_FOREACH(link_rule, link->network->rules_by_section)
-                        if (routing_policy_rule_equal(link_rule, rule))
-                                return true;
+                        if (IN_SET(link_rule->family, AF_INET, AF_INET6)) {
+                                if (routing_policy_rule_equal(link_rule, rule))
+                                        return true;
+                        } else {
+                                /* The case Family=both. */
+                                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
+
+                                r = routing_policy_rule_new(&tmp);
+                                if (r < 0)
+                                        return r;
+
+                                r = routing_policy_rule_copy(tmp, link_rule);
+                                if (r < 0)
+                                        return r;
+
+                                tmp->family = AF_INET;
+                                if (routing_policy_rule_equal(tmp, rule))
+                                        return true;
+
+                                tmp->family = AF_INET6;
+                                if (routing_policy_rule_equal(tmp, rule))
+                                        return true;
+                        }
         }
 
         return false;
@@ -674,8 +696,12 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
                         continue;
 
                 /* The rule will be configured later, or already configured by a link. */
-                if (links_have_routing_policy_rule(m, rule, except))
+                k = links_have_routing_policy_rule(m, rule, except);
+                if (k != 0) {
+                        if (k < 0 && r >= 0)
+                                r = k;
                         continue;
+                }
 
                 k = routing_policy_rule_remove(rule, m);
                 if (k < 0 && r >= 0)
