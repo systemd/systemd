@@ -1486,7 +1486,7 @@ static int dns_resource_record_compare_func(const DnsResourceRecord *x, const Dn
         if (r != 0)
                 return r;
 
-        if (dns_resource_record_equal(x, y))
+        if (dns_resource_record_payload_equal(x, y) > 0)
                 return 0;
 
         /* We still use CMP() here, even though don't implement proper
