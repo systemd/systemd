@@ -330,6 +330,7 @@ DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
 int dns_txt_item_new_empty(DnsTxtItem **ret);
 
 void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
+int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops;

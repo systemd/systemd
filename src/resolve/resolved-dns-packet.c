@@ -2153,7 +2153,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                         return log_oom();
 
                 r = set_reserve(keys, n * 2); /* Higher multipliers give slightly higher efficiency through
-                                               * hash collisions, but the gains quickly drop of after 2. */
+                                               * hash collisions, but the gains quickly drop off after 2. */
                 if (r < 0)
                         return r;
 

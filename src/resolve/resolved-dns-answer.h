@@ -6,6 +6,7 @@ typedef struct DnsAnswerItem DnsAnswerItem;
 
 #include "macro.h"
 #include "resolved-dns-rr.h"
+#include "set.h"
 
 /* A simple array of resource records. We keep track of the
  * originating ifindex for each RR where that makes sense, so that we
@@ -30,6 +31,7 @@ struct DnsAnswerItem {
 
 struct DnsAnswer {
         unsigned n_ref;
+        Set *set_items; /* Used by dns_answer_add() for optimization. */
         size_t n_rrs, n_allocated;
         DnsAnswerItem items[0];
 };
