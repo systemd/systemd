@@ -1153,8 +1153,8 @@ static void read_loader_efi_var(const char *name, char **var) {
 static void print_yes_no_line(bool first, bool good, const char *name) {
         printf("%s%s%s%s %s\n",
                first ? "     Features: " : "               ",
-               good ? ansi_highlight_green() : ansi_highlight_red(),
-               good ? special_glyph(SPECIAL_GLYPH_CHECK_MARK) : special_glyph(SPECIAL_GLYPH_CROSS_MARK),
+               ansi_highlight_green_red(good),
+               special_glyph_check_mark(good),
                ansi_normal(),
                name);
 }
