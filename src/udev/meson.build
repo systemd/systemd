@@ -203,7 +203,7 @@ foreach prog : udev_id_progs
         endif
 endforeach
 
-if install_sysconfdir
+if install_sysconfdir_samples
         install_data('udev.conf',
                      install_dir : join_paths(sysconfdir, 'udev'))
 endif

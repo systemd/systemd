@@ -13,7 +13,7 @@ endif
 
 coredumpctl_sources = files('coredumpctl.c')
 
-if conf.get('ENABLE_COREDUMP') == 1 and install_sysconfdir
+if conf.get('ENABLE_COREDUMP') == 1 and install_sysconfdir_samples
         install_data('coredump.conf',
                      install_dir : pkgsysconfdir)
 endif

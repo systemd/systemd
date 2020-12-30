@@ -29,7 +29,7 @@ if conf.get('ENABLE_OOMD') == 1
         install_data('org.freedesktop.oom1.service',
                      install_dir : dbussystemservicedir)
 
-        if install_sysconfdir
+        if install_sysconfdir_samples
                 install_data('oomd.conf',
                              install_dir : pkgsysconfdir)
         endif

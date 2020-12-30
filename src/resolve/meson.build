@@ -169,7 +169,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                 input : 'resolved.conf.in',
                 output : 'resolved.conf',
                 configuration : substs)
-        if install_sysconfdir
+        if install_sysconfdir_samples
                 install_data(resolved_conf,
                              install_dir : pkgsysconfdir)
         endif
