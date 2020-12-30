@@ -26,7 +26,7 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                 input : 'timesyncd.conf.in',
                 output : 'timesyncd.conf',
                 configuration : substs)
-        if install_sysconfdir
+        if install_sysconfdir_samples
                 install_data(timesyncd_conf,
                              install_dir : pkgsysconfdir)
         endif

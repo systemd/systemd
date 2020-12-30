@@ -59,7 +59,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                 input : 'journal-remote.conf.in',
                 output : 'journal-remote.conf',
                 configuration : substs)
-        if install_sysconfdir
+        if install_sysconfdir_samples
                 install_data(journal_remote_conf,
                              install_dir : pkgsysconfdir)
         endif

@@ -182,8 +182,8 @@ option('pamconfdir', type : 'string',
        description : 'directory for PAM configuration ["no" disables]')
 option('docdir', type : 'string',
        description : 'documentation directory')
-option('install-sysconfdir', type : 'boolean', value : true,
-       description : 'install configuration files to $sysconfdir')
+option('install-sysconfdir', type : 'combo', choices : ['true', 'no-samples', 'false'], value : 'true',
+       description : 'install configuration files and directories to $sysconfdir')
 
 option('fallback-hostname', type : 'string', value : 'localhost',
        description : 'the hostname used if none configured')

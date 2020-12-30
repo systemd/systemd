@@ -235,7 +235,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                              install_dir : polkitpkladir)
         endif
 
-        if install_sysconfdir
+        if install_sysconfdir_samples
                 install_data('networkd.conf',
                              install_dir : pkgsysconfdir)
         endif

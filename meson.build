@@ -126,7 +126,8 @@ if rootlibdir == ''
         rootlibdir = join_paths(rootprefixdir, libdir.split('/')[-1])
 endif
 
-install_sysconfdir = get_option('install-sysconfdir')
+install_sysconfdir = get_option('install-sysconfdir') != 'false'
+install_sysconfdir_samples = get_option('install-sysconfdir') == 'true'
 # Dirs of external packages
 pkgconfigdatadir = get_option('pkgconfigdatadir') == '' ? join_paths(datadir, 'pkgconfig') : get_option('pkgconfigdatadir')
 pkgconfiglibdir = get_option('pkgconfiglibdir') == '' ? join_paths(libdir, 'pkgconfig') : get_option('pkgconfiglibdir')
@@ -2955,7 +2956,7 @@ executable(
         install : true,
         install_dir : rootlibexecdir)
 
-if install_sysconfdir
+if install_sysconfdir_samples
         install_data('src/sleep/sleep.conf',
                      install_dir : pkgsysconfdir)
 endif
