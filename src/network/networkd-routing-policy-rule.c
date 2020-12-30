@@ -39,10 +39,8 @@ RoutingPolicyRule *routing_policy_rule_free(RoutingPolicyRule *rule) {
         }
 
         if (rule->manager) {
-                if (set_get(rule->manager->rules, rule) == rule)
-                        set_remove(rule->manager->rules, rule);
-                if (set_get(rule->manager->rules_foreign, rule) == rule)
-                        set_remove(rule->manager->rules_foreign, rule);
+                set_remove(rule->manager->rules, rule);
+                set_remove(rule->manager->rules_foreign, rule);
         }
 
         network_config_section_free(rule->section);
@@ -114,7 +112,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         return 0;
 }
 
-static int routing_policy_rule_copy(RoutingPolicyRule *dest, RoutingPolicyRule *src) {
+static int routing_policy_rule_copy(RoutingPolicyRule *dest, const RoutingPolicyRule *src) {
         _cleanup_free_ char *iif = NULL, *oif = NULL;
 
         assert(dest);
@@ -306,8 +304,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 routing_policy_rule_compare_func,
                 routing_policy_rule_free);
 
-static int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
-
+static int routing_policy_rule_get(Manager *m, const RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
         RoutingPolicyRule *existing;
 
         assert(m);
@@ -329,12 +326,12 @@ static int routing_policy_rule_get(Manager *m, RoutingPolicyRule *rule, RoutingP
         return -ENOENT;
 }
 
-static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
+static int routing_policy_rule_add(Manager *m, const RoutingPolicyRule *in, int family, RoutingPolicyRule **ret) {
         _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
+        RoutingPolicyRule *existing;
         int r;
 
         assert(m);
-        assert(rules);
         assert(in);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(in->family == AF_UNSPEC || in->family == family);
@@ -343,33 +340,56 @@ static int routing_policy_rule_add_internal(Manager *m, Set **rules, RoutingPoli
         if (r < 0)
                 return r;
 
-        rule->manager = m;
-
         r = routing_policy_rule_copy(rule, in);
         if (r < 0)
                 return r;
 
         rule->family = family;
 
-        r = set_ensure_put(rules, &routing_policy_rule_hash_ops, rule);
-        if (r < 0)
+        r = routing_policy_rule_get(m, rule, &existing);
+        if (r == -ENOENT) {
+                /* Rule does not exist, use a new one. */
+                r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, rule);
+                if (r < 0)
+                        return r;
+                assert(r > 0);
+
+                rule->manager = m;
+                existing = TAKE_PTR(rule);
+        } else if (r == 0) {
+                /* Take over a foreign rule. */
+                r = set_ensure_put(&m->rules, &routing_policy_rule_hash_ops, existing);
+                if (r < 0)
+                        return r;
+                assert(r > 0);
+
+                set_remove(m->rules_foreign, existing);
+        } else if (r == 1) {
+                /* Already exists, do nothing. */
+                ;
+        } else
                 return r;
-        if (r == 0)
-                return -EEXIST;
 
         if (ret)
-                *ret = rule;
+                *ret = existing;
 
-        TAKE_PTR(rule);
         return 0;
 }
 
-static int routing_policy_rule_add(Manager *m, RoutingPolicyRule *rule, int family, RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(m, &m->rules, rule, family, ret);
-}
+static int routing_policy_rule_consume_foreign(Manager *m, RoutingPolicyRule *rule) {
+        int r;
 
-static int routing_policy_rule_add_foreign(Manager *m, RoutingPolicyRule *rule, RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(m, &m->rules_foreign, rule, rule->family, ret);
+        assert(m);
+        assert(rule);
+        assert(IN_SET(rule->family, AF_INET, AF_INET6));
+
+        r = set_ensure_consume(&m->rules_foreign, &routing_policy_rule_hash_ops, rule);
+        if (r <= 0)
+                return r;
+
+        rule->manager = m;
+
+        return 1;
 }
 
 static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int family, const char *str, const Link *link) {
@@ -392,7 +412,7 @@ static void log_routing_policy_rule_debug(const RoutingPolicyRule *rule, int fam
         }
 }
 
-static int routing_policy_rule_set_netlink_message(RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
+static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(rule);
@@ -525,7 +545,7 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
         return 1;
 }
 
-static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager) {
+static int routing_policy_rule_remove(const RoutingPolicyRule *rule, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -583,7 +603,7 @@ static int routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, 
         return 1;
 }
 
-static int routing_policy_rule_configure_internal(RoutingPolicyRule *rule, int family, Link *link) {
+static int routing_policy_rule_configure_internal(const RoutingPolicyRule *rule, int family, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
@@ -619,7 +639,7 @@ static int routing_policy_rule_configure_internal(RoutingPolicyRule *rule, int f
         return 1;
 }
 
-static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link) {
+static int routing_policy_rule_configure(const RoutingPolicyRule *rule, Link *link) {
         int r;
 
         if (IN_SET(rule->family, AF_INET, AF_INET6))
@@ -640,8 +660,9 @@ static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link) {
         return 0;
 }
 
-static bool links_have_routing_policy_rule(const Manager *m, const RoutingPolicyRule *rule, const Link *except) {
+static int links_have_routing_policy_rule(const Manager *m, const RoutingPolicyRule *rule, const Link *except) {
         Link *link;
+        int r;
 
         assert(m);
         assert(rule);
@@ -656,8 +677,29 @@ static bool links_have_routing_policy_rule(const Manager *m, const RoutingPolicy
                         continue;
 
                 HASHMAP_FOREACH(link_rule, link->network->rules_by_section)
-                        if (routing_policy_rule_equal(link_rule, rule))
-                                return true;
+                        if (IN_SET(link_rule->family, AF_INET, AF_INET6)) {
+                                if (routing_policy_rule_equal(link_rule, rule))
+                                        return true;
+                        } else {
+                                /* The case Family=both. */
+                                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *tmp = NULL;
+
+                                r = routing_policy_rule_new(&tmp);
+                                if (r < 0)
+                                        return r;
+
+                                r = routing_policy_rule_copy(tmp, link_rule);
+                                if (r < 0)
+                                        return r;
+
+                                tmp->family = AF_INET;
+                                if (routing_policy_rule_equal(tmp, rule))
+                                        return true;
+
+                                tmp->family = AF_INET6;
+                                if (routing_policy_rule_equal(tmp, rule))
+                                        return true;
+                        }
         }
 
         return false;
@@ -677,8 +719,12 @@ int manager_drop_routing_policy_rules_internal(Manager *m, bool foreign, const L
                         continue;
 
                 /* The rule will be configured later, or already configured by a link. */
-                if (links_have_routing_policy_rule(m, rule, except))
+                k = links_have_routing_policy_rule(m, rule, except);
+                if (k != 0) {
+                        if (k < 0 && r >= 0)
+                                r = k;
                         continue;
+                }
 
                 k = routing_policy_rule_remove(rule, m);
                 if (k < 0 && r >= 0)
@@ -703,20 +749,6 @@ int link_set_routing_policy_rules(Link *link) {
         link->routing_policy_rules_configured = false;
 
         HASHMAP_FOREACH(rule, link->network->rules_by_section) {
-                RoutingPolicyRule *existing;
-
-                r = routing_policy_rule_get(link->manager, rule, &existing);
-                if (r > 0)
-                        continue;
-                if (r == 0) {
-                        r = set_ensure_put(&link->manager->rules, &routing_policy_rule_hash_ops, existing);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Could not store existing routing policy rule: %m");
-
-                        set_remove(link->manager->rules_foreign, existing);
-                        continue;
-                }
-
                 r = routing_policy_rule_configure(rule, link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not set routing policy rule: %m");
@@ -947,11 +979,9 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                         log_routing_policy_rule_debug(tmp, tmp->family, "Received remembered", NULL);
                 else {
                         log_routing_policy_rule_debug(tmp, tmp->family, "Remembering foreign", NULL);
-                        r = routing_policy_rule_add_foreign(m, tmp, &rule);
-                        if (r < 0) {
+                        r = routing_policy_rule_consume_foreign(m, TAKE_PTR(tmp));
+                        if (r < 0)
                                 log_warning_errno(r, "Could not remember foreign rule, ignoring: %m");
-                                return 0;
-                        }
                 }
                 break;
         case RTM_DELRULE:
@@ -1549,8 +1579,13 @@ static int routing_policy_rule_section_verify(RoutingPolicyRule *rule) {
                                 "specified by To= or From=. Ignoring [RoutingPolicyRule] section from line %u.",
                                 rule->section->filename, rule->section->line);
 
-        if (rule->family == AF_UNSPEC && rule->address_family == ADDRESS_FAMILY_NO)
-                rule->family = AF_INET;
+        if (rule->family == AF_UNSPEC) {
+                if (IN_SET(rule->address_family, ADDRESS_FAMILY_IPV4, ADDRESS_FAMILY_NO))
+                        rule->family = AF_INET;
+                else if (rule->address_family == ADDRESS_FAMILY_IPV6)
+                        rule->family = AF_INET6;
+                /* rule->family can be AF_UNSPEC only when Family=both. */
+        }
 
         /* Currently, [RoutingPolicyRule] does not have a setting to set FRA_L3MDEV flag. Please also
          * update routing_policy_rule_is_created_by_kernel() when a new setting which sets the flag is
