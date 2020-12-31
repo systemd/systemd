@@ -244,6 +244,8 @@ basic_sources = files('''
         unaligned.h
         unit-def.c
         unit-def.h
+        unit-file.c
+        unit-file.h
         unit-name.c
         unit-name.h
         user-util.c

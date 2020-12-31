@@ -252,8 +252,6 @@ shared_sources = files('''
         udev-util.h
         uid-range.c
         uid-range.h
-        unit-file.c
-        unit-file.h
         user-record-nss.c
         user-record-nss.h
         user-record-show.c
