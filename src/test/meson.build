@@ -734,11 +734,10 @@ tests += [
          [],
          []],
 
-        [['src/test/test-libudev.c'],
+        [['src/libudev/test-libudev.c'],
          [libshared,
           libudev_static],
-         [],
-         '', '', [], libudev_includes],
+         []],
 
         [['src/test/test-udev.c'],
          [libudevd_core,
@@ -1048,12 +1047,11 @@ tests += [
           libsystemd],
          [threads]],
 
-        [['src/libsystemd/sd-device/test-udev-device-thread.c'],
+        [['src/libudev/test-udev-device-thread.c'],
          [libbasic,
           libshared_static,
           libudev],
-         [threads],
-         '', '', [], libudev_includes],
+         [threads]],
 
         [['src/libsystemd/sd-device/test-sd-device-monitor.c'],
          [],
