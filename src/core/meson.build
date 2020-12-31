@@ -1,16 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-libcore_shared_sources = '''
-        killall.c
-        killall.h
-        loopback-setup.c
-        loopback-setup.h
-        machine-id-setup.c
-        machine-id-setup.h
-        mount-setup.c
-        mount-setup.h
-'''.split()
-
 libcore_sources = '''
         apparmor-setup.c
         apparmor-setup.h
@@ -151,22 +140,12 @@ load_fragment_gperf_nulstr_c = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-# A convenience library to share code with other binaries:
-# systemd-shutdown, systemd-remount-fs, systemd-machine-id-setup, …
-libcore_shared = static_library(
-        'core-shared',
-        libcore_shared_sources,
-        include_directories : includes,
-        dependencies : [versiondep,
-                        libmount])
-
 libcore = static_library(
         'core',
         libcore_sources,
         load_fragment_gperf_c,
         load_fragment_gperf_nulstr_c,
         include_directories : includes,
-        link_whole : libcore_shared,
         dependencies : [versiondep,
                         threads,
                         librt,
