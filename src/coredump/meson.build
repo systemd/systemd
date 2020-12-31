@@ -7,8 +7,9 @@ systemd_coredump_sources = files('''
 '''.split())
 
 if conf.get('HAVE_ELFUTILS') == 1
-        systemd_coredump_sources += files(['stacktrace.c',
-                                           'stacktrace.h'])
+        systemd_coredump_sources += files(
+                'stacktrace.c',
+                'stacktrace.h')
 endif
 
 coredumpctl_sources = files('coredumpctl.c')

@@ -323,10 +323,9 @@ if conf.get('HAVE_KMOD') == 1
 endif
 
 if conf.get('HAVE_PAM') == 1
-        shared_sources += files('''
-        pam-util.c
-        pam-util.h
-'''.split())
+        shared_sources += files(
+                'pam-util.c',
+                'pam-util.h')
 endif
 
 if conf.get('ENABLE_NSCD') == 1

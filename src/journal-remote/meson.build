@@ -16,10 +16,9 @@ libsystemd_journal_remote_sources = files('''
 '''.split())
 
 if conf.get('HAVE_MICROHTTPD') == 1
-        libsystemd_journal_remote_sources += files('''
-                microhttpd-util.h
-                microhttpd-util.c
-'''.split())
+        libsystemd_journal_remote_sources += files(
+                'microhttpd-util.h',
+                'microhttpd-util.c')
 endif
 
 libsystemd_journal_remote = static_library(
