@@ -2117,6 +2117,10 @@ do_test() {
         exit 0
     fi
 
+    if [ -n "$TEST_PREFER_NSPAWN" ] && [ -z "$TEST_NO_NSPAWN" ]; then
+        TEST_NO_QEMU=1
+    fi
+
     # Detect lib paths
     [[ $libdir ]] || for libdir in /lib64 /lib; do
         [[ -d $libdir ]] && libdirs+=" $libdir" && break

@@ -53,6 +53,9 @@ TEST_QEMU_ONLY=1
 TEST_NO_NSPAWN=1
     Don't run tests under systemd-nspawn
 
+TEST_PREFER_NSPAWN=1
+    Run all tests that do not require qemu under systemd-nspawn
+
 TEST_NO_KVM=1
     Disable QEMU KVM auto-detection (may be necessary when you're trying to run the
     *vanilla* QEMU and have both qemu and qemu-kvm installed)
