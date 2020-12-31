@@ -1,12 +1,71 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+sd_journal_sources = files(
+        'sd-journal/audit-type.c',
+        'sd-journal/audit-type.h',
+        'sd-journal/catalog.c',
+        'sd-journal/catalog.h',
+        'sd-journal/compress.c',
+        'sd-journal/compress.h',
+        'sd-journal/journal-def.h',
+        'sd-journal/journal-file.c',
+        'sd-journal/journal-file.h',
+        'sd-journal/journal-internal.h',
+        'sd-journal/journal-send.c',
+        'sd-journal/journal-vacuum.c',
+        'sd-journal/journal-vacuum.h',
+        'sd-journal/journal-verify.c',
+        'sd-journal/journal-verify.h',
+        'sd-journal/lookup3.c',
+        'sd-journal/lookup3.h',
+        'sd-journal/mmap-cache.c',
+        'sd-journal/mmap-cache.h',
+        'sd-journal/sd-journal.c')
+
+if conf.get('HAVE_GCRYPT') == 1
+        sd_journal_sources += files(
+                'sd-journal/fsprg.c',
+                'sd-journal/fsprg.h',
+                'sd-journal/journal-authenticate.c',
+                'sd-journal/journal-authenticate.h')
+endif
+
+audit_type_includes = [config_h,
+                       missing_audit_h,
+                       'linux/audit.h']
+if conf.get('HAVE_AUDIT') == 1
+        audit_type_includes += 'libaudit.h'
+endif
+
+generate_audit_type_list = find_program('sd-journal/generate-audit_type-list.sh')
+audit_type_list_txt = custom_target(
+        'audit_type-list.txt',
+        output : 'audit_type-list.txt',
+        command : [generate_audit_type_list, cpp] + audit_type_includes,
+        capture : true)
+
+audit_type_to_name = custom_target(
+        'audit_type-to-name.h',
+        input : ['sd-journal/audit_type-to-name.awk', audit_type_list_txt],
+        output : 'audit_type-to-name.h',
+        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+sd_journal_sources += [audit_type_to_name]
+
+############################################################
+
 id128_sources = files('''
         sd-id128/id128-util.c
         sd-id128/id128-util.h
         sd-id128/sd-id128.c
 '''.split())
 
+############################################################
+
 sd_daemon_sources = files('sd-daemon/sd-daemon.c')
+
+############################################################
 
 sd_event_sources = files('''
         sd-event/event-source.h
@@ -15,7 +74,11 @@ sd_event_sources = files('''
         sd-event/sd-event.c
 '''.split())
 
+############################################################
+
 sd_login_sources = files('sd-login/sd-login.c')
+
+############################################################
 
 libsystemd_sources = files('''
         sd-bus/bus-common-errors.c
@@ -91,7 +154,7 @@ libsystemd_sources = files('''
         sd-resolve/resolve-private.h
         sd-resolve/sd-resolve.c
         sd-utf8/sd-utf8.c
-'''.split()) + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
+'''.split()) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
 
 disable_mempool_c = files('disable-mempool.c')
 

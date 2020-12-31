@@ -189,7 +189,6 @@ if conf.get('ENABLE_NETWORKD') == 1
         else
                 networkd_link_with = [libsystemd_static,
                                       libshared_static,
-                                      libjournal_client,
                                       libbasic_gcrypt]
         endif
 

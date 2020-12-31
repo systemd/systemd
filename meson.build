@@ -1609,6 +1609,7 @@ includes = include_directories('src/basic',
                                'src/libsystemd/sd-event',
                                'src/libsystemd/sd-hwdb',
                                'src/libsystemd/sd-id128',
+                               'src/libsystemd/sd-journal',
                                'src/libsystemd/sd-netlink',
                                'src/libsystemd/sd-network',
                                'src/libsystemd/sd-resolve',
@@ -1665,8 +1666,7 @@ libsystemd = shared_library(
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic,
                      libbasic_gcrypt],
-        link_whole : [libsystemd_static,
-                      libjournal_client],
+        link_whole : [libsystemd_static],
         dependencies : [threads,
                         librt,
                         libxz,
@@ -1682,7 +1682,6 @@ static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic
 install_libsystemd_static = static_library(
         'systemd',
         libsystemd_sources,
-        journal_client_sources,
         basic_sources,
         basic_gcrypt_sources,
         disable_mempool_c,
@@ -2150,7 +2149,6 @@ if get_option('link-systemctl-shared')
 else
         systemctl_link_with = [libsystemd_static,
                                libshared_static,
-                               libjournal_client,
                                libbasic_gcrypt]
 endif
 
@@ -2619,7 +2617,6 @@ if conf.get('ENABLE_TIMESYNCD') == 1
         else
                 timesyncd_link_with = [libsystemd_static,
                                        libshared_static,
-                                       libjournal_client,
                                        libbasic_gcrypt]
         endif
 
@@ -3189,8 +3186,7 @@ if enable_sysusers
                         link_with : [libshared_static,
                                      libbasic,
                                      libbasic_gcrypt,
-                                     libsystemd_static,
-                                     libjournal_client],
+                                     libsystemd_static],
                         install : true,
                         install_dir : rootbindir)
                 public_programs += exe
@@ -3232,8 +3228,7 @@ if conf.get('ENABLE_TMPFILES') == 1
                         link_with : [libshared_static,
                                      libbasic,
                                      libbasic_gcrypt,
-                                     libsystemd_static,
-                                     libjournal_client],
+                                     libsystemd_static],
                         dependencies : [libacl],
                         install : true,
                         install_dir : rootbindir)
