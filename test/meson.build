@@ -64,8 +64,6 @@ test_systemd_tmpfiles_py = find_program('test-systemd-tmpfiles.py')
 
 ############################################################
 
-test_sysusers_dir = join_paths(meson.current_source_dir(), 'test-sysusers')
-
 test_sysusers_sh = configure_file(
         input : 'test-sysusers.sh.in',
         output : 'test-sysusers.sh',
