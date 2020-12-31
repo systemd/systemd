@@ -8,7 +8,5 @@ systemd_tmpfiles_sources = files(
 tests += [
         [['src/tmpfiles/test-offline-passwd.c',
           'src/tmpfiles/offline-passwd.c',
-          'src/tmpfiles/offline-passwd.h'],
-         [],
-         []],
+          'src/tmpfiles/offline-passwd.h']],
 ]

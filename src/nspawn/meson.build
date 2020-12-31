@@ -56,5 +56,5 @@ tests += [
          [libnspawn_core,
           libshared],
          [libacl],
-         '', 'manual'],
+         [], '', 'manual'],
 ]

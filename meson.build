@@ -3408,13 +3408,13 @@ custom_target(
 
 foreach tuple : tests
         sources = tuple[0]
-        link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
-        dependencies = tuple[2]
-        condition = tuple.length() >= 4 ? tuple[3] : ''
-        type = tuple.length() >= 5 ? tuple[4] : ''
-        defs = tuple.length() >= 6 ? tuple[5] : []
-        incs = tuple.length() >= 7 ? tuple[6] : includes
-        parallel = tuple.length() >= 8 ? tuple[7] : true
+        link_with = tuple.length() > 1 and tuple[1].length() > 0 ? tuple[1] : [libshared]
+        dependencies = tuple.length() > 2 ? tuple[2] : []
+        incs = tuple.length() > 3 and tuple[3].length() > 0 ? tuple[3] : includes
+        condition = tuple.length() > 4 ? tuple[4] : ''
+        type = tuple.length() > 5 ? tuple[5] : ''
+        defs = tuple.length() > 6 ? tuple[6] : []
+        parallel = tuple.length() > 7 ? tuple[7] : true
         timeout = 30
 
         name = sources[0].split('/')[-1].split('.')[0]
@@ -3509,10 +3509,10 @@ fuzzer_exes = []
 
 foreach tuple : fuzzers
         sources = tuple[0]
-        link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
-        dependencies = tuple[2]
-        defs = tuple.length() >= 4 ? tuple[3] : []
-        incs = tuple.length() >= 5 ? tuple[4] : includes
+        link_with = tuple.length() > 1 and tuple[1].length() > 0 ? tuple[1] : [libshared]
+        dependencies = tuple.length() > 2 ? tuple[2] : []
+        incs = tuple.length() > 3 and tuple[3].length() > 0 ? tuple[3] : includes
+        defs = tuple.length() > 4 ? tuple[4] : []
         link_args = []
 
         if want_ossfuzz

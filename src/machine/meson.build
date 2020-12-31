@@ -40,5 +40,5 @@ tests += [
          [libmachine_core,
           libshared],
          [threads],
-         'ENABLE_MACHINED'],
+         [], 'ENABLE_MACHINED'],
 ]

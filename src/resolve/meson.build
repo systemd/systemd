@@ -187,7 +187,7 @@ tests += [
          [libgcrypt,
           libgpg_error,
           libm],
-         'ENABLE_RESOLVE'],
+         [], 'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dns-packet.c',
           dns_type_headers],
@@ -196,7 +196,7 @@ tests += [
          [libgcrypt,
           libgpg_error,
           libm],
-         'ENABLE_RESOLVE'],
+         [], 'ENABLE_RESOLVE'],
 
         [['src/resolve/test-resolved-etc-hosts.c',
           'src/resolve/resolved-etc-hosts.c',
@@ -206,7 +206,7 @@ tests += [
          [libgcrypt,
           libgpg_error,
           libm],
-         'ENABLE_RESOLVE'],
+         [], 'ENABLE_RESOLVE'],
 
         [['src/resolve/test-resolved-packet.c',
           dns_type_headers],
@@ -215,7 +215,7 @@ tests += [
          [libgcrypt,
           libgpg_error,
           libm],
-         'ENABLE_RESOLVE'],
+         [], 'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dnssec.c',
           dns_type_headers],
@@ -224,12 +224,10 @@ tests += [
          [libgcrypt,
           libgpg_error,
           libm],
-         'ENABLE_RESOLVE'],
+         [], 'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dnssec-complex.c',
           'src/resolve/dns-type.c',
           dns_type_headers],
-         [],
-         [],
-         'ENABLE_RESOLVE', 'manual'],
+         [], [], [], 'ENABLE_RESOLVE', 'manual'],
 ]

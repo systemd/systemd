@@ -22,7 +22,5 @@ tests += [
         [['src/coredump/test-coredump-vacuum.c',
           'src/coredump/coredump-vacuum.c',
           'src/coredump/coredump-vacuum.h'],
-         [],
-         [],
-         'ENABLE_COREDUMP', 'manual'],
+         [], [], [], 'ENABLE_COREDUMP', 'manual'],
 ]
