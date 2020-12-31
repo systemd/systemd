@@ -290,12 +290,6 @@ tests += [
          [],
          '', 'timeout=120'],
 
-        [['src/test/test-offline-passwd.c',
-          'src/shared/offline-passwd.c',
-          'src/shared/offline-passwd.h'],
-         [],
-         []],
-
         [['src/test/test-escape.c'],
          [],
          []],
