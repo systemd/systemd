@@ -6,10 +6,10 @@
 #include "sd-bus.h"
 
 #include "bus-internal.h"
-#include "bus-util.h"
 #include "log.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "string-util.h"
 
 struct context {
         int fds[2];

@@ -11,12 +11,12 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-match.h"
-#include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
 #include "macro.h"
+#include "string-util.h"
 #include "tests.h"
 #include "util.h"
 

@@ -9,7 +9,6 @@
 #include "bus-dump.h"
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "bus-util.h"
 #include "log.h"
 #include "macro.h"
 #include "strv.h"
