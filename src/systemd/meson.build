@@ -42,7 +42,6 @@ install_headers(
         '_sd-common.h',
         subdir : 'systemd')
 
-
 ############################################################
 
 opts = [['c'],
