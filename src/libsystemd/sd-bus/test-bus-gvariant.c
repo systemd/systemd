@@ -11,7 +11,6 @@
 #include "bus-gvariant.h"
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "bus-util.h"
 #include "macro.h"
 #include "tests.h"
 #include "util.h"

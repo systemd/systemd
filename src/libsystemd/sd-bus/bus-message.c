@@ -12,7 +12,6 @@
 #include "bus-message.h"
 #include "bus-signature.h"
 #include "bus-type.h"
-#include "bus-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "memfd-util.h"

@@ -8,10 +8,10 @@
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-kernel.h"
-#include "bus-util.h"
 #include "def.h"
 #include "fd-util.h"
 #include "missing_resource.h"
+#include "string-util.h"
 #include "time-util.h"
 #include "util.h"
 

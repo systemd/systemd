@@ -13,7 +13,6 @@
 #include "bus-control.h"
 #include "bus-internal.h"
 #include "bus-message.h"
-#include "bus-util.h"
 #include "capability-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
