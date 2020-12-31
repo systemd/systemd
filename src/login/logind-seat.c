@@ -8,11 +8,11 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "devnode-acl.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "logind-acl.h"
 #include "logind-seat-dbus.h"
 #include "logind-seat.h"
 #include "logind-session-dbus.h"

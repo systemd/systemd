@@ -50,9 +50,7 @@ if conf.get('HAVE_BLKID') == 1
 endif
 
 if conf.get('HAVE_ACL') == 1
-        libudevd_core_sources += ['udev-builtin-uaccess.c',
-                                  logind_acl_c,
-                                  sd_login_sources]
+        libudevd_core_sources += ['udev-builtin-uaccess.c']
 endif
 
 ############################################################
