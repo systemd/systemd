@@ -49,7 +49,7 @@ tests += [
           'src/timesync/timesyncd-server.c',
           'src/timesync/timesyncd-server.h',
           timesyncd_gperf_c],
-         [libshared],
+         [],
          [libm],
-         'ENABLE_TIMESYNCD'],
+         [], 'ENABLE_TIMESYNCD'],
 ]

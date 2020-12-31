@@ -226,14 +226,10 @@ fuzzers += [
           libacl]],
 
         [['src/udev/fido_id/fuzz-fido-id-desc.c',
-          'src/udev/fido_id/fido_id_desc.c'],
-         [],
-         []],
-        ]
+          'src/udev/fido_id/fido_id_desc.c']],
+]
 
 tests += [
         [['src/udev/fido_id/test-fido-id-desc.c',
-          'src/udev/fido_id/fido_id_desc.c'],
-         [],
-         []],
-        ]
+          'src/udev/fido_id/fido_id_desc.c']],
+]

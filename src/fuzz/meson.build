@@ -1,14 +1,11 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 fuzzers += [
-        [['src/fuzz/fuzz-bus-message.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-bus-message.c']],
 
         [['src/fuzz/fuzz-catalog.c'],
          [libjournal_core,
-          libshared],
-         []],
+          libshared]],
 
         [['src/fuzz/fuzz-dns-packet.c',
           dns_type_headers],
@@ -24,18 +21,15 @@ fuzzers += [
           'src/libsystemd-network/dhcp6-internal.h',
           'src/systemd/sd-dhcp6-client.h'],
          [libshared,
-          libsystemd_network],
-         []],
+          libsystemd_network]],
 
         [['src/fuzz/fuzz-dhcp-server.c'],
          [libsystemd_network,
-          libshared],
-         []],
+          libshared]],
 
         [['src/fuzz/fuzz-lldp.c'],
          [libshared,
-          libsystemd_network],
-         []],
+          libsystemd_network]],
 
         [['src/fuzz/fuzz-ndisc-rs.c',
           'src/libsystemd-network/dhcp-identifier.h',
@@ -44,16 +38,11 @@ fuzzers += [
           'src/systemd/sd-dhcp6-client.h',
           'src/systemd/sd-ndisc.h'],
          [libshared,
-          libsystemd_network],
-         []],
+          libsystemd_network]],
 
-        [['src/fuzz/fuzz-json.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-json.c']],
 
-        [['src/fuzz/fuzz-varlink.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-varlink.c']],
 
         [['src/fuzz/fuzz-unit-file.c'],
          [libcore,
@@ -98,12 +87,9 @@ fuzzers += [
 
         [['src/fuzz/fuzz-journal-remote.c'],
          [libsystemd_journal_remote,
-          libshared],
-         []],
+          libshared]],
 
-        [['src/fuzz/fuzz-udev-database.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-udev-database.c']],
 
         [['src/fuzz/fuzz-udev-rules.c'],
          [libudevd_core,
@@ -111,21 +97,13 @@ fuzzers += [
          [threads,
           libacl]],
 
-        [['src/fuzz/fuzz-compress.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-compress.c']],
 
-        [['src/fuzz/fuzz-bus-label.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-bus-label.c']],
 
-        [['src/fuzz/fuzz-env-file.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-env-file.c']],
 
-        [['src/fuzz/fuzz-hostname-setup.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-hostname-setup.c']],
 
         [['src/fuzz/fuzz-nspawn-settings.c'],
          [libshared,
@@ -137,21 +115,13 @@ fuzzers += [
           libnspawn_core],
          [libseccomp]],
 
-        [['src/fuzz/fuzz-calendarspec.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-calendarspec.c']],
 
-        [['src/fuzz/fuzz-time-util.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-time-util.c']],
 
         [['src/xdg-autostart-generator/fuzz-xdg-desktop.c',
           'src/xdg-autostart-generator/xdg-autostart-service.h',
-          'src/xdg-autostart-generator/xdg-autostart-service.c'],
-         [],
-         []],
+          'src/xdg-autostart-generator/xdg-autostart-service.c']],
 
-        [['src/fuzz/fuzz-udev-rule-parse-value.c'],
-         [libshared],
-         []],
+        [['src/fuzz/fuzz-udev-rule-parse-value.c']],
 ]

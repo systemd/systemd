@@ -246,7 +246,6 @@ if conf.get('ENABLE_NETWORKD') == 1
       libsystemd_network,
       networkd_link_with],
      [threads],
-     [],
      network_include_dir],
 
     [['src/network/fuzz-network-parser.c',
@@ -255,7 +254,6 @@ if conf.get('ENABLE_NETWORKD') == 1
       libsystemd_network,
       networkd_link_with],
      [threads],
-     [],
      network_include_dir],
     ]
 
@@ -263,14 +261,15 @@ if conf.get('ENABLE_NETWORKD') == 1
     [['src/network/test-networkd-conf.c'],
      [libnetworkd_core,
       libsystemd_network],
-     [], '', '', [], network_include_dir],
+     [],
+     network_include_dir],
 
     [['src/network/test-network.c'],
      [libnetworkd_core,
       libsystemd_network,
       networkd_link_with],
      [threads],
-     '', '', [], network_include_dir],
+     network_include_dir],
 
     [['src/network/test-network-tables.c',
       test_tables_h],
@@ -278,13 +277,10 @@ if conf.get('ENABLE_NETWORKD') == 1
       libsystemd_network,
       networkd_link_with],
      [threads],
-     '', '', [],
-     [network_include_dir]],
+     network_include_dir],
 
     [['src/network/generator/test-network-generator.c',
       'src/network/generator/network-generator.c',
-      'src/network/generator/network-generator.h'],
-     [networkd_link_with],
-     [], '', '', [], network_include_dir],
+      'src/network/generator/network-generator.h']],
   ]
 endif
