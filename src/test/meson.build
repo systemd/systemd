@@ -1042,15 +1042,11 @@ tests += [
          []],
 
         [['src/libsystemd/sd-device/test-sd-device-thread.c'],
-         [libbasic,
-          libshared_static,
-          libsystemd],
+         [libsystemd],
          [threads]],
 
         [['src/libudev/test-udev-device-thread.c'],
-         [libbasic,
-          libshared_static,
-          libudev],
+         [libudev],
          [threads]],
 
         [['src/libsystemd/sd-device/test-sd-device-monitor.c'],
