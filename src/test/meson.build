@@ -772,12 +772,6 @@ tests += [
          [libdl],
          'ENABLE_NSS', 'manual'],
 
-        [['src/test/test-umount.c',
-          'src/shutdown/umount.c',
-          'src/shutdown/umount.h'],
-         [libshared],
-         [libmount]],
-
         [['src/test/test-bus-util.c'],
          [],
          []],
