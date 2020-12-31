@@ -41,10 +41,6 @@ test_dlopen_c = files('test-dlopen.c')
 
 ############################################################
 
-test_systemd_tmpfiles_py = find_program('test-systemd-tmpfiles.py')
-
-############################################################
-
 tests += [
         [['src/test/test-device-nodes.c'],
          [],
