@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "efivars.h"
-
 #include <sys/stat.h>
+
+#include "efi-loader-features.h"
+#include "efivars.h"
 
 #if ENABLE_EFI
 
