@@ -775,8 +775,7 @@ tests += [
         [['src/test/test-umount.c',
           'src/shutdown/umount.c',
           'src/shutdown/umount.h'],
-         [libcore_shared,
-          libshared],
+         [libshared],
          [libmount]],
 
         [['src/test/test-bus-util.c'],
