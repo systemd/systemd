@@ -15,7 +15,7 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
-#include "dns-domain.h"
+#include "dns-def.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "io-util.h"
