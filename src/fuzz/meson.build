@@ -7,7 +7,7 @@ fuzzers += [
          [libjournal_core,
           libshared]],
 
-        [['src/fuzz/fuzz-dns-packet.c',
+        [['src/resolve/fuzz-dns-packet.c',
           dns_type_headers],
          [libsystemd_resolve_core,
           libshared],
@@ -15,28 +15,19 @@ fuzzers += [
           libgpg_error,
           libm]],
 
-        [['src/fuzz/fuzz-dhcp6-client.c',
-          'src/libsystemd-network/dhcp-identifier.h',
-          'src/libsystemd-network/dhcp-identifier.c',
-          'src/libsystemd-network/dhcp6-internal.h',
-          'src/systemd/sd-dhcp6-client.h'],
+        [['src/libsystemd-network/fuzz-dhcp6-client.c'],
          [libshared,
           libsystemd_network]],
 
-        [['src/fuzz/fuzz-dhcp-server.c'],
+        [['src/libsystemd-network/fuzz-dhcp-server.c'],
          [libsystemd_network,
           libshared]],
 
-        [['src/fuzz/fuzz-lldp.c'],
+        [['src/libsystemd-network/fuzz-lldp.c'],
          [libshared,
           libsystemd_network]],
 
-        [['src/fuzz/fuzz-ndisc-rs.c',
-          'src/libsystemd-network/dhcp-identifier.h',
-          'src/libsystemd-network/dhcp-identifier.c',
-          'src/libsystemd-network/icmp6-util.h',
-          'src/systemd/sd-dhcp6-client.h',
-          'src/systemd/sd-ndisc.h'],
+        [['src/libsystemd-network/fuzz-ndisc-rs.c'],
          [libshared,
           libsystemd_network]],
 
@@ -44,54 +35,54 @@ fuzzers += [
 
         [['src/fuzz/fuzz-varlink.c']],
 
-        [['src/fuzz/fuzz-unit-file.c'],
+        [['src/core/fuzz-unit-file.c'],
          [libcore,
           libshared],
          [libmount]],
 
-        [['src/fuzz/fuzz-journald-audit.c',
-          'src/fuzz/fuzz-journald.c'],
+        [['src/journal/fuzz-journald-audit.c',
+          'src/journal/fuzz-journald.c'],
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/fuzz/fuzz-journald-kmsg.c',
-          'src/fuzz/fuzz-journald.c'],
+        [['src/journal/fuzz-journald-kmsg.c',
+          'src/journal/fuzz-journald.c'],
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/fuzz/fuzz-journald-native.c',
-          'src/fuzz/fuzz-journald.c'],
+        [['src/journal/fuzz-journald-native.c',
+          'src/journal/fuzz-journald.c'],
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/fuzz/fuzz-journald-native-fd.c',
-          'src/fuzz/fuzz-journald.c'],
+        [['src/journal/fuzz-journald-native-fd.c',
+          'src/journal/fuzz-journald.c'],
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/fuzz/fuzz-journald-stream.c',
-          'src/fuzz/fuzz-journald.c'],
+        [['src/journal/fuzz-journald-stream.c',
+          'src/journal/fuzz-journald.c'],
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/fuzz/fuzz-journald-syslog.c',
-          'src/fuzz/fuzz-journald.c'],
+        [['src/journal/fuzz-journald-syslog.c',
+          'src/journal/fuzz-journald.c'],
          [libjournal_core,
           libshared],
          [libselinux]],
 
-        [['src/fuzz/fuzz-journal-remote.c'],
+        [['src/journal-remote/fuzz-journal-remote.c'],
          [libsystemd_journal_remote,
           libshared]],
 
         [['src/fuzz/fuzz-udev-database.c']],
 
-        [['src/fuzz/fuzz-udev-rules.c'],
+        [['src/udev/fuzz-udev-rules.c'],
          [libudevd_core,
           libshared],
          [threads,
@@ -105,12 +96,12 @@ fuzzers += [
 
         [['src/fuzz/fuzz-hostname-setup.c']],
 
-        [['src/fuzz/fuzz-nspawn-settings.c'],
+        [['src/nspawn/fuzz-nspawn-settings.c'],
          [libshared,
           libnspawn_core],
          [libseccomp]],
 
-        [['src/fuzz/fuzz-nspawn-oci.c'],
+        [['src/nspawn/fuzz-nspawn-oci.c'],
          [libshared,
           libnspawn_core],
          [libseccomp]],
@@ -123,5 +114,5 @@ fuzzers += [
           'src/xdg-autostart-generator/xdg-autostart-service.h',
           'src/xdg-autostart-generator/xdg-autostart-service.c']],
 
-        [['src/fuzz/fuzz-udev-rule-parse-value.c']],
+        [['src/udev/fuzz-udev-rule-parse-value.c']],
 ]
