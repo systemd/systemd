@@ -54,7 +54,7 @@
         <listitem><para>Takes a boolean argument. Defaults to <literal>yes</literal>. If <literal>no</literal>,
         disables the generator entirely. <varname>rd.systemd.verity=</varname> is honored only by the initial RAM disk
         (initrd) while <varname>systemd.verity=</varname> is honored by both the host system and the
-        initrd. </para></listitem>
+        initrd.</para></listitem>
       </varlistentry>
 
       <varlistentry>
