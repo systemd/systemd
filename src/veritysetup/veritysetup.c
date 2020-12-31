@@ -15,15 +15,9 @@
 #include "string-util.h"
 #include "terminal-util.h"
 
-static char *arg_root_hash = NULL;
-static char *arg_data_what = NULL;
-static char *arg_hash_what = NULL;
 static uint32_t arg_activate_flags = CRYPT_ACTIVATE_READONLY;
 static char *arg_root_hash_signature = NULL;
 
-STATIC_DESTRUCTOR_REGISTER(arg_root_hash, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_data_what, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_hash_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
 
 static int help(void) {
