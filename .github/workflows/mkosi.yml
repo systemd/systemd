@@ -24,13 +24,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - uses: systemd/mkosi@v8
+    - uses: systemd/mkosi@v9
 
     - name: Install
-      run: sudo apt-get update && sudo apt-get install --no-install-recommends
-        ovmf
-        python3-pexpect
-        qemu-system-x86-64
+      run: sudo apt-get update && sudo apt-get install --no-install-recommends python3-pexpect
 
     - name: Build ${{ matrix.distro }}
       run: sudo python3 -m mkosi --default .mkosi/mkosi.${{ matrix.distro }} --password= --qemu-headless build
