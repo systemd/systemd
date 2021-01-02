@@ -617,7 +617,8 @@ msgstr "Conectare la un container local"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr "Autentificarea este necesară pentru a vă conecta la un container local."
+msgstr ""
+"Autentificarea este necesară pentru a vă conecta la un container local."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -964,7 +965,8 @@ msgstr ""
 
 #: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
+msgstr ""
+"Autentificarea este necesară pentru a seta proprietățile lui „$(unit)”."
 
 #: src/core/dbus-unit.c:711
 msgid ""

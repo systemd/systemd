@@ -59,8 +59,8 @@ msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
-"Authentification requise pour définir ou supprimer des variables d’"
-"environnement du système ou du gestionnaire de services."
+"Authentification requise pour définir ou supprimer des variables "
+"d’environnement du système ou du gestionnaire de services."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -192,8 +192,8 @@ msgstr "Télécharger une image de machine virtuelle (VM) ou de conteneur"
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
 msgstr ""
-"Authentification requise pour télécharger une image de machine virtuelle (VM)"
-" ou de conteneur"
+"Authentification requise pour télécharger une image de machine virtuelle "
+"(VM) ou de conteneur"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -230,8 +230,8 @@ msgstr "Permet aux applications de retarder l’arrêt du système"
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
 msgstr ""
-"Authentification requise pour permettre à une application de retarder l’"
-"arrêt du système."
+"Authentification requise pour permettre à une application de retarder "
+"l’arrêt du système."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -255,15 +255,16 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
-msgstr "Permet aux applications d’empêcher l’hibernation automatique du système"
+msgstr ""
+"Permet aux applications d’empêcher l’hibernation automatique du système"
 
 #: src/login/org.freedesktop.login1.policy:66
 msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
 msgstr ""
-"Authentification requise pour permettre à une application d’empêcher l’"
-"hibernation automatique du système."
+"Authentification requise pour permettre à une application d’empêcher "
+"l’hibernation automatique du système."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
@@ -328,8 +329,8 @@ msgstr "Permet à un utilisateur non connecté d’exécuter des programmes"
 #: src/login/org.freedesktop.login1.policy:118
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
-"Requête explicite requise pour exécuter des programmes en tant qu’"
-"utilisateur non connecté."
+"Requête explicite requise pour exécuter des programmes en tant "
+"qu’utilisateur non connecté."
 
 #: src/login/org.freedesktop.login1.policy:127
 msgid "Allow non-logged-in users to run programs"
@@ -509,8 +510,8 @@ msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
-"Authentification requise pour mettre le système en hibernation alors que d’"
-"autres utilisateurs sont connectés."
+"Authentification requise pour mettre le système en hibernation alors que "
+"d’autres utilisateurs sont connectés."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while an application is inhibiting this"
@@ -565,8 +566,8 @@ msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
-"Authentification requise pour indiquer au micrologiciel de démarrer sur l’"
-"interface de configuration."
+"Authentification requise pour indiquer au micrologiciel de démarrer sur "
+"l’interface de configuration."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the boot loader to boot to the boot loader menu"
@@ -922,8 +923,8 @@ msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr ""
-"Authentification requise pour activer ou désactiver la synchronisation de l’"
-"heure avec le réseau."
+"Authentification requise pour activer ou désactiver la synchronisation de "
+"l’heure avec le réseau."
 
 #: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
@@ -946,14 +947,14 @@ msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr ""
-"Authentification requise pour envoyer un signal UNIX aux processus de « "
-"$(unit) »."
+"Authentification requise pour envoyer un signal UNIX aux processus de "
+"« $(unit) »."
 
 #: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
-"Authentification requise pour réinitialiser l’état d’« échec » de « $(unit) "
-"»."
+"Authentification requise pour réinitialiser l’état d’« échec » de "
+"« $(unit) »."
 
 #: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2020-09-17 20:41+0900\n"
+"POT-Creation-Date: 2020-08-19 18:02+0200\n"
 "PO-Revision-Date: 2018-10-27 07:41+0900\n"
 "Last-Translator: Yu Watanabe <watanabe.yu+github@gmail.com>\n"
 "Language-Team: \n"
@@ -274,72 +274,62 @@ msgid ""
 msgstr "アプリケーションが液晶開閉による動作を阻害するには認証が必要です。"
 
 #: src/login/org.freedesktop.login1.policy:117
-msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "アプリケーションが再起動ボタンによる動作を阻害することを許可"
-
-#: src/login/org.freedesktop.login1.policy:118
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the reboot key."
-msgstr "アプリケーションが再起動ボタンによる動作を阻害するには認証が必要です。"
-
-#: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
 msgstr "ログインしていないユーザがプログラムを実行することを許可"
 
-#: src/login/org.freedesktop.login1.policy:129
+#: src/login/org.freedesktop.login1.policy:118
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
 "ログインしていないユーザがプログラムを実行するには明示的な要求が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:138
+#: src/login/org.freedesktop.login1.policy:127
 msgid "Allow non-logged-in users to run programs"
 msgstr "ログインしていないユーザがプログラムを実行することを許可"
 
-#: src/login/org.freedesktop.login1.policy:139
+#: src/login/org.freedesktop.login1.policy:128
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr "ログインしていないユーザがプログラムを実行するには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:148
+#: src/login/org.freedesktop.login1.policy:137
 msgid "Allow attaching devices to seats"
 msgstr "シートにデバイスを接続することを許可"
 
-#: src/login/org.freedesktop.login1.policy:149
+#: src/login/org.freedesktop.login1.policy:138
 msgid "Authentication is required to attach a device to a seat."
 msgstr "シートにデバイスを接続するには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:159
+#: src/login/org.freedesktop.login1.policy:148
 msgid "Flush device to seat attachments"
 msgstr "デバイスのシートへの接続のリセット"
 
-#: src/login/org.freedesktop.login1.policy:160
+#: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr "デバイスのシートへの接続をリセットするには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:169
+#: src/login/org.freedesktop.login1.policy:158
 msgid "Power off the system"
 msgstr "システムの電源を切る"
 
-#: src/login/org.freedesktop.login1.policy:170
+#: src/login/org.freedesktop.login1.policy:159
 msgid "Authentication is required to power off the system."
 msgstr "システムの電源を切るには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:180
+#: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system while other users are logged in"
 msgstr "他のユーザがログインしている状態でシステムの電源を切る"
 
-#: src/login/org.freedesktop.login1.policy:181
+#: src/login/org.freedesktop.login1.policy:170
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
 "他のユーザがログインしている状態でシステムの電源を切るには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:191
+#: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムの電源を切る"
 
-#: src/login/org.freedesktop.login1.policy:192
+#: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
@@ -347,30 +337,30 @@ msgstr ""
 "アプリケーションが使用されている状態でシステムの電源を切るには認証が必要で"
 "す。"
 
-#: src/login/org.freedesktop.login1.policy:202
+#: src/login/org.freedesktop.login1.policy:191
 msgid "Reboot the system"
 msgstr "システムの再起動"
 
-#: src/login/org.freedesktop.login1.policy:203
+#: src/login/org.freedesktop.login1.policy:192
 msgid "Authentication is required to reboot the system."
 msgstr "システムの再起動には認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:213
+#: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system while other users are logged in"
 msgstr "他のユーザがログインしている状態でシステムを再起動する"
 
-#: src/login/org.freedesktop.login1.policy:214
+#: src/login/org.freedesktop.login1.policy:203
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
 msgstr ""
 "他のユーザがログインしている状態でシステムを再起動するには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:224
+#: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムを再起動する"
 
-#: src/login/org.freedesktop.login1.policy:225
+#: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
@@ -378,49 +368,49 @@ msgstr ""
 "アプリケーションが使用されている状態でシステムを再起動するには認証が必要で"
 "す。"
 
-#: src/login/org.freedesktop.login1.policy:235
+#: src/login/org.freedesktop.login1.policy:224
 msgid "Halt the system"
 msgstr "システムの停止"
 
-#: src/login/org.freedesktop.login1.policy:236
+#: src/login/org.freedesktop.login1.policy:225
 msgid "Authentication is required to halt the system."
 msgstr "システムを停止するには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:246
+#: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system while other users are logged in"
 msgstr "他のユーザがログインしている状態でシステムを停止する"
 
-#: src/login/org.freedesktop.login1.policy:247
+#: src/login/org.freedesktop.login1.policy:236
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
 msgstr ""
 "他のユーザがログインしている状態でシステムを停止するには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:257
+#: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムを停止する"
 
-#: src/login/org.freedesktop.login1.policy:258
+#: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
 "アプリケーションが使用されている状態でシステムを停止するには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:268
+#: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
 msgstr "システムのサスペンド"
 
-#: src/login/org.freedesktop.login1.policy:269
+#: src/login/org.freedesktop.login1.policy:258
 msgid "Authentication is required to suspend the system."
 msgstr "システムのサスペンドには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:278
+#: src/login/org.freedesktop.login1.policy:267
 msgid "Suspend the system while other users are logged in"
 msgstr "他のユーザがログインしている状態でシステムをサスペンドする"
 
-#: src/login/org.freedesktop.login1.policy:279
+#: src/login/org.freedesktop.login1.policy:268
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
@@ -428,11 +418,11 @@ msgstr ""
 "他のユーザがログインしている状態でシステムをサスペンドするには認証が必要で"
 "す。"
 
-#: src/login/org.freedesktop.login1.policy:289
+#: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムをサスペンドする"
 
-#: src/login/org.freedesktop.login1.policy:290
+#: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
@@ -440,19 +430,19 @@ msgstr ""
 "アプリケーションが使用されている状態でシステムをサスペンドするには認証が必要"
 "です。"
 
-#: src/login/org.freedesktop.login1.policy:300
+#: src/login/org.freedesktop.login1.policy:289
 msgid "Hibernate the system"
 msgstr "システムのハイバネート"
 
-#: src/login/org.freedesktop.login1.policy:301
+#: src/login/org.freedesktop.login1.policy:290
 msgid "Authentication is required to hibernate the system."
 msgstr "システムのハイバネートには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:310
+#: src/login/org.freedesktop.login1.policy:299
 msgid "Hibernate the system while other users are logged in"
 msgstr "他のユーザがログインしている状態でシステムをハイバネートする"
 
-#: src/login/org.freedesktop.login1.policy:311
+#: src/login/org.freedesktop.login1.policy:300
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
@@ -460,11 +450,11 @@ msgstr ""
 "他のユーザがログインしている状態でシステムをハイバネートするには認証が必要で"
 "す。"
 
-#: src/login/org.freedesktop.login1.policy:321
+#: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr "アプリケーションが使用されている状態でシステムをハイバネートする"
 
-#: src/login/org.freedesktop.login1.policy:322
+#: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
@@ -472,36 +462,36 @@ msgstr ""
 "アプリケーションが使用されている状態でシステムをハイバネートするには認証が必"
 "要です。"
 
-#: src/login/org.freedesktop.login1.policy:332
+#: src/login/org.freedesktop.login1.policy:321
 msgid "Manage active sessions, users and seats"
 msgstr "アクティブなセッションやユーザ，シートの管理"
 
-#: src/login/org.freedesktop.login1.policy:333
+#: src/login/org.freedesktop.login1.policy:322
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr "アクティブなセッションやユーザ，シートを管理するには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:342
+#: src/login/org.freedesktop.login1.policy:331
 msgid "Lock or unlock active sessions"
 msgstr "アクティブなセッションのロックもしくはアンロック"
 
-#: src/login/org.freedesktop.login1.policy:343
+#: src/login/org.freedesktop.login1.policy:332
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
 "アクティブなセッションをロックもしくはアンロックするには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:352
+#: src/login/org.freedesktop.login1.policy:341
 msgid "Set the reboot \"reason\" in the kernel"
 msgstr "再起動の理由を設定する"
 
-#: src/login/org.freedesktop.login1.policy:353
+#: src/login/org.freedesktop.login1.policy:342
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
 msgstr "再起動の理由を設定するには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:363
+#: src/login/org.freedesktop.login1.policy:352
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr "ファームウェアに「インターフェースの設定を起動」を表示させる"
 
-#: src/login/org.freedesktop.login1.policy:364
+#: src/login/org.freedesktop.login1.policy:353
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
@@ -509,11 +499,11 @@ msgstr ""
 "ファームウェアに「インターフェースの設定を起動」を表示させるには認証が必要で"
 "す。"
 
-#: src/login/org.freedesktop.login1.policy:374
+#: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr "ブートローダにブートローダメニューを起動するための項目を表示させる。"
 
-#: src/login/org.freedesktop.login1.policy:375
+#: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
@@ -521,29 +511,29 @@ msgstr ""
 "ブートローダにブートローダメニューを起動するための項目を表示させるには認証が"
 "必要です。"
 
-#: src/login/org.freedesktop.login1.policy:385
+#: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr "ブートローダに特定の項目を表示させる"
 
-#: src/login/org.freedesktop.login1.policy:386
+#: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr "ブートローダに特定の項目を表示させるには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:396
+#: src/login/org.freedesktop.login1.policy:385
 msgid "Set a wall message"
 msgstr "全ユーザへのメッセージの設定"
 
-#: src/login/org.freedesktop.login1.policy:397
+#: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to set a wall message"
 msgstr "全ユーザへのメッセージを設定するには認証が必要です。"
 
-#: src/login/org.freedesktop.login1.policy:406
+#: src/login/org.freedesktop.login1.policy:395
 msgid "Change Session"
 msgstr "セッションの変更"
 
-#: src/login/org.freedesktop.login1.policy:407
+#: src/login/org.freedesktop.login1.policy:396
 msgid "Authentication is required to change the virtual terminal."
 msgstr "仮想ターミナルを変更するには認証が必要です。"
 
@@ -839,44 +829,53 @@ msgid ""
 "shall be enabled."
 msgstr "ネットワーク経由の時刻同期を有効もしくは無効にするには認証が必要です。"
 
-#: src/core/dbus-unit.c:359
+#: src/core/dbus-unit.c:362
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)'を開始するには認証が必要です。"
 
-#: src/core/dbus-unit.c:360
+#: src/core/dbus-unit.c:363
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)'を停止するには認証が必要です。"
 
-#: src/core/dbus-unit.c:361
+#: src/core/dbus-unit.c:364
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)'を再読込するには認証が必要です。"
 
-#: src/core/dbus-unit.c:362 src/core/dbus-unit.c:363
+#: src/core/dbus-unit.c:365 src/core/dbus-unit.c:366
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)'を再起動するには認証が必要です。"
 
-#: src/core/dbus-unit.c:535
+#: src/core/dbus-unit.c:538
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:569
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)'の「失敗」状態をリセットするには認証が必要です。"
 
-#: src/core/dbus-unit.c:599
+#: src/core/dbus-unit.c:602
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)'のプロパティを設定するには認証が必要です。"
 
-#: src/core/dbus-unit.c:708
+#: src/core/dbus-unit.c:711
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
 msgstr ""
 "'$(unit)'に関連付けられたファイルやディレクトリの削除には認証が必要です。"
 
-#: src/core/dbus-unit.c:757
+#: src/core/dbus-unit.c:760
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'のプロセスを凍結もしくは凍結解除するには認証が必要です。"
+
+#~ msgid "Allow applications to inhibit system handling of the reboot key"
+#~ msgstr "アプリケーションが再起動ボタンによる動作を阻害することを許可"
+
+#~ msgid ""
+#~ "Authentication is required for an application to inhibit system handling "
+#~ "of the reboot key."
+#~ msgstr ""
+#~ "アプリケーションが再起動ボタンによる動作を阻害するには認証が必要です。"
