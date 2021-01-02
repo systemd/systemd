@@ -3,13 +3,13 @@
 # French translations for systemd package
 # Traductions françaises du paquet systemd.
 #
-# Julien Humbert <julroy67@gmail.com>, 2020.
+# Julien Humbert <julroy67@gmail.com>, 2020, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2020-08-28 05:29+0000\n"
+"PO-Revision-Date: 2021-01-02 00:36+0000\n"
 "Last-Translator: Julien Humbert <julroy67@gmail.com>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "master/fr/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.2.1\n"
+"X-Generator: Weblate 4.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -449,16 +449,12 @@ msgid "Halt the system while an application is inhibiting this"
 msgstr "Arrêter le système alors qu’une application a demandé de l’empêcher"
 
 #: src/login/org.freedesktop.login1.policy:247
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to hibernate the system while an application "
-#| "is inhibiting this."
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"Authentification requise pour mettre le système en hibernation alors qu'une "
-"application a demandé de l'empêcher."
+"Authentification requise pour arrêter le système alors qu’une application a "
+"demandé de l’empêcher."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Suspend the system"
