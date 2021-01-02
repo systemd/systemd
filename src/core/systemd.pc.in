@@ -26,10 +26,10 @@ systemdsystemunitdir=${systemd_system_unit_dir}
 systemd_system_preset_dir=${rootprefix}/lib/systemd/system-preset
 systemdsystempresetdir=${systemd_system_preset_dir}
 
-systemd_user_unit_dir=/usr/lib/systemd/user
+systemd_user_unit_dir=${prefix}/lib/systemd/user
 systemduserunitdir=${systemd_user_unit_dir}
 
-systemd_user_preset_dir=/usr/lib/systemd/user-preset
+systemd_user_preset_dir=${prefix}/lib/systemd/user-preset
 systemduserpresetdir=${systemd_user_preset_dir}
 
 systemd_system_conf_dir=${sysconfdir}/systemd/system
@@ -47,7 +47,7 @@ systemduserunitpath=${systemd_user_unit_path}
 systemd_system_generator_dir=${root_prefix}/lib/systemd/system-generators
 systemdsystemgeneratordir=${systemd_system_generator_dir}
 
-systemd_user_generator_dir=/usr/lib/systemd/user-generators
+systemd_user_generator_dir=${prefix}/lib/systemd/user-generators
 systemdusergeneratordir=${systemd_user_generator_dir}
 
 systemd_system_generator_path=/run/systemd/system-generators:/etc/systemd/system-generators:/usr/local/lib/systemd/system-generators:${systemd_system_generator_dir}
@@ -62,7 +62,7 @@ systemdsleepdir=${systemd_sleep_dir}
 systemd_shutdown_dir=${root_prefix}/lib/systemd/system-shutdown
 systemdshutdowndir=${systemd_shutdown_dir}
 
-tmpfiles_dir=/usr/lib/tmpfiles.d
+tmpfiles_dir=${prefix}/lib/tmpfiles.d
 tmpfilesdir=${tmpfiles_dir}
 
 sysusers_dir=${rootprefix}/lib/sysusers.d
@@ -77,7 +77,7 @@ binfmtdir=${binfmt_dir}
 modules_load_dir=${rootprefix}/lib/modules-load.d
 modulesloaddir=${modules_load_dir}
 
-catalog_dir=/usr/lib/systemd/catalog
+catalog_dir=${prefix}/lib/systemd/catalog
 catalogdir=${catalog_dir}
 
 system_uid_max=@SYSTEM_UID_MAX@
