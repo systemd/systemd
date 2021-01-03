@@ -8,14 +8,6 @@ Distribution=ubuntu
 Release=focal
 Repositories=main,universe
 
-[Output]
-Format=raw_btrfs
-Bootable=yes
-HostonlyInitrd=yes
-
-[Partitions]
-RootSize=2G
-
 [Packages]
 BuildPackages=
         acl
@@ -80,11 +72,3 @@ Packages=
         nano
         strace
         vim-tiny
-
-[Host]
-QemuHeadless=yes
-NetworkVeth=yes
-
-[Validation]
-Password=
-Autologin=yes
