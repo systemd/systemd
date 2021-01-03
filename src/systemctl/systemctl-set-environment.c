@@ -139,21 +139,26 @@ int import_environment(int argc, char *argv[], void *userdata) {
                 STRV_FOREACH(a, strv_skip(argv, 1)) {
 
                         if (!env_name_is_valid(*a))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid environment variable name: %s", *a);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Not a valid environment variable name: %s", *a);
 
+                        bool found = false;
                         STRV_FOREACH(b, environ) {
                                 const char *eq;
 
                                 eq = startswith(*b, *a);
                                 if (eq && *eq == '=') {
-
                                         r = sd_bus_message_append(m, "s", *b);
                                         if (r < 0)
                                                 return bus_log_create_error(r);
 
+                                        found = true;
                                         break;
                                 }
                         }
+
+                        if (!found)
+                                log_notice("Environment variable $%s not set, ignoring.", *a);
                 }
 
                 r = sd_bus_message_close_container(m);
