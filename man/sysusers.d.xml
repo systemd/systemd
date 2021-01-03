@@ -216,6 +216,11 @@ r     -        500-900
       <para>Only applies to lines of type <varname>u</varname> and should otherwise
       be left unset (or <literal>-</literal>). It is recommended to omit this, unless
       software strictly requires a home directory to be set.</para>
+
+      <para><command>systemd-sysusers</command> only sets the home directory record in the
+      user database. To actually create the directory, consider adding a corresponding
+      <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      fragment.</para>
     </refsect2>
 
     <refsect2>
