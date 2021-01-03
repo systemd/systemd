@@ -8,16 +8,7 @@
 [Distribution]
 Distribution=arch
 
-[Output]
-Format=raw_btrfs
-Bootable=yes
-HostonlyInitrd=yes
-
-[Partitions]
-RootSize=3G
-
 [Packages]
-Cache=/var/cache/pacman/pkg/
 BuildPackages=
         acl
         bzip2
@@ -61,11 +52,3 @@ Packages=
         qrencode
         strace
         vi
-
-[Host]
-QemuHeadless=yes
-NetworkVeth=yes
-
-[Validation]
-Password=
-Autologin=yes

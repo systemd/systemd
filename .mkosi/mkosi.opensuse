@@ -7,18 +7,7 @@
 Distribution=opensuse
 Release=tumbleweed
 
-[Output]
-Format=raw_btrfs
-Bootable=yes
-HostonlyInitrd=yes
-
-[Partitions]
-RootSize=3G
-
 [Packages]
-# Uncomment to share system RPM cache (works only with Tumbleweed)
-#Cache=/var/cache/zypp/packages
-BuildDirectory=mkosi.builddir
 BuildPackages=
         docbook-xsl-stylesheets
         fdupes
@@ -81,11 +70,3 @@ Packages=
         strace
         util-linux
         vi
-
-[Host]
-QemuHeadless=yes
-NetworkVeth=yes
-
-[Validation]
-Password=
-Autologin=yes

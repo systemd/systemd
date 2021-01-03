@@ -7,14 +7,6 @@
 Distribution=fedora
 Release=33
 
-[Output]
-Format=gpt_ext4
-Bootable=yes
-HostonlyInitrd=yes
-
-[Partitions]
-RootSize=3G
-
 [Packages]
 BuildPackages=
         audit-libs-devel
@@ -84,14 +76,3 @@ Packages=
         strace
         tpm2-tss
         vi
-
-BuildDirectory=mkosi.builddir
-Cache=mkosi.cache
-
-[Host]
-QemuHeadless=yes
-NetworkVeth=yes
-
-[Validation]
-Password=
-Autologin=yes
