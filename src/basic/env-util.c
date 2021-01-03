@@ -59,16 +59,13 @@ bool env_value_is_valid(const char *e) {
         if (!utf8_is_valid(e))
                 return false;
 
-        /* bash allows tabs and newlines in environment variables, and so
-         * should we */
-        if (string_has_cc(e, "\t\n"))
-                return false;
+        /* Note that variable *values* may contain control characters, in particular NL, TAB, BS, DEL, ESC…
+         * When printing those variables with show-environment, we'll escape them. Make sure to print
+         * environment variables carefully! */
 
-        /* POSIX says the overall size of the environment block cannot
-         * be > ARG_MAX, an individual assignment hence cannot be
-         * either. Discounting the shortest possible variable name of
-         * length 1, the equal sign and trailing NUL this hence leaves
-         * ARG_MAX-3 as longest possible variable value. */
+        /* POSIX says the overall size of the environment block cannot be > ARG_MAX, an individual assignment
+         * hence cannot be either. Discounting the shortest possible variable name of length 1, the equal
+         * sign and trailing NUL this hence leaves ARG_MAX-3 as longest possible variable value. */
         if (strlen(e) > sc_arg_max() - 3)
                 return false;
 
@@ -88,10 +85,8 @@ bool env_assignment_is_valid(const char *e) {
         if (!env_value_is_valid(eq + 1))
                 return false;
 
-        /* POSIX says the overall size of the environment block cannot
-         * be > ARG_MAX, hence the individual variable assignments
-         * cannot be either, but let's leave room for one trailing NUL
-         * byte. */
+        /* POSIX says the overall size of the environment block cannot be > ARG_MAX, hence the individual
+         * variable assignments cannot be either, but let's leave room for one trailing NUL byte. */
         if (strlen(e) > sc_arg_max() - 1)
                 return false;
 

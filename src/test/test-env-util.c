@@ -265,6 +265,7 @@ static void test_env_clean(void) {
                                                 "another=one",
                                                 "another=final one",
                                                 "CRLF=\r\n",
+                                                "LESS_TERMCAP_mb=\x1b[01;31m",
                                                 "BASH_FUNC_foo%%=() {  echo foo\n}");
         assert_se(e);
         assert_se(!strv_env_is_valid(e));
@@ -277,7 +278,9 @@ static void test_env_clean(void) {
         assert_se(streq(e[3], "abcd=äöüß"));
         assert_se(streq(e[4], "xyz=xyz\n"));
         assert_se(streq(e[5], "another=final one"));
-        assert_se(e[6] == NULL);
+        assert_se(streq(e[6], "CRLF=\r\n"));
+        assert_se(streq(e[7], "LESS_TERMCAP_mb=\x1b[01;31m"));
+        assert_se(e[8] == NULL);
 }
 
 static void test_env_name_is_valid(void) {
@@ -302,8 +305,11 @@ static void test_env_value_is_valid(void) {
         assert_se(env_value_is_valid("printf \"\\x1b]0;<mock-chroot>\\x07<mock-chroot>\""));
         assert_se(env_value_is_valid("tab\tcharacter"));
         assert_se(env_value_is_valid("new\nline"));
-        assert_se(!env_value_is_valid("Show this?\rNope. Show that!"));
-        assert_se(!env_value_is_valid("new DOS\r\nline"));
+        assert_se(env_value_is_valid("Show this?\rNope. Show that!"));
+        assert_se(env_value_is_valid("new DOS\r\nline"));
+
+        assert_se(!env_value_is_valid("\xc5")); /* A truncated utf-8-encoded "ł".
+                                                 * We currently disallow that. */
 }
 
 static void test_env_assignment_is_valid(void) {
