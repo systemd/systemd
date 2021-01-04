@@ -1616,32 +1616,23 @@ public_programs = []
 tests = []
 fuzzers = []
 
-includes = include_directories('src/basic',
-                               'src/boot',
-                               'src/core',
-                               'src/home',
-                               'src/journal',
-                               'src/journal-remote',
-                               'src/libsystemd-network',
-                               'src/libsystemd/sd-bus',
-                               'src/libsystemd/sd-device',
-                               'src/libsystemd/sd-event',
-                               'src/libsystemd/sd-hwdb',
-                               'src/libsystemd/sd-id128',
-                               'src/libsystemd/sd-journal',
-                               'src/libsystemd/sd-netlink',
-                               'src/libsystemd/sd-network',
-                               'src/libsystemd/sd-resolve',
-                               'src/login',
-                               'src/nspawn',
-                               'src/resolve',
-                               'src/shared',
-                               'src/shutdown',
-                               'src/systemd',
-                               'src/timesync',
-                               'src/udev',
-                               'src/xdg-autostart-generator',
-                               '.')
+basic_includes = include_directories(
+        'src/basic',
+        'src/systemd',
+        '.')
+
+libsystemd_includes = [basic_includes, include_directories(
+        'src/libsystemd/sd-bus',
+        'src/libsystemd/sd-device',
+        'src/libsystemd/sd-event',
+        'src/libsystemd/sd-hwdb',
+        'src/libsystemd/sd-id128',
+        'src/libsystemd/sd-journal',
+        'src/libsystemd/sd-netlink',
+        'src/libsystemd/sd-network',
+        'src/libsystemd/sd-resolve')]
+
+includes = [libsystemd_includes, include_directories('src/shared')]
 
 subdir('po')
 subdir('catalog')
@@ -1656,7 +1647,7 @@ libsystemd = shared_library(
         'systemd',
         disable_mempool_c,
         version : libsystemd_version,
-        include_directories : includes,
+        include_directories : libsystemd_includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
         link_with : [libbasic,
@@ -1680,7 +1671,7 @@ install_libsystemd_static = static_library(
         basic_sources,
         basic_gcrypt_sources,
         disable_mempool_c,
-        include_directories : includes,
+        include_directories : libsystemd_includes,
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
         install_dir : rootlibdir,
@@ -1789,7 +1780,7 @@ test_dlopen = executable(
 foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                  ['systemd',    'ENABLE_NSS_SYSTEMD', ['nss-systemd.h', 'userdb-glue.c', 'userdb-glue.h']],
                  ['mymachines', 'ENABLE_NSS_MYMACHINES'],
-                 ['resolve',    'ENABLE_NSS_RESOLVE']]
+                 ['resolve',    'ENABLE_NSS_RESOLVE', [], resolve_includes]]
 
         condition = tuple[1] == '' or conf.get(tuple[1]) == 1
         if condition
@@ -1805,12 +1796,14 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                         endforeach
                 endif
 
+                incs = tuple.length() > 3 ? tuple[3] : includes
+
                 nss = shared_library(
                         'nss_' + module,
                         sources,
                         disable_mempool_c,
                         version : '2',
-                        include_directories : includes,
+                        include_directories : incs,
                         # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned
                         link_args : ['-Wl,-z,nodelete',
                                      '-shared',
@@ -1865,7 +1858,7 @@ meson.add_install_script(meson_make_symlink,
 public_programs += executable(
         'systemd-analyze',
         systemd_analyze_sources,
-        include_directories : includes,
+        include_directories : core_includes,
         link_with : [libcore,
                      libshared],
         dependencies : [versiondep,
@@ -2013,7 +2006,7 @@ if conf.get('ENABLE_RESOLVE') == 1
         executable(
                 'systemd-resolved',
                 systemd_resolved_sources,
-                include_directories : includes,
+                include_directories : resolve_includes,
                 link_with : [libshared,
                              libbasic_gcrypt,
                              libsystemd_resolve_core],
@@ -2265,7 +2258,7 @@ if conf.get('ENABLE_HOMED') == 1
         executable(
                 'systemd-homed',
                 systemd_homed_sources,
-                include_directories : includes,
+                include_directories : home_includes,
                 link_with : [libshared],
                 dependencies : [threads,
                                 libcrypt,
@@ -3236,7 +3229,7 @@ if conf.get('ENABLE_NETWORKD') == 1
         executable(
                 'systemd-networkd',
                 systemd_networkd_sources,
-                include_directories : network_include_dir,
+                include_directories : network_includes,
                 link_with : [libnetworkd_core,
                              libsystemd_network,
                              networkd_link_with],
@@ -3249,8 +3242,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                 'systemd-networkd-wait-online',
                 systemd_networkd_wait_online_sources,
                 include_directories : includes,
-                link_with : [libnetworkd_core,
-                             networkd_link_with],
+                link_with : [networkd_link_with],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootlibexecdir)
@@ -3258,7 +3250,7 @@ if conf.get('ENABLE_NETWORKD') == 1
         public_programs += executable(
                 'networkctl',
                 networkctl_sources,
-                include_directories : includes,
+                include_directories : libsystemd_network_includes,
                 link_with : [libsystemd_network,
                              networkd_link_with],
                 install_rpath : rootlibexecdir,

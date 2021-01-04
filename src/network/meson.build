@@ -207,12 +207,12 @@ else
                               libbasic_gcrypt]
 endif
 
-network_include_dir = [includes, include_directories(['.', 'netdev', 'tc'])]
+network_includes = [libsystemd_network_includes, include_directories(['.', 'netdev', 'tc'])]
 
 libnetworkd_core = static_library(
         'networkd-core',
         sources,
-        include_directories : network_include_dir,
+        include_directories : network_includes,
         link_with : [networkd_link_with])
 
 if conf.get('ENABLE_NETWORKD') == 1
@@ -243,14 +243,14 @@ fuzzers += [
           libsystemd_network,
           networkd_link_with],
          [threads],
-         network_include_dir],
+         network_includes],
 
         [['src/network/fuzz-network-parser.c'],
          [libnetworkd_core,
           libsystemd_network,
           networkd_link_with],
          [threads],
-         network_include_dir],
+         network_includes],
 ]
 
 tests += [
@@ -258,19 +258,19 @@ tests += [
          [libnetworkd_core,
           libsystemd_network],
          [],
-         network_include_dir],
+         network_includes],
 
         [['src/network/test-network.c'],
          [libnetworkd_core,
           libsystemd_network],
          [threads],
-         network_include_dir],
+         network_includes],
 
         [['src/network/test-network-tables.c'],
          [libnetworkd_core,
           libsystemd_network],
          [threads],
-         network_include_dir],
+         network_includes],
 
         [['src/network/generator/test-network-generator.c',
           'src/network/generator/network-generator.c',

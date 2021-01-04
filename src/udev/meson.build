@@ -105,13 +105,13 @@ endif
 
 ############################################################
 
-libudevd_core_includes = [includes, include_directories('net')]
+udev_includes = [includes, include_directories('net', '.')]
 libudevd_core = static_library(
         'udev-core',
         libudevd_core_sources,
         link_config_gperf_c,
         keyboard_keys_from_name_h,
-        include_directories : libudevd_core_includes,
+        include_directories : udev_includes,
         c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
         link_with : udev_link_with,
         dependencies : [libblkid, libkmod])
@@ -177,7 +177,8 @@ fuzzers += [
          [libudevd_core,
           libshared],
          [threads,
-          libacl]],
+          libacl],
+         udev_includes],
 
         [['src/udev/fido_id/fuzz-fido-id-desc.c',
           'src/udev/fido_id/fido_id_desc.c']],

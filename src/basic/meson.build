@@ -381,7 +381,7 @@ run_target(
 libbasic = static_library(
         'basic',
         basic_sources,
-        include_directories : includes,
+        include_directories : basic_includes,
         dependencies : [versiondep,
                         threads,
                         libcap,
@@ -403,6 +403,6 @@ basic_gcrypt_sources = files(
 libbasic_gcrypt = static_library(
         'basic-gcrypt',
         basic_gcrypt_sources,
-        include_directories : includes,
+        include_directories : basic_includes,
         dependencies : [libgcrypt],
         c_args : ['-fvisibility=default'])

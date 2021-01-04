@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+resolve_includes = [includes, include_directories('.')]
+
 basic_dns_sources = files('''
         resolved-dns-dnssec.c
         resolved-dns-dnssec.h
@@ -206,5 +208,5 @@ tests += [
 
         [['src/resolve/test-dnssec-complex.c',
           'src/resolve/dns-type.c'],
-         [], [], [], '', 'manual'],
+         [], [], resolve_includes, '', 'manual'],
 ]
