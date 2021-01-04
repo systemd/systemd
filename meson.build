@@ -1588,13 +1588,28 @@ else
 endif
 conf.set10('ENABLE_EFI', have)
 
+############################################################
+
+autosuspend_update_sh = find_program('tools/autosuspend-update.sh')
+hwdb_update_sh = find_program('tools/hwdb-update.sh')
+make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
+make_directive_index_py = find_program('tools/make-directive-index.py')
+make_man_index_py = find_program('tools/make-man-index.py')
+syscall_table_update_sh = find_program('tools/syscall-table-update.sh')
+xml_helper_py = find_program('tools/xml_helper.py')
+update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
+meson_apply_m4 = find_program('tools/meson-apply-m4.sh')
+generate_gperfs = find_program('tools/generate-gperfs.py')
+
 #####################################################################
 
 config_h = configure_file(
         output : 'config.h',
         configuration : conf)
 
-meson_apply_m4 = find_program('tools/meson-apply-m4.sh')
+add_project_arguments('-include', 'config.h', language : 'c')
+
+############################################################
 
 includes = include_directories('src/basic',
                                'src/boot',
@@ -1622,20 +1637,6 @@ includes = include_directories('src/basic',
                                'src/udev',
                                'src/xdg-autostart-generator',
                                '.')
-
-add_project_arguments('-include', 'config.h', language : 'c')
-
-generate_gperfs = find_program('tools/generate-gperfs.py')
-autosuspend_update_sh = find_program('tools/autosuspend-update.sh')
-hwdb_update_sh = find_program('tools/hwdb-update.sh')
-make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
-make_directive_index_py = find_program('tools/make-directive-index.py')
-make_man_index_py = find_program('tools/make-man-index.py')
-syscall_table_update_sh = find_program('tools/syscall-table-update.sh')
-xml_helper_py = find_program('tools/xml_helper.py')
-update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
-
-############################################################
 
 subdir('po')
 subdir('catalog')
