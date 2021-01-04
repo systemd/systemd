@@ -3822,6 +3822,7 @@ foreach tuple : [
         ['kernel-install',        get_option('kernel-install')],
         ['systemd-analyze',  conf.get('ENABLE_ANALYZE') == 1],
         ['fexecve'],
+        ['standalone-binaries',   get_option('standalone-binaries')],
 ]
 
         if tuple.length() >= 2
