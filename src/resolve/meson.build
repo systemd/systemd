@@ -167,22 +167,19 @@ if conf.get('ENABLE_RESOLVE') == 1
 endif
 
 tests += [
-        [['src/resolve/test-resolve-tables.c',
-          'src/shared/test-tables.h'],
+        [['src/resolve/test-resolve-tables.c'],
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,
           libgpg_error,
-          libm],
-         [], 'ENABLE_RESOLVE'],
+          libm]],
 
         [['src/resolve/test-dns-packet.c'],
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,
           libgpg_error,
-          libm],
-         [], 'ENABLE_RESOLVE'],
+          libm]],
 
         [['src/resolve/test-resolved-etc-hosts.c',
           'src/resolve/resolved-etc-hosts.c',
@@ -191,26 +188,23 @@ tests += [
           libshared],
          [libgcrypt,
           libgpg_error,
-          libm],
-         [], 'ENABLE_RESOLVE'],
+          libm]],
 
         [['src/resolve/test-resolved-packet.c'],
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,
           libgpg_error,
-          libm],
-         [], 'ENABLE_RESOLVE'],
+          libm]],
 
         [['src/resolve/test-dnssec.c'],
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,
           libgpg_error,
-          libm],
-         [], 'ENABLE_RESOLVE'],
+          libm]],
 
         [['src/resolve/test-dnssec-complex.c',
           'src/resolve/dns-type.c'],
-         [], [], [], 'ENABLE_RESOLVE', 'manual'],
+         [], [], [], '', 'manual'],
 ]

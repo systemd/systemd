@@ -50,6 +50,5 @@ tests += [
           'src/timesync/timesyncd-server.h',
           timesyncd_gperf_c],
          [],
-         [libm],
-         [], 'ENABLE_TIMESYNCD'],
+         [libm]],
 ]
