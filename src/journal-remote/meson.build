@@ -24,7 +24,7 @@ endif
 libsystemd_journal_remote = static_library(
         'systemd-journal-remote',
         libsystemd_journal_remote_sources,
-        include_directories : includes,
+        include_directories : journal_includes,
         dependencies : [threads,
                         libmicrohttpd,
                         libgnutls,

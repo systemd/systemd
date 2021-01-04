@@ -52,15 +52,20 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-emergency-action.c'],
          [libcore,
-          libshared]],
+          libshared],
+         [],
+         core_includes],
 
         [['src/test/test-chown-rec.c'],
          [libcore,
-          libshared]],
+          libshared],
+         [],
+         core_includes],
 
         [['src/test/test-dlopen-so.c']],
 
@@ -72,7 +77,8 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-ns.c'],
          [libcore,
@@ -83,7 +89,7 @@ tests += [
           libselinux,
           libmount,
           libblkid],
-         [], '', 'manual'],
+         core_includes, '', 'manual'],
 
         [['src/test/test-loopback.c'],
          [libcore,
@@ -93,11 +99,10 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         core_includes],
 
-        [['src/test/test-dns-domain.c'],
-         [libcore,
-          libshared]],
+        [['src/test/test-dns-domain.c']],
 
         [['src/test/test-boot-timestamps.c'],
          [], [], [], 'ENABLE_EFI'],
@@ -112,7 +117,8 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-load-fragment.c'],
          [libcore,
@@ -122,7 +128,8 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-serialize.c']],
 
@@ -258,7 +265,8 @@ tests += [
          [libcore,
           libshared],
          [threads,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-verbs.c']],
 
@@ -284,7 +292,7 @@ tests += [
           libshared],
          [threads,
           libblkid],
-         [], '', '', [], false],
+         core_includes, '', '', [], false],
 
         [['src/test/test-selinux.c']],
 
@@ -299,7 +307,8 @@ tests += [
           librt,
           libseccomp,
           libselinux,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-bpf-firewall.c'],
          [libcore,
@@ -309,7 +318,8 @@ tests += [
           librt,
           libseccomp,
           libselinux,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-watch-pid.c'],
          [libcore,
@@ -319,7 +329,8 @@ tests += [
           librt,
           libseccomp,
           libselinux,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-hashmap.c',
           'src/test/test-hashmap-plain.c',
@@ -345,10 +356,7 @@ tests += [
 
         [['src/test/test-unaligned.c']],
 
-        [['src/test/test-tables.c',
-          'src/shared/test-tables.h',
-          'src/journal/journald-server.c',
-          'src/journal/journald-server.h'],
+        [['src/test/test-tables.c'],
          [libcore,
           libjournal_core,
           libudevd_core,
@@ -359,7 +367,7 @@ tests += [
           libxz,
           liblz4,
           libblkid],
-         libudevd_core_includes],
+         [core_includes, journal_includes, udev_includes]],
 
         [['src/test/test-prioq.c']],
 
@@ -406,11 +414,15 @@ tests += [
 
         [['src/test/test-cgroup-cpu.c'],
          [libcore,
-          libshared]],
+          libshared],
+         [],
+         core_includes],
 
         [['src/test/test-cgroup-unit-default.c'],
          [libcore,
-          libshared]],
+          libshared],
+         [],
+         core_includes],
 
         [['src/test/test-cgroup-mask.c'],
          [libcore,
@@ -420,7 +432,8 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-varlink.c'],
          [],
@@ -454,7 +467,7 @@ tests += [
           libselinux,
           libmount,
           libblkid],
-         [], '', 'timeout=120'],
+         core_includes, '', 'timeout=120'],
 
         [['src/test/test-execute.c'],
          [libcore,
@@ -465,7 +478,7 @@ tests += [
           libselinux,
           libmount,
           libblkid],
-         [], '', 'timeout=360'],
+         core_includes, '', 'timeout=360'],
 
         [['src/test/test-siphash24.c']],
 
@@ -474,7 +487,8 @@ tests += [
         [['src/test/test-install.c'],
          [libcore,
           libshared],
-         [], [], '', 'manual'],
+         [],
+         core_includes, '', 'manual'],
 
         [['src/test/test-watchdog.c']],
 
@@ -486,7 +500,8 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         core_includes],
 
         [['src/test/test-conf-files.c']],
 
@@ -516,7 +531,7 @@ tests += [
           libkmod,
           libacl,
           libselinux],
-         [], '', 'manual', '-DLOG_REALM=LOG_REALM_UDEV'],
+         udev_includes, '', 'manual', '-DLOG_REALM=LOG_REALM_UDEV'],
 
         [['src/test/test-udev-util.c']],
 
@@ -547,15 +562,7 @@ tests += [
          [libdl]],
 
         [['src/test/test-nscd-flush.c'],
-         [libcore,
-          libshared],
-         [threads,
-          librt,
-          libseccomp,
-          libselinux,
-          libmount,
-          libblkid],
-         [], 'ENABLE_NSCD', 'manual'],
+         [], [], [], 'ENABLE_NSCD', 'manual'],
 ]
 
 ############################################################
@@ -861,7 +868,9 @@ tests += [
 
         [['src/analyze/test-verify.c', 'src/analyze/analyze-verify.c', 'src/analyze/analyze-verify.h'],
          [libcore,
-          libshared]],
+          libshared],
+         [],
+         core_includes],
 
         [['src/login/test-inhibit.c'],
          [], [], [], '', 'manual'],

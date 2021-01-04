@@ -35,6 +35,8 @@ libjournal_core = static_library(
         include_directories : includes,
         install : false)
 
+journal_includes = [includes, include_directories('.')]
+
 systemd_journald_sources = files('''
         journald.c
         journald-server.h
