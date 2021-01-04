@@ -943,33 +943,24 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context c;
-        int r, rc = 0;
-
-        log_set_target(LOG_TARGET_AUTO);
-        udev_parse_config();
-        log_parse_environment();
-        log_open();
+        int r;
 
         context_init(&c);
 
         r = parse_argv(argc, argv);
-        if (r <= 0) {
-                rc = r < 0;
-                goto exit;
-        }
+        if (r <= 0)
+                return r;
 
-        if (open_drive(&c) < 0) {
-                rc = 1;
-                goto exit;
-        }
+        r = open_drive(&c);
+        if (r < 0)
+                return r;
 
         /* same data as original cdrom_id */
-        if (cd_capability_compat(&c) < 0) {
-                rc = 1;
-                goto exit;
-        }
+        r = cd_capability_compat(&c);
+        if (r < 0)
+                return r;
 
         /* check for media - don't bail if there's no media as we still need to
          * to read profiles */
@@ -979,8 +970,7 @@ int main(int argc, char *argv[]) {
         if (cd_inquiry(&c) < 0)
                 goto work;
 
-        /* read drive and possibly current profile */
-        r = cd_profiles(&c);
+        r = cd_profiles(&c); /* read drive and possibly current profile */
         if (r > 0) {
                 /* at this point we are guaranteed to have media in the drive - find out more about it */
 
@@ -1012,7 +1002,20 @@ work:
 
         print_properties(&c);
 
-exit:
+        return 0;
+}
+
+int main(int argc, char *argv[]) {
+        int r;
+
+        log_set_target(LOG_TARGET_AUTO);
+        udev_parse_config();
+        log_parse_environment();
+        log_open();
+
+        r = run(argc, argv);
+
         log_close();
-        return rc;
+
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
