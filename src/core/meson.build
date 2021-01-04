@@ -203,3 +203,12 @@ if install_sysconfdir
         meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'user')))
         meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(sysconfdir, 'xdg/systemd')))
 endif
+
+############################################################
+
+fuzzers += [
+        [['src/core/fuzz-unit-file.c'],
+         [libcore,
+          libshared],
+         [libmount]],
+]

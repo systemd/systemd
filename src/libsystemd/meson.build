@@ -177,3 +177,137 @@ configure_file(
         output : 'libsystemd.pc',
         configuration : substs,
         install_dir : pkgconfiglibdir == 'no' ? '' : pkgconfiglibdir)
+
+############################################################
+
+tests += [
+        [['src/libsystemd/sd-journal/test-journal.c']],
+
+        [['src/libsystemd/sd-journal/test-journal-send.c']],
+
+        [['src/libsystemd/sd-journal/test-journal-match.c']],
+
+        [['src/libsystemd/sd-journal/test-journal-enum.c'],
+         [], [], [], '', 'timeout=360'],
+
+        [['src/libsystemd/sd-journal/test-journal-stream.c']],
+
+        [['src/libsystemd/sd-journal/test-journal-flush.c']],
+
+        [['src/libsystemd/sd-journal/test-journal-init.c']],
+
+        [['src/libsystemd/sd-journal/test-journal-verify.c']],
+
+        [['src/libsystemd/sd-journal/test-journal-interleaving.c']],
+
+        [['src/libsystemd/sd-journal/test-mmap-cache.c']],
+
+        [['src/libsystemd/sd-journal/test-catalog.c']],
+
+        [['src/libsystemd/sd-journal/test-compress.c'],
+         [],
+         [liblz4,
+          libzstd,
+          libxz]],
+
+        [['src/libsystemd/sd-journal/test-compress-benchmark.c'],
+         [],
+         [liblz4,
+          libzstd,
+          libxz],
+         [], '', 'timeout=90'],
+
+        [['src/libsystemd/sd-journal/test-audit-type.c']],
+]
+
+############################################################
+
+tests += [
+        [['src/libsystemd/sd-bus/test-bus-address.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-marshal.c'],
+         [],
+         [threads,
+          libglib,
+          libgobject,
+          libgio,
+          libdbus]],
+
+        [['src/libsystemd/sd-bus/test-bus-signature.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-queue-ref-cycle.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-watch-bind.c'],
+         [],
+         [threads],
+         [], '', 'timeout=120'],
+
+        [['src/libsystemd/sd-bus/test-bus-chat.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-cleanup.c'],
+         [],
+         [threads,
+          libseccomp]],
+
+        [['src/libsystemd/sd-bus/test-bus-track.c'],
+         [],
+         [libseccomp]],
+
+        [['src/libsystemd/sd-bus/test-bus-server.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-objects.c'],
+         [],
+         [threads]],
+
+        [['src/libsystemd/sd-bus/test-bus-vtable.c',
+          'src/libsystemd/sd-bus/test-vtable-data.h']],
+
+        [['src/libsystemd/sd-bus/test-bus-gvariant.c'],
+         [],
+         [libglib,
+          libgobject,
+          libgio]],
+
+        [['src/libsystemd/sd-bus/test-bus-creds.c']],
+
+        [['src/libsystemd/sd-bus/test-bus-match.c']],
+
+        [['src/libsystemd/sd-bus/test-bus-benchmark.c'],
+         [],
+         [threads],
+         [], '', 'manual'],
+
+        [['src/libsystemd/sd-bus/test-bus-introspect.c',
+          'src/libsystemd/sd-bus/test-vtable-data.h']],
+
+        [['src/libsystemd/sd-event/test-event.c']],
+
+        [['src/libsystemd/sd-netlink/test-netlink.c']],
+
+        [['src/libsystemd/sd-resolve/test-resolve.c'],
+         [],
+         [threads],
+         [], '', 'timeout=120'],
+
+        [['src/libsystemd/sd-login/test-login.c']],
+
+        [['src/libsystemd/sd-device/test-sd-device.c']],
+
+        [['src/libsystemd/sd-device/test-sd-device-monitor.c']],
+]
+
+if cxx_cmd != ''
+        tests += [
+                [['src/libsystemd/sd-bus/test-bus-vtable-cc.cc']],
+        ]
+endif

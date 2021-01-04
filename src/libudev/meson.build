@@ -44,3 +44,11 @@ configure_file(
         output : 'libudev.pc',
         configuration : substs,
         install_dir : pkgconfiglibdir == 'no' ? '' : pkgconfiglibdir)
+
+############################################################
+
+tests += [
+        [['src/libudev/test-libudev.c'],
+         [libshared,
+          libudev_static]],
+]
