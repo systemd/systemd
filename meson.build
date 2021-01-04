@@ -1755,7 +1755,7 @@ test_dlopen = executable(
         build_by_default : want_tests != 'false')
 
 foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
-                 ['systemd',    'ENABLE_NSS_SYSTEMD', 'src/nss-systemd/userdb-glue.c src/nss-systemd/userdb-glue.h src/nss-systemd/nss-systemd.h'],
+                 ['systemd',    'ENABLE_NSS_SYSTEMD', ['nss-systemd.h', 'userdb-glue.c', 'userdb-glue.h']],
                  ['mymachines', 'ENABLE_NSS_MYMACHINES'],
                  ['resolve',    'ENABLE_NSS_RESOLVE']]
 
@@ -1768,7 +1768,9 @@ foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
 
                 sources = ['src/nss-@0@/nss-@0@.c'.format(module)]
                 if tuple.length() > 2
-                        sources += tuple[2].split()
+                        foreach s : tuple[2]
+                                sources += ['src/nss-@0@/@1@'.format(module, s)]
+                        endforeach
                 endif
 
                 nss = shared_library(
