@@ -1713,6 +1713,7 @@ subdir('src/udev')
 subdir('src/network')
 
 subdir('src/analyze')
+subdir('src/busctl')
 subdir('src/cryptenroll')
 subdir('src/cryptsetup')
 subdir('src/journal-remote')
@@ -3014,9 +3015,7 @@ public_programs += executable(
 
 public_programs += executable(
         'busctl',
-        'src/busctl/busctl.c',
-        'src/busctl/busctl-introspect.c',
-        'src/busctl/busctl-introspect.h',
+        busctl_sources,
         include_directories : includes,
         link_with : [libshared],
         install_rpath : rootlibexecdir,
