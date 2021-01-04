@@ -181,44 +181,41 @@ network_generator_sources = files('''
         generator/network-generator.h
 '''.split())
 
+sources += custom_target(
+        'networkd-gperf.c',
+        input : 'networkd-gperf.gperf',
+        output : 'networkd-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+sources += custom_target(
+        'networkd-network-gperf.c',
+        input : 'networkd-network-gperf.gperf',
+        output : 'networkd-network-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+sources += custom_target(
+        'netdev-gperf.c',
+        input : 'netdev/netdev-gperf.gperf',
+        output : 'netdev-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+if get_option('link-networkd-shared')
+        networkd_link_with = [libshared]
+else
+        networkd_link_with = [libsystemd_static,
+                              libshared_static,
+                              libbasic_gcrypt]
+endif
+
 network_include_dir = [includes, include_directories(['.', 'netdev', 'tc'])]
 
+libnetworkd_core = static_library(
+        'networkd-core',
+        sources,
+        include_directories : network_include_dir,
+        link_with : [networkd_link_with])
+
 if conf.get('ENABLE_NETWORKD') == 1
-        if get_option('link-networkd-shared')
-                networkd_link_with = [libshared]
-        else
-                networkd_link_with = [libsystemd_static,
-                                      libshared_static,
-                                      libbasic_gcrypt]
-        endif
-
-        networkd_gperf_c = custom_target(
-                'networkd-gperf.c',
-                input : 'networkd-gperf.gperf',
-                output : 'networkd-gperf.c',
-                command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
-
-        networkd_network_gperf_c = custom_target(
-                'networkd-network-gperf.c',
-                input : 'networkd-network-gperf.gperf',
-                output : 'networkd-network-gperf.c',
-                command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
-
-        netdev_gperf_c = custom_target(
-                'netdev-gperf.c',
-                input : 'netdev/netdev-gperf.gperf',
-                output : 'netdev-gperf.c',
-                command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
-
-        libnetworkd_core = static_library(
-                'networkd-core',
-                sources,
-                networkd_gperf_c,
-                networkd_network_gperf_c,
-                netdev_gperf_c,
-                include_directories : network_include_dir,
-                link_with : [networkd_link_with])
-
         install_data('org.freedesktop.network1.conf',
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.network1.service',
@@ -238,49 +235,44 @@ if conf.get('ENABLE_NETWORKD') == 1
                 install_data('networkd.conf',
                              install_dir : pkgsysconfdir)
         endif
-
-        fuzzers += [
-    [['src/network/fuzz-netdev-parser.c',
-      'src/fuzz/fuzz.h'],
-     [libnetworkd_core,
-      libsystemd_network,
-      networkd_link_with],
-     [threads],
-     network_include_dir],
-
-    [['src/network/fuzz-network-parser.c',
-      'src/fuzz/fuzz.h'],
-     [libnetworkd_core,
-      libsystemd_network,
-      networkd_link_with],
-     [threads],
-     network_include_dir],
-    ]
-
-        tests += [
-    [['src/network/test-networkd-conf.c'],
-     [libnetworkd_core,
-      libsystemd_network],
-     [],
-     network_include_dir],
-
-    [['src/network/test-network.c'],
-     [libnetworkd_core,
-      libsystemd_network,
-      networkd_link_with],
-     [threads],
-     network_include_dir],
-
-    [['src/network/test-network-tables.c',
-      test_tables_h],
-     [libnetworkd_core,
-      libsystemd_network,
-      networkd_link_with],
-     [threads],
-     network_include_dir],
-
-    [['src/network/generator/test-network-generator.c',
-      'src/network/generator/network-generator.c',
-      'src/network/generator/network-generator.h']],
-  ]
 endif
+
+fuzzers += [
+        [['src/network/fuzz-netdev-parser.c'],
+         [libnetworkd_core,
+          libsystemd_network,
+          networkd_link_with],
+         [threads],
+         network_include_dir],
+
+        [['src/network/fuzz-network-parser.c'],
+         [libnetworkd_core,
+          libsystemd_network,
+          networkd_link_with],
+         [threads],
+         network_include_dir],
+]
+
+tests += [
+        [['src/network/test-networkd-conf.c'],
+         [libnetworkd_core,
+          libsystemd_network],
+         [],
+         network_include_dir],
+
+        [['src/network/test-network.c'],
+         [libnetworkd_core,
+          libsystemd_network],
+         [threads],
+         network_include_dir],
+
+        [['src/network/test-network-tables.c'],
+         [libnetworkd_core,
+          libsystemd_network],
+         [threads],
+         network_include_dir],
+
+        [['src/network/generator/test-network-generator.c',
+          'src/network/generator/network-generator.c',
+          'src/network/generator/network-generator.h']],
+]
