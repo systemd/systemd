@@ -84,6 +84,8 @@ struct Network {
         struct ether_addr *mac;
         uint32_t mtu;
         uint32_t group;
+        uint32_t txqueues;
+        uint32_t rxqueues;
         int arp;
         int multicast;
         int allmulticast;
@@ -328,6 +330,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 CONFIG_PARSER_PROTOTYPE(config_parse_required_for_online);
 CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_link_local_address_gen_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_rx_tx_queues);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
