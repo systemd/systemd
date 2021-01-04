@@ -1552,9 +1552,6 @@ conf.set10('ENABLE_NSS', enable_nss)
 
 conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesyncd'))
 
-tests = []
-fuzzers = []
-
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
 #####################################################################
@@ -1611,6 +1608,13 @@ add_project_arguments('-include', 'config.h', language : 'c')
 
 ############################################################
 
+# binaries that have --help and are intended for use by humans,
+# usually, but not always, installed in /bin.
+public_programs = []
+
+tests = []
+fuzzers = []
+
 includes = include_directories('src/basic',
                                'src/boot',
                                'src/core',
@@ -1642,9 +1646,6 @@ subdir('po')
 subdir('catalog')
 subdir('src/basic')
 subdir('src/libsystemd')
-subdir('src/libsystemd-network')
-subdir('src/journal')
-subdir('src/login')
 subdir('src/shared')
 subdir('src/udev')
 subdir('src/libudev')
@@ -1727,39 +1728,41 @@ install_libudev_static = static_library(
 
 ############################################################
 
-# binaries that have --help and are intended for use by humans,
-# usually, but not always, installed in /bin.
-public_programs = []
-
+# systemd-analyze requires 'libcore'
 subdir('src/core')
-subdir('src/shutdown')
-subdir('src/network')
+# systemd-journal-remote requires 'libjournal_core'
+subdir('src/journal')
+# systemd-networkd requires 'libsystemd_network'
+subdir('src/libsystemd-network')
 
 subdir('src/analyze')
+subdir('src/boot/efi')
 subdir('src/busctl')
+subdir('src/coredump')
 subdir('src/cryptenroll')
 subdir('src/cryptsetup')
-subdir('src/journal-remote')
-subdir('src/coredump')
-subdir('src/pstore')
-subdir('src/oom')
+subdir('src/home')
 subdir('src/hostname')
 subdir('src/import')
-subdir('src/partition')
+subdir('src/journal-remote')
 subdir('src/kernel-install')
 subdir('src/locale')
+subdir('src/login')
 subdir('src/machine')
-subdir('src/portable')
-subdir('src/userdb')
-subdir('src/home')
+subdir('src/network')
 subdir('src/nspawn')
+subdir('src/oom')
+subdir('src/partition')
+subdir('src/portable')
+subdir('src/pstore')
 subdir('src/resolve')
+subdir('src/shutdown')
 subdir('src/systemctl')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
+subdir('src/userdb')
 subdir('src/vconsole')
-subdir('src/boot/efi')
 subdir('src/xdg-autostart-generator')
 
 subdir('src/systemd')
