@@ -116,3 +116,17 @@ if conf.get('ENABLE_LOGIND') == 1
                 install : pamconfdir != 'no',
                 install_dir : pamconfdir)
 endif
+
+############################################################
+
+tests += [
+        [['src/login/test-login-shared.c']],
+
+        [['src/login/test-inhibit.c'],
+         [], [], [], '', 'manual'],
+
+        [['src/login/test-login-tables.c'],
+         [liblogind_core,
+          libshared],
+         [threads]],
+]

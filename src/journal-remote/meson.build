@@ -74,3 +74,11 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                                             chmod 755 $DESTDIR/var/log/journal/remote || :''')
         endif
 endif
+
+############################################################
+
+fuzzers += [
+        [['src/journal-remote/fuzz-journal-remote.c'],
+         [libsystemd_journal_remote,
+          libshared]],
+]

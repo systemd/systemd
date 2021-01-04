@@ -46,6 +46,8 @@ libnspawn_core = static_library(
 
 systemd_nspawn_sources = files('nspawn.c')
 
+############################################################
+
 tests += [
         [['src/nspawn/test-nspawn-tables.c'],
          [libnspawn_core,
@@ -57,4 +59,16 @@ tests += [
           libshared],
          [libacl],
          [], '', 'manual'],
+]
+
+fuzzers += [
+        [['src/nspawn/fuzz-nspawn-settings.c'],
+         [libshared,
+          libnspawn_core],
+         [libseccomp]],
+
+        [['src/nspawn/fuzz-nspawn-oci.c'],
+         [libshared,
+          libnspawn_core],
+         [libseccomp]],
 ]

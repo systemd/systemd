@@ -180,6 +180,14 @@ fuzzers += [
           libacl],
          udev_includes],
 
+        [['src/udev/fuzz-udev-rules.c'],
+         [libudevd_core,
+          libshared],
+         [threads,
+          libacl]],
+
+        [['src/udev/fuzz-udev-rule-parse-value.c']],
+
         [['src/udev/fido_id/fuzz-fido-id-desc.c',
           'src/udev/fido_id/fido_id_desc.c']],
 ]

@@ -168,6 +168,8 @@ if conf.get('ENABLE_RESOLVE') == 1
                      install_dir : rootlibexecdir)
 endif
 
+############################################################
+
 tests += [
         [['src/resolve/test-resolve-tables.c'],
          [libsystemd_resolve_core,
@@ -209,4 +211,13 @@ tests += [
         [['src/resolve/test-dnssec-complex.c',
           'src/resolve/dns-type.c'],
          [], [], resolve_includes, '', 'manual'],
+]
+
+fuzzers += [
+        [['src/resolve/fuzz-dns-packet.c'],
+         [libsystemd_resolve_core,
+          libshared],
+         [libgcrypt,
+          libgpg_error,
+          libm]],
 ]
