@@ -12,9 +12,8 @@ basic_dns_sources = files('''
         resolved-dns-question.c
         resolved-dns-question.h
         dns-type.c
+        dns-type.h
 '''.split())
-
-dns_type_h = files('dns-type.h')[0]
 
 systemd_resolved_sources = files('''
         resolved-bus.c
@@ -79,48 +78,43 @@ resolvectl_sources = files('''
 
 dns_type_list_txt = custom_target(
         'dns_type-list.txt',
-        input : ['generate-dns_type-list.sed', dns_type_h],
+        input : ['generate-dns_type-list.sed', 'dns-type.h'],
         output : 'dns_type-list.txt',
         command : [sed, '-n', '-r', '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
 generate_dns_type_gperf = find_program('generate-dns_type-gperf.py')
 
-dns_type_headers = [dns_type_h]
-foreach item : [['dns_type', dns_type_list_txt, 'dns_type', 'DNS_TYPE_']]
+gperf_file = custom_target(
+        'dns_type-from-name.gperf',
+        input : dns_type_list_txt,
+        output : 'dns_type-from-name.gperf',
+        command : [generate_dns_type_gperf, 'dns_type', 'DNS_TYPE_', '@INPUT@'],
+        capture : true)
 
-        fname = '@0@-from-name.gperf'.format(item[0])
-        gperf_file = custom_target(
-                fname,
-                input : item[1],
-                output : fname,
-                command : [generate_dns_type_gperf, item[2], item[3], '@INPUT@'],
-                capture : true)
+basic_dns_sources += custom_target(
+        'dns_type-from-name.h',
+        input : gperf_file,
+        output : 'dns_type-from-name.h',
+        command : [gperf,
+                   '-L', 'ANSI-C', '-t', '--ignore-case',
+                   '-N', 'lookup_dns_type',
+                   '-H', 'hash_dns_type_name',
+                   '-p', '-C',
+                   '@INPUT@'],
+        capture : true)
 
-        fname = '@0@-from-name.h'.format(item[0])
-        target1 = custom_target(
-                fname,
-                input : gperf_file,
-                output : fname,
-                command : [gperf,
-                           '-L', 'ANSI-C', '-t', '--ignore-case',
-                           '-N', 'lookup_@0@'.format(item[2]),
-                           '-H', 'hash_@0@_name'.format(item[2]),
-                           '-p', '-C',
-                           '@INPUT@'],
-                capture : true)
+basic_dns_sources += custom_target(
+        'dns_type-to-name.h',
+        input : ['dns_type-to-name.awk', dns_type_list_txt],
+        output : 'dns_type-to-name.h',
+        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
 
-        fname = '@0@-to-name.h'.format(item[0])
-        awkscript = '@0@-to-name.awk'.format(item[0])
-        target2 = custom_target(
-                fname,
-                input : [awkscript, item[1]],
-                output : fname,
-                command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
-                capture : true)
-
-        dns_type_headers += [target1, target2]
-endforeach
+libsystemd_resolve_core = static_library(
+        'systemd-resolve-core',
+        basic_dns_sources,
+        include_directories : includes)
 
 resolved_gperf_c = custom_target(
         'resolved_gperf.c',
@@ -133,12 +127,6 @@ resolved_dnssd_gperf_c = custom_target(
         input : 'resolved-dnssd-gperf.gperf',
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
-
-libsystemd_resolve_core = static_library(
-        'systemd-resolve-core',
-        basic_dns_sources,
-        dns_type_headers,
-        include_directories : includes)
 
 systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 
@@ -180,7 +168,6 @@ endif
 
 tests += [
         [['src/resolve/test-resolve-tables.c',
-          dns_type_headers,
           'src/shared/test-tables.h'],
          [libsystemd_resolve_core,
           libshared],
@@ -189,8 +176,7 @@ tests += [
           libm],
          [], 'ENABLE_RESOLVE'],
 
-        [['src/resolve/test-dns-packet.c',
-          dns_type_headers],
+        [['src/resolve/test-dns-packet.c'],
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,
@@ -208,8 +194,7 @@ tests += [
           libm],
          [], 'ENABLE_RESOLVE'],
 
-        [['src/resolve/test-resolved-packet.c',
-          dns_type_headers],
+        [['src/resolve/test-resolved-packet.c'],
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,
@@ -217,8 +202,7 @@ tests += [
           libm],
          [], 'ENABLE_RESOLVE'],
 
-        [['src/resolve/test-dnssec.c',
-          dns_type_headers],
+        [['src/resolve/test-dnssec.c'],
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,
@@ -227,7 +211,6 @@ tests += [
          [], 'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dnssec-complex.c',
-          'src/resolve/dns-type.c',
-          dns_type_headers],
+          'src/resolve/dns-type.c'],
          [], [], [], 'ENABLE_RESOLVE', 'manual'],
 ]

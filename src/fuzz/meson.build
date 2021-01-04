@@ -7,8 +7,7 @@ fuzzers += [
          [libjournal_core,
           libshared]],
 
-        [['src/resolve/fuzz-dns-packet.c',
-          dns_type_headers],
+        [['src/resolve/fuzz-dns-packet.c'],
          [libsystemd_resolve_core,
           libshared],
          [libgcrypt,
