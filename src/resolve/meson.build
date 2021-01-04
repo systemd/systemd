@@ -116,19 +116,17 @@ libsystemd_resolve_core = static_library(
         basic_dns_sources,
         include_directories : includes)
 
-resolved_gperf_c = custom_target(
+systemd_resolved_sources += custom_target(
         'resolved_gperf.c',
         input : 'resolved-gperf.gperf',
         output : 'resolved-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-resolved_dnssd_gperf_c = custom_target(
+systemd_resolved_sources += custom_target(
         'resolved_dnssd_gperf.c',
         input : 'resolved-dnssd-gperf.gperf',
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
-
-systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 
 systemd_resolved_dependencies = [threads, libgpg_error, libm]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
