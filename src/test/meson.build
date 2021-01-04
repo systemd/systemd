@@ -732,21 +732,15 @@ endif
 ############################################################
 
 tests += [
-        [['src/libsystemd-network/test-dhcp-option.c',
-          'src/libsystemd-network/dhcp-protocol.h',
-          'src/libsystemd-network/dhcp-internal.h'],
+        [['src/libsystemd-network/test-dhcp-option.c'],
          [libshared,
           libsystemd_network]],
 
-        [['src/libsystemd-network/test-sd-dhcp-lease.c',
-          'src/libsystemd-network/dhcp-lease-internal.h'],
+        [['src/libsystemd-network/test-sd-dhcp-lease.c'],
          [libshared,
           libsystemd_network]],
 
-        [['src/libsystemd-network/test-dhcp-client.c',
-          'src/libsystemd-network/dhcp-protocol.h',
-          'src/libsystemd-network/dhcp-internal.h',
-          'src/systemd/sd-dhcp-client.h'],
+        [['src/libsystemd-network/test-dhcp-client.c'],
          [libshared,
           libsystemd_network]],
 
@@ -754,44 +748,29 @@ tests += [
          [libshared,
           libsystemd_network]],
 
-        [['src/libsystemd-network/test-ipv4ll.c',
-          'src/libsystemd-network/arp-util.h',
-          'src/systemd/sd-ipv4ll.h'],
+        [['src/libsystemd-network/test-ipv4ll.c'],
          [libshared,
           libsystemd_network]],
 
-        [['src/libsystemd-network/test-ipv4ll-manual.c',
-          'src/systemd/sd-ipv4ll.h'],
+        [['src/libsystemd-network/test-ipv4ll-manual.c'],
          [libshared,
           libsystemd_network],
          [], [], '', 'manual'],
 
-        [['src/libsystemd-network/test-acd.c',
-          'src/systemd/sd-ipv4acd.h'],
+        [['src/libsystemd-network/test-acd.c'],
          [libshared,
           libsystemd_network],
          [], [], '', 'manual'],
 
-        [['src/libsystemd-network/test-ndisc-rs.c',
-          'src/libsystemd-network/dhcp-identifier.h',
-          'src/libsystemd-network/dhcp-identifier.c',
-          'src/libsystemd-network/icmp6-util.h',
-          'src/systemd/sd-dhcp6-client.h',
-          'src/systemd/sd-ndisc.h'],
+        [['src/libsystemd-network/test-ndisc-rs.c'],
          [libshared,
           libsystemd_network]],
 
-        [['src/libsystemd-network/test-ndisc-ra.c',
-          'src/libsystemd-network/icmp6-util.h',
-          'src/systemd/sd-ndisc.h'],
+        [['src/libsystemd-network/test-ndisc-ra.c'],
          [libshared,
           libsystemd_network]],
 
-        [['src/libsystemd-network/test-dhcp6-client.c',
-          'src/libsystemd-network/dhcp-identifier.h',
-          'src/libsystemd-network/dhcp-identifier.c',
-          'src/libsystemd-network/dhcp6-internal.h',
-          'src/systemd/sd-dhcp6-client.h'],
+        [['src/libsystemd-network/test-dhcp6-client.c'],
          [libshared,
           libsystemd_network]],
 
