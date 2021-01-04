@@ -281,11 +281,12 @@ shared_sources = files('''
 '''.split())
 
 if get_option('tests') != 'false'
-        shared_sources += files('tests.c', 'tests.h')
+        shared_sources += files('''
+                test-tables.h
+                tests.c
+                tests.h
+        '''.split())
 endif
-
-test_tables_h = files('test-tables.h')
-shared_sources += test_tables_h
 
 generate_syscall_list = find_program('generate-syscall-list.py')
 fname = 'syscall-list.h'
