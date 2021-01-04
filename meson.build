@@ -1650,13 +1650,6 @@ subdir('src/shared')
 subdir('src/udev')
 subdir('src/libudev')
 
-libjournal_core = static_library(
-        'journal-core',
-        libjournal_core_sources,
-        journald_gperf_c,
-        include_directories : includes,
-        install : false)
-
 libsystemd_sym_path = '@0@/@1@'.format(project_source_root, libsystemd_sym)
 libsystemd = shared_library(
         'systemd',
