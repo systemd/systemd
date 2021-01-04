@@ -1640,13 +1640,14 @@ includes = include_directories('src/basic',
 
 subdir('po')
 subdir('catalog')
-subdir('src/libudev')
-subdir('src/systemd')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/libsystemd-network')
 subdir('src/journal')
 subdir('src/login')
+subdir('src/shared')
+subdir('src/udev')
+subdir('src/libudev')
 
 libjournal_core = static_library(
         'journal-core',
@@ -1701,16 +1702,44 @@ install_libsystemd_static = static_library(
                         libgcrypt],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
+libudev = shared_library(
+        'udev',
+        disable_mempool_c,
+        version : libudev_version,
+        include_directories : includes,
+        link_args : ['-shared',
+                     '-Wl,--version-script=' + libudev_sym_path],
+        link_with : [libsystemd_static, libshared_static],
+        link_whole : libudev_basic,
+        dependencies : [threads],
+        link_depends : libudev_sym,
+        install : true,
+        install_dir : rootlibdir)
+
+install_libudev_static = static_library(
+        'udev',
+        basic_sources,
+        shared_sources,
+        libsystemd_sources,
+        libudev_sources,
+        disable_mempool_c,
+        include_directories : includes,
+        build_by_default : static_libudev != 'false',
+        install : static_libudev != 'false',
+        install_dir : rootlibdir,
+        link_depends : libudev_sym,
+        dependencies : libshared_deps + [libmount],
+        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
+        pic : static_libudev_pic)
+
 ############################################################
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
 public_programs = []
 
-subdir('src/shared')
 subdir('src/core')
 subdir('src/shutdown')
-subdir('src/udev')
 subdir('src/network')
 
 subdir('src/analyze')
@@ -1739,6 +1768,8 @@ subdir('src/tmpfiles')
 subdir('src/vconsole')
 subdir('src/boot/efi')
 subdir('src/xdg-autostart-generator')
+
+subdir('src/systemd')
 
 subdir('src/test')
 subdir('src/fuzz')
