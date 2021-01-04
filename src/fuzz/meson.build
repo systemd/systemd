@@ -3,9 +3,7 @@
 fuzzers += [
         [['src/fuzz/fuzz-bus-message.c']],
 
-        [['src/fuzz/fuzz-catalog.c'],
-         [libjournal_core,
-          libshared]],
+        [['src/fuzz/fuzz-catalog.c']],
 
         [['src/resolve/fuzz-dns-packet.c'],
          [libsystemd_resolve_core,
