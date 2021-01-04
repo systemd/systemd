@@ -1714,6 +1714,7 @@ subdir('src/udev')
 subdir('src/network')
 
 subdir('src/analyze')
+subdir('src/cryptenroll')
 subdir('src/cryptsetup')
 subdir('src/journal-remote')
 subdir('src/coredump')
@@ -2360,34 +2361,6 @@ if conf.get('HAVE_LIBCRYPTSETUP') == 1
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : systemgeneratordir)
-
-        systemd_cryptenroll_sources = files('''
-                src/cryptenroll/cryptenroll-fido2.h
-                src/cryptenroll/cryptenroll-list.c
-                src/cryptenroll/cryptenroll-list.h
-                src/cryptenroll/cryptenroll-password.c
-                src/cryptenroll/cryptenroll-password.h
-                src/cryptenroll/cryptenroll-pkcs11.h
-                src/cryptenroll/cryptenroll-recovery.c
-                src/cryptenroll/cryptenroll-recovery.h
-                src/cryptenroll/cryptenroll-tpm2.h
-                src/cryptenroll/cryptenroll-wipe.c
-                src/cryptenroll/cryptenroll-wipe.h
-                src/cryptenroll/cryptenroll.c
-                src/cryptenroll/cryptenroll.h
-'''.split())
-
-        if conf.get('HAVE_P11KIT') == 1 and conf.get('HAVE_OPENSSL') == 1
-                systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-pkcs11.c')
-        endif
-
-        if conf.get('HAVE_LIBFIDO2') == 1
-                systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-fido2.c')
-        endif
-
-        if conf.get('HAVE_TPM2') == 1
-                systemd_cryptenroll_sources += files('src/cryptenroll/cryptenroll-tpm2.c')
-        endif
 
         executable(
                 'systemd-cryptenroll',
