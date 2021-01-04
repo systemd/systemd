@@ -92,7 +92,7 @@
     care should be taken to use a division that rounds up to ensure the I/O polling operation
     doesn't sleep for shorter than necessary, which might result in unintended busy looping
     (alternatively, use
-    <citerefentry project='man-pages'><refentrytitle>ppoll</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <citerefentry project='man-pages'><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum></citerefentry>
     instead of plain <function>poll()</function>, which understands timeouts with nano-second
     granularity).</para>
 
