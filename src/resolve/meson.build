@@ -131,12 +131,14 @@ systemd_resolved_sources += custom_target(
 systemd_resolved_dependencies = [threads, libgpg_error, libm]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
         if conf.get('DNS_OVER_TLS_USE_GNUTLS') == 1
-                systemd_resolved_sources += files('resolved-dnstls-gnutls.c',
-                                                  'resolved-dnstls-gnutls.h')
+                systemd_resolved_sources += files(
+                        'resolved-dnstls-gnutls.c',
+                        'resolved-dnstls-gnutls.h')
                 systemd_resolved_dependencies += libgnutls
         elif conf.get('DNS_OVER_TLS_USE_OPENSSL') == 1
-                systemd_resolved_sources += files('resolved-dnstls-openssl.c',
-                                                  'resolved-dnstls-openssl.h')
+                systemd_resolved_sources += files(
+                        'resolved-dnstls-openssl.c',
+                        'resolved-dnstls-openssl.h')
                 systemd_resolved_dependencies += libopenssl
         else
                 error('unknown dependency for supporting DNS-over-TLS')
