@@ -10,8 +10,6 @@ fi
 args_no_clean=$(sed -r 's/\bclean.*\b//g' <<<$args)
 do_clean=$( [ "$args" = "$args_no_clean" ]; echo $? )
 
-ninja -C "$BUILD_DIR"
-
 declare -A results
 declare -A times
 

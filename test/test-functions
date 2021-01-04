@@ -1058,8 +1058,14 @@ EOF
 }
 
 install_user_dbus() {
-    inst $ROOTLIBDIR/user/dbus.socket
-    inst_symlink /usr/lib/systemd/user/sockets.target.wants/dbus.socket || inst_symlink /etc/systemd/user/sockets.target.wants/dbus.socket
+    local userunitdir
+    if ! userunitdir=$(pkg-config --variable=systemduserunitdir systemd); then
+        echo "WARNING! Cannot determine userunitdir from pkg-config, assuming /usr/lib/systemd/user" >&2
+        local userunitdir=/usr/lib/systemd/user
+    fi
+
+    inst $userunitdir/dbus.socket
+    inst_symlink $userunitdir/sockets.target.wants/dbus.socket || inst_symlink /etc/systemd/user/sockets.target.wants/dbus.socket
 
     # Append the After= dependency on dbus in case it isn't already set up
     mkdir -p "$initdir/etc/systemd/system/user@.service.d/"
@@ -1069,16 +1075,16 @@ After=dbus.service
 EOF
 
     # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
-    if [ -f $ROOTLIBDIR/user/dbus-broker.service ]; then
-        inst $ROOTLIBDIR/user/dbus-broker.service
+    if [ -f $userunitdir/dbus-broker.service ]; then
+        inst $userunitdir/dbus-broker.service
         inst_symlink /etc/systemd/user/dbus.service
     elif [ -f $ROOTLIBDIR/system/dbus-daemon.service ]; then
         # Fedora rawhide replaced dbus.service with dbus-daemon.service
-        inst $ROOTLIBDIR/user/dbus-daemon.service
+        inst $userunitdir/dbus-daemon.service
         # Alias symlink
         inst_symlink /etc/systemd/user/dbus.service
     else
-        inst $ROOTLIBDIR/user/dbus.service
+        inst $userunitdir/dbus.service
     fi
 }
 
@@ -1569,7 +1575,7 @@ inst_binary() {
     # In such cases, let's check if the binary indeed exists in the image
     # before doing any other chcecks. If it does, immediately return with
     # success.
-    [[ $# -eq 1 && -e $initdir/$1 ]] && return 0
+    [[ $# -eq 1 && -e $initdir/$1 || -e $initdir/bin/$1 || -e $initdir/sbin/$1 || -e $initdir/usr/bin/$1 || -e $initdir/usr/sbin/$1 ]] && return 0
 
     _bin=$(find_binary "$1") || return 1
     _target=${2:-$_bin}
@@ -2099,6 +2105,20 @@ do_test() {
     if [[ $UID != "0" ]]; then
         echo "TEST: $TEST_DESCRIPTION [SKIPPED]: not root" >&2
         exit 0
+    fi
+
+    if [ -n "$TEST_NO_QEMU" ] && [ -n "$TEST_NO_NSPAWN" ]; then
+        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: both QEMU and nspawn disabled" >&2
+        exit 0
+    fi
+
+    if [ -n "$TEST_QEMU_ONLY" ] && [ -z "$TEST_NO_NSPAWN" ]; then
+        echo "TEST: $TEST_DESCRIPTION [SKIPPED]: QEMU-only tests requested" >&2
+        exit 0
+    fi
+
+    if [ -n "$TEST_PREFER_NSPAWN" ] && [ -z "$TEST_NO_NSPAWN" ]; then
+        TEST_NO_QEMU=1
     fi
 
     # Detect lib paths
