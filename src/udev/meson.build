@@ -103,52 +103,6 @@ else
         udev_rpath = ''
 endif
 
-libudev_includes = [includes, include_directories('../libudev')]
-
-libudev_basic = static_library(
-        'udev-basic',
-        libudev_sources,
-        include_directories : libudev_includes,
-        c_args : ['-fvisibility=default'])
-
-libudev_static = static_library(
-        'udev_static',
-        include_directories : libudev_includes,
-        link_with : udev_link_with,
-        link_whole : libudev_basic)
-
-static_libudev = get_option('static-libudev')
-static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
-install_libudev_static = static_library(
-        'udev',
-        basic_sources,
-        shared_sources,
-        libsystemd_sources,
-        libudev_sources,
-        disable_mempool_c,
-        include_directories : libudev_includes,
-        build_by_default : static_libudev != 'false',
-        install : static_libudev != 'false',
-        install_dir : rootlibdir,
-        link_depends : libudev_sym,
-        dependencies : libshared_deps + [libmount],
-        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
-        pic : static_libudev_pic)
-
-libudev = shared_library(
-        'udev',
-        disable_mempool_c,
-        version : libudev_version,
-        include_directories : libudev_includes,
-        link_args : ['-shared',
-                     '-Wl,--version-script=' + libudev_sym_path],
-        link_with : [libsystemd_static, libshared_static],
-        link_whole : libudev_basic,
-        dependencies : [threads],
-        link_depends : libudev_sym,
-        install : true,
-        install_dir : rootlibdir)
-
 ############################################################
 
 libudevd_core_includes = [includes, include_directories('net')]
