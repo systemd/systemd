@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-libjournal_core_sources = files('''
+sources = files('''
         journald-audit.c
         journald-audit.h
         journald-console.c
@@ -23,16 +23,22 @@ libjournal_core_sources = files('''
         journald-wall.h
 '''.split())
 
-systemd_journald_sources = files('''
-        journald.c
-        journald-server.h
-'''.split())
-
-journald_gperf_c = custom_target(
+sources += custom_target(
         'journald-gperf.c',
         input : 'journald-gperf.gperf',
         output : 'journald-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+libjournal_core = static_library(
+        'journal-core',
+        sources,
+        include_directories : includes,
+        install : false)
+
+systemd_journald_sources = files('''
+        journald.c
+        journald-server.h
+'''.split())
 
 systemd_cat_sources = files('cat.c')
 
