@@ -109,9 +109,5 @@ fuzzers += [
 
         [['src/fuzz/fuzz-time-util.c']],
 
-        [['src/xdg-autostart-generator/fuzz-xdg-desktop.c',
-          'src/xdg-autostart-generator/xdg-autostart-service.h',
-          'src/xdg-autostart-generator/xdg-autostart-service.c']],
-
         [['src/udev/fuzz-udev-rule-parse-value.c']],
 ]
