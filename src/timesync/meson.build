@@ -1,25 +1,38 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_timesyncd_sources = files('''
-        timesyncd.c
-        timesyncd-bus.c
-        timesyncd-bus.h
-        timesyncd-conf.c
-        timesyncd-conf.h
-        timesyncd-manager.c
-        timesyncd-manager.h
-        timesyncd-ntp-message.h
-        timesyncd-server.c
-        timesyncd-server.h
-'''.split())
+sources = files(
+        'timesyncd-conf.c',
+        'timesyncd-conf.h',
+        'timesyncd-manager.c',
+        'timesyncd-manager.h',
+        'timesyncd-ntp-message.h',
+        'timesyncd-server.c',
+        'timesyncd-server.h')
 
-timesyncd_gperf_c = custom_target(
+systemd_timesyncd_sources = files(
+        'timesyncd.c',
+        'timesyncd-bus.c',
+        'timesyncd-bus.h')
+
+sources += custom_target(
         'timesyncd-gperf.c',
         input : 'timesyncd-gperf.gperf',
         output : 'timesyncd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_timesyncd_sources += [timesyncd_gperf_c]
+if get_option('link-timesyncd-shared')
+        timesyncd_link_with = [libshared]
+else
+        timesyncd_link_with = [libsystemd_static,
+                               libshared_static,
+                               libbasic_gcrypt]
+endif
+
+libtimesyncd_core = static_library(
+        'timesyncd-core',
+        sources,
+        include_directories : includes,
+        link_with : [timesyncd_link_with])
 
 if conf.get('ENABLE_TIMESYNCD') == 1
         timesyncd_conf = configure_file(
@@ -41,14 +54,8 @@ endif
 ############################################################
 
 tests += [
-        [['src/timesync/test-timesync.c',
-          'src/timesync/timesyncd-manager.c',
-          'src/timesync/timesyncd-manager.h',
-          'src/timesync/timesyncd-conf.c',
-          'src/timesync/timesyncd-conf.h',
-          'src/timesync/timesyncd-server.c',
-          'src/timesync/timesyncd-server.h',
-          timesyncd_gperf_c],
-         [],
+        [['src/timesync/test-timesync.c'],
+         [libtimesyncd_core,
+          libshared],
          [libm]],
 ]
