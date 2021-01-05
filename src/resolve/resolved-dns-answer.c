@@ -664,6 +664,7 @@ int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
 
         if (*a) {
                 size_t ns;
+                int r;
 
                 if ((*a)->n_ref > 1)
                         return -EBUSY;
@@ -680,11 +681,23 @@ int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
                 if (ns > UINT16_MAX)
                         ns = UINT16_MAX;
 
+                /* This must be done before realloc() below. Otherwise, the original DnsAnswer object
+                 * may be broken. */
+                r = set_reserve((*a)->set_items, ns);
+                if (r < 0)
+                        return r;
+
                 n = realloc(*a, offsetof(DnsAnswer, items) + sizeof(DnsAnswerItem) * ns);
                 if (!n)
                         return -ENOMEM;
 
                 n->n_allocated = ns;
+
+                /* Previously all items are stored in the set, and the enough memory area is allocated
+                 * in the above. So set_put() in the below cannot fail. */
+                set_clear(n->set_items);
+                for (size_t i = 0; i < n->n_rrs; i++)
+                        assert_se(set_put(n->set_items, &n->items[i]) > 0);
         } else {
                 n = dns_answer_new(n_free);
                 if (!n)
