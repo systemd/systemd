@@ -1642,7 +1642,6 @@ subdir('src/shared')
 subdir('src/udev')
 subdir('src/libudev')
 
-libsystemd_sym_path = '@0@/@1@'.format(project_source_root, libsystemd_sym)
 libsystemd = shared_library(
         'systemd',
         disable_mempool_c,
@@ -1661,9 +1660,6 @@ libsystemd = shared_library(
         link_depends : libsystemd_sym,
         install : true,
         install_dir : rootlibdir)
-
-static_libsystemd = get_option('static-libsystemd')
-static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
 
 install_libsystemd_static = static_library(
         'systemd',
