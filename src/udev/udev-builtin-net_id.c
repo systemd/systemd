@@ -150,6 +150,7 @@ static const NamingScheme naming_schemes[] = {
         { "rhel-8.1", NAMING_RHEL_8_1 },
         { "rhel-8.2", NAMING_RHEL_8_2 },
         { "rhel-8.3", NAMING_RHEL_8_3 },
+        { "rhel-8.4", NAMING_RHEL_8_4 },
         /* … add more schemes here, as the logic to name devices is updated … */
 };
 
