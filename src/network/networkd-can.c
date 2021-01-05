@@ -211,6 +211,12 @@ static int link_set_can(Link *link) {
                 log_link_debug(link, "Setting triple-sampling to '%s'.", yes_no(link->network->can_triple_sampling));
         }
 
+        if (link->network->can_berr_reporting >= 0) {
+                cm.mask |= CAN_CTRLMODE_BERR_REPORTING;
+                SET_FLAG(cm.flags, CAN_CTRLMODE_BERR_REPORTING, link->network->can_berr_reporting);
+                log_link_debug(link, "Setting bus error reporting to '%s'.", yes_no(link->network->can_berr_reporting));
+        }
+
         if (link->network->can_listen_only >= 0) {
                 cm.mask |= CAN_CTRLMODE_LISTENONLY;
                 SET_FLAG(cm.flags, CAN_CTRLMODE_LISTENONLY, link->network->can_listen_only);

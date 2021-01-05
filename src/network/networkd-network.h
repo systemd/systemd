@@ -231,6 +231,7 @@ struct Network {
         unsigned can_data_sample_point;
         usec_t can_restart_us;
         int can_triple_sampling;
+        int can_berr_reporting;
         int can_termination;
         int can_listen_only;
         int can_fd_mode;

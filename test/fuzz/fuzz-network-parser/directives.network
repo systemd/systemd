@@ -246,6 +246,7 @@ FDMode=
 FDNonISO=
 RestartSec=
 TripleSampling=
+BusErrorReporting=
 Termination=
 ListenOnly=
 [Address]

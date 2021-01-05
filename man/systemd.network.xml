@@ -2743,6 +2743,16 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>BusErrorReporting=</varname></term>
+          <listitem>
+            <para>Takes a boolean. When <literal>yes</literal>, reporting of CAN bus errors is activated
+            (those include single bit, frame format, and bit stuffing errors, unable to send dominant bit,
+            unable to send recessive bit, bus overload, active error announcement, error occurred on
+            transmission). When unset, the kernel's default will be used. Note: in case of a CAN bus with a
+            single CAN device, sending a CAN frame may result in a huge number of CAN bus errors.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>ListenOnly=</varname></term>
           <listitem>
             <para>Takes a boolean. When <literal>yes</literal>, listen-only mode is enabled. When the

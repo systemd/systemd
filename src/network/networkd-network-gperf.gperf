@@ -320,6 +320,7 @@ CAN.FDMode,                                  config_parse_tristate,             
 CAN.FDNonISO,                                config_parse_tristate,                                    0,                             offsetof(Network, can_non_iso)
 CAN.RestartSec,                              config_parse_sec,                                         0,                             offsetof(Network, can_restart_us)
 CAN.TripleSampling,                          config_parse_tristate,                                    0,                             offsetof(Network, can_triple_sampling)
+CAN.BusErrorReporting,                       config_parse_tristate,                                    0,                             offsetof(Network, can_berr_reporting)
 CAN.Termination,                             config_parse_tristate,                                    0,                             offsetof(Network, can_termination)
 CAN.ListenOnly,                              config_parse_tristate,                                    0,                             offsetof(Network, can_listen_only)
 QDisc.Parent,                                config_parse_qdisc_parent,                                _QDISC_KIND_INVALID,           0
