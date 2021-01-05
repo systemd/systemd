@@ -1674,7 +1674,7 @@ install_libsystemd_static = static_library(
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
         install_dir : rootlibdir,
-        pic : static_libsystemd == 'true' or static_libsystemd == 'pic',
+        pic : static_libsystemd_pic,
         dependencies : [threads,
                         librt,
                         libxz,
