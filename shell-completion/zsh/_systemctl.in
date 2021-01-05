@@ -365,6 +365,11 @@ for fun in set-environment unset-environment ; do
     }
 done
 
+(( $+functions[_systemctl_import-environment] )) || _systemctl_import-environment()
+{
+    _parameters
+}
+
 (( $+functions[_systemctl_link] )) || _systemctl_link() {
         _sd_unit_files
     }

@@ -317,10 +317,19 @@ _systemctl () {
     elif __contains_word "$verb" ${VERBS[JOBS]}; then
         comps=$( __systemctl $mode list-jobs | { while read -r a b; do echo " $a"; done; } )
 
-    elif __contains_word "$verb" ${VERBS[ENVS]}; then
+    elif [ "$verb" = 'unset-environment' ]; then
+        comps=$( __systemctl $mode show-environment \
+                     | while read -r line; do echo " ${line%%=*}"; done )
+        compopt -o nospace
+
+    elif [ "$verb" = 'set-environment' ]; then
         comps=$( __systemctl $mode show-environment \
                      | while read -r line; do echo " ${line%%=*}="; done )
         compopt -o nospace
+
+    elif [ "$verb" = 'import-environment' ]; then
+        COMPREPLY=( $(compgen -A variable -- "$cur_orig") )
+        return 0
 
     elif __contains_word "$verb" ${VERBS[FILE]}; then
         comps=$( compgen -A file -- "$cur" )
