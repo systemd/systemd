@@ -1118,7 +1118,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <varlistentry>
           <term>
             <command>import-environment</command>
-            <optional><replaceable>VARIABLE…</replaceable></optional>
+            <replaceable>VARIABLE…</replaceable>
           </term>
 
           <listitem>
@@ -1129,6 +1129,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             arguments are passed, the entire environment block inherited by the <command>systemctl</command>
             process is imported. In this mode, any inherited invalid environment variables are quietly
             ignored.</para>
+
+            <para>Importing of the full inherited environment block (calling this command without any
+            arguments) is deprecated. A shell will set dozens of variables which only make sense locally and
+            are only meant for processes which are descendants of the shell. Such variables in the global
+            environment block are confusing to other processes.</para>
           </listitem>
         </varlistentry>
       </variablelist>
