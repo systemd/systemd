@@ -3387,7 +3387,7 @@ static int run(int argc, char *argv[]) {
                         if (!j)
                                 return log_oom();
 
-                        if (!strextend(&t, "\n\t", j, NULL))
+                        if (!strextend(&t, "\n\t", j))
                                 return log_oom();
                 }
 

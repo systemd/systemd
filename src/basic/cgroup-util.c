@@ -1619,7 +1619,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 if (!escaped)
                         return -ENOMEM;
 
-                if (!strextend(&s, escaped, "/", NULL))
+                if (!strextend(&s, escaped, "/"))
                         return -ENOMEM;
 
                 dash = strchr(dash+1, '-');
@@ -1629,7 +1629,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
         if (!e)
                 return -ENOMEM;
 
-        if (!strextend(&s, e, NULL))
+        if (!strextend(&s, e))
                 return -ENOMEM;
 
         *ret = TAKE_PTR(s);

@@ -290,7 +290,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
                         goto finalize;
                 }
 
-                if (!strextend_with_separator(&j, ", ", s, NULL)) {
+                if (!strextend_with_separator(&j, ", ", s)) {
                         r = -ENOMEM;
                         goto finalize;
                 }
@@ -387,7 +387,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
                         name = prefixed;
                 }
 
-                if (!strextend_with_separator(&j, ", ", name, NULL))
+                if (!strextend_with_separator(&j, ", ", name))
                         return -ENOMEM;
         }
 
@@ -702,7 +702,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                 if (r < 0)
                         return r;
 
-                if (!strextend_with_separator(&j, ", ", *i, NULL))
+                if (!strextend_with_separator(&j, ", ", *i))
                         return -ENOMEM;
         }
 

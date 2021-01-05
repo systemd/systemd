@@ -343,7 +343,7 @@ int config_parse(
                                 return -ENOBUFS;
                         }
 
-                        if (!strextend(&continuation, l, NULL)) {
+                        if (!strextend(&continuation, l)) {
                                 if (flags & CONFIG_PARSE_WARN)
                                         log_oom();
                                 return -ENOMEM;

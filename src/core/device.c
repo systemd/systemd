@@ -201,7 +201,7 @@ static int device_found_to_string_many(DeviceFound flags, char **ret) {
                 if (!FLAGS_SET(flags, device_found_map[i].flag))
                         continue;
 
-                if (!strextend_with_separator(&s, ",", device_found_map[i].name, NULL))
+                if (!strextend_with_separator(&s, ",", device_found_map[i].name))
                         return -ENOMEM;
         }
 

@@ -61,7 +61,7 @@ int namespace_flags_to_string(unsigned long flags, char **ret) {
                 if ((flags & namespace_flag_map[i].flag) != namespace_flag_map[i].flag)
                         continue;
 
-                if (!strextend_with_separator(&s, " ", namespace_flag_map[i].name, NULL))
+                if (!strextend_with_separator(&s, " ", namespace_flag_map[i].name))
                         return -ENOMEM;
         }
 

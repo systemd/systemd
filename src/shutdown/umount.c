@@ -96,13 +96,9 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * Even if there are duplicates later in mount_option_mangle()
                  * they shouldn't hurt anyways as they override each other.
                  */
-                if (!strextend_with_separator(&options, ",",
-                                              mnt_fs_get_vfs_options(fs),
-                                              NULL))
+                if (!strextend_with_separator(&options, ",", mnt_fs_get_vfs_options(fs)))
                         return log_oom();
-                if (!strextend_with_separator(&options, ",",
-                                              mnt_fs_get_fs_options(fs),
-                                              NULL))
+                if (!strextend_with_separator(&options, ",", mnt_fs_get_fs_options(fs)))
                         return log_oom();
 
                 /* Ignore mount points we can't unmount because they

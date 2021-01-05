@@ -1159,7 +1159,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return log_error_errno(r, "Failed to unescape text '%s': %m", eq);
 
-                if (!strextend(&unescaped, "\n", NULL))
+                if (!strextend(&unescaped, "\n"))
                         return log_oom();
 
                 /* Note that we don't expand specifiers here, but that should be OK, as this is a programmatic
