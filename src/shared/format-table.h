@@ -33,6 +33,7 @@ typedef enum TableDataType {
         TABLE_UINT16,
         TABLE_UINT32,
         TABLE_UINT64,
+        TABLE_UINT64_HEX,
         TABLE_PERCENT,
         TABLE_IFINDEX,
         TABLE_IN_ADDR,  /* Takes a union in_addr_union (or a struct in_addr) */
