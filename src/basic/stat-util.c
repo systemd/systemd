@@ -225,13 +225,12 @@ int fd_is_network_fs(int fd) {
 }
 
 int path_is_temporary_fs(const char *path) {
-        _cleanup_close_ int fd = -1;
+        struct statfs s;
 
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_PATH);
-        if (fd < 0)
+        if (statfs(path, &s) < 0)
                 return -errno;
 
-        return fd_is_temporary_fs(fd);
+        return is_temporary_fs(&s);
 }
 
 int stat_verify_regular(const struct stat *st) {
