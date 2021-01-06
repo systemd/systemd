@@ -410,6 +410,13 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>TxQueueLength=</varname></term>
+        <listitem>
+          <para>Specifies the transmit queue length of the device in number of packets. An unsigned integer
+          in the range 0..4294967294. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>MTUBytes=</varname></term>
         <listitem>
           <para>The maximum transmission unit in bytes to set for the
