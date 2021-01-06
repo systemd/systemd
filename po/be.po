@@ -94,7 +94,8 @@ msgstr "Праверыць уліковыя даныя хатняй прасто
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "Для праверкі ўліковых даных хатняй прасторы патрабуецца аўтэнтыфікацыя."
+msgstr ""
+"Для праверкі ўліковых даных хатняй прасторы патрабуецца аўтэнтыфікацыя."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -798,7 +799,8 @@ msgstr "Змяніць канфігурацыю сеткавага інтэрф�
 
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
-msgstr "Для змены канфігурацыі сеткавага інтэрфейсу патрабуецца аўтэнтыфікацыя."
+msgstr ""
+"Для змены канфігурацыі сеткавага інтэрфейсу патрабуецца аўтэнтыфікацыя."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"

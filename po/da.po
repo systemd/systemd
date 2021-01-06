@@ -528,7 +528,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr "Tillad meddelelse til firmwaren om at starte op i opsætningsgrænseflade"
+msgstr ""
+"Tillad meddelelse til firmwaren om at starte op i opsætningsgrænseflade"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid ""
