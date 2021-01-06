@@ -960,7 +960,6 @@ static int config_parse_label(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char16_t *recoded = NULL;
         _cleanup_free_ char *resolved = NULL;
         char **label = data;
         int r;
@@ -981,11 +980,14 @@ static int config_parse_label(
                 return 0;
         }
 
-        recoded = utf8_to_utf16(resolved, strlen(resolved));
-        if (!recoded)
-                return log_oom();
-
-        if (char16_strlen(recoded) > 36) {
+        r = gpt_partition_label_valid(resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to check if string is valid as GPT partition label, ignoring: \"%s\" (from \"%s\")",
+                           resolved, rvalue);
+                return 0;
+        }
+        if (!r) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Partition label too long for GPT table, ignoring: \"%s\" (from \"%s\")",
                            resolved, rvalue);
