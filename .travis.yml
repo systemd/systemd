@@ -2,7 +2,7 @@
 # vi: ts=2 sw=2 et:
 
 language: bash
-dist: bionic
+dist: focal
 services:
   - docker
 
