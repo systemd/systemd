@@ -134,10 +134,6 @@ Features:
   client UID, so that synthetic hash table collisions can slow down a specific
   user's journal stream down but not the others.
 
-* add "throttling" to sd-event event sources: optionally, when we wake up too
-  often for one, let's turn it off entirely for a while. Use that for the
-  /proc/self/mountinfo logic.
-
 * nspawn: support time namespaces
 
 * systemd-firstboot: make sure to always use chase_symlinks() before
