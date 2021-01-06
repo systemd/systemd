@@ -1241,7 +1241,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename) {
                         if (strlen(continuation) + len >= UDEV_LINE_SIZE)
                                 ignore_line = true;
 
-                        if (!strextend(&continuation, line, NULL))
+                        if (!strextend(&continuation, line))
                                 return log_oom();
 
                         if (!ignore_line) {

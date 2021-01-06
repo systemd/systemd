@@ -244,9 +244,9 @@ static void test_strextend(void) {
 
         assert_se(strextend(&str, NULL));
         assert_se(streq_ptr(str, ""));
-        assert_se(strextend(&str, "", "0", "", "", "123", NULL));
+        assert_se(strextend(&str, "", "0", "", "", "123"));
         assert_se(streq_ptr(str, "0123"));
-        assert_se(strextend(&str, "456", "78", "9", NULL));
+        assert_se(strextend(&str, "456", "78", "9"));
         assert_se(streq_ptr(str, "0123456789"));
 }
 
@@ -265,13 +265,13 @@ static void test_strextend_with_separator(void) {
         assert_se(streq_ptr(str, ""));
         str = mfree(str);
 
-        assert_se(strextend_with_separator(&str, "xyz", "a", "bb", "ccc", NULL));
+        assert_se(strextend_with_separator(&str, "xyz", "a", "bb", "ccc"));
         assert_se(streq_ptr(str, "axyzbbxyzccc"));
         str = mfree(str);
 
-        assert_se(strextend_with_separator(&str, ",", "start", "", "1", "234", NULL));
+        assert_se(strextend_with_separator(&str, ",", "start", "", "1", "234"));
         assert_se(streq_ptr(str, "start,,1,234"));
-        assert_se(strextend_with_separator(&str, ";", "more", "5", "678", NULL));
+        assert_se(strextend_with_separator(&str, ";", "more", "5", "678"));
         assert_se(streq_ptr(str, "start,,1,234;more;5;678"));
 }
 

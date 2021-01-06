@@ -87,7 +87,7 @@ static void log_children_no_yet_killed(Set *pids) {
                 if (get_process_comm(PTR_TO_PID(p), &s) < 0)
                         (void) asprintf(&s, PID_FMT, PTR_TO_PID(p));
 
-                if (!strextend(&lst_child, ", ", s, NULL)) {
+                if (!strextend(&lst_child, ", ", s)) {
                         log_oom();
                         return;
                 }

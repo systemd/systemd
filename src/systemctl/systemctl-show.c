@@ -1476,7 +1476,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 if (in_addr_prefix_to_string(family, (union in_addr_union *) ap, prefixlen, &str) < 0)
                                         continue;
 
-                                if (!strextend_with_separator(&addresses, " ", str, NULL))
+                                if (!strextend_with_separator(&addresses, " ", str))
                                         return log_oom();
                         }
 
@@ -1513,7 +1513,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                              rbind == MS_REC ? ":rbind" : "") < 0)
                                         return log_oom();
 
-                                if (!strextend_with_separator(&paths, " ", str, NULL))
+                                if (!strextend_with_separator(&paths, " ", str))
                                         return log_oom();
                         }
                         if (r < 0)
@@ -1545,7 +1545,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 if (asprintf(&str, "%s%s%s", target, isempty(option) ? "" : ":", strempty(option)) < 0)
                                         return log_oom();
 
-                                if (!strextend_with_separator(&paths, " ", str, NULL))
+                                if (!strextend_with_separator(&paths, " ", str))
                                         return log_oom();
                         }
                         if (r < 0)
@@ -1593,7 +1593,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 if (!utf8_is_valid(str))
                                         continue;
 
-                                if (!strextend_with_separator(&fields, " ", str, NULL))
+                                if (!strextend_with_separator(&fields, " ", str))
                                         return log_oom();
                         }
                         if (r < 0)
@@ -1670,7 +1670,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 if (r < 0)
                                         return r;
 
-                                if (!strextend_with_separator(&paths, " ", str, NULL))
+                                if (!strextend_with_separator(&paths, " ", str))
                                         return log_oom();
 
                                 r = sd_bus_message_exit_container(m);

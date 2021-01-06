@@ -710,9 +710,7 @@ static int install_chroot_dropin(
                                IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "RootDirectory=" : "RootImage=", image_path, "\n"
                                "Environment=PORTABLE=", basename(image_path), "\n"
                                "BindReadOnlyPaths=", os_release_source, ":/run/host/os-release\n"
-                               "LogExtraFields=PORTABLE=", basename(image_path), "\n",
-                               NULL))
-
+                               "LogExtraFields=PORTABLE=", basename(image_path), "\n"))
                         return -ENOMEM;
         }
 

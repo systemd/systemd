@@ -206,7 +206,10 @@ static int call_get_addresses(
                 else
                         strcpy(buf_ifi, "");
 
-                if (!strextend(&addresses, prefix, inet_ntop(family, a, buffer, sizeof(buffer)), buf_ifi, NULL))
+                if (!strextend(&addresses,
+                               prefix,
+                               inet_ntop(family, a, buffer, sizeof(buffer)),
+                               buf_ifi))
                         return log_oom();
 
                 r = sd_bus_message_exit_container(reply);

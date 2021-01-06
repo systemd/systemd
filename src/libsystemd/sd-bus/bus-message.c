@@ -1471,7 +1471,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(type), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(type));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -1664,7 +1664,7 @@ _public_ int sd_bus_message_append_string_space(
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -1768,7 +1768,7 @@ static int bus_message_open_array(
 
                 /* Extend the existing signature */
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_ARRAY), contents, NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_ARRAY), contents);
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -1853,7 +1853,7 @@ static int bus_message_open_variant(
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_VARIANT), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_VARIANT));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -1921,7 +1921,7 @@ static int bus_message_open_struct(
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_BEGIN), contents, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_END), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_BEGIN), contents, CHAR_TO_STR(SD_BUS_TYPE_STRUCT_END));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;
@@ -2776,7 +2776,7 @@ _public_ int sd_bus_message_append_string_memfd(
                 if (c->enclosing != 0)
                         return -ENXIO;
 
-                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING), NULL);
+                e = strextend(&c->signature, CHAR_TO_STR(SD_BUS_TYPE_STRING));
                 if (!e) {
                         m->poisoned = true;
                         return -ENOMEM;

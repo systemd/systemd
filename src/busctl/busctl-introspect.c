@@ -406,10 +406,10 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                         if (argument_type) {
                                                 if (!argument_direction || streq(argument_direction, "in")) {
-                                                        if (!strextend(&context->member_signature, argument_type, NULL))
+                                                        if (!strextend(&context->member_signature, argument_type))
                                                                 return log_oom();
                                                 } else if (streq(argument_direction, "out")) {
-                                                        if (!strextend(&context->member_result, argument_type, NULL))
+                                                        if (!strextend(&context->member_result, argument_type))
                                                                 return log_oom();
                                                 } else
                                                         log_error("Unexpected method <arg> direction value '%s'.", argument_direction);
@@ -541,7 +541,7 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 if (argument_type) {
                                         if (!argument_direction || streq(argument_direction, "out")) {
-                                                if (!strextend(&context->member_signature, argument_type, NULL))
+                                                if (!strextend(&context->member_signature, argument_type))
                                                         return log_oom();
                                         } else
                                                 log_error("Unexpected signal <arg> direction value '%s'.", argument_direction);

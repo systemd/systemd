@@ -733,7 +733,7 @@ int mount_option_mangle(
                 }
 
                 /* If 'word' is not a mount flag, then store it in '*ret_remaining_options'. */
-                if (!ent->name && !strextend_with_separator(&ret, ",", word, NULL))
+                if (!ent->name && !strextend_with_separator(&ret, ",", word))
                         return -ENOMEM;
         }
 
