@@ -99,7 +99,7 @@ partitions, the partition flag bit 63 ("*no-auto*") may be used to turn off
 auto-discovery for the specific partition.  If set, the partition will not be
 automatically mounted or enabled.
 
-For the root, `/usr/` server data, home, variable data and temporary data
+For the root, `/usr/`, server data, home, variable data and temporary data
 partitions, the partition flag bit 60 ("*read-only*") may be used to mark a
 partition for read-only mounts only.  If set, the partition will be mounted
 read-only instead of read-write. Note that the variable data partition and the
