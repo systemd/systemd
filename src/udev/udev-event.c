@@ -833,6 +833,41 @@ static int rename_netif(struct udev_event *event) {
         return 0;
 }
 
+static void update_devnode(struct udev_event *event) {
+        struct udev_device *dev = event->dev;
+
+        if (major(udev_device_get_devnum(dev)) > 0) {
+                bool apply;
+
+                /* remove/update possible left-over symlinks from old database entry */
+                if (event->dev_db != NULL)
+                        udev_node_update_old_links(dev, event->dev_db);
+
+                if (!event->owner_set)
+                        event->uid = udev_device_get_devnode_uid(dev);
+
+                if (!event->group_set)
+                        event->gid = udev_device_get_devnode_gid(dev);
+
+                if (!event->mode_set) {
+                        if (udev_device_get_devnode_mode(dev) > 0) {
+                                /* kernel supplied value */
+                                event->mode = udev_device_get_devnode_mode(dev);
+                        } else if (event->gid > 0) {
+                                /* default 0660 if a group is assigned */
+                                event->mode = 0660;
+                        }
+                        else {
+                                /* default 0600 */
+                                event->mode = 0600;
+                        }
+                }
+
+                apply = streq(udev_device_get_action(dev), "add") || event->owner_set || event->group_set || event->mode_set;
+                udev_node_add(dev, apply, event->mode, event->uid, event->gid, &event->seclabel_list);
+        }
+}
+
 void udev_event_execute_rules(struct udev_event *event,
                               usec_t timeout_usec, usec_t timeout_warn_usec,
                               struct udev_list *properties_list,
@@ -891,35 +926,7 @@ void udev_event_execute_rules(struct udev_event *event,
                         }
                 }
 
-                if (major(udev_device_get_devnum(dev)) > 0) {
-                        bool apply;
-
-                        /* remove/update possible left-over symlinks from old database entry */
-                        if (event->dev_db != NULL)
-                                udev_node_update_old_links(dev, event->dev_db);
-
-                        if (!event->owner_set)
-                                event->uid = udev_device_get_devnode_uid(dev);
-
-                        if (!event->group_set)
-                                event->gid = udev_device_get_devnode_gid(dev);
-
-                        if (!event->mode_set) {
-                                if (udev_device_get_devnode_mode(dev) > 0) {
-                                        /* kernel supplied value */
-                                        event->mode = udev_device_get_devnode_mode(dev);
-                                } else if (event->gid > 0) {
-                                        /* default 0660 if a group is assigned */
-                                        event->mode = 0660;
-                                } else {
-                                        /* default 0600 */
-                                        event->mode = 0600;
-                                }
-                        }
-
-                        apply = streq(udev_device_get_action(dev), "add") || event->owner_set || event->group_set || event->mode_set;
-                        udev_node_add(dev, apply, event->mode, event->uid, event->gid, &event->seclabel_list);
-                }
+                update_devnode(event);
 
                 /* preserve old, or get new initialization timestamp */
                 udev_device_ensure_usec_initialized(event->dev, event->dev_db);
@@ -927,6 +934,12 @@ void udev_event_execute_rules(struct udev_event *event,
                 /* (re)write database file */
                 udev_device_tag_index(dev, event->dev_db, true);
                 udev_device_update_db(dev);
+
+                /* Yes, we run update_devnode() twice, because in the first invocation, that is before update of udev database,
+                 * it could happen that two contenders are replacing each other's symlink. Hence we run it again to make sure
+                 * symlinks point to devices that claim them with the highest priority. */
+                update_devnode(event);
+
                 udev_device_set_is_initialized(dev);
 
                 event->dev_db = udev_device_unref(event->dev_db);
