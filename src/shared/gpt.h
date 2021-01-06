@@ -126,3 +126,5 @@ typedef struct GptPartitionType {
 } GptPartitionType;
 
 extern const GptPartitionType gpt_partition_type_table[];
+
+int gpt_partition_label_valid(const char *s);

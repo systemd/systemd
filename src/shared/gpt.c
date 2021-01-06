@@ -2,6 +2,7 @@
 
 #include "gpt.h"
 #include "string-util.h"
+#include "utf8.h"
 
 const GptPartitionType gpt_partition_type_table[] = {
         { GPT_ROOT_X86,              "root-x86"              },
@@ -94,4 +95,14 @@ int gpt_partition_type_uuid_from_string(const char *s, sd_id128_t *ret) {
                 }
 
         return sd_id128_from_string(s, ret);
+}
+
+int gpt_partition_label_valid(const char *s) {
+        _cleanup_free_ char16_t *recoded = NULL;
+
+        recoded = utf8_to_utf16(s, strlen(s));
+        if (!recoded)
+                return -ENOMEM;
+
+        return char16_strlen(recoded) <= 36;
 }
