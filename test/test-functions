@@ -17,6 +17,11 @@ TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
 UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
 EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
 QEMU_MEM="${QEMU_MEM:-512M}"
+# Note that defining a different IMAGE_NAME in a test setup script will only result
+# in default.img being copied and renamed. It can then be extended by defining
+# a test_append_files() function. The $1 parameter will be the root directory.
+# To force creating a new image from scratch (eg: to encrypt it), also define
+# TEST_FORCE_NEWIMAGE=1 in the test setup script.
 IMAGE_NAME=${IMAGE_NAME:-default}
 TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
 TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
@@ -2065,24 +2070,43 @@ test_setup() {
         mount_initdir
     else
         if [ ! -e "$IMAGE_PUBLIC" ]; then
-            # Create the backing public image, but then completely unmount
-            # it and drop the loopback device responsible for it, since we're
-            # going to symlink/copy the image and mount it again from
-            # elsewhere.
-            test_create_image
-            test_setup_cleanup
-            umount_loopback
-            cleanup_loopdev
+            # default.img is the base that every test uses and optionally appends to
+            if [ ! -e "${IMAGESTATEDIR}/default.img" ] || [ -n "${TEST_FORCE_NEWIMAGE}" ]; then
+                # Create the backing public image, but then completely unmount
+                # it and drop the loopback device responsible for it, since we're
+                # going to symlink/copy the image and mount it again from
+                # elsewhere.
+                local image_old=${IMAGE_PUBLIC}
+                if [ -z "${TEST_FORCE_NEWIMAGE}" ]; then
+                    IMAGE_PUBLIC="${IMAGESTATEDIR}/default.img"
+                fi
+                test_create_image
+                test_setup_cleanup
+                umount_loopback
+                cleanup_loopdev
+                IMAGE_PUBLIC="${image_old}"
+            fi
+            if [ "${IMAGE_NAME}" != "default" ] && [ -z "${TEST_FORCE_NEWIMAGE}" ]; then
+                cp -v "$(realpath "${IMAGESTATEDIR}/default.img")" "$IMAGE_PUBLIC"
+            fi
+        fi
+
+        local hook_defined=1
+        if declare -f -F test_append_files > /dev/null; then
+            hook_defined=$?
         fi
 
         echo "Reusing existing cached image $IMAGE_PUBLIC → $(realpath $IMAGE_PUBLIC)"
-        if [ ${TEST_PARALLELIZE} -ne 0 ]; then
+        if [ ${TEST_PARALLELIZE} -ne 0 ] || [ ${hook_defined} -eq 0 ]; then
             cp -v "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
         else
             ln -sv "$(realpath $IMAGE_PUBLIC)" "$IMAGE_PRIVATE"
         fi
 
         mount_initdir
+        if [ ${hook_defined} -eq 0 ]; then
+            test_append_files "$initdir"
+        fi
     fi
 
     setup_nspawn_root

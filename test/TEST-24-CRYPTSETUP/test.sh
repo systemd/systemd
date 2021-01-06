@@ -3,6 +3,7 @@ set -e
 TEST_DESCRIPTION="cryptsetup systemd setup"
 IMAGE_NAME="cryptsetup"
 TEST_NO_NSPAWN=1
+TEST_FORCE_NEWIMAGE=1
 
 . $TEST_BASE_DIR/test-functions
 

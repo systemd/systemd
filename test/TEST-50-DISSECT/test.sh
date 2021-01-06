@@ -13,16 +13,8 @@ command -v veritysetup >/dev/null 2>&1 || exit 0
 command -v sfdisk >/dev/null 2>&1 || exit 0
 
 # Need loop devices for systemd-dissect
-test_create_image() {
-    create_empty_image_rootdir
-
-    # Create what will eventually be our root filesystem onto an overlay
-    # If some pieces are missing from the host, skip rather than fail
+test_append_files() {
     (
-        LOG_LEVEL=5
-        setup_basic_environment
-        mask_supporting_services
-
         instmods loop =block
         instmods squashfs =squashfs
         instmods dm_verity =md
