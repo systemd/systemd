@@ -14,7 +14,6 @@ System and Service Manager
 [![CentOS CI - CentOS 7](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20CentOS%207&job=upstream-centos7)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-centos7/)<br/>
 [![CentOS CI - Arch](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch&job=upstream-vagrant-archlinux)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-vagrant-archlinux/)<br/>
 [![CentOS CI - Arch (sanitizers)](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch%20(sanitizers)&job=upstream-vagrant-archlinux-sanitizers)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-vagrant-archlinux-sanitizers/)<br/>
-[![Build Status](https://dev.azure.com/evvers/systemd-systemd/_apis/build/status/systemd.systemd?branchName=master)](https://dev.azure.com/evvers/systemd-systemd/_build/latest?definitionId=1&branchName=master)<br/>
 [![Fossies codespell report](https://fossies.org/linux/test/systemd-master.tar.gz/codespell.svg)](https://fossies.org/linux/test/systemd-master.tar.gz/codespell.html)</br>
 [![Packaging status](https://repology.org/badge/tiny-repos/systemd.svg)](https://repology.org/project/systemd/versions)
 
