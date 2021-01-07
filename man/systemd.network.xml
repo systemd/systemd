@@ -1483,6 +1483,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>TCPAdvertisedMaximumSegmentSize=</varname></term>
+          <listitem>
+            <para>Specifies the Path MSS (in bytes) hints given on TCP layer. The usual suffixes K, M, G, are
+            supported and are understood to the base of 1024. An unsigned integer in the range 1–4294967294.
+            When unset, the kernel's default will be used.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>MultiPathRoute=<replaceable>address</replaceable>[@<replaceable>name</replaceable>] [<replaceable>weight</replaceable>]</varname></term>
           <listitem>
             <para>Configures multipath route. Multipath routing is the technique of using multiple

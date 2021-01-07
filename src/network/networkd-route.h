@@ -40,6 +40,7 @@ typedef struct Route {
         uint32_t mtu;
         uint32_t initcwnd;
         uint32_t initrwnd;
+        uint32_t advmss;
         unsigned char pref;
         unsigned flags;
         int gateway_onlink;
@@ -98,3 +99,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_multipath_route);
+CONFIG_PARSER_PROTOTYPE(config_parse_tcp_advmss);
