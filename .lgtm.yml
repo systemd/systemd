@@ -5,10 +5,15 @@ extraction:
   cpp:
     prepare:
       packages:
-        - libpwquality-dev
         - libfdisk-dev
+       # The current Ubuntu release (Eoan) doesn't have the libfido2 packages.
+       # Let's wait until the LGTM infra is upgraded to at least Ubuntu Focal.
+       #- libfido2-dev
         - libp11-kit-dev
+        - libpwquality-dev
         - libssl-dev
+        - libtss2-dev
+        - libtss2-esys0
   python:
     python_setup:
       version: 3
