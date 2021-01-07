@@ -310,6 +310,8 @@ void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress(&route->initcwnd, sizeof(route->initcwnd), state);
                 siphash24_compress(&route->initrwnd, sizeof(route->initrwnd), state);
 
+                siphash24_compress(&route->advmss, sizeof(route->advmss), state);
+
                 break;
         default:
                 /* treat any other address family as AF_UNSPEC */
@@ -390,6 +392,10 @@ int route_compare_func(const Route *a, const Route *b) {
                         return r;
 
                 r = CMP(a->initrwnd, b->initrwnd);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->advmss, b->advmss);
                 if (r != 0)
                         return r;
 
@@ -475,6 +481,7 @@ static void route_copy(Route *dest, const Route *src, const MultipathRoute *m) {
         dest->initcwnd = src->initcwnd;
         dest->initrwnd = src->initrwnd;
         dest->lifetime = src->lifetime;
+        dest->advmss= src->advmss;
 
         if (m) {
                 dest->gw_family = m->gateway.family;
@@ -1120,6 +1127,12 @@ int route_configure(
                 r = sd_netlink_message_append_u32(req, RTAX_FASTOPEN_NO_COOKIE, route->fast_open_no_cookie);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Could not append RTAX_FASTOPEN_NO_COOKIE attribute: %m");
+        }
+
+        if (route->advmss > 0) {
+                r = sd_netlink_message_append_u32(req, RTAX_ADVMSS, route->advmss);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append RTAX_ADVMSS attribute: %m");
         }
 
         r = sd_netlink_message_close_container(req);
@@ -2069,6 +2082,62 @@ int config_parse_route_type(
         }
 
         n->type = (unsigned char) t;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_tcp_advmss(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        Network *network = userdata;
+        uint64_t u;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
+
+        if (isempty(rvalue)) {
+                n->advmss = 0;
+                return 0;
+        }
+
+        r = parse_size(rvalue, 1024, &u);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse TCPAdvertisedMaximumSegmentSize= \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        if (u == 0 || u > UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid TCPAdvertisedMaximumSegmentSize= \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        n->advmss = u;
 
         TAKE_PTR(n);
         return 0;

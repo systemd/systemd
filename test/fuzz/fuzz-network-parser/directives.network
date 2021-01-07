@@ -161,6 +161,7 @@ Source=
 Metric=
 TTLPropagate=
 MultiPathRoute=
+TCPAdvertisedMaximumSegmentSize=
 [Network]
 IPv6DuplicateAddressDetection=
 IPMasquerade=
