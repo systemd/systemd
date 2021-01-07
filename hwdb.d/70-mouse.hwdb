@@ -191,6 +191,14 @@ mouse:usb:v0461p4d46:name:USB Optical Mouse:*
  MOUSE_DPI=1000@125
 
 ##########################################
+# Elecom
+#########################################
+
+# Elecom HUGE TrackBall (M-HT1DR)
+mouse:usb:v056ep010d:name:ELECOM TrackBall Mouse HUGE TrackBall:*
+ MOUSE_DPI=500@125 *1000@125 1500@125
+
+##########################################
 # Fujitsu Siemens
 ##########################################
 
