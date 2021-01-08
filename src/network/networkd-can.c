@@ -175,13 +175,13 @@ static int link_set_can(Link *link) {
         if (link->network->can_fd_mode >= 0) {
                 cm.mask |= CAN_CTRLMODE_FD;
                 SET_FLAG(cm.flags, CAN_CTRLMODE_FD, link->network->can_fd_mode);
-                log_link_debug(link, "%sabling FD mode", link->network->can_fd_mode ? "En" : "Dis");
+                log_link_debug(link, "Setting FD mode to '%s'.", yes_no(link->network->can_fd_mode));
         }
 
         if (link->network->can_non_iso >= 0) {
                 cm.mask |= CAN_CTRLMODE_FD_NON_ISO;
                 SET_FLAG(cm.flags, CAN_CTRLMODE_FD_NON_ISO, link->network->can_non_iso);
-                log_link_debug(link, "%sabling FD non-ISO mode", link->network->can_non_iso ? "En" : "Dis");
+                log_link_debug(link, "Setting FD non-ISO mode to '%s'.", yes_no(link->network->can_non_iso));
         }
 
         if (link->network->can_restart_us > 0) {
@@ -208,13 +208,13 @@ static int link_set_can(Link *link) {
         if (link->network->can_triple_sampling >= 0) {
                 cm.mask |= CAN_CTRLMODE_3_SAMPLES;
                 SET_FLAG(cm.flags, CAN_CTRLMODE_3_SAMPLES, link->network->can_triple_sampling);
-                log_link_debug(link, "%sabling triple-sampling", link->network->can_triple_sampling ? "En" : "Dis");
+                log_link_debug(link, "Setting triple-sampling to '%s'.", yes_no(link->network->can_triple_sampling));
         }
 
         if (link->network->can_listen_only >= 0) {
                 cm.mask |= CAN_CTRLMODE_LISTENONLY;
                 SET_FLAG(cm.flags, CAN_CTRLMODE_LISTENONLY, link->network->can_listen_only);
-                log_link_debug(link, "%sabling listen-only mode", link->network->can_listen_only ? "En" : "Dis");
+                log_link_debug(link, "Setting listen-only mode to '%s'.", yes_no(link->network->can_listen_only));
         }
 
         if (cm.mask != 0) {
@@ -225,7 +225,7 @@ static int link_set_can(Link *link) {
 
         if (link->network->can_termination >= 0) {
 
-                log_link_debug(link, "%sabling can-termination", link->network->can_termination ? "En" : "Dis");
+                log_link_debug(link, "Setting can-termination to '%s'.", yes_no(link->network->can_termination));
 
                 r = sd_netlink_message_append_u16(m, IFLA_CAN_TERMINATION,
                                 link->network->can_termination ? CAN_TERMINATION_OHM_VALUE : 0);
