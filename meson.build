@@ -1502,6 +1502,7 @@ foreach term : ['analyze',
                 'nss-myhostname',
                 'nss-systemd',
                 'portabled',
+                'sysext',
                 'pstore',
                 'quotacheck',
                 'randomseed',
@@ -1745,6 +1746,7 @@ subdir('src/portable')
 subdir('src/pstore')
 subdir('src/resolve')
 subdir('src/shutdown')
+subdir('src/sysext')
 subdir('src/systemctl')
 subdir('src/timedate')
 subdir('src/timesync')
@@ -2197,6 +2199,17 @@ if conf.get('ENABLE_PORTABLED') == 1
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [threads],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootbindir)
+endif
+
+if conf.get('ENABLE_SYSEXT') == 1
+        public_programs += executable(
+                'systemd-sysext',
+                systemd_sysext_sources,
+                include_directories : includes,
+                link_with : [libshared],
                 install_rpath : rootlibexecdir,
                 install : true,
                 install_dir : rootbindir)
@@ -3735,6 +3748,7 @@ foreach tuple : [
         ['logind'],
         ['machined'],
         ['portabled'],
+        ['sysext'],
         ['userdb'],
         ['homed'],
         ['importd'],
