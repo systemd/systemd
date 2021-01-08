@@ -169,7 +169,7 @@ static int lock_all_homes(void) {
         return log_debug("Successfully requested locking of all home directories.");
 }
 
-static int execute(char **modes, char **states) {
+static int execute(char **modes, char **states, const char *action) {
         char *arguments[] = {
                 NULL,
                 (char*) "pre",
@@ -210,6 +210,10 @@ static int execute(char **modes, char **states) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");;
         }
+
+        r = setenv("SYSTEMD_SLEEP_ACTION", action, 1);
+        if (r != 0)
+                log_warning_errno(errno, "Error setting SYSTEMD_SLEEP_ACTION=%s: %m", action);
 
         (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         (void) lock_all_homes();
@@ -258,7 +262,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
         if (r < 0)
                 return log_error_errno(errno, "Error setting hibernate timer: %m");
 
-        r = execute(sleep_config->suspend_modes, sleep_config->suspend_states);
+        r = execute(sleep_config->suspend_modes, sleep_config->suspend_states, "suspend");
         if (r < 0)
                 return r;
 
@@ -274,11 +278,11 @@ static int execute_s2h(const SleepConfig *sleep_config) {
         log_debug("Attempting to hibernate after waking from %s timer",
                   format_timespan(buf, sizeof(buf), sleep_config->hibernate_delay_sec, USEC_PER_SEC));
 
-        r = execute(sleep_config->hibernate_modes, sleep_config->hibernate_states);
+        r = execute(sleep_config->hibernate_modes, sleep_config->hibernate_states, "hibernate");
         if (r < 0) {
                 log_notice_errno(r, "Couldn't hibernate, will try to suspend again: %m");
 
-                r = execute(sleep_config->suspend_modes, sleep_config->suspend_states);
+                r = execute(sleep_config->suspend_modes, sleep_config->suspend_states, "suspend-after-failed-hibernate");
                 if (r < 0)
                         return log_error_errno(r, "Could neither hibernate nor suspend, giving up: %m");
         }
@@ -387,7 +391,7 @@ static int run(int argc, char *argv[]) {
         if (streq(arg_verb, "suspend-then-hibernate"))
                 return execute_s2h(sleep_config);
         else
-                return execute(modes, states);
+                return execute(modes, states, arg_verb);
 }
 
 DEFINE_MAIN_FUNCTION(run);

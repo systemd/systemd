@@ -56,7 +56,10 @@
     <literal>pre</literal>, the second either
     <literal>suspend</literal>, <literal>hibernate</literal>,
     <literal>hybrid-sleep</literal>, or <literal>suspend-then-hibernate</literal>
-    depending on the chosen action.
+    depending on the chosen action. An environment variable called <literal>SYSTEMD_SLEEP_ACTION</literal>
+    will be set and contain the sleep action that is processing. This is primarily helpful for
+    <literal>suspend-then-hibernate</literal> where the value of the variable will be <literal>suspend</literal>, <literal>hibernate</literal>,
+    or <literal>suspend-after-failed-hibernate</literal> in cases where hibernation has failed.
     Immediately after leaving system suspend and/or hibernation the
     same executables are run, but the first argument is now
     <literal>post</literal>. All executables in this directory are
