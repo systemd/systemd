@@ -432,6 +432,20 @@ int device_set_devnum(sd_device *device, const char *major, const char *minor) {
         return 0;
 }
 
+int device_set_modalias(sd_device *device, const char *modalias) {
+        char *value;
+        int r;
+
+        assert(device);
+        assert(modalias);
+
+        value = ordered_hashmap_get(device->properties, "MODALIAS");
+
+        r = device_add_property_internal(device, value ? "MODALIAS1" : "MODALIAS", modalias);
+
+        return r;
+}
+
 static int handle_uevent_line(sd_device *device, const char *key, const char *value, const char **major, const char **minor) {
         int r;
 
@@ -455,6 +469,10 @@ static int handle_uevent_line(sd_device *device, const char *key, const char *va
                         return r;
         } else if (streq(key, "DEVMODE")) {
                 r = device_set_devmode(device, value);
+                if (r < 0)
+                        return r;
+        } else if (streq(key, "MODALIAS")) {
+                r = device_set_modalias(device, value);
                 if (r < 0)
                         return r;
         } else if (streq(key, "MAJOR"))

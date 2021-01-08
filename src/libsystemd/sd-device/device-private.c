@@ -332,6 +332,10 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                         if (r < 0)
                                 return log_device_debug_errno(device, r, "sd-device: Failed to add devlink '%s': %m", word);
                 }
+        } else if (streq(key, "MODALIAS")) {
+                r = device_set_modalias(device, value);
+                if (r < 0)
+                        return log_device_debug_errno(device, r, "sd-device: Failed to set MODALIAS to '%s': %m", value);
         } else if (STR_IN_SET(key, "TAGS", "CURRENT_TAGS")) {
                 for (const char *p = value;;) {
                         _cleanup_free_ char *word = NULL;

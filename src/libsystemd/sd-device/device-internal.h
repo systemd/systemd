@@ -112,3 +112,4 @@ int device_set_devnum(sd_device *device, const char *major, const char *minor);
 int device_set_subsystem(sd_device *device, const char *_subsystem);
 int device_set_driver(sd_device *device, const char *_driver);
 int device_set_usec_initialized(sd_device *device, usec_t when);
+int device_set_modalias(sd_device *device, const char *modalias);
