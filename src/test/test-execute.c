@@ -574,6 +574,11 @@ static void test_exec_dynamicuser(Manager *m) {
                 return;
         }
 
+        if (strstr_ptr(ci_environment(), "github-actions")) {
+                log_notice("%s: skipping test on GH Actions because of systemd/systemd#10337", __func__);
+                return;
+        }
+
         test(m, "exec-dynamicuser-fixeduser.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
         if (check_user_has_group_with_same_name("adm"))
                 test(m, "exec-dynamicuser-fixeduser-adm.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);

@@ -12,34 +12,12 @@ env:
     - CI_MANAGERS="$TRAVIS_BUILD_DIR/travis-ci/managers"
     - CI_TOOLS="$TRAVIS_BUILD_DIR/travis-ci/tools"
     - REPO_ROOT="$TRAVIS_BUILD_DIR"
-  jobs:
-    - DEBIAN_RELEASE=testing PHASE="RUN_GCC"
-    - DEBIAN_RELEASE=testing PHASE="RUN_GCC_ASAN_UBSAN"
-    - DEBIAN_RELEASE=testing PHASE="RUN_CLANG"
-    - DEBIAN_RELEASE=testing PHASE="RUN_CLANG_ASAN_UBSAN"
 
 stages:
-  # 'Test' is the default stage (for matrix jobs)
-  - name: Test
-    if: type != cron
-
     # Run Coverity periodically instead of for each commit/PR
   - name: Coverity
     if: type = cron
 
-# Matrix job definition - this is run for each combination of env variables
-# from the env.jobs array above
-before_install:
-  - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-  - docker --version
-install:
-  - $CI_MANAGERS/debian.sh SETUP
-script:
-  - $CI_MANAGERS/debian.sh $PHASE || travis_terminate 1
-after_script:
-  - $CI_MANAGERS/debian.sh CLEANUP
-
-# Inject another (single) job into the matrix for Coverity
 jobs:
   include:
     - stage: Coverity
