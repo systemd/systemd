@@ -174,14 +174,14 @@ static int link_set_can(Link *link) {
 
         if (link->network->can_fd_mode >= 0) {
                 cm.mask |= CAN_CTRLMODE_FD;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_FD, link->network->can_fd_mode > 0);
-                log_link_debug(link, "%sabling FD mode", link->network->can_fd_mode > 0 ? "En" : "Dis");
+                SET_FLAG(cm.flags, CAN_CTRLMODE_FD, link->network->can_fd_mode);
+                log_link_debug(link, "%sabling FD mode", link->network->can_fd_mode ? "En" : "Dis");
         }
 
         if (link->network->can_non_iso >= 0) {
                 cm.mask |= CAN_CTRLMODE_FD_NON_ISO;
-                SET_FLAG(cm.flags, CAN_CTRLMODE_FD_NON_ISO, link->network->can_non_iso > 0);
-                log_link_debug(link, "%sabling FD non-ISO mode", link->network->can_non_iso > 0 ? "En" : "Dis");
+                SET_FLAG(cm.flags, CAN_CTRLMODE_FD_NON_ISO, link->network->can_non_iso);
+                log_link_debug(link, "%sabling FD non-ISO mode", link->network->can_non_iso ? "En" : "Dis");
         }
 
         if (link->network->can_restart_us > 0) {
