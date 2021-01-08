@@ -111,6 +111,8 @@ option('machined', type : 'boolean',
        description : 'install the systemd-machined stack')
 option('portabled', type : 'boolean',
        description : 'install the systemd-portabled stack')
+option('sysext', type : 'boolean',
+       description : 'install the systemd-sysext stack')
 option('userdb', type : 'boolean',
        description : 'install the systemd-userdbd stack')
 option('homed', type : 'combo', choices : ['auto', 'true', 'false'],

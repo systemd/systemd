@@ -1483,6 +1483,7 @@ foreach term : ['analyze',
                 'nss-myhostname',
                 'nss-systemd',
                 'portabled',
+                'sysext',
                 'pstore',
                 'quotacheck',
                 'randomseed',
@@ -1709,6 +1710,7 @@ subdir('src/kernel-install')
 subdir('src/locale')
 subdir('src/machine')
 subdir('src/portable')
+subdir('src/sysext')
 subdir('src/userdb')
 subdir('src/home')
 subdir('src/nspawn')
@@ -2235,6 +2237,18 @@ if conf.get('ENABLE_PORTABLED') == 1
         public_programs += executable(
                 'portablectl',
                 'src/portable/portablectl.c',
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [threads],
+                install_rpath : rootlibexecdir,
+                install : true,
+                install_dir : rootbindir)
+endif
+
+if conf.get('ENABLE_SYSEXT') == 1
+        public_programs += executable(
+                'systemd-sysext',
+                'src/sysext/sysext.c',
                 include_directories : includes,
                 link_with : [libshared],
                 dependencies : [threads],
@@ -3845,6 +3859,7 @@ foreach tuple : [
         ['logind'],
         ['machined'],
         ['portabled'],
+        ['sysext'],
         ['userdb'],
         ['homed'],
         ['importd'],
