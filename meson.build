@@ -832,6 +832,14 @@ if default_locale == ''
 endif
 conf.set_quoted('SYSTEMD_DEFAULT_LOCALE', default_locale)
 
+localegen_path = get_option('localegen-path')
+have = false
+if localegen_path != ''
+        conf.set_quoted('LOCALEGEN_PATH', localegen_path)
+        have = true
+endif
+conf.set10('HAVE_LOCALEGEN', have)
+
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 
 service_watchdog = get_option('service-watchdog')
