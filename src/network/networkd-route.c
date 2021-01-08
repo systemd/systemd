@@ -2121,6 +2121,7 @@ int config_parse_tcp_advmss(
 
         if (isempty(rvalue)) {
                 n->advmss = 0;
+                TAKE_PTR(n);
                 return 0;
         }
 
