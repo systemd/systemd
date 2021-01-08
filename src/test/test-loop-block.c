@@ -132,9 +132,9 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
 
-        if (strstr_ptr(ci_environment(), "autopkgtest")) {
+        if (strstr_ptr(ci_environment(), "autopkgtest") || strstr_ptr(ci_environment(), "github-actions")) {
                 // FIXME: we should reenable this one day
-                log_tests_skipped("Skipping test on Ubuntu autopkgtest CI, test too slow and installed udev too flakey.");
+                log_tests_skipped("Skipping test on Ubuntu autopkgtest CI/GH Actions, test too slow and installed udev too flakey.");
                 return EXIT_TEST_SKIP;
         }
 
