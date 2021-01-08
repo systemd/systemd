@@ -236,6 +236,7 @@ static int image_make(
         if (S_ISDIR(st->st_mode)) {
                 _cleanup_close_ int fd = -1;
                 unsigned file_attr = 0;
+                usec_t crtime = 0;
 
                 if (!ret)
                         return 0;
@@ -295,8 +296,10 @@ static int image_make(
                         }
                 }
 
-                /* If the IMMUTABLE bit is set, we consider the
-                 * directory read-only. Since the ioctl is not
+                /* Get directory creation time (not available everywhere, but that's OK */
+                (void) fd_getcrtime(dfd, &crtime);
+
+                /* If the IMMUTABLE bit is set, we consider the directory read-only. Since the ioctl is not
                  * supported everywhere we ignore failures. */
                 (void) read_attr_fd(fd, &file_attr);
 
@@ -306,8 +309,8 @@ static int image_make(
                               path,
                               filename,
                               read_only || (file_attr & FS_IMMUTABLE_FL),
-                              0,
-                              0,
+                              crtime,
+                              0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
                               ret);
                 if (r < 0)
                         return r;
