@@ -42,18 +42,24 @@
 #include "xattr-util.h"
 
 static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
-        [IMAGE_MACHINE] =  "/etc/machines\0"              /* only place symlinks here */
-                           "/run/machines\0"              /* and here too */
-                           "/var/lib/machines\0"          /* the main place for images */
-                           "/var/lib/container\0"         /* legacy */
-                           "/usr/local/lib/machines\0"
-                           "/usr/lib/machines\0",
+        [IMAGE_MACHINE] =   "/etc/machines\0"              /* only place symlinks here */
+                            "/run/machines\0"              /* and here too */
+                            "/var/lib/machines\0"          /* the main place for images */
+                            "/var/lib/container\0"         /* legacy */
+                            "/usr/local/lib/machines\0"
+                            "/usr/lib/machines\0",
 
-        [IMAGE_PORTABLE] = "/etc/portables\0"             /* only place symlinks here */
-                           "/run/portables\0"             /* and here too */
-                           "/var/lib/portables\0"         /* the main place for images */
-                           "/usr/local/lib/portables\0"
-                           "/usr/lib/portables\0",
+        [IMAGE_PORTABLE] =  "/etc/portables\0"             /* only place symlinks here */
+                            "/run/portables\0"             /* and here too */
+                            "/var/lib/portables\0"         /* the main place for images */
+                            "/usr/local/lib/portables\0"
+                            "/usr/lib/portables\0",
+
+        [IMAGE_EXTENSION] = "/etc/extensions\0"             /* only place symlinks here */
+                            "/run/extensions\0"             /* and here too */
+                            "/var/lib/extensions\0"         /* the main place for images */
+                            "/usr/local/lib/extensions\0"
+                            "/usr/lib/extensions\0",
 };
 
 static Image *image_free(Image *i) {
