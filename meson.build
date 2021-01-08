@@ -3651,10 +3651,11 @@ endforeach
 
 if git.found()
         all_files = run_command(
+                'env', '-u', 'GIT_WORK_TREE',
                 git,
-                ['--git-dir=@0@/.git'.format(project_source_root),
-                 'ls-files',
-                 ':/*.[ch]'])
+                '--git-dir=@0@/.git'.format(project_source_root),
+                'ls-files', ':/*.[ch]')
+
         all_files = files(all_files.stdout().split())
 
         custom_target(
