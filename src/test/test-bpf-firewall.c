@@ -37,16 +37,6 @@ int main(int argc, char *argv[]) {
         if (detect_container() > 0)
                 return log_tests_skipped("test-bpf-firewall fails inside LXC and Docker containers: https://github.com/systemd/systemd/issues/9666");
 
-#ifdef __clang__
-        /* FIXME: This test is for (currently unknown) reasons failing in both
-         * sanitized and unsanitized clang runs. Until the issue is resolved,
-         * let's skip the test when running on GH Actions and compiled with
-         * clang.
-         */
-        if (strstr_ptr(ci_environment(), "github-actions"))
-                return log_tests_skipped("Skipping test on GH Actions");
-#endif
-
         assert_se(getrlimit(RLIMIT_MEMLOCK, &rl) >= 0);
         rl.rlim_cur = rl.rlim_max = MAX(rl.rlim_max, CAN_MEMLOCK_SIZE);
         (void) setrlimit(RLIMIT_MEMLOCK, &rl);

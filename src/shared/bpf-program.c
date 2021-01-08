@@ -76,6 +76,11 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
                 return 0;
         }
 
+        // FIXME: Clang doesn't 0-pad with structured initialization, causing
+        // the kernel to reject the bpf_attr as invalid. See:
+        // https://github.com/torvalds/linux/blob/v5.9/kernel/bpf/syscall.c#L65
+        // Ideally it should behave like GCC, so that we can remove these workarounds.
+        zero(attr);
         attr = (union bpf_attr) {
                 .prog_type = p->prog_type,
                 .insns = PTR_TO_UINT64(p->instructions),
@@ -101,6 +106,7 @@ int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path) {
         if (p->kernel_fd >= 0) /* don't overwrite an assembled or loaded program */
                 return -EBUSY;
 
+        zero(attr);
         attr = (union bpf_attr) {
                 .pathname = PTR_TO_UINT64(path),
         };
@@ -158,6 +164,7 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
         if (fd < 0)
                 return -errno;
 
+        zero(attr);
         attr = (union bpf_attr) {
                 .attach_type = type,
                 .target_fd = fd,
@@ -194,6 +201,7 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
         } else {
                 union bpf_attr attr;
 
+                zero(attr);
                 attr = (union bpf_attr) {
                         .attach_type = p->attached_type,
                         .target_fd = fd,
