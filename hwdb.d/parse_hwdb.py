@@ -133,7 +133,7 @@ def property_grammar():
              ('ID_INPUT_JOYSTICK', Literal('1')),
              ('ID_INPUT_KEY', Literal('1')),
              ('ID_INPUT_KEYBOARD', Literal('1')),
-             ('ID_INPUT_MOUSE', Literal('1')),
+             ('ID_INPUT_MOUSE', Or((Literal('0'), Literal('1')))),
              ('ID_INPUT_POINTINGSTICK', Literal('1')),
              ('ID_INPUT_SWITCH', Literal('1')),
              ('ID_INPUT_TABLET', Literal('1')),
