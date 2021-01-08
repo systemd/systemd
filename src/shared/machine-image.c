@@ -129,17 +129,21 @@ static int image_new(
         assert(filename);
         assert(ret);
 
-        i = new0(Image, 1);
+        i = new(Image, 1);
         if (!i)
                 return -ENOMEM;
 
-        i->n_ref = 1;
-        i->type = t;
-        i->read_only = read_only;
-        i->crtime = crtime;
-        i->mtime = mtime;
-        i->usage = i->usage_exclusive = (uint64_t) -1;
-        i->limit = i->limit_exclusive = (uint64_t) -1;
+        *i = (Image) {
+                .n_ref = 1,
+                .type = t,
+                .read_only = read_only,
+                .crtime = crtime,
+                .mtime = mtime,
+                .usage = UINT64_MAX,
+                .usage_exclusive = UINT64_MAX,
+                .limit = UINT64_MAX,
+                .limit_exclusive = UINT64_MAX,
+        };
 
         i->name = strdup(pretty);
         if (!i->name)
