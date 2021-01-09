@@ -28,7 +28,7 @@ static void test_fgetxattrat_fake(void) {
         assert_se(touch(x) >= 0);
 
         r = setxattr(x, "user.foo", "bar", 3, 0);
-        if (r < 0 && errno == EOPNOTSUPP) /* no xattrs supported on /var/tmp... */
+        if (r < 0 && ERRNO_IS_NOT_SUPPORTED(errno)) /* no xattrs supported on /var/tmp... */
                 goto cleanup;
         assert_se(r >= 0);
 
@@ -42,7 +42,8 @@ static void test_fgetxattrat_fake(void) {
         safe_close(fd);
         fd = open("/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY);
         assert_se(fd >= 0);
-        assert_se(fgetxattrat_fake(fd, "usr", "user.idontexist", v, 3, 0, &size) == -ENODATA);
+        r = fgetxattrat_fake(fd, "usr", "user.idontexist", v, 3, 0, &size);
+        assert_se(r == -ENODATA || ERRNO_IS_NOT_SUPPORTED(r));
 
 cleanup:
         assert_se(unlink(x) >= 0);
