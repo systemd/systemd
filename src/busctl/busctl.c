@@ -31,11 +31,7 @@
 #include "user-util.h"
 #include "verbs.h"
 
-static enum {
-        JSON_OFF,
-        JSON_SHORT,
-        JSON_PRETTY,
-} arg_json = JSON_OFF;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static bool arg_full = false;
@@ -67,7 +63,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 #define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
 
 static int json_transform_message(sd_bus_message *m, JsonVariant **ret);
-static void json_dump_with_flags(JsonVariant *v, FILE *f);
 
 static int acquire_bus(bool set_monitor, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
@@ -362,13 +357,10 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
                         return log_error_errno(r, "Failed to fill line: %m");
         }
 
-        (void) pager_open(arg_pager_flags);
+        if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
+                (void) pager_open(arg_pager_flags);
 
-        if (arg_json)
-                r = table_print_json(table, stdout,
-                                     (arg_json == JSON_PRETTY ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE) | JSON_FORMAT_COLOR_AUTO);
-        else
-                r = table_print(table, stdout);
+        r = table_print_json(table, NULL, arg_json_format_flags);
         if (r < 0)
                 return table_log_print_error(r);
 
@@ -1228,7 +1220,7 @@ static int message_json(sd_bus_message *m, FILE *f) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
-        json_dump_with_flags(w, f);
+        json_variant_dump(w, arg_json_format_flags, f, NULL);
         return 0;
 }
 
@@ -1355,7 +1347,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
 }
 
 static int verb_monitor(int argc, char **argv, void *userdata) {
-        return monitor(argc, argv, arg_json != JSON_OFF ? message_json : message_dump);
+        return monitor(argc, argv, (arg_json_format_flags & JSON_FORMAT_OFF) ? message_dump : message_json);
 }
 
 static int verb_capture(int argc, char **argv, void *userdata) {
@@ -2006,14 +1998,6 @@ static int json_transform_message(sd_bus_message *m, JsonVariant **ret) {
         return 0;
 }
 
-static void json_dump_with_flags(JsonVariant *v, FILE *f) {
-
-        json_variant_dump(v,
-                          (arg_json == JSON_PRETTY ? JSON_FORMAT_PRETTY : JSON_FORMAT_NEWLINE) |
-                          JSON_FORMAT_COLOR_AUTO,
-                          f, NULL);
-}
-
 static int call(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2072,17 +2056,17 @@ static int call(int argc, char **argv, void *userdata) {
 
         if (r == 0 && !arg_quiet) {
 
-                if (arg_json != JSON_OFF) {
+                if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-                        if (arg_json != JSON_SHORT)
+                        if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                                 (void) pager_open(arg_pager_flags);
 
                         r = json_transform_message(reply, &v);
                         if (r < 0)
                                 return r;
 
-                        json_dump_with_flags(v, stdout);
+                        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
                 } else if (arg_verbose) {
                         (void) pager_open(arg_pager_flags);
@@ -2181,17 +2165,17 @@ static int get_property(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (arg_json != JSON_OFF) {
+                if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-                        if (arg_json != JSON_SHORT)
+                        if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                                 (void) pager_open(arg_pager_flags);
 
                         r = json_transform_variant(reply, contents, &v);
                         if (r < 0)
                                 return r;
 
-                        json_dump_with_flags(v, stdout);
+                        json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 
                 } else if (arg_verbose) {
                         (void) pager_open(arg_pager_flags);
@@ -2543,25 +2527,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'j':
-                        if (on_tty())
-                                arg_json = JSON_PRETTY;
-                        else
-                                arg_json = JSON_SHORT;
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case ARG_JSON:
-                        if (streq(optarg, "short"))
-                                arg_json = JSON_SHORT;
-                        else if (streq(optarg, "pretty"))
-                                arg_json = JSON_PRETTY;
-                        else if (streq(optarg, "help")) {
-                                fputs("short\n"
-                                      "pretty\n", stdout);
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown JSON out mode: %s",
-                                                       optarg);
+                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
 
                         break;
 
