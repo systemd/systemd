@@ -106,8 +106,7 @@ static bool arg_randomize = false;
 static int arg_pretty = -1;
 static uint64_t arg_size = UINT64_MAX;
 static bool arg_size_auto = false;
-static bool arg_json = false;
-static JsonFormatFlags arg_json_format_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static char *arg_tpm2_device = NULL;
@@ -1824,7 +1823,7 @@ static int context_dump_partitions(Context *context, const char *node) {
         Partition *p;
         int r;
 
-        if (!arg_json && context->n_partitions == 0) {
+        if ((arg_json_format_flags & JSON_FORMAT_OFF) && context->n_partitions == 0) {
                 log_info("Empty partition table.");
                 return 0;
         }
@@ -1834,12 +1833,12 @@ static int context_dump_partitions(Context *context, const char *node) {
                 return log_oom();
 
         if (!DEBUG_LOGGING) {
-                if (arg_json)
-                        (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12, (size_t) -1);
-                else
+                if (arg_json_format_flags & JSON_FORMAT_OFF)
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
                                                     (size_t) 8, (size_t) 11, (size_t) -1);
+                else
+                        (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
+                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10, (size_t) 12, (size_t) -1);
         }
 
         (void) table_set_align_percent(t, table_get_cell(t, 0, 4), 100);
@@ -1893,7 +1892,7 @@ static int context_dump_partitions(Context *context, const char *node) {
                         return table_log_add_error(r);
         }
 
-        if (!arg_json && (sum_padding > 0 || sum_size > 0)) {
+        if ((arg_json_format_flags & JSON_FORMAT_OFF) && (sum_padding > 0 || sum_size > 0)) {
                 char s[FORMAT_BYTES_MAX];
                 const char *a, *b;
 
@@ -1919,12 +1918,9 @@ static int context_dump_partitions(Context *context, const char *node) {
                         return table_log_add_error(r);
         }
 
-        if (arg_json)
-                r = table_print_json(t, stdout, arg_json_format_flags);
-        else
-                r = table_print(t, stdout);
+        r = table_print_json(t, stdout, arg_json_format_flags);
         if (r < 0)
-                return log_error_errno(r, "Failed to dump table: %m");
+                return table_log_print_error(r);
 
         return 0;
 }
@@ -3203,13 +3199,13 @@ static int context_write_partition_table(
 
         if (arg_pretty > 0 ||
             (arg_pretty < 0 && isatty(STDOUT_FILENO) > 0) ||
-            arg_json) {
+            !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
 
                 (void) context_dump_partitions(context, node);
 
                 putc('\n', stdout);
 
-                if (!arg_json)
+                if (arg_json_format_flags & JSON_FORMAT_OFF)
                         (void) context_dump_partition_bar(context, node);
                 putc('\n', stdout);
                 fflush(stdout);
@@ -3679,22 +3675,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_JSON:
-                        if (streq(optarg, "pretty")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
-                        } else if (streq(optarg, "short")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_NEWLINE;
-                        } else if (streq(optarg, "off")) {
-                                arg_json = false;
-                                arg_json_format_flags = 0;
-                        } else if (streq(optarg, "help")) {
-                                puts("pretty\n"
-                                     "short\n"
-                                     "off");
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json=: %s", optarg);
+                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
 
                         break;
 

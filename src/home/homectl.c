@@ -56,8 +56,7 @@ static uint64_t arg_disk_size_relative = UINT64_MAX;
 static char **arg_pkcs11_token_uri = NULL;
 static char **arg_fido2_device = NULL;
 static bool arg_recovery_key = false;
-static bool arg_json = false;
-static JsonFormatFlags arg_json_format_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static bool arg_and_resize = false;
 static bool arg_and_change_password = false;
 static enum {
@@ -171,22 +170,19 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (table_get_rows(table) > 1 || arg_json) {
+        if (table_get_rows(table) > 1 || !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                 r = table_set_sort(table, (size_t) 0, (size_t) -1);
                 if (r < 0)
                         return table_log_sort_error(r);
 
                 table_set_header(table, arg_legend);
 
-                if (arg_json)
-                        r = table_print_json(table, stdout, arg_json_format_flags);
-                else
-                        r = table_print(table, NULL);
+                r = table_print_json(table, stdout, arg_json_format_flags);
                 if (r < 0)
                         return table_log_print_error(r);
         }
 
-        if (arg_legend && !arg_json) {
+        if (arg_legend && (arg_json_format_flags & JSON_FORMAT_OFF)) {
                 if (table_get_rows(table) > 1)
                         printf("\n%zu home areas listed.\n", table_get_rows(table) - 1);
                 else
@@ -462,7 +458,9 @@ static void dump_home_record(UserRecord *hr) {
                 log_warning("Warning: lacking rights to acquire privileged fields of user record of '%s', output incomplete.", hr->user_name);
         }
 
-        if (arg_json) {
+        if (arg_json_format_flags & JSON_FORMAT_OFF)
+                user_record_show(hr, true);
+        else {
                 _cleanup_(user_record_unrefp) UserRecord *stripped = NULL;
 
                 if (arg_export_format == EXPORT_FORMAT_STRIPPED)
@@ -477,8 +475,7 @@ static void dump_home_record(UserRecord *hr) {
                         hr = stripped;
 
                 json_variant_dump(hr->json, arg_json_format_flags, stdout, NULL);
-        } else
-                user_record_show(hr, true);
+        }
 }
 
 static char **mangle_user_list(char **list, char ***ret_allocated) {
@@ -3235,27 +3232,13 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case 'j':
-                        arg_json = true;
                         arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case ARG_JSON:
-                        if (streq(optarg, "pretty")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
-                        } else if (streq(optarg, "short")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_NEWLINE;
-                        } else if (streq(optarg, "off")) {
-                                arg_json = false;
-                                arg_json_format_flags = 0;
-                        } else if (streq(optarg, "help")) {
-                                puts("pretty\n"
-                                     "short\n"
-                                     "off");
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json=: %s", optarg);
+                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
 
                         break;
 
@@ -3267,7 +3250,7 @@ static int parse_argv(int argc, char *argv[]) {
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specifying -E more than twice is not supported.");
 
-                        arg_json = true;
+                        arg_json_format_flags &= ~JSON_FORMAT_OFF;
                         if (arg_json_format_flags == 0)
                                 arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;

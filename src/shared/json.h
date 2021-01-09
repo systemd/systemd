@@ -175,6 +175,7 @@ typedef enum JsonFormatFlags {
         JSON_FORMAT_SSE         = 1 << 6, /* prefix/suffix with W3C server-sent events */
         JSON_FORMAT_SEQ         = 1 << 7, /* prefix/suffix with RFC 7464 application/json-seq */
         JSON_FORMAT_FLUSH       = 1 << 8, /* call fflush() after dumping JSON */
+        JSON_FORMAT_OFF         = 1 << 9, /* make json_variant_format() fail with -ENOEXEC */
 } JsonFormatFlags;
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret);
@@ -355,6 +356,8 @@ int json_log_internal(JsonVariant *variant, int level, int error, const char *fi
 
 int json_variant_unbase64(JsonVariant *v, void **ret, size_t *ret_size);
 int json_variant_unhex(JsonVariant *v, void **ret, size_t *ret_size);
+
+int json_parse_cmdline_parameter_and_warn(const char *s, JsonFormatFlags *ret);
 
 const char *json_variant_type_to_string(JsonVariantType t);
 JsonVariantType json_variant_type_from_string(const char *s);
