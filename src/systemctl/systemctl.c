@@ -193,7 +193,7 @@ static int systemctl_help(void) {
                "  show-environment                    Dump environment\n"
                "  set-environment VARIABLE=VALUE...   Set one or more environment variables\n"
                "  unset-environment VARIABLE...       Unset one or more environment variables\n"
-               "  import-environment [VARIABLE...]    Import all or some environment variables\n"
+               "  import-environment VARIABLE...      Import all or some environment variables\n"
                "\n%3$sManager State Commands:%4$s\n"
                "  daemon-reload                       Reload systemd manager configuration\n"
                "  daemon-reexec                       Reexecute systemd manager\n"

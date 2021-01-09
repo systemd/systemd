@@ -119,9 +119,9 @@ int import_environment(int argc, char *argv[], void *userdata) {
                 return bus_log_create_error(r);
 
         if (argc < 2) {
-                _cleanup_strv_free_ char **copy = NULL;
+                log_warning("Calling import-environment without a list of variable names is deprecated.");
 
-                copy = strv_copy(environ);
+                _cleanup_strv_free_ char **copy = strv_copy(environ);
                 if (!copy)
                         return log_oom();
 
