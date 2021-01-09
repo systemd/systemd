@@ -206,6 +206,7 @@ in_units = [
         ['systemd-oomd.service',                 'ENABLE_OOMD'],
         ['systemd-portabled.service',            'ENABLE_PORTABLED',
          'dbus-org.freedesktop.portable1.service'],
+        ['systemd-sysext.service',               'ENABLE_SYSEXT'],
         ['systemd-userdbd.service',              'ENABLE_USERDB'],
         ['systemd-homed.service',                'ENABLE_HOMED'],
         ['systemd-quotacheck.service',           'ENABLE_QUOTACHECK'],
