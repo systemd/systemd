@@ -45,8 +45,7 @@ static const char *arg_source = NULL;
 static const char *arg_target = NULL;
 static DissectImageFlags arg_flags = DISSECT_IMAGE_REQUIRE_ROOT|DISSECT_IMAGE_DISCARD_ON_LOOP|DISSECT_IMAGE_RELAX_VAR_CHECK|DISSECT_IMAGE_FSCK;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
-static bool arg_json = false;
-static JsonFormatFlags arg_json_format_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, verity_settings_done);
 
@@ -242,22 +241,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_JSON:
-                        if (streq(optarg, "pretty")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
-                        } else if (streq(optarg, "short")) {
-                                arg_json = true;
-                                arg_json_format_flags = JSON_FORMAT_NEWLINE;
-                        } else if (streq(optarg, "off")) {
-                                arg_json = false;
-                                arg_json_format_flags = 0;
-                        } else if (streq(optarg, "help")) {
-                                puts("pretty\n"
-                                     "short\n"
-                                     "off");
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json=: %s", optarg);
+                        r = json_parse_cmdline_parameter_and_warn(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
 
                         break;
 
@@ -353,17 +339,17 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         assert(m);
         assert(d);
 
-        if (!arg_json)
+        if (arg_json_format_flags & JSON_FORMAT_OFF)
                 printf("      Name: %s\n", basename(arg_image));
 
         if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
                 log_debug_errno(errno, "Failed to query size of loopback device: %m");
-        else if (!arg_json) {
+        else if (arg_json_format_flags & JSON_FORMAT_OFF) {
                 char s[FORMAT_BYTES_MAX];
                 printf("      Size: %s\n", format_bytes(s, sizeof(s), size));
         }
 
-        if (!arg_json)
+        if (arg_json_format_flags & JSON_FORMAT_OFF)
                 putc('\n', stdout);
 
         r = dissected_image_acquire_metadata(m);
@@ -379,7 +365,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 log_warning_errno(r, "OS image is currently in use, proceeding without showing OS image metadata.");
         else if (r < 0)
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
-        else if (!arg_json) {
+        else if (arg_json_format_flags & JSON_FORMAT_OFF) {
                 if (m->hostname)
                         printf("  Hostname: %s\n", m->hostname);
 
@@ -495,7 +481,11 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return table_log_add_error(r);
         }
 
-        if (arg_json) {
+        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                r = table_print(t, stdout);
+                if (r < 0)
+                        return table_log_print_error(r);
+        } else {
                 _cleanup_(json_variant_unrefp) JsonVariant *jt = NULL;
 
                 r = table_to_json(t, &jt);
@@ -507,10 +497,6 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                         return log_oom();
 
                 json_variant_dump(v, arg_json_format_flags, stdout, NULL);
-        } else {
-                r = table_print(t, stdout);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to dump table: %m");
         }
 
         return 0;
