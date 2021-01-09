@@ -4,13 +4,14 @@
 # Traductions françaises du paquet systemd.
 #
 # Julien Humbert <julroy67@gmail.com>, 2020, 2021.
+# Arnaud T. <listes.00@gmail.com>, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2020-08-19 18:02+0200\n"
-"PO-Revision-Date: 2021-01-02 00:36+0000\n"
-"Last-Translator: Julien Humbert <julroy67@gmail.com>\n"
+"PO-Revision-Date: 2021-01-09 10:48+0000\n"
+"Last-Translator: Arnaud T. <listes.00@gmail.com>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
 "master/fr/>\n"
 "Language: fr\n"
@@ -796,13 +797,12 @@ msgstr "Authentification requise pour réinitialiser les paramètres DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
+msgstr "Le serveur DHCP envoie un message de renouvellement forcé"
 
 #: src/network/org.freedesktop.network1.policy:144
-#, fuzzy
-#| msgid "Authentication is required to set a wall message"
 msgid "Authentication is required to send force renew message."
-msgstr "Authentification requise pour définir un message wall."
+msgstr ""
+"Authentification requise pour envoyer un message de renouvellement forcé."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -969,15 +969,11 @@ msgstr ""
 "associés à « $(unit) »."
 
 #: src/core/dbus-unit.c:760
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
-"Authentification requise pour envoyer un signal UNIX aux processus de "
-"« $(unit) »."
+"Authentification requise pour la suspension ou la reprise des processus de "
+"l'unité « $(unit) »."
 
 #~ msgid ""
 #~ "Authentication is required to halt the system while an application asked "
