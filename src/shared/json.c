@@ -4459,6 +4459,27 @@ int json_variant_unhex(JsonVariant *v, void **ret, size_t *ret_size) {
         return unhexmem(json_variant_string(v), (size_t) -1, ret, ret_size);
 }
 
+int json_parse_cmdline_parameter_and_warn(const char *s, JsonFormatFlags *ret) {
+        assert(s);
+        assert(ret);
+
+        if (streq(s, "pretty"))
+                *ret = JSON_FORMAT_PRETTY|JSON_FORMAT_COLOR_AUTO;
+        else if (streq(s, "short"))
+                *ret = JSON_FORMAT_NEWLINE;
+        else if (streq(s, "off"))
+                *ret = JSON_FORMAT_OFF;
+        else if (streq(s, "help")) {
+                puts("pretty\n"
+                     "short\n"
+                     "off");
+                return 0; /* 0 means → we showed a brief help, exit now */
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown argument to --json= switch: %s", s);
+
+        return 1; /* 1 means → properly parsed */
+}
+
 static const char* const json_variant_type_table[_JSON_VARIANT_TYPE_MAX] = {
         [JSON_VARIANT_STRING] = "string",
         [JSON_VARIANT_INTEGER] = "integer",
