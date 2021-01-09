@@ -247,6 +247,8 @@ m4_units = [
         ['serial-getty@.service',              ''],
 ]
 
+add_wants = []
+
 foreach tuple : in_units
         file = tuple[0]
 
@@ -270,7 +272,7 @@ foreach tuple : in_units
 
         if install and tuple.length() > 2
                 foreach target : tuple[2].split()
-                        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
+                        add_wants += [systemunitdir, target, file]
                 endforeach
         endif
 endforeach
@@ -295,7 +297,7 @@ foreach tuple : m4_units
 
         if tuple.length() > 2 and install
                 foreach target : tuple[2].split()
-                        meson.add_install_script('meson-add-wants.sh', systemunitdir, target, file)
+                        add_wants += [systemunitdir, target, file]
                 endforeach
         endif
 endforeach
@@ -314,12 +316,13 @@ foreach tuple : units
 
                 if tuple.length() > 2
                         foreach target : tuple[2].split()
-                                meson.add_install_script(
-                                        'meson-add-wants.sh', systemunitdir, target, file)
+                                add_wants += [systemunitdir, target, file]
                         endforeach
                 endif
         endif
 endforeach
+
+meson.add_install_script('meson-add-wants.sh', add_wants)
 
 install_data('user-.slice.d/10-defaults.conf',
              install_dir : systemunitdir + '/user-.slice.d')
