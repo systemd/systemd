@@ -1766,6 +1766,9 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         assert_return(v, -EINVAL);
         assert_return(ret, -EINVAL);
 
+        if (flags & JSON_FORMAT_OFF)
+                return -ENOEXEC;
+
         {
                 _cleanup_fclose_ FILE *f = NULL;
 

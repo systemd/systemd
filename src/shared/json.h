@@ -175,6 +175,7 @@ typedef enum JsonFormatFlags {
         JSON_FORMAT_SSE         = 1 << 6, /* prefix/suffix with W3C server-sent events */
         JSON_FORMAT_SEQ         = 1 << 7, /* prefix/suffix with RFC 7464 application/json-seq */
         JSON_FORMAT_FLUSH       = 1 << 8, /* call fflush() after dumping JSON */
+        JSON_FORMAT_OFF         = 1 << 9, /* make json_variant_format() fail with -ENOEXEC */
 } JsonFormatFlags;
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret);
