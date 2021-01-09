@@ -1221,7 +1221,7 @@ int config_parse_rx_tx_queues(
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
                 return 0;
         }
-        if (k > 4096) {
+        if (k == 0 || k > 4096) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid %s=, ignoring assignment: %s.", lvalue, rvalue);
                 return 0;
         }

@@ -1497,6 +1497,12 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         return 0;
                 }
 
+                r = sd_netlink_message_read_u32(message, RTAX_ADVMSS, &tmp->advmss);
+                if (r < 0 && r != -ENODATA) {
+                        log_link_warning_errno(link, r, "rtnl: received route message with invalid advmss, ignoring: %m");
+                        return 0;
+                }
+
                 r = sd_netlink_message_exit_container(message);
                 if (r < 0) {
                         log_link_error_errno(link, r, "rtnl: Could not exit from RTA_METRICS container: %m");
@@ -2121,6 +2127,7 @@ int config_parse_tcp_advmss(
 
         if (isempty(rvalue)) {
                 n->advmss = 0;
+                TAKE_PTR(n);
                 return 0;
         }
 
