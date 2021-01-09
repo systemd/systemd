@@ -87,14 +87,16 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
         meson "$BUILDDIR" -D "sysvinit-path=$sysvinit_path" -D "rootprefix=$rootprefix" -D man=false -D "nobody-user=$nobody_user" -D "nobody-group=$nobody_group"
 fi
 
-ninja -C "$BUILDDIR" all
+cd "$BUILDDIR"
+ninja
 if [ "$WITH_TESTS" = 1 ] ; then
         for id in 1 2 3; do
                 groupadd -g $id testgroup$id || :
         done
 
-        ninja -C "$BUILDDIR" test
+        ninja test
 fi
+cd "$SRCDIR"
 
 # Ubuntu Focal is stuck with meson 0.53.0.
 if [ "$(meson -v | cut -d . -f 2)" -gt 53 ] ; then
