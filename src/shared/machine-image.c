@@ -129,17 +129,21 @@ static int image_new(
         assert(filename);
         assert(ret);
 
-        i = new0(Image, 1);
+        i = new(Image, 1);
         if (!i)
                 return -ENOMEM;
 
-        i->n_ref = 1;
-        i->type = t;
-        i->read_only = read_only;
-        i->crtime = crtime;
-        i->mtime = mtime;
-        i->usage = i->usage_exclusive = (uint64_t) -1;
-        i->limit = i->limit_exclusive = (uint64_t) -1;
+        *i = (Image) {
+                .n_ref = 1,
+                .type = t,
+                .read_only = read_only,
+                .crtime = crtime,
+                .mtime = mtime,
+                .usage = UINT64_MAX,
+                .usage_exclusive = UINT64_MAX,
+                .limit = UINT64_MAX,
+                .limit_exclusive = UINT64_MAX,
+        };
 
         i->name = strdup(pretty);
         if (!i->name)
@@ -232,6 +236,7 @@ static int image_make(
         if (S_ISDIR(st->st_mode)) {
                 _cleanup_close_ int fd = -1;
                 unsigned file_attr = 0;
+                usec_t crtime = 0;
 
                 if (!ret)
                         return 0;
@@ -291,8 +296,10 @@ static int image_make(
                         }
                 }
 
-                /* If the IMMUTABLE bit is set, we consider the
-                 * directory read-only. Since the ioctl is not
+                /* Get directory creation time (not available everywhere, but that's OK */
+                (void) fd_getcrtime(dfd, &crtime);
+
+                /* If the IMMUTABLE bit is set, we consider the directory read-only. Since the ioctl is not
                  * supported everywhere we ignore failures. */
                 (void) read_attr_fd(fd, &file_attr);
 
@@ -302,8 +309,8 @@ static int image_make(
                               path,
                               filename,
                               read_only || (file_attr & FS_IMMUTABLE_FL),
-                              0,
-                              0,
+                              crtime,
+                              0, /* we don't use mtime of stat() here, since it's not the time of last change of the tree, but only of the top-level dir */
                               ret);
                 if (r < 0)
                         return r;
