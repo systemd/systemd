@@ -161,6 +161,8 @@ option('man', type : 'combo', choices : ['auto', 'true', 'false'],
 option('html', type : 'combo', choices : ['auto', 'true', 'false'],
        value : 'false',
        description : 'build and install html pages')
+option('translations', type : 'boolean', value : true,
+       description : 'build and install translations')
 
 option('certificate-root', type : 'string', value : '/etc/ssl',
        description : 'the prefix for TLS certificates')
