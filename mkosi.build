@@ -84,7 +84,13 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 fi
         fi
 
-        meson "$BUILDDIR" -D "sysvinit-path=$sysvinit_path" -D "rootprefix=$rootprefix" -D man=false -D "nobody-user=$nobody_user" -D "nobody-group=$nobody_group"
+        meson "$BUILDDIR" \
+                -D "sysvinit-path=$sysvinit_path" \
+                -D "rootprefix=$rootprefix" \
+                -D man=false \
+                -D "nobody-user=$nobody_user" \
+                -D "nobody-group=$nobody_group" \
+                -D translations=false
 fi
 
 cd "$BUILDDIR"
