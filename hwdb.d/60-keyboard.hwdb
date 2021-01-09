@@ -547,7 +547,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pn*[sS][pP][eE][cC][tT][rR][eE]*x360Convert
 
 # Spectre x360 13
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPSpectrex360Convertible13*:*
- KEYBOARD_KEY_82=f20                                    # Fn+F12; Microphone mute button, should be micmute
+# ENVY x360 13
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
+ KEYBOARD_KEY_82=f20                                    # Microphone mute button, should be micmute
 
 # HP Elite x2 1013 G3
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
