@@ -2,13 +2,13 @@
 # Ukrainian translation for systemd.
 # Eugene Melnik <jeka7js@gmail.com>, 2014.
 # Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016, 2018.
-# Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020.
+# Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2020-08-29 11:29+0000\n"
+"PO-Revision-Date: 2021-01-09 10:51+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
 "systemd/master/uk/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.2.1\n"
+"X-Generator: Weblate 4.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -318,23 +318,18 @@ msgstr ""
 "перемикання кришки, слід пройти розпізнавання."
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
-#| msgid "Allow applications to inhibit system handling of the power key"
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
-"Уможливлення перешкоджання обробці системою клавіші живлення для програм"
+"Уможливлення перешкоджання обробці системою клавіші перезавантаження для "
+"програм"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
-#| msgid ""
-#| "Authentication is required for an application to inhibit system handling "
-#| "of the power key."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
 "Для того, щоб дозволити програмам перешкоджати обробленню системою клавіші "
-"живлення, слід пройти розпізнавання."
+"перезавантаження, слід пройти розпізнавання."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
