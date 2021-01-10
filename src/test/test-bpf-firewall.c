@@ -8,6 +8,7 @@
 #include "bpf-program.h"
 #include "load-fragment.h"
 #include "manager.h"
+#include "memory-util.h"
 #include "rm-rf.h"
 #include "service.h"
 #include "tests.h"
@@ -77,11 +78,10 @@ int main(int argc, char *argv[]) {
         assert(r >= 0);
 
         if (test_custom_filter) {
-                attr = (union bpf_attr) {
-                        .pathname = PTR_TO_UINT64(test_prog),
-                        .bpf_fd = p->kernel_fd,
-                        .file_flags = 0,
-                };
+                zero(attr);
+                attr.pathname = PTR_TO_UINT64(test_prog);
+                attr.bpf_fd = p->kernel_fd;
+                attr.file_flags = 0;
 
                 (void) unlink(test_prog);
 

@@ -82,15 +82,13 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
         // https://github.com/torvalds/linux/blob/v5.9/kernel/bpf/syscall.c#L65
         // Ideally it should behave like GCC, so that we can remove these workarounds.
         zero(attr);
-        attr = (union bpf_attr) {
-                .prog_type = p->prog_type,
-                .insns = PTR_TO_UINT64(p->instructions),
-                .insn_cnt = p->n_instructions,
-                .license = PTR_TO_UINT64("GPL"),
-                .log_buf = PTR_TO_UINT64(log_buf),
-                .log_level = !!log_buf,
-                .log_size = log_size,
-        };
+        attr.prog_type = p->prog_type;
+        attr.insns = PTR_TO_UINT64(p->instructions);
+        attr.insn_cnt = p->n_instructions;
+        attr.license = PTR_TO_UINT64("GPL");
+        attr.log_buf = PTR_TO_UINT64(log_buf);
+        attr.log_level = !!log_buf;
+        attr.log_size = log_size;
 
         p->kernel_fd = bpf(BPF_PROG_LOAD, &attr, sizeof(attr));
         if (p->kernel_fd < 0)
@@ -108,9 +106,7 @@ int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path) {
                 return -EBUSY;
 
         zero(attr);
-        attr = (union bpf_attr) {
-                .pathname = PTR_TO_UINT64(path),
-        };
+        attr.pathname = PTR_TO_UINT64(path);
 
         p->kernel_fd = bpf(BPF_OBJ_GET, &attr, sizeof(attr));
         if (p->kernel_fd < 0)
@@ -166,12 +162,10 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
                 return -errno;
 
         zero(attr);
-        attr = (union bpf_attr) {
-                .attach_type = type,
-                .target_fd = fd,
-                .attach_bpf_fd = p->kernel_fd,
-                .attach_flags = flags,
-        };
+        attr.attach_type = type;
+        attr.target_fd = fd;
+        attr.attach_bpf_fd = p->kernel_fd;
+        attr.attach_flags = flags;
 
         if (bpf(BPF_PROG_ATTACH, &attr, sizeof(attr)) < 0)
                 return -errno;
@@ -203,11 +197,9 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
                 union bpf_attr attr;
 
                 zero(attr);
-                attr = (union bpf_attr) {
-                        .attach_type = p->attached_type,
-                        .target_fd = fd,
-                        .attach_bpf_fd = p->kernel_fd,
-                };
+                attr.attach_type = p->attached_type;
+                attr.target_fd = fd;
+                attr.attach_bpf_fd = p->kernel_fd;
 
                 if (bpf(BPF_PROG_DETACH, &attr, sizeof(attr)) < 0)
                         return -errno;
@@ -219,14 +211,15 @@ int bpf_program_cgroup_detach(BPFProgram *p) {
 }
 
 int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size_t max_entries, uint32_t flags) {
-        union bpf_attr attr = {
-                .map_type = type,
-                .key_size = key_size,
-                .value_size = value_size,
-                .max_entries = max_entries,
-                .map_flags = flags,
-        };
+        union bpf_attr attr;
         int fd;
+
+        zero(attr);
+        attr.map_type = type;
+        attr.key_size = key_size;
+        attr.value_size = value_size;
+        attr.max_entries = max_entries;
+        attr.map_flags = flags;
 
         fd = bpf(BPF_MAP_CREATE, &attr, sizeof(attr));
         if (fd < 0)
@@ -236,12 +229,12 @@ int bpf_map_new(enum bpf_map_type type, size_t key_size, size_t value_size, size
 }
 
 int bpf_map_update_element(int fd, const void *key, void *value) {
+        union bpf_attr attr;
 
-        union bpf_attr attr = {
-                .map_fd = fd,
-                .key = PTR_TO_UINT64(key),
-                .value = PTR_TO_UINT64(value),
-        };
+        zero(attr);
+        attr.map_fd = fd;
+        attr.key = PTR_TO_UINT64(key);
+        attr.value = PTR_TO_UINT64(value);
 
         if (bpf(BPF_MAP_UPDATE_ELEM, &attr, sizeof(attr)) < 0)
                 return -errno;
@@ -250,12 +243,12 @@ int bpf_map_update_element(int fd, const void *key, void *value) {
 }
 
 int bpf_map_lookup_element(int fd, const void *key, void *value) {
+        union bpf_attr attr;
 
-        union bpf_attr attr = {
-                .map_fd = fd,
-                .key = PTR_TO_UINT64(key),
-                .value = PTR_TO_UINT64(value),
-        };
+        zero(attr);
+        attr.map_fd = fd;
+        attr.key = PTR_TO_UINT64(key);
+        attr.value = PTR_TO_UINT64(value);
 
         if (bpf(BPF_MAP_LOOKUP_ELEM, &attr, sizeof(attr)) < 0)
                 return -errno;
