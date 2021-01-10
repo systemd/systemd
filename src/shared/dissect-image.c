@@ -2123,7 +2123,7 @@ int verity_settings_load(
                 }
         }
 
-        if (verity->root_hash && !verity->root_hash_sig) {
+        if ((root_hash || verity->root_hash) && !verity->root_hash_sig) {
                 if (root_hash_sig_path) {
                         r = read_full_file_full(AT_FDCWD, root_hash_sig_path, 0, NULL, (char**) &root_hash_sig, &root_hash_sig_size);
                         if (r < 0 && r != -ENOENT)
