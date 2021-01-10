@@ -555,15 +555,24 @@ endif
 
 #####################################################################
 
-vcs_tagger = [project_source_root + '/tools/meson-vcs-tag.sh',
-              project_source_root,
-              get_option('version-tag'),
-              meson.project_version()]
+version_tag = get_option('version-tag')
+if version_tag != ''
+        vcs_data = configuration_data()
+        vcs_data.set('VCS_TAG', version_tag)
+        version_h = configure_file(configuration : vcs_data,
+                                   input : 'src/version/version.h.in',
+                                   output : 'version.h')
+else
+        vcs_tagger = [
+                project_source_root + '/tools/meson-vcs-tag.sh',
+                project_source_root,
+                meson.project_version()]
 
-version_h = vcs_tag(
-        input : 'src/version/version.h.in',
-        output : 'version.h',
-        command: vcs_tagger)
+        version_h = vcs_tag(
+                input : 'src/version/version.h.in',
+                output : 'version.h',
+                command: vcs_tagger)
+endif
 
 versiondep = declare_dependency(sources: version_h)
 
