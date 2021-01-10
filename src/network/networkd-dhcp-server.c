@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-dhcp-server-bus.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -270,6 +271,10 @@ int dhcp4_server_configure(Link *link) {
                 if (r < 0)
                         return r;
         }
+
+        r = sd_dhcp_server_set_callback(link->dhcp_server, dhcp_server_callback, link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set callback for DHCPv4 server instance: %m");
 
         address = link_find_dhcp_server_address(link);
         if (!address)
