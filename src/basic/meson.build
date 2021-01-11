@@ -118,6 +118,7 @@ basic_sources = files('''
         linux/netfilter/nfnetlink.h
         linux/netlink.h
         linux/nexthop.h
+        linux/nl80211.h
         linux/pkt_sched.h
         linux/rtnetlink.h
         linux/wireguard.h
