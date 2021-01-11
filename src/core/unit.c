@@ -3076,6 +3076,10 @@ int unit_add_dependency(
         u = unit_follow_merge(u);
         other = unit_follow_merge(other);
 
+        /* Template units can conflict on self to disable multiple instances running at once */
+        if (u == other && u->instance && d == UNIT_CONFLICTS)
+                return 0;
+
         /* We won't allow dependencies on ourselves. We will not
          * consider them an error however. */
         if (u == other) {

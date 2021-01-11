@@ -727,7 +727,10 @@
         required part of the transaction). In the latter case, the job
         that is not required will be removed, or in case both are
         not required, the unit that conflicts will be started and the
-        unit that is conflicted is stopped.</para></listitem>
+        unit that is conflicted is stopped.</para>
+
+        <para>If a template unit conflicts with itself, only a single instance of the unit is allowed to run
+        at once.</para></listitem>
       </varlistentry>
 
       <varlistentry>
