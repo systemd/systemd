@@ -72,7 +72,7 @@ static int get_handler(sd_bus *bus, const char *path, const char *interface, con
         r = sd_bus_message_append(reply, "s", c->something);
         assert_se(r >= 0);
 
-        return 1;
+        return 0;
 }
 
 static int set_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error) {
@@ -92,7 +92,7 @@ static int set_handler(sd_bus *bus, const char *path, const char *interface, con
         free(c->something);
         c->something = n;
 
-        return 1;
+        return 0;
 }
 
 static int value_handler(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error) {
@@ -108,7 +108,7 @@ static int value_handler(sd_bus *bus, const char *path, const char *interface, c
 
         assert_se(PTR_TO_UINT(userdata) == 30);
 
-        return 1;
+        return 0;
 }
 
 static int notify_test(sd_bus_message *m, void *userdata, sd_bus_error *error) {
