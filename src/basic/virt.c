@@ -456,9 +456,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(container, int);
 
 int detect_container(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
-        _cleanup_free_ char *m = NULL;
-        _cleanup_free_ char *o = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *m = NULL, *o = NULL, *p = NULL;
         const char *e = NULL;
         int r;
 
