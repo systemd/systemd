@@ -464,16 +464,23 @@ int detect_container(void) {
                 return cached_found;
 
         /* /proc/vz exists in container and outside of the container, /proc/bc only outside of the container. */
-        if (access("/proc/vz", F_OK) >= 0 &&
-            access("/proc/bc", F_OK) < 0) {
-                r = VIRTUALIZATION_OPENVZ;
-                goto finish;
+        if (access("/proc/vz", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check if /proc/vz exists, ignoring: %m");
+        } else if (access("/proc/bc", F_OK) < 0) {
+                if (errno == ENOENT) {
+                        r = VIRTUALIZATION_OPENVZ;
+                        goto finish;
+                }
+
+                log_debug_errno(errno, "Failed to check if /proc/bc exists, ignoring: %m");
         }
 
         /* "Official" way of detecting WSL https://github.com/Microsoft/WSL/issues/423#issuecomment-221627364 */
         r = read_one_line_file("/proc/sys/kernel/osrelease", &o);
-        if (r >= 0 &&
-            (strstr(o, "Microsoft") || strstr(o, "WSL"))) {
+        if (r < 0)
+                log_debug_errno(r, "Failed to read /proc/sys/kernel/osrelease, ignoring: %m");
+        else if (strstr(o, "Microsoft") || strstr(o, "WSL")) {
                 r = VIRTUALIZATION_WSL;
                 goto finish;
         }
@@ -482,14 +489,23 @@ int detect_container(void) {
          * invocation without worrying about it being elsewhere.
          */
         r = get_proc_field("/proc/self/status", "TracerPid", WHITESPACE, &p);
-        if (r == 0 && !streq(p, "0")) {
+        if (r < 0)
+                log_debug_errno(r, "Failed to read our own trace PID, ignoring: %m");
+        else if (!streq(p, "0")) {
                 pid_t ptrace_pid;
+
                 r = parse_pid(p, &ptrace_pid);
-                if (r == 0) {
-                        const char *pf = procfs_file_alloca(ptrace_pid, "comm");
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse our own tracer PID, ignoring: %m");
+                else {
                         _cleanup_free_ char *ptrace_comm = NULL;
+                        const char *pf;
+
+                        pf = procfs_file_alloca(ptrace_pid, "comm");
                         r = read_one_line_file(pf, &ptrace_comm);
-                        if (r >= 0 && startswith(ptrace_comm, "proot")) {
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read %s, ignoring: %m", pf);
+                        else if (startswith(ptrace_comm, "proot")) {
                                 r = VIRTUALIZATION_PROOT;
                                 goto finish;
                         }
