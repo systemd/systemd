@@ -439,7 +439,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
         /* Let's now mount all images */
         HASHMAP_FOREACH(img, images) {
                 _cleanup_free_ char *p = NULL,
-                        *extension_os_release_id = NULL, *extension_os_release_version_id = NULL, *extension_os_release_sysext_level = NULL;
+                        *extension_release_id = NULL, *extension_release_version_id = NULL, *extension_release_sysext_level = NULL;
 
                 p = path_join(workspace, "extensions", img->name);
                 if (!p)
@@ -533,36 +533,39 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                                "Extension image contains /usr/lib/os-release file, which is not allowed (it may carry /etc/os-release), refusing.");
 
                 /* Now that we can look into the extension image, let's see of the OS version is compatible */
-                r = parse_os_release(
+                r = parse_extension_release(
                                 p,
-                                "ID", &extension_os_release_id,
-                                "VERSION_ID", &extension_os_release_version_id,
-                                "SYSEXT_LEVEL", &extension_os_release_sysext_level,
+                                img->name,
+                                "ID", &extension_release_id,
+                                "VERSION_ID", &extension_release_version_id,
+                                "SYSEXT_LEVEL", &extension_release_sysext_level,
                                 NULL);
-                if (r == -ENOENT)
-                        log_notice_errno(r, "Extension '%s' carries no os-release data, not checking for version compatibility.", img->name);
-                else if (r < 0)
+                if (r == -ENOENT) {
+                        log_notice_errno(r, "Extension '%s' carries no extension-release data, ignoring extension.", img->name);
+                        n_ignored++;
+                        continue;
+                } else if (r < 0)
                         return log_error_errno(r, "Failed to acquire 'os-release' data of extension '%s': %m", img->name);
                 else {
-                        if (!streq_ptr(host_os_release_id, extension_os_release_id)) {
+                        if (!streq_ptr(host_os_release_id, extension_release_id)) {
                                 log_notice("Extension '%s' is for OS '%s', but running on '%s', ignoring extension.",
-                                           img->name, strna(extension_os_release_id), strna(host_os_release_id));
+                                           img->name, strna(extension_release_id), strna(host_os_release_id));
                                 n_ignored++;
                                 continue;
                         }
 
                         /* If the extension has a sysext API level declared, then it must match the host API level. Otherwise, compare OS version as a whole */
-                        if (extension_os_release_sysext_level) {
-                                if (!streq_ptr(host_os_release_sysext_level, extension_os_release_sysext_level)) {
+                        if (extension_release_sysext_level) {
+                                if (!streq_ptr(host_os_release_sysext_level, extension_release_sysext_level)) {
                                         log_notice("Extension '%s' is for sysext API level '%s', but running on sysext API level '%s', ignoring extension.",
-                                                   img->name, extension_os_release_sysext_level, strna(host_os_release_sysext_level));
+                                                   img->name, extension_release_sysext_level, strna(host_os_release_sysext_level));
                                         n_ignored++;
                                         continue;
                                 }
                         } else {
-                                if (!streq_ptr(host_os_release_version_id, extension_os_release_version_id)) {
+                                if (!streq_ptr(host_os_release_version_id, extension_release_version_id)) {
                                         log_notice("Extension '%s' is for OS version '%s', but running on OS version '%s', ignoring extension.",
-                                                   img->name, extension_os_release_version_id, strna(host_os_release_version_id));
+                                                   img->name, extension_release_version_id, strna(host_os_release_version_id));
                                         n_ignored++;
                                         continue;
                                 }
