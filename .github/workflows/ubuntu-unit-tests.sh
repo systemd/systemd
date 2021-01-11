@@ -41,9 +41,8 @@ for phase in "${PHASES[@]}"; do
             if [[ "$phase" = "RUN_CLANG" ]]; then
                 export CC=clang
                 export CXX=clang++
-                MESON_ARGS=(--optimization=1)
             fi
-            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true "${MESON_ARGS[@]}" build
+            meson --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dman=true build
             ninja -C build -v
             meson test -C build --print-errorlogs
             ;;
