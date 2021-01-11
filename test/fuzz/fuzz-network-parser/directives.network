@@ -125,6 +125,7 @@ MUDURL=
 RouteMTUBytes=
 FallbackLeaseLifetimeSec=
 [DHCPv6]
+UseAddress=
 UseNTP=
 UseDNS=
 RapidCommit=

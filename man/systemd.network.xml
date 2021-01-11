@@ -1867,6 +1867,14 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
 
       <variablelist class='network-directives'>
         <varlistentry>
+          <term><varname>UseAddress=</varname></term>
+          <listitem>
+            <para>When true (the default), the IP addresses provided by the DHCPv6 server will be
+            assigned.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>UseDNS=</varname></term>
           <term><varname>UseNTP=</varname></term>
           <listitem>
