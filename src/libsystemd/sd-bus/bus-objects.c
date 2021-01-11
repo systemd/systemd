@@ -490,7 +490,11 @@ static int invoke_property_get(
                 break;
         }
 
-        return sd_bus_message_append_basic(reply, v->x.property.signature[0], p);
+        r = sd_bus_message_append_basic(reply, v->x.property.signature[0], p);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int invoke_property_set(
@@ -564,7 +568,7 @@ static int invoke_property_set(
                 break;
         }
 
-        return 1;
+        return 0;
 }
 
 static int property_get_set_callbacks_run(
@@ -633,7 +637,7 @@ static int property_get_set_callbacks_run(
                  * anyway. */
 
                 r = invoke_property_get(bus, slot, c->vtable, m->path, c->interface, c->member, reply, u, &error);
-                if (r < 0)
+                if (r != 0)
                         return bus_maybe_reply_error(m, r, &error);
 
                 if (bus->nodes_modified)
@@ -680,7 +684,7 @@ static int property_get_set_callbacks_run(
                         return bus_maybe_reply_error(m, r, &error);
 
                 r = invoke_property_set(bus, slot, c->vtable, m->path, c->interface, c->member, m, u, &error);
-                if (r < 0)
+                if (r != 0)
                         return bus_maybe_reply_error(m, r, &error);
 
                 if (bus->nodes_modified)
