@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/ethernet.h>
-#include <linux/nl80211.h>
-
-#include "sd-bus.h"
-
 #include "log.h"
-#include "netlink-util.h"
 #include "wifi-util.h"
 
 int wifi_get_interface(sd_netlink *genl, int ifindex, enum nl80211_iftype *iftype, char **ssid) {
