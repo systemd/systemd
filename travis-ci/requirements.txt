@@ -1,5 +1,0 @@
-dnf-plugins-core
-meson
-ninja-build
-perl
-python
