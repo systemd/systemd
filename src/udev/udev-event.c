@@ -716,7 +716,6 @@ static int spawn_wait(Spawn *spawn) {
         if (r < 0)
                 return r;
 
-
         return sd_event_loop(e);
 }
 
