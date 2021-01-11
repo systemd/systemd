@@ -1078,7 +1078,11 @@ static int dhcp6_address_acquired(Link *link) {
         int r;
 
         assert(link);
+        assert(link->network);
         assert(link->dhcp6_lease);
+
+        if (!link->network->dhcp6_use_address)
+                return 0;
 
         for (sd_dhcp6_lease_reset_address_iter(link->dhcp6_lease);;) {
                 uint32_t lifetime_preferred, lifetime_valid;

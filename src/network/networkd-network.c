@@ -352,10 +352,11 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_timezone = false,
                 .dhcp_ip_service_type = -1,
 
+                .dhcp6_use_address = true,
+                .dhcp6_use_dns = true,
+                .dhcp6_use_ntp = true,
                 .dhcp6_rapid_commit = true,
                 .dhcp6_route_metric = DHCP_ROUTE_METRIC,
-                .dhcp6_use_ntp = true,
-                .dhcp6_use_dns = true,
 
                 .dhcp6_pd = -1,
                 .dhcp6_pd_announce = true,
