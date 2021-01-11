@@ -55,10 +55,9 @@
 
     <para>Files and directories contained in the extension images outside of the <filename>/usr/</filename>
     and <filename>/opt/</filename> hierarchies are <emphasis>not</emphasis> merged, and hence have no effect
-    when included in a system extension image (with the exception of <filename>/etc/os-release</filename>,
-    see below). In particular, files in the <filename>/etc/</filename> and <filename>/var/</filename>
-    included in a system extension image will <emphasis>not</emphasis> appear in the respective hierarchies
-    after activation.</para>
+    when included in a system extension image. In particular, files in the <filename>/etc/</filename> and
+    <filename>/var/</filename> included in a system extension image will <emphasis>not</emphasis> appear in
+    the respective hierarchies after activation.</para>
 
     <para>System extension images are strictly read-only, and the host <filename>/usr/</filename> and
     <filename>/opt/</filename> hierarchies become read-only too while they are activated.</para>
@@ -111,13 +110,17 @@
     <para>Note that there is no concept of enabling/disabling installed system extension images: all
     installed extension images are automatically activated at boot.</para>
 
-    <para>A simple mechanism for version compatibility is enforced: a system extension image may carry an
-    <filename>/etc/os-release</filename> file that is compared with the host <filename>os-release</filename>
+    <para>A simple mechanism for version compatibility is enforced: a system extension image must carry a
+    <filename>/usr/lib/extension-release.d/extension-release.<replaceable>$name</replaceable></filename>
+    file, which must match its image name, that is compared with the host <filename>os-release</filename>
     file: the contained <varname>ID=</varname> fields have to match, as well as the
-    <varname>SYSEXT_LEVEL=</varname> field (if defined). If the latter is not defined the
+    <varname>SYSEXT_LEVEL=</varname> field (if defined). If the latter is not defined, the
     <varname>VERSION_ID=</varname> field has to match instead. System extensions should not ship a
     <filename>/usr/lib/os-release</filename> file (as that would be merged into the host
-    <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable).</para>
+    <filename>/usr/</filename> tree, overriding the host OS version data, which is not desirable). The
+    <filename>extension-release</filename> file follows the same format and semantics, and carries the same
+    content, as the <filename>os-release</filename> file of the OS, but it describes the resources carried
+    in the extension image.</para>
   </refsect1>
 
   <refsect1>
