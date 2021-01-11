@@ -1006,7 +1006,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 }
 
                 mount_inside = strjoina("/run/host/incoming/", basename(mount_outside));
-                r = mount_nofollow_verbose(LOG_ERR, mount_inside, dest, NULL, MS_MOVE, NULL);
+                r = mount_follow_verbose(LOG_ERR, mount_inside, dest, NULL, MS_MOVE, NULL);
                 if (r < 0)
                         goto child_fail;
 
