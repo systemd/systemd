@@ -9,7 +9,6 @@ System and Service Manager
 [![OSS-Fuzz Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/systemd.svg)](https://oss-fuzz-build-logs.storage.googleapis.com/index.html#systemd)<br/>
 [![CIFuzz](https://github.com/systemd/systemd/workflows/CIFuzz/badge.svg)](https://github.com/systemd/systemd/actions)<br/>
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1369/badge)](https://bestpractices.coreinfrastructure.org/projects/1369)<br/>
-[![Travis CI Build Status](https://travis-ci.org/systemd/systemd.svg?branch=master)](https://travis-ci.org/systemd/systemd)<br/>
 [![Language Grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/systemd/systemd.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/systemd/systemd/context:cpp)<br/>
 [![CentOS CI - CentOS 7](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20CentOS%207&job=upstream-centos7)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-centos7/)<br/>
 [![CentOS CI - Arch](https://jenkins-systemd.apps.ocp.ci.centos.org/buildStatus/icon?subject=CentOS%20CI%20-%20Arch&job=upstream-vagrant-archlinux)](https://jenkins-systemd.apps.ocp.ci.centos.org/job/upstream-vagrant-archlinux/)<br/>
