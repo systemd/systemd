@@ -771,7 +771,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                         log_debug_errno(r, "Failed to get hardware clock, ignoring: %m");
                 else {
                         /* And set the system clock with this */
-                        mktime_or_timegm(&tm, !c->local_rtc);
+                        ts.tv_sec = mktime_or_timegm(&tm, !c->local_rtc);
 
                         if (clock_settime(CLOCK_REALTIME, &ts) < 0)
                                 log_debug_errno(errno, "Failed to update system clock, ignoring: %m");
