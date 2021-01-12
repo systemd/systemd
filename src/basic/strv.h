@@ -135,7 +135,7 @@ void strv_print(char * const *l);
                 char **_l;                                      \
                                                                 \
                 if (!first)                                     \
-                        _l = (char**) &first;                   \
+                        _l = STRV_MAKE_EMPTY;                   \
                 else {                                          \
                         size_t _n;                              \
                         va_list _ap;                            \
