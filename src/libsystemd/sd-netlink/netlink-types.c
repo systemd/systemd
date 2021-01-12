@@ -152,13 +152,20 @@ static const NLType rtnl_link_info_data_bridge_types[] = {
         [IFLA_BR_MCAST_IGMP_VERSION]         = { .type = NETLINK_TYPE_U8 },
 };
 
+static const NLType rtnl_vlan_qos_map_types[] = {
+        [IFLA_VLAN_QOS_MAPPING]        = { .size = sizeof(struct ifla_vlan_qos_mapping) },
+};
+
+static const NLTypeSystem rtnl_vlan_qos_map_type_system = {
+        .count = ELEMENTSOF(rtnl_vlan_qos_map_types),
+        .types = rtnl_vlan_qos_map_types,
+};
+
 static const NLType rtnl_link_info_data_vlan_types[] = {
         [IFLA_VLAN_ID]          = { .type = NETLINK_TYPE_U16 },
-/*
-        [IFLA_VLAN_FLAGS]       = { .len = sizeof(struct ifla_vlan_flags) },
-        [IFLA_VLAN_EGRESS_QOS]  = { .type = NETLINK_TYPE_NESTED },
-        [IFLA_VLAN_INGRESS_QOS] = { .type = NETLINK_TYPE_NESTED },
-*/
+        [IFLA_VLAN_FLAGS]       = { .size = sizeof(struct ifla_vlan_flags) },
+        [IFLA_VLAN_EGRESS_QOS]  = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vlan_qos_map_type_system },
+        [IFLA_VLAN_INGRESS_QOS] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_vlan_qos_map_type_system },
         [IFLA_VLAN_PROTOCOL]    = { .type = NETLINK_TYPE_U16 },
 };
 
