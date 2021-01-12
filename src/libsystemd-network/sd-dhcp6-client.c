@@ -157,7 +157,6 @@ int sd_dhcp6_client_set_callback(
 }
 
 int sd_dhcp6_client_set_ifindex(sd_dhcp6_client *client, int ifindex) {
-
         assert_return(client, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
@@ -351,6 +350,7 @@ int sd_dhcp6_client_duid_as_string(
 
         assert_return(client, -EINVAL);
         assert_return(client->duid_len > 0, -ENODATA);
+        assert_return(duid, -EINVAL);
 
         v = dhcp6_duid_type_to_string(be16toh(client->duid.type));
         if (v) {
@@ -454,7 +454,6 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
 }
 
 int sd_dhcp6_client_set_request_mud_url(sd_dhcp6_client *client, const char *mudurl) {
-
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
         assert_return(mudurl, -EINVAL);
