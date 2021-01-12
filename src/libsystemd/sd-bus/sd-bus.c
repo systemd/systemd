@@ -1516,8 +1516,8 @@ _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
 }
 
 int bus_set_address_machine(sd_bus *b, bool user, const char *machine) {
+        _cleanup_free_ char *a = NULL;
         const char *rhs;
-        char *a;
 
         assert(b);
         assert(machine);
