@@ -296,9 +296,8 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 goto finish;
         }
 
-        /* This is invoked if either the download completed
-         * successfully, or the download was skipped because we
-         * already have the etag. */
+        /* This is invoked if either the download completed successfully, or the download was skipped because
+         * we already have the etag. */
 
         if (!tar_pull_is_done(i))
                 return;
@@ -339,6 +338,10 @@ static void tar_pull_job_on_finished(PullJob *j) {
                         goto finish;
 
                 tar_pull_report_progress(i, TAR_FINALIZING);
+
+                r = import_mangle_os_tree(i->temp_path);
+                if (r < 0)
+                        goto finish;
 
                 r = import_make_read_only(i->temp_path);
                 if (r < 0)
