@@ -1081,11 +1081,11 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes a boolean. If true the kernel manage temporary addresses created
             from this one as template on behalf of Privacy Extensions
-            <ulink url="https://tools.ietf.org/html/rfc3041">RFC 3041</ulink>.  For this to become
+            <ulink url="https://tools.ietf.org/html/rfc3041">RFC 3041</ulink>. For this to become
             active, the use_tempaddr sysctl setting has to be set to a value greater than zero.
             The given address needs to have a prefix length of 64. This flag allows using privacy
             extensions in a manually configured network, just like if stateless auto-configuration
-            was active. Defaults to false. </para>
+            was active. Defaults to false.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2054,6 +2054,13 @@ IPv6Token=prefixstable:2002:da8:1::</programlisting></para>
           DHCPv6 Prefix Delegation to form a complete address. When <varname>Assign=</varname> is
           disabled, this setting is ignored. When unset, the EUI-64 algorithm will be used to form
           addresses. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ManageTemporaryAddress=</varname></term>
+        <listitem>
+          <para>As in the [Address] section, but defaults to true.</para>
         </listitem>
       </varlistentry>
     </variablelist>

@@ -400,6 +400,7 @@ static int dhcp6_set_pd_address(
         address->family = AF_INET6;
         address->cinfo.ifa_prefered = lifetime_preferred;
         address->cinfo.ifa_valid = lifetime_valid;
+        SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
 
         r = address_configure(address, link, dhcp6_pd_address_handler, true, &ret);
         if (r < 0)
