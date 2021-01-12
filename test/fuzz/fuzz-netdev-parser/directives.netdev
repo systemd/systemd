@@ -6,6 +6,7 @@ Id=
 GVRP=
 Protocol=
 EgressQOSMaps=
+IngressQOSMaps=
 [MACVLAN]
 Mode=
 SourceMACAddress=

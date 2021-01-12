@@ -73,6 +73,24 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return log_netdev_error_errno(netdev, r, "Could not close container IFLA_VLAN_EGRESS_QOS: %m");
         }
 
+        if (!set_isempty(v->ingress_qos_maps)) {
+                struct ifla_vlan_qos_mapping *m;
+
+                r = sd_netlink_message_open_container(req, IFLA_VLAN_INGRESS_QOS);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not open container IFLA_VLAN_INGRESS_QOS: %m");
+
+                SET_FOREACH(m, v->ingress_qos_maps) {
+                        r = sd_netlink_message_append_data(req, IFLA_VLAN_QOS_MAPPING, m, sizeof(struct ifla_vlan_qos_mapping));
+                        if (r < 0)
+                                return log_netdev_error_errno(netdev, r, "Could not append IFLA_VLAN_QOS_MAPPING attribute: %m");
+                }
+
+                r = sd_netlink_message_close_container(req);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not close container IFLA_VLAN_INGRESS_QOS: %m");
+        }
+
         return 0;
 }
 
@@ -186,6 +204,7 @@ static void vlan_done(NetDev *n) {
         assert(v);
 
         set_free(v->egress_qos_maps);
+        set_free(v->ingress_qos_maps);
 }
 
 static void vlan_init(NetDev *netdev) {

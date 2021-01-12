@@ -18,6 +18,7 @@ struct VLan {
         int reorder_hdr;
 
         Set *egress_qos_maps;
+        Set *ingress_qos_maps;
 };
 
 DEFINE_NETDEV_CAST(VLAN, VLan);
