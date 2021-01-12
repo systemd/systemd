@@ -1988,8 +1988,8 @@ static VOID config_entry_add_linux(
                         path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
 
                         entry = config_entry_add_loader(config, device, LOADER_LINUX, f->FileName, 'l',
-                                                        os_name_pretty ? : (os_name ? : os_id), path,
-                                                        os_version ? : (os_version_id ? : os_build_id));
+                                                        os_name_pretty ?: os_name, path,
+                                                        os_version ?: (os_version_id ? : os_build_id));
 
                         FreePool(content);
                         content = NULL;
