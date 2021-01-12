@@ -86,6 +86,7 @@ KERNEL=="fuse", MODE="0666", OPTIONS+="static_node=fuse"
 KERNEL=="kvm", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=kvm"
 
 KERNEL=="vsock", MODE="0666"
+KERNEL=="vhost-vsock", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=vhost-vsock"
 
 KERNEL=="udmabuf", GROUP="kvm"
 
