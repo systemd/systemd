@@ -145,14 +145,17 @@ A+    /path-or-glob/to/append/acls/recursively -    -    -     -           POSIX
   <refsect1>
     <title>Configuration File Format</title>
 
-    <para>The configuration format is one line per path containing
-    type, path, mode, ownership, age, and argument fields:</para>
+    <para>The configuration format is one line per path, containing type, path, mode, ownership, age, and
+    argument fields. The lines are separated by newlines, the fields by whitespace:</para>
 
-    <programlisting>#Type Path        Mode User Group Age Argument
+    <programlisting>#Type Path        Mode User Group Age Argument…
 d     /run/user   0755 root root  10d -
 L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
 
-    <para>Fields may be enclosed within quotes and contain C-style escapes.</para>
+    <para>Fields may contain C-style escapes. With the exception of the seventh field (the "argument") all
+    fields may be enclosed in quotes. Note that any whitespace found in the line after the beginning of the
+    argument field will be considered part of the argument field. To begin the argument field with a
+    whitespace character, use C-style escapes (e.g. <literal>\x20</literal>).</para>
 
     <refsect2>
       <title>Type</title>
