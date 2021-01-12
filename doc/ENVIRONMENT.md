@@ -37,6 +37,14 @@ All tools:
   useful for debugging, in order to test generators and other code against
   specific kernel command lines.
 
+* `$SYSTEMD_IN_INITRD=[auto|lenient|0|1]` — if set, specifies initrd detection
+  method. Defaults to `auto`. Behavior is defined as follows:
+  `auto`: Checks if `/etc/initrd-release` exists, and a temporary fs is mounted
+          on `/`. If both conditions meet, then it's in initrd.
+  `lenient`: Similiar to `auto`, but the rootfs check is skipped.
+  `0|1`: Simply overrides initrd detection. This is useful for debugging and
+         testing initrd-only programs in the main system.
+
 * `$SYSTEMD_EMOJI=0` — if set, tools such as "systemd-analyze security" will
   not output graphical smiley emojis, but ASCII alternatives instead. Note that
   this only controls use of Unicode emoji glyphs, and has no effect on other
