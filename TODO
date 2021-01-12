@@ -808,9 +808,6 @@ Features:
   picked up by systemd unless they contain a medium. This would mirror
   the behaviour we already have for CD drives.
 
-* networkd/udev: implement SR_IOV configuration in .link files:
-  http://lists.freedesktop.org/archives/systemd-devel/2015-January/027451.html
-
 * hostnamectl: show root image uuid
 
 * Find a solution for SMACK capabilities stuff:
