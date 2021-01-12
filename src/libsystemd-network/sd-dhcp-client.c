@@ -274,7 +274,6 @@ int sd_dhcp_client_set_request_address(
 }
 
 int sd_dhcp_client_set_ifindex(sd_dhcp_client *client, int ifindex) {
-
         assert_return(client, -EINVAL);
         assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED), -EBUSY);
         assert_return(ifindex > 0, -EINVAL);
@@ -348,13 +347,14 @@ int sd_dhcp_client_get_client_id(
         assert_return(data, -EINVAL);
         assert_return(data_len, -EINVAL);
 
-        *type = 0;
-        *data = NULL;
-        *data_len = 0;
         if (client->client_id_len) {
                 *type = client->client_id.type;
                 *data = client->client_id.raw.data;
                 *data_len = client->client_id_len - sizeof(client->client_id.type);
+        } else {
+                *type = 0;
+                *data = NULL;
+                *data_len = 0;
         }
 
         return 0;
