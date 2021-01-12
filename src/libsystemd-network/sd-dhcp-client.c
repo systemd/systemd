@@ -566,22 +566,26 @@ int sd_dhcp_client_set_mud_url(
 
 int sd_dhcp_client_set_user_class(
                 sd_dhcp_client *client,
-                const char* const* user_class) {
+                char * const *user_class) {
 
-        _cleanup_strv_free_ char **s = NULL;
-        char **p;
+        char * const *p;
+        char **s = NULL;
 
-        STRV_FOREACH(p, (char **) user_class)
-                if (strlen(*p) > 255)
-                        return -ENAMETOOLONG;
+        assert_return(client, -EINVAL);
+        assert_return(!strv_isempty(user_class), -EINVAL);
 
-        s = strv_copy((char **) user_class);
+        STRV_FOREACH(p, user_class) {
+                size_t n = strlen(*p);
+
+                if (n > 255 || n == 0)
+                        return -EINVAL;
+        }
+
+        s = strv_copy(user_class);
         if (!s)
                 return -ENOMEM;
 
-        client->user_class = TAKE_PTR(s);
-
-        return 0;
+        return strv_free_and_replace(client->user_class, s);
 }
 
 int sd_dhcp_client_set_client_port(

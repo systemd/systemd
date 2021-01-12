@@ -38,11 +38,14 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 size_t total = 0;
                 char **s;
 
+                if (strv_isempty((char **) optval))
+                        return -EINVAL;
+
                 STRV_FOREACH(s, (char **) optval) {
                         size_t len = strlen(*s);
 
-                        if (len > 255)
-                                return -ENAMETOOLONG;
+                        if (len > 255 || len == 0)
+                                return -EINVAL;
 
                         total += 1 + len;
                 }
@@ -51,14 +54,13 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                         return -ENOBUFS;
 
                 options[*offset] = code;
-                options[*offset + 1] =  total;
+                options[*offset + 1] = total;
                 *offset += 2;
 
                 STRV_FOREACH(s, (char **) optval) {
                         size_t len = strlen(*s);
 
                         options[*offset] = len;
-
                         memcpy(&options[*offset + 1], *s, len);
                         *offset += 1 + len;
                 }

@@ -1452,7 +1452,7 @@ int dhcp4_configure(Link *link) {
         }
 
         if (link->network->dhcp_user_class) {
-                r = sd_dhcp_client_set_user_class(link->dhcp_client, (const char **) link->network->dhcp_user_class);
+                r = sd_dhcp_client_set_user_class(link->dhcp_client, link->network->dhcp_user_class);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set user class: %m");
         }
