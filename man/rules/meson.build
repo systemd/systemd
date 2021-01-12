@@ -220,6 +220,7 @@ manpages = [
    'sd_bus_open_system_remote',
    'sd_bus_open_system_with_description',
    'sd_bus_open_user',
+   'sd_bus_open_user_machine',
    'sd_bus_open_user_with_description',
    'sd_bus_open_with_description'],
   ''],
