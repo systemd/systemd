@@ -897,7 +897,7 @@ static int run(int argc, char *argv[]) {
         if (!images)
                 return log_oom();
 
-        r = image_discover(IMAGE_EXTENSION, images);
+        r = image_discover(IMAGE_EXTENSION, arg_root, images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover extension images: %m");
 
