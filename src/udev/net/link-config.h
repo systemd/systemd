@@ -47,6 +47,8 @@ struct link_config {
         char **alternative_names;
         char *alias;
         uint32_t mtu;
+        uint32_t gso_max_segments;
+        size_t gso_max_size;
         uint64_t speed;
         Duplex duplex;
         int autonegotiation;

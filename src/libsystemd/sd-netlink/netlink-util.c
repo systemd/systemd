@@ -58,14 +58,15 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
 }
 
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias,
-                             const struct ether_addr *mac, uint32_t mtu) {
+                             const struct ether_addr *mac, uint32_t mtu,
+                             uint32_t gso_max_size, size_t gso_max_segments) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 
         assert(rtnl);
         assert(ifindex > 0);
 
-        if (!alias && !mac && mtu == 0)
+        if (!alias && !mac && mtu == 0 && gso_max_size == 0 && gso_max_segments == 0)
                 return 0;
 
         if (!*rtnl) {
@@ -92,6 +93,18 @@ int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias,
 
         if (mtu != 0) {
                 r = sd_netlink_message_append_u32(message, IFLA_MTU, mtu);
+                if (r < 0)
+                        return r;
+        }
+
+        if (gso_max_size > 0) {
+                r = sd_netlink_message_append_u32(message, IFLA_GSO_MAX_SIZE, gso_max_size);
+                if (r < 0)
+                        return r;
+        }
+
+        if (gso_max_segments > 0) {
+                r = sd_netlink_message_append_u32(message, IFLA_GSO_MAX_SEGS, gso_max_segments);
                 if (r < 0)
                         return r;
         }
