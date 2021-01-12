@@ -20,6 +20,13 @@ Janitorial Clean-ups:
 
 Features:
 
+* sysext: optionally, if the merged trees allow it use use bind mounts instead
+  of overlayfs
+
+* nspawn: add supported for sysext extensions, too. i.e. a new --extension=
+  switch that takes one or more arguments, and applies the extensions already
+  during startup.
+
 * add "systemd-analyze debug" + AttachDebugger= in unit files: The former
   specifies a command to execute; the latter specifies that an already running
   "systemd-analyze debug" instance shall be contacted and execution paused
