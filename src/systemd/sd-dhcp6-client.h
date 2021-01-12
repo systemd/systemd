@@ -133,7 +133,7 @@ int sd_dhcp6_client_set_request_mud_url(
                 const char *mudurl);
 int sd_dhcp6_client_set_request_user_class(
                 sd_dhcp6_client *client,
-                char** user_class);
+                char * const *user_class);
 int sd_dhcp6_client_set_request_vendor_class(
                 sd_dhcp6_client *client,
                 char** vendor_class);
