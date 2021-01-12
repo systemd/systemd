@@ -738,7 +738,6 @@ int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t cont
 typedef enum UnitNotifyFlags {
         UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,
         UNIT_NOTIFY_WILL_AUTO_RESTART = 1 << 1,
-        UNIT_NOTIFY_SKIP_CONDITION    = 1 << 2,
 } UnitNotifyFlags;
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
