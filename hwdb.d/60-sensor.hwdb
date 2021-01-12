@@ -308,6 +308,14 @@ sensor:modalias:acpi:SMO8500*:dmi:*svn*DEXP*:*pn*DEXPOEM:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
+# Digibras
+#########################################
+
+# Digibras F10-30
+sensor:modalias:acpi:SMO8500*:dmi:*:svnDigibras:pnF10-30:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
 # DIGMA
 #########################################
 
