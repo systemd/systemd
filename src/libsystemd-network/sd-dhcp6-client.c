@@ -485,25 +485,26 @@ int sd_dhcp6_client_set_request_user_class(sd_dhcp6_client *client, char * const
         return strv_free_and_replace(client->user_class, s);
 }
 
-int sd_dhcp6_client_set_request_vendor_class(sd_dhcp6_client *client, char **vendor_class) {
-        _cleanup_strv_free_ char **s = NULL;
-        char **p;
+int sd_dhcp6_client_set_request_vendor_class(sd_dhcp6_client *client, char * const *vendor_class) {
+        char * const *p;
+        char **s;
 
         assert_return(client, -EINVAL);
         assert_return(client->state == DHCP6_STATE_STOPPED, -EBUSY);
-        assert_return(vendor_class, -EINVAL);
+        assert_return(!strv_isempty(vendor_class), -EINVAL);
 
-        STRV_FOREACH(p, vendor_class)
-                if (strlen(*p) > UINT8_MAX)
-                        return -ENAMETOOLONG;
+        STRV_FOREACH(p, vendor_class) {
+                size_t len = strlen(*p);
+
+                if (len > UINT16_MAX || len == 0)
+                        return -EINVAL;
+        }
 
         s = strv_copy(vendor_class);
         if (!s)
                 return -ENOMEM;
 
-        client->vendor_class = TAKE_PTR(s);
-
-        return 0;
+        return strv_free_and_replace(client->vendor_class, s);
 }
 
 int sd_dhcp6_client_get_prefix_delegation(sd_dhcp6_client *client, int *delegation) {
