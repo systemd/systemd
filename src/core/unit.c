@@ -2559,8 +2559,6 @@ static bool unit_process_job(Job *j, UnitActiveState ns, UnitNotifyFlags flags) 
                         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                                 if (ns == UNIT_FAILED)
                                         result = JOB_FAILED;
-                                else if (FLAGS_SET(flags, UNIT_NOTIFY_SKIP_CONDITION))
-                                        result = JOB_SKIPPED;
                                 else
                                         result = JOB_DONE;
 

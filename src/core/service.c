@@ -1105,8 +1105,7 @@ static void service_set_state(Service *s, ServiceState state) {
 
         unit_notify(UNIT(s), table[old_state], table[state],
                     (s->reload_result == SERVICE_SUCCESS ? 0 : UNIT_NOTIFY_RELOAD_FAILURE) |
-                    (s->will_auto_restart ? UNIT_NOTIFY_WILL_AUTO_RESTART : 0) |
-                    (s->result == SERVICE_SKIP_CONDITION ? UNIT_NOTIFY_SKIP_CONDITION : 0));
+                    (s->will_auto_restart ? UNIT_NOTIFY_WILL_AUTO_RESTART : 0));
 }
 
 static usec_t service_coldplug_timeout(Service *s) {
@@ -3521,15 +3520,20 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         } else if (s->control_pid == pid) {
                 s->control_pid = 0;
 
-                /* ExecCondition= calls that exit with (0, 254] should invoke skip-like behavior instead of failing */
-                if (f == SERVICE_FAILURE_EXIT_CODE && s->state == SERVICE_CONDITION && status < 255)
-                        f = SERVICE_SKIP_CONDITION;
-
                 if (s->control_command) {
                         exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
 
                         if (s->control_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
                                 f = SERVICE_SUCCESS;
+                }
+
+                /* ExecCondition= calls that exit with (0, 254] should invoke skip-like behavior instead of failing */
+                if (s->state == SERVICE_CONDITION) {
+                        if (f == SERVICE_FAILURE_EXIT_CODE && status < 255) {
+                                UNIT(s)->condition_result = false;
+                                f = SERVICE_SKIP_CONDITION;
+                        } else if (f == SERVICE_SUCCESS)
+                                UNIT(s)->condition_result = true;
                 }
 
                 unit_log_process_exit(
@@ -4576,7 +4580,6 @@ const UnitVTable service_vtable = {
                 },
                 .finished_start_job = {
                         [JOB_FAILED]     = "Failed to start %s.",
-                        [JOB_SKIPPED]    = "Skipped %s.",
                 },
                 .finished_stop_job = {
                         [JOB_DONE]       = "Stopped %s.",
