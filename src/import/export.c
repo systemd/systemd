@@ -66,7 +66,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (hostname_is_valid(argv[1], 0)) {
-                r = image_find(IMAGE_MACHINE, argv[1], &image);
+                r = image_find(IMAGE_MACHINE, argv[1], NULL, &image);
                 if (r == -ENOENT)
                         return log_error_errno(r, "Machine image %s not found.", argv[1]);
                 if (r < 0)
@@ -142,7 +142,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (hostname_is_valid(argv[1], 0)) {
-                r = image_find(IMAGE_MACHINE, argv[1], &image);
+                r = image_find(IMAGE_MACHINE, argv[1], NULL, &image);
                 if (r == -ENOENT)
                         return log_error_errno(r, "Machine image %s not found.", argv[1]);
                 if (r < 0)
