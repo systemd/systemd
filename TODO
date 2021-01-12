@@ -1319,7 +1319,6 @@ Features:
      for all routes to it. possibly a second default for DHCP routes.
    - allow Name= to be specified repeatedly in the [Match] section. Maybe also
      support Name=foo*|bar*|baz ?
-   - duplicate address check for static IPs (like ARPCHECK in network-scripts)
    - whenever uplink info changes, make DHCP server send out FORCERENEW
 
 * Figure out how to do unittests of networkd's state serialization
