@@ -20,6 +20,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* add "systemd-analyze debug" + AttachDebugger= in unit files: The former
+  specifies a command to execute; the latter specifies that an already running
+  "systemd-analyze debug" instance shall be contacted and execution paused
+  until it gives an OK. That way, tools like gdb or strace can be safely be
+  invoked on processes forked off PID 1.
+
 * expose MS_NOSYMFOLLOW in various places
 
 * tpm2: support a PIN policy, i.e. allowing windows-style short authentication
