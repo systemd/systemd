@@ -495,7 +495,7 @@ int portable_extract(
 
         assert(name_or_path);
 
-        r = image_find_harder(IMAGE_PORTABLE, name_or_path, &image);
+        r = image_find_harder(IMAGE_PORTABLE, name_or_path, NULL, &image);
         if (r < 0)
                 return r;
 
@@ -953,7 +953,7 @@ static int install_image_symlink(
         /* If the image is outside of the image search also link it into it, so that it can be found with short image
          * names and is listed among the images. */
 
-        if (image_in_search_path(IMAGE_PORTABLE, image_path))
+        if (image_in_search_path(IMAGE_PORTABLE, NULL, image_path))
                 return 0;
 
         r = image_symlink(image_path, flags, &sl);
@@ -987,7 +987,7 @@ int portable_attach(
 
         assert(name_or_path);
 
-        r = image_find_harder(IMAGE_PORTABLE, name_or_path, &image);
+        r = image_find_harder(IMAGE_PORTABLE, name_or_path, NULL, &image);
         if (r < 0)
                 return r;
 
@@ -1193,7 +1193,7 @@ int portable_detach(
                         return log_debug_errno(r, "Failed to add unit name '%s' to set: %m", de->d_name);
 
                 if (path_is_absolute(marker) &&
-                    !image_in_search_path(IMAGE_PORTABLE, marker)) {
+                    !image_in_search_path(IMAGE_PORTABLE, NULL, marker)) {
 
                         r = set_ensure_consume(&markers, &path_hash_ops_free, TAKE_PTR(marker));
                         if (r < 0)
