@@ -5,6 +5,7 @@ ReorderHeader=
 Id=
 GVRP=
 Protocol=
+EgressQOSMaps=
 [MACVLAN]
 Mode=
 SourceMACAddress=
