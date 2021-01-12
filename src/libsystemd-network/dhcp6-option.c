@@ -232,16 +232,16 @@ int dhcp6_option_append_user_class(uint8_t **buf, size_t *buflen, char * const *
         return dhcp6_option_append(buf, buflen, SD_DHCP6_OPTION_USER_CLASS, total, p);
 }
 
-int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char **vendor_class) {
+int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char * const *vendor_class) {
         _cleanup_free_ uint8_t *p = NULL;
         uint32_t enterprise_identifier;
         size_t total, offset;
-        char **s;
+        char * const *s;
 
         assert(buf);
         assert(*buf);
         assert(buflen);
-        assert(vendor_class);
+        assert(!strv_isempty(vendor_class));
 
         enterprise_identifier = htobe32(SYSTEMD_PEN);
 
@@ -255,6 +255,9 @@ int dhcp6_option_append_vendor_class(uint8_t **buf, size_t *buflen, char **vendo
         STRV_FOREACH(s, vendor_class) {
                 size_t len = strlen(*s);
                 uint8_t *q;
+
+                if (len > UINT16_MAX || len == 0)
+                        return -EINVAL;
 
                 q = realloc(p, total + len + 2);
                 if (!q)
