@@ -317,6 +317,18 @@
         </para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SYSEXT_LEVEL=</varname></term>
+
+        <listitem><para>A lower-case string (mostly numeric, no spaces
+        or other characters outside of 0–9, a–z, ".", "_" and "-")
+        identifying the operating system extensions support level, to
+        indicate which extension images are supported (See:
+        <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+        Example: <literal>SYSEXT_LEVEL=2</literal>
+        or <literal>SYSEXT_LEVEL=15.14</literal>.</para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>If you are reading this file from C code or a shell script
