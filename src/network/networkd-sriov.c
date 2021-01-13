@@ -58,11 +58,7 @@ static int sr_iov_new_static(Network *network, const char *filename, unsigned se
         sr_iov->network = network;
         sr_iov->section = TAKE_PTR(n);
 
-        r = ordered_hashmap_ensure_allocated(&network->sr_iov_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(network->sr_iov_by_section, sr_iov->section, sr_iov);
+        r = ordered_hashmap_ensure_put(&network->sr_iov_by_section, &network_config_hash_ops, sr_iov->section, sr_iov);
         if (r < 0)
                 return r;
 
