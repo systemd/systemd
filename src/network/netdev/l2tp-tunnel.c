@@ -85,11 +85,7 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
                 .section = TAKE_PTR(n),
         };
 
-        r = ordered_hashmap_ensure_allocated(&t->sessions_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = ordered_hashmap_put(t->sessions_by_section, s->section, s);
+        r = ordered_hashmap_ensure_put(&t->sessions_by_section, &network_config_hash_ops, s->section, s);
         if (r < 0)
                 return r;
 
