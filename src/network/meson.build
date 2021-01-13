@@ -91,6 +91,8 @@ sources = files('''
         networkd-manager.h
         networkd-mdb.c
         networkd-mdb.h
+        networkd-mptcp.c
+        networkd-mptcp.h
         networkd-ndisc.c
         networkd-ndisc.h
         networkd-neighbor.c
