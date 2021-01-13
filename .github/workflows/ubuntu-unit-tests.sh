@@ -63,6 +63,16 @@ for phase in "${PHASES[@]}"; do
             export ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
             # Never remove halt_on_error from UBSAN_OPTIONS. See https://github.com/systemd/systemd/commit/2614d83aa06592aedb.
             export UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
+
+            # FIXME
+            # For some strange reason the GH Actions VM stops responding after
+            # executing first ~150 tests, _unless_ there's something producing
+            # output (either running `meson test` in verbose mode, or something
+            # else in background). Despite my efforts so far I haven't been able
+            # to identify the culprit (since the issue is not reproducible
+            # during debugging, wonderful), so let's at least keep a workaround
+            # here to make the builds stable for the time being.
+            (set +x; while :; do echo -ne "\n[WATCHDOG] $(date)\n"; sleep 30; done) &
             meson test --timeout-multiplier=3 -C build --print-errorlogs
             ;;
         CLEANUP)
