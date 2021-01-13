@@ -174,8 +174,17 @@ bool in_initrd(void) {
                 saved_in_initrd = r > 0;
         }
 
-        if (saved_in_initrd != 0)
-                saved_in_initrd = access("/etc/initrd-release", F_OK) >= 0;
+        r = access("/etc/initrd-release", F_OK);
+        if (r >= 0) {
+                if (saved_in_initrd == 0)
+                        log_debug("/etc/initrd-release exists, but it's not an initrd.");
+                else
+                        saved_in_initrd = 1;
+        } else {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to test if /etc/initrd-release exists: %m");
+                saved_in_initrd = 0;
+        }
 
         return saved_in_initrd;
 }
