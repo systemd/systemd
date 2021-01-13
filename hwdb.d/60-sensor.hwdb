@@ -528,7 +528,7 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:svnLINX*:pnLINX1010B:*
 # Linx 12X64 and 12V64
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX*:pnLINX12*64:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
- 
+
 # Linx Vision 8
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX:pnVISION004:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
