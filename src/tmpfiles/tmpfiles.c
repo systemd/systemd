@@ -60,6 +60,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 
@@ -2995,8 +2996,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
-               "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
+        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n"
+               "\n%sCreates, deletes and cleans up volatile and temporary files and directories.%s\n\n"
                "  -h --help                 Show this help\n"
                "     --user                 Execute user configuration\n"
                "     --version              Show package version\n"
@@ -3014,6 +3015,7 @@ static int help(void) {
                "     --no-pager             Do not pipe output into a pager\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
+               , ansi_highlight(), ansi_normal()
                , link
         );
 

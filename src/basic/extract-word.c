@@ -20,11 +20,10 @@
 int extract_first_word(const char **p, char **ret, const char *separators, ExtractFlags flags) {
         _cleanup_free_ char *s = NULL;
         size_t allocated = 0, sz = 0;
-        char c;
-        int r;
-
         char quote = 0;                 /* 0 or ' or " */
         bool backslash = false;         /* whether we've just seen a backslash */
+        char c;
+        int r;
 
         assert(p);
         assert(ret);
@@ -71,7 +70,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
                         if (c == 0) {
                                 if ((flags & EXTRACT_CUNESCAPE_RELAX) &&
-                                    (!quote || flags & EXTRACT_RELAX)) {
+                                    (quote == 0 || flags & EXTRACT_RELAX)) {
                                         /* If we find an unquoted trailing backslash and we're in
                                          * EXTRACT_CUNESCAPE_RELAX mode, keep it verbatim in the
                                          * output.
@@ -116,7 +115,7 @@ int extract_first_word(const char **p, char **ret, const char *separators, Extra
 
                         backslash = false;
 
-                } else if (quote) {     /* inside either single or double quotes */
+                } else if (quote != 0) {     /* inside either single or double quotes */
                         for (;; (*p)++, c = **p) {
                                 if (c == 0) {
                                         if (flags & EXTRACT_RELAX)
