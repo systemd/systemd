@@ -166,8 +166,16 @@ bool in_initrd(void) {
                 }
         }
 
-        saved_in_initrd = (lenient || path_is_temporary_fs("/") > 0) &&
-                          access("/etc/initrd-release", F_OK) >= 0;
+        if (!lenient) {
+                r = path_is_temporary_fs("/");
+                if (r < 0)
+                        log_debug_errno(r, "Couldn't determine if / is a temporary file system: %m");
+
+                saved_in_initrd = r > 0;
+        }
+
+        if (saved_in_initrd != 0)
+                saved_in_initrd = access("/etc/initrd-release", F_OK) >= 0;
 
         return saved_in_initrd;
 }
