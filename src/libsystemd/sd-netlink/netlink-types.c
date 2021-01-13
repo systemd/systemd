@@ -105,10 +105,13 @@ static const NLTypeSystem rtnl_macvlan_macaddr_type_system = {
 };
 
 static const NLType rtnl_link_info_data_macvlan_types[] = {
-        [IFLA_MACVLAN_MODE]  = { .type = NETLINK_TYPE_U32 },
-        [IFLA_MACVLAN_FLAGS] = { .type = NETLINK_TYPE_U16 },
-        [IFLA_MACVLAN_MACADDR_MODE] = { .type = NETLINK_TYPE_U32 },
-        [IFLA_MACVLAN_MACADDR_DATA] = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_macvlan_macaddr_type_system },
+        [IFLA_MACVLAN_MODE]              = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACVLAN_FLAGS]             = { .type = NETLINK_TYPE_U16 },
+        [IFLA_MACVLAN_MACADDR_MODE]      = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACVLAN_MACADDR_DATA]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_macvlan_macaddr_type_system },
+        [IFLA_MACVLAN_MACADDR_COUNT]     = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACVLAN_BC_QUEUE_LEN]      = { .type = NETLINK_TYPE_U32 },
+        [IFLA_MACVLAN_BC_QUEUE_LEN_USED] = { .type = NETLINK_TYPE_REJECT },
 };
 
 static const NLType rtnl_link_info_data_bridge_types[] = {
