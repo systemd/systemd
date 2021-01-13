@@ -46,6 +46,7 @@ struct link_config {
         char *name;
         char **alternative_names;
         char *alias;
+        uint32_t txqueuelen;
         uint32_t mtu;
         uint32_t gso_max_segments;
         size_t gso_max_size;
@@ -90,6 +91,7 @@ MACAddressPolicy mac_address_policy_from_string(const char *p) _pure_;
 const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
+CONFIG_PARSER_PROTOTYPE(config_parse_txqueuelen);
 CONFIG_PARSER_PROTOTYPE(config_parse_mac_address_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_name_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_alternative_names_policy);

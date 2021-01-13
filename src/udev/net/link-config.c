@@ -150,6 +150,7 @@ int link_load_one(link_config_ctx *ctx, const char *filename) {
                 .rx_flow_control = -1,
                 .tx_flow_control = -1,
                 .autoneg_flow_control = -1,
+                .txqueuelen = UINT32_MAX,
         };
 
         for (i = 0; i < ELEMENTSOF(link->features); i++)
@@ -426,9 +427,11 @@ static int link_config_apply_rtnl_settings(sd_netlink **rtnl, const link_config 
         } else
                 mac = config->mac;
 
-        r = rtnl_set_link_properties(rtnl, ifindex, config->alias, mac, config->mtu, config->gso_max_size, config->gso_max_segments);
+        r = rtnl_set_link_properties(rtnl, ifindex, config->alias, mac, config->txqueuelen, config->mtu,
+                                     config->gso_max_size, config->gso_max_segments);
         if (r < 0)
-                log_device_warning_errno(device, r, "Could not set Alias=, MACAddress= or MTU=, ignoring: %m");
+                log_device_warning_errno(device, r, "Could not set Alias=, MACAddress=, TxQueueLength=, MTU=, "
+					 "GenericSegmentOffloadMaxBytes= or GenericSegmentOffloadMaxSegments=, ignoring: %m");
 
         return 0;
 }
@@ -698,6 +701,40 @@ int config_parse_ifalias(
         if (free_and_strdup(s, rvalue) < 0)
                 return log_oom();
 
+        return 0;
+}
+
+int config_parse_txqueuelen(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t k, *v = data;
+        int r;
+
+        if (isempty(rvalue)) {
+                *v = UINT32_MAX;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s=, ignoring assignment: %s.", lvalue, rvalue);
+                return 0;
+        }
+        if (k == UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid %s=, ignoring assignment: %s.", lvalue, rvalue);
+                return 0;
+        }
+
+        *v = k;
         return 0;
 }
 

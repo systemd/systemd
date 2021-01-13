@@ -20,6 +20,7 @@ Name=
 AlternativeNamesPolicy=
 AlternativeName=
 Alias=
+TxQueueLength=
 MTUBytes=
 BitsPerSecond=
 Duplex=
