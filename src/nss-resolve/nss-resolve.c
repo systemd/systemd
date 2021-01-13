@@ -23,7 +23,8 @@ NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
 
 static bool bus_error_shall_fallback(sd_bus_error *e) {
-        return sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
+        return sd_bus_error_get_errno(e) == ENOTCONN ||
+               sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
                sd_bus_error_has_name(e, SD_BUS_ERROR_NAME_HAS_NO_OWNER) ||
                sd_bus_error_has_name(e, SD_BUS_ERROR_NO_REPLY) ||
                sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED) ||
