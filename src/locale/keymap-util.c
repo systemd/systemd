@@ -6,18 +6,21 @@
 #include <unistd.h>
 
 #include "bus-polkit.h"
+#include "copy.h"
 #include "env-file-label.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio-label.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "kbd-util.h"
 #include "keymap-util.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "nulstr-util.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -779,4 +782,212 @@ int x11_convert_to_vconsole(Context *c) {
                 log_debug("Virtual console keymap was not modified.");
 
         return modified;
+}
+
+bool locale_gen_check_available(void) {
+#if HAVE_LOCALEGEN
+        if (access(LOCALEGEN_PATH, X_OK) < 0) {
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Unable to determine whether " LOCALEGEN_PATH " exists and is executable, assuming it is not: %m");
+                return false;
+        }
+        if (access("/etc/locale.gen", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_warning_errno(errno, "Unable to determine whether /etc/locale.gen exists, assuming it does not: %m");
+                return false;
+        }
+        return true;
+#else
+        return false;
+#endif
+}
+
+#if HAVE_LOCALEGEN
+static bool locale_encoding_is_utf8_or_unspecified(const char *locale) {
+        const char *c = strchr(locale, '.');
+        return !c || strcaseeq(c, ".UTF-8") || strcasestr(locale, ".UTF-8@");
+}
+
+static int locale_gen_locale_supported(const char *locale_entry) {
+        /* Returns an error valus <= 0 if the locale-gen entry is invalid or unsupported,
+         * 1 in case the locale entry is valid, and -EOPNOTSUPP specifically in case
+         * the distributor has not provided us with a SUPPORTED file to check
+         * locale for validity. */
+
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(locale_entry);
+
+        /* Locale templates without country code are never supported */
+        if (!strstr(locale_entry, "_"))
+                return -EINVAL;
+
+        f = fopen("/usr/share/i18n/SUPPORTED", "re");
+        if (!f) {
+                if (errno == ENOENT)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                               "Unable to check validity of locale entry %s: /usr/share/i18n/SUPPORTED does not exist",
+                                               locale_entry);
+                return -errno;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read /usr/share/i18n/SUPPORTED: %m");
+                if (r == 0)
+                        return 0;
+
+                line = strstrip(line);
+                if (strcaseeq_ptr(line, locale_entry))
+                        return 1;
+        }
+}
+#endif
+
+int locale_gen_enable_locale(const char *locale) {
+#if HAVE_LOCALEGEN
+        _cleanup_fclose_ FILE *fr = NULL, *fw = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_free_ char *locale_entry = NULL;
+        bool locale_enabled = false, first_line = false;
+        bool write_new = false;
+        int r;
+
+        if (isempty(locale))
+                return 0;
+
+        if (locale_encoding_is_utf8_or_unspecified(locale)) {
+                locale_entry = strjoin(locale, " UTF-8");
+                if (!locale_entry)
+                        return -ENOMEM;
+        } else
+                return -ENOEXEC; /* We do not process non-UTF-8 locale */
+
+        r = locale_gen_locale_supported(locale_entry);
+        if (r == 0)
+                return -EINVAL;
+        if (r < 0 && r != -EOPNOTSUPP)
+                return r;
+
+        fr = fopen("/etc/locale.gen", "re");
+        if (!fr) {
+                if (errno != ENOENT)
+                        return -errno;
+                write_new = true;
+        }
+
+        r = fopen_temporary("/etc/locale.gen", &fw, &temp_path);
+        if (r < 0)
+                return r;
+
+        if (write_new)
+                (void) fchmod(fileno(fw), 0644);
+        else {
+                /* apply mode & xattrs of the original file to new file */
+                r = copy_access(fileno(fr), fileno(fw));
+                if (r < 0)
+                        return r;
+                r = copy_xattr(fileno(fr), fileno(fw));
+                if (r < 0)
+                        return r;
+        }
+
+        if (!write_new) {
+                /* The config file ends with a line break, which we do not want to include before potentially appending a new locale
+                * instead of uncommenting an existing line. By prepending linebreaks, we can avoid buffering this file but can still write
+                * a nice config file without empty lines */
+                first_line = true;
+                for (;;) {
+                        _cleanup_free_ char *line = NULL;
+                        char *line_locale;
+
+                        r = read_line(fr, LONG_LINE_MAX, &line);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (locale_enabled) {
+                                /* Just complete writing the file if the new locale was already enabled */
+                                if (!first_line)
+                                        fputc('\n', fw);
+                                fputs(line, fw);
+                                first_line = false;
+                                continue;
+                        }
+
+                        line = strstrip(line);
+                        if (isempty(line)) {
+                                fputc('\n', fw);
+                                first_line = false;
+                                continue;
+                        }
+
+                        line_locale = line;
+                        if (line_locale[0] == '#')
+                                line_locale = strstrip(line_locale + 1);
+                        else if (strcaseeq_ptr(line_locale, locale_entry))
+                                return 0; /* the file already had our locale activated, so skip updating it */
+
+                        if (strcaseeq_ptr(line_locale, locale_entry)) {
+                                /* Uncomment existing line for new locale */
+                                if (!first_line)
+                                        fputc('\n', fw);
+                                fputs(locale_entry, fw);
+                                locale_enabled = true;
+                                first_line = false;
+                                continue;
+                        }
+
+                        /* The line was not for the locale we want to enable, just copy it */
+                        if (!first_line)
+                                fputc('\n', fw);
+                        fputs(line, fw);
+                        first_line = false;
+                }
+        }
+
+        /* Add locale to enable to the end of the file if it was not found as commented line */
+        if (!locale_enabled) {
+                if (!write_new)
+                        fputc('\n', fw);
+                fputs(locale_entry, fw);
+        }
+        fputc('\n', fw);
+
+        r = fflush_sync_and_check(fw);
+        if (r < 0)
+                return r;
+
+        if (rename(temp_path, "/etc/locale.gen") < 0)
+                return -errno;
+        temp_path = mfree(temp_path);
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int locale_gen_run(void) {
+#if HAVE_LOCALEGEN
+        pid_t pid;
+        int r;
+
+        r = safe_fork("(sd-localegen)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                execl(LOCALEGEN_PATH, LOCALEGEN_PATH, NULL);
+                _exit(EXIT_FAILURE);
+        }
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }

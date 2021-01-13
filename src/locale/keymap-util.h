@@ -42,3 +42,7 @@ int x11_convert_to_vconsole(Context *c);
 int x11_write_data(Context *c);
 void locale_simplify(char *locale[_VARIABLE_LC_MAX]);
 int locale_write_data(Context *c, char ***settings);
+
+bool locale_gen_check_available(void);
+int locale_gen_enable_locale(const char *locale);
+int locale_gen_run(void);
