@@ -239,7 +239,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         static const struct option options[] = {
                 { "offset", required_argument, NULL, 'o' },
                 { "hint",   required_argument, NULL, 'H' },
-                { "noraid", no_argument, NULL, 'R' },
+                { "noraid", no_argument,       NULL, 'R' },
                 {}
         };
 
@@ -251,7 +251,7 @@ static int builtin_blkid(sd_device *dev, int argc, char *argv[], bool test) {
         for (;;) {
                 int option;
 
-                option = getopt_long(argc, argv, "o:R", options, NULL);
+                option = getopt_long(argc, argv, "o:H:R", options, NULL);
                 if (option == -1)
                         break;
 
