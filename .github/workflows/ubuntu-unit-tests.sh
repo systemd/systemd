@@ -47,13 +47,15 @@ for phase in "${PHASES[@]}"; do
             meson test -C build --print-errorlogs
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN)
+            MESON_ARGS=(--optimization=1)
+
             if [[ "$phase" = "RUN_CLANG_ASAN_UBSAN" ]]; then
                 export CC=clang
                 export CXX=clang++
                 # Build fuzzer regression tests only with clang (for now),
                 # see: https://github.com/systemd/systemd/pull/15886#issuecomment-632689604
                 # -Db_lundef=false: See https://github.com/mesonbuild/meson/issues/764
-                MESON_ARGS=(-Db_lundef=false -Dfuzz-tests=true --optimization=1)
+                MESON_ARGS+=(-Db_lundef=false -Dfuzz-tests=true)
             fi
             meson --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
             ninja -C build -v
