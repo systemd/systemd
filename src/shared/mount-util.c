@@ -757,7 +757,7 @@ int bind_mount_in_namespace(
                 bool make_file_or_directory) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
-        _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1;
+        _cleanup_close_ int self_mntns_fd = -1, mntns_fd = -1, root_fd = -1, pidns_fd = -1;
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
@@ -773,7 +773,7 @@ int bind_mount_in_namespace(
         assert(src);
         assert(dest);
 
-        r = namespace_open(target, NULL, &mntns_fd, NULL, NULL, &root_fd);
+        r = namespace_open(target, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
 
@@ -898,7 +898,7 @@ int bind_mount_in_namespace(
         }
 
         r = namespace_fork("(sd-bindmnt)", "(sd-bindmnt-inner)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
-                           -1, mntns_fd, -1, -1, root_fd, &child);
+                           pidns_fd, mntns_fd, -1, -1, root_fd, &child);
         if (r < 0) {
                 log_debug_errno(r, "Failed to fork(): %m");
                 goto finish;
