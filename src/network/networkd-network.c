@@ -361,6 +361,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_pd = -1,
                 .dhcp6_pd_announce = true,
                 .dhcp6_pd_assign = true,
+                .dhcp6_pd_manage_temporary_address = true,
                 .dhcp6_pd_subnet_id = -1,
 
                 .dhcp_server_emit[SD_DHCP_LEASE_DNS].emit = true,

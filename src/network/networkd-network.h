@@ -200,6 +200,7 @@ struct Network {
         int dhcp6_pd;
         bool dhcp6_pd_announce;
         bool dhcp6_pd_assign;
+        bool dhcp6_pd_manage_temporary_address;
         int64_t dhcp6_pd_subnet_id;
         union in_addr_union dhcp6_pd_token;
 

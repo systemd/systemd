@@ -365,11 +365,11 @@ static int dhcp6_pd_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
         return 1;
 }
 
-static int dhcp6_set_pd_address(Link *link,
-                                const union in_addr_union *prefix,
-                                uint8_t prefix_len,
-                                uint32_t lifetime_preferred,
-                                uint32_t lifetime_valid) {
+static int dhcp6_set_pd_address(
+                Link *link,
+                const union in_addr_union *prefix,
+                uint32_t lifetime_preferred,
+                uint32_t lifetime_valid) {
 
         _cleanup_(address_freep) Address *address = NULL;
         Address *ret;
@@ -396,10 +396,11 @@ static int dhcp6_set_pd_address(Link *link,
                         return log_link_warning_errno(link, r, "Failed to generate EUI64 address for acquired DHCPv6 delegated prefix: %m");
         }
 
-        address->prefixlen = prefix_len;
+        address->prefixlen = 64;
         address->family = AF_INET6;
         address->cinfo.ifa_prefered = lifetime_preferred;
         address->cinfo.ifa_valid = lifetime_valid;
+        SET_FLAG(address->flags, IFA_F_MANAGETEMPADDR, link->network->dhcp6_pd_manage_temporary_address);
 
         r = address_configure(address, link, dhcp6_pd_address_handler, true, &ret);
         if (r < 0)
@@ -416,8 +417,13 @@ static int dhcp6_set_pd_address(Link *link,
         return 0;
 }
 
-static int dhcp6_pd_assign_prefix(Link *link, const union in_addr_union *prefix, const union in_addr_union *pd_prefix,
-                                  uint8_t prefix_len, uint32_t lifetime_preferred, uint32_t lifetime_valid) {
+static int dhcp6_pd_assign_prefix(
+                Link *link,
+                const union in_addr_union *prefix,
+                const union in_addr_union *pd_prefix,
+                uint32_t lifetime_preferred,
+                uint32_t lifetime_valid) {
+
         int r;
 
         assert(link);
@@ -425,7 +431,7 @@ static int dhcp6_pd_assign_prefix(Link *link, const union in_addr_union *prefix,
         assert(prefix);
 
         if (link->network->dhcp6_pd_announce) {
-                r = radv_add_prefix(link, &prefix->in6, prefix_len, lifetime_preferred, lifetime_valid);
+                r = radv_add_prefix(link, &prefix->in6, 64, lifetime_preferred, lifetime_valid);
                 if (r < 0)
                         return r;
         }
@@ -434,7 +440,7 @@ static int dhcp6_pd_assign_prefix(Link *link, const union in_addr_union *prefix,
         if (r < 0)
                 return r;
 
-        r = dhcp6_set_pd_address(link, prefix, prefix_len, lifetime_preferred, lifetime_valid);
+        r = dhcp6_set_pd_address(link, prefix, lifetime_preferred, lifetime_valid);
         if (r < 0)
                 return r;
 
@@ -559,7 +565,7 @@ static void dhcp6_pd_prefix_distribute(Link *dhcp6_link,
                 }
 
                 (void) in_addr_to_string(AF_INET6, &assigned_prefix, &assigned_buf);
-                r = dhcp6_pd_assign_prefix(link, &assigned_prefix, masked_pd_prefix, 64,
+                r = dhcp6_pd_assign_prefix(link, &assigned_prefix, masked_pd_prefix,
                                            lifetime_preferred, lifetime_valid);
                 if (r < 0) {
                         log_link_error_errno(link, r, "Unable to assign/update prefix %s/64: %m",
