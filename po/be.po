@@ -309,7 +309,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "Дазволіць праграмам перашкаджаць сістэме апрацоўваць кнопку перазапуску"
+msgstr ""
+"Дазволіць праграмам перашкаджаць сістэме апрацоўваць кнопку перазапуску"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid ""
