@@ -4,13 +4,13 @@
 #
 #
 # Viktar Vaŭčkievič <victorenator@gmail.com>, 2015, 2016.
-# Zmicer Turok <nashtlumach@gmail.com>, 2020.
+# Zmicer Turok <nashtlumach@gmail.com>, 2020, 2021.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd master\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-01-08 17:48+0100\n"
-"PO-Revision-Date: 2020-10-16 06:30+0000\n"
+"PO-Revision-Date: 2021-01-10 18:36+0000\n"
 "Last-Translator: Zmicer Turok <nashtlumach@gmail.com>\n"
 "Language-Team: Belarusian <https://translate.fedoraproject.org/projects/"
 "systemd/master/be/>\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 4.2.2\n"
+"X-Generator: Weblate 4.4\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -308,22 +308,16 @@ msgstr ""
 "ноўтбука, патрабуецца аўтэнтыфікацыя."
 
 #: src/login/org.freedesktop.login1.policy:117
-#, fuzzy
-#| msgid "Allow applications to inhibit system handling of the power key"
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr "Дазволіць праграмам перашкаджаць сістэме апрацоўваць кнопку выключэння"
+msgstr "Дазволіць праграмам перашкаджаць сістэме апрацоўваць кнопку перазапуску"
 
 #: src/login/org.freedesktop.login1.policy:118
-#, fuzzy
-#| msgid ""
-#| "Authentication is required for an application to inhibit system handling "
-#| "of the power key."
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
 "Для таго, каб дазволіць праграмам перашкаджаць сістэме апрацоўваць кнопку "
-"выключэння, патрабуецца аўтэнтыфікацыя."
+"перазапуску, патрабуецца аўтэнтыфікацыя."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
