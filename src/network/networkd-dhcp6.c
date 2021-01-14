@@ -309,11 +309,9 @@ static int dhcp6_set_pd_route(Link *link, const union in_addr_union *prefix, con
                 .link = link_ref(link),
         };
 
-        r = hashmap_ensure_allocated(&link->manager->dhcp6_prefixes, &in6_addr_hash_ops);
-        if (r < 0)
+        r = hashmap_ensure_put(&link->manager->dhcp6_prefixes, &in6_addr_hash_ops, &pd->prefix, pd);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        r = hashmap_put(link->manager->dhcp6_prefixes, &pd->prefix, pd);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to store DHCPv6 prefix route at manager: %m");
 
