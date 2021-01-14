@@ -190,11 +190,7 @@ static int network_new(Context *context, const char *name, Network **ret) {
                 .dhcp_use_dns = -1,
         };
 
-        r = hashmap_ensure_allocated(&context->networks_by_name, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(context->networks_by_name, network->ifname, network);
+        r = hashmap_ensure_put(&context->networks_by_name, &string_hash_ops, network->ifname, network);
         if (r < 0)
                 return r;
 
@@ -247,11 +243,7 @@ static int netdev_new(Context *context, const char *_kind, const char *_ifname, 
                 .ifname = TAKE_PTR(ifname),
         };
 
-        r = hashmap_ensure_allocated(&context->netdevs_by_name, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(context->netdevs_by_name, netdev->ifname, netdev);
+        r = hashmap_ensure_put(&context->netdevs_by_name, &string_hash_ops, netdev->ifname, netdev);
         if (r < 0)
                 return r;
 
@@ -299,11 +291,7 @@ static int link_new(Context *context, const char *name, struct ether_addr *mac, 
                 .mac = *mac,
         };
 
-        r = hashmap_ensure_allocated(&context->links_by_name, &string_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(context->links_by_name, link->ifname, link);
+        r = hashmap_ensure_put(&context->links_by_name, &string_hash_ops, link->ifname, link);
         if (r < 0)
                 return r;
 
