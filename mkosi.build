@@ -9,8 +9,10 @@ set -e
 # so the files keep those permissions, otherwise details of what umask
 # was set at the time the git tree was cloned will leak all the way
 # through. Also set umask explicitly during the build.
-chmod -R u+w,go-w,a+rX .
-umask 022
+if ! mountpoint -q "$SRCDIR"; then
+        chmod -R u+w,go-w,a+rX .
+        umask 022
+fi
 
 # If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
 # as out-of-tree build dir. Otherwise, let's make up our own builddir.
