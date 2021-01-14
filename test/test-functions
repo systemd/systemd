@@ -698,14 +698,23 @@ install_missing_libraries() {
     # A number of dependencies is now optional via dlopen, so the install
     # script will not pick them up, since it looks at linkage.
     for lib in libcryptsetup libidn libidn2 pwquality libqrencode tss2-esys tss2-rc tss2-mu libfido2; do
-            if pkg-config --exists ${lib}; then
-                    path=$(pkg-config --variable=libdir ${lib})
-                    if ! [[ ${lib} =~ ^lib ]]; then
-                            lib="lib${lib}"
-                    fi
-                    inst_libs "${path}/${lib}.so"
-                    inst_library "${path}/${lib}.so"
-            fi
+        ddebug "Searching for $lib via pkg-config"
+        if pkg-config --exists ${lib}; then
+                path=$(pkg-config --variable=libdir ${lib})
+                if [ -z "${path}" ]; then
+                    ddebug "$lib.pc does not contain a libdir variable, skipping"
+                    continue
+                fi
+
+                if ! [[ ${lib} =~ ^lib ]]; then
+                        lib="lib${lib}"
+                fi
+                inst_libs "${path}/${lib}.so"
+                inst_library "${path}/${lib}.so"
+        else
+            ddebug "$lib.pc not found, skipping"
+            continue
+        fi
     done
 }
 
