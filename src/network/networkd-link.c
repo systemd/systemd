@@ -1601,11 +1601,7 @@ static int link_put_carrier(Link *link, Link *carrier, Hashmap **h) {
         if (hashmap_get(*h, INT_TO_PTR(carrier->ifindex)))
                 return 0;
 
-        r = hashmap_ensure_allocated(h, NULL);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(*h, INT_TO_PTR(carrier->ifindex), carrier);
+        r = hashmap_ensure_put(h, NULL, INT_TO_PTR(carrier->ifindex), carrier);
         if (r < 0)
                 return r;
 
