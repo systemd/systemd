@@ -60,11 +60,7 @@ static int neighbor_new_static(Network *network, const char *filename, unsigned 
                 .section = TAKE_PTR(n),
         };
 
-        r = hashmap_ensure_allocated(&network->neighbors_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(network->neighbors_by_section, neighbor->section, neighbor);
+        r = hashmap_ensure_put(&network->neighbors_by_section, &network_config_hash_ops, neighbor->section, neighbor);
         if (r < 0)
                 return r;
 
