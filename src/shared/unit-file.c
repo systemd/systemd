@@ -511,7 +511,7 @@ int unit_file_find_fragment(
 
                 r = unit_name_template(unit_name, &template);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine template name: %m");
+                        return log_debug_errno(r, "Failed to determine template name: %m");
 
                 r = unit_ids_map_get(unit_ids_map, template, &fragment);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
