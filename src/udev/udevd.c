@@ -211,11 +211,7 @@ static int worker_new(struct worker **ret, Manager *manager, sd_device_monitor *
                 .pid = pid,
         };
 
-        r = hashmap_ensure_allocated(&manager->workers, &worker_hash_op);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(manager->workers, PID_TO_PTR(pid), worker);
+        r = hashmap_ensure_put(&manager->workers, &worker_hash_op, PID_TO_PTR(pid), worker);
         if (r < 0)
                 return r;
 
