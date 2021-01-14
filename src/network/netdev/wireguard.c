@@ -91,11 +91,7 @@ static int wireguard_peer_new_static(Wireguard *w, const char *filename, unsigne
 
         LIST_PREPEND(peers, w->peers, peer);
 
-        r = hashmap_ensure_allocated(&w->peers_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(w->peers_by_section, peer->section, peer);
+        r = hashmap_ensure_put(&w->peers_by_section, &network_config_hash_ops, peer->section, peer);
         if (r < 0)
                 return r;
 
