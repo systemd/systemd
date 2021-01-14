@@ -520,7 +520,7 @@ int unit_find_paths(
 
                 r = unit_file_find_fragment(*cached_id_map, *cached_name_map, unit_name, &_path, &names);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to find fragment for '%s': %m", unit_name);
 
                 if (_path) {
                         path = strdup(_path);
