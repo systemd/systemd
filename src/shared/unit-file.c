@@ -262,7 +262,7 @@ int unit_file_build_name_map(
          * If yes, do nothing. */
         if (cache_timestamp_hash &&
             lookup_paths_timestamp_hash_same(lp, *cache_timestamp_hash, &timestamp_hash))
-                        return 0;
+                return 0;
 
         /* The timestamp hash is now set based on the mtimes from before when we start reading files.
          * If anything is modified concurrently, we'll consider the cache outdated. */
