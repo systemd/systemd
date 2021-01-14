@@ -405,9 +405,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                 if (r < 0)
                         return r;
 
-                if (r == 0) {
-                        assert(!path);
-
+                if (!path) {
                         if (!arg_force) {
                                 log_info("Run 'systemctl edit%s --force --full %s' to create a new unit.",
                                          arg_scope == UNIT_FILE_GLOBAL ? " --global" :
@@ -422,8 +420,6 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
                                                  arg_full ? NULL : ".d/override.conf",
                                                  NULL, &new_path, &tmp_path);
                 } else {
-                        assert(path);
-
                         unit_name = basename(path);
                         /* We follow unit aliases, but we need to propagate the instance */
                         if (unit_name_is_valid(*name, UNIT_NAME_INSTANCE) &&
