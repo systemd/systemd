@@ -20,6 +20,15 @@ Janitorial Clean-ups:
 
 Features:
 
+* importd: add ability download images for portabled + sysext
+
+* importd: support image signature verification with PKCS#7 + OpenBSD signify
+  logic, as alternative to crummy gpg
+
+* sd-boot: add service that automatically runs "bootctl update" on every boot,
+  in a graceful way, so that updated /usr trees automatically propagate into
+  updated boot loaders on reboot.
+
 * add "systemd-analyze debug" + AttachDebugger= in unit files: The former
   specifies a command to execute; the latter specifies that an already running
   "systemd-analyze debug" instance shall be contacted and execution paused
