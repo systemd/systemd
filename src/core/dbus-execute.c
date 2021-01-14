@@ -2727,8 +2727,8 @@ int bus_exec_context_set_transient_property(
 
         } else if (STR_IN_SET(name,
                               "StandardInputFile",
-                              "StandardOutputFile", "StandardOutputFileToAppend",
-                              "StandardErrorFile", "StandardErrorFileToAppend")) {
+                              "StandardOutputFile", "StandardOutputFileToAppend", "StandardOutputFileToTruncate",
+                              "StandardErrorFile", "StandardErrorFileToAppend", "StandardErrorFileToTruncate")) {
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);
@@ -2752,7 +2752,7 @@ int bus_exec_context_set_transient_property(
                                 c->std_input = EXEC_INPUT_FILE;
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardInput=file:%s", s);
 
-                        } else if (STR_IN_SET(name, "StandardOutputFile", "StandardOutputFileToAppend")) {
+                        } else if (STR_IN_SET(name, "StandardOutputFile", "StandardOutputFileToAppend", "StandardOutputFileToTruncate")) {
                                 r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
@@ -2760,13 +2760,16 @@ int bus_exec_context_set_transient_property(
                                 if (streq(name, "StandardOutputFile")) {
                                         c->std_output = EXEC_OUTPUT_FILE;
                                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=file:%s", s);
-                                } else {
-                                        assert(streq(name, "StandardOutputFileToAppend"));
+                                } else if (streq(name, "StandardOutputFileToAppend")) {
                                         c->std_output = EXEC_OUTPUT_FILE_APPEND;
                                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=append:%s", s);
+                                } else {
+                                        assert(streq(name, "StandardOutputFileToTruncate"));
+                                        c->std_output = EXEC_OUTPUT_FILE_TRUNCATE;
+                                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=truncate:%s", s);
                                 }
                         } else {
-                                assert(STR_IN_SET(name, "StandardErrorFile", "StandardErrorFileToAppend"));
+                                assert(STR_IN_SET(name, "StandardErrorFile", "StandardErrorFileToAppend", "StandardErrorFileToTruncate"));
 
                                 r = free_and_strdup(&c->stdio_file[STDERR_FILENO], empty_to_null(s));
                                 if (r < 0)
@@ -2775,10 +2778,13 @@ int bus_exec_context_set_transient_property(
                                 if (streq(name, "StandardErrorFile")) {
                                         c->std_error = EXEC_OUTPUT_FILE;
                                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardError=file:%s", s);
-                                } else {
-                                        assert(streq(name, "StandardErrorFileToAppend"));
+                                } else if (streq(name, "StandardErrorFileToAppend")) {
                                         c->std_error = EXEC_OUTPUT_FILE_APPEND;
                                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardError=append:%s", s);
+                                } else {
+                                        assert(streq(name, "StandardErrorFileToTruncate"));
+                                        c->std_error = EXEC_OUTPUT_FILE_TRUNCATE;
+                                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardError=truncate:%s", s);
                                 }
                         }
                 }

@@ -811,6 +811,10 @@ static void test_exec_standardoutput_append(Manager *m) {
         test(m, "exec-standardoutput-append.service", 0, CLD_EXITED);
 }
 
+static void test_exec_standardoutput_truncate(Manager *m) {
+        test(m, "exec-standardoutput-truncate.service", 0, CLD_EXITED);
+}
+
 static void test_exec_condition(Manager *m) {
         test_service(m, "exec-condition-failed.service", SERVICE_FAILURE_EXIT_CODE);
         test_service(m, "exec-condition-skip.service", SERVICE_SKIP_CONDITION);
@@ -876,6 +880,7 @@ int main(int argc, char *argv[]) {
                 entry(test_exec_standardinput),
                 entry(test_exec_standardoutput),
                 entry(test_exec_standardoutput_append),
+                entry(test_exec_standardoutput_truncate),
                 entry(test_exec_supplementarygroups),
                 entry(test_exec_systemcallerrornumber),
                 entry(test_exec_systemcallfilter),

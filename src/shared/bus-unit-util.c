@@ -1144,6 +1144,9 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 } else if ((n = startswith(eq, "append:"))) {
                         appended = strjoina(field, "FileToAppend");
                         r = sd_bus_message_append(m, "(sv)", appended, "s", n);
+                } else if ((n = startswith(eq, "truncate:"))) {
+                        appended = strjoina(field, "FileToTruncate");
+                        r = sd_bus_message_append(m, "(sv)", appended, "s", n);
                 } else
                         r = sd_bus_message_append(m, "(sv)", field, "s", eq);
                 if (r < 0)
