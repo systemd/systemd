@@ -477,7 +477,7 @@ int unit_find_paths(
                         return -ERFKILL;
                 if (streq(load_state, "not-found")) {
                         r = 0;
-                        goto not_found;
+                        goto finish;
                 }
                 if (!STR_IN_SET(load_state, "loaded", "bad-setting"))
                         return -EKEYREJECTED;
@@ -534,6 +534,7 @@ int unit_find_paths(
                 }
         }
 
+ finish:
         if (isempty(path)) {
                 *ret_fragment_path = NULL;
                 r = 0;
@@ -550,7 +551,6 @@ int unit_find_paths(
                         *ret_dropin_paths = NULL;
         }
 
- not_found:
         if (r == 0 && !arg_force)
                 log_error("No files found for %s.", unit_name);
 
