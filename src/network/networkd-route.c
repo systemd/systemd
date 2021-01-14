@@ -2341,11 +2341,9 @@ int config_parse_multipath_route(
                 }
         }
 
-        r = ordered_set_ensure_allocated(&n->multipath_routes, NULL);
-        if (r < 0)
+        r = ordered_set_ensure_put(&n->multipath_routes, NULL, m);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        r = ordered_set_put(n->multipath_routes, m);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to store multipath route, ignoring assignment: %m");
