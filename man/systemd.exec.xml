@@ -2383,8 +2383,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         to. Takes one of <option>inherit</option>, <option>null</option>, <option>tty</option>,
         <option>journal</option>, <option>kmsg</option>, <option>journal+console</option>,
         <option>kmsg+console</option>, <option>file:<replaceable>path</replaceable></option>,
-        <option>append:<replaceable>path</replaceable></option>, <option>socket</option> or
-        <option>fd:<replaceable>name</replaceable></option>.</para>
+        <option>append:<replaceable>path</replaceable></option>, <option>truncate:<replaceable>path</replaceable></option>,
+        <option>socket</option> or <option>fd:<replaceable>name</replaceable></option>.</para>
 
         <para><option>inherit</option> duplicates the file descriptor of standard input for standard output.</para>
 
@@ -2422,6 +2422,10 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <para><option>append:<replaceable>path</replaceable></option> is similar to
         <option>file:<replaceable>path</replaceable></option> above, but it opens the file in append mode.
+        </para>
+
+        <para><option>truncate:<replaceable>path</replaceable></option> is similar to
+        <option>file:<replaceable>path</replaceable></option> above, but it truncates the file when opening it.
         </para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The

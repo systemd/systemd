@@ -61,6 +61,7 @@ typedef enum ExecOutput {
         EXEC_OUTPUT_NAMED_FD,
         EXEC_OUTPUT_FILE,
         EXEC_OUTPUT_FILE_APPEND,
+        EXEC_OUTPUT_FILE_TRUNCATE,
         _EXEC_OUTPUT_MAX,
         _EXEC_OUTPUT_INVALID = -1
 } ExecOutput;

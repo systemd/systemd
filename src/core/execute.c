@@ -562,7 +562,7 @@ static bool can_inherit_stderr_from_stdout(
         if (e == EXEC_OUTPUT_NAMED_FD)
                 return streq_ptr(context->stdio_fdname[STDOUT_FILENO], context->stdio_fdname[STDERR_FILENO]);
 
-        if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND))
+        if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE))
                 return streq_ptr(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
 
         return true;
@@ -698,7 +698,8 @@ static int setup_output(
                 return dup2(named_iofds[fileno], fileno) < 0 ? -errno : fileno;
 
         case EXEC_OUTPUT_FILE:
-        case EXEC_OUTPUT_FILE_APPEND: {
+        case EXEC_OUTPUT_FILE_APPEND:
+        case EXEC_OUTPUT_FILE_TRUNCATE: {
                 bool rw;
                 int fd, flags;
 
@@ -713,6 +714,8 @@ static int setup_output(
                 flags = O_WRONLY;
                 if (o == EXEC_OUTPUT_FILE_APPEND)
                         flags |= O_APPEND;
+                else if (o == EXEC_OUTPUT_FILE_TRUNCATE)
+                        flags |= O_TRUNC;
 
                 fd = acquire_path(context->stdio_file[fileno], flags, 0666 & ~context->umask);
                 if (fd < 0)
@@ -5357,10 +5360,14 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sStandardOutputFile: %s\n", prefix, c->stdio_file[STDOUT_FILENO]);
         if (c->std_output == EXEC_OUTPUT_FILE_APPEND)
                 fprintf(f, "%sStandardOutputFileToAppend: %s\n", prefix, c->stdio_file[STDOUT_FILENO]);
+        if (c->std_output == EXEC_OUTPUT_FILE_TRUNCATE)
+                fprintf(f, "%sStandardOutputFileToTruncate: %s\n", prefix, c->stdio_file[STDOUT_FILENO]);
         if (c->std_error == EXEC_OUTPUT_FILE)
                 fprintf(f, "%sStandardErrorFile: %s\n", prefix, c->stdio_file[STDERR_FILENO]);
         if (c->std_error == EXEC_OUTPUT_FILE_APPEND)
                 fprintf(f, "%sStandardErrorFileToAppend: %s\n", prefix, c->stdio_file[STDERR_FILENO]);
+        if (c->std_error == EXEC_OUTPUT_FILE_TRUNCATE)
+                fprintf(f, "%sStandardErrorFileToTruncate: %s\n", prefix, c->stdio_file[STDERR_FILENO]);
 
         if (c->tty_path)
                 fprintf(f,
@@ -6449,6 +6456,7 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_NAMED_FD] = "fd",
         [EXEC_OUTPUT_FILE] = "file",
         [EXEC_OUTPUT_FILE_APPEND] = "append",
+        [EXEC_OUTPUT_FILE_TRUNCATE] = "truncate",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);

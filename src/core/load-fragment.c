@@ -1202,6 +1202,20 @@ int config_parse_exec_output(
                         return 0;
 
                 eo = EXEC_OUTPUT_FILE_APPEND;
+
+        } else if ((n = startswith(rvalue, "truncate:"))) {
+
+                r = unit_full_printf(u, n, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in %s, ignoring: %m", n);
+                        return 0;
+                }
+
+                r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE | PATH_CHECK_FATAL, unit, filename, line, lvalue);
+                if (r < 0)
+                        return 0;
+
+                eo = EXEC_OUTPUT_FILE_TRUNCATE;
         } else {
                 eo = exec_output_from_string(rvalue);
                 if (eo < 0) {
@@ -5761,8 +5775,8 @@ int config_parse_output_restricted(
                         return 0;
                 }
 
-                if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND)) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Standard output types socket, fd:, file:, append: are not supported as defaults, ignoring: %s", rvalue);
+                if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Standard output types socket, fd:, file:, append:, truncate: are not supported as defaults, ignoring: %s", rvalue);
                         return 0;
                 }
         }
