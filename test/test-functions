@@ -629,7 +629,7 @@ create_strace_wrapper() {
     cat >$_strace_wrapper <<EOF
 #!/usr/bin/env bash
 
-exec strace -D -o /strace.out $ROOTLIBDIR/systemd "\$@"
+exec strace -f -D -o /strace.out $ROOTLIBDIR/systemd "\$@"
 EOF
     chmod 0755 $_strace_wrapper
 }
@@ -875,6 +875,9 @@ check_result_nspawn() {
     test -s $TESTDIR/failed && ret=$(($ret+1))
     [ -n "$TIMED_OUT" ] && ret=$(($ret+1))
     check_asan_reports "$1" || ret=$(($ret+1))
+    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f $1/strace.out ]; then
+        cp $1/strace.out "${ARTIFACT_DIRECTORY}/"
+    fi
     _umount_dir $initdir
     return $ret
 }
@@ -887,6 +890,9 @@ check_result_qemu() {
     [[ -f $initdir/failed ]] && cp -a $initdir/failed $TESTDIR
     save_journal $initdir/var/log/journal
     check_asan_reports "$initdir" || ret=$(($ret+1))
+    if [ -d "${ARTIFACT_DIRECTORY}" ] && [ -f $initdir/strace.out ]; then
+        cp $initdir/strace.out "${ARTIFACT_DIRECTORY}/"
+    fi
     _umount_dir $initdir
     [[ -f $TESTDIR/failed ]] && cat $TESTDIR/failed
     echo $JOURNAL_LIST
