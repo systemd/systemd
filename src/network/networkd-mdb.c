@@ -70,11 +70,7 @@ static int mdb_entry_new_static(
                 .section = TAKE_PTR(n),
         };
 
-        r = hashmap_ensure_allocated(&network->mdb_entries_by_section, &network_config_hash_ops);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(network->mdb_entries_by_section, mdb_entry->section, mdb_entry);
+        r = hashmap_ensure_put(&network->mdb_entries_by_section, &network_config_hash_ops, mdb_entry->section, mdb_entry);
         if (r < 0)
                 return r;
 
