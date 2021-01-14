@@ -439,12 +439,15 @@ int unit_find_paths(
         /**
          * Finds where the unit is defined on disk. Returns 0 if the unit is not found. Returns 1 if it is
          * found, and sets:
+         *
          * - the path to the unit in *ret_frament_path, if it exists on disk,
+         *
          * - and a strv of existing drop-ins in *ret_dropin_paths, if the arg is not NULL and any dropins
          *   were found.
          *
          * Returns -ERFKILL if the unit is masked, and -EKEYREJECTED if the unit file could not be loaded for
-         * some reason (the latter only applies if we are going through the service manager).
+         * some reason (the latter only applies if we are going through the service manager). As special
+         * exception it won't log for these two error cases.
          */
 
         assert(unit_name);
@@ -474,13 +477,13 @@ int unit_find_paths(
                         return log_error_errno(r, "Failed to get LoadState: %s", bus_error_message(&error, r));
 
                 if (streq(load_state, "masked"))
-                        return -ERFKILL;
+                        return -ERFKILL; /* special case: no logging */
                 if (streq(load_state, "not-found")) {
                         r = 0;
-                        goto not_found;
+                        goto finish;
                 }
                 if (!STR_IN_SET(load_state, "loaded", "bad-setting"))
-                        return -EKEYREJECTED;
+                        return -EKEYREJECTED; /* special case: no logging */
 
                 r = sd_bus_get_property_string(
                                 bus,
@@ -517,7 +520,7 @@ int unit_find_paths(
 
                 r = unit_file_find_fragment(*cached_id_map, *cached_name_map, unit_name, &_path, &names);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to find fragment for '%s': %m", unit_name);
 
                 if (_path) {
                         path = strdup(_path);
@@ -534,6 +537,7 @@ int unit_find_paths(
                 }
         }
 
+ finish:
         if (isempty(path)) {
                 *ret_fragment_path = NULL;
                 r = 0;
@@ -550,7 +554,6 @@ int unit_find_paths(
                         *ret_dropin_paths = NULL;
         }
 
- not_found:
         if (r == 0 && !arg_force)
                 log_error("No files found for %s.", unit_name);
 
