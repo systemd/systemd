@@ -111,7 +111,7 @@ int config_parse_generic_random_early_detection_u32(
         if (isempty(rvalue)) {
                 *p = 0;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -129,7 +129,7 @@ int config_parse_generic_random_early_detection_u32(
                            lvalue, rvalue);
 
         *p = v;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
@@ -169,7 +169,7 @@ int config_parse_generic_random_early_detection_bool(
         if (isempty(rvalue)) {
                 gred->grio = -1;
 
-                qdisc = NULL;
+                TAKE_PTR(qdisc);
                 return 0;
         }
 
@@ -182,7 +182,7 @@ int config_parse_generic_random_early_detection_bool(
         }
 
         gred->grio = r;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }
