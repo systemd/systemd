@@ -1515,8 +1515,7 @@ int config_parse_routing_policy_rule_suppress_prefixlen(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
