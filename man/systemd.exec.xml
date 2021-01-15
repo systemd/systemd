@@ -2425,8 +2425,12 @@ SystemCallErrorNumber=EPERM</programlisting>
         </para>
 
         <para><option>truncate:<replaceable>path</replaceable></option> is similar to
-        <option>file:<replaceable>path</replaceable></option> above, but it truncates the file when opening it.
-        </para>
+        <option>file:<replaceable>path</replaceable></option> above, but it truncates the file when opening
+        it. For units with multiple command lines, e.g. <varname>Type=oneshot</varname> services with
+        multiple <varname>ExecStart=</varname>, or services with <varname>ExecCondition=</varname>,
+        <varname>ExecStartPre=</varname> or <varname>ExecStartPost=</varname>, the output file is reopened
+        and therefore re-truncated for each command line. Any <varname>ExecReload=</varname> will likewise
+        truncate the file when run.</para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>
