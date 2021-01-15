@@ -2210,7 +2210,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
-        int r, c, i;
+        int r, c;
 
         (void) pager_open(arg_pager_flags);
 
@@ -2235,7 +2235,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return c;
 
-        for (i = 0; i < c; i++) {
+        for (int i = 0; i < c; i++) {
                 if (i > 0)
                         fputc('\n', stdout);
 
