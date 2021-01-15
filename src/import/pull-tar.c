@@ -302,11 +302,23 @@ static void tar_pull_job_on_finished(PullJob *j) {
         if (!tar_pull_is_done(i))
                 return;
 
-        if (i->signature_job && i->checksum_job->style == VERIFICATION_PER_DIRECTORY && i->signature_job->error != 0) {
-                log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+        if (i->signature_job && i->signature_job->error != 0) {
+                VerificationStyle style;
 
-                r = i->signature_job->error;
-                goto finish;
+                r = verification_style_from_url(i->checksum_job->url, &style);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to determine verification style from checksum URL: %m");
+                        goto finish;
+                }
+
+                if (style == VERIFICATION_PER_DIRECTORY) { /* A failed signature file download only matters
+                                                            * in per-directory verification mode, since only
+                                                            * then the signature is detached, and thus a file
+                                                            * of its own. */
+                        log_error_errno(j->error, "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
+                        r = i->signature_job->error;
+                        goto finish;
+                }
         }
 
         i->tar_job->disk_fd = safe_close(i->tar_job->disk_fd);
@@ -540,7 +552,7 @@ int tar_pull_start(
 
         if (i->checksum_job) {
                 i->checksum_job->on_progress = tar_pull_job_on_progress;
-                i->checksum_job->style = VERIFICATION_PER_FILE;
+                i->checksum_job->on_not_found = pull_job_restart_with_sha256sum;
 
                 r = pull_job_begin(i->checksum_job);
                 if (r < 0)

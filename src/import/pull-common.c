@@ -374,6 +374,7 @@ int pull_verify(PullJob *main_job,
         char sig_file_path[] = "/tmp/sigXXXXXX", gpg_home[] = "/tmp/gpghomeXXXXXX";
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         bool gpg_home_created = false;
+        VerificationStyle style;
         int r;
 
         assert(main_job);
@@ -406,7 +407,13 @@ int pull_verify(PullJob *main_job,
         if (!signature_job)
                 return 0;
 
-        if (checksum_job->style == VERIFICATION_PER_FILE)
+        r = verification_style_from_url(checksum_job->url, &style);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine verification style from URL '%s': %m", checksum_job->url);
+
+        if (style == VERIFICATION_PER_FILE) /* if this is per-file verification, then the signature is in the
+                                             * checksum job, let's thus ignore the signature job from now on,
+                                             * and use the checksum job as signature job. */
                 signature_job = checksum_job;
 
         assert(signature_job->state == PULL_JOB_DONE);
@@ -480,7 +487,7 @@ int pull_verify(PullJob *main_job,
                         cmd[k++] = "--keyring=" VENDOR_KEYRING_PATH;
 
                 cmd[k++] = "--verify";
-                if (checksum_job->style == VERIFICATION_PER_DIRECTORY) {
+                if (style == VERIFICATION_PER_DIRECTORY) {
                         cmd[k++] = sig_file_path;
                         cmd[k++] = "-";
                         cmd[k++] = NULL;
@@ -521,4 +528,56 @@ finish:
                 (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         return r;
+}
+
+int verification_style_from_url(const char *url, VerificationStyle *ret) {
+        _cleanup_free_ char *last = NULL;
+        int r;
+
+        assert(url);
+        assert(ret);
+
+        /* Determines which kind of verification style is appropriate for this url */
+
+        r = import_url_last_component(url, &last);
+        if (r < 0)
+                return r;
+
+        if (streq(last, "SHA256SUMS")) {
+                *ret = VERIFICATION_PER_DIRECTORY;
+                return 0;
+        }
+
+        if (endswith(last, ".sha256")) {
+                *ret = VERIFICATION_PER_FILE;
+                return 0;
+        }
+
+        return -EINVAL;
+}
+
+int pull_job_restart_with_sha256sum(PullJob *j, char **ret) {
+        VerificationStyle style;
+        int r;
+
+        assert(j);
+
+        /* Generic implementation of a PullJobNotFound handler, that restarts the job requesting SHA256SUMS */
+
+        r = verification_style_from_url(j->url, &style);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine verification style of URL '%s': %m", j->url);
+
+        if (style == VERIFICATION_PER_DIRECTORY) /* Nothing to do anymore */
+                return 0;
+
+        assert(style == VERIFICATION_PER_FILE); /* This must have been .sha256 style URL before */
+
+        log_debug("Got 404 for %s, now trying to get SHA256SUMS instead.", j->url);
+
+        r = import_url_change_last_component(j->url, "SHA256SUMS", ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to replace SHA256SUMS suffix: %m");
+
+        return 1;
 }
