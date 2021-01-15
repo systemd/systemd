@@ -262,6 +262,9 @@ missing_audit_h = files('missing_audit.h')
 missing_capability_h = files('missing_capability.h')
 missing_socket_h = files('missing_socket.h')
 
+missing_syscall_def_h = files('missing_syscall_def.h')
+basic_sources += missing_syscall_def_h
+
 generate_af_list = find_program('generate-af-list.sh')
 af_list_txt = custom_target(
         'af-list.txt',
@@ -330,32 +333,6 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
 endforeach
 
 basic_sources += generated_gperf_headers
-basic_gcrypt_sources = files(
-        'gcrypt-util.c',
-        'gcrypt-util.h')
-
-libbasic = static_library(
-        'basic',
-        basic_sources,
-        include_directories : includes,
-        dependencies : [versiondep,
-                        threads,
-                        libcap,
-                        libseccomp,
-                        libselinux,
-                        libm,
-                        libdl],
-        c_args : ['-fvisibility=default'],
-        install : false)
-
-# A convenience library that is separate from libbasic to avoid
-# unnecessary linking to libgcrypt.
-libbasic_gcrypt = static_library(
-        'basic-gcrypt',
-        basic_gcrypt_sources,
-        include_directories : includes,
-        dependencies : [libgcrypt],
-        c_args : ['-fvisibility=default'])
 
 ############################################################
 
@@ -382,3 +359,47 @@ run_target(
         command : [syscall_table_update_sh, meson.current_source_dir()] + arch_list)
 
 syscall_names_text = files('syscall-names.text')
+
+syscall_lists = []
+foreach arch: arch_list
+        syscall_lists += files('syscalls-@0@'.format(arch))
+endforeach
+
+missing_syscalls_py = find_program('missing_syscalls.py')
+
+run_target(
+        'update-syscall-header',
+        command : [missing_syscalls_py,
+                   missing_syscall_def_h,
+                   syscall_lists])
+
+############################################################
+
+libbasic = static_library(
+        'basic',
+        basic_sources,
+        include_directories : includes,
+        dependencies : [versiondep,
+                        threads,
+                        libcap,
+                        libseccomp,
+                        libselinux,
+                        libm,
+                        libdl],
+        c_args : ['-fvisibility=default'],
+        install : false)
+
+############################################################
+
+basic_gcrypt_sources = files(
+        'gcrypt-util.c',
+        'gcrypt-util.h')
+
+# A convenience library that is separate from libbasic to avoid
+# unnecessary linking to libgcrypt.
+libbasic_gcrypt = static_library(
+        'basic-gcrypt',
+        basic_gcrypt_sources,
+        include_directories : includes,
+        dependencies : [libgcrypt],
+        c_args : ['-fvisibility=default'])
