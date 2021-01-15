@@ -1351,8 +1351,7 @@ int config_parse_routing_policy_rule_ip_protocol(
 
         n->ipproto = r;
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
