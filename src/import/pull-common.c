@@ -255,7 +255,6 @@ int pull_make_verification_jobs(
 
         _cleanup_(pull_job_unrefp) PullJob *checksum_job = NULL, *signature_job = NULL;
         int r;
-        const char *chksums = NULL;
 
         assert(ret_checksum_job);
         assert(ret_signature_job);
@@ -266,6 +265,7 @@ int pull_make_verification_jobs(
 
         if (verify != IMPORT_VERIFY_NO) {
                 _cleanup_free_ char *checksum_url = NULL, *fn = NULL;
+                const char *chksums = NULL;
 
                 /* Queue jobs for the checksum file for the image. */
                 r = import_url_last_component(url, &fn);
