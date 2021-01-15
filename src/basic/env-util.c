@@ -22,8 +22,6 @@
         "_"
 
 static bool env_name_is_valid_n(const char *e, size_t n) {
-        const char *p;
-
         if (!e)
                 return false;
 
@@ -41,7 +39,7 @@ static bool env_name_is_valid_n(const char *e, size_t n) {
         if (n > (size_t) sysconf(_SC_ARG_MAX) - 2)
                 return false;
 
-        for (p = e; p < e + n; p++)
+        for (const char *p = e; p < e + n; p++)
                 if (!strchr(VALID_BASH_ENV_NAME_CHARS, *p))
                         return false;
 
@@ -189,14 +187,14 @@ static int env_append(char **r, char ***k, char **a) {
 
 char **strv_env_merge(size_t n_lists, ...) {
         _cleanup_strv_free_ char **ret = NULL;
-        size_t n = 0, i;
+        size_t n = 0;
         char **l, **k;
         va_list ap;
 
         /* Merges an arbitrary number of environment sets */
 
         va_start(ap, n_lists);
-        for (i = 0; i < n_lists; i++) {
+        for (size_t i = 0; i < n_lists; i++) {
                 l = va_arg(ap, char**);
                 n += strv_length(l);
         }
@@ -210,7 +208,7 @@ char **strv_env_merge(size_t n_lists, ...) {
         k = ret;
 
         va_start(ap, n_lists);
-        for (i = 0; i < n_lists; i++) {
+        for (size_t i = 0; i < n_lists; i++) {
                 l = va_arg(ap, char**);
                 if (env_append(ret, &k, l) < 0) {
                         va_end(ap);
@@ -276,10 +274,8 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
                 return NULL;
 
         STRV_FOREACH(k, x) {
-                size_t v;
-
                 va_start(ap, n_lists);
-                for (v = 0; v < n_lists; v++) {
+                for (size_t v = 0; v < n_lists; v++) {
                         char **l, **j;
 
                         l = va_arg(ap, char**);
@@ -310,7 +306,6 @@ char **strv_env_delete(char **x, size_t n_lists, ...) {
 }
 
 char **strv_env_unset(char **l, const char *p) {
-
         char **f, **t;
 
         if (!l)

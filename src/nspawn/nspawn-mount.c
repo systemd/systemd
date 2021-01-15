@@ -48,9 +48,7 @@ CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
 }
 
 void custom_mount_free_all(CustomMount *l, size_t n) {
-        size_t i;
-
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 CustomMount *m = l + i;
 
                 free(m->source);
@@ -94,7 +92,6 @@ static bool source_path_is_valid(const char *p) {
 }
 
 static char *resolve_source_path(const char *dest, const char *source) {
-
         if (!source)
                 return NULL;
 
@@ -129,7 +126,6 @@ static int allocate_temporary_source(CustomMount *m) {
 }
 
 int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
-        size_t i;
         int r;
 
         /* Prepare all custom mounts. This will make source we know all temporary directories. This is called in the
@@ -141,7 +137,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
         /* Order the custom mounts, and make sure we have a working directory */
         typesafe_qsort(l, n, custom_mount_compare);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 CustomMount *m = l + i;
 
                 /* /proc we mount in the inner child, i.e. when we acquired CLONE_NEWPID. All other mounts we mount
@@ -588,10 +584,9 @@ int mount_all(const char *dest,
         bool ro = FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_RO);
         bool in_userns = FLAGS_SET(mount_settings, MOUNT_IN_USERNS);
         bool tmpfs_tmp = FLAGS_SET(mount_settings, MOUNT_APPLY_TMPFS_TMP);
-        size_t k;
         int r;
 
-        for (k = 0; k < ELEMENTSOF(mount_table); k++) {
+        for (size_t k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL, *options = NULL, *prefixed = NULL;
                 bool fatal = FLAGS_SET(mount_table[k].mount_settings, MOUNT_FATAL);
                 const char *o;
@@ -688,7 +683,6 @@ int mount_all(const char *dest,
 }
 
 static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts) {
-        const char *p = options;
         unsigned long flags = *mount_flags;
         char *opts = NULL;
         int r;
@@ -698,7 +692,7 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
         for (;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, ",", 0);
+                r = extract_first_word(&options, &word, ",", 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract mount option: %m");
                 if (r == 0)
@@ -708,11 +702,9 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
                         flags |= MS_REC;
                 else if (streq(word, "norbind"))
                         flags &= ~MS_REC;
-                else {
+                else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Invalid bind mount option: %s",
-                                               word);
-                }
+                                               "Invalid bind mount option: %s", word);
         }
 
         *mount_flags = flags;
@@ -789,7 +781,6 @@ static int mount_bind(const char *dest, CustomMount *m) {
 }
 
 static int mount_tmpfs(const char *dest, CustomMount *m, uid_t uid_shift, const char *selinux_apifs_context) {
-
         const char *options;
         _cleanup_free_ char *buf = NULL, *where = NULL;
         int r;
@@ -927,13 +918,11 @@ int mount_custom(
                 uid_t uid_shift,
                 const char *selinux_apifs_context,
                 MountSettingsMask mount_settings) {
-
-        size_t i;
         int r;
 
         assert(dest);
 
-        for (i = 0; i < n; i++) {
+        for (size_t i = 0; i < n; i++) {
                 CustomMount *m = mounts + i;
 
                 if (FLAGS_SET(mount_settings, MOUNT_IN_USERNS) != m->in_userns)
@@ -979,20 +968,14 @@ int mount_custom(
 }
 
 bool has_custom_root_mount(const CustomMount *mounts, size_t n) {
-        size_t i;
-
-        for (i = 0; i < n; i++) {
-                const CustomMount *m = mounts + i;
-
-                if (path_equal(m->destination, "/"))
+        for (size_t i = 0; i < n; i++)
+                if (path_equal(mounts[i].destination, "/"))
                         return true;
-        }
 
         return false;
 }
 
 static int setup_volatile_state(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
-
         _cleanup_free_ char *buf = NULL;
         const char *p, *options;
         int r;
@@ -1021,7 +1004,6 @@ static int setup_volatile_state(const char *directory, uid_t uid_shift, const ch
 }
 
 static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
-
         bool tmpfs_mounted = false, bind_mounted = false;
         char template[] = "/tmp/nspawn-volatile-XXXXXX";
         _cleanup_free_ char *buf = NULL, *bindir = NULL;
@@ -1109,7 +1091,6 @@ fail:
 }
 
 static int setup_volatile_overlay(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
-
         _cleanup_free_ char *buf = NULL, *escaped_directory = NULL, *escaped_upper = NULL, *escaped_work = NULL;
         char template[] = "/tmp/nspawn-volatile-XXXXXX";
         const char *upper, *work, *options;
