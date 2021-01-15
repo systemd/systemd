@@ -661,7 +661,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
-        int c, i, r;
+        int c, r;
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -691,7 +691,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         assert_se(cell = table_get_cell(table, 0, 1));
         (void) table_set_ellipsize_percent(table, cell, 100);
 
-        for (i = 0; i < c; i++) {
+        for (int i = 0; i < c; i++) {
                 _cleanup_free_ char *setup_state = NULL, *operational_state = NULL;
                 const char *on_color_operational, *off_color_operational,
                            *on_color_setup, *off_color_setup;
@@ -771,7 +771,6 @@ static int get_gateway_description(
                 union in_addr_union *gateway,
                 char **gateway_description) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        sd_netlink_message *m;
         int r;
 
         assert(rtnl);
@@ -792,7 +791,7 @@ static int get_gateway_description(
         if (r < 0)
                 return r;
 
-        for (m = reply; m; m = sd_netlink_message_next(m)) {
+        for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 union in_addr_union gw = IN_ADDR_NULL;
                 struct ether_addr mac = ETHER_ADDR_NULL;
                 uint16_t type;
