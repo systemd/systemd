@@ -363,77 +363,35 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
         return 1;
 }
 
-int pull_verify(PullJob *main_job,
-                PullJob *roothash_job,
-                PullJob *settings_job,
-                PullJob *checksum_job,
-                PullJob *signature_job) {
+static int verify_gpg(
+                const void *payload, size_t payload_size,
+                const void *signature, size_t signature_size) {
 
         _cleanup_close_pair_ int gpg_pipe[2] = { -1, -1 };
-        _cleanup_close_ int sig_file = -1;
         char sig_file_path[] = "/tmp/sigXXXXXX", gpg_home[] = "/tmp/gpghomeXXXXXX";
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         bool gpg_home_created = false;
-        VerificationStyle style;
         int r;
 
-        assert(main_job);
-        assert(main_job->state == PULL_JOB_DONE);
-
-        if (!checksum_job)
-                return 0;
-
-        assert(main_job->calc_checksum);
-        assert(main_job->checksum);
-
-        assert(checksum_job->state == PULL_JOB_DONE);
-
-        if (!checksum_job->payload || checksum_job->payload_size <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Checksum is empty, cannot verify.");
-
-        r = verify_one(checksum_job, main_job);
-        if (r < 0)
-                return r;
-
-        r = verify_one(checksum_job, roothash_job);
-        if (r < 0)
-                return r;
-
-        r = verify_one(checksum_job, settings_job);
-        if (r < 0)
-                return r;
-
-        if (!signature_job)
-                return 0;
-
-        r = verification_style_from_url(checksum_job->url, &style);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine verification style from URL '%s': %m", checksum_job->url);
-
-        if (style == VERIFICATION_PER_FILE) /* if this is per-file verification, then the signature is in the
-                                             * checksum job, let's thus ignore the signature job from now on,
-                                             * and use the checksum job as signature job. */
-                signature_job = checksum_job;
-
-        assert(signature_job->state == PULL_JOB_DONE);
-
-        if (!signature_job->payload || signature_job->payload_size <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Signature is empty, cannot verify.");
+        assert(payload || payload_size == 0);
+        assert(signature || signature_size == 0);
 
         r = pipe2(gpg_pipe, O_CLOEXEC);
         if (r < 0)
                 return log_error_errno(errno, "Failed to create pipe for gpg: %m");
 
-        sig_file = mkostemp(sig_file_path, O_RDWR);
-        if (sig_file < 0)
-                return log_error_errno(errno, "Failed to create temporary file: %m");
+        if (signature_size > 0) {
+                _cleanup_close_ int sig_file = -1;
 
-        r = loop_write(sig_file, signature_job->payload, signature_job->payload_size, false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write to temporary file: %m");
-                goto finish;
+                sig_file = mkostemp(sig_file_path, O_RDWR);
+                if (sig_file < 0)
+                        return log_error_errno(errno, "Failed to create temporary file: %m");
+
+                r = loop_write(sig_file, signature, signature_size, false);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to write to temporary file: %m");
+                        goto finish;
+                }
         }
 
         if (!mkdtemp(gpg_home)) {
@@ -462,7 +420,7 @@ int pull_verify(PullJob *main_job,
                         NULL, /* dash */
                         NULL  /* trailing NULL */
                 };
-                unsigned k = ELEMENTSOF(cmd) - 6;
+                size_t k = ELEMENTSOF(cmd) - 6;
 
                 /* Child */
 
@@ -478,8 +436,7 @@ int pull_verify(PullJob *main_job,
 
                 cmd[k++] = strjoina("--homedir=", gpg_home);
 
-                /* We add the user keyring only to the command line
-                 * arguments, if it's around since gpg fails
+                /* We add the user keyring only to the command line arguments, if it's around since gpg fails
                  * otherwise. */
                 if (access(USER_KEYRING_PATH, F_OK) >= 0)
                         cmd[k++] = "--keyring=" USER_KEYRING_PATH;
@@ -487,7 +444,7 @@ int pull_verify(PullJob *main_job,
                         cmd[k++] = "--keyring=" VENDOR_KEYRING_PATH;
 
                 cmd[k++] = "--verify";
-                if (style == VERIFICATION_PER_DIRECTORY) {
+                if (signature) {
                         cmd[k++] = sig_file_path;
                         cmd[k++] = "-";
                         cmd[k++] = NULL;
@@ -501,7 +458,7 @@ int pull_verify(PullJob *main_job,
 
         gpg_pipe[0] = safe_close(gpg_pipe[0]);
 
-        r = loop_write(gpg_pipe[1], checksum_job->payload, checksum_job->payload_size, false);
+        r = loop_write(gpg_pipe[1], payload, payload_size, false);
         if (r < 0) {
                 log_error_errno(r, "Failed to write to pipe: %m");
                 goto finish;
@@ -522,12 +479,70 @@ int pull_verify(PullJob *main_job,
         }
 
 finish:
-        (void) unlink(sig_file_path);
+        if (signature_size > 0)
+                (void) unlink(sig_file_path);
 
         if (gpg_home_created)
                 (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         return r;
+}
+
+int pull_verify(ImportVerify verify,
+                PullJob *main_job,
+                PullJob *roothash_job,
+                PullJob *settings_job,
+                PullJob *checksum_job,
+                PullJob *signature_job) {
+
+        VerificationStyle style;
+        int r;
+
+        assert(main_job);
+        assert(main_job->state == PULL_JOB_DONE);
+
+        if (verify == IMPORT_VERIFY_NO)
+                return 0;
+
+        assert(main_job->calc_checksum);
+        assert(main_job->checksum);
+        assert(checksum_job);
+        assert(checksum_job->state == PULL_JOB_DONE);
+
+        if (!checksum_job->payload || checksum_job->payload_size <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "Checksum is empty, cannot verify.");
+
+        r = verify_one(checksum_job, main_job);
+        if (r < 0)
+                return r;
+
+        r = verify_one(checksum_job, roothash_job);
+        if (r < 0)
+                return r;
+
+        r = verify_one(checksum_job, settings_job);
+        if (r < 0)
+                return r;
+
+        if (verify == IMPORT_VERIFY_CHECKSUM)
+                return 0;
+
+        r = verification_style_from_url(checksum_job->url, &style);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine verification style from URL '%s': %m", checksum_job->url);
+
+        if (style == VERIFICATION_PER_DIRECTORY) {
+                assert(signature_job);
+                assert(signature_job->state == PULL_JOB_DONE);
+
+                if (!signature_job->payload || signature_job->payload_size <= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Signature is empty, cannot verify.");
+
+                return verify_gpg(checksum_job->payload, checksum_job->payload_size, signature_job->payload, signature_job->payload_size);
+        } else
+                return verify_gpg(checksum_job->payload, checksum_job->payload_size, NULL, 0);
 }
 
 int verification_style_from_url(const char *url, VerificationStyle *ret) {
