@@ -1269,8 +1269,7 @@ int config_parse_routing_policy_rule_device(
                         return log_oom();
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
