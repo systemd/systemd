@@ -1,0 +1,36 @@
+---
+# vi: ts=2 sw=2 et:
+
+version: v1.0
+name: Debian autopkgtest (LXC)
+agent:
+  machine:
+    type: e1-standard-2
+    os_image: ubuntu1804
+
+# Cancel any running or queued job for the same branch
+auto_cancel:
+  running:
+    when: "true"
+
+
+execution_time_limit:
+  hours: 1
+
+blocks:
+  - name: "Build & test systemd on Debian (in LXC)"
+    task:
+      jobs:
+        - name: "Install dependencies"
+          commands:
+            - .semaphore/semaphore-runner.sh SETUP
+        - name: "Run the Debian autopkgtest"
+          commands:
+            - .semaphore/semaphore-runner.sh RUN
+      env_vars:
+        - name: DISTRO
+          value: "debian"
+        - name: RELEASE
+          value: "bullseye"
+        - name: BRANCH
+          value: "upstream-ci"
