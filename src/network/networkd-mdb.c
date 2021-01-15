@@ -326,8 +326,7 @@ int config_parse_mdb_vlan_id(
         if (r < 0)
                 return r;
 
-        mdb_entry = NULL;
-
+        TAKE_PTR(mdb_entry);
         return 0;
 }
 
