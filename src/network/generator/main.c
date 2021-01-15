@@ -166,7 +166,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(context_clear) Context context = {};
-        int i, r;
+        int r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -177,7 +177,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse kernel command line: %m");
         } else {
-                for (i = optind; i < argc; i++) {
+                for (int i = optind; i < argc; i++) {
                         _cleanup_free_ char *word = NULL;
                         char *value;
 
