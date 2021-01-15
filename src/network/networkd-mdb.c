@@ -326,8 +326,7 @@ int config_parse_mdb_vlan_id(
         if (r < 0)
                 return r;
 
-        mdb_entry = NULL;
-
+        TAKE_PTR(mdb_entry);
         return 0;
 }
 
@@ -364,7 +363,6 @@ int config_parse_mdb_group_address(
                 return 0;
         }
 
-        mdb_entry = NULL;
-
+        TAKE_PTR(mdb_entry);
         return 0;
 }

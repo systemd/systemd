@@ -192,8 +192,7 @@ int config_parse_address_label_prefix(const char *unit,
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -236,7 +235,7 @@ int config_parse_address_label(
         }
 
         n->label = k;
-        n = NULL;
+        TAKE_PTR(n);
 
         return 0;
 }
