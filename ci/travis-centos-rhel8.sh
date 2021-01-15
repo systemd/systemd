@@ -95,7 +95,7 @@ for phase in "${PHASES[@]}"; do
             # Upgrade the container to get the most recent environment
             $DOCKER_EXEC dnf -y upgrade
             # Install systemd's build dependencies
-            $DOCKER_EXEC dnf -q -y --enablerepo "PowerTools" builddep systemd
+            $DOCKER_EXEC dnf -q -y --enablerepo "powertools" builddep systemd
             ;;
         RUN)
             info "Run phase"
