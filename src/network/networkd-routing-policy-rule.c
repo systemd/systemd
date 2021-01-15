@@ -1389,8 +1389,7 @@ int config_parse_routing_policy_rule_invert(
 
         n->invert_rule = r;
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
