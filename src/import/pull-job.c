@@ -435,8 +435,10 @@ fail:
 
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
         _cleanup_free_ char *length = NULL, *last_modified = NULL, *etag = NULL;
-        PullJob *j = userdata;
         size_t sz = size * nmemb;
+        PullJob *j = userdata;
+        CURLcode code;
+        long status;
         int r;
 
         assert(contents);
@@ -448,6 +450,18 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
         }
 
         assert(j->state == PULL_JOB_ANALYZING);
+
+        code = curl_easy_getinfo(j->curl, CURLINFO_RESPONSE_CODE, &status);
+        if (code != CURLE_OK) {
+                log_error("Failed to retrieve response code: %s", curl_easy_strerror(code));
+                r = -EIO;
+                goto fail;
+        }
+
+        if (status < 200 || status >= 300)
+                /* If this is not HTTP 2xx, let's skip these headers, they are probably for
+                 * some redirect or so, and we are not interested in the headers of those. */
+                return sz;
 
         r = curl_header_strdup(contents, sz, "ETag:", &etag);
         if (r < 0) {
