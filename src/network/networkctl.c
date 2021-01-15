@@ -2299,7 +2299,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        int i, r, c, m = 0;
+        int r, c, m = 0;
         uint16_t all = 0;
         TableCell *cell;
 
@@ -2345,7 +2345,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         assert_se(cell = table_get_cell(table, 0, 5));
         table_set_minimum_width(table, cell, 16);
 
-        for (i = 0; i < c; i++) {
+        for (int i = 0; i < c; i++) {
                 _cleanup_fclose_ FILE *f = NULL;
 
                 r = open_lldp_neighbors(links[i].ifindex, &f);
