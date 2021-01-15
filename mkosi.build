@@ -92,7 +92,8 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
                 -D man=false \
                 -D "nobody-user=$nobody_user" \
                 -D "nobody-group=$nobody_group" \
-                -D translations=false
+                -D translations=false \
+                -D version-tag="${VERSION_TAG}"
 fi
 
 cd "$BUILDDIR"
